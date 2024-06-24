@@ -164,6 +164,7 @@ class HomeController extends Controller
                         //ambil tanggal max di keluar sf
 
                         $maxtgl = DB::table('keluarsf')
+                                ->where('idtap', $idtap)
                                 ->max('tgl');
                         $tanggal = substr($maxtgl, 8, 2);
 
@@ -174,12 +175,14 @@ class HomeController extends Controller
                         //cek stok segel cluster
                         $segel = DB::table('stockawalall')
                                 ->where('iddenom', 'SEGEL')
+                                ->where('idtap',$idtap)
                                 ->ORwhere('iddenom', 'V16')
                                 ->ORwhere('iddenom', 'V33')
                                 ->sum('stock');
 
                         //cek stok inject cluster
                         $inject = DB::table('stockawalall')
+                        ->where('idtap',$idtap)
                                 ->where('iddenom', '<>', 'SEGEL')
                                 ->where('iddenom', '<>', 'V16')
                                 ->where('iddenom', '<>', 'V33')
@@ -187,6 +190,7 @@ class HomeController extends Controller
 
                         //penjualan
                         $sales = DB::table('keluarsf')
+                        ->where('idtap',$idtap)
                                 ->whereMonth('tgl', $bulan)
                                 ->whereYear('tgl', $year)
                                 ->sum('qty');
@@ -214,8 +218,6 @@ class HomeController extends Controller
                                 ->where('iddenom', 'V33')
                                 ->sum('stock');
 
-
-
                         $segel = $segel1 + $segel2 + $segel3;
 
                         //cek stok inject cluster
@@ -236,6 +238,7 @@ class HomeController extends Controller
                         //penjualan pertap
                         $tap = DB::table('kodetap')
                                 ->select('idtap')
+                                ->where('idtap',$idtap)
                                 ->get();
 
                         $penjualan = [];
