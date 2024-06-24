@@ -26,6 +26,22 @@ class HomeController extends Controller
                 $year2023 = Carbon::now()->subYear()->format('Y');
 
                 if ($idtap == 'SBP_DUMAI') {
+
+                        $tanggalmax = DB::table('keluarsf')
+                                        ->whereMonth('tgl', $bulan)
+                                        ->whereYear('tgl', $year)
+                                        ->max('tgl');
+                        
+                        $tanggaltotal = substr($tanggalmax, 8, 2);
+                        $bulantotal = $year . '-' . $bulan . '-01';
+                        $tgltotal = $year . '-' . $bulan . '-' . $tanggaltotal;
+                        // total jualan
+                        $sales = DB::table('keluarsf')
+                                ->whereBetween('tgl', [$bulantotal, $tgltotal])
+                                ->sum('qty');
+                        
+                        
+                        // Menghitung penjualan bulan ini hingga tanggal terendah
                         // Daftar ID TAP yang akan diproses
                         $idTaps = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
 
@@ -61,12 +77,7 @@ class HomeController extends Controller
                                 // Menghitung stok inject cluster
                                 $inject = DB::table('stockawalall')
                                         ->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                                        ->sum('stock');
-
-                                // Menghitung penjualan bulan ini hingga tanggal terendah
-                                $sales = DB::table('keluarsf')
-                                        ->whereBetween('tgl', [$bulan1, $eDate])
-                                        ->sum('qty');
+                                        ->sum('stock');                                 
 
                                 // Mengambil semua TAP
                                 $tap = DB::table('kodetap')->select('idtap')->get();
