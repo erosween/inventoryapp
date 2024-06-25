@@ -4,8 +4,6 @@
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
-                <div class="page-header">
-                </div>
                 <div class="row">
                     <div class="col-md-6 offset-md-2">
                         <div class="card">
