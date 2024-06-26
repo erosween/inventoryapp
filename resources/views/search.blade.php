@@ -101,8 +101,8 @@
         .number-card h5 {
             margin: 0;
             font-size: 1.5em;
-            color: inherit;
-            /* Warna teks diambil dari parent (.number-card) */
+            color: white;
+            /* Warna teks putih */
             text-decoration: none;
             /* Menghilangkan garis bawah pada teks */
             cursor: pointer;
@@ -110,8 +110,8 @@
         }
 
         .number-card:hover h5 {
-            text-decoration: underline;
-            /* Garis bawah muncul saat dihover */
+            text-decoration: none;
+            /* Tidak ada garis bawah saat dihover */
         }
 
         /* Responsiveness for smaller screens */
