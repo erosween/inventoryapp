@@ -63,7 +63,7 @@
             border: none;
             background: #bf2e2e;
             color: #fff;
-            padding: 10px 15px;
+            padding: 5px 15px;
             border-radius: 30px;
             cursor: pointer;
         }
@@ -87,8 +87,6 @@
             border-radius: 10px;
             box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s, box-shadow 0.3s;
-            text-decoration: none;
-            /* Menghilangkan garis bawah pada tautan */
             display: block;
             /* Membuat tautan menjadi blok untuk memenuhi area .number-card */
         }
@@ -103,6 +101,17 @@
         .number-card h5 {
             margin: 0;
             font-size: 1.5em;
+            color: inherit;
+            /* Warna teks diambil dari parent (.number-card) */
+            text-decoration: none;
+            /* Menghilangkan garis bawah pada teks */
+            cursor: pointer;
+            /* Mengubah kursor saat dihover */
+        }
+
+        .number-card:hover h5 {
+            text-decoration: underline;
+            /* Garis bawah muncul saat dihover */
         }
 
         /* Responsiveness for smaller screens */
@@ -162,10 +171,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             let numberCards = document.querySelectorAll('.number-card');
             numberCards.forEach(card => {
-                card.addEventListener('click', function() {
+                card.addEventListener('click', function(event) {
+                    event.preventDefault(); // Menghentikan perilaku default dari tautan
                     let number = this.getAttribute('data-number');
                     let message = encodeURIComponent('Halo, saya tertarik dengan nomor ' + number);
-                    window.open('https://wa.me/' + 6282283331333 + '?text=' + message, '_blank');
+                    window.location.href = 'https://wa.me/' + 6282283331333 + '?text=' + message;
                 });
             });
         });
