@@ -81,24 +81,28 @@
 
         .number-card {
             background: linear-gradient(to right, #291f1f, #dd2929);
-            /* background: #f9f9f9; */
-            color: #f9f9f9;
+            color: white;
+            /* Warna teks putih */
             padding: 8px;
             border-radius: 10px;
             box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+            /* Menghilangkan garis bawah pada tautan */
+            display: block;
+            /* Membuat tautan menjadi blok untuk memenuhi area .number-card */
         }
 
         .number-card:hover {
             transform: translateY(-5px);
             background: #29a37a;
-            color: #f9f9f9;
+            /* Warna latar belakang saat hover */
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
         }
 
         .number-card h5 {
             margin: 0;
-            font-size: 1.3em;
+            font-size: 1.5em;
         }
 
         /* Responsiveness for smaller screens */
