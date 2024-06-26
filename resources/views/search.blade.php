@@ -82,19 +82,18 @@
         .number-card {
             background: linear-gradient(to right, #291f1f, #dd2929);
             color: white;
-            /* Warna teks putih */
             padding: 8px;
             border-radius: 10px;
             box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s, box-shadow 0.3s;
             display: block;
-            /* Membuat tautan menjadi blok untuk memenuhi area .number-card */
+            border: none;
+            /* Hapus border default dari button */
         }
 
         .number-card:hover {
             transform: translateY(-5px);
             background: #29a37a;
-            /* Warna latar belakang saat hover */
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
         }
 
@@ -102,17 +101,14 @@
             margin: 0;
             font-size: 1.5em;
             color: white;
-            /* Warna teks putih */
             text-decoration: none;
-            /* Menghilangkan garis bawah pada teks */
             cursor: pointer;
-            /* Mengubah kursor saat dihover */
         }
 
         .number-card:hover h5 {
             text-decoration: none;
-            /* Tidak ada garis bawah saat dihover */
         }
+
 
         /* Responsiveness for smaller screens */
         @media (max-width: 1000px) {
@@ -155,9 +151,9 @@
             @if (isset($results))
                 @foreach ($results as $number)
                     <div class="col-md-4 col-lg-12">
-                        <div class="number-card" data-number="{{ $number->nomor }}">
+                        <button class="number-card col-md-4 col-lg-12" data-number="{{ $number->nomor }}">
                             <h5>{{ $number->nomor }}</h5>
-                        </div>
+                        </button>
                     </div>
                 @endforeach
             @else
