@@ -82,6 +82,7 @@
         .number-card {
             background: linear-gradient(to right, #291f1f, #dd2929);
             /* background: #f9f9f9; */
+            color: #f9f9f9;
             padding: 8px;
             border-radius: 10px;
             box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
