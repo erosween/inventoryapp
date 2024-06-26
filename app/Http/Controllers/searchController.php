@@ -18,6 +18,7 @@ class searchController extends Controller
         $results = DB::table('nocan')
                    ->where('nomor', 'LIKE', "%{$search}%")
                    ->where('status', 'ready')
+                   ->where('cluster', 'dumai bengkalis')
                    ->paginate(12);
                    
         return view('search', compact('results'));

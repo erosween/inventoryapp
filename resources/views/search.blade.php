@@ -40,7 +40,7 @@
 
         .search-input {
             display: inline-block;
-            width: calc(100% - 5px);
+            width: calc(100% - 8px);
             /* Adjust width as needed */
             position: relative;
         }
@@ -99,7 +99,7 @@
 
         .number-card h5 {
             margin: 0;
-            font-size: 1.5em;
+            font-size: 1.3em;
             color: white;
             text-decoration: none;
             cursor: pointer;
@@ -117,7 +117,7 @@
             }
 
             .search-input {
-                width: calc(100% - 40px);
+                width: calc(120% - 50px);
             }
 
             .search-button {
