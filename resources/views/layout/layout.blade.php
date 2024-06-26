@@ -144,6 +144,12 @@
                                     <p>STOCK GUDANG</p>
                                 </a>
                             </li>
+                            <li class="nav-item {{ request()->is('sisastock') ? 'active' : '' }}">
+                                <a href="{{ url('sisastock') }}">
+                                    <i class="fas fa-book"></i>
+                                    <p>CEK STOCK DAILY</p>
+                                </a>
+                            </li>
                             <li class="nav-section">
                                 <span class="sidebar-mini-icon">
                                     <i class="fa fa-ellipsis-h"></i>

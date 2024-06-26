@@ -26,7 +26,9 @@ use App\Http\Controllers\FormInjectbyuController;
 use App\Http\Controllers\FormKeluartapController;
 use App\Http\Controllers\FormInjectsegelController;
 use App\Http\Controllers\FormInjectroamaxController;
+use App\Http\Controllers\sisaStockController;
 use App\Http\Controllers\NocanadminController;
+use App\Http\Controllers\searchController;
 
 //login
 Route::middleware([RedirectIfAuthenticated::class])->group(function () {
@@ -43,6 +45,9 @@ Route::post('/nocanproses', [NocanController::class, 'nocanproses']);
 
 Route::get('/booking', [NocanbookingController::class, 'index'])->name('nocan');
 Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan');
+
+Route::get('/search', [searchController::class, 'index']);
+Route::get('/search', [searchController::class, 'search'])->name('search');
 
 // group middleware
 Route::middleware(['auth'])->group(function () {
@@ -141,6 +146,9 @@ Route::middleware(['auth'])->group(function () {
 
 	// inbox
 	Route::get('inbox', [InboxController::class, 'index']);
+
+	// sisa stock 
+	Route::get('sisastock', [sisaStockController::class, 'index']);
 
 
 	//HOME NOCAN
