@@ -160,7 +160,7 @@
                 card.addEventListener('click', function() {
                     let number = this.getAttribute('data-number');
                     let message = encodeURIComponent('Halo, saya tertarik dengan nomor ' + number);
-                    window.open('https://wa.me/' + 6282388539973 + '?text=' + message, '_blank');
+                    window.open('https://wa.me/' + 6282283331333 + '?text=' + message, '_blank');
                 });
             });
         });
