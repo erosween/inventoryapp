@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nomor Cantik</title>
+    <title>Pilih Nocan</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <!-- Gaya CSS -->
     <style>
@@ -56,7 +56,7 @@
 
         .search-button {
             position: absolute;
-            right: 10px;
+            right: -5px;
             top: 0;
             bottom: 0;
             margin: auto;
@@ -134,48 +134,53 @@
         </div>
         <div class="row justify-content-center search-box">
             <div class="col-md-8">
-                <form action="{{ route('search') }}" method="GET" class="search-input">
-                    <input type="text" name="search" class="form-control" placeholder="Cari Nomor Cantik"
-                        aria-label="Cari Nomor Cantik" aria-describedby="button-addon2">
+                <form id="searchForm" action="{{ route('search') }}" method="GET" class="search-input">
+                    <input type="text" name="search" class="form-control"
+                        placeholder="Masukkan 4 Digit Pilihan Kamu" aria-label="Masukkan 4 Digit Pilihan Kamu"
+                        aria-describedby="button-addon2">
                     <button type="submit" class="search-button">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
-                            fill="currentColor">
+                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24"
+                            height="24" fill="currentColor">
                             <path
                                 d="M22.707 21.293l-6.004-6.004A7.473 7.473 0 0 0 18 10.5c0-4.136-3.364-7.5-7.5-7.5S3 6.364 3 10.5 6.364 18 10.5 18c1.7 0 3.259-.574 4.489-1.53l6.004 6.004a.996.996 0 0 0 1.414 0l1.414-1.414a.996.996 0 0 0 0-1.414zM10.5 16c-2.485 0-4.5-2.015-4.5-4.5s2.015-4.5 4.5-4.5 4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5z" />
                         </svg>
                     </button>
                 </form>
+                @if (isset($message))
+                    <div class="alert alert mt-0" style="color: #bf2e2e">
+                        <strong>*</strong> {{ $message }}
+                    </div>
+                @endif
             </div>
         </div>
+
         <div class="row results-container">
-            @if (isset($results))
+            @if ($results->isNotEmpty())
                 @foreach ($results as $number)
                     <div class="col-md-4 col-lg-12">
                         <button class="number-card col-md-4 col-lg-12" data-number="{{ $number->nomor }}">
-                            <h5>{{ $number->nomor }}</h5>
+                            <h5>0{{ $number->nomor }}</h5>
                         </button>
                     </div>
                 @endforeach
-            @else
-                <div class="col-md-12 text-center">
-                    <p>Masukkan nomor yang ingin dicari</p>
-                </div>
             @endif
         </div>
-    </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            let numberCards = document.querySelectorAll('.number-card');
-            numberCards.forEach(card => {
-                card.addEventListener('click', function(event) {
-                    event.preventDefault(); // Menghentikan perilaku default dari tautan
-                    let number = this.getAttribute('data-number');
-                    let message = encodeURIComponent('Halo, saya tertarik dengan nomor ' + number);
-                    window.location.href = 'https://wa.me/' + 6282283331333 + '?text=' + message;
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                let numberCards = document.querySelectorAll('.number-card');
+                numberCards.forEach(card => {
+                    card.addEventListener('click', function(event) {
+                        event.preventDefault(); // Menghentikan perilaku default dari tautan
+                        let number = this.getAttribute('data-number');
+                        let message = encodeURIComponent('Halo, saya tertarik dengan nomor ' + 0 +
+                            number);
+                        window.open('https://wa.me/' + 6282283331333 + '?text=' + message, '_blank');
+                    });
                 });
             });
-        });
-    </script>
+        </script>
+
 </body>
 
 </html>
