@@ -47,7 +47,7 @@ Route::get('/booking', [NocanbookingController::class, 'index'])->name('nocan');
 Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan');
 
 Route::get('/search', [searchController::class, 'index']);
-Route::get('/search', [searchController::class, 'search'])->name('search');
+Route::get('/pilihnocan', [searchController::class, 'search'])->name('pilihnocan');
 
 // group middleware
 Route::middleware(['auth'])->group(function () {
