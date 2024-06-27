@@ -134,7 +134,7 @@
         </div>
         <div class="row justify-content-center search-box">
             <div class="col-md-8">
-                <form action="{{ route('pilihnocan') }}" method="GET" class="search-input">
+                <form action="{{ route('search') }}" method="GET" class="search-input">
                     <input type="text" name="search" class="form-control" placeholder="Cari Nomor Cantik"
                         aria-label="Cari Nomor Cantik" aria-describedby="button-addon2">
                     <button type="submit" class="search-button">

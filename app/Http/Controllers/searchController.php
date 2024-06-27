@@ -21,6 +21,6 @@ class searchController extends Controller
                    ->where('cluster', 'dumai bengkalis')
                    ->paginate(12);
                    
-        return view('pilihnocan', compact('results'));
+        return view('search', compact('results'));
     }
 }
