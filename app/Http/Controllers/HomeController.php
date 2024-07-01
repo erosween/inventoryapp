@@ -68,16 +68,16 @@ class HomeController extends Controller
                                 $eDate = $year . '-' . $bulan . '-' . $tanggal;
                         }
 
-                        if (isset($eDate)) {
-                                // Menghitung stok segel cluster
-                                $segel = DB::table('stockawalall')
-                                        ->whereIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                                        ->sum('stock');
+                        // Menghitung stok segel cluster
+                        $segel = DB::table('stockawalall')
+                                ->whereIn('iddenom', ['SEGEL', 'V16', 'V33'])
+                                ->sum('stock');
 
-                                // Menghitung stok inject cluster
-                                $inject = DB::table('stockawalall')
-                                        ->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                                        ->sum('stock');                                 
+                        // Menghitung stok inject cluster
+                        $inject = DB::table('stockawalall')
+                                ->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33'])
+                                ->sum('stock');                                 
+                        if (isset($eDate)) {
 
                                 // Mengambil semua TAP
                                 $tap = DB::table('kodetap')->select('idtap')->get();
