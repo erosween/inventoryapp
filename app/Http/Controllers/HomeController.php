@@ -26,140 +26,152 @@ class HomeController extends Controller
                 $year2023 = Carbon::now()->subYear()->format('Y');
 
                 if ($idtap == 'SBP_DUMAI') {
-
                         $tanggalmax = DB::table('keluarsf')
                                         ->whereMonth('tgl', $bulan)
                                         ->whereYear('tgl', $year)
                                         ->max('tgl');
-                        
+                    
+                        if (is_null($tanggalmax)) {
+                            // Jika tidak ada data untuk bulan ini, gunakan tanggal saat ini atau nilai default lainnya
+                            $tanggalmax = date('Y-m-d');
+                        }
+                    
                         $tanggaltotal = substr($tanggalmax, 8, 2);
                         $bulantotal = $year . '-' . $bulan . '-01';
                         $tgltotal = $year . '-' . $bulan . '-' . $tanggaltotal;
+                    
                         // total jualan
                         $sales = DB::table('keluarsf')
                                 ->whereBetween('tgl', [$bulantotal, $tgltotal])
                                 ->sum('qty');
-                        
-                        
-                        // Menghitung penjualan bulan ini hingga tanggal terendah
+                    
                         // Daftar ID TAP yang akan diproses
                         $idTaps = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
-
+                    
                         // Inisialisasi tanggal tertinggi untuk setiap TAP
                         $tanggalTertinggi = [];
-
+                    
                         // Mendapatkan tanggal tertinggi dari setiap TAP
                         foreach ($idTaps as $idTap) {
-                                $tanggalTertinggi[$idTap] = DB::table('keluarsf')
-                                        ->where('idtap', $idTap)
-                                        ->whereMonth('tgl', $bulan)
-                                        ->whereYear('tgl', $year)
-                                        ->max('tgl');
+                            $tanggalTertinggi[$idTap] = DB::table('keluarsf')
+                                ->where('idtap', $idTap)
+                                ->whereMonth('tgl', $bulan)
+                                ->whereYear('tgl', $year)
+                                ->max('tgl');
                         }
-
+                    
                         // Mengambil tanggal terendah dari semua TAP
                         $tanggalTertinggiFiltered = array_filter($tanggalTertinggi); // Menghilangkan nilai NULL
                         $tanggalTerendah = !empty($tanggalTertinggiFiltered) ? min($tanggalTertinggiFiltered) : null;
-
+                    
                         // Jika ada tanggal terendah yang valid, maka lanjutkan
                         if ($tanggalTerendah) {
-                                $tanggal = substr($tanggalTerendah, 8, 2); // Mendapatkan hari dari tanggal terendah
-                                $bulan1 = $year . '-' . $bulan . '-01';
-                                $eDate = $year . '-' . $bulan . '-' . $tanggal;
+                            $tanggal = substr($tanggalTerendah, 8, 2); // Mendapatkan hari dari tanggal terendah
+                            $bulan1 = $year . '-' . $bulan . '-01';
+                            $eDate = $year . '-' . $bulan . '-' . $tanggal;
+                        } else {
+                            // Handle case where there is no valid lowest date
+                            $tanggal = date('d'); // Default tanggal hari ini
+                            $bulan1 = $year . '-' . $bulan . '-01';
+                            $eDate = $year . '-' . $bulan . '-' . $tanggal;
                         }
-
+                    
                         // Menghitung stok segel cluster
                         $segel = DB::table('stockawalall')
-                                ->whereIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                                ->sum('stock');
-
+                            ->whereIn('iddenom', ['SEGEL', 'V16', 'V33'])
+                            ->sum('stock');
+                    
                         // Menghitung stok inject cluster
                         $inject = DB::table('stockawalall')
-                                ->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                                ->sum('stock');                                 
+                            ->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33'])
+                            ->sum('stock');
+                    
+                        $penjualan = []; // Inisialisasi variabel penjualan
+                    
                         if (isset($eDate)) {
-
-                                // Mengambil semua TAP
-                                $tap = DB::table('kodetap')->select('idtap')->get();
-
-                                $penjualan = [];
-
-                                foreach ($tap as $row) {
-                                        $tapId = $row->idtap;
-
-                                        // Penjualan bulan ini sampai tanggal terendah
-                                        $salesnow = DB::table('keluarsf')
-                                                ->where('idtap', $tapId)
-                                                ->whereBetween('tgl', [$bulan1, $eDate])
-                                                ->sum('qty');
-
-                                        // Penjualan bulan lalu sampai tanggal terendah
-                                        $prevMonth = date('m', strtotime('-1 month', strtotime($bulan1)));
-                                        $prevYear = date('Y', strtotime('-1 month', strtotime($bulan1)));
-                                        $prevSDate = $prevYear . '-' . $prevMonth . '-01';
-                                        $prevEDate = $prevYear . '-' . $prevMonth . '-' . $tanggal;
-
-                                        $sales1 = DB::table('keluarsf')
-                                                ->where('idtap', $tapId)
-                                                ->whereBetween('tgl', [$prevSDate, $prevEDate])
-                                                ->sum('qty');
-
-                                        // Menambahkan data penjualan sesuai TAP
-                                        $penjualan[$tapId] = [
-                                                'salesnow' => $salesnow,
-                                                'sales1' => $sales1,
-                                        ];
-                                }
-
-                                $tglUpload = [];
-
-                                foreach ($tap as $row) {
-                                        $tapId = $row->idtap;
-
-                                        $masuk = DB::table('masuksf')
-                                                ->where('idtap', $tapId)
-                                                ->max('tgl');
-
-                                        $keluar = DB::table('keluarsf')
-                                                ->where('idtap', $tapId)
-                                                ->max('tgl');
-
-                                        // Tambah tanggal sesuai TAP
-                                        $tglUpload[$tapId] = [
-                                                'masuk' => $masuk,
-                                                'keluar' => $keluar,
-                                        ];
-                                }
+                            // Mengambil semua TAP
+                            $tap = DB::table('kodetap')->select('idtap')->get();
+                    
+                            foreach ($tap as $row) {
+                                $tapId = $row->idtap;
+                    
+                                // Penjualan bulan ini sampai tanggal terendah
+                                $salesnow = DB::table('keluarsf')
+                                    ->where('idtap', $tapId)
+                                    ->whereBetween('tgl', [$bulan1, $eDate])
+                                    ->sum('qty');
+                    
+                                // Penjualan bulan lalu sampai tanggal terendah
+                                $prevMonth = date('m', strtotime('-1 month', strtotime($bulan1)));
+                                $prevYear = date('Y', strtotime('-1 month', strtotime($bulan1)));
+                                $prevSDate = $prevYear . '-' . $prevMonth . '-01';
+                                $prevEDate = $prevYear . '-' . $prevMonth . '-' . $tanggal;
+                    
+                                $sales1 = DB::table('keluarsf')
+                                    ->where('idtap', $tapId)
+                                    ->whereBetween('tgl', [$prevSDate, $prevEDate])
+                                    ->sum('qty');
+                    
+                                // Menambahkan data penjualan sesuai TAP
+                                $penjualan[$tapId] = [
+                                    'salesnow' => $salesnow,
+                                    'sales1' => $sales1,
+                                ];
+                            }
+                    
+                            $tglUpload = [];
+                    
+                            foreach ($tap as $row) {
+                                $tapId = $row->idtap;
+                    
+                                $masuk = DB::table('masuksf')
+                                    ->where('idtap', $tapId)
+                                    ->max('tgl');
+                    
+                                $keluar = DB::table('keluarsf')
+                                    ->where('idtap', $tapId)
+                                    ->max('tgl');
+                    
+                                // Tambah tanggal sesuai TAP
+                                $tglUpload[$tapId] = [
+                                    'masuk' => $masuk,
+                                    'keluar' => $keluar,
+                                ];
+                            }
+                        } else {
+                            $tglUpload = []; // Inisialisasi variabel tglUpload jika $eDate tidak ada
                         }
-
-
-                        //     total penjualan per denom
-
+                    
+                        // Inisialisasi variabel $month, $month1, dan $month2
+                        $month = date('F', mktime(0, 0, 0, $bulan, 10)); // Nama bulan saat ini
+                        $month1 = date('F', mktime(0, 0, 0, $bulan - 1, 10)); // Nama bulan sebelumnya
+                        $month2 = date('F', mktime(0, 0, 0, $bulan - 2, 10)); // Nama dua bulan sebelumnya
+                    
+                        // Total penjualan per denom
                         $db = ['DUMAI', 'BENGKALIS', 'DURI', 'SEI PAKNING', 'RUPAT'];
                         $denomdumai = DB::table('keluarsf as k')
-                                ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                                ->select('d.denom', DB::raw('sum(k.qty) as qty'))
-                                ->whereIn('k.idtap', $db)
-                                ->whereMonth('k.tgl', $bulan)
-                                ->whereYear('k.tgl', $year)
-                                ->groupBy('d.denom')
-                                ->get();
-
+                            ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
+                            ->select('d.denom', DB::raw('sum(k.qty) as qty'))
+                            ->whereIn('k.idtap', $db)
+                            ->whereMonth('k.tgl', $bulan)
+                            ->whereYear('k.tgl', $year)
+                            ->groupBy('d.denom')
+                            ->get();
+                    
                         $denomrohil = DB::table('keluarsf as k')
-                                ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                                ->select('d.denom', DB::raw('sum(k.qty) as qty'))
-                                ->whereNotIn('k.idtap', $db)
-                                ->whereMonth('k.tgl', $bulan)
-                                ->whereYear('k.tgl', $year)
-                                ->groupBy('d.denom')
-                                ->get();
-
+                            ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
+                            ->select('d.denom', DB::raw('sum(k.qty) as qty'))
+                            ->whereNotIn('k.idtap', $db)
+                            ->whereMonth('k.tgl', $bulan)
+                            ->whereYear('k.tgl', $year)
+                            ->groupBy('d.denom')
+                            ->get();
+                    
                         $grandTotaldb = $denomdumai->sum('qty');
                         $grandTotalrh = $denomrohil->sum('qty');
-
-
+                    
                         return view('home', compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'denomdumai', 'denomrohil', 'grandTotaldb', 'grandTotalrh'));
-                } else {
+                    }else {
 
                         //ambil tanggal max di keluar sf
 
