@@ -200,11 +200,68 @@
                     </div>
 
                     <div class="row">
+
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
                                     <div class="d-flex align-items-center tex-center">
-                                        <h4 class="card-title">PENJUALAN ALL PER-TAP</h4>
+                                        <h4 class="card-title">DETAIL PENJUALAN</h4>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table id="add-row1" class="display table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>TAP</th>
+                                                    <th>STOK AWAL</th>
+                                                    <th>KARYAWAN</th>
+                                                    <th>PENJUALAN REAL</th>
+                                                    <th>TOTAL PENJUALAN</th>
+                                                    <th>SISA STOK</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($datadetail as $row)
+                                                    <tr>
+                                                        <td>{{ $row->tap }}</td>
+                                                        <td>{{ $row->total_nomor }}</td>
+                                                        <td>{{ $row->total_karyawan }}</td>
+                                                        <td>{{ $row->total_penjualan }}</td>
+                                                        <td>{{ $row->total_karyawan + $row->total_penjualan }}</td>
+                                                        <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan) }}
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <th>Grand Total</th>
+                                                    <th>{{ number_format($grandTotalNomor) }}</th>
+                                                    <th>{{ $grandTotalKaryawan }}</th>
+                                                    <th>{{ $grandTotalPenjualan }}</th>
+                                                    <th>{{ $grandTotalKaryawan + $grandTotalPenjualan }}</th>
+                                                    <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                    </th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                        {{-- table responsive --}}
+                                    </div>
+                                </div>
+                                {{-- card body --}}
+                            </div>
+                            {{-- card --}}
+                        </div>
+
+
+
+
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="d-flex align-items-center tex-center">
+                                        <h4 class="card-title">STATUS PERDANA</h4>
                                     </div>
                                 </div>
                                 <div class="card-body">
@@ -250,6 +307,13 @@
                             {{-- card --}}
                         </div>
 
+
+
+
+
+
+
+
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
@@ -259,7 +323,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table id="add-row1" class="display table table-striped table-hover">
+                                        <table id="add-row4" class="display table table-striped table-hover">
                                             <thead>
                                                 <tr>
                                                     <th>TAP</th>
@@ -362,6 +426,13 @@
             });
 
             $("#add-row2").DataTable({
+                pageLength: 10,
+                order: [
+                    [0, "asc"]
+                ]
+            });
+
+            $("#add-row4").DataTable({
                 pageLength: 10,
                 order: [
                     [0, "asc"]

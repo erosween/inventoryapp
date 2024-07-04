@@ -13,7 +13,9 @@ class HomenocanController extends Controller
     {
         $idtap = session('idtap');
         if ($idtap == 'SB DUMAI') {
-            $targets = DB::table('targetnocan')->where('cluster', 'DUMAI BENGKALIS')->get();
+            $targets = DB::table('targetnocan')
+                        ->where('cluster', 'DUMAI BENGKALIS')
+                        ->get();
 
             // Mengambil data dari tabel nocan dan menghitung total sold dan total insentif per tap dan grade
             $nocans = DB::table('nocan')
@@ -25,6 +27,7 @@ class HomenocanController extends Controller
                 )
                 ->whereIn('status', ['sold', 'paid'])
                 ->where('outlet', "!=", null)
+                ->where('outlet', "!=", 1)
                 ->groupBy('tap', 'grade')
                 ->get();
 
@@ -88,9 +91,31 @@ class HomenocanController extends Controller
                 ->groupBy('tap')
                 ->get();
 
+            
             $grandTotalBooking = $data->sum('total_status_booking');
             $grandTotalSold = $data->sum('total_status_sold');
             $grandTotalPaid = $data->sum('total_status_paid');
+
+
+            // DETAIL PENJUALAN
+            $datadetail = DB::table('nocan')
+                        ->select(
+                            'tap',
+                            DB::raw('count(*) as total_nomor'),
+                            DB::raw('SUM(outlet = 1) as total_karyawan'),
+                            DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0) as total_penjualan'),
+                            DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
+                        )
+                        ->where('cluster', 'DUMAI BENGKALIS')
+                        // ->where('status', '!=', 'ready')
+                        ->whereNotNull('tap')
+                        ->where('tap', '!=', '')
+                        ->groupBy('tap')
+                        ->get();
+
+            $grandTotalNomor = $datadetail->sum('total_nomor');
+            $grandTotalKaryawan = $datadetail->sum('total_karyawan');
+            $grandTotalPenjualan = $datadetail->sum('total_penjualan');
 
             // sales
             $dataSF = DB::table('nocan')
@@ -117,21 +142,26 @@ class HomenocanController extends Controller
                 ->where('status', 'sold')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
+
             $paid = DB::table('nocan')
                 ->where('status', 'paid')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
+
             $booking = DB::table('nocan')
                 ->where('status', 'booking')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
+
             $ready = DB::table('nocan')
                 ->where('status', 'ready')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
         } else {
 
-            $targets = DB::table('targetnocan')->where('cluster', '!=', 'DUMAI BENGKALIS')->get();
+            $targets = DB::table('targetnocan')
+                        ->where('cluster',"!=", 'DUMAI BENGKALIS')
+                        ->get();
 
             // Mengambil data dari tabel nocan dan menghitung total sold dan total insentif per tap dan grade
             $nocans = DB::table('nocan')
@@ -143,6 +173,7 @@ class HomenocanController extends Controller
                 )
                 ->whereIn('status', ['sold', 'paid'])
                 ->where('outlet', "!=", null)
+                ->where('outlet', "!=", 1)
                 ->groupBy('tap', 'grade')
                 ->get();
 
@@ -189,7 +220,8 @@ class HomenocanController extends Controller
                 });
             }
 
-            // START all sales
+
+            // start total all
             $data = DB::table('nocan')
                 ->select(
                     'tap',
@@ -198,17 +230,38 @@ class HomenocanController extends Controller
                     DB::raw('SUM(CASE WHEN status = "sold" THEN 1 ELSE 0 END) as total_status_sold'),
                     DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
                 )
-                ->where('cluster', '!=', 'DUMAI BENGKALIS')
+                ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->where('status', '!=', 'ready')
                 ->whereNotNull('tap')
                 ->where('tap', '!=', '')
                 ->groupBy('tap')
                 ->get();
 
+            
             $grandTotalBooking = $data->sum('total_status_booking');
             $grandTotalSold = $data->sum('total_status_sold');
             $grandTotalPaid = $data->sum('total_status_paid');
 
+
+            // DETAIL PENJUALAN
+            $datadetail = DB::table('nocan')
+                        ->select(
+                            'tap',
+                            DB::raw('count(*) as total_nomor'),
+                            DB::raw('SUM(outlet = 1) as total_karyawan'),
+                            DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0) as total_penjualan'),
+                            DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
+                        )
+                        ->where('cluster',"!=", 'DUMAI BENGKALIS')
+                        // ->where('status', '!=', 'ready')
+                        ->whereNotNull('tap')
+                        ->where('tap', '!=', '')
+                        ->groupBy('tap')
+                        ->get();
+
+            $grandTotalNomor = $datadetail->sum('total_nomor');
+            $grandTotalKaryawan = $datadetail->sum('total_karyawan');
+            $grandTotalPenjualan = $datadetail->sum('total_penjualan');
 
             // sales
             $dataSF = DB::table('nocan')
@@ -220,7 +273,7 @@ class HomenocanController extends Controller
                     DB::raw('SUM(CASE WHEN status = "sold" THEN 1 ELSE 0 END) as total_status_sold'),
                     DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
                 )
-                ->where('cluster', '!=', 'DUMAI BENGKALIS')
+                ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->where('status', '!=', 'ready')
                 ->whereNotNull('tap')
                 ->where('tap', '!=', '')
@@ -233,22 +286,25 @@ class HomenocanController extends Controller
 
             $sold = DB::table('nocan')
                 ->where('status', 'sold')
-                ->where('cluster', '!=', 'DUMAI BENGKALIS')
+                ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->count('nomor');
+
             $paid = DB::table('nocan')
                 ->where('status', 'paid')
-                ->where('cluster', '!=', 'DUMAI BENGKALIS')
+                ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->count('nomor');
+
             $booking = DB::table('nocan')
                 ->where('status', 'booking')
-                ->where('cluster', '!=', 'DUMAI BENGKALIS')
+                ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->count('nomor');
+                
             $ready = DB::table('nocan')
                 ->where('status', 'ready')
-                ->where('cluster', '!=', 'DUMAI BENGKALIS')
+                ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->count('nomor');
         }
-        return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap', 'data', 'grandTotalBooking', 'grandTotalPaid', 'grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf'));
+        return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking', 'grandTotalPaid', 'grandTotalNomor','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
     }
 
     public function exportexcel()
