@@ -315,13 +315,13 @@ class HomenocanController extends Controller
             $penjualanData = DB::table('nocan')
                 ->select('tanggal', 'cluster', 'tap', 'nomor', 'booked', 'harga', 'status', 'outlet', 'grade', 'insentif')
                 ->where('cluster', 'DUMAI BENGKALIS')
-                ->where('status', '!=', 'ready')
+                // ->where('status', '!=', 'ready')
                 ->get();
         } else {
             $penjualanData = DB::table('nocan')
                 ->select('tanggal', 'cluster', 'tap', 'nomor', 'booked', 'harga', 'status', 'outlet', 'grade', 'insentif')
                 ->where('cluster', '!=', 'DUMAI BENGKALIS')
-                ->where('status', '!=', 'ready')
+                // ->where('status', '!=', 'ready')
                 ->get();
         }
 
