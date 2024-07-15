@@ -200,7 +200,6 @@
                     </div>
 
                     <div class="row">
-
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
@@ -235,10 +234,11 @@
                                                         <td>{{ $row->total_karyawan + $row->total_penjualan }}</td>
                                                         @if (session('idtap') != 'SB DUMAI')
                                                             <td>{{ $row->target - ($row->total_karyawan + $row->total_penjualan) }}
-                                                            @else>
+                                                            </td>
+                                                        @else
                                                             <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan) }}
+                                                            </td>
                                                         @endif
-                                                        </td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -255,10 +255,11 @@
                                                     <th>{{ $grandTotalKaryawan + $grandTotalPenjualan }}</th>
                                                     @if (session('idtap') != 'SB DUMAI')
                                                         <th>{{ number_format($grandTotalTarget - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
-                                                        @else>
+                                                        </th>
+                                                    @else
                                                         <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                        </th>
                                                     @endif
-                                                    </th>
                                                 </tr>
                                             </tfoot>
                                         </table>
