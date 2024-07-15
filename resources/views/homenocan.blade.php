@@ -225,11 +225,19 @@
                                                 @foreach ($datadetail as $row)
                                                     <tr>
                                                         <td>{{ $row->tap }}</td>
-                                                        <td>{{ $row->total_nomor }}</td>
+                                                        @if (session('idtap') != 'SB DUMAI')
+                                                            <td>{{ $row->target }}</td>
+                                                        @else
+                                                            <td>{{ $row->total_nomor }}</td>
+                                                        @endif
                                                         <td>{{ $row->total_karyawan }}</td>
                                                         <td>{{ $row->total_penjualan }}</td>
                                                         <td>{{ $row->total_karyawan + $row->total_penjualan }}</td>
-                                                        <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan) }}
+                                                        @if (session('idtap') != 'SB DUMAI')
+                                                            <td>{{ $row->target - ($row->total_karyawan + $row->total_penjualan) }}
+                                                            @else>
+                                                            <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan) }}
+                                                        @endif
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -237,11 +245,19 @@
                                             <tfoot>
                                                 <tr>
                                                     <th>Grand Total</th>
-                                                    <th>{{ number_format($grandTotalNomor) }}</th>
+                                                    @if (session('idtap') != 'SB DUMAI')
+                                                        <th>{{ number_format($grandTotalTarget) }}</th>
+                                                    @else
+                                                        <th>{{ number_format($grandTotalNomor) }}</th>
+                                                    @endif
                                                     <th>{{ $grandTotalKaryawan }}</th>
                                                     <th>{{ $grandTotalPenjualan }}</th>
                                                     <th>{{ $grandTotalKaryawan + $grandTotalPenjualan }}</th>
-                                                    <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                    @if (session('idtap') != 'SB DUMAI')
+                                                        <th>{{ number_format($grandTotalTarget - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                        @else>
+                                                        <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                    @endif
                                                     </th>
                                                 </tr>
                                             </tfoot>
@@ -306,13 +322,6 @@
                             </div>
                             {{-- card --}}
                         </div>
-
-
-
-
-
-
-
 
                         <div class="col-md-6">
                             <div class="card">

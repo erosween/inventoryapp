@@ -157,6 +157,7 @@ class HomenocanController extends Controller
                 ->where('status', 'ready')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
+                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid', 'grandTotalNomor','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
         } else {
 
             $targets = DB::table('targetnocan')
@@ -245,23 +246,26 @@ class HomenocanController extends Controller
 
             // DETAIL PENJUALAN
             $datadetail = DB::table('nocan')
-                        ->select(
-                            'tap',
-                            DB::raw('count(*) as total_nomor'),
-                            DB::raw('SUM(outlet = 1) as total_karyawan'),
-                            DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0) as total_penjualan'),
-                            DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
-                        )
-                        ->where('cluster',"!=", 'DUMAI BENGKALIS')
-                        // ->where('status', '!=', 'ready')
-                        ->whereNotNull('tap')
-                        ->where('tap', '!=', '')
-                        ->groupBy('tap')
-                        ->get();
+            ->leftJoin('targetnocan', 'nocan.tap', '=', 'targetnocan.tap') // Join with targetnocan table on 'tap' column
+            ->select(
+                'nocan.tap',
+                'targetnocan.target', // Count the target values from targetnocan
+                DB::raw('SUM(outlet = 1) as total_karyawan'),
+                DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0) as total_penjualan'),
+                DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
+            )
+            ->where('nocan.cluster', '!=', 'DUMAI BENGKALIS')
+            // ->where('nocan.status', '!=', 'ready')
+            ->whereNotNull('nocan.tap')
+            ->where('nocan.tap', '!=', '')
+            ->groupBy('nocan.tap','targetnocan.target') // Group by nocan.tap
+            ->get();
 
-            $grandTotalNomor = $datadetail->sum('total_nomor');
             $grandTotalKaryawan = $datadetail->sum('total_karyawan');
             $grandTotalPenjualan = $datadetail->sum('total_penjualan');
+            $grandTotalTarget = $datadetail->sum('target'); // Sum the total target values
+
+
 
             // sales
             $dataSF = DB::table('nocan')
@@ -303,8 +307,8 @@ class HomenocanController extends Controller
                 ->where('status', 'ready')
                 ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->count('nomor');
+                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking', 'grandTotalTarget','grandTotalPaid','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
         }
-        return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking', 'grandTotalPaid', 'grandTotalNomor','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
     }
 
     public function exportexcel()
