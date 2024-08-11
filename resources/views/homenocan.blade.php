@@ -179,8 +179,8 @@
                                                     <th>{{ number_format($grandTotals->target - $grandTotals->total_sold) }}
                                                     </th>
                                                     <th>
-                                                        @if ($row->target > 0)
-                                                            {{ number_format(($row->total_sold / $row->target) * 100, 2) }}%
+                                                        @if ($grandTotals->target > 0)
+                                                            {{ number_format(($grandTotals->total_sold / $grandTotals->target) * 100, 2) }}%
                                                         @else
                                                             0.00%
                                                         @endif
