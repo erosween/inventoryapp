@@ -216,6 +216,7 @@
                                                     <th>STOK AWAL</th>
                                                     <th>KARYAWAN</th>
                                                     <th>PENJUALAN REAL</th>
+                                                    <th>PENJUALAN DS</th>
                                                     <th>TOTAL PENJUALAN</th>
                                                     <th>SISA STOK</th>
                                                 </tr>
@@ -231,12 +232,14 @@
                                                         @endif
                                                         <td>{{ $row->total_karyawan }}</td>
                                                         <td>{{ $row->total_penjualan }}</td>
-                                                        <td>{{ $row->total_karyawan + $row->total_penjualan }}</td>
+                                                        <td>{{ $row->total_ds }}</td>
+                                                        <td>{{ $row->total_karyawan + $row->total_penjualan + $row->total_ds }}
+                                                        </td>
                                                         @if (session('idtap') != 'SB DUMAI')
                                                             <td>{{ $row->target - ($row->total_karyawan + $row->total_penjualan) }}
                                                             </td>
                                                         @else
-                                                            <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan) }}
+                                                            <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan + $row->total_ds) }}
                                                             </td>
                                                         @endif
                                                     </tr>
@@ -252,12 +255,14 @@
                                                     @endif
                                                     <th>{{ $grandTotalKaryawan }}</th>
                                                     <th>{{ $grandTotalPenjualan }}</th>
-                                                    <th>{{ $grandTotalKaryawan + $grandTotalPenjualan }}</th>
+                                                    <th>{{ $grandTotalDS }}</th>
+                                                    <th>{{ $grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS }}
+                                                    </th>
                                                     @if (session('idtap') != 'SB DUMAI')
-                                                        <th>{{ number_format($grandTotalTarget - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                        <th>{{ number_format($grandTotalTarget - ($grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS)) }}
                                                         </th>
                                                     @else
-                                                        <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan)) }}
+                                                        <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS)) }}
                                                         </th>
                                                     @endif
                                                 </tr>

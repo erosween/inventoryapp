@@ -103,7 +103,8 @@ class HomenocanController extends Controller
                             'tap',
                             DB::raw('count(*) as total_nomor'),
                             DB::raw('SUM(outlet = 1) as total_karyawan'),
-                            DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0) as total_penjualan'),
+                            DB::raw('SUM(outlet = 123) as total_ds'),
+                            DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0 and outlet != 123) as total_penjualan'),
                             DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
                         )
                         ->where('cluster', 'DUMAI BENGKALIS')
@@ -116,6 +117,7 @@ class HomenocanController extends Controller
             $grandTotalNomor = $datadetail->sum('total_nomor');
             $grandTotalKaryawan = $datadetail->sum('total_karyawan');
             $grandTotalPenjualan = $datadetail->sum('total_penjualan');
+            $grandTotalDS = $datadetail->sum('total_ds');
 
             // sales
             $dataSF = DB::table('nocan')
@@ -157,7 +159,7 @@ class HomenocanController extends Controller
                 ->where('status', 'ready')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
-                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid', 'grandTotalNomor','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
+                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid','grandTotalSold', 'grandTotalNomor','grandTotalKaryawan','grandTotalKaryawan','grandTotalDS',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
         } else {
 
             $targets = DB::table('targetnocan')
@@ -251,7 +253,8 @@ class HomenocanController extends Controller
                 'nocan.tap',
                 'targetnocan.target', // Count the target values from targetnocan
                 DB::raw('SUM(outlet = 1) as total_karyawan'),
-                DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0) as total_penjualan'),
+                DB::raw('SUM(outlet = 123) as total_ds'),
+                DB::raw('SUM(CASE WHEN status = "sold" or status = "paid" THEN 1 ELSE 0 END and outlet != 1 and outlet != 0 and outlet != 123) as total_penjualan'),
                 DB::raw('SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as total_status_paid')
             )
             ->where('nocan.cluster', '!=', 'DUMAI BENGKALIS')
@@ -264,6 +267,7 @@ class HomenocanController extends Controller
             $grandTotalKaryawan = $datadetail->sum('total_karyawan');
             $grandTotalPenjualan = $datadetail->sum('total_penjualan');
             $grandTotalTarget = $datadetail->sum('target'); // Sum the total target values
+            $grandTotalDS = $datadetail->sum('total_ds'); // Sum the total target values
 
 
 
@@ -307,7 +311,7 @@ class HomenocanController extends Controller
                 ->where('status', 'ready')
                 ->where('cluster',"!=", 'DUMAI BENGKALIS')
                 ->count('nomor');
-                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking', 'grandTotalTarget','grandTotalPaid','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
+                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking', 'grandTotalTarget','grandTotalPaid','grandTotalKaryawan','grandTotalSold',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalDS','grandTotalPaidsf','grandTotalPenjualan'));
         }
     }
 
