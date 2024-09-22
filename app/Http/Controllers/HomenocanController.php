@@ -6,6 +6,7 @@ use App\Exports\WLNocanExport;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class HomenocanController extends Controller
 {
@@ -13,6 +14,42 @@ class HomenocanController extends Controller
     {
         $idtap = session('idtap');
         if ($idtap == 'SB DUMAI') {
+
+            // penjualan bulanan
+
+            // Inisialisasi array bulan dari Juni hingga Desember
+            $months = [
+                'June' => 6, 'July' => 7, 'August' => 8, 
+                'September' => 9
+            ];
+
+            // Ambil data dari tabel nocan
+            $salesData = DB::table('nocan')
+            ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status IN ("sold", "paid") THEN 1 ELSE 0 END) as total_sales'))
+            ->where('cluster', 'dumai bengkalis')
+            ->where('tanggal', '>=', Carbon::create(2024, 6, 1)) // Mulai dari Juni 2024
+            ->groupBy('tap', 'month')
+            ->get();
+
+                $result = [];
+                $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
+                
+                foreach ($salesData as $data) {
+                    $tap = $data->tap;
+                    $month = $data->month;
+                    $totalSales = $data->total_sales;
+                    
+                    if (!isset($result[$tap])) {
+                        $result[$tap] = array_fill_keys(array_keys($months), 0);
+                    }
+                
+                    $monthName = array_search($month, $months);
+                    if ($monthName !== false) {
+                        $result[$tap][$monthName] = $totalSales;
+                        $totalFooter[$monthName] += $totalSales; // Tambahkan ke total footer
+                    }
+                }
+
             $targets = DB::table('targetnocan')
                         ->where('cluster', 'DUMAI BENGKALIS')
                         ->get();
@@ -159,7 +196,8 @@ class HomenocanController extends Controller
                 ->where('status', 'ready')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
-                return view('/homenocan', ['grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid','grandTotalSold', 'grandTotalNomor','grandTotalKaryawan','grandTotalKaryawan','grandTotalDS',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
+                return view('/homenocan', ['months' => array_keys($months), // Hanya ambil nama bulan
+    'result' => $result, 'totalFooter' => $totalFooter, 'grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid','grandTotalSold', 'grandTotalNomor','grandTotalKaryawan','grandTotalKaryawan','grandTotalDS',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
         } else {
 
             $targets = DB::table('targetnocan')

@@ -120,6 +120,63 @@
                             </div>
                         </div>
                     </div>
+                    {{-- penjualan bulanan --}}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="d-flex align-items-center tex-center">
+                                        <h4 class="card-title">PENJUALAN BULANAN</h4>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table id="add-row3" class="display table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>TAP</th>
+                                                    @foreach ($months as $month)
+                                                        <th>{{ $month }}</th>
+                                                    @endforeach
+                                                    <th>Total</th> <!-- Total Penjualan untuk semua bulan -->
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($result as $tap => $sales)
+                                                    <tr>
+                                                        <td>{{ $tap }}</td>
+                                                        @foreach ($months as $month)
+                                                            <td>{{ $sales[$month] }}</td>
+                                                        @endforeach
+                                                        <td>{{ array_sum($sales) }}</td> <!-- Penjumlahan semua bulan -->
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <th>Total</th>
+                                                    @foreach ($totalFooter as $total)
+                                                        <th>{{ $total }}</th>
+                                                    @endforeach
+                                                    <th>{{ array_sum($totalFooter) }}</th> <!-- Total dari semua bulan -->
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                        {{-- table responsive --}}
+                                    </div>
+                                </div>
+                                {{-- card body --}}
+                            </div>
+                            {{-- card --}}
+                        </div>
+
+                    </div>
+
+                    {{-- end penjualan bulanan --}}
+
+
+
+
                     <div class="row">
                         <div class="col-md-12">
                             <div class="card">
@@ -448,6 +505,13 @@
             });
 
             $("#add-row4").DataTable({
+                pageLength: 10,
+                order: [
+                    [0, "asc"]
+                ]
+            });
+
+            $("#add-row3").DataTable({
                 pageLength: 10,
                 order: [
                     [0, "asc"]
