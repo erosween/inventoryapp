@@ -55,7 +55,8 @@
                                                 <th>BYU 2GB/3hari</th>
                                                 <th>BYU 2.5GB/5hari</th>
                                                 <th>BYU 5GB/7hari</th>
-                                                <th>BYU KAGET 4GB/30hari</th>
+                                                <th>BYU KAGET 3GB/30hari</th>
+                                                <th>BYU KAGET 7GB/30hari</th>
                                                 <th>BYU KAGET 9GB/30hari</th>
                                                 <th>BYU KAGET 14GB/30hari</th>
                                                 <th>BYU KAGET 20GB/30hari</th>
@@ -106,6 +107,7 @@
                                                 $tV40 = 0;
                                                 $tV41 = 0;
                                                 $tV42 = 0;
+                                                $tV43 = 0;
 
                                             @endphp
                                             @foreach ($data as $row)
@@ -131,6 +133,7 @@
                                                     <td> {{ number_format($row->V34) }}</td>
                                                     <td> {{ number_format($row->V35) }}</td>
                                                     <td> {{ number_format($row->V36) }}</td>
+                                                    <td> {{ number_format($row->V43) }}</td>
                                                     <td> {{ number_format($row->V37) }}</td>
                                                     <td> {{ number_format($row->V38) }}</td>
                                                     <td> {{ number_format($row->V39) }}</td>
@@ -180,6 +183,7 @@
                                                     $tV40 += $row->V40;
                                                     $tV41 += $row->V41;
                                                     $tV42 += $row->V42;
+                                                    $tV43 += $row->V43;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -205,6 +209,7 @@
                                                 <td><strong>{{ number_format($tV34) }}</strong></td>
                                                 <td><strong>{{ number_format($tV35) }}</strong></td>
                                                 <td><strong>{{ number_format($tV36) }}</strong></td>
+                                                <td><strong>{{ number_format($tV43) }}</strong></td>
                                                 <td><strong>{{ number_format($tV37) }}</strong></td>
                                                 <td><strong>{{ number_format($tV38) }}</strong></td>
                                                 <td><strong>{{ number_format($tV39) }}</strong></td>
