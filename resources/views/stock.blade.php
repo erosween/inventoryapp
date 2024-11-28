@@ -49,6 +49,7 @@
                                                 <th>2GB/3hari ZONA 2</th>
                                                 <th>2.5GB/3hari</th>
                                                 <th>3GB/3hari</th>
+                                                <th>4GB/5hari</th>
                                                 <th>4.5GB/3hari</th>
                                                 <th>5GB/5hari</th>
                                                 {{-- <th>2.5GB/5hari ZONA 1</th> --}}
@@ -129,6 +130,7 @@
                                                     <td> {{ number_format($row->V24) }}</td>
                                                     <td> {{ number_format($row->V41) }}</td>
                                                     <td> {{ number_format($row->V30) }}</td>
+                                                    <td> {{ number_format($row->V6) }}</td>
                                                     <td> {{ number_format($row->V3) }}</td>
                                                     <td> {{ number_format($row->V7) }}</td>
                                                     {{-- <td> {{ number_format($row -> V5 )}}</td> --}}
@@ -206,6 +208,7 @@
                                                 <td><strong>{{ number_format($tV24) }}</strong></td>
                                                 <td><strong>{{ number_format($tV41) }}</strong></td>
                                                 <td><strong>{{ number_format($tV30) }}</strong></td>
+                                                <td><strong>{{ number_format($tV6) }}</strong></td>
                                                 <td><strong>{{ number_format($tV3) }}</strong></td>
                                                 <td><strong>{{ number_format($tV7) }}</strong></td>
                                                 {{-- <td><strong>{{ number_format($tV5) }}</strong></td> --}}
