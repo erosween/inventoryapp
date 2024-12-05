@@ -20,7 +20,7 @@ class HomenocanController extends Controller
             // Inisialisasi array bulan dari Juni hingga Desember
             $months = [
                 'June' => 6, 'July' => 7, 'August' => 8, 
-                'September' => 9,'October' => 10, 'November' => 11
+                'September' => 9,'October' => 10, 'November' => 11,'December' => 12
             ];
 
             // Ambil data dari tabel nocan
