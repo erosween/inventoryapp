@@ -19,18 +19,20 @@ class HomenocanController extends Controller
 
             // Inisialisasi array bulan dari Juni hingga Desember
             $months = [
-                'June' => 6, 'July' => 7, 'August' => 8, 
-                'September' => 9,'October' => 10, 'November' => 11,'December' => 12
+                'November' => 11,'December' => 12,"January'25" =>1
+
+                // 'June' => 6, 'July' => 7, 'August' => 8, 
+                // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
             ];
 
             // Ambil data dari tabel nocan
             $salesData = DB::table('nocan')
-            ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status IN ("sold", "paid") THEN 1 ELSE 0 END) as total_sales'))
-            ->where('cluster', 'dumai bengkalis')
-            ->where('outlet' , "!=" ,1)
-            ->where('tanggal', '>=', Carbon::create(2024, 6, 1)) // Mulai dari Juni 2024
-            ->groupBy('tap', 'month')
-            ->get();
+                        ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status IN ("sold", "paid") THEN 1 ELSE 0 END) as total_sales'))
+                        ->where('cluster', 'dumai bengkalis')
+                        ->where('outlet' , "!=" ,1)
+                        ->where('tanggal', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
+                        ->groupBy('tap', 'month')
+                        ->get();
 
                 $result = [];
                 $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
