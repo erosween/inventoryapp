@@ -60,68 +60,6 @@ class FormKeluartapController extends Controller
             return redirect('form/formkeluartap')->withErrors(['error' => 'Stok Tap Tidak Mencukupi!']);
 
         }else{
-
-            // //update stock awal all (pengirim)
-            // $sallpengirim = DB::table('stockawalall')
-            //             ->select('stock')
-            //             ->where('idtap', $pengirim)
-            //             ->where('iddenom', $iddenom)
-            //             ->first();
-            // //update stock awal tap (pengirim)
-            // $stapengirim = DB::table('stockawaltap')
-            //             ->select('stock')
-            //             ->where('idtap', $pengirim)
-            //             ->where('iddenom', $iddenom)
-            //             ->first();
-
-            // //update stock awal all (penerima)
-            // $sallpenerima = DB::table('stockawalall')
-            //             ->select('stock')
-            //             ->where('idtap', $penerima)
-            //             ->where('iddenom', $iddenom)
-            //             ->first();
-            // //update stock awal tap (penerima)
-            // $stapenerima = DB::table('stockawaltap')
-            //             ->select('stock')
-            //             ->where('idtap', $penerima)
-            //             ->where('iddenom', $iddenom)
-            //             ->first();
-
-            // $finalstokallpengirim = $sallpengirim -> stock - $qty;
-            // $finalstoktappengirim = $stapengirim -> stock - $qty;
-            // $finalstokallpenerima = $sallpenerima -> stock + $qty;
-            // $finalstoktappenerima = $stapenerima -> stock + $qty;
-
-            // //update ke table
-
-            // DB::table('stockawalall')
-            //     ->where('idtap', $pengirim)
-            //     ->where('iddenom',$iddenom)
-            //     ->update([
-            //         'stock' => $finalstokallpengirim
-            //     ]);
-
-            // DB::table('stockawaltap')
-            //     ->where('idtap', $pengirim)
-            //     ->where('iddenom', $iddenom)
-            //     ->update([
-            //         'stock' => $finalstoktappengirim
-            //     ]);
-
-            // DB::table('stockawalall')
-            //     ->where('idtap', $penerima)
-            //     ->where('iddenom',$iddenom)
-            //     ->update([
-            //         'stock' => $finalstokallpenerima
-            //     ]);
-
-            // DB::table('stockawaltap')
-            //     ->where('idtap', $penerima)
-            //     ->where('iddenom', $iddenom)
-            //     ->update([
-            //         'stock' => $finalstoktappenerima
-            //     ]);
-
             
             //update ke table keluar
             DB::table('keluar')
@@ -140,11 +78,6 @@ class FormKeluartapController extends Controller
             }
 
         return redirect("keluar")->with('status', 'Data Berhasil Ditambahkan!');        
-
-
-
-
-
 
     }
     

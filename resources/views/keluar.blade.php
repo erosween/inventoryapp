@@ -49,7 +49,8 @@
                                                     ?>
                                                     @foreach ($years as $year)
                                                         <option value="{{ $year }}"
-                                                            {{ $selectedYear == $year ? 'selected' : '' }}>{{ $year }}
+                                                            {{ $selectedYear == $year ? 'selected' : '' }}>
+                                                            {{ $year }}
                                                         </option>
                                                     @endforeach
                                                 </select>
@@ -166,7 +167,8 @@
                                                             @csrf
                                                             <h5>Apakah anda yakin akan menghapus stok
                                                                 <strong>{{ $row->denom }}</strong> dengan Quantity
-                                                                <strong>{{ number_format($row->qty) }}</strong> </h5>
+                                                                <strong>{{ number_format($row->qty) }}</strong>
+                                                            </h5>
                                                             <input type="hidden" name="iddenom"
                                                                 value="{{ $row->iddenom }}" class="form-control mb-1">
                                                             <input type="hidden" name="pengirim"

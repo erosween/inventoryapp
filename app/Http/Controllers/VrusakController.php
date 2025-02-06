@@ -75,122 +75,79 @@ class VrusakController extends Controller
 
     }
 
-    public function vrusakproses(Request $request){
+    public function vrusakproses(Request $request)
+{
+    $tgl = $request->input('tgl');
+    $idtap = $request->input('pengirim');
+    $iddenom = $request->input('iddenom');
+    $qty = $request->input('qty');
+    $sn = $request->input('sn');
+    $ketvf = $request->input('ketvf');
+    $tambahanket = $request->input('tambahanket');
 
-        $tgl = $request->input('tgl');
-        $idtap = $request->input('pengirim');
-        $iddenom = $request->input('iddenom');
-        $qty = $request->input('qty');
-        $sn = $request->input('sn');
-        $ketvf = $request->input('ketvf');
-        $tambahanket = $request->input('tambahanket');
-
-        
-        $stap = DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $iddenom)
-                ->first();
-
-        //validasi qty
-
-        if($stap -> stock < $qty){
-
-            return redirect('form/form-vrusak')->withErrors(['error' => 'Stock Tap Tidak Mencukupi!']);
-
-        }else{
-
-            //cek sstok all tap pengirim
-
-            $stap = DB::table('stockawaltap')
-                    ->select('stock')
-                    ->where('idtap', $idtap)
-                    ->where('iddenom', $iddenom)
-                    ->first();
-            
-            $sall = DB::table('stockawalall')
-                    ->select('stock')
-                    ->where('idtap', $idtap)
-                    ->where('iddenom', $iddenom)
-                    ->first();
-
-            $nstoktap = $stap->stock - $qty;
-            $nstokall = $sall->stock - $qty;
-
-            //update ke stok tebraru
-
-            DB::table('stockawaltap')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $iddenom)
-                ->update([
-                    'stock' => $nstoktap
-                ]);
-
-            DB::table('stockawalall')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $iddenom)
-                ->update([
-                    'stock' => $nstokall
-                ]);
-
-            //update ke table voucher rusak
-            DB::table('returvfrusak')
-                ->insert([
-                    'idtap' => $idtap,
-                    'tgl' => $tgl,
-                    'qty' =>$qty,
-                    'sn' => $sn,
-                    'ketvf'=> $ketvf,
-                    'ketlain' => $tambahanket,
-                    'iddenom' => $iddenom,
-                    'tgl' => $tgl
-                ]);
-            
-            return redirect('vrusak')->with('status','Data Berhasil Ditambahkan!');
-            }
+    // Validasi stok Tap
+    if (!$this->cekStok($idtap, $iddenom, $qty, 'stockawaltap')) {
+        return redirect('form/form-vrusak')->withErrors(['error' => 'Stock Tap Tidak Mencukupi!']);
     }
 
-    public function delete(Request $request, $idrusak){
+    // Cek dan update stok
+    $this->updateStok($idtap, $iddenom, $qty);
 
-        DB::table('returvfrusak')
-            ->where('idrusak', $idrusak)
-            ->delete();
+    // Insert data ke returvfrusak
+    DB::table('returvfrusak')->insert([
+        'idtap' => $idtap,
+        'tgl' => $tgl,
+        'qty' => $qty,
+        'sn' => $sn,
+        'ketvf' => $ketvf,
+        'ketlain' => $tambahanket,
+        'iddenom' => $iddenom
+    ]);
 
-        $sall = DB::table('stockawalall')
-                ->select('stock')
-                ->where('idtap', $request->input('idtap'))
-                ->where('iddenom', $request->input('iddenom'))
-                ->first();
-        
-        $stap =  DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $request->input('idtap'))
-                ->where('iddenom', $request->input('iddenom'))
-                ->first();
+    return redirect('vrusak')->with('status', 'Data Berhasil Ditambahkan!');
+}
 
-        $nsall = $sall -> stock + $request->input('qty');
-        $nstap = $stap -> stock + $request->input('qty');
+public function delete(Request $request, $idrusak)
+{
+    // Hapus data dari returvfrusak
+    DB::table('returvfrusak')->where('idrusak', $idrusak)->delete();
 
-        //update ke stok
+    // Cek dan update stok
+    $this->updateStok($request->input('idtap'), $request->input('iddenom'), -$request->input('qty'));
 
-        DB::table('stockawalall')
-            ->where('idtap', $request->input('idtap'))
-            ->where('iddenom', $request->input('iddenom'))
-            ->update([
-                'stock' => $nsall
-            ]);
+    return redirect('vrusak')->with('status', 'Data Berhasil Dihapus!');
+}
 
-         DB::table('stockawaltap')
-            ->where('idtap', $request->input('idtap'))
-            ->where('iddenom', $request->input('iddenom'))
-            ->update([
-                'stock' => $nstap
-            ]);
+/**
+ * Cek apakah stok mencukupi.
+ */
+private function cekStok($idtap, $iddenom, $qty, $table)
+{
+    $stock = DB::table($table)
+        ->where('idtap', $idtap)
+        ->where('iddenom', $iddenom)
+        ->value('stock');
 
-        return redirect('vrusak')->with('status', 'Data Berhasil Dihapus!');
-        
-    }
+    return $stock >= $qty;
+}
 
+/**
+ * Update stok pada stockawaltap dan stockawalall.
+ */
+private function updateStok($idtap, $iddenom, $qty)
+{
+    // Ambil stok eksisting
+    $stap = DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
+    $sall = DB::table('stockawalall')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
+
+    // Hitung stok baru
+    $newStockTAP = $stap->stock - $qty;
+    $newStockAll = $sall->stock - $qty;
+
+    // Update stok
+    DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockTAP]);
+    DB::table('stockawalall')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockAll]);
+}
 
     public function exportexcel(Request $request)
         {

@@ -27,108 +27,67 @@ class InboxController extends Controller
         return view('inbox', compact('data','idtap'));
     }
 
-// proses terima stock
-public function masuk(Request $request, $idkeluar)
-{
-    $pengirim = $request->input('pengirim');
-    $penerima = $request->input('penerima');
-    $iddenom = $request -> input('iddenom');
-    $qty = $request -> input('qty');
-    $status = $request -> input('status');
-
-    //validasi
-    $stap = DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $pengirim)
-                ->where('iddenom', $iddenom)
-                ->first();
-
-    if($stap->stock < $qty){
-
-        return redirect('masuk')->withErrors(['error' => 'Stok Tap Pengirim Tidak Mencukupi!']);
-
-    }else{
-
-        //cek stok tap pengirim
-        $pall = DB::table('stockawalall')
-                ->select('stock')
-                ->where('idtap', $pengirim)
-                ->where('iddenom', $iddenom)
-                ->first();
-
-        $ptap = DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $pengirim)
-                ->where('iddenom',$iddenom)
-                ->first();
-
-        //kalkulasi
-        $nall = $pall -> stock - $qty;
-        $ntap = $ptap -> stock - $qty;
-
-        // cek stok penerima
-        $penall = DB::table('stockawalall')
-                ->select('stock')
-                ->where('idtap', $penerima)
-                ->where('iddenom', $iddenom)
-                ->first();
-
-        $pentap = DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $penerima)
-                ->where('iddenom',$iddenom)
-                ->first();
-
-        //kalkulasi
-        $npall = $penall -> stock + $qty;
-        $nptap = $pentap -> stock + $qty;
-
-        //update ke stok terbaru
-
-        //pengirim
-
-        DB::table('stockawalall')
-            ->where('idtap', $pengirim)
-            ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $nall
-            ]);
-
-        DB::table('stockawaltap')
-            ->where('idtap', $pengirim)
-            ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $ntap
-            ]);
-
-        // penerima
-        
-        DB::table('stockawalall')
-        ->where('idtap', $penerima)
-        ->where('iddenom', $iddenom)
-        ->update([
-            'stock' => $npall
-        ]);
-
-        DB::table('stockawaltap')
-            ->where('idtap', $penerima)
-            ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $nptap
-            ]);
-
-        //update status
-
+    public function masuk(Request $request, $idkeluar)
+    {
+        $pengirim = $request->input('pengirim');
+        $penerima = $request->input('penerima');
+        $iddenom = $request->input('iddenom');
+        $qty = $request->input('qty');
+    
+        // Validasi stok pengirim
+        $stapStock = $this->getStock('stockawaltap', $pengirim, $iddenom);
+    
+        if ($stapStock < $qty) {
+            return redirect('masuk')->withErrors(['error' => 'Stok Tap Pengirim Tidak Mencukupi!']);
+        }
+    
+        // Ambil stok pengirim
+        $pallStock = $this->getStock('stockawalall', $pengirim, $iddenom);
+        $ptapStock = $this->getStock('stockawaltap', $pengirim, $iddenom);
+    
+        // Hitung stok baru pengirim
+        $newPallStock = $pallStock - $qty;
+        $newPtapStock = $ptapStock - $qty;
+    
+        // Ambil stok penerima
+        $penallStock = $this->getStock('stockawalall', $penerima, $iddenom);
+        $pentapStock = $this->getStock('stockawaltap', $penerima, $iddenom);
+    
+        // Hitung stok baru penerima
+        $newPenallStock = $penallStock + $qty;
+        $newPentapStock = $pentapStock + $qty;
+    
+        // Update stok pengirim
+        $this->updateStock('stockawalall', $pengirim, $iddenom, $newPallStock);
+        $this->updateStock('stockawaltap', $pengirim, $iddenom, $newPtapStock);
+    
+        // Update stok penerima
+        $this->updateStock('stockawalall', $penerima, $iddenom, $newPenallStock);
+        $this->updateStock('stockawaltap', $penerima, $iddenom, $newPentapStock);
+    
+        // Update status di tabel keluar
         DB::table('keluar')
             ->where('idkeluar', $idkeluar)
-            ->update([
-                'status' => 0
-            ]);
-        
-        return redirect('inbox')->with('status','Stock Berhasil Diterima');
+            ->update(['status' => 0]);
+    
+        return redirect('inbox')->with('status', 'Stock Berhasil Diterima');
     }
-}
-
+    
+    private function getStock($table, $idtap, $iddenom)
+    {
+        return DB::table($table)
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->value('stock');
+    }
+    
+    private function updateStock($table, $idtap, $iddenom, $newStock)
+    {
+        DB::table($table)
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->update(['stock' => $newStock]);
+    }
     
 }
 

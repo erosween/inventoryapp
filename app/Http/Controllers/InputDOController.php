@@ -125,117 +125,104 @@ class InputDOController extends Controller
         }
     }
     
-    public function masukProses(Request $request){
-
-        $idtap = session('idtap');
-
+    public function masukProses(Request $request)
+    {
+        // Simpan data masuk
         DB::table('masuk')->insert([
-            'iddenom' => $request -> kategorisegel,
-            'pengirim' => $request -> pengirim,
-            'penerima' => $request -> penerima,
-            'qty' => $request -> qty,
-            'sn' => $request -> sn,
-            'nomor_do' => $request -> nomordo,
-            'week' => $request -> week,
-            'tgl' => $request -> tgl,
-            'idtappenerima' => $request -> tappenerima,
-            'idtap' => $request -> tappenerima
-            
+            'iddenom' => $request->kategorisegel,
+            'pengirim' => $request->pengirim,
+            'penerima' => $request->penerima,
+            'qty' => $request->qty,
+            'sn' => $request->sn,
+            'nomor_do' => $request->nomordo,
+            'week' => $request->week,
+            'tgl' => $request->tgl,
+            'idtappenerima' => $request->tappenerima,
+            'idtap' => $request->tappenerima
         ]);
-
-        //stok eksisting
-        $existingStockAll = DB::table('stockawalall')
-                        ->select('stock')
-                        ->where('idtap',$request->input('tappenerima'))
-                        ->where('iddenom',$request->input('kategorisegel'))
-                        ->first();
-        
-        $existingStockBo  = DB::table('stockawalsf')
-                        ->select('stock')
-                        ->where('idsf',$request->input('penerima'))
-                        ->where('iddenom',$request->input('kategorisegel'))
-                        ->first();
-        
-        $newStockAll = $existingStockAll->stock + $request->input('qty');
-        $newStockBo = $existingStockBo->stock + $request->input('qty');
-
-        DB::table('stockawalall')
-            ->where('idtap', $request->input('tappenerima'))
-            ->where('iddenom', $request->input('kategorisegel'))
-            ->update([
-                'stock' => $newStockAll
-            ]);
-
-        DB::table('stockawalsf')
-        ->where('idsf', $request->input('penerima'))
-        ->where('iddenom', $request->input('kategorisegel'))
-        ->update([
-            'stock' => $newStockBo
-        ]);
-        
-        return redirect('DO')->with('status','Data Berhasil Ditambahkan!');
+    
+        // Update stok penerima
+        $this->updateStok($request->tappenerima, $request->kategorisegel, $request->penerima, $request->qty);
+    
+        return redirect('DO')->with('status', 'Data Berhasil Ditambahkan!');
     }
-
-    public function delete(request $request, $idmasuk)
-    {   
-
+    
+    public function delete(Request $request, $idmasuk)
+    {
+        $qty = $request->input('qty');
         $idtap = $request->input('idtappenerima');
         $idsf = $request->input('penerima');
         $iddenom = $request->input('iddenom');
-        $qty = $request->input('qty');
-
-        $existingStockSf  = DB::table('stockawalsf')
-                        ->select('stock')
-                        ->where('idsf',$idsf)
-                        ->where('iddenom',$iddenom)
-                        ->first();
-
-        //validasi stok tidak cukup
-
-        if($existingStockSf->stock < $qty){
-            
-            return redirect('DO')->withErrors(['error' => 'stok tidak mencukupi!']);
-
-        }else{
-       
-        //stok eksisting
+    
+        // Cek stok cukup
+        if ($this->cekStok($idsf, $iddenom, $qty) === false) {
+            return redirect('DO')->withErrors(['error' => 'Stok tidak mencukupi!']);
+        }
+    
+        // Update stok setelah penghapusan
+        $this->updateStok($idtap, $iddenom, $idsf, -$qty);
+        
+        // Hapus data masuk
+        DB::table('masuk')->where('idmasuk', $idmasuk)->delete();
+    
+        return redirect('DO')->with('status', 'Data Berhasil Dihapus!');
+    }
+    
+    /**
+     * Update stok untuk penerima dan pengirim.
+     */
+    private function updateStok($idtap, $iddenom, $idsf, $qty)
+    {
+        // Update stok di stockawalall dan stockawalsf
+        $this->modifyStok($idtap, $iddenom, $qty);
+        $this->modifyStok($idsf, $iddenom, $qty);
+    }
+    
+    /**
+     * Cek apakah stok mencukupi.
+     */
+    private function cekStok($idsf, $iddenom, $qty)
+    {
+        $stok = DB::table('stockawalsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->value('stock');
+    
+        return $stok >= $qty;
+    }
+    
+    /**
+     * Modify stok di stockawalall dan stockawalsf.
+     */
+    private function modifyStok($idtap, $iddenom, $qty)
+    {
+        // Ambil stok eksisting
         $existingStockAll = DB::table('stockawalall')
-                        ->select('stock')
-                        ->where('idtap',$idtap)
-                        ->where('iddenom',$iddenom)
-                        ->first();
-        
-        $existingStockSf  = DB::table('stockawalsf')
-                        ->select('stock')
-                        ->where('idsf',$idsf)
-                        ->where('iddenom',$iddenom)
-                        ->first();
-        
-        $newStockAll = $existingStockAll->stock - $qty;
-        $newStockSf = $existingStockSf->stock - $qty;
-
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->value('stock');
+    
+        $existingStockSf = DB::table('stockawalsf')
+            ->where('idsf', $idtap)
+            ->where('iddenom', $iddenom)
+            ->value('stock');
+    
+        // Update stok baru
+        $newStockAll = $existingStockAll + $qty;
+        $newStockSf = $existingStockSf + $qty;
+    
+        // Update stok
         DB::table('stockawalall')
             ->where('idtap', $idtap)
             ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $newStockAll
-            ]);
-
+            ->update(['stock' => $newStockAll]);
+    
         DB::table('stockawalsf')
-            ->where('idsf', $idsf)
+            ->where('idsf', $idtap)
             ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $newStockSf
-            ]);
-
-        //hapus stok dari table masuk
-        DB::table('masuk')
-            ->where('idmasuk', $idmasuk)
-            ->delete();
-
-        return redirect('DO')->with('status','Data Berhasil Dihapus!');
+            ->update(['stock' => $newStockSf]);
     }
-}
+    
 
 
 public function exportexcel(Request $request)

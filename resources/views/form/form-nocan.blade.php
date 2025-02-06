@@ -149,4 +149,18 @@
             });
         });
     </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const inputDate = document.getElementById('date');
+            const today = new Date();
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(today.getMonth() - 1);
+
+            // Mengatur tanggal maksimal hingga hari ini
+            inputDate.max = today.toISOString().split('T')[0];
+            // Mengatur tanggal minimal ke satu bulan yang lalu
+            inputDate.min = monthAgo.toISOString().split('T')[0];
+        });
+    </script>
 @endpush

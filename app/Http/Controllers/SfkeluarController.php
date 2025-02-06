@@ -126,120 +126,79 @@ class SfkeluarController extends Controller
     }
 
     public function keluarsfproses(Request $request)
-    {
+{
+    $iddenom = $request->input('iddenom');
+    $idsf = $request->input('idsf');
+    $qty = $request->input('qty');
+    $tgl = $request->input('tgl');
+    $idtap = $request->input('idtap');
+    $tambahanket = $request->input('tambahanket');
 
-        $iddenom = $request->input('iddenom');
-        $idsf = $request->input('idsf');
-        $qty = $request->input('qty');
-        $tgl = $request->input('tgl');
-        $idtap = $request->input('idtap');
-        $tambahanket = $request->input('tambahanket');
-
-
-        //validasi qty mencukupi
-
-        $ssf = DB::table('stockawalsf')
-            ->select('stock')
-            ->where('iddenom', $iddenom)
-            ->where('idsf', $idsf)
-            ->first();
-
-        if ($ssf->stock < $qty) {
-
-            return redirect('form/form-sfkeluar')->withErrors(['error' => 'Stock SF Tidak Mencukupi']);
-        } else {
-            //cek stok sf
-
-            $ssf = DB::table('stockawalsf')
-                ->select('stock')
-                ->where('iddenom', $iddenom)
-                ->where('idsf', $idsf)
-                ->first();
-
-            $sall = DB::table('stockawalall')
-                ->select('stock')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $iddenom)
-                ->first();
-
-            $nsf = $ssf->stock - $qty;
-            $nall = $sall->stock - $qty;
-
-            //update
-
-            DB::table('stockawalsf')
-                ->where('iddenom', $iddenom)
-                ->where('idsf', $idsf)
-                ->update([
-                    'stock' => $nsf
-                ]);
-
-            DB::table('stockawalall')
-                ->where('iddenom', $iddenom)
-                ->where('idtap', $idtap)
-                ->update([
-                    'stock' => $nall
-                ]);
-
-            DB::table('keluarsf')
-                ->insert([
-                    'iddenom' => $iddenom,
-                    'idsf' => $idsf,
-                    'qty' => $qty,
-                    'tgl' => $tgl,
-                    'idtap' => $idtap,
-                    'tambahanket' => $tambahanket
-                ]);
-
-            return redirect('sf-keluar')->with('status', 'Data Berhasil Ditambahkan!');
-        }
+    // Validasi stok cukup
+    if (!$this->cekStok($idsf, $iddenom, $qty)) {
+        return redirect('form/form-sfkeluar')->withErrors(['error' => 'Stock SF Tidak Mencukupi']);
     }
 
-    public function delete(Request $request, $idkeluar)
-    {
+    // Update stok dan simpan data keluarsf
+    $this->updateStok($idtap, $idsf, $iddenom, -$qty);
 
-        $iddenom = $request->input('iddenom');
-        $idsf = $request->input('idsf');
-        $idtap = $request->input('idtap');
-        $qty = $request->input('qty');
+    DB::table('keluarsf')->insert([
+        'iddenom' => $iddenom,
+        'idsf' => $idsf,
+        'qty' => $qty,
+        'tgl' => $tgl,
+        'idtap' => $idtap,
+        'tambahanket' => $tambahanket
+    ]);
 
-        // cek stok awal sf dan all
+    return redirect('sf-keluar')->with('status', 'Data Berhasil Ditambahkan!');
+}
 
-        $ssf = DB::table('stockawalsf')
-            ->select('stock')
-            ->where('idsf', $idsf)
-            ->where('iddenom', $iddenom)
-            ->first();
+public function delete(Request $request, $idkeluar)
+{
+    $iddenom = $request->input('iddenom');
+    $idsf = $request->input('idsf');
+    $idtap = $request->input('idtap');
+    $qty = $request->input('qty');
 
-        $sall = DB::table('stockawalall')
-            ->select('stock')
-            ->where('iddenom', $iddenom)
-            ->where('idtap', $idtap)
-            ->first();
+    // Update stok dan hapus data keluarsf
+    $this->updateStok($idtap, $idsf, $iddenom, $qty);
 
-        $nsf = $ssf->stock + $qty;
-        $nall = $sall->stock + $qty;
+    DB::table('keluarsf')->where('idkeluar', $idkeluar)->delete();
 
-        DB::table('stockawalsf')
-            ->where('iddenom', $iddenom)
-            ->where('idsf', $idsf)
-            ->update([
-                'stock' => $nsf
-            ]);
+    return redirect('sf-keluar')->with('status', 'Data Berhasil DIhapus!');
+}
 
-        DB::table('stockawalall')
-            ->where('iddenom', $iddenom)
-            ->where('idtap', $idtap)
-            ->update([
-                'stock' => $nall
-            ]);
+/**
+ * Cek apakah stok SF mencukupi.
+ */
+private function cekStok($idsf, $iddenom, $qty)
+{
+    $stock = DB::table('stockawalsf')
+        ->where('idsf', $idsf)
+        ->where('iddenom', $iddenom)
+        ->value('stock');
 
-        DB::table('keluarsf')
-            ->where('idkeluar', $idkeluar)
-            ->delete();
+    return $stock >= $qty;
+}
 
-        return redirect('sf-keluar')->with('status', 'Data Berhasil DIhapus!');
-    }
+/**
+ * Update stok di stockawalsf dan stockawalall.
+ */
+private function updateStok($idtap, $idsf, $iddenom, $qty)
+{
+    // Ambil stok eksisting
+    $ssf = DB::table('stockawalsf')->where('idsf', $idsf)->where('iddenom', $iddenom)->first();
+    $sall = DB::table('stockawalall')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
+
+    // Hitung stok baru
+    $newStockSF = $ssf->stock - $qty;
+    $newStockTAP = $sall->stock + $qty;
+
+    // Update stok
+    DB::table('stockawalsf')->where('idsf', $idsf)->where('iddenom', $iddenom)->update(['stock' => $newStockSF]);
+    DB::table('stockawalall')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockTAP]);
+}
 
 
     public function exportexcel(Request $request)

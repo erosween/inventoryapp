@@ -31,16 +31,6 @@ class BOController extends Controller
                         return $item;
                     });
 
-            // $denombo = DB::table('keluar as k')
-            //             ->join('denom as d','d.iddenom', '=','k.iddenom')
-            //             ->select('d.denom',DB::raw('sum(k.qty) as qty'))
-            //             ->whereMonth('k.tgl', $month)
-            //             ->whereYear('k.tgl', $year)
-            //             ->groupBy('d.denom')
-            //             ->get();
-
-            // $grandTotal = $denombo->sum('qty');
-
         }else{
 
             $data= DB::table('keluar as k')
@@ -56,21 +46,9 @@ class BOController extends Controller
                         return $item;
                     });
 
-            // $denombo = DB::table('keluar as k')
-            //         ->join('denom as d','d.iddenom', '=','k.iddenom')
-            //         ->select('d.denom',DB::raw('sum(k.qty) as qty'))
-            //         ->whereMonth('k.tgl', $month)
-            //         ->whereYear('k.tgl', $year)
-            //         ->whereNotIn('k.pengirim',$kategoritap)
-            //         ->where('k.pengirim',$kategoribo)
-            //         ->groupBy('d.denom')
-            //         ->get();
-
-            // $grandTotal = $denombo->sum('qty');
-
 
                 }
-        return view ('BO', compact('data','idtap','month','year'));
+        return view ('BO', compact('data','idtap','month','year','kategoribo'));
   
     }
 
@@ -98,82 +76,78 @@ class BOController extends Controller
     }
 
     public function proseskeluarboform(Request $request)
+{
+    $data = $request->only(['pengirim', 'penerima', 'qty', 'iddenom', 'sn', 'tambahanket', 'tgl']);
     
-    {
-        $idtap = session('idtap');
-        $pengirim = $request->input('pengirim');
-        $penerima = $request->input('penerima');
-        $qty = $request->input('qty');
-        $iddenom = $request->input('iddenom');
-        $sn = $request->input('sn');
-        $tambahanket = $request->input('tambahanket');
+    // Cek stok BO
+    if ($this->getStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom']) < $data['qty']) {
+        return redirect('form/formkeluarbo')->withErrors(['error' => 'Stok BO Tidak Mencukupi!']);
+    }
 
-        //cekstok bo sekarang
-        $eksstokbo = DB::table('stockawalsf')
-                ->select ('stock')
-                ->where('idsf',$pengirim)
-                ->where('iddenom', $iddenom)
-                ->first();
+    // Insert ke tabel keluar
+    DB::table('keluar')->insert([
+        'iddenom' => $data['iddenom'],
+        'pengirim' => $data['pengirim'],
+        'penerima' => $data['penerima'],
+        'qty' => $data['qty'],
+        'tgl' => $data['tgl'],
+        'sn' => $data['sn'],
+        'tambahanket' => $data['tambahanket'],
+        'idtap' => $data['penerima'],
+        'status' => 0,
+    ]);
+
+    // Update stok BO dan TAP
+    $this->updateStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom'], 
+        $this->getStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom']) - $data['qty']);
+
+    $this->updateStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom'], 
+        $this->getStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom']) + $data['qty']);
+
+    return redirect('BO')->with('status', 'Data Berhasil Ditambahkan!');
+}
+
+public function delete(Request $request, $idkeluar)
+{
+    $data = $request->only(['pengirim', 'penerima', 'qty', 'iddenom']);
+
+    // Validasi stok TAP mencukupi
+    if ($this->getStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom']) < $data['qty']) {
+        return redirect('BO')->withErrors(['error' => 'Stock Tap Tidak Mencukupi!']);
+    }
+
+    // Update stok TAP dan BO
+    $this->updateStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom'], 
+        $this->getStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom']) - $data['qty']);
+
+    $this->updateStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom'], 
+        $this->getStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom']) + $data['qty']);
+
+    // Hapus dari tabel keluar
+    DB::table('keluar')->where('idkeluar', $idkeluar)->delete();
+
+    return redirect('keluar')->with('status', 'Data Berhasil Dihapus!');
+}
+
+// Helper function untuk mengambil stok
+private function getStock($table, $idColumn, $idValue, $iddenom)
+{
+    return DB::table($table)
+        ->where($idColumn, $idValue)
+        ->where('iddenom', $iddenom)
+        ->value('stock');
+}
+
+// Helper function untuk update stok
+private function updateStock($table, $idColumn, $idValue, $iddenom, $newStock)
+{
+    DB::table($table)
+        ->where($idColumn, $idValue)
+        ->where('iddenom', $iddenom)
+        ->update(['stock' => $newStock]);
+}
 
 
-        if($eksstokbo->stock < $qty){
-
-            return redirect('form/formkeluarbo')->withErrors(['error' => 'Stok BO Tidak Mencukupi!']);
-
-        }else{
-
-        //input ke stok keluar
-
-        DB::table('keluar')
-            ->insert([
-                'iddenom' => $request -> iddenom,
-                'pengirim' => $request -> pengirim,
-                'penerima' => $request -> penerima,
-                'qty' => $request -> qty,
-                'tgl' => $request -> tgl,
-                'sn' => $request -> sn,
-                'tambahanket' => $request -> tambahanket,
-                'idtap' => $request -> penerima,
-                'status' => 0,
-            ]);
-        
-        //cekstok bo sekarang
-        $eksstokbo = DB::table('stockawalsf')
-                    ->select ('stock')
-                    ->where('idsf', $pengirim)
-                    ->where('iddenom', $iddenom)
-                    ->first();
-
-        //cek stok tap sekarang
-        $eksstoktap = DB::table('stockawaltap')
-                    ->select('stock')
-                    ->where('idtap',$penerima)
-                    ->where('iddenom', $iddenom)
-                    ->first();
-
-        //stok baru
-        $newstokbo = $eksstokbo -> stock - $qty;
-        $newstoktap = $eksstoktap -> stock + $qty;
-
-        //update stok
-        DB::table('stockawalsf')
-            ->where('idsf', $pengirim)
-            ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $newstokbo
-            ]);
-        
-        DB::table('stockawaltap')
-            ->where('idtap', $penerima)
-            ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $newstoktap
-            ]);
-            
-        return redirect('BO')->with('status','Data Berhasil Ditambahkan!');
-    
-        }
-     }
 
     public function getTap(Request $request)
     {
@@ -206,68 +180,7 @@ class BOController extends Controller
         }
     }
 
-    public function delete(Request $request, $idkeluar){
-
-        $iddenom = $request->input('iddenom');
-        $pengirim = $request->input('pengirim');
-        $penerima = $request->input('penerima');
-        $qty = $request->input('qty');
-        $kategori = $request->input('kategori');
-
-            $eksstoktap = DB::table('stockawaltap')
-                            ->select('stock')
-                            ->where('idtap', $penerima)
-                            ->where('iddenom', $iddenom)
-                            ->first();
-
-            if($eksstoktap->stock < $qty){
-
-                return redirect('BO')->withErrors(['error' => 'Stock Tap Tidak Mencukupi!']);
-
-            }else{
-                //cek stok sekarang bo
-                $eksstoktap = DB::table('stockawaltap')
-                            ->select('stock')
-                            ->where('idtap', $penerima)
-                            ->where('iddenom', $iddenom)
-                            ->first();
-
-                $eksstokbo = DB::table('stockawalsf')
-                        ->select('stock')   
-                        ->where('idsf',$pengirim)
-                        ->where('iddenom',$iddenom)
-                        ->first();
-
-                //update stock terbaru
-
-                $newstok = $eksstoktap -> stock - $qty;
-                $newstokbo = $eksstokbo -> stock + $qty;
-                
-                DB::table('stockawaltap')
-                    ->where('idtap', $penerima)
-                    ->where('iddenom', $iddenom)
-                    ->update([
-                        'stock' => $newstok
-                    ]);
-                
-                DB::table('stockawalsf')
-                    ->where('idsf', $pengirim)
-                    ->where('iddenom', $iddenom)
-                    ->update([
-                        'stock' => $newstokbo
-                    ]);
-
-                }
-            
-        //del dari table keluar
-        DB::table('keluar')
-            ->where('idkeluar', $idkeluar)
-            ->delete();
-
-            return redirect('keluar')->with('status','Data Berhasil Dihapus!');
-
-        }
-
+    
         public function exportexcel(Request $request)
         {
             $idtap = session('idtap');

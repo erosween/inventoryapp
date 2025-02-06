@@ -70,83 +70,78 @@ class InjectController extends Controller
     }
 
     public function delete(Request $request, $idinject)
-    {
-        $idtap = $request->input('idtap');
-        $iddenom = $request->input('iddenom');
-        $qty = $request->input('qty');
-        $kategori = $request->input('kategori');
+{
+    $idtap = $request->input('idtap');
+    $iddenom = $request->input('iddenom');
+    $qty = $request->input('qty');
+    $kategori = $request->input('kategori');
 
-        //cek stok denom sekarang
-        $stokall = DB::table('stockawalall')
-                ->select('stock')
-                ->where('idtap' , $idtap)
-                ->where('iddenom', $iddenom)
-                ->first();
+    // Update stok denom dan segel
+    $this->updateStok($idtap, $iddenom, $kategori, $qty);
 
-        $stoktap = DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $iddenom)
-                ->first();
+    // Hapus data dari tabel inject
+    DB::table('injectvf')->where('idinject', $idinject)->delete();
 
-        //cek stok segel sekarang
-        $stokallsegel = DB::table('stockawalall')
-                ->select('stock')
-                ->where('idtap' , $idtap)
-                ->where('iddenom', $kategori)
-                ->first();
+    return redirect('injectvf')->with('status', 'Data Berhasil Dihapus!');
+}
 
-        $stoktapsegel = DB::table('stockawaltap')
-                ->select('stock')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $kategori)
-                ->first();
+/**
+ * Update stok denom dan segel.
+ */
+private function updateStok($idtap, $iddenom, $kategori, $qty)
+{
+    // Cek stok denom
+    $stokdenom = $this->getStok($idtap, $iddenom);
+    $stoksegel = $this->getStok($idtap, $kategori);
 
-        //stok baru
-        $newstokdenomall = $stokall->stock - $qty;
-        $newstokdenomtap = $stoktap->stock - $qty;
-        $newstoksegelall = $stokallsegel->stock + $qty;
-        $newstoksegeltap = $stoktapsegel->stock + $qty;
+    // Hitung stok baru
+    $newStokDenomAll = $stokdenom['all'] - $qty;
+    $newStokDenomTap = $stokdenom['tap'] - $qty;
+    $newStokSegelAll = $stoksegel['all'] + $qty;
+    $newStokSegelTap = $stoksegel['tap'] + $qty;
 
-        //update ke table
-        DB::table('stockawalall')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->update([
-                'stock' => $newstokdenomall
-            ]);
+    // Update stok denom dan segel
+    $this->modifyStok($idtap, $iddenom, $newStokDenomAll, $newStokDenomTap);
+    $this->modifyStok($idtap, $kategori, $newStokSegelAll, $newStokSegelTap);
+}
 
-        DB::table('stockawalall')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $kategori)
-            ->update([
-                'stock' => $newstoksegelall
-            ]);
+/**
+ * Get stok untuk all dan tap.
+ */
+private function getStok($idtap, $iddenom)
+{
+    $stokAll = DB::table('stockawalall')
+        ->where('idtap', $idtap)
+        ->where('iddenom', $iddenom)
+        ->value('stock');
 
-        
-        DB::table('stockawaltap')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->update ([
-                'stock' => $newstokdenomtap
-            ]);
+    $stokTap = DB::table('stockawaltap')
+        ->where('idtap', $idtap)
+        ->where('iddenom', $iddenom)
+        ->value('stock');
 
-        DB::table('stockawaltap')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $kategori)
-            ->update ([
-                'stock' => $newstoksegeltap
-            ]);
+    return [
+        'all' => $stokAll,
+        'tap' => $stokTap
+    ];
+}
 
-        //delete dari table inject
-        DB::table('injectvf')
-            ->where('idinject', $idinject)
-            ->delete();
+/**
+ * Modify stok di stockawalall dan stockawaltap.
+ */
+private function modifyStok($idtap, $iddenom, $newStokAll, $newStokTap)
+{
+    DB::table('stockawalall')
+        ->where('idtap', $idtap)
+        ->where('iddenom', $iddenom)
+        ->update(['stock' => $newStokAll]);
 
-        return redirect('injectvf')->with('status','Data Berhasil Dihapus!');
+    DB::table('stockawaltap')
+        ->where('idtap', $idtap)
+        ->where('iddenom', $iddenom)
+        ->update(['stock' => $newStokTap]);
+}
 
-        
-    }
 
     public function exportexcel(Request $request)
     {
@@ -182,9 +177,6 @@ class InjectController extends Controller
         return Excel::download(new InjectExport($penjualanData), $fileName);
     }
 
-    
-
-    
 
         
     }

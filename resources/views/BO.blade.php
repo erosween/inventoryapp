@@ -46,7 +46,8 @@
                                             ?>
                                             @foreach ($years as $year)
                                                 <option value="{{ $year }}"
-                                                    {{ $selectedYear == $year ? 'selected' : '' }}>{{ $year }}
+                                                    {{ $selectedYear == $year ? 'selected' : '' }}>
+                                                    {{ $year }}
                                                 </option>
                                             @endforeach
                                         </select>
