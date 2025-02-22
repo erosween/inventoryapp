@@ -141,8 +141,8 @@ class SfmasukController extends Controller
         return redirect('form/form-sfmasuk')->withErrors(['error' => 'Stok Tap Tidak Mencukupi!']);
     }
 
-    // Cek dan update stok
-    $this->updateStok($idtap, $idsf, $iddenom, $qty);
+    // Cek dan update stok (operasi masuk: kurangi stok TAP, tambah stok SF)
+    $this->updateStok($idtap, $idsf, $iddenom, $qty, true);
 
     // Insert data ke masuksf
     DB::table('masuksf')->insert([
@@ -165,12 +165,12 @@ public function delete(Request $request, $idmasuk)
     $qty = $request->input('qty');
 
     // Validasi stok SF
-    if (!$this->cekStok($idsf, $iddenom, $qty, 'stockawalsf')) {
+    if (!$this->cekStoksf($idsf, $iddenom, $qty, 'stockawalsf')) {
         return redirect('sf-masuk')->withErrors(['error' => 'Stok SF Tidak Mencukupi']);
     }
 
-    // Cek dan update stok
-    $this->updateStok($idtap, $idsf, $iddenom, -$qty);
+    // Cek dan update stok (operasi hapus: tambah stok TAP, kurangi stok SF)
+    $this->updateStok($idtap, $idsf, $iddenom, $qty, false);
 
     // Hapus data dari masuksf
     DB::table('masuksf')->where('idmasuk', $idmasuk)->delete();
@@ -191,25 +191,50 @@ private function cekStok($id, $iddenom, $qty, $table)
     return $stock >= $qty;
 }
 
-/**
- * Update stok pada stockawaltap dan stockawalsf.
- */
-private function updateStok($idtap, $idsf, $iddenom, $qty)
+private function cekStoksf($id, $iddenom, $qty, $table)
 {
-    // Ambil stok eksisting
-    $stap = DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
-    $ssf = DB::table('stockawalsf')->where('idsf', $idsf)->where('iddenom', $iddenom)->first();
+    $stock = DB::table($table)
+        ->where('idsf', $id)
+        ->where('iddenom', $iddenom)
+        ->value('stock');
 
-    // Hitung stok baru
-    $newStockTAP = $stap->stock - $qty;
-    $newStockSF = $ssf->stock + $qty;
-
-    // Update stok
-    DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockTAP]);
-    DB::table('stockawalsf')->where('idsf', $idsf)->where('iddenom', $iddenom)->update(['stock' => $newStockSF]);
+    return $stock >= $qty;
 }
 
+/**
+ * Update stok pada stockawaltap dan stockawalsf.
+ * @param int $idtap - ID TAP
+ * @param int $idsf - ID SF
+ * @param int $iddenom - ID Denom
+ * @param int $qty - Jumlah stok
+ * @param bool $isMasuk - True untuk operasi masuk, False untuk operasi hapus
+ */
+private function updateStok($idtap, $idsf, $iddenom, $qty, $isMasuk = true)
+{
+    if ($isMasuk) {
+        // Operasi masuk: kurangi stok TAP, tambah stok SF
+        DB::table('stockawaltap')
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->decrement('stock', $qty);
 
+        DB::table('stockawalsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->increment('stock', $qty);
+    } else {
+        // Operasi hapus: tambah stok TAP, kurangi stok SF
+        DB::table('stockawaltap')
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->increment('stock', $qty);
+
+        DB::table('stockawalsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->decrement('stock', $qty);
+    }
+}
 
     public function exportexcel(Request $request)
     {
