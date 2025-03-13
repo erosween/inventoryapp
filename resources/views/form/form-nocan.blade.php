@@ -29,8 +29,8 @@
                                     <label for="tgl" class="mt-3">TANGGAL :</label>
                                     <input type="date" class="form-control mb-3" name="tgl" required>
 
-                                    <label for="outlet" class="mt-3">ID OUTLET (JIKA JUAL KE OUTLET) :</label>
-                                    <input type="number" class="form-control mb-3" name="outlet">
+                                    <label for="outlet" class="mt-3">ID OUTLET / 123 untuk DS :</label>
+                                    <input type="number" class="form-control mb-3" name="outlet" required>
 
                                     <label for="tap">TAP :</label>
                                     <select class="form-control" id="select3" name="tap">
