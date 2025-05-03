@@ -19,7 +19,7 @@ class HomenocanController extends Controller
 
             // Inisialisasi array bulan dari Juni hingga Desember
             $months = [
-                'November' => 11,'December' => 12,"January'25" =>1,"Februari'25" =>2,"Maret'25" =>3,"April'25" =>4
+                'November' => 11,'December' => 12,"January'25" =>1,"Februari'25" =>2,"Maret'25" =>3,"April'25" =>4,"May'25" =>5
 
                 // 'June' => 6, 'July' => 7, 'August' => 8, 
                 // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
