@@ -58,6 +58,8 @@
                                                 <th>10GB/7hari</th>
                                                 <th>VOICE 30 HARI</th>
                                                 <th>BYU SEGEL</th>
+                                                <th>BYU 1GB/1hari</th>
+                                                <th>BYU 2GB/1hari</th>
                                                 <th>BYU 2GB/3hari</th>
                                                 <th>BYU 2.5GB/5hari</th>
                                                 <th>BYU 5GB/7hari</th>
@@ -114,6 +116,8 @@
                                                 $tV41 = 0;
                                                 $tV42 = 0;
                                                 $tV43 = 0;
+                                                $tV44 = 0;
+                                                $tV45 = 0;
                                                 $total = 0;
                                                 $grandTotal = 0;
 
@@ -139,6 +143,8 @@
                                                     <td> {{ number_format($row->V29) }}</td>
                                                     <td> {{ number_format($row->V15) }}</td>
                                                     <td> {{ number_format($row->V33) }}</td>
+                                                    <td> {{ number_format($row->V44) }}</td>
+                                                    <td> {{ number_format($row->V45) }}</td>
                                                     <td> {{ number_format($row->V34) }}</td>
                                                     <td> {{ number_format($row->V35) }}</td>
                                                     <td> {{ number_format($row->V36) }}</td>
@@ -194,6 +200,8 @@
                                                     $tV41 += $row->V41;
                                                     $tV42 += $row->V42;
                                                     $tV43 += $row->V43;
+                                                    $tV44 += $row->V44;
+                                                    $tV45 += $row->V45;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -217,6 +225,8 @@
                                                 <td><strong>{{ number_format($tV29) }}</strong></td>
                                                 <td><strong>{{ number_format($tV15) }}</strong></td>
                                                 <td><strong>{{ number_format($tV33) }}</strong></td>
+                                                <td><strong>{{ number_format($tV44) }}</strong></td>
+                                                <td><strong>{{ number_format($tV45) }}</strong></td>
                                                 <td><strong>{{ number_format($tV34) }}</strong></td>
                                                 <td><strong>{{ number_format($tV35) }}</strong></td>
                                                 <td><strong>{{ number_format($tV36) }}</strong></td>
