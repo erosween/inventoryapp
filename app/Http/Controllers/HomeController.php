@@ -11,6 +11,45 @@ class HomeController extends Controller
         public function index()
         {
 
+            // Inisialisasi array bulan dari Juni hingga Desember
+            $months = [
+                "Jan" =>1,"Feb" =>2,"Mar" =>3,"Apr" =>4,"May" =>5,"Jun" =>6,"Jul" =>7,"Aug" =>8,"Sept" =>9,"Oct" =>10,"Nov" =>11,"Dec" =>12
+
+                // 'June' => 6, 'July' => 7, 'August' => 8, 
+                // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
+            ];
+
+            // Ambil data dari tabel nocan
+            $salesData = DB::table('keluarsf')
+                        ->select(DB::raw('idtap, MONTH(tgl) as month, SUM(qty) as total_sales'))
+                        // ->where('cluster', 'dumai bengkalis')
+                        // ->where('outlet' , "!=" ,1)
+                        ->whereYear('tgl', 2025)
+                        ->where('tgl', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
+                        ->groupBy('idtap', 'month')
+                        ->get();
+
+                $result = [];
+                $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
+                
+                foreach ($salesData as $data) {
+                    $tap = $data->idtap;
+                    $month = $data->month;
+                    $totalSales = $data->total_sales;
+                    
+                    if (!isset($result[$tap])) {
+                        $result[$tap] = array_fill_keys(array_keys($months), 0);
+                    }
+                
+                    $monthName = array_search($month, $months);
+                    if ($monthName !== false) {
+                        $result[$tap][$monthName] = $totalSales;
+                        $totalFooter[$monthName] += $totalSales; // Tambahkan ke total footer
+                    }
+                }
+
+                // end penjualan bulanan
+
                 $idtap = session('idtap');
 
                 // untuk penjualan
@@ -170,8 +209,48 @@ class HomeController extends Controller
                         $grandTotaldb = $denomdumai->sum('qty');
                         $grandTotalrh = $denomrohil->sum('qty');
                     
-                        return view('home', compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'denomdumai', 'denomrohil', 'grandTotaldb', 'grandTotalrh'));
+                        return view('home',  ['months' => array_keys($months), // Hanya ambil nama bulan
+    'result' => $result, 'totalFooter' => $totalFooter],compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'denomdumai', 'denomrohil', 'grandTotaldb', 'grandTotalrh'));
                     }else {
+
+                        // Inisialisasi array bulan dari Juni hingga Desember
+            $months = [
+                "Jan" =>1,"Feb" =>2,"Mar" =>3,"Apr" =>4,"May" =>5,"Jun" =>6,"Jul" =>7,"Aug" =>8,"Sept" =>9,"Oct" =>10,"Nov" =>11,"Dec" =>12
+
+                // 'June' => 6, 'July' => 7, 'August' => 8, 
+                // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
+            ];
+
+            // Ambil data dari tabel nocan
+            $salesData = DB::table('keluarsf')
+                        ->select(DB::raw('idtap, MONTH(tgl) as month, SUM(qty) as total_sales'))
+                        // ->where('cluster', 'dumai bengkalis')
+                        ->where('idtap' ,$idtap)
+                        ->whereYear('tgl', 2025)
+                        ->where('tgl', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
+                        ->groupBy('idtap', 'month')
+                        ->get();
+
+                $result = [];
+                $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
+                
+                foreach ($salesData as $data) {
+                    $tap = $data->idtap;
+                    $month = $data->month;
+                    $totalSales = $data->total_sales;
+                    
+                    if (!isset($result[$tap])) {
+                        $result[$tap] = array_fill_keys(array_keys($months), 0);
+                    }
+                
+                    $monthName = array_search($month, $months);
+                    if ($monthName !== false) {
+                        $result[$tap][$monthName] = $totalSales;
+                        $totalFooter[$monthName] += $totalSales; // Tambahkan ke total footer
+                    }
+                }
+
+                // end penjualan bulanan
 
                         //ambil tanggal max di keluar sf
 
@@ -310,6 +389,7 @@ class HomeController extends Controller
                         $grandTotal = $salesdenom->sum('qty');
                 }
 
-                return view('home', compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'salesdenom', 'grandTotal'));
+                return view('home',['months' => array_keys($months), // Hanya ambil nama bulan
+    'result' => $result, 'totalFooter' => $totalFooter], compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'salesdenom', 'grandTotal'));
         }
 }

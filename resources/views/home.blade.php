@@ -80,12 +80,67 @@
                     </div>
                     {{-- row --}}
 
+                    {{-- penjualan bulanan --}}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="d-flex align-items-center tex-center">
+                                        <h4 class="card-title">PENJUALAN BULANAN</h4>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table id="add-row3" class="display table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>TAP</th>
+                                                    @foreach ($months as $month)
+                                                        <th>{{ $month }}</th>
+                                                    @endforeach
+                                                    <th>Total</th> <!-- Total Penjualan untuk semua bulan -->
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($result as $tap => $sales)
+                                                    <tr>
+                                                        <td>{{ $tap }}</td>
+                                                        @foreach ($months as $month)
+                                                            <td>{{ number_format($sales[$month]) }}</td>
+                                                        @endforeach
+                                                        <td>{{ number_format(array_sum($sales)) }}</td>
+                                                        <!-- Penjumlahan semua bulan -->
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <th>Total</th>
+                                                    @foreach ($totalFooter as $total)
+                                                        <th>{{ number_format($total) }}</th>
+                                                    @endforeach
+                                                    <th>{{ number_format(array_sum($totalFooter)) }}</th>
+                                                    <!-- Total dari semua bulan -->
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                        {{-- table responsive --}}
+                                    </div>
+                                </div>
+                                {{-- card body --}}
+                            </div>
+                            {{-- card --}}
+                        </div>
+
+                    </div>
+
+                    {{-- end bulanan --}}
                     <div class="row">
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
                                     <div class="d-flex align-items-center tex-center">
-                                        <h4 class="card-title">MONTHLY SALES</h4>
+                                        <h4 class="card-title">MONTH on MONTH SALES</h4>
                                     </div>
                                 </div>
                                 <div class="card-body">
