@@ -46,6 +46,7 @@ class InputDOController extends Controller
                     ->join('denom', 'masuk.iddenom', '=', 'denom.iddenom')
                     ->select('masuk.*','denom.denom')
                     ->whereMonth('masuk.tgl', $month)
+                    ->whereYear('tgl', $year)
                     ->where('masuk.pengirim','DO')
                     ->where('masuk.idtap', $idtap)
                     ->orderBy('masuk.tgl')
