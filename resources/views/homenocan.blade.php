@@ -148,7 +148,8 @@
                                                         @foreach ($months as $month)
                                                             <td>{{ $sales[$month] }}</td>
                                                         @endforeach
-                                                        <td>{{ array_sum($sales) }}</td> <!-- Penjumlahan semua bulan -->
+                                                        <td>{{ array_sum($sales) }}</td>
+                                                        <!-- Penjumlahan semua bulan -->
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -174,7 +175,7 @@
 
                     {{-- end penjualan bulanan --}}
 
-                    <div class="row">
+                    {{-- <div class="row">
                         <div class="col-md-12">
                             <div class="card">
                                 <div class="card-header">
@@ -243,15 +244,15 @@
                                                 </tr>
                                             </tfoot>
                                         </table>
-                                        {{-- table responsive --}}
+                                        
                                     </div>
                                 </div>
-                                {{-- card body --}}
+                                
                             </div>
-                            {{-- card --}}
+                            
                         </div>
 
-                    </div>
+                    </div> --}}
 
                     <div class="row">
                         <div class="col-md-6">

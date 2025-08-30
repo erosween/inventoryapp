@@ -27,9 +27,9 @@ class HomenocanController extends Controller
 
             // Ambil data dari tabel nocan
             $salesData = DB::table('nocan')
-                        ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status IN ("sold", "paid") THEN 1 ELSE 0 END) as total_sales'))
+                        ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status = "PAID" THEN 1 ELSE 0 END) as total_sales'))
                         ->where('cluster', 'dumai bengkalis')
-                        ->where('outlet' , "!=" ,1)
+                        // ->where('outlet' , "!=" ,1)
                         ->whereYear('tanggal', 2025)
                         ->where('tanggal', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
                         ->groupBy('tap', 'month')

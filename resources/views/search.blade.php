@@ -4,182 +4,393 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pilih Nocan</title>
+    <title>Katalog Nomor Cantik</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <!-- Gaya CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
         body {
-            /* background: linear-gradient(to right, #b4f4f2, #f9fbfc); */
-            /* background: #ffffff; */
-            color: #f9f8f8;
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
+            background: #fff;
+            color: #333;
+            font-family: 'Segoe UI', sans-serif;
         }
 
-        .header-image {
+        nav {
+            background: #ffffff;
+            border-bottom: 1px solid #eee;
+            padding: 16px 0;
+        }
+
+        nav .nav-link {
+            color: #333;
+            font-weight: 500;
+            margin: 0 10px;
+        }
+
+        nav .nav-link:hover {
+            color: #c19e2e;
+        }
+
+        .hero {
             text-align: center;
-            margin-bottom: 30px;
+            padding: 50px 20px 20px;
+            color: #c19e2e;
         }
 
-        .header-image img {
-            max-width: 60%;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-            /* Center the image horizontally */
+        .hero h1 {
+            font-size: 2rem;
+            font-weight: 800;
         }
 
+        .hero p {
+            color: #666;
+        }
+
+        /* Search */
         .search-box {
-            text-align: center;
-            max-width: 100%;
-            margin: 0 auto;
-            /* Centering the search box */
-            padding: 0 20px;
-        }
-
-        .search-input {
-            display: inline-block;
-            width: calc(100% - 8px);
-            /* Adjust width as needed */
+            max-width: 400px;
+            margin: 15px auto 25px;
             position: relative;
         }
 
-        .form-control {
-            border-radius: 30px;
-            padding: 15px 60px 15px 20px;
-            /* Padding for text input */
-            border: none;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        .search-box input {
             width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px 14px;
+            background: #fff;
+            color: #333;
         }
 
-        .search-button {
+        .search-box button {
             position: absolute;
-            right: -5px;
-            top: 0;
-            bottom: 0;
-            margin: auto;
+            right: 12px;
+            top: 6px;
+            background: none;
             border: none;
-            background: #bf2e2e;
+            color: #888;
+            font-size: 1.2rem;
+        }
+
+        /* Category Badge */
+        .category {
+            display: inline-flex;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #333;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .category .icon {
+            background: #c19e2e;
             color: #fff;
-            padding: 5px 15px;
-            border-radius: 30px;
-            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-size: 0.9rem;
         }
 
-        .search-button:hover {
-            background: #29a37a;
-        }
-
+        /* Grid Numbers */
         .results-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
         }
 
         .number-card {
-            background: linear-gradient(to right, #291f1f, #dd2929);
-            color: white;
-            padding: 8px;
+            background: #fafafa;
+            border: 1px solid #eee;
             border-radius: 10px;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-            display: block;
-            border: none;
-            /* Hapus border default dari button */
-        }
-
-        .number-card:hover {
-            transform: translateY(-5px);
-            background: #29a37a;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .number-card h5 {
-            margin: 0;
-            font-size: 1.3em;
-            color: white;
-            text-decoration: none;
+            padding: 18px;
+            text-align: center;
+            transition: all 0.3s ease;
             cursor: pointer;
         }
 
-        .number-card:hover h5 {
-            text-decoration: none;
+        .number-card:hover {
+            background: #fff;
+            border-color: #c19e2e;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
         }
 
+        .number {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #222;
+        }
 
-        /* Responsiveness for smaller screens */
-        @media (max-width: 1000px) {
-            .header-image img {
-                max-width: 100%;
+        .bonus {
+            font-size: 0.8rem;
+            color: #c19e2e;
+            margin-top: 6px;
+        }
+
+        footer {
+            margin-top: 40px;
+            padding: 20px;
+            background: #fff;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+
+        /* Floating WhatsApp Button */
+        .wa-float {
+            position: fixed;
+            width: 55px;
+            height: 55px;
+            bottom: 25px;
+            right: 25px;
+            background-color: #25d366;
+            color: #fff;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 28px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .wa-float:hover {
+            background-color: #20bd5c;
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        .wa-float {
+            position: fixed;
+            width: 75px;
+            height: 75px;
+            bottom: 20px;
+            right: 20px;
+            background-color: #25d366;
+            color: #FFF;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 36px;
+            box-shadow: 2px 2px 10px #999;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 1.5s infinite, wiggle 2s infinite ease-in-out;
+        }
+
+        .wa-float i {
+            font-size: 40px;
+        }
+
+        /* Animasi Denyut */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
             }
 
-            .search-input {
-                width: calc(120% - 50px);
+            70% {
+                transform: scale(1.1);
+                box-shadow: 0 0 15px 20px rgba(37, 211, 102, 0);
             }
 
-            .search-button {
-                padding: 8px 12px;
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
             }
+        }
+
+        /* Animasi Goyang */
+        @keyframes wiggle {
+
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+
+            15% {
+                transform: rotate(5deg);
+            }
+
+            30% {
+                transform: rotate(-5deg);
+            }
+
+            45% {
+                transform: rotate(3deg);
+            }
+
+            60% {
+                transform: rotate(-3deg);
+            }
+
+            75% {
+                transform: rotate(2deg);
+            }
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-weight: 600;
+            font-size: 13px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .button-back {
+            background: linear-gradient(135deg, #4b5563, #374151);
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .button-next {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: black;
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5);
+        }
+
+        .button:hover {
+            transform: scale(1.05);
+            filter: brightness(1.05);
+        }
+
+        button:focus,
+        a:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.4);
+            /* biru transparan */
+            border-radius: 12px;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="header-image">
-            <img src="image.jpg" alt="Header Image">
-        </div>
-        <div class="row justify-content-center search-box">
-            <div class="col-md-8">
-                <form id="searchForm" action="{{ route('search') }}" method="GET" class="search-input">
-                    <input type="text" name="search" class="form-control"
-                        placeholder="Masukkan 4 Digit Pilihan Kamu" aria-label="Masukkan 4 Digit Pilihan Kamu"
-                        aria-describedby="button-addon2">
-                    <button type="submit" class="search-button">
-                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24"
-                            height="24" fill="currentColor">
-                            <path
-                                d="M22.707 21.293l-6.004-6.004A7.473 7.473 0 0 0 18 10.5c0-4.136-3.364-7.5-7.5-7.5S3 6.364 3 10.5 6.364 18 10.5 18c1.7 0 3.259-.574 4.489-1.53l6.004 6.004a.996.996 0 0 0 1.414 0l1.414-1.414a.996.996 0 0 0 0-1.414zM10.5 16c-2.485 0-4.5-2.015-4.5-4.5s2.015-4.5 4.5-4.5 4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5z" />
-                        </svg>
-                    </button>
-                </form>
-                @if (isset($message))
-                    <div class="alert alert mt-0" style="color: #bf2e2e">
-                        <strong>*</strong> {{ $message }}
-                    </div>
-                @endif
-            </div>
-        </div>
 
-        <div class="row results-container">
+    <!-- Navbar -->
+    <nav class="d-flex justify-content-between align-items-center container">
+        <div class="font-weight-bold text-dark">katalog Nocan Murah</div>
+    </nav>
+
+    <!-- Hero -->
+    <div class="hero">
+        <h1>Pilih Nomor Cantikmu</h1>
+        <p>Pilihan Premium</p>
+    </div>
+
+    <!-- Search -->
+    <div class="search-box">
+        <form action="{{ route('search') }}" method="GET">
+            <input type="text" name="search" placeholder="Ketik minimal 3 digit..." value="{{ request('search') }}">
+            <button type="submit"><i class="fa fa-search"></i></button>
+        </form>
+    </div>
+
+    <!-- Category -->
+    <div class="container text-center">
+        <div class="category">
+            <div class="icon">✨</div>
+            Nomor Cantik
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="container">
+        <div class="results-container">
             @if ($results->isNotEmpty())
                 @foreach ($results as $number)
-                    <div class="col-md-4 col-lg-12">
-                        <button class="number-card col-md-4 col-lg-12" data-number="{{ $number->nomor }}">
-                            <h5>0{{ $number->nomor }}</h5>
-                        </button>
+                    <div class="number-card pilih-nomor" data-nomor="0{{ $number->nomor }}">
+                        <div class="number">0{{ $number->nomor }}</div>
+                        <div class="bonus">+ Kuota Gratis 20GB/Bulan selama SETAHUN</div>
                     </div>
                 @endforeach
+            @else
+                <p class="text-center w-100">⚠️ Tidak ada nomor ditemukan.</p>
             @endif
         </div>
 
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                let numberCards = document.querySelectorAll('.number-card');
-                numberCards.forEach(card => {
-                    card.addEventListener('click', function(event) {
-                        event.preventDefault(); // Menghentikan perilaku default dari tautan
-                        let number = this.getAttribute('data-number');
-                        let message = encodeURIComponent('Halo, saya tertarik dengan nomor ' + 0 +
-                            number);
-                        window.open('https://wa.me/' + 6282283331333 + '?text=' + message, '_blank');
-                    });
-                });
+        <!-- Custom Pagination -->
+        @if (request()->has('search'))
+            <div class="mt-4 d-flex justify-content-center">
+                @if (!$results->onFirstPage())
+                    <a href="{{ $results->appends(['search' => request('search')])->previousPageUrl() }}"
+                        class="button button-back mr-2">
+                        ← Back
+                    </a>
+                @endif
+
+                @if ($results->hasMorePages())
+                    <a href="{{ $results->appends(['search' => request('search')])->nextPageUrl() }}"
+                        class="button button-next">
+                        Next →
+                    </a>
+                @endif
+            </div>
+        @endif
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        📞 +62 822 8333 1333 | 💬 Order via WhatsApp
+    </footer>
+
+    <!-- Floating WhatsApp -->
+    <a id="wa-btn"
+        href="https://wa.me/6282283331333?text={{ urlencode('Halo, saya tertarik dengan nomor cantik Telkomsel.') }}"
+        class="wa-float" target="_blank">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <script>
+        let nomorDipilih = null;
+
+        // Klik pilih nomor
+        document.querySelectorAll('.pilih-nomor').forEach(card => {
+            card.addEventListener('click', () => {
+                nomorDipilih = card.getAttribute('data-nomor');
+
+                // highlight
+                document.querySelectorAll('.pilih-nomor').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
             });
-        </script>
+        });
+
+        // Klik WA
+        document.getElementById('wa-btn').addEventListener('click', function() {
+            let pesan = "";
+
+            if (nomorDipilih) {
+                pesan = `Halo, saya tertarik dengan nomor ${nomorDipilih}`;
+            } else {
+                pesan = "Halo, saya mau tanya tentang nomor cantik";
+            }
+
+            this.href = `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
+        });
+    </script>
+
+
+
+    <style>
+        .pilih-nomor.active {
+            border: 2px solid #c19e2e;
+            background: #fff7e6;
+            box-shadow: 0 4px 12px rgba(193, 158, 46, 0.3);
+        }
+    </style>
 
 </body>
 
