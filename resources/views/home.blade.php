@@ -68,7 +68,7 @@
                                         <div class="col col-stats ml-3 ml-sm-0">
                                             <div class="numbers">
                                                 <strong>
-                                                    <p class="card-category">SALES {{ strtoupper($month) }}</p>
+                                                    <p class="card-category">SALES {{ strtoupper($newmonth) }}</p>
                                                 </strong>
                                                 <h4 class="card-title">{{ number_format($sales) }} Pcs</h4>
                                             </div>
@@ -91,7 +91,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table id="add-row3" class="display table table-striped table-hover">
+                                        <table id="add-row4" class="display table table-striped table-hover">
                                             <thead>
                                                 <tr>
                                                     <th>TAP</th>
@@ -151,7 +151,7 @@
                                                     <th>NO</th>
                                                     <th>TAP</th>
                                                     <th>{{ strtoupper($month1) }} ({{ $tanggal }})</th>
-                                                    <th>{{ strtoupper($month) }} ({{ $tanggal }})</th>
+                                                    <th>{{ strtoupper($newmonth) }} ({{ $tanggal }})</th>
                                                     <th>MOM</th>
                                                 </tr>
                                             </thead>
@@ -439,9 +439,13 @@
                 [0, "desc"]
             ]
         });
-    </script>
+        $("#add-row4").DataTable({
+            pageLength: 20,
+            order: [
+                [0, "desc"]
+            ]
+        });
 
-    <script>
         // Add Row untuk total disetiap menu
         $("#add-row1").DataTable({
             searching: false,
@@ -451,17 +455,14 @@
                 [1, "desc"]
             ]
         });
-    </script>
 
-    <script>
         // Add Row
         $("#stock").DataTable({
             pageLength: 10,
         });
-    </script>
 
-    {{-- table penjualan perdenom di home --}}
-    <script>
+
+        // {{-- table penjualan perdenom di home --}}
         // Add Row
         $("#stock1").DataTable({
             searching: false,
@@ -471,9 +472,7 @@
                 [1, "desc"]
             ]
         });
-    </script>
 
-    <script>
         // Add Row
         $("#stock2").DataTable({
             searching: false,

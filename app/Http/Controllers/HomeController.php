@@ -15,8 +15,6 @@ class HomeController extends Controller
             $months = [
                 "Jan" =>1,"Feb" =>2,"Mar" =>3,"Apr" =>4,"May" =>5,"Jun" =>6,"Jul" =>7,"Aug" =>8,"Sept" =>9,"Oct" =>10,"Nov" =>11,"Dec" =>12
 
-                // 'June' => 6, 'July' => 7, 'August' => 8, 
-                // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
             ];
 
             // Ambil data dari tabel nocan
@@ -57,7 +55,7 @@ class HomeController extends Controller
                 $bulan1 = Carbon::now()->subMonths(1)->format('m');
                 $bulan2 = Carbon::now()->subMonths(2)->format('m');
 
-                $month = Carbon::now()->format('F');
+                $newmonth = Carbon::now()->format('F');
                 $month1 = Carbon::now()->subMonths(1)->format('F');
                 $month2 = Carbon::now()->subMonths(2)->format('F');
 
@@ -182,9 +180,9 @@ class HomeController extends Controller
                         }
                     
                         // Inisialisasi variabel $month, $month1, dan $month2
-                        $month = date('F', mktime(0, 0, 0, $bulan, 10)); // Nama bulan saat ini
-                        $month1 = date('F', mktime(0, 0, 0, $bulan - 1, 10)); // Nama bulan sebelumnya
-                        $month2 = date('F', mktime(0, 0, 0, $bulan - 2, 10)); // Nama dua bulan sebelumnya
+                        // $month = date('F', mktime(0, 0, 0, $bulan, 10)); // Nama bulan saat ini
+                        // $month1 = date('F', mktime(0, 0, 0, $bulan - 1, 10)); // Nama bulan sebelumnya
+                        // $month2 = date('F', mktime(0, 0, 0, $bulan - 2, 10)); // Nama dua bulan sebelumnya
                     
                         // Total penjualan per denom
                         $db = ['DUMAI', 'BENGKALIS', 'DURI', 'SEI PAKNING', 'RUPAT'];
@@ -210,16 +208,8 @@ class HomeController extends Controller
                         $grandTotalrh = $denomrohil->sum('qty');
                     
                         return view('home',  ['months' => array_keys($months), // Hanya ambil nama bulan
-    'result' => $result, 'totalFooter' => $totalFooter],compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'denomdumai', 'denomrohil', 'grandTotaldb', 'grandTotalrh'));
+    'result' => $result, 'totalFooter' => $totalFooter],compact('idtap', 'segel', 'inject', 'sales', 'newmonth','month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'denomdumai', 'denomrohil', 'grandTotaldb', 'grandTotalrh'));
                     }else {
-
-                        // Inisialisasi array bulan dari Juni hingga Desember
-            $months = [
-                "Jan" =>1,"Feb" =>2,"Mar" =>3,"Apr" =>4,"May" =>5,"Jun" =>6,"Jul" =>7,"Aug" =>8,"Sept" =>9,"Oct" =>10,"Nov" =>11,"Dec" =>12
-
-                // 'June' => 6, 'July' => 7, 'August' => 8, 
-                // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
-            ];
 
             // Ambil data dari tabel nocan
             $salesData = DB::table('keluarsf')
@@ -390,6 +380,6 @@ class HomeController extends Controller
                 }
 
                 return view('home',['months' => array_keys($months), // Hanya ambil nama bulan
-    'result' => $result, 'totalFooter' => $totalFooter], compact('idtap', 'segel', 'inject', 'sales', 'month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'salesdenom', 'grandTotal'));
+    'result' => $result, 'totalFooter' => $totalFooter], compact('idtap', 'segel', 'inject', 'sales', 'newmonth','month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'salesdenom', 'grandTotal'));
         }
 }
