@@ -17,34 +17,74 @@ class HomeController extends Controller
 
             ];
 
-            // Ambil data dari tabel nocan
-            $salesData = DB::table('keluarsf')
-                        ->select(DB::raw('idtap, MONTH(tgl) as month, SUM(qty) as total_sales'))
-                        // ->where('cluster', 'dumai bengkalis')
-                        // ->where('outlet' , "!=" ,1)
-                        ->whereYear('tgl', 2025)
-                        ->where('tgl', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
-                        ->groupBy('idtap', 'month')
-                        ->get();
+            // Definisi bulan
+$months = [
+    'Jan' => 1,
+    'Feb' => 2,
+    'Mar' => 3,
+    'Apr' => 4,
+    'May' => 5,
+    'Jun' => 6,
+    'Jul' => 7,
+    'Aug' => 8,
+    'Sep' => 9,
+    'Oct' => 10,
+    'Nov' => 11,
+    'Dec' => 12,
+];
 
-                $result = [];
-                $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
-                
-                foreach ($salesData as $data) {
-                    $tap = $data->idtap;
-                    $month = $data->month;
-                    $totalSales = $data->total_sales;
-                    
-                    if (!isset($result[$tap])) {
-                        $result[$tap] = array_fill_keys(array_keys($months), 0);
-                    }
-                
-                    $monthName = array_search($month, $months);
-                    if ($monthName !== false) {
-                        $result[$tap][$monthName] = $totalSales;
-                        $totalFooter[$monthName] += $totalSales; // Tambahkan ke total footer
+            // Mapping TAP -> Cluster
+            $tapClusterMap = [
+                // Dumai Bengkalis
+                'DUMAI'      => 'DUMAI BENGKALIS',
+                'DURI'  => 'DUMAI BENGKALIS',
+                'BENGKALIS'       => 'DUMAI BENGKALIS',
+                'SEI PAKNING'=> 'DUMAI BENGKALIS',
+                'RUPAT'      => 'DUMAI BENGKALIS',
+
+                // Rokan Hilir
+                'BAGAN BATU'     => 'ROKAN HILIR',
+                'BAGAN SIAPI-API' => 'ROKAN HILIR',
+                'UJUNG TANJUNG'  => 'ROKAN HILIR',
+            ];
+
+            // Ambil data dari tabel keluarsf
+            $salesData = DB::table('keluarsf')
+                ->select(DB::raw('idtap, MONTH(tgl) as month, SUM(qty) as total_sales'))
+                ->whereYear('tgl', 2025)
+                ->where('tgl', '>=', Carbon::create(6, 1)) // mulai Juni 2024
+                ->groupBy('idtap', 'month')
+                ->get();
+
+            $result = [];
+            $totalFooter = array_fill_keys(array_keys($months), 0); // total all TAP
+            $clusterFooter = []; // total per cluster
+
+            foreach ($salesData as $data) {
+                $tap = $data->idtap;
+                $month = $data->month;
+                $totalSales = $data->total_sales;
+
+                if (!isset($result[$tap])) {
+                    $result[$tap] = array_fill_keys(array_keys($months), 0);
+                }
+
+                $monthName = array_search($month, $months); // misal 6 -> "Jun"
+                if ($monthName !== false) {
+                    $result[$tap][$monthName] = $totalSales;
+                    $totalFooter[$monthName] += $totalSales;
+
+                    // Tambahkan ke cluster
+                    $cluster = $tapClusterMap[$tap] ?? null;
+                    if ($cluster) {
+                        if (!isset($clusterFooter[$cluster])) {
+                            $clusterFooter[$cluster] = array_fill_keys(array_keys($months), 0);
+                        }
+                        $clusterFooter[$cluster][$monthName] += $totalSales;
                     }
                 }
+            }
+
 
                 // end penjualan bulanan
 
@@ -179,11 +219,6 @@ class HomeController extends Controller
                             $tglUpload = []; // Inisialisasi variabel tglUpload jika $eDate tidak ada
                         }
                     
-                        // Inisialisasi variabel $month, $month1, dan $month2
-                        // $month = date('F', mktime(0, 0, 0, $bulan, 10)); // Nama bulan saat ini
-                        // $month1 = date('F', mktime(0, 0, 0, $bulan - 1, 10)); // Nama bulan sebelumnya
-                        // $month2 = date('F', mktime(0, 0, 0, $bulan - 2, 10)); // Nama dua bulan sebelumnya
-                    
                         // Total penjualan per denom
                         $db = ['DUMAI', 'BENGKALIS', 'DURI', 'SEI PAKNING', 'RUPAT'];
                         $denomdumai = DB::table('keluarsf as k')
@@ -207,8 +242,28 @@ class HomeController extends Controller
                         $grandTotaldb = $denomdumai->sum('qty');
                         $grandTotalrh = $denomrohil->sum('qty');
                     
-                        return view('home',  ['months' => array_keys($months), // Hanya ambil nama bulan
-    'result' => $result, 'totalFooter' => $totalFooter],compact('idtap', 'segel', 'inject', 'sales', 'newmonth','month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'denomdumai', 'denomrohil', 'grandTotaldb', 'grandTotalrh'));
+                       return view('home', [
+                            'months'       => array_keys($months), // Hanya ambil nama bulan
+                            'result'       => $result,
+                            'totalFooter'  => $totalFooter,
+                            'clusterFooter'=> $clusterFooter,
+                            'idtap'        => $idtap,
+                            'segel'        => $segel,
+                            'inject'       => $inject,
+                            'sales'        => $sales,
+                            'newmonth'     => $newmonth,
+                            'month'        => $month,
+                            'month1'       => $month1,
+                            'month2'       => $month2,
+                            'penjualan'    => $penjualan,
+                            'tglUpload'    => $tglUpload,
+                            'tanggal'      => $tanggal,
+                            'denomdumai'   => $denomdumai,
+                            'denomrohil'   => $denomrohil,
+                            'grandTotaldb' => $grandTotaldb,
+                            'grandTotalrh' => $grandTotalrh,
+                        ]);
+
                     }else {
 
             // Ambil data dari tabel nocan

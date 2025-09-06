@@ -46,10 +46,7 @@
                                                 <strong>
                                                     <p class="card-category">STOCK INJECT</p>
                                                 </strong>
-
                                                 <h4 class="card-title">{{ number_format($inject) }} Pcs</h4>
-
-
                                             </div>
                                         </div>
                                     </div>
@@ -91,7 +88,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table id="add-row4" class="display table table-striped table-hover">
+                                        <table id="add-row" class="display table table-striped table-hover header-blue">
                                             <thead>
                                                 <tr>
                                                     <th>TAP</th>
@@ -102,27 +99,40 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach ($result as $tap => $sales)
+                                                {{-- TAP rows --}}
+                                                @foreach ($result as $tap => $monthsData)
                                                     <tr>
                                                         <td>{{ $tap }}</td>
-                                                        @foreach ($months as $month)
-                                                            <td>{{ number_format($sales[$month]) }}</td>
+                                                        @foreach ($monthsData as $value)
+                                                            <td>{{ number_format($value) }}</td>
                                                         @endforeach
-                                                        <td>{{ number_format(array_sum($sales)) }}</td>
-                                                        <!-- Penjumlahan semua bulan -->
+                                                        <td>{{ number_format(array_sum($monthsData)) }}</td>
                                                     </tr>
                                                 @endforeach
+
                                             </tbody>
+
                                             <tfoot>
+                                                {{-- Cluster rows (masih di tbody, bukan tfoot) --}}
+                                                @foreach ($clusterFooter as $cluster => $monthsData)
+                                                    <tr class="table-secondary font-weight">
+                                                        <td>{{ $cluster }}</td>
+                                                        @foreach ($monthsData as $value)
+                                                            <td>{{ number_format($value) }}</td>
+                                                        @endforeach
+                                                        <td>{{ number_format(array_sum($monthsData)) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                                {{-- Total semua cluster (tfoot asli) --}}
                                                 <tr>
                                                     <th>Total</th>
                                                     @foreach ($totalFooter as $total)
                                                         <th>{{ number_format($total) }}</th>
                                                     @endforeach
                                                     <th>{{ number_format(array_sum($totalFooter)) }}</th>
-                                                    <!-- Total dari semua bulan -->
                                                 </tr>
                                             </tfoot>
+
                                         </table>
                                         {{-- table responsive --}}
                                     </div>
@@ -145,7 +155,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table id="stock" class="display table table-striped table-hover">
+                                        <table id="stock3" class="display table table-striped table-hover">
                                             <thead>
                                                 <tr>
                                                     <th>NO</th>
@@ -171,7 +181,49 @@
                                                         </td>
                                                     </tr>
                                                 @endforeach
+
+                                                {{-- Tambahkan cluster summary --}}
+                                                @php
+                                                    $clusters = [
+                                                        'DUMAI BENGKALIS' => [
+                                                            'DUMAI',
+                                                            'DURI',
+                                                            'BENGKALIS',
+                                                            'SEI PAKNING',
+                                                            'RUPAT',
+                                                        ],
+                                                        'ROKAN HILIR' => [
+                                                            'UJUNG TANJUNG',
+                                                            'BAGAN SIAPI-API',
+                                                            'BAGAN BATU',
+                                                        ],
+                                                    ];
+                                                @endphp
+
+                                                @foreach ($clusters as $clusterName => $taps)
+                                                    @php
+                                                        $sales1Cluster = 0;
+                                                        $salesNowCluster = 0;
+                                                        foreach ($taps as $tap) {
+                                                            if (isset($penjualan[$tap])) {
+                                                                $sales1Cluster += $penjualan[$tap]['sales1'];
+                                                                $salesNowCluster += $penjualan[$tap]['salesnow'];
+                                                            }
+                                                        }
+                                                        $momCluster =
+                                                            $sales1Cluster != 0
+                                                                ? ($salesNowCluster / $sales1Cluster - 1) * 100
+                                                                : 0;
+                                                    @endphp
+                                                    <tr class="table-secondary font-weight">
+                                                        <td colspan="2">{{ $clusterName }}</td>
+                                                        <td>{{ number_format($sales1Cluster) }}</td>
+                                                        <td>{{ number_format($salesNowCluster) }}</td>
+                                                        <td>{{ number_format($momCluster, 2) }}%</td>
+                                                    </tr>
+                                                @endforeach
                                             </tbody>
+
                                             <tfoot>
                                                 <tr>
                                                     <td colspan='2'><strong>TOTAL</strong></td>
@@ -337,7 +389,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive">
-                                            <table id="stock1" class="display table table-striped table-hover">
+                                            <table id="stock5" class="display table table-striped table-hover">
                                                 <thead>
                                                     <tr>
                                                         <th>DENOM</th>
@@ -434,15 +486,9 @@
     <script>
         // Add Row
         $("#add-row").DataTable({
-            pageLength: 5,
+            pageLength: 10,
             order: [
-                [0, "desc"]
-            ]
-        });
-        $("#add-row4").DataTable({
-            pageLength: 20,
-            order: [
-                [0, "desc"]
+                [0, "asc"]
             ]
         });
 
@@ -454,11 +500,6 @@
             order: [
                 [1, "desc"]
             ]
-        });
-
-        // Add Row
-        $("#stock").DataTable({
-            pageLength: 10,
         });
 
 
@@ -475,6 +516,15 @@
 
         // Add Row
         $("#stock2").DataTable({
+            searching: false,
+            paging: false,
+            info: false,
+            order: [
+                [1, "desc"]
+            ]
+        });
+
+        $("#stock3").DataTable({
             searching: false,
             paging: false,
             info: false,
