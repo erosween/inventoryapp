@@ -1,7 +1,6 @@
 @extends('layout.layout')
 
 @section('content')
-
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
@@ -113,16 +112,19 @@
                                             </tbody>
 
                                             <tfoot>
-                                                {{-- Cluster rows (masih di tbody, bukan tfoot) --}}
-                                                @foreach ($clusterFooter as $cluster => $monthsData)
-                                                    <tr class="table-secondary font-weight">
-                                                        <td>{{ $cluster }}</td>
-                                                        @foreach ($monthsData as $value)
-                                                            <td>{{ number_format($value) }}</td>
-                                                        @endforeach
-                                                        <td>{{ number_format(array_sum($monthsData)) }}</td>
-                                                    </tr>
-                                                @endforeach
+                                                @if (session('idtap') != 'SBP_DUMAI')
+                                                @else
+                                                    {{-- Cluster rows (masih di tbody, bukan tfoot) --}}
+                                                    @foreach ($clusterFooter as $cluster => $monthsData)
+                                                        <tr class="table-secondary font-weight">
+                                                            <td>{{ $cluster }}</td>
+                                                            @foreach ($monthsData as $value)
+                                                                <td>{{ number_format($value) }}</td>
+                                                            @endforeach
+                                                            <td>{{ number_format(array_sum($monthsData)) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                @endif
                                                 {{-- Total semua cluster (tfoot asli) --}}
                                                 <tr>
                                                     <th>Total</th>
@@ -183,45 +185,48 @@
                                                 @endforeach
 
                                                 {{-- Tambahkan cluster summary --}}
-                                                @php
-                                                    $clusters = [
-                                                        'DUMAI BENGKALIS' => [
-                                                            'DUMAI',
-                                                            'DURI',
-                                                            'BENGKALIS',
-                                                            'SEI PAKNING',
-                                                            'RUPAT',
-                                                        ],
-                                                        'ROKAN HILIR' => [
-                                                            'UJUNG TANJUNG',
-                                                            'BAGAN SIAPI-API',
-                                                            'BAGAN BATU',
-                                                        ],
-                                                    ];
-                                                @endphp
-
-                                                @foreach ($clusters as $clusterName => $taps)
+                                                @if (session('idtap') != 'SBP_DUMAI')
+                                                @else
                                                     @php
-                                                        $sales1Cluster = 0;
-                                                        $salesNowCluster = 0;
-                                                        foreach ($taps as $tap) {
-                                                            if (isset($penjualan[$tap])) {
-                                                                $sales1Cluster += $penjualan[$tap]['sales1'];
-                                                                $salesNowCluster += $penjualan[$tap]['salesnow'];
-                                                            }
-                                                        }
-                                                        $momCluster =
-                                                            $sales1Cluster != 0
-                                                                ? ($salesNowCluster / $sales1Cluster - 1) * 100
-                                                                : 0;
+                                                        $clusters = [
+                                                            'DUMAI BENGKALIS' => [
+                                                                'DUMAI',
+                                                                'DURI',
+                                                                'BENGKALIS',
+                                                                'SEI PAKNING',
+                                                                'RUPAT',
+                                                            ],
+                                                            'ROKAN HILIR' => [
+                                                                'UJUNG TANJUNG',
+                                                                'BAGAN SIAPI-API',
+                                                                'BAGAN BATU',
+                                                            ],
+                                                        ];
                                                     @endphp
-                                                    <tr class="table-secondary font-weight">
-                                                        <td colspan="2">{{ $clusterName }}</td>
-                                                        <td>{{ number_format($sales1Cluster) }}</td>
-                                                        <td>{{ number_format($salesNowCluster) }}</td>
-                                                        <td>{{ number_format($momCluster, 2) }}%</td>
-                                                    </tr>
-                                                @endforeach
+
+                                                    @foreach ($clusters as $clusterName => $taps)
+                                                        @php
+                                                            $sales1Cluster = 0;
+                                                            $salesNowCluster = 0;
+                                                            foreach ($taps as $tap) {
+                                                                if (isset($penjualan[$tap])) {
+                                                                    $sales1Cluster += $penjualan[$tap]['sales1'];
+                                                                    $salesNowCluster += $penjualan[$tap]['salesnow'];
+                                                                }
+                                                            }
+                                                            $momCluster =
+                                                                $sales1Cluster != 0
+                                                                    ? ($salesNowCluster / $sales1Cluster - 1) * 100
+                                                                    : 0;
+                                                        @endphp
+                                                        <tr class="table-secondary font-weight">
+                                                            <td colspan="2">{{ $clusterName }}</td>
+                                                            <td>{{ number_format($sales1Cluster) }}</td>
+                                                            <td>{{ number_format($salesNowCluster) }}</td>
+                                                            <td>{{ number_format($momCluster, 2) }}%</td>
+                                                        </tr>
+                                                    @endforeach
+                                                @endif
                                             </tbody>
 
                                             <tfoot>
@@ -430,9 +435,6 @@
         {{-- content --}}
     </div>
     {{-- main panel --}}
-
-
-
 @endsection
 @push('scripts')
     <!--   Core JS Files   -->
