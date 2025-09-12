@@ -354,6 +354,60 @@
         <i class="fab fa-whatsapp"></i>
     </a>
 
+    <!-- Tambahin Modal di bawah sebelum </body> -->
+    <div class="modal fade" id="popupNomor" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content" style="border-radius: 12px; text-align: center; padding: 20px;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title w-100" style="font-weight:700; color:#c19e2e;">Nomor Cantik Terpilih</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"
+                        style="font-size: 1.5rem; position: absolute; right: 20px; top: 20px;">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="popupNomorText" style="font-size:1.2rem; font-weight:700; margin-bottom:15px;"></div>
+                    <p style="color:#555; font-size:0.95rem;">
+                        🎁 Gratis kuota 20GB PERDANA + 20GB/Bulan selama <b>SETAHUN</b> dan KARTU AKTIF selama 3 TAHUN
+                    </p>
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <a id="popupWaBtn" target="_blank" class="btn btn-success"
+                        style="padding:10px 25px; font-weight:600; border-radius:10px;">
+                        Lanjut ke WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tambahin Bootstrap JS (kalau belum ada) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let nomorDipilih = null;
+
+        // Klik pilih nomor → buka modal
+        document.querySelectorAll('.pilih-nomor').forEach(card => {
+            card.addEventListener('click', () => {
+                nomorDipilih = card.getAttribute('data-nomor');
+
+                // isi teks popup
+                document.getElementById('popupNomorText').textContent = nomorDipilih;
+
+                // set href tombol WA
+                let pesan =
+                    `Halo, saya tertarik dengan nomor ${nomorDipilih}. Bonus kuota 20GB PERDANA + 20GB/Bulan selama SETAHUN.`;
+                document.getElementById('popupWaBtn').href =
+                    `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
+
+                // buka modal
+                $('#popupNomor').modal('show');
+            });
+        });
+    </script>
+
     <script>
         let nomorDipilih = null;
 
