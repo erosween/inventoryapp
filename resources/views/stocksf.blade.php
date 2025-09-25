@@ -38,12 +38,15 @@
                                                 <th>TAP</th>
                                                 <th>SF</th>
                                                 <th>SEGEL</th>
+                                                <th>5GB/1hari</th>
+                                                <th>5GB/2hari</th>
+                                                <th>5GB/3hari</th>
                                                 {{-- <th>RoaMAX SEGEL</th> --}}
-                                                <th>1GB/1hari</th>
+                                                {{-- <th>1GB/1hari</th> --}}
                                                 <th>2GB/1hari</th>
                                                 <th>2GB/3hari ZONA 1</th>
                                                 <th>2GB/3hari ZONA 2</th>
-                                                <th>2.5GB/3hari</th>
+                                                {{-- <th>2.5GB/3hari</th> --}}
                                                 <th>3GB/3hari</th>
                                                 <th>4GB/5hari</th>
                                                 <th>4.5GB/3hari</th>
@@ -76,12 +79,15 @@
                                                     <td> {{ $row->idtap }}</td>
                                                     <td> {{ $row->namasf }}</td>
                                                     <td> {{ number_format($row->SEGEL) }}</td>
+                                                    <td> {{ number_format($row->V48) }}</td>
+                                                    <td> {{ number_format($row->V49) }}</td>
+                                                    <td> {{ number_format($row->V50) }}</td>
                                                     {{-- <td> {{ number_format($row -> V16 )}}</td> --}}
-                                                    <td> {{ number_format($row->V32) }}</td>
+                                                    {{-- <td> {{ number_format($row->V32) }}</td> --}}
                                                     <td> {{ number_format($row->V42) }}</td>
                                                     <td> {{ number_format($row->V2) }}</td>
                                                     <td> {{ number_format($row->V24) }}</td>
-                                                    <td> {{ number_format($row->V41) }}</td>
+                                                    {{-- <td> {{ number_format($row->V41) }}</td> --}}
                                                     <td> {{ number_format($row->V30) }}</td>
                                                     <td> {{ number_format($row->V6) }}</td>
                                                     <td> {{ number_format($row->V3) }}</td>
@@ -112,12 +118,15 @@
                                             <tr>
                                                 <td colspan='3'><strong>TOTAL</strong></td>
                                                 <td><strong>{{ number_format($gTotal['SEGEL']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V48']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V49']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V50']) }}</strong></td>
                                                 {{-- <td><strong>{{ number_format($gTotal['V16']) }}</strong></td> --}}
-                                                <td><strong>{{ number_format($gTotal['V32']) }}</strong></td>
+                                                {{-- <td><strong>{{ number_format($gTotal['V32']) }}</strong></td> --}}
                                                 <td><strong>{{ number_format($gTotal['V42']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V2']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V24']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V41']) }}</strong></td>
+                                                {{-- <td><strong>{{ number_format($gTotal['V41']) }}</strong></td> --}}
                                                 <td><strong>{{ number_format($gTotal['V30']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V6']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V3']) }}</strong></td>

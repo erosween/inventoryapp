@@ -42,12 +42,15 @@
                                                 <th>NO</th>
                                                 <th>TAP</th>
                                                 <th>SEGEL</th>
+                                                <th>5GB/1hari</th>
+                                                <th>5GB/2hari</th>
+                                                <th>5GB/3hari</th>
                                                 {{-- <th>RoaMAX SEGEL</th> --}}
-                                                <th>1GB/1hari</th>
+                                                {{-- <th>1GB/1hari</th> --}}
                                                 <th>2GB/1hari</th>
                                                 <th>2GB/3hari ZONA 1</th>
                                                 <th>2GB/3hari ZONA 2</th>
-                                                <th>2.5GB/3hari</th>
+                                                {{-- <th>2.5GB/3hari</th> --}}
                                                 <th>3GB/3hari</th>
                                                 <th>4GB/5hari</th>
                                                 <th>4.5GB/3hari</th>
@@ -122,6 +125,9 @@
                                                 $tV45 = 0;
                                                 $tV46 = 0;
                                                 $tV47 = 0;
+                                                $tV48 = 0;
+                                                $tV49 = 0;
+                                                $tV50 = 0;
                                                 $total = 0;
                                                 $grandTotal = 0;
 
@@ -131,12 +137,15 @@
                                                     <td>{{ $loop->iteration }}</td>
                                                     <td> {{ $row->idtap }}</td>
                                                     <td> {{ number_format($row->SEGEL) }}</td>
+                                                    <td> {{ number_format($row->V48) }}</td>
+                                                    <td> {{ number_format($row->V49) }}</td>
+                                                    <td> {{ number_format($row->V50) }}</td>
                                                     {{-- <td> {{ number_format($row -> V16 )}}</td> --}}
-                                                    <td> {{ number_format($row->V32) }}</td>
+                                                    {{-- <td> {{ number_format($row->V32) }}</td> --}}
                                                     <td> {{ number_format($row->V42) }}</td>
                                                     <td> {{ number_format($row->V2) }}</td>
                                                     <td> {{ number_format($row->V24) }}</td>
-                                                    <td> {{ number_format($row->V41) }}</td>
+                                                    {{-- <td> {{ number_format($row->V41) }}</td> --}}
                                                     <td> {{ number_format($row->V30) }}</td>
                                                     <td> {{ number_format($row->V6) }}</td>
                                                     <td> {{ number_format($row->V3) }}</td>
@@ -210,6 +219,9 @@
                                                     $tV45 += $row->V45;
                                                     $tV46 += $row->V46;
                                                     $tV47 += $row->V47;
+                                                    $tV48 += $row->V48;
+                                                    $tV49 += $row->V49;
+                                                    $tV50 += $row->V50;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -217,12 +229,15 @@
                                             <tr>
                                                 <td colspan='2'><strong>TOTAL</strong></td>
                                                 <td><strong>{{ number_format($tsegel) }}</strong></td>
+                                                <td><strong>{{ number_format($tV48) }}</strong></td>
+                                                <td><strong>{{ number_format($tV49) }}</strong></td>
+                                                <td><strong>{{ number_format($tV50) }}</strong></td>
                                                 {{-- <td><strong>{{ number_format($tV16) }}</strong></td> --}}
-                                                <td><strong>{{ number_format($tV32) }}</strong></td>
+                                                {{-- <td><strong>{{ number_format($tV32) }}</strong></td> --}}
                                                 <td><strong>{{ number_format($tV42) }}</strong></td>
                                                 <td><strong>{{ number_format($tV2) }}</strong></td>
                                                 <td><strong>{{ number_format($tV24) }}</strong></td>
-                                                <td><strong>{{ number_format($tV41) }}</strong></td>
+                                                {{-- <td><strong>{{ number_format($tV41) }}</strong></td> --}}
                                                 <td><strong>{{ number_format($tV30) }}</strong></td>
                                                 <td><strong>{{ number_format($tV6) }}</strong></td>
                                                 <td><strong>{{ number_format($tV3) }}</strong></td>
