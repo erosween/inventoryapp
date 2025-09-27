@@ -11,16 +11,13 @@ class NocanController extends Controller
 
     public function index()
     {
-        $idtap = session('idtap');
-        // Ambil nilai filter dari request
 
         $data = DB::table('nocan')
             ->select("*")
             ->where('status', 'ready')
             ->get();
        
-
-        return view('nocan', compact('data','idtap'));
+        return view('nocan', compact('data'));
     }
 
     public function form(Request $request)

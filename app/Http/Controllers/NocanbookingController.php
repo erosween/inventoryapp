@@ -9,7 +9,7 @@ use Carbon\Carbon;
 class NocanbookingController extends Controller
 {
 
-    public function index(Request $request)
+    public function index()
     {
         $data = DB::table('nocan')
             ->select("*")
