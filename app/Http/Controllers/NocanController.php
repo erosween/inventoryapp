@@ -17,8 +17,6 @@ class NocanController extends Controller
             ->where('status', 'ready')
             ->get();
 
-        dd($data);
-       
         return view('nocan', compact('data'));
     }
 
