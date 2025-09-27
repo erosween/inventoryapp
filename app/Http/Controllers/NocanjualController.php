@@ -9,27 +9,17 @@ use Carbon\Carbon;
 class NocanjualController extends Controller
 {
 
-    public function index(Request $request)
+    public function index()
     {
-        $cluster = $request->input('cluster', session('cluster'));
 
-        session(['cluster' => $cluster]);
 
-        if ($cluster) {
             $data = DB::table('nocan')
                 ->select("*")
-                ->where('cluster', $cluster)
                 ->where('status', 'sold')
                 ->get();
-        } else {
-            $data = DB::table('nocan')
-                ->select("*")
-                ->where('cluster', $cluster)
-                ->where('status', 'sold')
-                ->get();
-        }
 
-        return view('jual', compact('data', 'cluster'));
+
+        return view('jual', compact('data'));
     }
 
     public function form(Request $request)

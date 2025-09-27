@@ -22,7 +22,11 @@
                             <div class="card-header">
                                 <div class="d-flex align-items-center">
                                     <h4 class="card-title">REKAPAN NOCAN MSP</h4>
-                                    <a href="{{ url('form/form-nocan') }}" class="btn btn-primary btn-round ml-auto">
+                                    <a href="{{ url('homenocan') }}" class="btn btn-warning btn-round ml-auto">
+                                        <i class="fa fa-home"> </i>
+                                        HOME
+                                    </a>
+                                    <a href="{{ url('form/form-nocan') }}" class="btn btn-primary btn-round ml-2">
                                         <i class="fa fa-plus"> </i>
                                         ORDER
                                     </a>
@@ -31,7 +35,7 @@
                                 <div class="container-fluid">
                                     <div class="row">
                                         <div class="col col-md-6 justify-content">
-                                            <form action="#" method="GET">
+                                            {{-- <form action="#" method="GET">
                                                 <label for="cluster">Filter Cluster:</label>
                                                 <select name="cluster" class="form-control">
                                                     <option value="">--PILIH CLUSTER--</option>
@@ -50,7 +54,7 @@
                                                     </option>
                                                 </select>
                                                 <button type="submit" class="btn btn-primary mt-2">Filter</button>
-                                            </form>
+                                            </form> --}}
                                         </div>
                                     </div>
                                     {{-- row --}}

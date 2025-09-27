@@ -13,23 +13,14 @@ class NocanadminController extends Controller
     {
 
         $idtap = session('idtap');
-        // Ambil nilai filter dari request
-        $cluster = $request->input('cluster');
 
         // Simpan nilai filter ke dalam session
-        if ($cluster) {
-            session(['cluster' => $cluster]);
-        } else {
-            $cluster = session('cluster');
-        }
-
         $data = DB::table('nocan')
             ->select("*")
-            ->where('cluster', $cluster)
             ->where('status', '!=', 'ready')
             ->get();
 
-        return view('nocanadmin', compact('data', 'cluster', 'idtap'));
+        return view('nocanadmin', compact('data', 'idtap'));
     }
 
     public function edit(Request $request, $id)
@@ -62,7 +53,6 @@ class NocanadminController extends Controller
             ->where('id', $id)
             ->update([
                 'tanggal' => null,
-                'tap' => null,
                 'booked' => null,
                 'outlet' => null,
                 'status' => "READY",

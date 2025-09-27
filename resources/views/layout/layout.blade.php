@@ -109,6 +109,12 @@
                                     <p>LIST NOCAN</p>
                                 </a>
                             </li>
+                            <li class="nav-item {{ request()->is('form/form-nocan') ? 'active' : '' }}">
+                                <a href="{{ url('form/form-nocan') }}">
+                                    <i class="fas fa-book" aria-hidden="true"></i>
+                                    <p>FORM ORDER</p>
+                                </a>
+                            </li>
                         @else
                             <li class="nav-item {{ request()->is('home') ? 'active' : '' }}">
                                 <a href="{{ url('home') }}">
