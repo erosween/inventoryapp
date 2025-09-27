@@ -11,25 +11,12 @@ class NocanbookingController extends Controller
 
     public function index(Request $request)
     {
-
-        $cluster = $request->input('cluster', session('cluster'));
-
-        session(['cluster' => $cluster]);
-
-        if ($cluster) {
-            $data = DB::table('nocan')
-                ->select("*")
-                ->where('cluster', $cluster)
-                ->where('status', 'booking')
-                ->get();
-        } else {
-            $data = DB::table('nocan')
-                ->select("*")
-                ->where('cluster', $cluster)
-                ->where('status', 'booking')
-                ->get();
-        }
-        return view('booking', compact('data', 'cluster'));
+        $data = DB::table('nocan')
+            ->select("*")
+            ->where('status', 'booking')
+            ->get();
+        
+        return view('booking', compact('data'));
     }
 
     public function form(Request $request)

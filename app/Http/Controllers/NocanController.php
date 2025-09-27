@@ -9,34 +9,18 @@ use Carbon\Carbon;
 class NocanController extends Controller
 {
 
-    public function index(Request $request)
+    public function index()
     {
         $idtap = session('idtap');
         // Ambil nilai filter dari request
-        $cluster = $request->input('cluster');
 
-        // Simpan nilai filter ke dalam session
-        if ($cluster) {
-            session(['cluster' => $cluster]);
-        } else {
-            $cluster = session('cluster');
-        }
+        $data = DB::table('nocan')
+            ->select("*")
+            ->where('status', 'ready')
+            ->get();
+       
 
-        if ($cluster) {
-            $data = DB::table('nocan')
-                ->select("*")
-                ->where('cluster', $cluster)
-                ->where('status', 'ready')
-                ->get();
-        } else {
-            $data = DB::table('nocan')
-                ->select("*")
-                ->where('cluster', $cluster)
-                ->where('status', 'ready')
-                ->get();
-        }
-
-        return view('nocan', compact('data', 'cluster', 'idtap'));
+        return view('nocan', compact('data','idtap'));
     }
 
     public function form(Request $request)

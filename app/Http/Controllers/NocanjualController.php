@@ -12,12 +12,10 @@ class NocanjualController extends Controller
     public function index()
     {
 
-
-            $data = DB::table('nocan')
-                ->select("*")
-                ->where('status', 'sold')
-                ->get();
-
+        $data = DB::table('nocan')
+            ->select("*")
+            ->where('status', 'sold')
+            ->get();
 
         return view('jual', compact('data'));
     }
