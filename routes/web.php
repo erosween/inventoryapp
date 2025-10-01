@@ -48,6 +48,14 @@ Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan');
 
 Route::get('/search', [searchController::class, 'search'])->name('search');
 
+//monita dumai
+use App\Http\Controllers\MonitaDumaiController;
+
+Route::get('/monitadumai', [MonitaDumaiController::class, 'index']);
+Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
+Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
+
+
 // group middleware
 Route::middleware(['auth'])->group(function () {
 
