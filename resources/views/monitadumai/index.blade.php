@@ -20,6 +20,13 @@
         body {
             background: #f9f9f9;
             color: #333;
+            font-family: 'Roboto', 'Open Sans', Arial, sans-serif;
+        }
+
+        .label,
+        .table {
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 400;
         }
 
         /* HEADER */
@@ -30,6 +37,8 @@
             align-items: center;
             justify-content: center;
             padding: 15px 10px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
         }
 
         .header .logo {
@@ -271,6 +280,22 @@
                 grid-template-columns: 1fr 1fr;
             }
         }
+
+        .empty-state {
+            text-align: center;
+            margin: 30px 0;
+            background: #f9f9f9;
+            /* warna sesuai background */
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .empty-img {
+            width: 220px;
+            border-radius: 12px;
+            background: transparent;
+            box-shadow: 0 4px 20px rgba(220, 0, 0, 0.06);
+        }
     </style>
 
 </head>
@@ -278,8 +303,7 @@
 <body>
     <!-- Header -->
     <header class="header">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/1/1f/Telkomsel_Logo.svg" alt="Logo" class="logo">
-        <h1>Outlet Info</h1>
+        <h1>Monita (Monitoring Outlet Aktif)</h1>
     </header>
 
     <!-- Main Container -->
@@ -292,6 +316,12 @@
                 <ul id="suggestions" class="suggestions-box"></ul>
             </div>
             <button class="btn-search" onclick="searchOutlet()">Cari</button>
+        </div>
+
+        <!-- Empty State GIF Doraemon Tidur -->
+        <!-- Empty State GIF Doraemon Tidur -->
+        <div id="empty-state" class="empty-state">
+            <img src="/static/images/shinchan.gif" alt="Shinchan Dance" class="empty-img">
         </div>
 
         <!-- Statistik -->
@@ -310,6 +340,7 @@
                         <th>M-1</th>
                         <th>MTD</th>
                         <th>MoM</th>
+                        <th>Update</th>
                     </tr>
                 </thead>
                 <tbody id="table-body"></tbody>
@@ -330,11 +361,13 @@
             const statsContainer = document.getElementById('stats-container');
             const detailTable = document.getElementById('detail-table');
             const tableBody = document.getElementById('table-body');
+            const emptyState = document.getElementById('empty-state');
 
             // Reset tampilan
             resultDiv.innerHTML = '';
             statsContainer.style.display = 'none';
             detailTable.style.display = 'none';
+            emptyState.style.display = 'block'; // Show empty state sebelum pencarian
 
             if (!keyword) {
                 resultDiv.innerHTML = '<p style="color:red;">Masukkan kata kunci</p>';
@@ -349,52 +382,60 @@
 
                 if (data.length === 0) {
                     resultDiv.innerHTML = '<p style="color:red;">Outlet tidak ditemukan</p>';
+                    emptyState.style.display = 'block'; // Show empty state jika gagal
+                    document.getElementById('keyword').value = '';
+                    document.getElementById('suggestions').innerHTML = '';
                     return;
                 }
 
+                emptyState.style.display = 'none'; // Hide empty state saat hasil ditemukan
+
                 const outlet = data[0];
 
-                // Info Outlet
+                // Tampilkan info outlet
                 resultDiv.innerHTML = `
-      <div class="card">
-        <h3>${outlet.namaoutlet}</h3>
-        <p><b>ID Outlet:</b> ${outlet.idoutlet}</p>
-        <p><b>Nama SF:</b> ${outlet.namasf}</p>
-        <p><b>TAP:</b> ${outlet.tap}</p>
-      </div>
-    `;
+            <div class="card">
+                <h3>${outlet.namaoutlet}</h3>
+                <p><b>ID Outlet:</b> ${outlet.idoutlet}</p>
+                <p><b>Nama SF:</b> ${outlet.sfcode}</p>
+                <p><b>TAP:</b> ${outlet.tap}</p>
+            </div>
+        `;
 
-                // Statistik
+                // Tampilkan statistik
                 statsContainer.innerHTML = `
-      <div class="stat-card red"><p>PARAM 1</p><h2>${outlet.mtdsa}</h2><span>${outlet.momsa}</span></div>
-      <div class="stat-card blue"><p>PARAM 2</p><h2>${outlet.mtdstovf}</h2><span>${outlet.momstovf}</span></div>
-      <div class="stat-card green"><p>PARAM 3</p><h2>${outlet.mtdpro}</h2><span>${outlet.mompro}</span></div>
-      <div class="stat-card orange"><p>PARAM 4</p><h2>${outlet.mtdbbvas}</h2><span>${outlet.mombbvas}</span></div>
-    `;
+            <div class="stat-card red"><p>ST SA</p><h2>${outlet.mtdsa}</h2><span>${outlet.momsa}</span></div>
+            <div class="stat-card blue"><p>ST PV</p><h2>${outlet.mtdstovf}</h2><span>${outlet.momstovf}</span></div>
+            <div class="stat-card green"><p>CVM</p><h2>${outlet.mtdcomsak}</h2><span>${outlet.momcomsak}</span></div>
+            <div class="stat-card orange"><p>DIGITAL</p><h2>${outlet.mtddigital}</h2><span>${outlet.momdigital}</span></div>
+        `;
                 statsContainer.style.display = 'grid';
 
-                // Tabel Rincian
+                // Tampilkan tabel rincian parameter
                 const parameters = [{
                         name: "PARAM 5",
                         m1: outlet.mtdbbvas,
                         mtd: outlet.mtdpro,
-                        mom: outlet.mompro
+                        mom: outlet.mompro,
+                        update: outlet.tglsuper
                     },
                     {
                         name: "PARAM 6",
                         m1: outlet.mtddigital,
                         mtd: outlet.mtdcomsak,
-                        mom: outlet.momcomsak
+                        mom: outlet.momcomsak,
+                        update: outlet.tglsuper
                     },
                     {
                         name: "PARAM 7",
                         m1: outlet.mtdvoice,
                         mtd: outlet.mtdvoice,
-                        mom: outlet.momvoice
-                    }
+                        mom: outlet.momvoice,
+                        update: outlet.tglsuper
+                    },
                 ];
 
-                tableBody.innerHTML = "";
+                tableBody.innerHTML = '';
                 parameters.forEach(param => {
                     const momNumeric = parseFloat(param.mom);
                     let momClass = "mom-neutral";
@@ -409,25 +450,31 @@
                     }
 
                     const momValue = param.mom || "0%";
+
                     const row = `
-        <tr>
-          <td style="text-align:left; font-weight:bold;">${param.name}</td>
-          <td>${param.m1 || 0}</td>
-          <td>${param.mtd || 0}</td>
-          <td><div class="mom-indicator ${momClass}">${icon} ${momValue}</div></td>
-        </tr>
-      `;
+                <tr>
+                    <td style="text-align:left; font-weight:bold;">${param.name}</td>
+                    <td>${param.m1 || 0}</td>
+                    <td>${param.mtd || 0}</td>
+                    <td><div class="mom-indicator ${momClass}">${icon} ${momValue}</div></td>
+                    <td>${param.update || 0}</td>
+                </tr>
+            `;
                     tableBody.innerHTML += row;
                 });
 
-                detailTable.style.display = "block";
+                detailTable.style.display = 'block';
             } catch (err) {
                 resultDiv.innerHTML = '<p style="color:red;">Error koneksi ke server</p>';
+                emptyState.style.display = 'block'; // Show empty state kalau error
             }
 
-            // Reset suggestion list tapi biarkan input tetap ada
+            // Reset input dan saran
+            document.getElementById('keyword').value = '';
             document.getElementById('suggestions').innerHTML = '';
         }
+
+
 
         async function showSuggestions(value) {
             const suggestionsBox = document.getElementById('suggestions');
