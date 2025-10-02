@@ -16,8 +16,8 @@ class MonitaDumaiController extends Controller
     {
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
-            ->where('idoutlet', $keyword)
-            ->orWhere('namaoutlet', 'like', '%' . $keyword . '%')
+            ->where('id_outlet', $keyword)
+            ->orWhere('nama_outlet', 'like', '%' . $keyword . '%')
             ->get();
 
         return response()->json($data);
@@ -27,9 +27,9 @@ class MonitaDumaiController extends Controller
     {
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
-            ->where('namaoutlet', 'like', '%' . $keyword . '%')
+            ->where('nama_outlet', 'like', '%' . $keyword . '%')
             ->limit(10)
-            ->pluck('namaoutlet');
+            ->pluck('nama_outlet');
 
         return response()->json($data);
     }

@@ -317,18 +317,17 @@
             </div>
             <button class="btn-search" onclick="searchOutlet()">Cari</button>
         </div>
-
-        <!-- Empty State GIF Doraemon Tidur -->
-        <!-- Empty State GIF Doraemon Tidur -->
-        <div id="empty-state" class="empty-state">
-            <img src="/static/images/shinchan.gif" alt="Shinchan Dance" class="empty-img">
-        </div>
-
         <!-- Statistik -->
         <div class="stats-container" id="stats-container" style="display:none;"></div>
 
         <!-- Hasil Pencarian -->
         <div id="result" class="result-container"></div>
+
+
+        <!-- Empty State GIF Doraemon Tidur -->
+        <div id="empty-state" class="empty-state">
+            <img src="/static/images/shinchan.gif" alt="Shinchan Dance" class="empty-img">
+        </div>
 
         <!-- Rincian Parameter -->
         <div class="table-container" id="detail-table" style="display:none;">
@@ -370,7 +369,7 @@
             emptyState.style.display = 'block'; // Show empty state sebelum pencarian
 
             if (!keyword) {
-                resultDiv.innerHTML = '<p style="color:red;">Masukkan kata kunci</p>';
+                resultDiv.innerHTML = '<p style="color:red;">Masukkan ID Outlet/Nama Outlet</p>';
                 return;
             }
 
@@ -395,43 +394,64 @@
                 // Tampilkan info outlet
                 resultDiv.innerHTML = `
             <div class="card">
-                <h3>${outlet.namaoutlet}</h3>
-                <p><b>ID Outlet:</b> ${outlet.idoutlet}</p>
-                <p><b>Nama SF:</b> ${outlet.sfcode}</p>
+                <h3>${outlet.nama_outlet}</h3>
+                <p><b>ID Outlet:</b> ${outlet.id_outlet}</p>
+                <p><b>Nama SF:</b> ${outlet.sf}</p>
                 <p><b>TAP:</b> ${outlet.tap}</p>
             </div>
         `;
 
                 // Tampilkan statistik
                 statsContainer.innerHTML = `
-            <div class="stat-card red"><p>ST SA</p><h2>${outlet.mtdsa}</h2><span>${outlet.momsa}</span></div>
-            <div class="stat-card blue"><p>ST PV</p><h2>${outlet.mtdstovf}</h2><span>${outlet.momstovf}</span></div>
-            <div class="stat-card green"><p>CVM</p><h2>${outlet.mtdcomsak}</h2><span>${outlet.momcomsak}</span></div>
-            <div class="stat-card orange"><p>DIGITAL</p><h2>${outlet.mtddigital}</h2><span>${outlet.momdigital}</span></div>
+            <div class="stat-card red"><p>ST SA</p><h2>${outlet.m_stsa}</h2><span>${outlet.mom_stsa}</span></div>
+            <div class="stat-card blue"><p>ST PV</p><h2>${outlet.m_stpv}</h2><span>${outlet.mom_stpv}</span></div>
+            <div class="stat-card green"><p>CVM</p><h2>${outlet.m_comsak}</h2><span>${outlet.mom_comsak}</span></div>
+            <div class="stat-card orange"><p>DIGITAL</p><h2>${outlet.m_digital}</h2><span>${outlet.mom_digital}</span></div>
         `;
                 statsContainer.style.display = 'grid';
 
                 // Tampilkan tabel rincian parameter
                 const parameters = [{
-                        name: "PARAM 5",
-                        m1: outlet.mtdbbvas,
-                        mtd: outlet.mtdpro,
-                        mom: outlet.mompro,
-                        update: outlet.tglsuper
+                        name: "TRX DIGIPOS",
+                        m1: outlet.m1_digipos,
+                        mtd: outlet.m_digipos,
+                        mom: outlet.mom_digipos,
+                        update: outlet.tgl_pack
                     },
                     {
-                        name: "PARAM 6",
-                        m1: outlet.mtddigital,
-                        mtd: outlet.mtdcomsak,
-                        mom: outlet.momcomsak,
-                        update: outlet.tglsuper
+                        name: "SUPER SERU",
+                        m1: outlet.m1_super,
+                        mtd: outlet.m_super,
+                        mom: outlet.mom_super,
+                        update: outlet.tgl_pack
                     },
                     {
-                        name: "PARAM 7",
-                        m1: outlet.mtdvoice,
-                        mtd: outlet.mtdvoice,
-                        mom: outlet.momvoice,
-                        update: outlet.tglsuper
+                        name: "HOT PROMO",
+                        m1: outlet.m1_hot,
+                        mtd: outlet.m_hot,
+                        mom: outlet.mom_hot,
+                        update: outlet.tgl_pack
+                    },
+                    {
+                        name: "COMSAK",
+                        m1: outlet.m1_comsak,
+                        mtd: outlet.m_comsak,
+                        mom: outlet.mom_comsak,
+                        update: outlet.tgl_pack
+                    },
+                    {
+                        name: "SO SA",
+                        m1: outlet.m1_sosa,
+                        mtd: outlet.m_sosa,
+                        mom: outlet.mom_sosa,
+                        update: outlet.tgl_sa
+                    },
+                    {
+                        name: "SO PV",
+                        m1: outlet.m1_sopv,
+                        mtd: outlet.m_sopv,
+                        mom: outlet.mom_sopv,
+                        update: outlet.tgl_pv
                     },
                 ];
 
@@ -473,8 +493,6 @@
             document.getElementById('keyword').value = '';
             document.getElementById('suggestions').innerHTML = '';
         }
-
-
 
         async function showSuggestions(value) {
             const suggestionsBox = document.getElementById('suggestions');
