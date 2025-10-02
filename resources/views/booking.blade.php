@@ -85,7 +85,7 @@
                                             <th>Tap</th>
                                             <th>Nomor</th>
                                             <th>Booked By</th>
-                                            <th>Harga</th>
+                                            {{-- <th>Harga</th> --}}
                                             <th>Status</th>
                                             <th>ID Outlet</th>
                                         </tr>
@@ -97,7 +97,7 @@
                                                 <td> {{ $row->tap }}</td>
                                                 <td> {{ $row->nomor }}</td>
                                                 <td> {{ $row->booked }}</td>
-                                                <td> {{ number_format($row->harga) }}</td>
+                                                {{-- <td> {{ number_format($row->harga) }}</td> --}}
                                                 <td> {{ $row->status }}</td>
                                                 <td> {{ $row->outlet }}</td>
                                             </tr>
