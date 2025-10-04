@@ -36,7 +36,8 @@ class WLNocanExport implements FromCollection, WithHeadings
             'STATUS',
             'OUTLET',
             'GRADE',
-            'INSENTIF'
+            'INSENTIF',
+            'ALOKASI'
 
         ];
     }

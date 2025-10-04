@@ -14,6 +14,7 @@ class NocanbookingController extends Controller
         $data = DB::table('nocan')
             ->select("*")
             ->where('status', 'booking')
+            ->where('alokasi','lama')
             ->get();
         
         return view('booking', compact('data'));
@@ -24,6 +25,7 @@ class NocanbookingController extends Controller
         $data = DB::table('nocan')
             ->select("*")
             ->where('status', 'ready')
+            ->where('alokasi','lama')
             ->get();
 
         return view('form/form-nocan', compact('data'));
@@ -43,6 +45,7 @@ class NocanbookingController extends Controller
         $ready = DB::table('nocan')
             ->where('nomor', $nomor)
             ->where('status', 'ready')
+            ->where('alokasi','lama')
             ->first();
 
         if ($ready) {

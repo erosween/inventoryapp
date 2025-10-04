@@ -21,6 +21,7 @@ class SearchController extends Controller
             ->where('nomor', 'LIKE', "%{$search}%")
             ->where('status', 'ready')
             ->where('cluster', 'dumai bengkalis')
+            ->where('alokasi','lama')
             ->paginate(12); // ✅ Per halaman 12 nomor
 
         // Biar parameter pencarian ikut ke pagination

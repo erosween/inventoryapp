@@ -41,7 +41,7 @@
                                     <input type="date" class="form-control mb-3" name="tgl" required>
 
                                     <label class="block text-gray-700 font-medium">ID OUTLET</label>
-                                    <input type="text" name="outlet" id="id_outlet"
+                                    <input type="number" name="outlet" id="id_outlet"
                                         class="form-control mb-3 w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-300"
                                         required>
 
