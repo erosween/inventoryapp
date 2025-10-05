@@ -363,7 +363,7 @@ class HomenocanController extends Controller
 
         if ($idtap == 'SB DUMAI') {
             $penjualanData = DB::table('nocan')
-                ->select('tanggal', 'cluster', 'tap', 'nomor', 'booked', 'harga', 'status', 'outlet', 'grade', 'insentif','alokasi')
+                ->select('tanggal', 'cluster', 'tap', 'nomor', 'booked', 'harga', 'status', 'outlet','alokasi')
                 ->where('cluster', 'DUMAI BENGKALIS')
                 // ->where('status', '!=', 'ready')
                 ->get();

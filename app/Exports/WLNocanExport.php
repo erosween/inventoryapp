@@ -35,8 +35,8 @@ class WLNocanExport implements FromCollection, WithHeadings
             'HARGA',
             'STATUS',
             'OUTLET',
-            'GRADE',
-            'INSENTIF',
+            // 'GRADE',
+            // 'INSENTIF',
             'ALOKASI'
 
         ];
