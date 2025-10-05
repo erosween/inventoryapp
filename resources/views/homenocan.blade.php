@@ -126,6 +126,9 @@
                         <div class="col-md-12">
                             <div class="card">
                                 <div class="card-header">
+                                    <div class="d-flex align-items-center tex-center">
+                                        <h4 class="card-title">PENJUALAN BULANAN</h4>
+                                    </div>
                                     <div class="d-flex align-items-center">
                                         <form action="#" method="GET">
                                             <label for="tahun" class="mt-2">Filter Tahun:</label>
@@ -144,9 +147,7 @@
                                             <button type="submit" class="btn btn-primary mt-2">Filter</button>
                                         </form>
                                     </div>
-                                    <div class="d-flex align-items-center tex-center">
-                                        <h4 class="card-title">PENJUALAN BULANAN</h4>
-                                    </div>
+
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">

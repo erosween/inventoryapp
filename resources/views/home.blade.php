@@ -84,6 +84,24 @@
                                     <div class="d-flex align-items-center tex-center">
                                         <h4 class="card-title">PENJUALAN BULANAN</h4>
                                     </div>
+                                    <div class="d-flex align-items-center">
+                                        <form action="#" method="GET">
+                                            <label for="tahun" class="mt-2">Filter Tahun:</label>
+                                            <select name="tahun" id="tahun" class="form-control">
+                                                <option value="">--Pilih Tahun--</option>
+                                                <?php
+                                                $selectedYear = request('tahun'); // Mendapatkan tahun yang dipilih
+                                                $years = [2023, 2024, 2025]; // Daftar tahun yang tersedia
+                                                ?>
+                                                @foreach ($years as $year)
+                                                    <option value="{{ $year }}"
+                                                        {{ $selectedYear == $year ? 'selected' : '' }}>{{ $year }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <button type="submit" class="btn btn-primary mt-2">Filter</button>
+                                        </form>
+                                    </div>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
