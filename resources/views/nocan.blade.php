@@ -35,6 +35,7 @@
                                 <div class="container-fluid">
                                     <div class="row">
                                         <div class="col col-md-6 justify-content">
+
                                             {{-- <form action="#" method="GET">
                                                 <label for="cluster">Filter Cluster:</label>
                                                 <select name="cluster" class="form-control">

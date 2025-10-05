@@ -10,19 +10,16 @@ use Carbon\Carbon;
 
 class HomenocanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+
+        $year = $request->input('tahun', date('Y'));
         $idtap = session('idtap');
         if ($idtap == 'SB DUMAI') {
-
-            // penjualan bulanan
 
             // Inisialisasi array bulan dari Juni hingga Desember
             $months = [
                 "Jan" =>1,"Feb" =>2,"Mar" =>3,"Apr" =>4,"May" =>5,"Jun" =>6,"Jul" =>7,"Aug" =>8,"Sept" =>9,"Oct" =>10,"Nov" =>11,"Dec" =>12
-
-                // 'June' => 6, 'July' => 7, 'August' => 8, 
-                // 'September' => 9,'October' => 10, 'November' => 11,'December' => 12
             ];
 
             // Ambil data dari tabel nocan
@@ -30,7 +27,7 @@ class HomenocanController extends Controller
                         ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status = "PAID" THEN 1 ELSE 0 END) as total_sales'))
                         ->where('cluster', 'dumai bengkalis')
                         // ->where('outlet' , "!=" ,1)
-                        ->whereYear('tanggal', 2025)
+                        ->whereYear('tanggal', $year)
                         ->where('tanggal', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
                         ->groupBy('tap', 'month')
                         ->get();

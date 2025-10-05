@@ -11,6 +11,7 @@
                 <div class="container-fluid">
                     <div class="row">
                         <div class="col-sm-6 col-md-3">
+
                             <div class="card card-stats card-round">
                                 <div class="card-body ">
                                     <div class="row align-items-center">
@@ -125,6 +126,24 @@
                         <div class="col-md-12">
                             <div class="card">
                                 <div class="card-header">
+                                    <div class="d-flex align-items-center">
+                                        <form action="#" method="GET">
+                                            <label for="tahun" class="mt-2">Filter Tahun:</label>
+                                            <select name="tahun" id="tahun" class="form-control">
+                                                <option value="">--Pilih Tahun--</option>
+                                                <?php
+                                                $selectedYear = request('tahun'); // Mendapatkan tahun yang dipilih
+                                                $years = [2024, 2025]; // Daftar tahun yang tersedia
+                                                ?>
+                                                @foreach ($years as $year)
+                                                    <option value="{{ $year }}"
+                                                        {{ $selectedYear == $year ? 'selected' : '' }}>{{ $year }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <button type="submit" class="btn btn-primary mt-2">Filter</button>
+                                        </form>
+                                    </div>
                                     <div class="d-flex align-items-center tex-center">
                                         <h4 class="card-title">PENJUALAN BULANAN</h4>
                                     </div>

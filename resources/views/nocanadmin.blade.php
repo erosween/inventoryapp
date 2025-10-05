@@ -11,17 +11,8 @@
                 @endif
                 <div class="card">
                     <div class="card-header">
-                        <div class="d-flex align-items-center">
+                        <div class="d-flex">
                             <h4 class="card-title">REKAPAN NOCAN MSP</h4>
-                        </div>
-
-                        <div class="container-fluid">
-                            <div class="row">
-                                <div class="col col-md-6 justify-content">
-                                </div>
-                                {{-- col col-md-6 --}}
-                            </div>
-                            {{-- row --}}
                         </div>
                         {{-- container-fluid --}}
                     </div>
@@ -52,7 +43,7 @@
                                         {{-- <td> {{ number_format($row->harga) }}</td> --}}
                                         <td> {{ $row->status }}</td>
                                         <td> {{ $row->outlet }}</td>
-                                        <td class="d-flex justify-content-between">
+                                        <td class="d-flex">
                                             <button class="btn btn-warning btn-round btn-sm" data-toggle="modal"
                                                 data-target="#addRowModal{{ $row->id }}">
                                                 Edit
@@ -170,9 +161,6 @@
                     @endforeach
                 </div>
                 {{-- card --}}
-
-
-
                 {{-- row --}}
             </div>
             {{-- page inner --}}
