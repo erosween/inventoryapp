@@ -33,8 +33,14 @@
                                     <select class="form-control" id="select2" name="nomor" required>
                                         <option value="">Pilih Nomor</option>
                                         @foreach ($data as $row)
-                                            <option value="{{ $row->nomor }}">{{ $row->nomor }}</option>
+                                            <option value="{{ $row->nomor }}" data-tap="{{ $row->tap }}">
+                                                {{ $row->nomor }}</option>
                                         @endforeach
+                                    </select>
+
+                                    <label class="block text-gray-700 font-medium mt-3">LOKASI NOCAN</label>
+                                    <select class="form-control" id="lokasi" name="tap" disabled>
+                                        <option value="">Pilih Nomor dulu</option>
                                     </select>
 
                                     <label for="tgl" class="mt-3">TANGGAL</label>
@@ -45,7 +51,7 @@
                                         class="form-control mb-3 w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-blue-300"
                                         required>
 
-                                    <label for="tap">TAP :</label>
+                                    <label for="tap">TAP PEMBELI:</label>
                                     <select class="form-control" id="select3" name="tap" required>
                                         <option value="">Pilih TAP</option>
                                         <option value="DUMAI">DUMAI</option>
@@ -88,6 +94,23 @@
     {{-- main panel --}}
 @endsection
 @push('scripts')
+    {{-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> --}}
+    <script>
+        $(document).ready(function() {
+            $('#select2').on('change', function() {
+                var selectedOption = $(this).find('option:selected');
+                var tapValue = selectedOption.data('tap');
+
+                if (tapValue) {
+                    $('#lokasi').html('<option value="' + tapValue + '">' + tapValue + '</option>');
+                    $('#lokasi').prop('disabled', false);
+                } else {
+                    $('#lokasi').html('<option value="">Pilih Nomor dulu</option>');
+                    $('#lokasi').prop('disabled', true);
+                }
+            });
+        });
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const penjualInput = document.getElementById('penjual');
