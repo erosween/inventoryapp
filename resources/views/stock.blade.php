@@ -65,9 +65,11 @@
                                                 <th>BYU 1GB/1hari</th>
                                                 <th>BYU 2GB/1hari</th>
                                                 <th>BYU 2GB/3hari</th>
+                                                <th>BYU 3GB/3hari</th>
                                                 <th>BYU 2.5GB/5hari</th>
                                                 <th>BYU 4GB/7hari</th>
                                                 <th>BYU 5GB/7hari</th>
+                                                <th>BYU 7GB/14hari</th>
                                                 <th>BYU KAGET 3GB/30hari</th>
                                                 <th>BYU KAGET 7GB/30hari</th>
                                                 <th>BYU KAGET 9GB/30hari</th>
@@ -128,6 +130,8 @@
                                                 $tV48 = 0;
                                                 $tV49 = 0;
                                                 $tV50 = 0;
+                                                $tV51 = 0;
+                                                $tV52 = 0;
                                                 $total = 0;
                                                 $grandTotal = 0;
 
@@ -160,9 +164,11 @@
                                                     <td> {{ number_format($row->V44) }}</td>
                                                     <td> {{ number_format($row->V45) }}</td>
                                                     <td> {{ number_format($row->V34) }}</td>
+                                                    <td> {{ number_format($row->V51) }}</td>
                                                     <td> {{ number_format($row->V35) }}</td>
                                                     <td> {{ number_format($row->V46) }}</td>
                                                     <td> {{ number_format($row->V36) }}</td>
+                                                    <td> {{ number_format($row->V52) }}</td>
                                                     <td> {{ number_format($row->V43) }}</td>
                                                     <td> {{ number_format($row->V37) }}</td>
                                                     <td> {{ number_format($row->V38) }}</td>
@@ -222,6 +228,8 @@
                                                     $tV48 += $row->V48;
                                                     $tV49 += $row->V49;
                                                     $tV50 += $row->V50;
+                                                    $tV51 += $row->V51;
+                                                    $tV52 += $row->V52;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -252,9 +260,11 @@
                                                 <td><strong>{{ number_format($tV44) }}</strong></td>
                                                 <td><strong>{{ number_format($tV45) }}</strong></td>
                                                 <td><strong>{{ number_format($tV34) }}</strong></td>
+                                                <td><strong>{{ number_format($tV51) }}</strong></td>
                                                 <td><strong>{{ number_format($tV35) }}</strong></td>
                                                 <td><strong>{{ number_format($tV46) }}</strong></td>
                                                 <td><strong>{{ number_format($tV36) }}</strong></td>
+                                                <td><strong>{{ number_format($tV52) }}</strong></td>
                                                 <td><strong>{{ number_format($tV43) }}</strong></td>
                                                 <td><strong>{{ number_format($tV37) }}</strong></td>
                                                 <td><strong>{{ number_format($tV38) }}</strong></td>

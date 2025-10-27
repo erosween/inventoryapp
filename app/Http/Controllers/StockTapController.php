@@ -17,7 +17,7 @@ class StockTapController extends Controller
         if ($idtap == 'SBP_DUMAI') {
             // Membuat array denominasi mulai dari SEGEL, V1 hingga V40
             $denoms = ['SEGEL'];
-            for ($i = 1; $i <= 50; $i++) {
+            for ($i = 1; $i <= 60; $i++) {
                 $denoms[] = 'V' . $i;
             }
         
@@ -37,7 +37,7 @@ class StockTapController extends Controller
 
         // Membuat array denominasi mulai dari SEGEL, V1 hingga V40
         $denoms = ['SEGEL'];
-        for ($i = 1; $i <= 50; $i++) {
+        for ($i = 1; $i <= 60; $i++) {
             $denoms[] = 'V' . $i;
         }
     
