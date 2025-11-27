@@ -405,7 +405,7 @@
                 statsContainer.innerHTML = `
             <div class="stat-card red"><p>ST SA</p><h2>${outlet.m_stsa}</h2><span>${outlet.mom_stsa}</span></div>
             <div class="stat-card blue"><p>ST PV</p><h2>${Number(outlet.m_stpv).toLocaleString()}</h2><span>${outlet.mom_stpv}</span></div>
-            <div class="stat-card green"><p>CVM</p><h2>${outlet.m_comsak}</h2><span>${outlet.mom_comsak}</span></div>
+            <div class="stat-card green"><p>CVM</p><h2>${outlet.m_cvm}</h2><span>${outlet.mom_cvm}</span></div>
             <div class="stat-card orange"><p>DIGITAL</p><h2>${outlet.m_digital}</h2><span>${outlet.mom_digital}</span></div>
         `;
                 statsContainer.style.display = 'grid';
