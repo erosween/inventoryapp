@@ -56,7 +56,9 @@
                                                 <th>7GB/7hari</th>
                                                 <th>10GB/7hari</th>
                                                 <th>11GB/30hari</th>
+                                                <th>12GB/30hari</th>
                                                 <th>18GB/30hari</th>
+                                                <th>20GB/30hari</th>
                                                 <th>VOICE 30 HARI</th>
                                                 <th>BYU SEGEL</th>
                                                 <th>BYU 1GB/1hari</th>
@@ -100,7 +102,9 @@
                                                     <td> {{ number_format($row->V28) }}</td>
                                                     <td> {{ number_format($row->V29) }}</td>
                                                     <td> {{ number_format($row->V47) }}</td>
+                                                    <td> {{ number_format($row->V54) }}</td>
                                                     <td> {{ number_format($row->V53) }}</td>
+                                                    <td> {{ number_format($row->V55) }}</td>
                                                     <td> {{ number_format($row->V15) }}</td>
                                                     <td> {{ number_format($row->V33) }}</td>
                                                     <td> {{ number_format($row->V44) }}</td>
@@ -142,7 +146,9 @@
                                                 <td><strong>{{ number_format($gTotal['V28']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V29']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V47']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V54']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V53']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V55']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V15']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V33']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V44']) }}</strong></td>
