@@ -48,6 +48,7 @@
                                                 {{-- <th>RoaMAX SEGEL</th> --}}
                                                 {{-- <th>1GB/1hari</th> --}}
                                                 <th>2GB/1hari</th>
+                                                <th>4GB/1hari</th>
                                                 <th>2GB/3hari ZONA 1</th>
                                                 <th>2GB/3hari ZONA 2</th>
                                                 {{-- <th>2.5GB/3hari</th> --}}
@@ -144,6 +145,7 @@
                                                 $tV56 = 0;
                                                 $tV57 = 0;
                                                 $tV58 = 0;
+                                                $tV59 = 0;
                                                 $total = 0;
                                                 $grandTotal = 0;
 
@@ -159,6 +161,7 @@
                                                     {{-- <td> {{ number_format($row -> V16 )}}</td> --}}
                                                     {{-- <td> {{ number_format($row->V32) }}</td> --}}
                                                     <td> {{ number_format($row->V42) }}</td>
+                                                    <td> {{ number_format($row->V59) }}</td>
                                                     <td> {{ number_format($row->V2) }}</td>
                                                     <td> {{ number_format($row->V24) }}</td>
                                                     {{-- <td> {{ number_format($row->V41) }}</td> --}}
@@ -254,6 +257,7 @@
                                                     $tV56 += $row->V56;
                                                     $tV57 += $row->V57;
                                                     $tV58 += $row->V58;
+                                                    $tV59 += $row->V59;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -267,6 +271,7 @@
                                                 {{-- <td><strong>{{ number_format($tV16) }}</strong></td> --}}
                                                 {{-- <td><strong>{{ number_format($tV32) }}</strong></td> --}}
                                                 <td><strong>{{ number_format($tV42) }}</strong></td>
+                                                <td><strong>{{ number_format($tV59) }}</strong></td>
                                                 <td><strong>{{ number_format($tV2) }}</strong></td>
                                                 <td><strong>{{ number_format($tV24) }}</strong></td>
                                                 {{-- <td><strong>{{ number_format($tV41) }}</strong></td> --}}
