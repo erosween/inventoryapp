@@ -65,6 +65,7 @@
                                                 <th>BYU 2GB/1hari</th>
                                                 <th>BYU 2GB/3hari</th>
                                                 <th>BYU 3GB/3hari</th>
+                                                <th>BYU 4GB/3hari</th>
                                                 <th>BYU 2.5GB/5hari</th>
                                                 <th>BYU 4GB/7hari</th>
                                                 <th>BYU 5GB/7hari</th>
@@ -113,6 +114,7 @@
                                                     <td> {{ number_format($row->V45) }}</td>
                                                     <td> {{ number_format($row->V34) }}</td>
                                                     <td> {{ number_format($row->V51) }}</td>
+                                                    <td> {{ number_format($row->V58) }}</td>
                                                     <td> {{ number_format($row->V35) }}</td>
                                                     <td> {{ number_format($row->V46) }}</td>
                                                     <td> {{ number_format($row->V36) }}</td>
@@ -157,6 +159,7 @@
                                                 <td><strong>{{ number_format($gTotal['V33']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V44']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V51']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V58']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V45']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V34']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V35']) }}</strong></td>
