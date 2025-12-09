@@ -108,18 +108,19 @@ class SfkeluarController extends Controller
                 ->where('idtap', $idtaps)
                 ->get();
 
-            foreach ($tapnya as $tap) {
-                echo "option value=''> --Pilih SF-- </option>";
-                echo "<option value='$tap->idsf'> $tap->namasf</option>";
-            }
+        echo "<option value=''> --Pilih SF-- </option>";
+        foreach ($tapnya as $tap) {
+            echo "<option value='{$tap->idsf}'> {$tap->namasf} </option>";
+        }
+
         } else {
 
             $tapnya = DB::table('idsf')
                 ->where('idtap', $idtapsession)
                 ->get();
 
+            echo "<option value=''> --Pilih SF-- </option>";
             foreach ($tapnya as $tap) {
-                echo "option value=''> --Pilih SF-- </option>";
                 echo "<option value='$tap->idsf'> $tap->namasf</option>";
             }
         }
@@ -152,14 +153,18 @@ class SfkeluarController extends Controller
 
 public function delete(Request $request, $idkeluar)
 {
-    // Ambil data dari request
-    $data = $request->only(['iddenom', 'idsf', 'idtap', 'qty']);
+    // Ambil data asli dari database
+    $data = DB::table('keluarsf')->where('idkeluar', $idkeluar)->first();
 
-    // Update stok SF dan All
-    $this->updateStock('stockawalsf', $data['iddenom'], $data['idsf'], $data['qty']);
-    $this->updateStock('stockawalall', $data['iddenom'], $data['idtap'], $data['qty']);
+    if (!$data) {
+        return redirect('sf-keluar')->withErrors(['error' => 'Data tidak ditemukan']);
+    }
 
-    // Hapus data dari tabel keluarsf
+    // Kembalikan stok SF & All
+    $this->updateStock('stockawalsf', $data->iddenom, $data->idsf, $data->qty);
+    $this->updateStock('stockawalall', $data->iddenom, $data->idtap, $data->qty);
+
+    // Hapus data
     DB::table('keluarsf')->where('idkeluar', $idkeluar)->delete();
 
     return redirect('sf-keluar')->with('status', 'Data Berhasil Dihapus!');
@@ -170,15 +175,14 @@ private function updateStock($table, $iddenom, $id, $qty)
     $column = ($table === 'stockawalsf') ? 'idsf' : 'idtap';
 
     DB::table($table)
-        ->where('iddenom', $iddenom)
-        ->where($column, $id)
-        ->update([
-            'stock' => DB::raw("stock + $qty")
-        ]);
+    ->where('iddenom', $iddenom)
+    ->where($column, $id)
+    ->increment('stock', $qty);
+
 }
 
 
-    public function exportexcel(Request $request)
+public function exportexcel(Request $request)
     {
         $idtap = session('idtap');
         $month = $request->input('bulan', date('m'));

@@ -91,7 +91,7 @@
                                                 <option value="">--Pilih Tahun--</option>
                                                 <?php
                                                 $selectedYear = request('tahun'); // Mendapatkan tahun yang dipilih
-                                                $years = [2023, 2024, 2025]; // Daftar tahun yang tersedia
+                                                $years = [2023, 2024, 2025, 2026]; // Daftar tahun yang tersedia
                                                 ?>
                                                 @foreach ($years as $year)
                                                     <option value="{{ $year }}"

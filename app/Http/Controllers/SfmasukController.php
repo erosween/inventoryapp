@@ -110,21 +110,22 @@ class SfmasukController extends Controller
                     ->select('*')
                     ->where('idtap', $idtaps)
                     ->get();
-
+                    
+                    echo "<option value=''>--Pilih SF--</option>";
                     foreach ($tapnya as $tap){
                         echo "<option value='$tap->idsf'> $tap->namasf</option>";
+
                     }
         }else{
 
             $tapnya = DB::table('idsf')
                         ->where('idtap', $idtapsession)
                         ->get();
-    
+                        echo "<option value=''>--Pilih SF--</option>";
                         foreach ($tapnya as $tap){
                             echo "<option value='$tap->idsf'> $tap->namasf</option>";
                         }
         }
-
     }
 
     public function masuksfproses(Request $request)
@@ -159,24 +160,26 @@ class SfmasukController extends Controller
 
 public function delete(Request $request, $idmasuk)
 {
-    $idtap = $request->input('idtap');
-    $idsf = $request->input('idsf');
-    $iddenom = $request->input('iddenom');
-    $qty = $request->input('qty');
+    // Ambil data asli dari database
+    $data = DB::table('masuksf')->where('idmasuk', $idmasuk)->first();
 
-    // Validasi stok SF
-    if (!$this->cekStoksf($idsf, $iddenom, $qty, 'stockawalsf')) {
+    if (!$data) {
+        return redirect('sf-masuk')->withErrors(['error' => 'Data tidak ditemukan']);
+    }
+
+    // Validasi stok SF (yang akan dikurangi)
+    if (!$this->cekStoksf($data->idsf, $data->iddenom, $data->qty, 'stockawalsf')) {
         return redirect('sf-masuk')->withErrors(['error' => 'Stok SF Tidak Mencukupi']);
     }
 
-    // Cek dan update stok (operasi hapus: tambah stok TAP, kurangi stok SF)
-    $this->updateStok($idtap, $idsf, $iddenom, $qty, false);
+    // Update stok TAP + SF (operasi pembalikan)
+    $this->updateStok($data->idtap, $data->idsf, $data->iddenom, $data->qty, false);
 
-    // Hapus data dari masuksf
     DB::table('masuksf')->where('idmasuk', $idmasuk)->delete();
 
     return redirect('sf-masuk')->with('status', 'Data Berhasil Dihapus!');
 }
+
 
 /**
  * Cek apakah stok mencukupi.
