@@ -68,8 +68,11 @@
                                                 <th>BYU 3GB/3hari</th>
                                                 <th>BYU 4GB/3hari</th>
                                                 <th>BYU 2.5GB/5hari</th>
+                                                <th>BYU 7.5GB/5hari</th>
+                                                <th>BYU 3GB/7hari</th>
                                                 <th>BYU 4GB/7hari</th>
                                                 <th>BYU 5GB/7hari</th>
+                                                <th>BYU 6.5GB/7hari</th>
                                                 <th>BYU 7.5GB/7hari</th>
                                                 <th>BYU 7GB/14hari</th>
                                                 <th>BYU 10GB/14hari</th>
@@ -118,8 +121,11 @@
                                                     <td> {{ number_format($row->V51) }}</td>
                                                     <td> {{ number_format($row->V58) }}</td>
                                                     <td> {{ number_format($row->V35) }}</td>
+                                                    <td> {{ number_format($row->V60) }}</td>
+                                                    <td> {{ number_format($row->V61) }}</td>
                                                     <td> {{ number_format($row->V46) }}</td>
                                                     <td> {{ number_format($row->V36) }}</td>
+                                                    <td> {{ number_format($row->V62) }}</td>
                                                     <td> {{ number_format($row->V56) }}</td>
                                                     <td> {{ number_format($row->V52) }}</td>
                                                     <td> {{ number_format($row->V57) }}</td>
@@ -166,8 +172,11 @@
                                                 <td><strong>{{ number_format($gTotal['V45']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V34']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V35']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V60']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V61']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V46']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V36']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V62']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V56']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V52']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V57']) }}</strong></td>

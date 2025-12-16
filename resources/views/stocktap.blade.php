@@ -67,8 +67,11 @@
                                                 <th>BYU 3GB/3hari</th>
                                                 <th>BYU 4GB/3hari</th>
                                                 <th>BYU 2.5GB/5hari</th>
+                                                <th>BYU 7.5GB/5hari</th>
+                                                <th>BYU 3GB/7hari</th>
                                                 <th>BYU 4GB/7hari</th>
                                                 <th>BYU 5GB/7hari</th>
+                                                <th>BYU 6.5GB/7hari</th>
                                                 <th>BYU 7.5GB/7hari</th>
                                                 <th>BYU 7GB/14hari</th>
                                                 <th>BYU 10GB/14hari</th>
@@ -141,6 +144,9 @@
                                                 $tV57 = 0;
                                                 $tV58 = 0;
                                                 $tV59 = 0;
+                                                $tV60 = 0;
+                                                $tV61 = 0;
+                                                $tV62 = 0;
 
                                             @endphp
                                             @foreach ($data as $row)
@@ -178,8 +184,11 @@
                                                     <td> {{ number_format($row->V51) }}</td>
                                                     <td> {{ number_format($row->V58) }}</td>
                                                     <td> {{ number_format($row->V35) }}</td>
+                                                    <td> {{ number_format($row->V60) }}</td>
+                                                    <td> {{ number_format($row->V61) }}</td>
                                                     <td> {{ number_format($row->V46) }}</td>
                                                     <td> {{ number_format($row->V36) }}</td>
+                                                    <td> {{ number_format($row->V62) }}</td>
                                                     <td> {{ number_format($row->V56) }}</td>
                                                     <td> {{ number_format($row->V52) }}</td>
                                                     <td> {{ number_format($row->V57) }}</td>
@@ -250,6 +259,9 @@
                                                     $tV57 += $row->V57;
                                                     $tV58 += $row->V58;
                                                     $tV59 += $row->V59;
+                                                    $tV60 += $row->V60;
+                                                    $tV61 += $row->V61;
+                                                    $tV62 += $row->V62;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -287,8 +299,11 @@
                                                 <td><strong>{{ number_format($tV51) }}</strong></td>
                                                 <td><strong>{{ number_format($tV58) }}</strong></td>
                                                 <td><strong>{{ number_format($tV35) }}</strong></td>
+                                                <td><strong>{{ number_format($tV60) }}</strong></td>
+                                                <td><strong>{{ number_format($tV61) }}</strong></td>
                                                 <td><strong>{{ number_format($tV46) }}</strong></td>
                                                 <td><strong>{{ number_format($tV36) }}</strong></td>
+                                                <td><strong>{{ number_format($tV62) }}</strong></td>
                                                 <td><strong>{{ number_format($tV56) }}</strong></td>
                                                 <td><strong>{{ number_format($tV52) }}</strong></td>
                                                 <td><strong>{{ number_format($tV57) }}</strong></td>
