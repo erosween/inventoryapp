@@ -290,8 +290,8 @@
                                                     <th>TAP</th>
                                                     <th>STOK AWAL</th>
                                                     <th>KARYAWAN</th>
-                                                    <th>PENJUALAN REAL</th>
-                                                    <th>PENJUALAN DS</th>
+                                                    <th>JUAL KE OUTLET</th>
+                                                    <th>DS</th>
                                                     <th>TOTAL PENJUALAN</th>
                                                     <th>SISA STOK</th>
                                                 </tr>
@@ -300,46 +300,28 @@
                                                 @foreach ($datadetail as $row)
                                                     <tr>
                                                         <td>{{ $row->tap }}</td>
-                                                        @if (session('idtap') != 'SB DUMAI')
-                                                            <td>{{ $row->target }}</td>
-                                                        @else
-                                                            <td>{{ $row->total_nomor }}</td>
-                                                        @endif
+                                                        <td>{{ number_format($row->total_nomor) }}</td>
                                                         <td>{{ $row->total_karyawan }}</td>
                                                         <td>{{ $row->total_penjualan }}</td>
                                                         <td>{{ $row->total_ds }}</td>
-                                                        <td>{{ $row->total_karyawan + $row->total_penjualan + $row->total_ds }}
+                                                        <td>{{ number_format($row->total_karyawan + $row->total_penjualan + $row->total_ds) }}
                                                         </td>
-                                                        @if (session('idtap') != 'SB DUMAI')
-                                                            <td>{{ $row->target - ($row->total_karyawan + $row->total_penjualan) }}
-                                                            </td>
-                                                        @else
-                                                            <td>{{ $row->total_nomor - ($row->total_karyawan + $row->total_penjualan + $row->total_ds) }}
-                                                            </td>
-                                                        @endif
+                                                        <td>{{ number_format($row->total_nomor - ($row->total_karyawan + $row->total_penjualan + $row->total_ds)) }}
+                                                        </td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
                                             <tfoot>
                                                 <tr>
                                                     <th>Grand Total</th>
-                                                    @if (session('idtap') != 'SB DUMAI')
-                                                        <th>{{ number_format($grandTotalTarget) }}</th>
-                                                    @else
-                                                        <th>{{ number_format($grandTotalNomor) }}</th>
-                                                    @endif
+                                                    <th>{{ number_format($grandTotalNomor) }}</th>
                                                     <th>{{ $grandTotalKaryawan }}</th>
                                                     <th>{{ $grandTotalPenjualan }}</th>
                                                     <th>{{ $grandTotalDS }}</th>
-                                                    <th>{{ $grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS }}
+                                                    <th>{{ number_format($grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS) }}
                                                     </th>
-                                                    @if (session('idtap') != 'SB DUMAI')
-                                                        <th>{{ number_format($grandTotalTarget - ($grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS)) }}
-                                                        </th>
-                                                    @else
-                                                        <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS)) }}
-                                                        </th>
-                                                    @endif
+                                                    <th>{{ number_format($grandTotalNomor - ($grandTotalKaryawan + $grandTotalPenjualan + $grandTotalDS)) }}
+                                                    </th>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -350,9 +332,6 @@
                             </div>
                             {{-- card --}}
                         </div>
-
-
-
 
                         <div class="col-md-6">
                             <div class="card">
@@ -377,10 +356,10 @@
                                                 @foreach ($data as $row)
                                                     <tr>
                                                         <td>{{ $row->tap }}</td>
-                                                        <td>{{ $row->total_status_booking }}</td>
-                                                        <td>{{ $row->total_status_sold }}</td>
-                                                        <td>{{ $row->total_status_paid }}</td>
-                                                        <td>{{ $row->total_status_sold + $row->total_status_paid + $row->total_status_booking }}
+                                                        <td>{{ number_format($row->total_status_booking) }}</td>
+                                                        <td>{{ number_format($row->total_status_sold) }}</td>
+                                                        <td>{{ number_format($row->total_status_paid) }}</td>
+                                                        <td>{{ number_format($row->total_status_sold + $row->total_status_paid + $row->total_status_booking) }}
                                                         </td>
                                                     </tr>
                                                 @endforeach
