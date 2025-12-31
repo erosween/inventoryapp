@@ -73,37 +73,64 @@
         integrity="sha512-pumBsjNRGGqkPzKHndZMaAG+bir374sORyzM3uulLV14lN5LyykqNk8eEeUlUkB3U0M4FApyaHraT65ihJhDpQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-        $(function() {
+        $(document).ready(function() {
+
+            /* CSRF */
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
 
-            $(function() {
-                $('#kategoritap').on('change', function() {
-                    let idtap = $('#kategoritap').val();
+            /* TAP → SF */
+            $('#kategoritap').on('change', function() {
+                const idtap = $(this).val();
 
-                    $.ajax({
-                        type: 'POST',
-                        url: '/form/form-sfkeluar',
-                        data: {
-                            idtap: idtap
-                        },
-                        cache: false,
+                if (!idtap) {
+                    $('#idsf').html('<option value="">-- Pilih SF --</option>');
+                    return;
+                }
 
-                        success: function(msg) {
-                            $('#idsf').html(msg);
-                        },
+                $('#idsf').html('<option>Loading...</option>');
+
+                $.post('{{ url('/ajax/get-sf') }}', {
+                        idtap
                     })
+                    .done(function(res) {
+                        $('#idsf').html(res);
+                    })
+                    .fail(function() {
+                        $('#idsf').html('<option value="">Gagal load SF</option>');
+                    });
+            });
 
+            /* ANTI DOUBLE SUBMIT */
+            let isSubmitting = false;
 
-                })
-            })
+            $('form').on('submit', function() {
+                if (isSubmitting) return false;
+
+                isSubmitting = true;
+
+                $(this)
+                    .find('button[type=submit]')
+                    .prop('disabled', true)
+                    .text('Submitting...');
+            });
+
+            /* BATAS TANGGAL */
+            const inputDate = document.getElementById('date');
+            if (inputDate) {
+                const today = new Date();
+                const monthAgo = new Date();
+                monthAgo.setMonth(today.getMonth() - 1);
+
+                inputDate.max = today.toISOString().split('T')[0];
+                inputDate.min = monthAgo.toISOString().split('T')[0];
+            }
+
         });
     </script>
-
-
     <!--   Core JS Files   -->
     <script src="../assets/js/core/jquery.3.2.1.min.js"></script>
     <script src="../assets/js/core/popper.min.js"></script>

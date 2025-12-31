@@ -4,216 +4,237 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Yajra\DataTables\DataTables;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\KeluarSFExport;
 
 class SfkeluarController extends Controller
 {
+    /* =========================
+       INDEX
+    ========================= */
     public function index(Request $request)
     {
         $idtap = session('idtap');
         $month = $request->input('bulan', date('m'));
-        $year = $request->input('tahun', date('Y'));
+        $year  = $request->input('tahun', date('Y'));
 
-        if ($idtap == 'SBP_DUMAI') {
+        $query = DB::table('keluarsf as f')
+            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+            ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
+            ->select('f.*', 'd.*', 'i.*')
+            ->whereMonth('f.tgl', $month)
+            ->whereYear('f.tgl', $year);
 
-            $data = DB::table('keluarsf as f')
-                ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
-                ->select('f.*', 'd.*', 'i.*')
-                ->whereMonth('f.tgl', $month)
-                ->whereYear('f.tgl', $year)
-                ->get()
-                ->map(function ($item) {
-                    $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                    return $item;
-                });
-
-            $denomkeluar = DB::table('keluarsf as f')
-                ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                ->select('d.denom', DB::raw('sum(f.qty) as qty'))
-                ->whereMonth('f.tgl', $month)
-                ->whereYear('f.tgl', $year)
-                ->groupBy('d.denom')
-                ->get();
-
-            $grandTotal = $denomkeluar->sum('qty');
-        } else {
-            $data = DB::table('keluarsf as f')
-                ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
-                ->select('f.*', 'd.*', 'i.*')
-                ->whereMonth('f.tgl', $month)
-                ->whereYear('f.tgl', $year)
-                ->where('f.idtap', $idtap)
-                ->get()
-                ->map(function ($item) {
-                    $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                    return $item;
-                });
-
-            $denomkeluar = DB::table('keluarsf as f')
-                ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                ->select('d.denom', DB::raw('sum(f.qty) as qty'))
-                ->where('idtap', $idtap)
-                ->whereMonth('f.tgl', $month)
-                ->whereYear('f.tgl', $year)
-                ->groupBy('d.denom')
-                ->get();
-
-            $grandTotal = $denomkeluar->sum('qty');
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('f.idtap', $idtap);
         }
 
-        return view('sf-keluar', compact('idtap', 'data', 'month', 'year', 'denomkeluar', 'grandTotal'));
+        $data = $query->get()->map(function ($item) {
+            $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
+            return $item;
+        });
+
+        $denomkeluar = DB::table('keluarsf as f')
+            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+            ->select('d.denom', DB::raw('SUM(f.qty) as qty'))
+            ->whereMonth('f.tgl', $month)
+            ->whereYear('f.tgl', $year);
+
+        if ($idtap !== 'SBP_DUMAI') {
+            $denomkeluar->where('f.idtap', $idtap);
+        }
+
+        $denomkeluar = $denomkeluar
+            ->groupBy('d.denom')
+            ->get();
+
+        $grandTotal = $denomkeluar->sum('qty');
+
+        return view('sf-keluar', compact(
+            'idtap',
+            'data',
+            'month',
+            'year',
+            'denomkeluar',
+            'grandTotal'
+        ));
     }
 
+    /* =========================
+       FORM
+    ========================= */
     public function formkeluarsf()
     {
         $idtap = session('idtap');
 
-        $denom = DB::table('denom')
-            ->select('*')
+        $denom = DB::table('denom')->get();
+
+        $data = DB::table('kodetap')
+            ->when($idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
+                $q->where('idtap', $idtap);
+            })
             ->get();
-
-
-        if ($idtap == 'SBP_DUMAI') {
-
-            $data = DB::table('kodetap')
-                ->select('*')
-                ->get();
-        } else {
-
-            $data = DB::table('kodetap')
-                ->select('*')
-                ->where('idtap', $idtap)
-                ->get();
-        }
 
         return view('form/form-sfkeluar', compact('data', 'idtap', 'denom'));
     }
 
+    /* =========================
+       AJAX GET SF
+    ========================= */
     public function getSf(Request $request)
     {
-
-        $idtaps = $request->idtap;
-
         $idtapsession = session('idtap');
+        $idtaprequest = $request->idtap;
 
-        if ($idtapsession == 'SBP_DUMAI') {
+        $tapnya = DB::table('idsf')
+            ->where('idtap', $idtapsession === 'SBP_DUMAI' ? $idtaprequest : $idtapsession)
+            ->get();
 
-            $tapnya = DB::table('idsf')
-                ->select('*')
-                ->where('idtap', $idtaps)
-                ->get();
+        echo "<option value=''>-- Pilih SF --</option>";
 
-        echo "<option value=''> --Pilih SF-- </option>";
         foreach ($tapnya as $tap) {
-            echo "<option value='{$tap->idsf}'> {$tap->namasf} </option>";
-        }
-
-        } else {
-
-            $tapnya = DB::table('idsf')
-                ->where('idtap', $idtapsession)
-                ->get();
-
-            echo "<option value=''> --Pilih SF-- </option>";
-            foreach ($tapnya as $tap) {
-                echo "<option value='$tap->idsf'> $tap->namasf</option>";
-            }
+            echo "<option value='{$tap->idsf}'>{$tap->namasf}</option>";
         }
     }
 
+    /* =========================
+       PROSES KELUAR SF
+    ========================= */
     public function keluarsfproses(Request $request)
-{
-    // Ambil data dari request
-    $data = $request->only(['iddenom', 'idsf', 'qty', 'tgl', 'idtap', 'tambahanket']);
+    {
+        $data = $request->only([
+            'iddenom',
+            'idsf',
+            'qty',
+            'tgl',
+            'idtap',
+            'tambahanket'
+        ]);
 
-    // Validasi stok SF
-    $ssf = DB::table('stockawalsf')
+        try {
+            DB::beginTransaction();
+            $t0 = microtime(true);
+
+            Log::info('keluarsfproses:start', $data);
+
+            $ssf = DB::table('stockawalsf')
                 ->where('iddenom', $data['iddenom'])
                 ->where('idsf', $data['idsf'])
+                ->lockForUpdate()
                 ->first();
 
-    if (!$ssf || $ssf->stock < $data['qty']) {
-        return redirect('form/form-sfkeluar')->withErrors(['error' => 'Stock SF Tidak Mencukupi']);
+            if (!$ssf || $ssf->stock < $data['qty']) {
+                DB::rollBack();
+                return redirect('form/form-sfkeluar')
+                    ->withErrors(['error' => 'Stock SF Tidak Mencukupi']);
+            }
+
+            $t1 = microtime(true);
+            $this->updateStock('stockawalsf', $data['iddenom'], $data['idsf'], -$data['qty']);
+            $t2 = microtime(true);
+            $this->updateStock('stockawalall', $data['iddenom'], $data['idtap'], -$data['qty']);
+            $t3 = microtime(true);
+
+            DB::table('keluarsf')->insert($data);
+            $t4 = microtime(true);
+
+            DB::commit();
+
+            if (config('app.debug')) {
+                Log::info('keluarsfproses:timings', [
+                    'total_ms'          => round(($t4 - $t0) * 1000, 2),
+                    'updateStockSF_ms'  => round(($t2 - $t1) * 1000, 2),
+                    'updateStockAll_ms' => round(($t3 - $t2) * 1000, 2),
+                    'insert_ms'         => round(($t4 - $t3) * 1000, 2),
+                ]);
+            }
+
+            return redirect('sf-keluar')
+                ->with('status', 'Data Berhasil Ditambahkan!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('keluarsfproses:error', [
+                'message' => $e->getMessage()
+            ]);
+
+            return redirect('form/form-sfkeluar')
+                ->withErrors(['error' => 'Terjadi kesalahan, silakan coba lagi']);
+        }
     }
 
-    // Update stok SF dan All
-    $this->updateStock('stockawalsf', $data['iddenom'], $data['idsf'], -$data['qty']);
-    $this->updateStock('stockawalall', $data['iddenom'], $data['idtap'], -$data['qty']);
+    /* =========================
+       DELETE
+    ========================= */
+    public function delete($idkeluar)
+    {
+        $data = DB::table('keluarsf')->where('idkeluar', $idkeluar)->first();
 
-    // Insert data ke tabel keluarsf
-    DB::table('keluarsf')->insert($data);
+        if (!$data) {
+            return redirect('sf-keluar')
+                ->withErrors(['error' => 'Data tidak ditemukan']);
+        }
 
-    return redirect('sf-keluar')->with('status', 'Data Berhasil Ditambahkan!');
-}
+        $this->updateStock('stockawalsf', $data->iddenom, $data->idsf, $data->qty);
+        $this->updateStock('stockawalall', $data->iddenom, $data->idtap, $data->qty);
 
-public function delete(Request $request, $idkeluar)
-{
-    // Ambil data asli dari database
-    $data = DB::table('keluarsf')->where('idkeluar', $idkeluar)->first();
+        DB::table('keluarsf')->where('idkeluar', $idkeluar)->delete();
 
-    if (!$data) {
-        return redirect('sf-keluar')->withErrors(['error' => 'Data tidak ditemukan']);
+        return redirect('sf-keluar')
+            ->with('status', 'Data Berhasil Dihapus!');
     }
 
-    // Kembalikan stok SF & All
-    $this->updateStock('stockawalsf', $data->iddenom, $data->idsf, $data->qty);
-    $this->updateStock('stockawalall', $data->iddenom, $data->idtap, $data->qty);
+    /* =========================
+       UPDATE STOCK
+    ========================= */
+    private function updateStock($table, $iddenom, $id, $qty)
+    {
+        $column = $table === 'stockawalsf' ? 'idsf' : 'idtap';
 
-    // Hapus data
-    DB::table('keluarsf')->where('idkeluar', $idkeluar)->delete();
+        DB::table($table)
+            ->where('iddenom', $iddenom)
+            ->where($column, $id)
+            ->increment('stock', $qty);
+    }
 
-    return redirect('sf-keluar')->with('status', 'Data Berhasil Dihapus!');
-}
-
-private function updateStock($table, $iddenom, $id, $qty)
-{
-    $column = ($table === 'stockawalsf') ? 'idsf' : 'idtap';
-
-    DB::table($table)
-    ->where('iddenom', $iddenom)
-    ->where($column, $id)
-    ->increment('stock', $qty);
-
-}
-
-
-public function exportexcel(Request $request)
+    /* =========================
+       EXPORT EXCEL
+    ========================= */
+    public function exportexcel(Request $request)
     {
         $idtap = session('idtap');
         $month = $request->input('bulan', date('m'));
-        $year = $request->input('tahun', date('Y'));
+        $year  = $request->input('tahun', date('Y'));
 
-        if ($idtap == 'SBP_DUMAI') {
-            $penjualanData = DB::table('keluarsf as f')
-                ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                ->join('idsf as i', 'f.idsf', '=', 'i.idsf')
-                ->select('f.tgl', 'd.denom', DB::raw('sum(f.qty) as qty'), 'f.idtap', 'i.namasf', 'f.tambahanket')
-                ->whereMonth('f.tgl', $month)
-                ->whereYear('f.tgl', $year)
-                ->groupBy('f.tgl', 'd.denom', 'f.idtap', 'i.namasf', 'f.tambahanket')
-                ->get();
-        } else {
-            $penjualanData = DB::table('keluarsf as f')
-                ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                ->join('idsf as i', 'f.idsf', '=', 'i.idsf')
-                ->select('f.tgl', 'd.denom', DB::raw('sum(f.qty) as qty'), 'f.idtap', 'i.namasf', 'f.tambahanket')
-                ->whereMonth('f.tgl', $month)
-                ->whereYear('f.tgl', $year)
-                ->where('f.idtap', $idtap)
-                ->groupBy('f.tgl', 'd.denom', 'f.idtap', 'i.namasf', 'f.tambahanket')
-                ->get();
+        $query = DB::table('keluarsf as f')
+            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+            ->join('idsf as i', 'f.idsf', '=', 'i.idsf')
+            ->select(
+                'f.tgl',
+                'd.denom',
+                DB::raw('SUM(f.qty) as qty'),
+                'f.idtap',
+                'i.namasf',
+                'f.tambahanket'
+            )
+            ->whereMonth('f.tgl', $month)
+            ->whereYear('f.tgl', $year)
+            ->groupBy('f.tgl', 'd.denom', 'f.idtap', 'i.namasf', 'f.tambahanket');
+
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('f.idtap', $idtap);
         }
 
+        $penjualanData = $query->get();
+
         $monthName = date('F', mktime(0, 0, 0, $month, 1));
+        $fileName  = "PENJUALAN_SF_TAP_{$idtap}_{$year}_{$monthName}.xlsx";
 
-        $fileName = 'PENJUALAN_SF_TAP_' . $idtap . '_' . $year . '_' . $monthName . '.xlsx';
-
-        // Menggunakan Maatwebsite\Excel untuk melakukan export data
-        return Excel::download(new KeluarSFExport($penjualanData), $fileName);
+        return Excel::download(
+            new KeluarSFExport($penjualanData),
+            $fileName
+        );
     }
 }

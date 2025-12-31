@@ -44,6 +44,7 @@
                                                 {{-- <th>1GB/1hari</th> --}}
                                                 <th>2GB/1hari</th>
                                                 <th>4GB/1hari</th>
+                                                <th>8GB/2hari</th>
                                                 <th>2GB/3hari ZONA 1</th>
                                                 <th>2GB/3hari ZONA 2</th>
                                                 {{-- <th>2.5GB/3hari</th> --}}
@@ -147,6 +148,7 @@
                                                 $tV60 = 0;
                                                 $tV61 = 0;
                                                 $tV62 = 0;
+                                                $tV63 = 0;
 
                                             @endphp
                                             @foreach ($data as $row)
@@ -161,6 +163,7 @@
                                                     {{-- <td> {{ number_format($row->V32) }}</td> --}}
                                                     <td> {{ number_format($row->V42) }}</td>
                                                     <td> {{ number_format($row->V59) }}</td>
+                                                    <td> {{ number_format($row->V63) }}</td>
                                                     <td> {{ number_format($row->V2) }}</td>
                                                     <td> {{ number_format($row->V24) }}</td>
                                                     {{-- <td> {{ number_format($row->V41) }}</td> --}}
@@ -262,6 +265,7 @@
                                                     $tV60 += $row->V60;
                                                     $tV61 += $row->V61;
                                                     $tV62 += $row->V62;
+                                                    $tV63 += $row->V63;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -276,6 +280,7 @@
                                                 {{-- <td><strong>{{ number_format($tV32) }}</strong></td> --}}
                                                 <td><strong>{{ number_format($tV42) }}</strong></td>
                                                 <td><strong>{{ number_format($tV59) }}</strong></td>
+                                                <td><strong>{{ number_format($tV63) }}</strong></td>
                                                 <td><strong>{{ number_format($tV2) }}</strong></td>
                                                 <td><strong>{{ number_format($tV24) }}</strong></td>
                                                 {{-- <td><strong>{{ number_format($tV41) }}</strong></td> --}}

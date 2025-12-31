@@ -60,6 +60,7 @@ Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
 Route::middleware(['auth'])->group(function () {
 
 	Route::get('/home', [HomeController::class, 'index'])->name('home');
+	Route::get('/chart/sales', [SalesChartController::class, 'sales']);
 
 	//masuk
 	Route::get('/masuk', [MasukController::class, 'index']);
@@ -135,7 +136,8 @@ Route::middleware(['auth'])->group(function () {
 	//stok keluar sf
 	Route::get('/sf-keluar', [SfkeluarController::class, 'index']);
 	Route::get('form/form-sfkeluar', [SfkeluarController::class, 'formkeluarsf']);
-	Route::post('/form/form-sfkeluar', [SfkeluarController::class, 'getSf']);
+	// Route::post('/form/form-sfkeluar', [SfkeluarController::class, 'getSf']);
+	Route::post('/ajax/get-sf', [SfkeluarController::class, 'getSf']);
 	Route::post('sf-keluar', [SfkeluarController::class, 'keluarsfproses']);
 	Route::post('sf-keluar/{idkeluar}', [SfkeluarController::class, 'delete']);
 	Route::get('/exportsfkeluar', [SfkeluarController::class, 'exportexcel']);
