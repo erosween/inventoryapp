@@ -137,10 +137,8 @@ Route::middleware(['auth'])->group(function () {
      ->name('ajax.get-sf');
 	Route::post('/ajax/get-stock-tap', [SfmasukController::class, 'getStockTap'])
     ->name('ajax.get-stock-tap');
-
 	Route::get('/sf-masuk/data', [SfmasukController::class, 'data'])
     ->name('sf-masuk.data');
-
 	Route::post('sf-masuk/{idmasuk}', [SfmasukController::class, 'delete']);
 	Route::get('/exportsfmasuk', [sfmasukController::class, 'exportexcel']);
 
