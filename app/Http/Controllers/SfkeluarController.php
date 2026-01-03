@@ -8,60 +8,83 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\KeluarSFExport;
+use Yajra\DataTables\Facades\DataTables;
 
-class SfkeluarController extends Controller
+    class SfkeluarController extends Controller
 {
     /* =========================
-       INDEX
+       VIEW
     ========================= */
-    public function index(Request $request)
+    public function index()
     {
-        $idtap = session('idtap');
-        $month = $request->input('bulan', date('m'));
-        $year  = $request->input('tahun', date('Y'));
-
-        $query = DB::table('keluarsf as f')
-            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-            ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
-            ->select('f.*', 'd.*', 'i.*')
-            ->whereMonth('f.tgl', $month)
-            ->whereYear('f.tgl', $year);
-
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('f.idtap', $idtap);
-        }
-
-        $data = $query->get()->map(function ($item) {
-            $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-            return $item;
-        });
-
-        $denomkeluar = DB::table('keluarsf as f')
-            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-            ->select('d.denom', DB::raw('SUM(f.qty) as qty'))
-            ->whereMonth('f.tgl', $month)
-            ->whereYear('f.tgl', $year);
-
-        if ($idtap !== 'SBP_DUMAI') {
-            $denomkeluar->where('f.idtap', $idtap);
-        }
-
-        $denomkeluar = $denomkeluar
-            ->groupBy('d.denom')
-            ->get();
-
-        $grandTotal = $denomkeluar->sum('qty');
-
-        return view('sf-keluar', compact(
-            'idtap',
-            'data',
-            'month',
-            'year',
-            'denomkeluar',
-            'grandTotal'
-        ));
+        return view('sf-keluar');
     }
 
+    /* =========================
+       SERVER SIDE DATATABLE
+    ========================= */
+    public function data(Request $request)
+{
+    $idtap     = session('idtap');
+    $daterange = $request->daterange;
+
+    $query = DB::table('keluarsf as f')
+        ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+        ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
+        ->select(
+            'f.idkeluar',
+            'f.tgl',
+            'd.denom',
+            'f.qty',
+            'f.idtap',
+            'i.namasf',
+            'f.tambahanket'
+        );
+
+    if ($idtap !== 'SBP_DUMAI') {
+        $query->where('f.idtap', $idtap);
+    }
+
+    // 🔥 DEFAULT: BULAN BERJALAN
+    if ($daterange) {
+        [$start, $end] = explode(' - ', $daterange);
+    } else {
+        $start = now()->startOfMonth()->toDateString();
+        $end   = now()->endOfMonth()->toDateString();
+    }
+
+    $query->whereBetween('f.tgl', [
+        $start . ' 00:00:00',
+        $end   . ' 23:59:59'
+    ]);
+
+    return DataTables::of($query)
+        ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
+        ->editColumn('qty', fn ($r) => number_format($r->qty))
+        ->addColumn('action', function ($row) {
+            // selain admin → tombol mati
+            if (session('idtap') !== 'SBP_DUMAI') {
+                return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
+            }
+
+            // admin → boleh delete (pakai confirm JS)
+            return '
+                <form action="'.url('sf-keluar/'.$row->idkeluar).'"
+                    method="POST"
+                    class="form-delete d-inline">
+                    '.csrf_field().'
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        Delete
+                    </button>
+                </form>
+            ';
+        })
+        ->rawColumns(['action'])
+        ->make(true);
+}
+
+
+    
     /* =========================
        FORM
     ========================= */
@@ -103,138 +126,184 @@ class SfkeluarController extends Controller
        PROSES KELUAR SF
     ========================= */
     public function keluarsfproses(Request $request)
-    {
-        $data = $request->only([
-            'iddenom',
-            'idsf',
-            'qty',
-            'tgl',
-            'idtap',
-            'tambahanket'
-        ]);
+{
+    DB::transaction(function () use ($request) {
 
-        try {
-            DB::beginTransaction();
-            $t0 = microtime(true);
+        $idtap    = $request->idtap;
+        $idsf     = $request->idsf;
+        $iddenom  = $request->iddenom;
+        $qty      = $request->qty;
+        $tgl      = $request->tgl;
+        $ket      = $request->tambahanket;
 
-            Log::info('keluarsfproses:start', $data);
+        // 🔒 LOCK stok SF (ANTI RACE)
+        $stockSf = DB::table('stockawalsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->lockForUpdate()
+            ->value('stock');
 
-            $ssf = DB::table('stockawalsf')
-                ->where('iddenom', $data['iddenom'])
-                ->where('idsf', $data['idsf'])
-                ->lockForUpdate()
-                ->first();
-
-            if (!$ssf || $ssf->stock < $data['qty']) {
-                DB::rollBack();
-                return redirect('form/form-sfkeluar')
-                    ->withErrors(['error' => 'Stock SF Tidak Mencukupi']);
-            }
-
-            $t1 = microtime(true);
-            $this->updateStock('stockawalsf', $data['iddenom'], $data['idsf'], -$data['qty']);
-            $t2 = microtime(true);
-            $this->updateStock('stockawalall', $data['iddenom'], $data['idtap'], -$data['qty']);
-            $t3 = microtime(true);
-
-            DB::table('keluarsf')->insert($data);
-            $t4 = microtime(true);
-
-            DB::commit();
-
-            if (config('app.debug')) {
-                Log::info('keluarsfproses:timings', [
-                    'total_ms'          => round(($t4 - $t0) * 1000, 2),
-                    'updateStockSF_ms'  => round(($t2 - $t1) * 1000, 2),
-                    'updateStockAll_ms' => round(($t3 - $t2) * 1000, 2),
-                    'insert_ms'         => round(($t4 - $t3) * 1000, 2),
-                ]);
-            }
-
-            return redirect('sf-keluar')
-                ->with('status', 'Data Berhasil Ditambahkan!');
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            Log::error('keluarsfproses:error', [
-                'message' => $e->getMessage()
-            ]);
-
-            return redirect('form/form-sfkeluar')
-                ->withErrors(['error' => 'Terjadi kesalahan, silakan coba lagi']);
+        if ($stockSf < $qty) {
+            throw new \Exception('Stok SF tidak mencukupi');
         }
-    }
+
+        // =====================
+        // UPDATE STOK
+        // =====================
+        DB::table('stockawalsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->decrement('stock', $qty);
+
+        DB::table('stockawalall')
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->decrement('stock', $qty);
+
+        // =====================
+        // INSERT DATA
+        // =====================
+        DB::table('keluarsf')->insert([
+            'idtap'       => $idtap,
+            'idsf'        => $idsf,
+            'iddenom'     => $iddenom,
+            'qty'         => $qty,
+            'tgl'         => $tgl,
+            'tambahanket' => $ket
+        ]);
+    });
+
+    return redirect('sf-keluar')->with('status', 'Data Berhasil Ditambahkan!');
+}
+
 
     /* =========================
-       DELETE
-    ========================= */
-    public function delete($idkeluar)
-    {
-        $data = DB::table('keluarsf')->where('idkeluar', $idkeluar)->first();
+   AJAX GET STOCK
+========================= */
+public function getStock(Request $request)
+{
+    $request->validate([
+        'iddenom' => 'required',
+        'idsf'    => 'required',
+    ]);
+
+    $stock = DB::table('stockawalsf')
+        ->where('iddenom', $request->iddenom)
+        ->where('idsf', $request->idsf)
+        ->value('stock');
+
+    return response()->json([
+        'stock' => (int) ($stock ?? 0)
+    ]);
+}
+
+
+   public function delete($idkeluar)
+{
+    DB::transaction(function () use ($idkeluar) {
+
+        // 🔒 LOCK DATA KELUAR
+        $data = DB::table('keluarsf')
+            ->where('idkeluar', $idkeluar)
+            ->lockForUpdate()
+            ->first();
 
         if (!$data) {
-            return redirect('sf-keluar')
-                ->withErrors(['error' => 'Data tidak ditemukan']);
+            throw new \Exception('Data tidak ditemukan');
         }
 
-        $this->updateStock('stockawalsf', $data->iddenom, $data->idsf, $data->qty);
-        $this->updateStock('stockawalall', $data->iddenom, $data->idtap, $data->qty);
+        // 🔒 LOCK STOK SF
+        $stockSf = DB::table('stockawalsf')
+            ->where('idsf', $data->idsf)
+            ->where('iddenom', $data->iddenom)
+            ->lockForUpdate()
+            ->value('stock');
 
-        DB::table('keluarsf')->where('idkeluar', $idkeluar)->delete();
+        // =====================
+        // BALIKKAN STOK
+        // =====================
+        DB::table('stockawalsf')
+            ->where('idsf', $data->idsf)
+            ->where('iddenom', $data->iddenom)
+            ->increment('stock', $data->qty);
 
-        return redirect('sf-keluar')
-            ->with('status', 'Data Berhasil Dihapus!');
-    }
+        DB::table('stockawalall')
+            ->where('idtap', $data->idtap)
+            ->where('iddenom', $data->iddenom)
+            ->increment('stock', $data->qty);
 
-    /* =========================
-       UPDATE STOCK
-    ========================= */
-    private function updateStock($table, $iddenom, $id, $qty)
-    {
-        $column = $table === 'stockawalsf' ? 'idsf' : 'idtap';
+        DB::table('keluarsf')
+            ->where('idkeluar', $idkeluar)
+            ->delete();
+    });
 
-        DB::table($table)
-            ->where('iddenom', $iddenom)
-            ->where($column, $id)
-            ->increment('stock', $qty);
-    }
+    return redirect('sf-keluar')->with('status', 'Data Berhasil Dihapus!');
+}
+
 
     /* =========================
        EXPORT EXCEL
     ========================= */
     public function exportexcel(Request $request)
-    {
-        $idtap = session('idtap');
-        $month = $request->input('bulan', date('m'));
-        $year  = $request->input('tahun', date('Y'));
+{
+    $idtap     = session('idtap');
+    $daterange = $request->daterange;
 
-        $query = DB::table('keluarsf as f')
-            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-            ->join('idsf as i', 'f.idsf', '=', 'i.idsf')
-            ->select(
-                'f.tgl',
-                'd.denom',
-                DB::raw('SUM(f.qty) as qty'),
-                'f.idtap',
-                'i.namasf',
-                'f.tambahanket'
-            )
-            ->whereMonth('f.tgl', $month)
-            ->whereYear('f.tgl', $year)
-            ->groupBy('f.tgl', 'd.denom', 'f.idtap', 'i.namasf', 'f.tambahanket');
-
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('f.idtap', $idtap);
-        }
-
-        $penjualanData = $query->get();
-
-        $monthName = date('F', mktime(0, 0, 0, $month, 1));
-        $fileName  = "PENJUALAN_SF_TAP_{$idtap}_{$year}_{$monthName}.xlsx";
-
-        return Excel::download(
-            new KeluarSFExport($penjualanData),
-            $fileName
+    $query = DB::table('keluarsf as f')
+        ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+        ->join('idsf as i', 'f.idsf', '=', 'i.idsf')
+        ->select(
+            'f.tgl',
+            'd.denom',
+            DB::raw('SUM(f.qty) as qty'),
+            'f.idtap',
+            'i.namasf',
+            'f.tambahanket'
+        )
+        ->groupBy(
+            'f.tgl',
+            'd.denom',
+            'f.idtap',
+            'i.namasf',
+            'f.tambahanket'
         );
+
+    /* ===============================
+       FILTER TAP
+    =============================== */
+    if ($idtap !== 'SBP_DUMAI') {
+        $query->where('f.idtap', $idtap);
     }
+
+    /* ===============================
+       FILTER DATE RANGE (PRIORITY)
+    =============================== */
+    if ($daterange) {
+        [$start, $end] = explode(' - ', $daterange);
+
+        $query->whereBetween('f.tgl', [
+            $start . ' 00:00:00',
+            $end   . ' 23:59:59'
+        ]);
+
+        $filename = 'PENJUALAN_SF_' . $start . '_sd_' . $end . '.xlsx';
+
+    } else {
+        /* fallback lama (bulan berjalan) */
+        $month = date('m');
+        $year  = date('Y');
+
+        $query->whereMonth('f.tgl', $month)
+              ->whereYear('f.tgl', $year);
+
+        $filename = "PENJUALAN_SF_{$year}_{$month}.xlsx";
+    }
+
+    $data = $query->get();
+
+    return Excel::download(
+        new KeluarSFExport($data),
+        $filename
+    );
+}
 }

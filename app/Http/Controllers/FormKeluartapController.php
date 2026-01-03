@@ -36,49 +36,63 @@ class FormKeluartapController extends Controller
         return view('form/formkeluartap',compact('data','idtap','denom','tappenerima'));
     }
 
+// get stock
+public function getStockTapPengirim(Request $request)
+{
+    $request->validate([
+        'idtap'   => 'required',
+        'iddenom' => 'required'
+    ]);
 
-    public function proseskeluartapform(Request $request){
+    $stock = DB::table('stockawaltap')
+        ->where('idtap', $request->idtap)
+        ->where('iddenom', $request->iddenom)
+        ->value('stock') ?? 0;
 
-        
-        $tgl = $request->input('tgl');
-        $pengirim = $request->input('pengirim');
-        $penerima = $request->input('penerima');
-        $iddenom = $request->input('iddenom');
-        $qty = $request->input('qty');
-        $sn = $request->input('sn');
-        $tambahket = $request->input('tambahket');
+    return response()->json([
+        'stock' => (int) $stock
+    ]);
+}
 
-        //update stock awal tap (pengirim)
-        $stapengirim = DB::table('stockawaltap')
-                    ->select('stock')
-                    ->where('idtap', $pengirim)
-                    ->where('iddenom', $iddenom)
-                    ->first();
 
-        if($stapengirim ->stock < $qty){
 
-            return redirect('form/formkeluartap')->withErrors(['error' => 'Stok Tap Tidak Mencukupi!']);
+public function proseskeluartapform(Request $request)
+{
+    DB::transaction(function () use ($request) {
 
-        }else{
-            
-            //update ke table keluar
-            DB::table('keluar')
-                ->insert([
-                    'iddenom' => $iddenom,
-                    'pengirim' => $pengirim,
-                    'penerima' => $penerima,
-                    'qty' => $qty,
-                    'tgl' => $tgl,
-                    'sn' => $sn,
-                    'tambahanket' => $tambahket,
-                    'idtap' => $pengirim,
-                    'status' => 1,
+        $tgl        = $request->tgl;
+        $pengirim   = $request->pengirim;
+        $penerima   = $request->penerima;
+        $iddenom    = $request->iddenom;
+        $qty        = $request->qty;
+        $sn         = $request->sn;
+        $tambahket  = $request->tambahket;
 
-                ]);
-            }
+        // LOCK stok pengirim
+        $stock = DB::table('stockawaltap')
+            ->where('idtap', $pengirim)
+            ->where('iddenom', $iddenom)
+            ->lockForUpdate()
+            ->value('stock');
 
-        return redirect("keluar")->with('status', 'Data Berhasil Ditambahkan!');        
+        if ($stock < $qty) {
+            throw new \Exception('Stok TAP Tidak Mencukupi');
+        }
 
-    }
-    
+        // INSERT keluar (stok BELUM pindah)
+        DB::table('keluar')->insert([
+            'iddenom'     => $iddenom,
+            'pengirim'    => $pengirim,
+            'penerima'    => $penerima,
+            'qty'         => $qty,
+            'tgl'         => $tgl,
+            'sn'          => $sn,
+            'tambahanket' => $tambahket,
+            'idtap'       => $pengirim,
+            'status'      => 1 // pending
+        ]);
+    });
+
+    return redirect('keluar')->with('status', 'Menunggu approval TAP penerima');
+}
 }

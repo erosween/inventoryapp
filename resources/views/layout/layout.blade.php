@@ -1,3 +1,7 @@
+@php
+    $idtap = session('idtap');
+@endphp
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -12,8 +16,40 @@
     @endif
     <meta content='width=device-width, initial-scale=1.0, shrink-to-fit=no' name='viewport' />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon" />
 
+    <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon" />
+    <!-- SELECT2 CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
+
+
+    <style>
+        /* Samakan tinggi Select2 dengan Bootstrap */
+        .select2-container .select2-selection--single {
+            height: 38px;
+            padding: 5px 10px;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 26px;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+        }
+
+        /* Biar dropdown tidak ketutup */
+        .select2-container {
+            width: 100% !important;
+            z-index: 1055;
+        }
+
+        /* kolom validasi qty */
+        .is-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, .25);
+        }
+    </style>
     <!-- Fonts and icons -->
     <script src="/assets/js/plugin/webfont/webfont.min.js"></script>
     <script>
@@ -40,9 +76,6 @@
 
 <body>
     <div class="wrapper">
-        <!--
-    Tip 1: You can change the background color of the main header using: data-background-color="blue | purple | light-blue | green | orange | red"
-  -->
         <div class="main-header" data-background-color="purple">
             <!-- Logo Header -->
             <div class="logo-header">
@@ -62,12 +95,12 @@
                         <i class="fa fa-bars"></i>
                     </span>
                 </button>
-                <button class="topbar-toggler more"><i class="fa fa-ellipsis-v"></i></button>
+                {{-- <button class="topbar-toggler more"><i class="fa fa-ellipsis-v"></i></button>
                 <div class="navbar-minimize">
                     <button class="btn btn-minimize btn-rounded">
                         <i class="fa fa-bars"></i>
                     </button>
-                </div>
+                </div> --}}
             </div>
             <!-- End Logo Header -->
 
@@ -267,8 +300,69 @@
         </div>
 
         @yield('content')
+        {{-- JQUERY --}}
+        <script src="{{ asset('assets/js/core/jquery.3.2.1.min.js') }}"></script>
 
+        <script>
+            /* ================= CSRF ================= */
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+        </script>
+
+        {{-- BOOTSTRAP --}}
+        <script src="{{ asset('assets/js/core/popper.min.js') }}"></script>
+        <script src="{{ asset('assets/js/core/bootstrap.min.js') }}"></script>
+        <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+
+
+        {{-- AZZARA PLUGINS --}}
+        <script src="{{ asset('assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/jquery-ui-touch-punch/jquery.ui.touch-punch.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/datatables/datatables.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/bootstrap-toggle/bootstrap-toggle.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/sweetalert/sweetalert.min.js') }}"></script>
+
+        {{-- SELECT2 (INI PENTING) --}}
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
+        {{-- AZZARA CORE --}}
+        <script src="{{ asset('assets/js/ready.min.js') }}"></script>
+        <!-- SweetAlert2 -->
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        {{-- FLASH MESSAGE SWEETALERT --}}
+        @if (session('error'))
+            <script>
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: @json(session('error'))
+                });
+            </script>
+        @endif
+
+        @if (session('success'))
+            <script>
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: @json(session('success'))
+                });
+            </script>
+        @endif
+
+
+        {{-- SCRIPT PER VIEW --}}
         @stack('scripts')
+
+    </div>
+
 
 </body>
 

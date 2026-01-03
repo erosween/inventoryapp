@@ -28,66 +28,80 @@ class InboxController extends Controller
     }
 
     public function masuk(Request $request, $idkeluar)
-    {
-        $pengirim = $request->input('pengirim');
-        $penerima = $request->input('penerima');
-        $iddenom = $request->input('iddenom');
-        $qty = $request->input('qty');
-    
-        // Validasi stok pengirim
-        $stapStock = $this->getStock('stockawaltap', $pengirim, $iddenom);
-    
-        if ($stapStock < $qty) {
-            return redirect('masuk')->withErrors(['error' => 'Stok Tap Pengirim Tidak Mencukupi!']);
+{
+    DB::transaction(function () use ($idkeluar) {
+
+        // 🔒 LOCK DATA KELUAR
+        $keluar = DB::table('keluar')
+            ->where('idkeluar', $idkeluar)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$keluar) {
+            throw new \Exception('Data tidak ditemukan');
         }
-    
-        // Ambil stok pengirim
-        $pallStock = $this->getStock('stockawalall', $pengirim, $iddenom);
-        $ptapStock = $this->getStock('stockawaltap', $pengirim, $iddenom);
-    
-        // Hitung stok baru pengirim
-        $newPallStock = $pallStock - $qty;
-        $newPtapStock = $ptapStock - $qty;
-    
-        // Ambil stok penerima
-        $penallStock = $this->getStock('stockawalall', $penerima, $iddenom);
-        $pentapStock = $this->getStock('stockawaltap', $penerima, $iddenom);
-    
-        // Hitung stok baru penerima
-        $newPenallStock = $penallStock + $qty;
-        $newPentapStock = $pentapStock + $qty;
-    
-        // Update stok pengirim
-        $this->updateStock('stockawalall', $pengirim, $iddenom, $newPallStock);
-        $this->updateStock('stockawaltap', $pengirim, $iddenom, $newPtapStock);
-    
-        // Update stok penerima
-        $this->updateStock('stockawalall', $penerima, $iddenom, $newPenallStock);
-        $this->updateStock('stockawaltap', $penerima, $iddenom, $newPentapStock);
-    
-        // Update status di tabel keluar
+
+        if ($keluar->status != 1) {
+            throw new \Exception('Data sudah diproses');
+        }
+
+        $pengirim = $keluar->pengirim;
+        $penerima = $keluar->penerima;
+        $iddenom  = $keluar->iddenom;
+        $qty      = $keluar->qty;
+
+        // 🔒 LOCK STOK PENGIRIM
+        $stokPengirim = DB::table('stockawaltap')
+            ->where('idtap', $pengirim)
+            ->where('iddenom', $iddenom)
+            ->lockForUpdate()
+            ->value('stock');
+
+        if ($stokPengirim < $qty) {
+            throw new \Exception('Stok TAP pengirim tidak mencukupi');
+        }
+
+        // 🔒 LOCK STOK PENERIMA
+        DB::table('stockawaltap')
+            ->where('idtap', $penerima)
+            ->where('iddenom', $iddenom)
+            ->lockForUpdate()
+            ->value('stock');
+
+        // =====================
+        // UPDATE STOK
+        // =====================
+        DB::table('stockawaltap')
+            ->where('idtap', $pengirim)
+            ->where('iddenom', $iddenom)
+            ->decrement('stock', $qty);
+
+        DB::table('stockawalall')
+            ->where('idtap', $pengirim)
+            ->where('iddenom', $iddenom)
+            ->decrement('stock', $qty);
+
+        DB::table('stockawaltap')
+            ->where('idtap', $penerima)
+            ->where('iddenom', $iddenom)
+            ->increment('stock', $qty);
+
+        DB::table('stockawalall')
+            ->where('idtap', $penerima)
+            ->where('iddenom', $iddenom)
+            ->increment('stock', $qty);
+
+        // =====================
+        // UPDATE STATUS
+        // =====================
         DB::table('keluar')
             ->where('idkeluar', $idkeluar)
-            ->update(['status' => 0]);
-    
-        return redirect('inbox')->with('status', 'Stock Berhasil Diterima');
-    }
-    
-    private function getStock($table, $idtap, $iddenom)
-    {
-        return DB::table($table)
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->value('stock');
-    }
-    
-    private function updateStock($table, $idtap, $iddenom, $newStock)
-    {
-        DB::table($table)
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->update(['stock' => $newStock]);
-    }
-    
-}
+            ->update([
+                'status'      => 0,
+                'approved_at' => now()
+            ]);
+    });
 
+    return redirect('inbox')->with('status', 'Stok berhasil diterima');
+}
+}

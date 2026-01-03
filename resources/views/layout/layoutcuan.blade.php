@@ -46,7 +46,29 @@ Tip 1: You can change the background color of the main header using: data-backgr
         <div class="main-header" data-background-color="purple"> </div>
 
         @yield('content')
+        {{-- JQUERY --}}
+        <script src="{{ asset('assets/js/core/jquery.3.2.1.min.js') }}"></script>
 
+        {{-- BOOTSTRAP --}}
+        <script src="{{ asset('assets/js/core/popper.min.js') }}"></script>
+        <script src="{{ asset('assets/js/core/bootstrap.min.js') }}"></script>
+
+        {{-- AZZARA PLUGINS --}}
+        <script src="{{ asset('assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/jquery-ui-touch-punch/jquery.ui.touch-punch.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/datatables/datatables.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/bootstrap-toggle/bootstrap-toggle.min.js') }}"></script>
+        <script src="{{ asset('assets/js/plugin/sweetalert/sweetalert.min.js') }}"></script>
+
+        {{-- SELECT2 (INI PENTING) --}}
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
+        {{-- AZZARA CORE --}}
+        <script src="{{ asset('assets/js/ready.min.js') }}"></script>
+
+        {{-- SCRIPT PER VIEW --}}
         @stack('scripts')
 
 </body>

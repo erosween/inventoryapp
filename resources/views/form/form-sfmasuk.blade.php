@@ -4,166 +4,258 @@
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
+
+                {{-- Error --}}
                 @if ($errors->has('error'))
-                    <div class="alert alert-danger ml-auto">
+                    <div class="alert alert-danger">
                         {{ $errors->first('error') }}
                     </div>
                 @endif
 
+                {{-- Header --}}
                 <div class="page-header">
-                    <h4 class="page-title">INPUT STOK MASUK SF</h4>
+                    <h4 class="page-title">Input Stok Masuk SF</h4>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 offset-md-2">
-                        <div class="card">
+
+                <div class="row justify-content-center">
+                    <div class="col-xl-8 col-lg-9 col-md-11">
+
+                        <div class="card shadow-sm">
                             <div class="card-header">
-                                <div class="card-title">Form Input</div>
+                                <strong>Form Input</strong>
+                                <div class="text-muted small">
+                                    Input data stok masuk untuk Sales Force
+                                </div>
                             </div>
-                            <div class="card-body">
 
-                                <form action="{{ url('sf-masuk') }}" method="post">
-                                    @csrf
-                                    <label for="">Tanggal :</label>
-                                    <input type="date" name="tgl" class="form-control mb-2" id="date" required>
+                            <form action="{{ url('sf-masuk') }}" method="POST" id="formSfMasuk">
+                                @csrf
 
-                                    <label for="">TAP :</label>
-                                    <select name="idtap" class="form-control mb-2" id="kategoritap" required>
-                                        <option value="">-- Pilih --</option>
+                                <div class="card-body">
+                                    <div class="row">
 
-                                        @foreach ($data as $row)
-                                            <option value="{{ $row->idtap }}">{{ $row->idtap }}</option>
-                                        @endforeach
-                                    </select>
+                                        {{-- Tanggal --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Tanggal</label>
+                                                <input type="date" name="tgl" id="date" class="form-control"
+                                                    required>
+                                            </div>
+                                        </div>
 
-                                    <select name="idsf" id="idsf" class="form-control mb-2"> </select>
+                                        {{-- TAP --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>TAP</label>
+                                                <select name="idtap" id="kategoritap" class="form-control select2"
+                                                    required>
+                                                    <option></option>
+                                                    @foreach ($data as $row)
+                                                        <option value="{{ $row->idtap }}">
+                                                            {{ $row->idtap }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                    <label for="">Denom :</label>
-                                    <select name="iddenom" id="" class="form-control mb-2" required>
+                                        {{-- SF --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Sales Force</label>
+                                                <select name="idsf" id="idsf" class="form-control select2" disabled
+                                                    required>
+                                                    <option></option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                        <option value="">--Pilih Denom--</option>
+                                        {{-- Denom --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Denom</label>
+                                                <select name="iddenom" id="iddenom" class="form-control select2" required>
 
-                                        @foreach ($denom as $row)
-                                            <option value="{{ $row->iddenom }}">{{ $row->denom }}</option>
-                                        @endforeach
+                                                    <option></option>
+                                                    @foreach ($denom as $row)
+                                                        <option value="{{ $row->iddenom }}">
+                                                            {{ $row->denom }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                    </select>
+                                        {{-- Quantity --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Quantity</label>
+                                                <input type="number" name="qty" class="form-control"
+                                                    id="qty"min="1" required>
+                                            </div>
+                                        </div>
 
-                                    <input type="number" name="qty" class="form-control mb-2" placeholder="Quantity"
-                                        required>
+                                        {{-- SN --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN</label>
+                                                <input type="text" name="sn" class="form-control"
+                                                    placeholder="SN Awal - SN Akhir" required>
+                                            </div>
+                                        </div>
+                                        {{-- Stok --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Stok Tersedia</label>
+                                                <input type="text" id="stok_info" class="form-control" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="alert alert-danger d-none" id="stok_warning">
+                                            Quantity melebihi stok tersedia
+                                        </div>
 
-                                    <input type="text" name="sn" placeholder="Sn Awal - Sn Akhir"
-                                        class="form-control mb-2" required>
+                                    </div>
+                                </div>
 
-                                    <button type="submit" class="btn btn-primary" name="addbarangmasuk">Submit</button>
-                                    <a href="{{ url('sf-masuk') }}" type="submit" class="btn btn-danger">Back</a>
-                            </div>
+                                {{-- Footer --}}
+                                <div class="card-footer d-flex justify-content-end gap-2">
+                                    <a href="{{ url('sf-masuk') }}" class="btn btn-light">
+                                        Kembali
+                                    </a>
+                                    <button type="submit" id="submitBtn" class="btn btn-primary">
+                                        Simpan
+                                    </button>
+
+                                </div>
+
                             </form>
-
                         </div>
+
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 @endsection
 
 @push('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"
-        integrity="sha512-pumBsjNRGGqkPzKHndZMaAG+bir374sORyzM3uulLV14lN5LyykqNk8eEeUlUkB3U0M4FApyaHraT65ihJhDpQ=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
     <script>
-        $(function() {
+        $(document).ready(function() {
+
+            /* ================= CSRF ================= */
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
 
-            $(function() {
-                $('#kategoritap').on('change', function() {
-                    let idtap = $('#kategoritap').val();
+            let currentStock = 0;
 
-                    $.ajax({
-                        type: 'POST',
-                        url: '/form/form-sfmasuk',
-                        data: {
-                            idtap: idtap
-                        },
-                        cache: false,
+            /* ================= SELECT2 ================= */
+            $('.select2').select2({
+                placeholder: 'Pilih / Cari…',
+                allowClear: true,
+                width: '100%'
+            });
 
-                        success: function(msg) {
-                            $('#idsf').html(msg);
-                        },
+            $(document).on('select2:open', function() {
+                document.querySelector('.select2-search__field').focus();
+            });
+
+            /* ================= TAP → SF ================= */
+            $('#kategoritap').on('change', function() {
+                const idtap = $(this).val();
+                const $sf = $('#idsf');
+
+                $sf.prop('disabled', true).empty().trigger('change');
+
+                if (!idtap) return;
+
+                $.post('{{ route('ajax.get-sf') }}', {
+                        idtap
                     })
+                    .done(res => {
+                        $sf.html(res)
+                            .prop('disabled', false)
+                            .trigger('change');
+                    });
+            });
 
+            /* ================= RESET SAAT SF GANTI ================= */
+            $('#idsf').on('change', function() {
+                $('#iddenom').val(null).trigger('change');
+                $('#qty').val('');
+                $('#tambahanket').val('');
+                $('#stok_info').val('');
+                $('#stok_warning').addClass('d-none');
+                $('#submitBtn').prop('disabled', true);
+            });
 
-                })
-            })
+            /* ================= DENOM → LOAD STOK ================= */
+            $('#iddenom').on('change', function() {
+                const iddenom = $(this).val();
+                const idtap = $('#kategoritap').val();
+
+                if (!iddenom || !idtap) return;
+
+                $('#stok_info').val('Loading...');
+
+                $.post('{{ route('ajax.get-stock-tap') }}', {
+                    iddenom,
+                    idtap
+                }).done(res => {
+                    currentStock = parseInt(res.stock) || 0;
+
+                    if (currentStock <= 0) {
+                        $('#stok_info').val('Stok TAP habis');
+                        $('#stok_warning').removeClass('d-none');
+                    } else {
+                        $('#stok_info').val(currentStock + ' pcs (stok TAP)');
+                        $('#stok_warning').addClass('d-none');
+                    }
+                });
+            });
+
+            /* ================= VALIDASI QTY ================= */
+            $('#qty').on('input', function() {
+                const qty = parseInt($(this).val()) || 0;
+
+                if (qty > currentStock) {
+                    $(this).addClass('is-invalid');
+                    $('#stok_warning').removeClass('d-none');
+                    $('#submitBtn').prop('disabled', true);
+                } else {
+                    $(this).removeClass('is-invalid');
+                    $('#stok_warning').addClass('d-none');
+                    $('#submitBtn').prop('disabled', false);
+                }
+            });
+
+            /* ================= ANTI DOUBLE SUBMIT ================= */
+            let submitting = false;
+            $('#mainForm').on('submit', function() {
+                if (submitting) return false;
+                submitting = true;
+
+                $('#submitBtn')
+                    .prop('disabled', true)
+                    .text('Menyimpan...');
+            });
 
         });
-    </script>
 
-    <!--   Core JS Files   -->
-    <script src="../assets/js/core/jquery.3.2.1.min.js"></script>
-    <script src="../assets/js/core/popper.min.js"></script>
-    <script src="../assets/js/core/bootstrap.min.js"></script>
-
-    <!-- jQuery UI -->
-    <script src="../assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js"></script>
-    <script src="../assets/js/plugin/jquery-ui-touch-punch/jquery.ui.touch-punch.min.js"></script>
-
-    <!-- jQuery Scrollbar -->
-    <script src="../assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js"></script>
-
-    <!-- Moment JS -->
-    <script src="../assets/js/plugin/moment/moment.min.js"></script>
-
-    <!-- Chart JS -->
-    <script src="../assets/js/plugin/chart.js/chart.min.js"></script>
-
-    <!-- jQuery Sparkline -->
-    <script src="../assets/js/plugin/jquery.sparkline/jquery.sparkline.min.js"></script>
-
-    <!-- Chart Circle -->
-    <script src="../assets/js/plugin/chart-circle/circles.min.js"></script>
-
-    <!-- Datatables -->
-    <script src="../assets/js/plugin/datatables/datatables.min.js"></script>
-
-    <!-- Bootstrap Notify -->
-    <script src="../assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js"></script>
-
-    <!-- Bootstrap Toggle -->
-    <script src="../assets/js/plugin/bootstrap-toggle/bootstrap-toggle.min.js"></script>
-
-    <!-- jQuery Vector Maps -->
-    <script src="../assets/js/plugin/jqvmap/jquery.vmap.min.js"></script>
-    <script src="../assets/js/plugin/jqvmap/maps/jquery.vmap.world.js"></script>
-
-    <!-- Google Maps Plugin -->
-    <script src="../assets/js/plugin/gmaps/gmaps.js"></script>
-
-    <!-- Sweet Alert -->
-    <script src="../assets/js/plugin/sweetalert/sweetalert.min.js"></script>
-
-    <!-- Azzara JS -->
-    <script src="../assets/js/ready.min.js"></script>
-
-    <script>
+        // Tanggal maksimal hari ini dan minimal sebulan yang lalu
         document.addEventListener("DOMContentLoaded", function() {
             const inputDate = document.getElementById('date');
             const today = new Date();
             const monthAgo = new Date(today);
-            const tomorrow = new Date(today);
-
-            // Set minimum 1 bulan ke belakang
             monthAgo.setMonth(today.getMonth() - 1);
-            // Set maksimum besok
-            tomorrow.setDate(today.getDate() + 1);
 
+            // Mengatur tanggal maksimal hingga hari ini
+            inputDate.max = today.toISOString().split('T')[0];
+            // Mengatur tanggal minimal ke satu bulan yang lalu
             inputDate.min = monthAgo.toISOString().split('T')[0];
-            inputDate.max = tomorrow.toISOString().split('T')[0];
         });
     </script>
 @endpush
