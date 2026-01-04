@@ -86,12 +86,13 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/form/forminject', [FormInjectsegelController::class, 'index']);
 	Route::post('/form/forminject', [FormInjectsegelController::class, 'injectProses']);
 	Route::post('/ajax/get-stock-segel-tap',[FormInjectsegelController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
-	//form inject roamax
-	Route::get('/form/forminjectroamax', [FormInjectroamaxController::class, 'index']);
-	Route::post('/form/forminjectroamax', [FormInjectroamaxController::class, 'injectProses']);
+	// //form inject roamax
+	// Route::get('/form/forminjectroamax', [FormInjectroamaxController::class, 'index']);
+	// Route::post('/form/forminjectroamax', [FormInjectroamaxController::class, 'injectProses']);
 	//form inject byu
 	Route::get('/form/forminjectbyu', [FormInjectbyuController::class, 'index']);
 	Route::post('/form/forminjectbyu', [FormInjectbyuController::class, 'injectProses']);
+	Route::post('/ajax/get-stock-segel-tap',[FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
 
 	//keluar
 	Route::get('/keluar', [KeluarController::class, 'index']);

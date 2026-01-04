@@ -39,69 +39,84 @@ class FormInjectbyuController extends Controller
 
     }
 
-    public function injectProses(Request $request)
+public function injectProses(Request $request)
 {
-    $idtap = $request->input('idtap');
-    $qty = $request->input('qty');
-    $iddenom = $request->input('iddenom');
-    $sn = $request->input('sn');
-    $tgl = $request->input('tgl');
+    try {
+        DB::transaction(function () use ($request) {
 
-    // Cek stok segel TAP
-    $eksstoksegeltap = $this->getStock('stockawaltap', $idtap, 'V33');
+            $idtap   = $request->idtap;
+            $iddenom = $request->iddenom; // paket BYU
+            $qty     = (int) $request->qty;
+            $sn      = $request->sn;
+            $tgl     = $request->tgl;
 
-    // Validasi stok segel
-    if ($qty > $eksstoksegeltap) {
-        return redirect('form/forminjectbyu')->withErrors(['error' => 'Stock BYU TAP tidak mencukupi!']);
+            $kategoriSegel = 'V33'; // BYU
+
+            // 🔒 LOCK STOK SEGEL BYU (TAP)
+            $stokSegelTap = DB::table('stockawaltap')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $kategoriSegel)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($stokSegelTap === null) {
+                throw new \Exception('Stok BYU TAP tidak ditemukan');
+            }
+
+            if ($stokSegelTap < $qty) {
+                throw new \Exception('Stok BYU TAP tidak mencukupi');
+            }
+
+            // 📝 INSERT INJECT
+            DB::table('injectvf')->insert([
+                'idtap'    => $idtap,
+                'iddenom'  => $iddenom,
+                'qty'      => $qty,
+                'sn'       => $sn,
+                'tgl'      => $tgl,
+                'kategori' => $kategoriSegel,
+            ]);
+
+            // 🔻 KURANGI STOK SEGEL BYU
+            DB::table('stockawaltap')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $kategoriSegel)
+                ->decrement('stock', $qty);
+
+            DB::table('stockawalall')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $kategoriSegel)
+                ->decrement('stock', $qty);
+
+            // 🔺 TAMBAH STOK PAKET BYU
+            DB::table('stockawaltap')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $iddenom)
+                ->increment('stock', $qty);
+
+            DB::table('stockawalall')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $iddenom)
+                ->increment('stock', $qty);
+        });
+
+        return redirect('injectvf')->with('status', 'Inject BYU berhasil');
+
+    } catch (\Exception $e) {
+        return redirect('form/forminjectbyu')
+            ->withErrors(['error' => $e->getMessage()]);
     }
-
-    // Insert ke tabel injectvf
-    DB::table('injectvf')->insert([
-        'idtap' => $idtap,
-        'iddenom' => $iddenom,
-        'qty' => $qty,
-        'sn' => $sn,
-        'tgl' => $tgl,
-        'kategori' => 'V33',
-    ]);
-
-    // Ambil stok saat ini
-    $eksstoksegelall = $this->getStock('stockawalall', $idtap, 'V33');
-    $eksstoksegeltap = $this->getStock('stockawaltap', $idtap, 'V33');
-    $existingStockAll = $this->getStock('stockawalall', $idtap, $iddenom);
-    $existingStockTap = $this->getStock('stockawaltap', $idtap, $iddenom);
-
-    // Hitung stok baru
-    $newStocksegelAll = $eksstoksegelall - $qty;
-    $newStocksegelTAP = $eksstoksegeltap - $qty;
-    $newStockAll = $existingStockAll + $qty;
-    $newStockTAP = $existingStockTap + $qty;
-
-    // Update stok segel
-    $this->updateStock('stockawalall', $idtap, 'V33', $newStocksegelAll);
-    $this->updateStock('stockawaltap', $idtap, 'V33', $newStocksegelTAP);
-
-    // Update stok denom
-    $this->updateStock('stockawalall', $idtap, $iddenom, $newStockAll);
-    $this->updateStock('stockawaltap', $idtap, $iddenom, $newStockTAP);
-
-    return redirect('injectvf')->with('status', 'Data Berhasil Ditambahkan!');
 }
 
-private function getStock($table, $idtap, $iddenom)
-{
-    return DB::table($table)
-        ->where('idtap', $idtap)
-        ->where('iddenom', $iddenom)
-        ->value('stock');
-}
 
-private function updateStock($table, $idtap, $iddenom, $newStock)
+public function getStockSegelTap(Request $request)
 {
-    DB::table($table)
-        ->where('idtap', $idtap)
-        ->where('iddenom', $iddenom)
-        ->update(['stock' => $newStock]);
+    $stock = DB::table('stockawaltap')
+        ->where('idtap', $request->idtap)
+        ->where('iddenom', 'V33') // BYU
+        ->value('stock') ?? 0;
+
+    return response()->json(['stock' => $stock]);
 }
 
     
