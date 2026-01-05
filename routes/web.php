@@ -122,7 +122,7 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/exportexcelbo', [BOController::class, 'exportexcel']);
 	Route::get('/form/formkeluarbo', [BOController::class, 'keluarboform']);
 	Route::post('/form/formkeluarbo', [BOController::class, 'getTap']);
-	Route::post('/bo/{idkeluar}', [BOController::class, 'delete']);
+	Route::post('/bo/delete/{idkeluar}', [BOController::class, 'delete']);
 
 	//voucher rusak
 	Route::get('vrusak', [VrusakController::class, 'index']);
