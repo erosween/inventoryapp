@@ -66,12 +66,14 @@
         $(function() {
 
             /* ==========================
-               DEFAULT RANGE: BULAN INI
+               DEFAULT RANGE
             ========================== */
             let start = moment().startOf('month');
             let end = moment().endOf('month');
 
-            $('#daterange').val(
+            const $daterange = $('#daterange');
+
+            $daterange.val(
                 start.format('YYYY-MM-DD') + ' - ' + end.format('YYYY-MM-DD')
             );
 
@@ -88,12 +90,18 @@
                 ajax: {
                     url: "{{ route('sf-keluar.data') }}",
                     data: function(d) {
-                        d.daterange = $('#daterange').val();
+                        d.daterange = $daterange.val();
                     }
                 },
                 columns: [{
                         data: 'tgl',
-                        name: 'f.tgl'
+                        name: 'f.tgl',
+                        render: function(data, type) {
+                            if (type === 'display') {
+                                return moment(data).format('DD-MM-YYYY');
+                            }
+                            return data;
+                        }
                     },
                     {
                         data: 'denom',
@@ -127,10 +135,12 @@
             /* ==========================
                DATE RANGE PICKER
             ========================== */
-            $('#daterange').daterangepicker({
+            $daterange.daterangepicker({
                 startDate: start,
                 endDate: end,
-                autoUpdateInput: true,
+                autoUpdateInput: false,
+                showDropdowns: false,
+                alwaysShowCalendars: true,
                 locale: {
                     format: 'YYYY-MM-DD',
                     separator: ' - ',
@@ -148,12 +158,21 @@
                         moment().subtract(1, 'month').endOf('month')
                     ]
                 }
-            }, function(start, end) {
+            });
 
-                let range = start.format('YYYY-MM-DD') + ' - ' + end.format('YYYY-MM-DD');
-                $('#daterange').val(range);
+            /* ==========================
+               APPLY ONLY (AMAN)
+            ========================== */
+            $daterange.on('apply.daterangepicker', function(ev, picker) {
 
-                table.ajax.reload();
+                let range =
+                    picker.startDate.format('YYYY-MM-DD') +
+                    ' - ' +
+                    picker.endDate.format('YYYY-MM-DD');
+
+                $(this).val(range);
+
+                table.ajax.reload(null, false);
 
                 $('#btnExport').attr(
                     'href',
@@ -166,11 +185,12 @@
             ========================== */
             $('#btnExport').attr(
                 'href',
-                '/exportsfkeluar?daterange=' + encodeURIComponent($('#daterange').val())
+                '/exportsfkeluar?daterange=' + encodeURIComponent($daterange.val())
             );
 
         });
     </script>
+
     {{-- confirm delete --}}
     <script>
         $(document).on('submit', '.form-delete', function(e) {
