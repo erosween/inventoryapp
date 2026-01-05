@@ -150,7 +150,7 @@
 
                 $('#stok_segel_info').val('Loading...');
 
-                $.post('{{ route('ajax.get-stock-segel-tap') }}', {
+                $.post('{{ route('ajax.get-stock-byu-tap') }}', {
                         idtap
                     })
                     .done(res => {

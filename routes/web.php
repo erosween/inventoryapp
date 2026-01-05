@@ -92,7 +92,7 @@ Route::middleware(['auth'])->group(function () {
 	//form inject byu
 	Route::get('/form/forminjectbyu', [FormInjectbyuController::class, 'index']);
 	Route::post('/form/forminjectbyu', [FormInjectbyuController::class, 'injectProses']);
-	Route::post('/ajax/get-stock-segel-tap',[FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
+	Route::post('/ajax/get-stock-byu-tap',[FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-byu-tap');
 
 	//keluar
 	Route::get('/keluar', [KeluarController::class, 'index']);
