@@ -21,8 +21,6 @@
     <!-- SELECT2 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
-
-
     <style>
         /* Samakan tinggi Select2 dengan Bootstrap */
         .select2-container .select2-selection--single {
@@ -71,7 +69,6 @@
     <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="/assets/css/azzara.min.css">
 
-
 </head>
 
 <body>
@@ -95,13 +92,7 @@
                         <i class="fa fa-bars"></i>
                     </span>
                 </button>
-                <button class="navbar-toggler sidenav-toggler ml-auto" type="button" data-toggle="collapse"
-                    data-target="collapse" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon">
-                        <i class="fa fa-bars"></i>
-                    </span>
-                </button>
-                <button class="topbar-toggler more"><i class="fa fa-ellipsis-v"></i></button>
+                {{-- <button class="topbar-toggler more"><i class="fa fa-ellipsis-v"></i></button> --}}
                 <div class="navbar-minimize">
                     <button class="btn btn-minimize btn-rounded">
                         <i class="fa fa-bars"></i>
@@ -239,8 +230,8 @@
                                                 session('idtap') == 'BENGKALIS' ||
                                                 session('idtap') == 'BAGAN BATU' ||
                                                 session('idtap') == 'BAGAN SIAPI-API')
-                                            <li class="nav-item {{ request()->is('BO') ? 'active' : '' }}">
-                                                <a href="{{ url('BO') }}">
+                                            <li class="nav-item {{ request()->is('bo') ? 'active' : '' }}">
+                                                <a href="{{ url('bo') }}">
                                                     <span class="sub-item">Retur BO</span>
                                                 </a>
                                             </li>

@@ -115,13 +115,17 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/DO/{idmasuk}', [InputDOController::class, 'delete']);
 	Route::get('/exportexceldo', [InputDOController::class, 'exportexcel']);
 
-	//BO RETUR
-	Route::get('BO', [BOController::class, 'index']);
-	Route::post('/BO/{idkeluar}', [BOController::class, 'delete']);
+	// ===== BO RETUR =====
+	Route::get('/bo', [BOController::class, 'index']);
+	Route::get('/bo/data', [BOController::class, 'data'])->name('bo.data');
+	Route::post('/bo/{idkeluar}', [BOController::class, 'delete']);
 	Route::get('/exportexcelbo', [BOController::class, 'exportexcel']);
 	Route::get('/form/formkeluarbo', [BOController::class, 'keluarboform']);
 	Route::post('/BO', [BOController::class, 'proseskeluarboform']);
 	Route::post('/form/formkeluarbo', [BOController::class, 'getTap']);
+
+
+
 
 	//voucher rusak
 	Route::get('vrusak', [VrusakController::class, 'index']);

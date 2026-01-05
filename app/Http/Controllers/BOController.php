@@ -5,220 +5,260 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\BOExport;
 
 class BOController extends Controller
 {
-    public function index(Request $request)
+    /* =========================
+       VIEW
+    ========================= */
+    public function index()
+    {
+        return view('bo');
+    }
+
+    /* =========================
+       DATATABLE SERVER SIDE
+    ========================= */
+    public function data(Request $request)
     {
         $idtap = session('idtap');
-        $month = $request->input('bulan', date('m'));
-        $year = $request->input('tahun', date('y'));
-        $kategoritap = ['DUMAI','DURI','BENGKALIS','SEI PAKNING','RUPAT','BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'];
-        $kategoribo = ['BO DUMAI','BO BENGKALIS','BO DURI','BO BAGAN BATU','BO BAGAN SIAPI-API'];
 
-        if($idtap =='SBP_DUMAI'){
-            $data= DB::table('keluar as k')
-                    ->join('denom as d', 'd.iddenom', '=','k.iddenom')
-                    ->select('k.*', 'd.denom')
-                    ->whereNotIn('k.pengirim',$kategoritap)
-                    ->whereMonth('k.tgl',$month)
-                    ->whereYear('k.tgl',$year)
-                    ->get()
-                    ->map(function($item) {
-                        $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                        return $item;
-                    });
+        if ($request->filled('daterange')) {
+            [$start, $end] = explode(' - ', $request->daterange);
+        } else {
+            $start = now()->startOfMonth()->format('Y-m-d');
+            $end   = now()->endOfMonth()->format('Y-m-d');
+        }
 
-        }else{
+        $kategoritap = [
+            'DUMAI','DURI','BENGKALIS','SEI PAKNING',
+            'RUPAT','BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'
+        ];
 
-            $data= DB::table('keluar as k')
-                    ->join('denom as d', 'd.iddenom', '=','k.iddenom')
-                    ->select('k.*', 'd.denom')
-                    ->where('k.idtap',$idtap)
-                    ->whereNotIn('k.pengirim',$kategoritap)
-                    ->whereMonth('k.tgl',$month)
-                    ->whereYear('k.tgl',$year)
-                    ->get()
-                    ->map(function($item) {
-                        $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                        return $item;
-                    });
+        $query = DB::table('keluar as k')
+            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->select(
+                'k.idkeluar',
+                'k.tgl',
+                'd.denom',
+                'k.qty',
+                'k.pengirim',
+                'k.penerima',
+                'k.sn',
+                'k.tambahanket'
+            )
+            ->whereNotIn('k.pengirim', $kategoritap)
+            ->whereBetween('k.tgl', [
+                $start.' 00:00:00',
+                $end.' 23:59:59'
+            ]);
 
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('k.idtap', $idtap);
+        }
 
+        return DataTables::of($query)
+            ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
+            ->editColumn('qty', fn($r) => number_format($r->qty))
+            ->addColumn('action', function ($row) {
+                if (session('idtap') !== 'SBP_DUMAI') {
+                    return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
                 }
-        return view ('BO', compact('data','idtap','month','year','kategoribo'));
-  
+
+                return '
+                    <form action="'.url('bo/delete/'.$row->idkeluar).'"
+                          method="POST"
+                          class="form-delete d-inline">
+                        '.csrf_field().'
+                        <button class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                ';
+            })
+            ->rawColumns(['action'])
+            ->orderColumn('tgl', 'k.tgl $1')
+            ->make(true);
     }
 
-    public function keluarboform(){
-
+    /* =========================
+       FORM INPUT BO
+    ========================= */
+    public function keluarboform()
+    {
         $idtap = session('idtap');
 
-        if($idtap == 'SBP_DUMAI'){
-            
-            $data = DB::table('kategori_bo')
-                    ->select("*")
-                    ->get();
-            
-            return view('form/formkeluarbo', compact('data','idtap'));
-                    
-        }else{
+        $data = DB::table('kategori_bo')
+            ->when($idtap !== 'SBP_DUMAI', fn($q) => $q->where('idtap', $idtap))
+            ->get();
 
-            $data = DB::table('kategori_bo')
-                    ->select("*")
-                    ->where('idtap', $idtap)
-                    ->get();
-            
-            return view('form/formkeluarbo', compact('data','idtap'));
-        }
+        return view('form/formkeluarbo', compact('data','idtap'));
     }
 
+    // get Tap
+public function getTap(Request $request)
+{
+    $bo = $request->idtap; // ini nama BO (namabo)
+    $sessionTap = session('idtap');
+
+    $query = DB::table('kategori_bo');
+
+    if ($sessionTap === 'SBP_DUMAI') {
+        $query->where('namabo', $bo);
+    } else {
+        $query->where('idtap', $sessionTap);
+    }
+
+    $taps = $query->get();
+
+    $html = '<option value="">-- Pilih TAP --</option>';
+
+    foreach ($taps as $tap) {
+        $html .= '<option value="'.$tap->idtap.'">'.$tap->idtap.'</option>';
+    }
+
+    return response($html);
+}
+
+
+
+    /* =========================
+       STORE (ANTI DOUBLE SUBMIT)
+    ========================= */
     public function proseskeluarboform(Request $request)
-{
-    $data = $request->only(['pengirim', 'penerima', 'qty', 'iddenom', 'sn', 'tambahanket', 'tgl']);
-    
-    // Cek stok BO
-    if ($this->getStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom']) < $data['qty']) {
-        return redirect('form/formkeluarbo')->withErrors(['error' => 'Stok BO Tidak Mencukupi!']);
-    }
-
-    // Insert ke tabel keluar
-    DB::table('keluar')->insert([
-        'iddenom' => $data['iddenom'],
-        'pengirim' => $data['pengirim'],
-        'penerima' => $data['penerima'],
-        'qty' => $data['qty'],
-        'tgl' => $data['tgl'],
-        'sn' => $data['sn'],
-        'tambahanket' => $data['tambahanket'],
-        'idtap' => $data['penerima'],
-        'status' => 0,
-    ]);
-
-    // Update stok BO dan TAP
-    $this->updateStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom'], 
-        $this->getStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom']) - $data['qty']);
-
-    $this->updateStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom'], 
-        $this->getStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom']) + $data['qty']);
-
-    return redirect('BO')->with('status', 'Data Berhasil Ditambahkan!');
-}
-
-public function delete(Request $request, $idkeluar)
-{
-    $data = $request->only(['pengirim', 'penerima', 'qty', 'iddenom']);
-
-    // Validasi stok TAP mencukupi
-    if ($this->getStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom']) < $data['qty']) {
-        return redirect('BO')->withErrors(['error' => 'Stock Tap Tidak Mencukupi!']);
-    }
-
-    // Update stok TAP dan BO
-    $this->updateStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom'], 
-        $this->getStock('stockawaltap', 'idtap', $data['penerima'], $data['iddenom']) - $data['qty']);
-
-    $this->updateStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom'], 
-        $this->getStock('stockawalsf', 'idsf', $data['pengirim'], $data['iddenom']) + $data['qty']);
-
-    // Hapus dari tabel keluar
-    DB::table('keluar')->where('idkeluar', $idkeluar)->delete();
-
-    return redirect('keluar')->with('status', 'Data Berhasil Dihapus!');
-}
-
-// Helper function untuk mengambil stok
-private function getStock($table, $idColumn, $idValue, $iddenom)
-{
-    return DB::table($table)
-        ->where($idColumn, $idValue)
-        ->where('iddenom', $iddenom)
-        ->value('stock');
-}
-
-// Helper function untuk update stok
-private function updateStock($table, $idColumn, $idValue, $iddenom, $newStock)
-{
-    DB::table($table)
-        ->where($idColumn, $idValue)
-        ->where('iddenom', $iddenom)
-        ->update(['stock' => $newStock]);
-}
-
-
-
-    public function getTap(Request $request)
     {
+        try {
+            DB::transaction(function () use ($request) {
 
-        $idtaps = $request -> idtap;
+                $data = $request->only([
+                    'pengirim','penerima','qty','iddenom','sn','tambahanket','tgl'
+                ]);
 
-        $idtapsession = session('idtap');
+                $stokBo = DB::table('stockawalsf')
+                    ->where('idsf', $data['pengirim'])
+                    ->where('iddenom', $data['iddenom'])
+                    ->lockForUpdate()
+                    ->value('stock');
 
-        if($idtapsession == 'SBP_DUMAI'){
-        
-            $tapnya = DB::table('kategori_bo')
-                    ->select('*')
-                    ->where('namabo', $idtaps)
-                    ->get();
+                if ($stokBo < $data['qty']) {
+                    throw new \Exception('Stok BO tidak mencukupi');
+                }
 
-                    foreach ($tapnya as $tap){
-                        echo "<option value=''> -- Pilih --</option>";
-                        echo "<option value='$tap->idtap'> $tap->idtap</option>";
-                    }
-        }else{
+                DB::table('keluar')->insert([
+                    'iddenom' => $data['iddenom'],
+                    'pengirim' => $data['pengirim'],
+                    'penerima' => $data['penerima'],
+                    'qty' => $data['qty'],
+                    'tgl' => $data['tgl'],
+                    'sn' => $data['sn'],
+                    'tambahanket' => $data['tambahanket'],
+                    'idtap' => $data['penerima'],
+                    'status' => 0
+                ]);
 
-            $tapnya = DB::table('kategori_bo')
-                        ->where('idtap', $idtapsession)
-                        ->get();
-    
-                        foreach ($tapnya as $tap){
-                            echo "<option value=''> -- Pilih --</option>";
-                            echo "<option value='$tap->idtap'> $tap->idtap</option>";
-                        }
+                DB::table('stockawalsf')
+                    ->where('idsf', $data['pengirim'])
+                    ->where('iddenom', $data['iddenom'])
+                    ->decrement('stock', $data['qty']);
+
+                DB::table('stockawaltap')
+                    ->where('idtap', $data['penerima'])
+                    ->where('iddenom', $data['iddenom'])
+                    ->increment('stock', $data['qty']);
+            });
+
+            return redirect('bo')->with('success', 'Data berhasil ditambahkan');
+
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
     }
 
-    
-        public function exportexcel(Request $request)
-        {
-            $idtap = session('idtap');
-            $month = $request->input('bulan', date('m'));
-            $year = $request->input('tahun', date('Y')); 
-            $kategoritap = ['DUMAI','DURI','BENGKALIS','SEI PAKNING','RUPAT','BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'];
-            $kategoribo = ['BO DUMAI','BO BENGKALIS','BO DURI','BO BAGAN BATU','BO BAGAN SIAPI-API'];
+    /* =========================
+       DELETE (ROLLBACK STOK)
+    ========================= */
+    public function delete($idkeluar)
+    {
+        try {
+            DB::transaction(function () use ($idkeluar) {
 
-            if ($idtap == 'SBP_DUMAI') {
-                $penjualanData = DB::table('keluar as m')
-                                ->join('denom as d', 'd.iddenom', 'm.iddenom')
-                                ->select('m.tgl','m.pengirim','m.penerima','d.denom',DB::raw('SUM(m.qty) as qty'))
-                                ->whereMonth('m.tgl', $month)
-                                ->whereYear('m.tgl', $year)
-                                ->whereNotIn('m.pengirim', $kategoritap)
-                                ->groupBy('m.tgl','m.pengirim','m.penerima','d.denom')
-                                ->get();
-            } else {
-                $penjualanData = DB::table('keluar as m')
-                                ->join('denom as d', 'd.iddenom', 'm.iddenom')
-                                ->select('m.tgl','m.pengirim','m.penerima','d.denom',DB::raw('SUM(m.qty) as qty'))
-                                ->whereMonth('m.tgl', $month)
-                                ->whereYear('m.tgl', $year)
-                                ->whereNotIn('m.pengirim', $kategoritap)
-                                ->whereIn('m.pengirim', $kategoribo)
-                                ->groupBy('m.tgl','m.pengirim','m.penerima','d.denom')
-                                ->get();
-            }
+                $data = DB::table('keluar')
+                    ->where('idkeluar', $idkeluar)
+                    ->lockForUpdate()
+                    ->first();
 
-            $monthName = date('F', mktime(0, 0, 0, $month, 1));
+                if (!$data) throw new \Exception('Data tidak ditemukan');
 
-            $fileName = 'RETUR_BO_' . $idtap . '_' . $year . '_' . $monthName . '.xlsx';
+                $stokTap = DB::table('stockawaltap')
+                    ->where('idtap', $data->penerima)
+                    ->where('iddenom', $data->iddenom)
+                    ->lockForUpdate()
+                    ->value('stock');
 
-            // Menggunakan Maatwebsite\Excel untuk melakukan export data
-            return Excel::download(new BOExport($penjualanData), $fileName);
+                if ($stokTap < $data->qty) {
+                    throw new \Exception('Stok TAP tidak mencukupi');
+                }
+
+                DB::table('stockawaltap')
+                    ->where('idtap', $data->penerima)
+                    ->where('iddenom', $data->iddenom)
+                    ->decrement('stock', $data->qty);
+
+                DB::table('stockawalsf')
+                    ->where('idsf', $data->pengirim)
+                    ->where('iddenom', $data->iddenom)
+                    ->increment('stock', $data->qty);
+
+                DB::table('keluar')->where('idkeluar', $idkeluar)->delete();
+            });
+
+            return redirect('bo')->with('success', 'Data berhasil dihapus');
+
+        } catch (\Exception $e) {
+            return redirect('bo')->with('error', $e->getMessage());
         }
+    }
+    public function exportexcel(Request $request)
+{
+    $idtap = session('idtap');
 
+    if ($request->filled('daterange')) {
+        [$start, $end] = explode(' - ', $request->daterange);
+    } else {
+        $start = now()->startOfMonth()->format('Y-m-d');
+        $end   = now()->endOfMonth()->format('Y-m-d');
+    }
 
+    $kategoritap = [
+        'DUMAI','DURI','BENGKALIS','SEI PAKNING',
+        'RUPAT','BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'
+    ];
 
+    $query = DB::table('keluar as m')
+        ->join('denom as d', 'd.iddenom', 'm.iddenom')
+        ->select(
+            'm.tgl',
+            'm.pengirim',
+            'm.penerima',
+            'd.denom',
+            DB::raw('SUM(m.qty) as qty')
+        )
+        ->whereNotIn('m.pengirim', $kategoritap)
+        ->whereBetween('m.tgl', [
+            $start.' 00:00:00',
+            $end.' 23:59:59'
+        ])
+        ->groupBy('m.tgl','m.pengirim','m.penerima','d.denom');
+
+    if ($idtap !== 'SBP_DUMAI') {
+        $query->where('m.idtap', $idtap);
+    }
+
+    return Excel::download(
+        new BOExport($query->get()),
+        "RETUR_BO_{$start}_sd_{$end}.xlsx"
+    );
+}
 
 }
