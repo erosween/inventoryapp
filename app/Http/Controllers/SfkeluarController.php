@@ -59,7 +59,7 @@ use Yajra\DataTables\Facades\DataTables;
     ]);
 
     return DataTables::of($query)
-        ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
+        // ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
         ->editColumn('qty', fn ($r) => number_format($r->qty))
         ->addColumn('action', function ($row) {
             // selain admin → tombol mati
