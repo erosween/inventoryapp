@@ -143,13 +143,6 @@
     <script>
         $(document).ready(function() {
 
-            /* ================= CSRF ================= */
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
             let currentStock = 0;
 
             /* ================= SELECT2 ================= */

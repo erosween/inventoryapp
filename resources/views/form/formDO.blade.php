@@ -79,33 +79,25 @@
 @push('scripts')
     <script>
         $(function() {
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
+            $('#kategorisegelmasuk').on('change', function() {
+                let idtap = $('#kategorisegelmasuk').val();
 
-            $(function() {
-                $('#kategorisegelmasuk').on('change', function() {
-                    let idtap = $('#kategorisegelmasuk').val();
+                $.ajax({
+                    type: 'POST',
+                    url: '/form/formDO',
+                    data: {
+                        idtap: idtap
+                    },
+                    cache: false,
 
-                    $.ajax({
-                        type: 'POST',
-                        url: '/form/formDO',
-                        data: {
-                            idtap: idtap
-                        },
-                        cache: false,
-
-                        success: function(msg) {
-                            $('#tappenerima').html(msg);
-                        },
-                    })
-
-
+                    success: function(msg) {
+                        $('#tappenerima').html(msg);
+                    },
                 })
+
+
             })
-        });
+        })
     </script>
 
     <script>

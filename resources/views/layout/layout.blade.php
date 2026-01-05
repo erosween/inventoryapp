@@ -333,28 +333,6 @@
         <!-- SweetAlert2 -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-        {{-- FLASH MESSAGE SWEETALERT --}}
-        @if (session('error'))
-            <script>
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal',
-                    text: @json(session('error'))
-                });
-            </script>
-        @endif
-
-        @if (session('success'))
-            <script>
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil',
-                    text: @json(session('success'))
-                });
-            </script>
-        @endif
-
-
         {{-- SCRIPT PER VIEW --}}
         @stack('scripts')
 

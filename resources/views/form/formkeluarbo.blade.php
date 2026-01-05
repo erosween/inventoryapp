@@ -6,11 +6,12 @@
             <div class="page-inner">
 
                 {{-- ERROR --}}
-                @if ($errors->has('error'))
+                @if (session('error'))
                     <div class="alert alert-danger">
-                        {{ $errors->first('error') }}
+                        {{ session('error') }}
                     </div>
                 @endif
+
 
                 {{-- HEADER --}}
                 <div class="page-header">
@@ -50,7 +51,7 @@
                                                 <select name="iddenom" class="form-control select2" required>
                                                     <option></option>
                                                     <option value="SEGEL">SEGEL</option>
-                                                    <option value="V16">SEGEL ROAMAX</option>
+                                                    {{-- <option value="V16">SEGEL ROAMAX</option> --}}
                                                     <option value="V33">BYU</option>
                                                 </select>
                                             </div>
@@ -74,7 +75,7 @@
 
                                         {{-- TAP --}}
                                         <div class="col-md-6">
-                                            <div class="form-group mb-2">
+                                            <div class="form-group mb-1">
                                                 <label>TAP (Penerima)</label>
                                                 <select name="penerima" id="tappenerima" class="form-control select2"
                                                     required>
@@ -85,7 +86,7 @@
 
                                         {{-- QTY --}}
                                         <div class="col-md-6">
-                                            <div class="form-group mb-2">
+                                            <div class="form-group mb-1">
                                                 <label>Quantity</label>
                                                 <input type="number" name="qty" class="form-control" min="1"
                                                     required>
@@ -94,7 +95,7 @@
 
                                         {{-- SN --}}
                                         <div class="col-md-6">
-                                            <div class="form-group mb-2">
+                                            <div class="form-group mb-1">
                                                 <label>SN (Opsional)</label>
                                                 <input type="text" name="sn" class="form-control"
                                                     placeholder="SN Awal - SN Akhir">
@@ -103,7 +104,7 @@
 
                                         {{-- KETERANGAN --}}
                                         <div class="col-md-12">
-                                            <div class="form-group mb-2">
+                                            <div class="form-group mb-1">
                                                 <label>Keterangan Tambahan (Opsional)</label>
                                                 <input type="text" name="tambahanket" class="form-control">
                                             </div>

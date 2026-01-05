@@ -5,30 +5,10 @@
         <div class="content">
             <div class="page-inner">
 
-                @if (session('success'))
-                    <script>
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Berhasil',
-                            text: '{{ session('success') }}'
-                        })
-                    </script>
-                @endif
-
-                @if (session('error'))
-                    <script>
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal',
-                            text: '{{ session('error') }}'
-                        })
-                    </script>
-                @endif
-
                 <div class="card shadow-sm">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">Retur BO TAP</h4>
-                        <div class="d-flex gap-2 ">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
                             <div class="position-relative mr-1">
                                 <input type="text" id="daterange" class="form-control form-control-sm pe-4"
                                     style="min-width:260px" placeholder="Pilih tanggal" autocomplete="off">
@@ -225,4 +205,23 @@
 
         });
     </script>
+    @if (session('success'))
+        <script>
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil',
+                text: '{{ session('success') }}'
+            })
+        </script>
+    @endif
+
+    @if (session('error'))
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: '{{ session('error') }}'
+            })
+        </script>
+    @endif
 @endpush

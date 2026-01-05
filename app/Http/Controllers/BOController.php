@@ -127,53 +127,53 @@ public function getTap(Request $request)
        STORE (ANTI DOUBLE SUBMIT)
     ========================= */
     public function proseskeluarboform(Request $request)
-    {
-        try {
-            DB::transaction(function () use ($request) {
+{
+    $data = $request->only([
+        'pengirim','penerima','qty','iddenom','sn','tambahanket','tgl'
+    ]);
 
-                $data = $request->only([
-                    'pengirim','penerima','qty','iddenom','sn','tambahanket','tgl'
-                ]);
+    return DB::transaction(function () use ($data) {
 
-                $stokBo = DB::table('stockawalsf')
-                    ->where('idsf', $data['pengirim'])
-                    ->where('iddenom', $data['iddenom'])
-                    ->lockForUpdate()
-                    ->value('stock');
+        $stokBo = DB::table('stockawalsf')
+            ->where('idsf', $data['pengirim'])
+            ->where('iddenom', $data['iddenom'])
+            ->lockForUpdate()
+            ->value('stock');
 
-                if ($stokBo < $data['qty']) {
-                    throw new \Exception('Stok BO tidak mencukupi');
-                }
-
-                DB::table('keluar')->insert([
-                    'iddenom' => $data['iddenom'],
-                    'pengirim' => $data['pengirim'],
-                    'penerima' => $data['penerima'],
-                    'qty' => $data['qty'],
-                    'tgl' => $data['tgl'],
-                    'sn' => $data['sn'],
-                    'tambahanket' => $data['tambahanket'],
-                    'idtap' => $data['penerima'],
-                    'status' => 0
-                ]);
-
-                DB::table('stockawalsf')
-                    ->where('idsf', $data['pengirim'])
-                    ->where('iddenom', $data['iddenom'])
-                    ->decrement('stock', $data['qty']);
-
-                DB::table('stockawaltap')
-                    ->where('idtap', $data['penerima'])
-                    ->where('iddenom', $data['iddenom'])
-                    ->increment('stock', $data['qty']);
-            });
-
-            return redirect('bo')->with('success', 'Data berhasil ditambahkan');
-
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+        if ($stokBo === null) {
+            return back()->with('error', 'Stok BO belum terdaftar');
         }
-    }
+
+        if ($stokBo < $data['qty']) {
+            return back()->with('error', 'Stok BO tidak mencukupi');
+        }
+
+        DB::table('keluar')->insert([
+            'iddenom' => $data['iddenom'],
+            'pengirim' => $data['pengirim'],
+            'penerima' => $data['penerima'],
+            'qty' => $data['qty'],
+            'tgl' => $data['tgl'],
+            'sn' => $data['sn'],
+            'tambahanket' => $data['tambahanket'],
+            'idtap' => $data['penerima'],
+            'status' => 0
+        ]);
+
+        DB::table('stockawalsf')
+            ->where('idsf', $data['pengirim'])
+            ->where('iddenom', $data['iddenom'])
+            ->decrement('stock', $data['qty']);
+
+        DB::table('stockawaltap')
+            ->where('idtap', $data['penerima'])
+            ->where('iddenom', $data['iddenom'])
+            ->increment('stock', $data['qty']);
+
+        return redirect('bo')->with('success', 'Data berhasil ditambahkan');
+    });
+}
+
 
     /* =========================
        DELETE (ROLLBACK STOK)
@@ -219,6 +219,8 @@ public function getTap(Request $request)
             return redirect('bo')->with('error', $e->getMessage());
         }
     }
+
+
     public function exportexcel(Request $request)
 {
     $idtap = session('idtap');

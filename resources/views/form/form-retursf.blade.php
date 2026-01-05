@@ -87,12 +87,6 @@
 
     <script>
         $(function() {
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
             $(function() {
                 $('#kategoritap').on('change', function() {
                     let idtap = $('#kategoritap').val();
