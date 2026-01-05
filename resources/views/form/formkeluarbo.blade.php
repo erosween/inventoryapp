@@ -28,7 +28,7 @@
                                 </div>
                             </div>
 
-                            <form action="{{ url('bo') }}" method="POST" id="formKeluarBO">
+                            <form action="{{ url('bo.store') }}" method="POST" id="formKeluarBO">
                                 @csrf
 
                                 <div class="card-body">
