@@ -64,7 +64,7 @@
                                                     required>
                                                     <option></option>
                                                     @foreach ($data as $row)
-                                                        <option value="{{ $row->idsf }}">
+                                                        <option value="{{ $row->namabo }}">
                                                             {{ $row->namabo }}
                                                         </option>
                                                     @endforeach
