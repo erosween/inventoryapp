@@ -159,6 +159,7 @@ Route::middleware(['auth'])->group(function () {
 	
 	//retursf
 	Route::get('retursf', [RetursfController::class, 'index']);
+	Route::post('/ajax/get-sf', [RetursfController::class, 'getSf'])->name('ajax.get-sf');
 	Route::post('/form/form-retursf', [RetursfController::class, 'getSf']);
 	Route::get('/form/form-retursf', [RetursfController::class, 'formretursf']);
 	Route::post('retursf', [RetursfController::class, 'retursfproses']);

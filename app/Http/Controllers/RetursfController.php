@@ -125,59 +125,115 @@ class RetursfController extends Controller
 
     }
 
-    public function retursfproses(Request $request)
-    {
-        $tgl = $request->input('tgl');
-        $idtap = $request->input('idtap');
-        $idsf = $request->input('idsf');
-        $iddenom = $request->input('iddenom');
-        $qty = $request->input('qty');
-        $sn = $request->input('sn');
-        $ketvf = $request->input('ketvf');
-        $tambahket = $request->input('tambahket');
-    
-        // Validasi stok
-        if (!$this->cekStok($idsf, $iddenom, $qty)) {
-            return redirect('form/form-retursf')->withErrors(['error' => 'Stock SF Tidak Mencukupi!']);
-        }
-    
-        // Update stok dan simpan data retursf
-        $this->updateStok($idtap, $idsf, $iddenom, $qty);
-    
-        DB::table('retursf')->insert([
-            'idtap' => $idtap,
-            'idsf' => $idsf,
-            'iddenom' => $iddenom,
-            'qty' => $qty,
-            'sn' => $sn,
-            'ketvf' => $ketvf,
-            'tambahket' => $tambahket,
-            'tgl' => $tgl
-        ]);
-    
-        return redirect('retursf')->with('status', 'Data Berhasil Ditambahkan!');
+public function retursfproses(Request $request)
+{
+    try {
+        DB::transaction(function () use ($request) {
+
+            $tgl      = $request->tgl;
+            $idtap    = $request->idtap;
+            $idsf     = $request->idsf;
+            $iddenom  = $request->iddenom;
+            $qty      = (int) $request->qty;
+            $sn       = $request->sn;
+            $ketvf    = $request->ketvf;
+            $tambahket= $request->tambahket;
+
+            // 🔒 LOCK STOK SF
+            $stokSF = DB::table('stockawalsf')
+                ->where('idsf', $idsf)
+                ->where('iddenom', $iddenom)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($stokSF < $qty) {
+                throw new \Exception('Stok SF tidak mencukupi');
+            }
+
+            // 🔒 LOCK STOK TAP
+            DB::table('stockawaltap')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $iddenom)
+                ->lockForUpdate()
+                ->first();
+
+            // 📝 INSERT RETUR
+            DB::table('retursf')->insert([
+                'idtap'      => $idtap,
+                'idsf'       => $idsf,
+                'iddenom'    => $iddenom,
+                'qty'        => $qty,
+                'sn'         => $sn,
+                'ketvf'      => $ketvf,
+                'tambahket'  => $tambahket,
+                'tgl'        => $tgl
+            ]);
+
+            // 🔁 UPDATE STOK
+            DB::table('stockawalsf')
+                ->where('idsf', $idsf)
+                ->where('iddenom', $iddenom)
+                ->decrement('stock', $qty);
+
+            DB::table('stockawaltap')
+                ->where('idtap', $idtap)
+                ->where('iddenom', $iddenom)
+                ->increment('stock', $qty);
+        });
+
+        return redirect('retursf')->with('status', 'Data berhasil ditambahkan');
+
+    } catch (\Exception $e) {
+        return redirect('form/form-retursf')->withErrors(['error' => $e->getMessage()]);
     }
-    
-    public function delete(Request $request, $idretur)
-    {
-        $iddenom = $request->input('iddenom');
-        $idsf = $request->input('idsf');
-        $idtap = $request->input('idtap');
-        $qty = $request->input('qty');
-    
-        // Validasi stok cukup
-        if (!$this->cekStokTAP($idtap, $iddenom, $qty)) {
-            return redirect('retursf')->withErrors(['error' => 'stok TAP tidak mencukupi!']);
-        }
-    
-        // Update stok dan hapus data retursf
-        $this->updateStok($idtap, $idsf, $iddenom, -$qty);
-    
-        DB::table('retursf')->where('idretur', $idretur)->delete();
-    
-        return redirect('retursf')->with('status', 'Data Berhasil DIhapus!');
+}
+
+public function delete(Request $request, $idretur)
+{
+    try {
+        DB::transaction(function () use ($idretur) {
+
+            $data = DB::table('retursf')
+                ->where('idretur', $idretur)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$data) {
+                throw new \Exception('Data tidak ditemukan');
+            }
+
+            // 🔒 LOCK TAP
+            $stokTap = DB::table('stockawaltap')
+                ->where('idtap', $data->idtap)
+                ->where('iddenom', $data->iddenom)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($stokTap < $data->qty) {
+                throw new \Exception('Stok TAP tidak mencukupi');
+            }
+
+            // 🔁 BALIKKAN STOK
+            DB::table('stockawaltap')
+                ->where('idtap', $data->idtap)
+                ->where('iddenom', $data->iddenom)
+                ->decrement('stock', $data->qty);
+
+            DB::table('stockawalsf')
+                ->where('idsf', $data->idsf)
+                ->where('iddenom', $data->iddenom)
+                ->increment('stock', $data->qty);
+
+            DB::table('retursf')->where('idretur', $idretur)->delete();
+        });
+
+        return redirect('retursf')->with('status', 'Data berhasil dihapus');
+
+    } catch (\Exception $e) {
+        return redirect('retursf')->withErrors(['error' => $e->getMessage()]);
     }
-    
+}
+
     /**
      * Cek apakah stok SF mencukupi.
      */
@@ -191,39 +247,7 @@ class RetursfController extends Controller
         return $stock >= $qty;
     }
     
-    /**
-     * Cek apakah stok TAP mencukupi.
-     */
-    private function cekStokTAP($idtap, $iddenom, $qty)
-    {
-        $stock = DB::table('stockawaltap')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->value('stock');
-    
-        return $stock >= $qty;
-    }
-    
-    /**
-     * Update stok di stockawalsf dan stockawaltap.
-     */
-    private function updateStok($idtap, $idsf, $iddenom, $qty)
-    {
-        // Ambil stok eksisting
-        $ssf = DB::table('stockawalsf')->where('idsf', $idsf)->where('iddenom', $iddenom)->first();
-        $stap = DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
-    
-        // Update stok
-        $newStockSF = $ssf->stock - $qty;
-        $newStockTAP = $stap->stock + $qty;
-    
-        // Update tabel stockawalsf dan stockawaltap
-        DB::table('stockawalsf')->where('idsf', $idsf)->where('iddenom', $iddenom)->update(['stock' => $newStockSF]);
-        DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockTAP]);
-    }
-    
-
-
+   
     public function exportexcel(Request $request)
     {
         $idtap = session('idtap');

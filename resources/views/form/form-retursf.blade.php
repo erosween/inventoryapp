@@ -35,7 +35,10 @@
                                         @endforeach
                                     </select>
 
-                                    <select name="idsf" id="idsf" class="form-control mb-2"> </select>
+                                    <select name="idsf" id="idsf" class="form-control mb-2" required>
+                                        <option value="">-- Pilih SF --</option>
+                                    </select>
+
 
                                     <label for="">Denom :</label>
                                     <select name="iddenom" id="" class="form-control mb-2" required>
@@ -81,34 +84,32 @@
 @endsection
 
 @push('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"
-        integrity="sha512-pumBsjNRGGqkPzKHndZMaAG+bir374sORyzM3uulLV14lN5LyykqNk8eEeUlUkB3U0M4FApyaHraT65ihJhDpQ=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
     <script>
         $(function() {
-            $(function() {
-                $('#kategoritap').on('change', function() {
-                    let idtap = $('#kategoritap').val();
+            $('#kategoritap').on('change', function() {
+                let idtap = $(this).val();
 
-                    $.ajax({
-                        type: 'POST',
-                        url: '/form/form-retursf',
-                        data: {
-                            idtap: idtap
-                        },
-                        cache: false,
+                if (!idtap) {
+                    $('#idsf').html('<option value="">-- Pilih SF --</option>');
+                    return;
+                }
 
-                        success: function(msg) {
-                            $('#idsf').html(msg);
-                        },
-                    })
+                $.ajax({
+                    url: "{{ route('ajax.get-sf') }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        idtap: idtap
+                    },
+                    success: function(res) {
+                        $('#idsf').html(res);
+                    }
+                });
+            });
 
-
-                })
-            })
         });
     </script>
+
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
