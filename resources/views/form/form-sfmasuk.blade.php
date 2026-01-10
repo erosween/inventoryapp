@@ -241,13 +241,21 @@
         // Tanggal maksimal hari ini dan minimal sebulan yang lalu
         document.addEventListener("DOMContentLoaded", function() {
             const inputDate = document.getElementById('date');
+
             const today = new Date();
+
+            // H+1 (besok)
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+
+            // H-1 bulan
             const monthAgo = new Date(today);
             monthAgo.setMonth(today.getMonth() - 1);
 
-            // Mengatur tanggal maksimal hingga hari ini
-            inputDate.max = today.toISOString().split('T')[0];
-            // Mengatur tanggal minimal ke satu bulan yang lalu
+            // Max: besok (H+1)
+            inputDate.max = tomorrow.toISOString().split('T')[0];
+
+            // Min: 1 bulan lalu
             inputDate.min = monthAgo.toISOString().split('T')[0];
         });
     </script>
