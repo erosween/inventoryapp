@@ -18,7 +18,7 @@
                                         <a class="nav-link " href="{{ url('stock') }}" role="tab">Stock All</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link " href="{{ url('stocktap') }}" role="tab">Stock Tap</a>
+                                        <a class="nav-link " href="{{ url('stocktap') }}" role="tab">Stock Gudang</a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link active" href="{{ url('stocksf') }}" role="tab">Stock SF</a>
@@ -58,10 +58,12 @@
                                                 <th>3GB/5hari</th>
                                                 <th>7GB/7hari</th>
                                                 <th>10GB/7hari</th>
+                                                <th>10GB/30hari</th>
                                                 <th>11GB/30hari</th>
                                                 <th>12GB/30hari</th>
                                                 <th>18GB/30hari</th>
                                                 <th>20GB/30hari</th>
+                                                <th>30GB/30hari</th>
                                                 <th>VOICE 30 HARI</th>
                                                 <th>BYU SEGEL</th>
                                                 <th>BYU 1GB/1hari</th>
@@ -113,9 +115,11 @@
                                                     <td> {{ number_format($row->V31) }}</td>
                                                     <td> {{ number_format($row->V28) }}</td>
                                                     <td> {{ number_format($row->V29) }}</td>
+                                                    <td> {{ number_format($row->V65) }}</td>
                                                     <td> {{ number_format($row->V47) }}</td>
                                                     <td> {{ number_format($row->V54) }}</td>
                                                     <td> {{ number_format($row->V53) }}</td>
+                                                    <td> {{ number_format($row->V66) }}</td>
                                                     <td> {{ number_format($row->V55) }}</td>
                                                     <td> {{ number_format($row->V15) }}</td>
                                                     <td> {{ number_format($row->V33) }}</td>
@@ -166,10 +170,12 @@
                                                 <td><strong>{{ number_format($gTotal['V31']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V28']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V29']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V65']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V47']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V54']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V53']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V55']) }}</strong></td>
+                                                <td><strong>{{ number_format($gTotal['V66']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V15']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V33']) }}</strong></td>
                                                 <td><strong>{{ number_format($gTotal['V44']) }}</strong></td>

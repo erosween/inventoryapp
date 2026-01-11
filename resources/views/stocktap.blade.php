@@ -18,7 +18,8 @@
                                         <a class="nav-link " href="{{ url('stock') }}" role="tab">Stock All</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link active" href="{{ url('stocktap') }}" role="tab">Stock Tap</a>
+                                        <a class="nav-link active" href="{{ url('stocktap') }}" role="tab">Stock
+                                            Gudang</a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url('stocksf') }}" role="tab">Stock SF</a>
@@ -57,10 +58,12 @@
                                                 <th>3GB/5hari</th>
                                                 <th>7GB/7hari</th>
                                                 <th>10GB/7hari</th>
+                                                <th>10GB/30hari</th>
                                                 <th>11GB/30hari</th>
                                                 <th>12GB/30hari</th>
                                                 <th>18GB/30hari</th>
                                                 <th>20GB/30hari</th>
+                                                <th>30GB/30hari</th>
                                                 <th>VOICE 30 HARI</th>
                                                 <th>BYU SEGEL</th>
                                                 <th>BYU 1GB/1hari</th>
@@ -151,6 +154,8 @@
                                                 $tV62 = 0;
                                                 $tV63 = 0;
                                                 $tV64 = 0;
+                                                $tV65 = 0;
+                                                $tV66 = 0;
 
                                             @endphp
                                             @foreach ($data as $row)
@@ -178,10 +183,12 @@
                                                     <td> {{ number_format($row->V31) }}</td>
                                                     <td> {{ number_format($row->V28) }}</td>
                                                     <td> {{ number_format($row->V29) }}</td>
+                                                    <td> {{ number_format($row->V65) }}</td>
                                                     <td> {{ number_format($row->V47) }}</td>
                                                     <td> {{ number_format($row->V54) }}</td>
                                                     <td> {{ number_format($row->V53) }}</td>
                                                     <td> {{ number_format($row->V55) }}</td>
+                                                    <td> {{ number_format($row->V66) }}</td>
                                                     <td> {{ number_format($row->V15) }}</td>
                                                     <td> {{ number_format($row->V33) }}</td>
                                                     <td> {{ number_format($row->V44) }}</td>
@@ -270,6 +277,8 @@
                                                     $tV62 += $row->V62;
                                                     $tV63 += $row->V63;
                                                     $tV64 += $row->V64;
+                                                    $tV65 += $row->V65;
+                                                    $tV66 += $row->V66;
                                                 @endphp
                                             @endforeach
                                         </tbody>
@@ -297,10 +306,12 @@
                                                 <td><strong>{{ number_format($tV31) }}</strong></td>
                                                 <td><strong>{{ number_format($tV28) }}</strong></td>
                                                 <td><strong>{{ number_format($tV29) }}</strong></td>
+                                                <td><strong>{{ number_format($tV65) }}</strong></td>
                                                 <td><strong>{{ number_format($tV47) }}</strong></td>
                                                 <td><strong>{{ number_format($tV54) }}</strong></td>
                                                 <td><strong>{{ number_format($tV53) }}</strong></td>
                                                 <td><strong>{{ number_format($tV55) }}</strong></td>
+                                                <td><strong>{{ number_format($tV66) }}</strong></td>
                                                 <td><strong>{{ number_format($tV15) }}</strong></td>
                                                 <td><strong>{{ number_format($tV33) }}</strong></td>
                                                 <td><strong>{{ number_format($tV44) }}</strong></td>
