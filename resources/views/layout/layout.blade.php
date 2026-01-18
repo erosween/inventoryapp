@@ -349,8 +349,8 @@
 =============================== --}}
     <script>
         /* ===============================
-                           DELETE CONFIRM (GLOBAL)
-                        =============================== */
+                                                   DELETE CONFIRM (GLOBAL)
+                =============================== */
         $(document).on('submit', '.form-delete', function(e) {
             e.preventDefault();
 

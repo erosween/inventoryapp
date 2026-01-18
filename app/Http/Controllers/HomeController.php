@@ -8,429 +8,112 @@ use Carbon\Carbon;
 
 class HomeController extends Controller
 {
-        public function index(Request $request)
-        {
+    public function index(Request $request)
+    {
+        $mode = $request->get('mode', 'daily');
+        $now  = Carbon::now();
 
-            $year = $request->input('tahun', date('Y'));
+        /* ================= KPI ================= */
+        $stokSegel =
+            DB::table('stockawaltap')->whereIn('iddenom',['SEGEL','V16','V33'])->sum('stock')
+            + DB::table('stockawalsf')->whereIn('iddenom',['SEGEL','V16','V33'])->sum('stock');
 
-            // Definisi bulan
-            $months = [
-                'Jan' => 1,
-                'Feb' => 2,
-                'Mar' => 3,
-                'Apr' => 4,
-                'May' => 5,
-                'Jun' => 6,
-                'Jul' => 7,
-                'Aug' => 8,
-                'Sep' => 9,
-                'Oct' => 10,
-                'Nov' => 11,
-                'Dec' => 12,
-            ];
+        $stokInject =
+            DB::table('stockawaltap')->whereNotIn('iddenom',['SEGEL','V16','V33'])->sum('stock')
+            + DB::table('stockawalsf')->whereNotIn('iddenom',['SEGEL','V16','V33'])->sum('stock');
 
-            // Mapping TAP -> Cluster
-            $tapClusterMap = [
-                // Dumai Bengkalis
-                'DUMAI'      => 'DUMAI BENGKALIS',
-                'DURI'  => 'DUMAI BENGKALIS',
-                'BENGKALIS'       => 'DUMAI BENGKALIS',
-                'SEI PAKNING'=> 'DUMAI BENGKALIS',
-                'RUPAT'      => 'DUMAI BENGKALIS',
+        $salesBulanIni = DB::table('keluarsf')
+            ->whereMonth('tgl',$now->month)
+            ->whereYear('tgl',$now->year)
+            ->sum('qty');
 
-                // Rokan Hilir
-                'BAGAN BATU'     => 'ROKAN HILIR',
-                'BAGAN SIAPI-API' => 'ROKAN HILIR',
-                'UJUNG TANJUNG'  => 'ROKAN HILIR',
-            ];
+        $salesPrev = DB::table('keluarsf')
+            ->whereMonth('tgl',$now->copy()->subMonth()->month)
+            ->whereYear('tgl',$now->copy()->subMonth()->year)
+            ->sum('qty');
 
-            // Ambil data dari tabel keluarsf
-            $salesData = DB::table('keluarsf')
-                ->select(DB::raw('idtap, MONTH(tgl) as month, SUM(qty) as total_sales'))
-                ->whereYear('tgl', $year)
-                ->where('tgl', '>=', Carbon::create(6, 1)) // mulai Juni 2024
-                ->groupBy('idtap', 'month')
+        $mom = $salesPrev > 0 ? (($salesBulanIni - $salesPrev) / $salesPrev) * 100 : 0;
+
+        /* ================= CHART SALES ================= */
+        if ($mode === 'weekly') {
+
+    $chartSales = DB::table('keluarsf')
+        ->selectRaw("
+            CONCAT('Week ', WEEK(MIN(tgl),1)) AS label,
+            SUM(qty) AS total,
+            MIN(tgl) AS sort_date
+        ")
+        ->whereMonth('tgl',$now->month)
+        ->whereYear('tgl',$now->year)
+        ->groupBy(DB::raw("YEAR(tgl), WEEK(tgl,1)"))
+        ->orderBy('sort_date')
+        ->get();
+
+
+        } elseif ($mode === 'monthly') {
+
+            $chartSales = DB::table('keluarsf')
+                ->selectRaw("
+                    DATE_FORMAT(MIN(tgl),'%b %Y') AS label,
+                    SUM(qty) AS total,
+                    MIN(tgl) AS sort_date
+                ")
+                ->where('tgl','>=',$now->copy()->subMonths(5)->startOfMonth())
+                ->groupBy(DB::raw("YEAR(tgl), MONTH(tgl)"))
+                ->orderBy('sort_date')
                 ->get();
 
-            $result = [];
-            $totalFooter = array_fill_keys(array_keys($months), 0); // total all TAP
-            $clusterFooter = []; // total per cluster
-
-            foreach ($salesData as $data) {
-                $tap = $data->idtap;
-                $month = $data->month;
-                $totalSales = $data->total_sales;
-
-                if (!isset($result[$tap])) {
-                    $result[$tap] = array_fill_keys(array_keys($months), 0);
-                }
-
-                $monthName = array_search($month, $months); // misal 6 -> "Jun"
-                if ($monthName !== false) {
-                    $result[$tap][$monthName] = $totalSales;
-                    $totalFooter[$monthName] += $totalSales;
-
-                    // Tambahkan ke cluster
-                    $cluster = $tapClusterMap[$tap] ?? null;
-                    if ($cluster) {
-                        if (!isset($clusterFooter[$cluster])) {
-                            $clusterFooter[$cluster] = array_fill_keys(array_keys($months), 0);
-                        }
-                        $clusterFooter[$cluster][$monthName] += $totalSales;
-                    }
-                }
-            }
-
-
-                // end penjualan bulanan
-
-                $idtap = session('idtap');
-
-                // untuk penjualan
-                $bulan = Carbon::now()->format('m');
-                $bulan1 = Carbon::now()->subMonths(1)->format('m');
-                $bulan2 = Carbon::now()->subMonths(2)->format('m');
-
-                $newmonth = Carbon::now()->format('F');
-                $month1 = Carbon::now()->subMonths(1)->format('F');
-                $month2 = Carbon::now()->subMonths(2)->format('F');
-
-                $year = Carbon::now()->format('Y');
-                $year2023 = Carbon::now()->subYear()->format('Y');
-
-                if ($idtap == 'SBP_DUMAI') {
-                        $tanggalmax = DB::table('keluarsf')
-                                        ->whereMonth('tgl', $bulan)
-                                        ->whereYear('tgl', $year)
-                                        ->max('tgl');
-                    
-                        if (is_null($tanggalmax)) {
-                            // Jika tidak ada data untuk bulan ini, gunakan tanggal saat ini atau nilai default lainnya
-                            $tanggalmax = date('Y-m-d');
-                        }
-                    
-                        $tanggaltotal = substr($tanggalmax, 8, 2);
-                        $bulantotal = $year . '-' . $bulan . '-01';
-                        $tgltotal = $year . '-' . $bulan . '-' . $tanggaltotal;
-                    
-                        // total jualan
-                        $sales = DB::table('keluarsf')
-                                ->whereBetween('tgl', [$bulantotal, $tgltotal])
-                                ->sum('qty');
-                    
-                        // Daftar ID TAP yang akan diproses
-                        $idTaps = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
-                    
-                        // Inisialisasi tanggal tertinggi untuk setiap TAP
-                        $tanggalTertinggi = [];
-                    
-                        // Mendapatkan tanggal tertinggi dari setiap TAP
-                        foreach ($idTaps as $idTap) {
-                            $tanggalTertinggi[$idTap] = DB::table('keluarsf')
-                                ->where('idtap', $idTap)
-                                ->whereMonth('tgl', $bulan)
-                                ->whereYear('tgl', $year)
-                                ->max('tgl');
-                        }
-                    
-                        // Mengambil tanggal terendah dari semua TAP
-                        $tanggalTertinggiFiltered = array_filter($tanggalTertinggi); // Menghilangkan nilai NULL
-                        $tanggalTerendah = !empty($tanggalTertinggiFiltered) ? min($tanggalTertinggiFiltered) : null;
-                    
-                        // Jika ada tanggal terendah yang valid, maka lanjutkan
-                        if ($tanggalTerendah) {
-                            $tanggal = substr($tanggalTerendah, 8, 2); // Mendapatkan hari dari tanggal terendah
-                            $bulan1 = $year . '-' . $bulan . '-01';
-                            $eDate = $year . '-' . $bulan . '-' . $tanggal;
-                        } else {
-                            // Handle case where there is no valid lowest date
-                            $tanggal = date('d'); // Default tanggal hari ini
-                            $bulan1 = $year . '-' . $bulan . '-01';
-                            $eDate = $year . '-' . $bulan . '-' . $tanggal;
-                        }
-                    
-                        // Menghitung stok segel cluster
-                        $segel = DB::table('stockawalall')
-                            ->whereIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                            ->sum('stock');
-                    
-                        // Menghitung stok inject cluster
-                        $inject = DB::table('stockawalall')
-                            ->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33'])
-                            ->sum('stock');
-                    
-                        $penjualan = []; // Inisialisasi variabel penjualan
-                    
-                        if (isset($eDate)) {
-                            // Mengambil semua TAP
-                            $tap = DB::table('kodetap')->select('idtap')->get();
-                    
-                            foreach ($tap as $row) {
-                                $tapId = $row->idtap;
-                    
-                                // Penjualan bulan ini sampai tanggal terendah
-                                $salesnow = DB::table('keluarsf')
-                                    ->where('idtap', $tapId)
-                                    ->whereBetween('tgl', [$bulan1, $eDate])
-                                    ->sum('qty');
-                    
-                                // Penjualan bulan lalu sampai tanggal terendah
-                                $prevMonth = date('m', strtotime('-1 month', strtotime($bulan1)));
-                                $prevYear = date('Y', strtotime('-1 month', strtotime($bulan1)));
-                                $prevSDate = $prevYear . '-' . $prevMonth . '-01';
-                                $prevEDate = $prevYear . '-' . $prevMonth . '-' . $tanggal;
-                    
-                                $sales1 = DB::table('keluarsf')
-                                    ->where('idtap', $tapId)
-                                    ->whereBetween('tgl', [$prevSDate, $prevEDate])
-                                    ->sum('qty');
-                    
-                                // Menambahkan data penjualan sesuai TAP
-                                $penjualan[$tapId] = [
-                                    'salesnow' => $salesnow,
-                                    'sales1' => $sales1,
-                                ];
-                            }
-                    
-                            $tglUpload = [];
-                    
-                            foreach ($tap as $row) {
-                                $tapId = $row->idtap;
-                    
-                                $masuk = DB::table('masuksf')
-                                    ->where('idtap', $tapId)
-                                    ->max('tgl');
-                    
-                                $keluar = DB::table('keluarsf')
-                                    ->where('idtap', $tapId)
-                                    ->max('tgl');
-                    
-                                // Tambah tanggal sesuai TAP
-                                $tglUpload[$tapId] = [
-                                    'masuk' => $masuk,
-                                    'keluar' => $keluar,
-                                ];
-                            }
-                        } else {
-                            $tglUpload = []; // Inisialisasi variabel tglUpload jika $eDate tidak ada
-                        }
-                    
-                        // Total penjualan per denom
-                        $db = ['DUMAI', 'BENGKALIS', 'DURI', 'SEI PAKNING', 'RUPAT'];
-                        $denomdumai = DB::table('keluarsf as k')
-                            ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                            ->select('d.denom', DB::raw('sum(k.qty) as qty'))
-                            ->whereIn('k.idtap', $db)
-                            ->whereMonth('k.tgl', $bulan)
-                            ->whereYear('k.tgl', $year)
-                            ->groupBy('d.denom')
-                            ->get();
-                    
-                        $denomrohil = DB::table('keluarsf as k')
-                            ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                            ->select('d.denom', DB::raw('sum(k.qty) as qty'))
-                            ->whereNotIn('k.idtap', $db)
-                            ->whereMonth('k.tgl', $bulan)
-                            ->whereYear('k.tgl', $year)
-                            ->groupBy('d.denom')
-                            ->get();
-                    
-                        $grandTotaldb = $denomdumai->sum('qty');
-                        $grandTotalrh = $denomrohil->sum('qty');
-                    
-                       return view('home', [
-                            'months'       => array_keys($months), // Hanya ambil nama bulan
-                            'result'       => $result,
-                            'totalFooter'  => $totalFooter,
-                            'clusterFooter'=> $clusterFooter,
-                            'idtap'        => $idtap,
-                            'segel'        => $segel,
-                            'inject'       => $inject,
-                            'sales'        => $sales,
-                            'newmonth'     => $newmonth,
-                            // 'month'        => $month,
-                            'month1'       => $month1,
-                            'month2'       => $month2,
-                            'penjualan'    => $penjualan,
-                            'tglUpload'    => $tglUpload,
-                            'tanggal'      => $tanggal,
-                            'denomdumai'   => $denomdumai,
-                            'denomrohil'   => $denomrohil,
-                            'grandTotaldb' => $grandTotaldb,
-                            'grandTotalrh' => $grandTotalrh,
-                        ]);
-
-                    }else {
-
-            // Ambil data dari tabel nocan
-            $salesData = DB::table('keluarsf')
-                        ->select(DB::raw('idtap, MONTH(tgl) as month, SUM(qty) as total_sales'))
-                        // ->where('cluster', 'dumai bengkalis')
-                        ->where('idtap' ,$idtap)
-                        ->whereYear('tgl', 2025)
-                        ->where('tgl', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
-                        ->groupBy('idtap', 'month')
-                        ->get();
-
-                $result = [];
-                $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
-                
-                foreach ($salesData as $data) {
-                    $tap = $data->idtap;
-                    $month = $data->month;
-                    $totalSales = $data->total_sales;
-                    
-                    if (!isset($result[$tap])) {
-                        $result[$tap] = array_fill_keys(array_keys($months), 0);
-                    }
-                
-                    $monthName = array_search($month, $months);
-                    if ($monthName !== false) {
-                        $result[$tap][$monthName] = $totalSales;
-                        $totalFooter[$monthName] += $totalSales; // Tambahkan ke total footer
-                    }
-                }
-
-                // end penjualan bulanan
-
-                        //ambil tanggal max di keluar sf
-
-                        $maxtgl = DB::table('keluarsf')
-                                ->where('idtap', $idtap)
-                                ->max('tgl');
-                        $tanggal = substr($maxtgl, 8, 2);
-
-                        //start date and endtae for MOM
-                        $sDate = $year . '-' . $bulan1 . '-01';
-                        $eDate = $year . '-' . $bulan1 . '-' . $tanggal;
-
-                        //cek stok segel cluster
-                        $segel = DB::table('stockawalall')
-                                ->where('iddenom', 'SEGEL')
-                                ->where('idtap',$idtap)
-                                ->ORwhere('iddenom', 'V16')
-                                ->ORwhere('iddenom', 'V33')
-                                ->sum('stock');
-
-                        //cek stok inject cluster
-                        $inject = DB::table('stockawalall')
-                        ->where('idtap',$idtap)
-                                ->where('iddenom', '<>', 'SEGEL')
-                                ->where('iddenom', '<>', 'V16')
-                                ->where('iddenom', '<>', 'V33')
-                                ->sum('stock');
-
-                        //penjualan
-                        $sales = DB::table('keluarsf')
-                        ->where('idtap',$idtap)
-                                ->whereMonth('tgl', $bulan)
-                                ->whereYear('tgl', $year)
-                                ->sum('qty');
-
-                        //penjualan pertap
-
-                        $tap = DB::table('kodetap')
-                                ->select('idtap')
-                                ->get();
-
-
-
-                        $segel1 = DB::table('stockawalall')
-                                ->where('idtap', $idtap)
-                                ->where('iddenom', 'SEGEL')
-                                ->sum('stock');
-
-                        $segel2 = DB::table('stockawalall')
-                                ->where('idtap', $idtap)
-                                ->where('iddenom', 'V16')
-                                ->sum('stock');
-
-                        $segel3 = DB::table('stockawalall')
-                                ->where('idtap', $idtap)
-                                ->where('iddenom', 'V33')
-                                ->sum('stock');
-
-                        $segel = $segel1 + $segel2 + $segel3;
-
-                        //cek stok inject cluster
-                        $inject = DB::table('stockawalall')
-                                ->where('idtap', $idtap)
-                                ->where('iddenom', '<>', 'SEGEL')
-                                ->where('iddenom', '<>', 'V16')
-                                ->where('iddenom', '<>', 'V33')
-                                ->sum('stock');
-
-                        //penjualan
-                        $sales = DB::table('keluarsf')
-                                ->where('idtap', $idtap)
-                                ->whereMonth('tgl', $bulan)
-                                ->whereYear('tgl', $year)
-                                ->sum('qty');
-
-                        //penjualan pertap
-                        $tap = DB::table('kodetap')
-                                ->select('idtap')
-                                ->where('idtap',$idtap)
-                                ->get();
-
-                        $penjualan = [];
-
-                        foreach ($tap as $row) {
-
-                                $tapId = $row->idtap;
-
-                                $salesnow = DB::table('keluarsf')
-                                        ->whereMonth('tgl', $bulan)
-                                        ->whereYear('tgl', $year)
-                                        ->where('idtap', $tapId)
-                                        ->sum('qty');
-
-                                $sales1 = DB::table('keluarsf')
-                                        ->whereBetween('tgl', [$sDate, $eDate])
-                                        ->where('idtap', $tapId)
-                                        ->sum('qty');
-
-                                //menambahkAn data penjualan sesuai tap
-                                $penjualan[$tapId] = [
-                                        'salesnow' => $salesnow,
-                                        'sales1' => $sales1,
-                                ];
-                        }
-
-                        $tglUpload = [];
-
-                        foreach ($tap as $row) {
-                                $tapId = $row->idtap;
-
-                                $masuk = DB::table('masuksf')
-                                        ->where('idtap', $tapId)
-                                        ->max('tgl');
-
-                                $keluar = DB::table('keluarsf')
-                                        ->where('idtap', $tapId)
-                                        ->max('tgl');
-
-                                //tambah tanggal sesuai tap
-                                $tglUpload[$tapId] = [
-                                        'masuk' => $masuk,
-                                        'keluar' => $keluar
-                                ];
-                        }
-
-                        //     total penjualan per denom
-                        $salesdenom = DB::table('keluarsf as k')
-                                ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                                ->select('d.denom', DB::raw('sum(k.qty) as qty'))
-                                ->where('k.idtap', $idtap)
-                                ->whereMonth('k.tgl', $bulan)
-                                ->whereYear('k.tgl', $year)
-                                ->groupBy('d.denom')
-                                ->get();
-
-                        $grandTotal = $salesdenom->sum('qty');
-                }
-
-                return view('home',['months' => array_keys($months), // Hanya ambil nama bulan
-    'result' => $result, 'totalFooter' => $totalFooter], compact('idtap', 'segel', 'inject', 'sales', 'newmonth','month', 'month1', 'month2', 'penjualan', 'tglUpload', 'tanggal', 'salesdenom', 'grandTotal'));
+        } else {
+            // DAILY (bulan berjalan)
+            $chartSales = DB::table('keluarsf')
+                ->selectRaw("
+                    DATE_FORMAT(MIN(tgl),'%d-%b-%Y') AS label,
+                    SUM(qty) AS total,
+                    DATE(tgl) AS sort_date
+                ")
+                ->whereMonth('tgl',$now->month)
+                ->whereYear('tgl',$now->year)
+                ->groupBy(DB::raw("DATE(tgl)"))
+                ->orderBy('sort_date')
+                ->get();
         }
+
+        /* ================= CHART INJECT ================= */
+        $chartInject = DB::table('injectvf')
+            ->selectRaw("
+                DATE_FORMAT(MIN(tgl),'%d-%b-%Y') AS label,
+                DATE(tgl) AS sort_date,
+                SUM(CASE WHEN idtap IN ('DUMAI','DURI','BENGKALIS','SEI PAKNING','RUPAT') THEN qty ELSE 0 END) AS dumai,
+                SUM(CASE WHEN idtap IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN qty ELSE 0 END) AS rohil
+            ")
+            ->whereMonth('tgl',$now->month)
+            ->whereYear('tgl',$now->year)
+            ->groupBy(DB::raw("DATE(tgl)"))
+            ->orderBy('sort_date')
+            ->get();
+
+        /* ================= TABLE ================= */
+        $salesTap = DB::table('keluarsf')
+            ->select('idtap', DB::raw('SUM(qty) AS qty'))
+            ->whereMonth('tgl',$now->month)
+            ->whereYear('tgl',$now->year)
+            ->groupBy('idtap')
+            ->orderByDesc('qty')
+            ->get();
+
+        $topProduk = DB::table('keluarsf as k')
+            ->join('denom as d','k.iddenom','=','d.iddenom')
+            ->select('d.denom', DB::raw('SUM(k.qty) AS qty'))
+            ->whereMonth('k.tgl',$now->month)
+            ->whereYear('k.tgl',$now->year)
+            ->groupBy('d.denom')
+            ->orderByDesc('qty')
+            ->limit(5)
+            ->get();
+
+        return view('home', compact(
+            'stokSegel','stokInject','salesBulanIni','mom',
+            'chartSales','chartInject','salesTap','topProduk','mode'
+        ));
+    }
 }
