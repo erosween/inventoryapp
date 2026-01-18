@@ -4,206 +4,182 @@
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
-                <div class="row">
-                    <div class="col-md-12">
-                        @if (session('status'))
-                            <div class="alert alert-success">
-                                {{ session('status') }}
-                            </div>
-                        @endif
 
-                        @if ($errors->has('error'))
-                            <div class="alert alert-danger">
-                                {{ $errors->first('error') }}
-                            </div>
-                        @endif
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="d-flex align-items-center">
-                                    <h4 class="card-title">Voucher Rusak</h4>
-                                    <a href="{{ url('form/form-vrusak') }}" class="btn btn-primary btn-round ml-auto">
-                                        <i class="fa fa-plus"> </i>
-                                        Tambah
-                                    </a>
-                                </div>
-                                <div class="col col-md-4 col-sm-6">
-                                    <form action="#" method="GET">
-                                        <label for="month">Filter Bulan:</label>
-                                        <select name="bulan" id="bulan" class="form-control">
-                                            <option value="">--Pilih Bulan--</option>
-                                            @for ($i = 1; $i <= 12; $i++)
-                                                <option value="{{ $i }}"
-                                                    {{ request('bulan') == $i ? 'selected' : '' }}>
-                                                    {{ date('F', mktime(0, 0, 0, $i, 1)) }}</option>
-                                            @endfor
-                                        </select>
-                                        <label for="year" class="mt-2">Filter Tahun:</label>
-                                        <select name="tahun" id="tahun" class="form-control">
-                                            <option value="">--Pilih Tahun--</option>
-                                            <?php
-                                            $selectedYear = request('tahun'); // Mendapatkan tahun yang dipilih
-                                            $years = [2023, 2024, 2025]; // Daftar tahun yang tersedia
-                                            ?>
-                                            @foreach ($years as $year)
-                                                <option value="{{ $year }}"
-                                                    {{ $selectedYear == $year ? 'selected' : '' }}>{{ $year }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <button type="submit" class="btn btn-primary mt-2">Filter</button>
-                                    </form>
-                                </div>
-                            </div>
+                <div class="card shadow-sm">
+                    {{-- HEADER --}}
+                    <div class="card-header py-3">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h4 class="card-title mb-0">Voucher Rusak</h4>
 
-                            <div class="card-body">
-                                <div class="col-auto mb-3">
-                                    <a href="/exportrusak?bulan={{ request('bulan') }}&tahun={{ request('tahun') }}"
-                                        class="btn btn-success btn-sm btn-rounded">
-                                        <i class="fas fa-file-export"></i> Export
-                                    </a>
-                                </div>
-                                <div class="table-responsive">
-                                    <table id="add-row" class="display table table-striped table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Tanggal</th>
-                                                <th>Denom</th>
-                                                <th>Quantity</th>
-                                                <th>Tap</th>
-                                                <th>Sn</th>
-                                                <th>Ket VF</th>
-                                                <th>Ket Lain</th>
-                                                <th style="width: 10%">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($data as $row)
-                                                <tr>
-                                                    <td> {{ $row->tgl }}</td>
-                                                    <td> {{ $row->denom }}</td>
-                                                    <td> {{ number_format($row->qty) }}</td>
-                                                    <td> {{ $row->idtap }}</td>
-                                                    <td> {{ $row->sn }}</td>
-                                                    <td> {{ $row->ketvf }}</td>
-                                                    <td> {{ $row->ketlain }}</td>
-                                                    <td>
-                                                        @if (session('idtap') == 'SBP_DUMAI')
-                                                            <button class="btn btn-danger btn-round ml-auto btn-sm"
-                                                                data-toggle="modal"
-                                                                data-target="#addRowModal{{ $row->idrusak }}">
-                                                                <i class="fa fa-trash"></i>
-                                                                Delete
-                                                            </button>
-                                                        @else
-                                                            <button class="btn btn-danger btn-round ml-auto btn-sm"
-                                                                data-toggle="modal"
-                                                                data-target="#addRowModal{{ $row->idrusak }}" disabled>
-                                                                <i class="fa fa-trash"></i>
-                                                                Delete
-                                                            </button>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                            <div class="d-flex gap-2">
+                                <input type="text" id="daterange" class="form-control form-control-sm"
+                                    style="min-width:260px" placeholder="Pilih tanggal">
 
-                                    <!-- Modal -->
-                                    @foreach ($data as $row)
-                                        <div class="modal fade" id="addRowModal{{ $row->idrusak }}" role="dialog"
-                                            aria-hidden="true">
-                                            <div class="modal-dialog" role="document">
-                                                <div class="modal-content">
-                                                    <div class="modal-header no-bd">
-                                                        <h5 class="modal-title">
-                                                            Delete Stock
-                                                        </h5>
-                                                    </div>
-                                                    <div class="modal-body">
-                                                        <form action="vrusak/{{ $row->idrusak }}" method="post">
-                                                            @csrf
-                                                            <h5>Apakah anda yakin akan menghapus stok
-                                                                <strong>{{ $row->denom }}</strong> dengan Quantity
-                                                                <strong>{{ number_format($row->qty) }}</strong>
-                                                            </h5>
-                                                            <input type="hidden" name="iddenom"
-                                                                value="{{ $row->iddenom }}" class="form-control mb-1">
-                                                            <input type="hidden" name="qty"
-                                                                value="{{ $row->qty }}" class="form-control mb-1">
-                                                            <input type="hidden" name="idtap"
-                                                                value="{{ $row->idtap }}" class="form-control mb-1">
-                                                            <div class="modal-footer no-bd">
-                                                                <button type="submit"
-                                                                    class="btn btn-danger">Delete</button>
-                                                                {{-- <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button> --}}
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                </div>
-                                @endforeach
+                                <a href="#" id="btnExport" class="btn btn-success btn-sm ml-1">
+                                    <i class="fas fa-file-export"></i>
+                                </a>
+
+                                <a href="{{ url('form/form-vrusak') }}" class="btn btn-primary btn-sm ml-1">
+                                    + Tambah
+                                </a>
                             </div>
                         </div>
                     </div>
+
+                    {{-- BODY --}}
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="vrusak-table" class="table table-sm table-striped table-hover w-100">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Denom</th>
+                                        <th class="text-end">Qty</th>
+                                        <th>TAP</th>
+                                        <th>SN</th>
+                                        <th>Ket VF</th>
+                                        <th>Ket Lain</th>
+                                        <th width="80">Action</th>
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
+
             </div>
         </div>
     </div>
 @endsection
+
 @push('scripts')
     <script>
-        // Add Row
-        $("#add-row").DataTable({
-            pageLength: 5,
-            order: [
-                [0, "desc"]
-            ]
-        });
-    </script>
+        $(function() {
 
-    <script>
-        // Add Row untuk total disetiap menu
-        $("#add-row1").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
-        });
-    </script>
+            /* ==========================
+               DEFAULT RANGE (BULAN INI)
+            ========================== */
+            let start = moment().startOf('month');
+            let end = moment().endOf('month');
 
-    <script>
-        // Add Row
-        $("#stock").DataTable({
-            pageLength: 10,
-        });
-    </script>
+            const $daterange = $('#daterange');
 
-    {{-- table penjualan perdenom di home --}}
-    <script>
-        // Add Row
-        $("#stock1").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
-        });
-    </script>
+            // ⬅️ PENTING: set value langsung
+            $daterange.val(
+                start.format('YYYY-MM-DD') + ' - ' + end.format('YYYY-MM-DD')
+            );
 
-    <script>
-        // Add Row
-        $("#stock2").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
+            /* ==========================
+               DATATABLE
+            ========================== */
+            let table = $('#vrusak-table').DataTable({
+                processing: true,
+                serverSide: true,
+                pageLength: 10,
+                order: [
+                    [0, 'desc']
+                ],
+                ajax: {
+                    url: "{{ route('vrusak.data') }}",
+                    data: function(d) {
+                        d.daterange = $daterange.val();
+                    }
+                },
+                columns: [{
+                        data: 'tgl',
+                        name: 'r.tgl',
+                        render: function(data, type) {
+                            if (type === 'display') {
+                                return moment(data).format('DD-MM-YYYY');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'denom',
+                        name: 'd.denom'
+                    },
+                    {
+                        data: 'qty',
+                        className: 'text-end'
+                    },
+                    {
+                        data: 'idtap',
+                        name: 'r.idtap'
+                    },
+                    {
+                        data: 'sn'
+                    },
+                    {
+                        data: 'ketvf'
+                    },
+                    {
+                        data: 'ketlain'
+                    },
+                    {
+                        data: 'action',
+                        orderable: false,
+                        searchable: false
+                    }
+                ]
+            });
+
+            /* ==========================
+               DATE RANGE PICKER
+            ========================== */
+            $daterange.daterangepicker({
+                startDate: start,
+                endDate: end,
+                autoUpdateInput: false,
+                alwaysShowCalendars: true,
+                locale: {
+                    format: 'YYYY-MM-DD',
+                    separator: ' - ',
+                    applyLabel: 'Pilih',
+                    cancelLabel: 'Batal'
+                },
+                ranges: {
+                    'Hari Ini': [moment(), moment()],
+                    'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                    '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
+                    '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+                    'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+                    'Bulan Lalu': [
+                        moment().subtract(1, 'month').startOf('month'),
+                        moment().subtract(1, 'month').endOf('month')
+                    ]
+                }
+            });
+
+            /* ==========================
+               APPLY RANGE
+            ========================== */
+            $daterange.on('apply.daterangepicker', function(ev, picker) {
+
+                let range =
+                    picker.startDate.format('YYYY-MM-DD') +
+                    ' - ' +
+                    picker.endDate.format('YYYY-MM-DD');
+
+                $(this).val(range);
+
+                table.ajax.reload(null, false);
+
+                $('#btnExport').attr(
+                    'href',
+                    '/exportrusak?daterange=' + encodeURIComponent(range)
+                );
+            });
+
+            /* ==========================
+               EXPORT DEFAULT
+            ========================== */
+            $('#btnExport').attr(
+                'href',
+                '/exportrusak?daterange=' + encodeURIComponent($daterange.val())
+            );
+
         });
     </script>
 @endpush

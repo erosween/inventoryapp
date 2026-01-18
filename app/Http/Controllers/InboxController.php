@@ -76,17 +76,7 @@ class InboxController extends Controller
             ->where('iddenom', $iddenom)
             ->decrement('stock', $qty);
 
-        DB::table('stockawalall')
-            ->where('idtap', $pengirim)
-            ->where('iddenom', $iddenom)
-            ->decrement('stock', $qty);
-
         DB::table('stockawaltap')
-            ->where('idtap', $penerima)
-            ->where('iddenom', $iddenom)
-            ->increment('stock', $qty);
-
-        DB::table('stockawalall')
             ->where('idtap', $penerima)
             ->where('iddenom', $iddenom)
             ->increment('stock', $qty);
@@ -102,6 +92,6 @@ class InboxController extends Controller
             ]);
     });
 
-    return redirect('inbox')->with('status', 'Stok berhasil diterima');
+    return redirect('inbox')->with('success', 'Stok berhasil diterima');
 }
 }

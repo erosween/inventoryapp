@@ -5,14 +5,6 @@
         <div class="content">
             <div class="page-inner">
 
-                {{-- ERROR --}}
-                @if (session('error'))
-                    <div class="alert alert-danger">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
-
                 {{-- HEADER --}}
                 <div class="page-header">
                     <h4 class="page-title">Input Stok Keluar BO</h4>

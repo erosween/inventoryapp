@@ -4,225 +4,252 @@
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
-                <div class="row">
-                    <div class="col-md-12">
-                        @if (session('status'))
-                            <div class="alert alert-success">
-                                {{ session('status') }}
-                            </div>
-                        @endif
 
-                        @if ($errors->has('error'))
-                            <div class="alert alert-danger">
-                                {{ $errors->first('error') }}
-                            </div>
-                        @endif
+                {{-- ALERT --}}
+                @if (session('status'))
+                    <div class="alert alert-success">{{ session('status') }}</div>
+                @endif
 
-                        @if ($unapprovedCount > 0)
-                            <div class="alert alert-danger" role="alert">
-                                Terdapat {{ $unapprovedCount }} item yang belum disetujui.
-                            </div>
-                        @else
-                        @endif
+                @if ($errors->has('error'))
+                    <div class="alert alert-danger">{{ $errors->first('error') }}</div>
+                @endif
 
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="d-flex align-items-center">
-                                    <h4 class="card-title">Barang Masuk TAP</h4>
+                @if ($unapprovedCount > 0)
+                    <div class="alert alert-danger">
+                        Terdapat {{ $unapprovedCount }} item yang belum disetujui.
+                    </div>
+                @endif
+
+                <div class="card shadow-sm">
+
+                    {{-- HEADER --}}
+                    <div class="card-header py-3">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+
+                            <h4 class="card-title mb-0">Barang Masuk TAP</h4>
+
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                {{-- DATE RANGE --}}
+                                <div class="position-relative">
+                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4"
+                                        style="min-width:260px" placeholder="Pilih tanggal" autocomplete="off">
+                                    <i class="fas fa-calendar-alt position-absolute"
+                                        style="right:10px; top:50%; transform:translateY(-50%); color:#6c757d"></i>
                                 </div>
 
-                                <div class="container-fluid">
-                                    <div class="row">
-                                        <div class="col col-md-4 col-sm-6">
-                                            <form action="#" method="GET">
-                                                <label for="month">Filter Bulan:</label>
-                                                <select name="bulan" id="bulan" class="form-control">
-                                                    <option value="">--Pilih Bulan--</option>
-                                                    @for ($i = 1; $i <= 12; $i++)
-                                                        <option value="{{ $i }}"
-                                                            {{ request('bulan') == $i ? 'selected' : '' }}>
-                                                            {{ date('F', mktime(0, 0, 0, $i, 1)) }}</option>
-                                                    @endfor
-                                                </select>
-                                                <label for="year" class="mt-2">Filter Tahun:</label>
-                                                <select name="tahun" id="tahun" class="form-control">
-                                                    <option value="">--Pilih Tahun--</option>
-                                                    <?php
-                                                    $selectedYear = request('tahun'); // Mendapatkan tahun yang dipilih
-                                                    $years = [2023, 2024, 2025]; // Daftar tahun yang tersedia
-                                                    ?>
-                                                    @foreach ($years as $year)
-                                                        <option value="{{ $year }}"
-                                                            {{ $selectedYear == $year ? 'selected' : '' }}>
-                                                            {{ $year }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                                <button type="submit" class="btn btn-primary mt-2">Filter</button>
-                                            </form>
-                                        </div>
+                                {{-- EXPORT --}}
+                                <a href="#" id="btnExport" class="btn btn-success btn-sm ml-1">
+                                    <i class="fas fa-file-export"></i> Export
+                                </a>
 
-                                        <!-- Modal View -->
-                                        <div class="modal fade" id="show" role="dialog" aria-hidden="true">
-                                            <div class="modal-dialog" role="document">
-                                                <div class="modal-content">
-                                                    <div class="modal-body">
-                                                        <div class="table-responsive">
-                                                            <table id="add-row1"
-                                                                class="display table table-striped table-hover">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>Denom</th>
-                                                                        <th>Quantity</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    @foreach ($denommasuk as $row)
-                                                                        <tr>
-                                                                            <td> {{ $row->denom }}</td>
-                                                                            <td> {{ number_format($row->qty) }}</td>
-                                                                        </tr>
-                                                                    @endforeach
-                                                                </tbody>
-                                                                <tfoot>
-                                                                    <tr>
-                                                                        <td><strong>Grand Total</strong></td>
-                                                                        <td><strong>{{ number_format($grandTotal) }}</strong>
-                                                                        </td>
-                                                                    </tr>
-                                                                </tfoot>
-                                                                <button type="button" class="btn btn-primary"
-                                                                    data-dismiss="modal">Close</button>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {{-- row baru --}}
-                                </div>
-                                {{-- container fluid  --}}
-                            </div>
-                            {{-- card header --}}
-                            <div class="card-body">
-                                <div class="col-auto mb-3">
-                                    <a href="/exportexcelmasuk?bulan={{ request('bulan') }}&tahun={{ request('tahun') }}"
-                                        class="btn btn-success btn-sm btn-rounded">
-                                        <i class="fas fa-file-export"></i> Export
-                                    </a>
-                                    <button class="btn btn-primary btn-round btn-sm" data-toggle="modal"
-                                        data-target="#show">
-                                        <i class="flaticon-medical"></i>
-                                        View
-                                    </button>
-                                </div>
-                                <div class="table-responsive">
-                                    <table id="add-row" class="display table table-striped table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Tanggal</th>
-                                                <th>Denom</th>
-                                                <th>Quantity</th>
-                                                <th>Pengirim</th>
-                                                <th>Penerima</th>
-                                                <th>Sn</th>
-                                                <th style="width: 10%">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($data as $row)
-                                                <tr>
-                                                    <td> {{ $row->tgl }}</td>
-                                                    <td> {{ $row->denom }}</td>
-                                                    <td> {{ number_format($row->qty) }}</td>
-                                                    <td> {{ $row->idtap }}</td>
-                                                    <td> {{ $row->penerima }}</td>
-                                                    <td> {{ $row->sn }}</td>
-                                                    <td>
-                                                        @if ($row->status == 0)
-                                                            <span class="badge badge-success">Approved</span>
-                                                        @else
-                                                            <button class="btn btn-warning btn-round ml-auto btn-sm"
-                                                                data-toggle="modal"
-                                                                data-target="#addRowModal{{ $row->idkeluar }}" disabled>
-                                                                {{-- <i class="fa fa-trash"></i> --}}
-                                                                Wait for Approval
-                                                            </button>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                </div>
-                                </table>
+                                {{-- VIEW SUMMARY --}}
+                                <button class="btn btn-primary btn-sm ml-1" data-toggle="modal" data-target="#show">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
                             </div>
                         </div>
                     </div>
-                    {{-- card --}}
+
+                    {{-- BODY --}}
+                    <div class="card-body">
+
+                        <div class="table-responsive">
+                            <table id="masuk-table" class="table table-sm table-striped table-hover align-middle w-100">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Denom</th>
+                                        <th class="text-end">Quantity</th>
+                                        <th>Pengirim</th>
+                                        <th>Penerima</th>
+                                        <th>SN</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+
+                    </div>
                 </div>
-                {{-- col-md 12 --}}
+
+                {{-- MODAL VIEW TOTAL --}}
+                <div class="modal fade" id="show" role="dialog">
+                    <div class="modal-dialog modal-md">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Ringkasan Barang Masuk</h5>
+                            </div>
+                            <div class="modal-body">
+                                <table id="summary-table" class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Denom</th>
+                                            <th class="text-end">Quantity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th>Grand Total</th>
+                                            <th class="text-end" id="grandTotal">0</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
-            {{-- row --}}
         </div>
-        {{-- page inner --}}
     </div>
-    {{-- content --}}
-    </div>
-    {{-- main panel --}}
 @endsection
+
 @push('scripts')
     <script>
-        // Add Row
-        $("#add-row").DataTable({
-            pageLength: 5,
-            order: [
-                [0, "desc"]
-            ]
-        });
-    </script>
+        $(function() {
 
-    <script>
-        // Add Row untuk total disetiap menu
-        $("#add-row1").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
-        });
-    </script>
+            /* ==========================
+               DEFAULT RANGE
+            ========================== */
+            let start = moment().startOf('month');
+            let end = moment().endOf('month');
 
-    <script>
-        // Add Row
-        $("#stock").DataTable({
-            pageLength: 10,
-        });
-    </script>
+            const $daterange = $('#daterange');
 
-    {{-- table penjualan perdenom di home --}}
-    <script>
-        // Add Row
-        $("#stock1").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
-        });
-    </script>
+            $daterange.val(
+                start.format('YYYY-MM-DD') + ' - ' + end.format('YYYY-MM-DD')
+            );
 
-    <script>
-        // Add Row
-        $("#stock2").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
+            /* ==========================
+               DATATABLE
+            ========================== */
+            let table = $('#masuk-table').DataTable({
+                processing: true,
+                serverSide: true,
+                pageLength: 10,
+                order: [
+                    [0, 'desc']
+                ],
+                ajax: {
+                    url: "{{ route('masuk.data') }}",
+                    data: function(d) {
+                        d.daterange = $daterange.val();
+                    }
+                },
+                columns: [{
+                        data: 'tgl',
+                        render: d => moment(d).format('DD-MM-YYYY')
+                    },
+                    {
+                        data: 'denom'
+                    },
+                    {
+                        data: 'qty',
+                        className: 'text-end'
+                    },
+                    {
+                        data: 'idtap'
+                    },
+                    {
+                        data: 'penerima'
+                    },
+                    {
+                        data: 'sn'
+                    },
+                    {
+                        data: 'status',
+                        render: s => s == 0 ?
+                            '<span class="badge badge-success">Approved</span>' :
+                            '<span class="badge badge-warning">Wait for Approval</span>'
+                    }
+                ]
+            });
+
+            /* ==========================
+               DATE RANGE PICKER
+            ========================== */
+            $daterange.daterangepicker({
+                startDate: start,
+                endDate: end,
+                autoUpdateInput: false,
+                alwaysShowCalendars: true,
+                locale: {
+                    format: 'YYYY-MM-DD',
+                    separator: ' - ',
+                    applyLabel: 'Pilih',
+                    cancelLabel: 'Batal'
+                },
+                ranges: {
+                    'Hari Ini': [moment(), moment()],
+                    '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
+                    '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+                    'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+                    'Bulan Lalu': [
+                        moment().subtract(1, 'month').startOf('month'),
+                        moment().subtract(1, 'month').endOf('month')
+                    ]
+                }
+            });
+
+            /* ==========================
+               APPLY RANGE
+            ========================== */
+            $daterange.on('apply.daterangepicker', function(ev, picker) {
+
+                let range =
+                    picker.startDate.format('YYYY-MM-DD') +
+                    ' - ' +
+                    picker.endDate.format('YYYY-MM-DD');
+
+                $(this).val(range);
+
+                table.ajax.reload();
+
+                $('#btnExport').attr(
+                    'href',
+                    '/exportexcelmasuk?daterange=' + encodeURIComponent(range)
+                );
+
+                loadSummary(range);
+            });
+
+            /* ==========================
+               EXPORT DEFAULT
+            ========================== */
+            $('#btnExport').attr(
+                'href',
+                '/exportexcelmasuk?daterange=' + encodeURIComponent($daterange.val())
+            );
+
+            /* ==========================
+               SUMMARY MODAL
+            ========================== */
+            function loadSummary(range) {
+                $.get('/masuk/summary', {
+                    daterange: range
+                }, function(res) {
+                    let html = '';
+                    let total = 0;
+
+                    res.forEach(r => {
+                        html += `<tr>
+                    <td>${r.denom}</td>
+                    <td class="text-end">${Number(r.qty).toLocaleString()}</td>
+                </tr>`;
+                        total += parseInt(r.qty);
+                    });
+
+                    $('#summary-table tbody').html(html);
+                    $('#grandTotal').text(total.toLocaleString());
+                });
+            }
+
+            loadSummary($daterange.val());
+
         });
     </script>
 @endpush

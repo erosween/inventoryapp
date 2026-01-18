@@ -5,13 +5,6 @@
         <div class="content">
             <div class="page-inner">
 
-                {{-- Error --}}
-                @if ($errors->has('error'))
-                    <div class="alert alert-danger">
-                        {{ $errors->first('error') }}
-                    </div>
-                @endif
-
                 {{-- Header --}}
                 <div class="page-header">
                     <h4 class="page-title">Input Stok Masuk SF</h4>

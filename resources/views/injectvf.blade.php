@@ -170,22 +170,6 @@
                 'href', '/exportinject?daterange=' + encodeURIComponent($('#daterange').val())
             );
 
-            // confirm delete
-            $(document).on('submit', '.form-delete', function(e) {
-                e.preventDefault();
-                let form = this;
-
-                Swal.fire({
-                    title: 'Hapus data?',
-                    text: 'Stok akan dikembalikan',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Ya, hapus'
-                }).then(res => {
-                    if (res.isConfirmed) form.submit();
-                });
-            });
-
         });
     </script>
 @endpush

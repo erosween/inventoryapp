@@ -183,45 +183,6 @@
                 encodeURIComponent($daterange.val())
             );
 
-            /* ==========================
-               CONFIRM DELETE
-            ========================== */
-            $(document).on('submit', '.form-delete', function(e) {
-                e.preventDefault();
-                let form = this;
-
-                Swal.fire({
-                    title: 'Hapus data?',
-                    text: 'Stok akan dikembalikan ke BO',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonText: 'Batal',
-                    confirmButtonText: 'Ya, hapus'
-                }).then(res => {
-                    if (res.isConfirmed) form.submit();
-                });
-            });
-
         });
     </script>
-    @if (session('success'))
-        <script>
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil',
-                text: '{{ session('success') }}'
-            })
-        </script>
-    @endif
-
-    @if (session('error'))
-        <script>
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal',
-                text: '{{ session('error') }}'
-            })
-        </script>
-    @endif
 @endpush

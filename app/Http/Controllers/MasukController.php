@@ -10,194 +10,194 @@ use App\Exports\MasukExport;
 
 class MasukController extends Controller
 {
-    public function index(Request $request)
-
+    /* =====================================================
+       VIEW
+    ===================================================== */
+    public function index()
     {
-        
         $idtap = session('idtap');
-        $month = $request->input('bulan', date('m'));
-        $year = $request->input('tahun', date('Y'));
-        $kategoribo = ['BO DUMAI', 'BO DURI', 'BO BENGKALIS', 'BO BAGAN BATU', 'BO BAGAN SIAPI-API'];
 
-        if($idtap == 'SBP_DUMAI'){
-            $unapprovedCount = DB::table('keluar')
-                    ->where('status',1)
-                    ->count();
+        $kategoribo = [
+            'BO DUMAI',
+            'BO DURI',
+            'BO BENGKALIS',
+            'BO BAGAN BATU',
+            'BO BAGAN SIAPI-API'
+        ];
 
-            $data = DB::table('keluar as k')
-                    ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                    ->select('k.*','d.denom')
-                    ->whereMonth('k.tgl', '=', $month)
-                    ->whereYear('k.tgl', '=', $year)
-                    ->whereNotIn('k.pengirim', $kategoribo)
-                    ->orderBy('k.tgl')
-                    ->get()
-                    ->map(function($item) {
-                        $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                        return $item;
-                    });
+        // hitung pending approval
+        $unapprovedCount = DB::table('keluar')
+            ->when($idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
+                $q->where('penerima', $idtap);
+            })
+            ->where('status', 1)
+            ->whereNotIn('pengirim', $kategoribo)
+            ->count();
 
-            $totalstock = DB::table('keluar')
-                        ->select(DB::raw('sum(qty) as qty'))
-                        ->whereMonth('tgl', $month)
-                        ->whereYear('tgl', $year)
-                        ->whereNotIn('pengirim', $kategoribo)
-                        ->get();
-
-            $totalQty = $totalstock[0]->qty;
-
-
-            // untuk total perdenom masuk
-
-            $denommasuk = DB::table('keluar as k')
-                        ->join('denom as d', 'd.iddenom','=','k.iddenom')
-                        ->select('d.denom',DB::raw('sum(k.qty) as qty'))
-                        ->whereMonth('k.tgl', $month)
-                        ->whereYear('k.tgl', $year)
-                        ->whereNotIn('k.pengirim', $kategoribo)
-                        ->groupBy('d.denom')
-                        ->get();
-
-            $grandTotal = $denommasuk->sum('qty');
-            
-        }else{
-            $unapprovedCount = DB::table('keluar')
-                    ->where('status',1)
-                    ->where('penerima',$idtap)
-                    ->count();
-
-            $data = DB::table('keluar as k')
-                    ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                    ->select('k.*','d.denom')
-                    ->whereMonth('k.tgl', '=', $month)
-                    ->whereYear('k.tgl', '=', $year)
-                    ->whereNotIn('k.pengirim', $kategoribo)
-                    ->where('k.penerima', $idtap)
-                    ->orderBy('k.tgl')
-                    ->get()
-                    ->map(function($item) {
-                        $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                        return $item;
-                    });
-
-
-               // untuk total perdenom masuk
-
-               $denommasuk = DB::table('keluar as k')
-                            ->join('denom as d', 'd.iddenom','=','k.iddenom')
-                            ->select('d.denom',DB::raw('sum(k.qty) as qty'))
-                            ->whereMonth('k.tgl', $month)
-                            ->whereYear('k.tgl', $year)
-                            ->whereNotIn('k.pengirim', $kategoribo)
-                            ->where('k.penerima', $idtap)
-                            ->groupBy('d.denom')
-                            ->get();
-                
-                $grandTotal = $denommasuk->sum('qty');            
-
-            }
-            return view('masuk',compact('data','month','idtap' ,'unapprovedCount','denommasuk','grandTotal'));
+        return view('masuk', compact('unapprovedCount'));
     }
 
+    /* =====================================================
+       DATATABLE (DATE RANGE)
+    ===================================================== */
+    public function data(Request $request)
+    {
+        $idtap = session('idtap');
 
+        if (!$request->daterange) {
+            return response()->json([
+                'data' => [],
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0
+            ]);
+        }
+
+        [$start, $end] = explode(' - ', $request->daterange);
+
+        $kategoribo = [
+            'BO DUMAI',
+            'BO DURI',
+            'BO BENGKALIS',
+            'BO BAGAN BATU',
+            'BO BAGAN SIAPI-API'
+        ];
+
+        $query = DB::table('keluar as k')
+            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->select(
+                'k.tgl',
+                'd.denom',
+                'k.qty',
+                'k.idtap',
+                'k.penerima',
+                'k.sn',
+                'k.status'
+            )
+            ->whereBetween('k.tgl', [$start, $end])
+            ->whereNotIn('k.pengirim', $kategoribo);
+
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('k.penerima', $idtap);
+        }
+
+        return datatables()
+            ->of($query)
+            ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('Y-m-d'))
+            ->make(true);
+    }
+
+    /* =====================================================
+       SUMMARY MODAL (PER DENOM)
+    ===================================================== */
+    public function summary(Request $request)
+    {
+        $idtap = session('idtap');
+
+        if (!$request->daterange) return [];
+
+        [$start, $end] = explode(' - ', $request->daterange);
+
+        $kategoribo = [
+            'BO DUMAI',
+            'BO DURI',
+            'BO BENGKALIS',
+            'BO BAGAN BATU',
+            'BO BAGAN SIAPI-API'
+        ];
+
+        $query = DB::table('keluar as k')
+            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->select('d.denom', DB::raw('SUM(k.qty) as qty'))
+            ->whereBetween('k.tgl', [$start, $end])
+            ->whereNotIn('k.pengirim', $kategoribo)
+            ->groupBy('d.denom');
+
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('k.penerima', $idtap);
+        }
+
+        return $query->get();
+    }
+
+    /* =====================================================
+       TERIMA BARANG (APPROVAL)
+    ===================================================== */
     public function masuk(Request $request, $idkeluar)
-{
-    $pengirim = $request->input('pengirim');
-    $penerima = $request->input('penerima');
-    $iddenom = $request->input('iddenom');
-    $qty = $request->input('qty');
+    {
+        DB::transaction(function () use ($request, $idkeluar) {
 
-    // Validasi stok pengirim
-    if (!$this->cekStok('stockawaltap', $pengirim, $iddenom, $qty)) {
-        return redirect('masuk')->withErrors(['error' => 'Stok Tap Pengirim Tidak Mencukupi!']);
+            // cek stok pengirim
+            $stok = DB::table('stockawaltap')
+                ->where('idtap', $request->pengirim)
+                ->where('iddenom', $request->iddenom)
+                ->value('stock');
+
+            if ($stok < $request->qty) {
+                throw new \Exception('Stok Tap Pengirim Tidak Mencukupi');
+            }
+
+            // kurangi pengirim
+            DB::table('stockawaltap')
+                ->where('idtap', $request->pengirim)
+                ->where('iddenom', $request->iddenom)
+                ->decrement('stock', $request->qty);
+
+            // tambah penerima
+            DB::table('stockawaltap')
+                ->where('idtap', $request->penerima)
+                ->where('iddenom', $request->iddenom)
+                ->increment('stock', $request->qty);
+
+            DB::table('stockawalall')
+                ->where('idtap', $request->penerima)
+                ->where('iddenom', $request->iddenom)
+                ->increment('stock', $request->qty);
+
+            // approve
+            DB::table('keluar')
+                ->where('idkeluar', $idkeluar)
+                ->update(['status' => 0]);
+        });
+
+        return back()->with('status', 'Stock berhasil diterima');
     }
 
-    // Hitung stok baru
-    $this->updateStok($pengirim, $penerima, $iddenom, $qty);
-
-    // Update status
-    DB::table('keluar')->where('idkeluar', $idkeluar)->update(['status' => 0]);
-
-    return redirect('masuk')->with('status', 'Stock Berhasil Diterima');
-}
-
-/**
- * Cek apakah stok mencukupi.
- */
-private function cekStok($table, $idtap, $iddenom, $qty)
-{
-    $stok = DB::table($table)
-        ->where('idtap', $idtap)
-        ->where('iddenom', $iddenom)
-        ->value('stock');
-
-    return $stok >= $qty;
-}
-
-/**
- * Update stok pengirim dan penerima.
- */
-private function updateStok($pengirim, $penerima, $iddenom, $qty)
-{
-    // Update stok pengirim
-    $this->modifyStok($pengirim, $iddenom, -$qty);
-
-    // Update stok penerima
-    $this->modifyStok($penerima, $iddenom, $qty);
-}
-
-/**
- * Modify stok di tabel stockawalall dan stockawaltap.
- */
-private function modifyStok($idtap, $iddenom, $qtyChange)
-{
-    DB::table('stockawalall')
-        ->where('idtap', $idtap)
-        ->where('iddenom', $iddenom)
-        ->increment('stock', $qtyChange);
-
-    DB::table('stockawaltap')
-        ->where('idtap', $idtap)
-        ->where('iddenom', $iddenom)
-        ->increment('stock', $qtyChange);
-}
-
+    /* =====================================================
+       EXPORT (DATE RANGE)
+    ===================================================== */
     public function exportexcel(Request $request)
-{
-    $idtap = session('idtap');
-    $month = $request->input('bulan', date('m'));
-    $year = $request->input('tahun', date('Y')); 
-    $kategoribo = ['BO DUMAI', 'BO DURI', 'BO BENGKALIS', 'BO BAGAN BATU', 'BO BAGAN SIAPI-API'];
+    {
+        $idtap = session('idtap');
+        [$start, $end] = explode(' - ', $request->daterange);
 
-    if ($idtap == 'SBP_DUMAI') {
-        $penjualanData = DB::table('keluar as m')
-                        ->join('denom as d', 'd.iddenom', 'm.iddenom')
-                        ->select('m.tgl','m.sn','m.pengirim','m.penerima','d.denom',DB::raw('SUM(m.qty) as qty'))
-                        ->whereMonth('m.tgl', $month)
-                        ->whereYear('m.tgl', $year)
-                        ->whereNotIn('m.pengirim', $kategoribo)
-                        ->groupBy('m.tgl','m.sn','m.pengirim','m.penerima','d.denom')
-                        ->get();
-    } else {
-        $penjualanData = DB::table('keluar as m')
-                        ->join('denom as d', 'd.iddenom', 'm.iddenom')
-                        ->select('m.tgl','m.sn','m.pengirim','m.penerima','d.denom',DB::raw('SUM(m.qty) as qty'))
-                        ->whereMonth('m.tgl', $month)
-                        ->whereYear('m.tgl', $year)
-                        ->whereNotIn('m.pengirim', $kategoribo)
-                        ->where('m.penerima', $idtap)
-                        ->groupBy('m.tgl','m.sn','m.pengirim','m.penerima','d.denom')
-                        ->get();
+        $kategoribo = [
+            'BO DUMAI',
+            'BO DURI',
+            'BO BENGKALIS',
+            'BO BAGAN BATU',
+            'BO BAGAN SIAPI-API'
+        ];
+
+        $query = DB::table('keluar as k')
+            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->select(
+                'k.tgl',
+                'k.sn',
+                'k.idtap',
+                'k.penerima',
+                'd.denom',
+                DB::raw('SUM(k.qty) as qty')
+            )
+            ->whereBetween('k.tgl', [$start, $end])
+            ->whereNotIn('k.pengirim', $kategoribo)
+            ->groupBy('k.tgl', 'k.sn', 'k.idtap', 'k.penerima', 'd.denom');
+
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('k.penerima', $idtap);
+        }
+
+        $filename = 'STOK_MASUK_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new MasukExport($query->get()), $filename);
     }
-
-    $monthName = date('F', mktime(0, 0, 0, $month, 1));
-
-    $fileName = 'STOK_MASUK_' . $idtap . '_' . $year . '_' . $monthName . '.xlsx';
-
-    // Menggunakan Maatwebsite\Excel untuk melakukan export data
-    return Excel::download(new MasukExport($penjualanData), $fileName);
-}
-
-
-
 }

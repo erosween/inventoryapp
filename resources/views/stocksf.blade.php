@@ -1,266 +1,430 @@
 @extends('layout.layout')
 
+@php
+    use Illuminate\Support\Str;
+@endphp
+
 @section('content')
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
-                <div class="row">
-                    <div class="col-md-12">
-                        @if (session('status'))
-                            <div class="alert alert-success">
-                                {{ session('status') }}
-                            </div>
-                        @endif
-                        <div class="card">
-                            <div class="card-header">
-                                <ul class="nav nav-pills nav-secondary" id="pills-tab" role="tablist">
-                                    <li class="nav-item">
-                                        <a class="nav-link " href="{{ url('stock') }}" role="tab">Stock All</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link " href="{{ url('stocktap') }}" role="tab">Stock Gudang</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link active" href="{{ url('stocksf') }}" role="tab">Stock SF</a>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div class="card-body">
-                                <div class="col-auto mb-3">
-                                    <a href="{{ url('exportexcelsf') }}" class="btn btn-success btn-sm btn-rounded"><i
-                                            class='fas fa-file-export'></i>Export</a>
-                                </div>
-                                <div class="table-responsive">
-                                    <table id="stock" class="display table table-striped table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>NO</th>
-                                                <th>TAP</th>
-                                                <th>SF</th>
-                                                <th>SEGEL</th>
-                                                <th>5GB/1hari</th>
-                                                <th>5GB/2hari</th>
-                                                <th>5GB/3hari</th>
-                                                {{-- <th>RoaMAX SEGEL</th> --}}
-                                                {{-- <th>1GB/1hari</th> --}}
-                                                <th>2GB/1hari</th>
-                                                <th>4GB/1hari</th>
-                                                <th>8GB/2hari</th>
-                                                <th>2GB/3hari ZONA 1</th>
-                                                <th>2GB/3hari ZONA 2</th>
-                                                {{-- <th>2.5GB/3hari</th> --}}
-                                                <th>3GB/3hari</th>
-                                                <th>4GB/3hari</th>
-                                                <th>4GB/5hari</th>
-                                                <th>4.5GB/3hari</th>
-                                                <th>5GB/5hari</th>
-                                                {{-- <th>2.5GB/5hari ZONA 1</th> --}}
-                                                <th>3GB/5hari</th>
-                                                <th>7GB/7hari</th>
-                                                <th>10GB/7hari</th>
-                                                <th>10GB/30hari</th>
-                                                <th>11GB/30hari</th>
-                                                <th>12GB/30hari</th>
-                                                <th>18GB/30hari</th>
-                                                <th>20GB/30hari</th>
-                                                <th>30GB/30hari</th>
-                                                <th>VOICE 30 HARI</th>
-                                                <th>BYU SEGEL</th>
-                                                <th>BYU 1GB/1hari</th>
-                                                <th>BYU 2GB/1hari</th>
-                                                <th>BYU 2GB/3hari</th>
-                                                <th>BYU 3GB/3hari</th>
-                                                <th>BYU 4GB/3hari</th>
-                                                <th>BYU 2.5GB/5hari</th>
-                                                <th>BYU 7.5GB/5hari</th>
-                                                <th>BYU 3GB/7hari</th>
-                                                <th>BYU 4GB/7hari</th>
-                                                <th>BYU 5GB/7hari</th>
-                                                <th>BYU 6.5GB/7hari</th>
-                                                <th>BYU 7.5GB/7hari</th>
-                                                <th>BYU 7GB/14hari</th>
-                                                <th>BYU 10GB/14hari</th>
-                                                <th>BYU KAGET 3GB/30hari</th>
-                                                <th>BYU KAGET 7GB/30hari</th>
-                                                <th>BYU KAGET 9GB/30hari</th>
-                                                <th>BYU KAGET 14GB/30hari</th>
-                                                <th>BYU KAGET 20GB/30hari</th>
-                                                <th>GRAND TOTAL</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach ($data as $row)
-                                                <tr>
-                                                    <td>{{ $loop->iteration }}</td>
-                                                    <td> {{ $row->idtap }}</td>
-                                                    <td> {{ $row->namasf }}</td>
-                                                    <td> {{ number_format($row->SEGEL) }}</td>
-                                                    <td> {{ number_format($row->V48) }}</td>
-                                                    <td> {{ number_format($row->V49) }}</td>
-                                                    <td> {{ number_format($row->V50) }}</td>
-                                                    {{-- <td> {{ number_format($row -> V16 )}}</td> --}}
-                                                    {{-- <td> {{ number_format($row->V32) }}</td> --}}
-                                                    <td> {{ number_format($row->V42) }}</td>
-                                                    <td> {{ number_format($row->V59) }}</td>
-                                                    <td> {{ number_format($row->V63) }}</td>
-                                                    <td> {{ number_format($row->V2) }}</td>
-                                                    <td> {{ number_format($row->V24) }}</td>
-                                                    {{-- <td> {{ number_format($row->V41) }}</td> --}}
-                                                    <td> {{ number_format($row->V30) }}</td>
-                                                    <td> {{ number_format($row->V64) }}</td>
-                                                    <td> {{ number_format($row->V6) }}</td>
-                                                    <td> {{ number_format($row->V3) }}</td>
-                                                    <td> {{ number_format($row->V7) }}</td>
-                                                    {{-- <td> {{ number_format($row -> V5 )}}</td> --}}
-                                                    <td> {{ number_format($row->V31) }}</td>
-                                                    <td> {{ number_format($row->V28) }}</td>
-                                                    <td> {{ number_format($row->V29) }}</td>
-                                                    <td> {{ number_format($row->V65) }}</td>
-                                                    <td> {{ number_format($row->V47) }}</td>
-                                                    <td> {{ number_format($row->V54) }}</td>
-                                                    <td> {{ number_format($row->V53) }}</td>
-                                                    <td> {{ number_format($row->V66) }}</td>
-                                                    <td> {{ number_format($row->V55) }}</td>
-                                                    <td> {{ number_format($row->V15) }}</td>
-                                                    <td> {{ number_format($row->V33) }}</td>
-                                                    <td> {{ number_format($row->V44) }}</td>
-                                                    <td> {{ number_format($row->V45) }}</td>
-                                                    <td> {{ number_format($row->V34) }}</td>
-                                                    <td> {{ number_format($row->V51) }}</td>
-                                                    <td> {{ number_format($row->V58) }}</td>
-                                                    <td> {{ number_format($row->V35) }}</td>
-                                                    <td> {{ number_format($row->V60) }}</td>
-                                                    <td> {{ number_format($row->V61) }}</td>
-                                                    <td> {{ number_format($row->V46) }}</td>
-                                                    <td> {{ number_format($row->V36) }}</td>
-                                                    <td> {{ number_format($row->V62) }}</td>
-                                                    <td> {{ number_format($row->V56) }}</td>
-                                                    <td> {{ number_format($row->V52) }}</td>
-                                                    <td> {{ number_format($row->V57) }}</td>
-                                                    <td> {{ number_format($row->V43) }}</td>
-                                                    <td> {{ number_format($row->V37) }}</td>
-                                                    <td> {{ number_format($row->V38) }}</td>
-                                                    <td> {{ number_format($row->V39) }}</td>
-                                                    <td> {{ number_format($row->V40) }}</td>
-                                                    <td> {{ number_format($row->totalbaris) }} </td>
-                                                </tr>
+
+                <div class="card">
+
+                    {{-- TAB --}}
+                    <div class="card-header">
+                        <ul class="nav nav-pills nav-secondary">
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->is('stock') ? 'active' : '' }}" href="{{ url('stock') }}">
+                                    Stock All
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->is('stocktap') ? 'active' : '' }}"
+                                    href="{{ url('stocktap') }}">
+                                    Stock Gudang
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->is('stocksf') ? 'active' : '' }}"
+                                    href="{{ url('stocksf') }}">
+                                    Stock SF
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="card-body">
+
+                        {{-- ⬇️ SCROLL CSS BIASA --}}
+                        <div class="table-scroll">
+
+                            <table id="stock" class="display table table-striped table-hover">
+                                <thead>
+                                    {{-- GROUP HEADER --}}
+                                    <tr class="group-header">
+                                        <th rowspan="2" class="th-main sticky-no">NO</th>
+                                        <th rowspan="2" class="th-main sticky-tap">TAP</th>
+                                        <th rowspan="2" class="th-main sticky-sf">SF</th>
+
+                                        @foreach ($groups as $group => $items)
+                                            @if (count($items))
+                                                <th colspan="{{ count($items) }}"
+                                                    class="th-group
+                                                    {{ $group == 'SEGEL' ? 'th-segel' : '' }}
+                                                    {{ $group == '1 HARI' ? 'th-1-hari' : '' }}
+                                                    {{ $group == '2 HARI' ? 'th-2-hari' : '' }}
+                                                    {{ $group == '3 HARI' ? 'th-3-hari' : '' }}
+                                                    {{ $group == '5 HARI' ? 'th-5-hari' : '' }}
+                                                    {{ $group == '7 HARI' ? 'th-7-hari' : '' }}
+                                                    {{ $group == '14 HARI' ? 'th-14-hari' : '' }}
+                                                    {{ $group == '30 HARI' ? 'th-30-hari' : '' }}
+                                                    {{ $group == 'VOICE' ? 'th-voice' : '' }}
+                                                    {{ $group == 'LAINNYA' ? 'th-lainnya' : '' }}
+                                                    ">
+                                                    {{ $group }}
+                                                </th>
+                                            @endif
+                                        @endforeach
+                                    </tr>
+
+                                    {{-- SUB HEADER --}}
+                                    <tr class="sub-header">
+                                        @foreach ($groups as $items)
+                                            @foreach ($items as $d)
+                                                <th class="th-sub text-center">{{ $d->denom }}</th>
                                             @endforeach
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <td colspan='3'><strong>TOTAL</strong></td>
-                                                <td><strong>{{ number_format($gTotal['SEGEL']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V48']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V49']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V50']) }}</strong></td>
-                                                {{-- <td><strong>{{ number_format($gTotal['V16']) }}</strong></td> --}}
-                                                {{-- <td><strong>{{ number_format($gTotal['V32']) }}</strong></td> --}}
-                                                <td><strong>{{ number_format($gTotal['V42']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V59']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V63']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V2']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V24']) }}</strong></td>
-                                                {{-- <td><strong>{{ number_format($gTotal['V41']) }}</strong></td> --}}
-                                                <td><strong>{{ number_format($gTotal['V30']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V64']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V6']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V3']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V7']) }}</strong></td>
-                                                {{-- <td><strong>{{ number_format($gTotal['V5'])}}</strong></td> --}}
-                                                <td><strong>{{ number_format($gTotal['V31']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V28']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V29']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V65']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V47']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V54']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V53']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V55']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V66']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V15']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V33']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V44']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V51']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V58']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V45']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V34']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V35']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V60']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V61']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V46']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V36']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V62']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V56']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V52']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V57']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V43']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V37']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V38']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V39']) }}</strong></td>
-                                                <td><strong>{{ number_format($gTotal['V40']) }}</strong></td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            </div>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+
+
+                                <tbody>
+                                    @foreach ($data as $row)
+                                        @php $rowTotal = 0; @endphp
+                                        <tr>
+                                            <td class="sticky-no">{{ $loop->iteration }}</td>
+                                            <td class="sticky-tap">{{ $row->idtap }}</td>
+                                            <td class="sticky-sf">{{ $row->namasf }}</td>
+
+
+                                            @foreach ($groups as $items)
+                                                @foreach ($items as $d)
+                                                    @php
+                                                        $val = $row->{$d->iddenom} ?? 0;
+                                                        $rowTotal += $val;
+                                                    @endphp
+                                                    <td class="text-right">{{ number_format($val) }}</td>
+                                                @endforeach
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+
+                                <tfoot>
+                                    <tr>
+                                        <th class="sticky-no"></th>
+                                        <th class="sticky-tap"></th>
+                                        <th class="sticky-sf">TOTAL</th>
+
+                                        @foreach ($groups as $items)
+                                            @foreach ($items as $d)
+                                                <th class="text-right">
+                                                    {{ number_format($data->sum($d->iddenom) ?? 0) }}
+                                                </th>
+                                            @endforeach
+                                        @endforeach
+                                    </tr>
+                                </tfoot>
+
+
+                            </table>
+
                         </div>
+
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 @endsection
+
 @push('scripts')
     <script>
-        // Add Row
-        $("#add-row").DataTable({
-            pageLength: 5,
-            order: [
-                [0, "desc"]
-            ]
-        });
-    </script>
-
-    <script>
-        // Add Row untuk total disetiap menu
-        $("#add-row1").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
-        });
-    </script>
-
-    <script>
-        // Add Row
-        $("#stock").DataTable({
+        $('#stock').DataTable({
             pageLength: 10,
-        });
-    </script>
-
-    {{-- table penjualan perdenom di home --}}
-    <script>
-        // Add Row
-        $("#stock1").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
+            autoWidth: false,
+            dom: '<"top"Bf>rt<"bottom"lip><"clear">',
+            buttons: [{
+                    extend: 'excelHtml5',
+                    title: 'Stock_SF',
+                    footer: true
+                },
+                {
+                    extend: 'csvHtml5',
+                    title: 'Stock_SF',
+                    footer: true
+                },
+                {
+                    extend: 'print',
+                    footer: true
+                }
             ]
         });
     </script>
 
-    <script>
-        // Add Row
-        $("#stock2").DataTable({
-            searching: false,
-            paging: false,
-            info: false,
-            order: [
-                [1, "desc"]
-            ]
-        });
-    </script>
+    <style>
+        /* SCROLL HORIZONTAL MURNI */
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        /* TABLE */
+        #stock {
+            font-size: 11px;
+            min-width: 2200px;
+        }
+
+        /* HEADER */
+        .th-main {
+            background: #4f46e5;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .th-group {
+            color: #fff;
+            font-weight: 600;
+            text-align: center
+        }
+
+        .th-segel {
+            background: #334155;
+        }
+
+        .th-1-hari {
+            background: #2563eb;
+        }
+
+        .th-2-hari {
+            background: #0891b2;
+        }
+
+        .th-3-hari {
+            background: #059669;
+        }
+
+        .th-5-hari {
+            background: #16a34a;
+        }
+
+        .th-7-hari {
+            background: #2173e6;
+        }
+
+        .th-14-hari {
+            background: #682799;
+        }
+
+        .th-30-hari {
+            background: #7082e8;
+        }
+
+        .th-voice {
+            background: #7082e8;
+        }
+
+        .th-lainnya {
+            background: #7082e8;
+        }
+
+        /* SUB HEADER */
+        .th-sub {
+            background: #f1f5f9;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        /* BODY */
+        #stock tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        /* FOOTER */
+        #stock tfoot th {
+            background: #0f172a;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        /* ================= HEADER GROUP (FIX FINAL) ================= */
+
+        /* Header group (1 HARI, 2 HARI, dll) */
+        #stock thead tr.group-header th {
+            text-align: center !important;
+            vertical-align: middle !important;
+            color: #ffffff !important;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        /* Pastikan colspan header benar-benar center */
+        #stock thead tr.group-header th[colspan] {
+            text-align: center !important;
+        }
+
+        /* Hilangkan efek bootstrap table */
+        #stock thead tr.group-header th {
+            background-image: none !important;
+            box-shadow: none !important;
+        }
+
+        /* ================= SUB HEADER ================= */
+
+        #stock thead tr.sub-header th {
+            text-align: center !important;
+            vertical-align: middle !important;
+            color: #1f2937 !important;
+            /* abu gelap profesional */
+        }
+
+        /* ================= WARNA GROUP (FORCE WHITE TEXT) ================= */
+        .th-group,
+        .th-segel,
+        .th-1-hari,
+        .th-2-hari,
+        .th-3-hari,
+        .th-5-hari,
+        .th-7-hari,
+        .th-14-hari,
+        .th-30-hari,
+        .th-voice,
+        .th-lainnya {
+            color: #ffffff !important;
+        }
+
+
+        /* ================= HEADER NO & TAP ================= */
+
+        .th-main {
+            text-align: center !important;
+            color: #ffffff !important;
+        }
+
+
+
+        /* ================= FREEZE COLUMN ================= */
+
+        /* NO */
+        .sticky-no {
+            position: sticky;
+            left: 0;
+            z-index: 6;
+            background: #4f46e5;
+            color: #fff;
+        }
+
+        /* TAP */
+        .sticky-tap {
+            position: sticky;
+            left: 40px;
+            /* SESUAIKAN DENGAN LEBAR KOLOM NO */
+            z-index: 5;
+            background: #4f46e5;
+            color: #fff;
+        }
+
+        /* FIX WIDTH KOLOM */
+        .sticky-no {
+            width: 40px;
+            min-width: 40px;
+            max-width: 40px;
+        }
+
+        .sticky-tap {
+            width: 140px;
+            min-width: 140px;
+            max-width: 140px;
+        }
+
+        /* BODY BACKGROUND FIX */
+        /* HEADER */
+        #stock thead .sticky-no,
+        #stock thead .sticky-tap,
+        #stock thead .sticky-sf {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            /* LEBIH TINGGI DARI GROUP */
+            background: #4f46e5;
+            color: #fff;
+        }
+
+        /* BODY */
+        #stock tbody .sticky-no,
+        #stock tbody .sticky-tap {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background: #ffffff;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        /* NO */
+        #stock thead .sticky-no,
+        #stock tbody .sticky-no,
+        #stock tfoot .sticky-footer-left {
+            left: 0;
+        }
+
+        /* TAP */
+        #stock thead .sticky-tap,
+        #stock tbody .sticky-tap {
+            left: 40px;
+            /* SAMA DENGAN WIDTH NO */
+        }
+
+
+        /* BORDER SHADOW BIAR KELIATAN TERPISAH */
+        .sticky-tap {
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.08);
+        }
+
+        /* ================= FOOTER STICKY FINAL ================= */
+
+        /* NO (TOTAL) */
+        #stock tfoot .sticky-no {
+            position: sticky;
+            left: 0;
+            z-index: 30;
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 700;
+            width: 40px;
+            min-width: 40px;
+            max-width: 40px;
+        }
+
+        /* SF */
+        .sticky-sf {
+            position: sticky;
+            left: 180px;
+            /* 40 (NO) + 140 (TAP) */
+            z-index: 20;
+            background: #4f46e5;
+            color: #ffffff;
+            font-weight: 600;
+            width: 160px;
+            min-width: 160px;
+            max-width: 160px;
+        }
+
+
+        #stock thead .sticky-sf {
+            top: 0;
+            z-index: 10;
+            background: #4f46e5;
+            color: #ffffff;
+        }
+
+        #stock tbody .sticky-sf {
+            background: #ffffff;
+            color: #111827;
+        }
+
+        #stock tfoot .sticky-sf {
+            position: sticky;
+            left: 180px;
+            z-index: 28;
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .sticky-sf {
+            box-shadow: 2px 0 6px rgba(0, 0, 0, 0.18);
+        }
+    </style>
 @endpush

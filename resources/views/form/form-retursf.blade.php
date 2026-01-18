@@ -4,123 +4,204 @@
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
+
+                {{-- Error --}}
                 @if ($errors->has('error'))
-                    <div class="alert alert-danger ml-auto">
+                    <div class="alert alert-danger">
                         {{ $errors->first('error') }}
                     </div>
                 @endif
 
+                {{-- Header --}}
                 <div class="page-header">
-                    <h4 class="page-title">INPUT STOK RETUR SF</h4>
+                    <h4 class="page-title">Input Retur SF (Masuk TAP)</h4>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 offset-md-2">
-                        <div class="card">
+
+                <div class="row justify-content-center">
+                    <div class="col-xl-8 col-lg-9 col-md-11">
+
+                        <div class="card shadow-sm">
                             <div class="card-header">
-                                <div class="card-title">Form Input</div>
+                                <strong>Form Input</strong>
+                                <div class="text-muted small">
+                                    Input barang retur dari Sales Force ke TAP
+                                </div>
                             </div>
-                            <div class="card-body">
 
-                                <form action="{{ url('retursf') }}" method="post">
-                                    @csrf
-                                    <label for="">Tanggal :</label>
-                                    <input type="date" name="tgl" class="form-control mb-2" id="date" required>
+                            <form action="{{ url('retursf') }}" method="POST" id="mainForm">
+                                @csrf
 
-                                    <label for="">TAP :</label>
-                                    <select name="idtap" class="form-control mb-2" id="kategoritap" required>
-                                        <option value="">-- Pilih --</option>
+                                <div class="card-body">
+                                    <div class="row">
 
-                                        @foreach ($data as $row)
-                                            <option value="{{ $row->idtap }}">{{ $row->idtap }}</option>
-                                        @endforeach
-                                    </select>
+                                        {{-- Tanggal --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Tanggal</label>
+                                                <input type="date" name="tgl" id="date" class="form-control"
+                                                    required>
+                                            </div>
+                                        </div>
 
-                                    <select name="idsf" id="idsf" class="form-control mb-2" required>
-                                        <option value="">-- Pilih SF --</option>
-                                    </select>
+                                        {{-- TAP --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>TAP</label>
+                                                <select name="idtap" id="kategoritap" class="form-control select2"
+                                                    required>
+                                                    <option></option>
+                                                    @foreach ($tap as $row)
+                                                        <option value="{{ $row->idtap }}">
+                                                            {{ $row->idtap }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
 
+                                        {{-- SF --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Sales Force</label>
+                                                <select name="idsf" id="idsf" class="form-control select2" disabled
+                                                    required>
+                                                    <option></option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                    <label for="">Denom :</label>
-                                    <select name="iddenom" id="" class="form-control mb-2" required>
+                                        {{-- Denom --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Denom</label>
+                                                <select name="iddenom" class="form-control select2" required>
+                                                    <option></option>
+                                                    @foreach ($denom as $row)
+                                                        <option value="{{ $row->iddenom }}">
+                                                            {{ $row->denom }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                        <option value="">--Pilih Denom--</option>
+                                        {{-- Quantity --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Quantity</label>
+                                                <input type="number" name="qty" class="form-control" min="1"
+                                                    required>
+                                            </div>
+                                        </div>
 
-                                        @foreach ($denom as $row)
-                                            <option value="{{ $row->iddenom }}">{{ $row->denom }}</option>
-                                        @endforeach
+                                        {{-- Status VF --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Status Voucher</label>
+                                                <select name="ketvf" class="form-control select2" required>
+                                                    <option></option>
+                                                    <option value="OK">OK</option>
+                                                    <option value="RUSAK">RUSAK</option>
+                                                    <option value="MATI">MATI</option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                    </select>
+                                        {{-- SN --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN Awal - SN Akhir</label>
+                                                <input type="text" name="sn" class="form-control"
+                                                    placeholder="SN Awal - SN Akhir" required>
+                                            </div>
+                                        </div>
 
-                                    <input type="number" name="qty" class="form-control mb-2" placeholder="Quantity"
-                                        required>
+                                        {{-- Ket Lain --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Keterangan Tambahan</label>
+                                                <input type="text" name="tambahket" class="form-control"
+                                                    placeholder="Keterangan tambahan" required>
+                                            </div>
+                                        </div>
 
-                                    <label for="">Status Voucher:</label>
-                                    <select name="ketvf" id="" class="form-control mb-2" required>
-                                        <option value="">--Pilih--</option>
-                                        <option value="OK">OK</option>
-                                        <option value="RUSAK">RUSAK</option>
-                                        <option value="MATI">MATI</option>
-                                    </select>
+                                    </div>
+                                </div>
 
-                                    <label for="">SN :</label>
-                                    <input type="text" name="sn" placeholder="Sn Awal - Sn Akhir"
-                                        class="form-control mb-2" required>
+                                {{-- Footer --}}
+                                <div class="card-footer d-flex justify-content-end gap-2">
+                                    <a href="{{ url('retursf') }}" class="btn btn-light">
+                                        Kembali
+                                    </a>
+                                    <button type="submit" id="submitBtn" class="btn btn-primary">
+                                        Simpan
+                                    </button>
+                                </div>
 
-                                    <label for="">Ket Lain</label>
-                                    <input type="text" name="tambahket" placeholder="Keterangan Tambahan"
-                                        class="form-control mb-2" required>
-
-                                    <button type="submit" class="btn btn-primary">Submit</button>
-                                    <a href="{{ url('retursf') }}" type="submit" class="btn btn-danger">Back</a>
-                            </div>
                             </form>
-
                         </div>
+
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 @endsection
-
 @push('scripts')
     <script>
-        $(function() {
+        $(document).ready(function() {
+
+            /* ================= SELECT2 ================= */
+            $('.select2').select2({
+                placeholder: 'Pilih / Cari…',
+                allowClear: true,
+                width: '100%'
+            });
+
+            $(document).on('select2:open', function() {
+                document.querySelector('.select2-search__field').focus();
+            });
+
+            /* ================= TAP → SF ================= */
             $('#kategoritap').on('change', function() {
-                let idtap = $(this).val();
+                const idtap = $(this).val();
+                const $sf = $('#idsf');
 
-                if (!idtap) {
-                    $('#idsf').html('<option value="">-- Pilih SF --</option>');
-                    return;
-                }
+                $sf.prop('disabled', true).empty().trigger('change');
 
-                $.ajax({
-                    url: "{{ route('ajax.get-sf') }}",
-                    method: "POST",
-                    data: {
-                        _token: "{{ csrf_token() }}",
-                        idtap: idtap
-                    },
-                    success: function(res) {
-                        $('#idsf').html(res);
-                    }
+                if (!idtap) return;
+
+                $.post('{{ route('ajax.get-sf') }}', {
+                    idtap
+                }).done(res => {
+                    $sf.html(res)
+                        .prop('disabled', false)
+                        .trigger('change');
                 });
             });
 
+            /* ================= ANTI DOUBLE SUBMIT ================= */
+            let submitting = false;
+            $('#mainForm').on('submit', function() {
+                if (submitting) return false;
+                submitting = true;
+
+                $('#submitBtn')
+                    .prop('disabled', true)
+                    .text('Menyimpan...');
+            });
+
         });
-    </script>
 
-
-    <script>
+        /* ================= DATE LIMIT ================= */
         document.addEventListener("DOMContentLoaded", function() {
             const inputDate = document.getElementById('date');
             const today = new Date();
             const monthAgo = new Date(today);
             monthAgo.setMonth(today.getMonth() - 1);
 
-            // Mengatur tanggal maksimal hingga hari ini
             inputDate.max = today.toISOString().split('T')[0];
-            // Mengatur tanggal minimal ke satu bulan yang lalu
             inputDate.min = monthAgo.toISOString().split('T')[0];
         });
     </script>

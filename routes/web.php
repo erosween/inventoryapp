@@ -62,20 +62,18 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/home', [HomeController::class, 'index'])->name('home');
 	Route::get('/chart/sales', [SalesChartController::class, 'sales']);
 
-	//masuk
-	Route::get('/masuk', [MasukController::class, 'index']);
-	Route::post('masuk/{idkeluar}', [MasukController::class, 'masuk']);
-	Route::get('/exportexcelmasuk', [MasukController::class, 'exportexcel']);
+	// MASUK
+	Route::get('/masuk', [MasukController::class, 'index'])->name('masuk.index');
+	Route::get('/masuk/data', [MasukController::class, 'data'])->name('masuk.data');
+	Route::get('/masuk/summary', [MasukController::class, 'summary']);
+	Route::get('/exportexcelmasuk', [MasukController::class, 'exportexcel'])->name('masuk.export');
+	// approve / terima barang
+	Route::post('/masuk/{idkeluar}', [MasukController::class, 'masuk'])->name('masuk.approve');
 
 	//menu summary stok
 	Route::get('/stock', [StockController::class, 'index']);
 	Route::get('/stocktap', [StockTapController::class, 'index']);
 	Route::get('/stocksf', [StockSfController::class, 'index']);
-
-	//export excel STOCK
-	Route::get('/exportexcelall', [StockController::class, 'exportexcel']);
-	Route::get('/exportexceltap', [StockTapController::class, 'exportexcel']);
-	Route::get('/exportexcelsf', [StockSfController::class, 'exportexcel']);
 
 	//injectvf segel
 	Route::get('/injectvf', [InjectController::class, 'index']);
@@ -86,16 +84,15 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/form/forminject', [FormInjectsegelController::class, 'index']);
 	Route::post('/form/forminject', [FormInjectsegelController::class, 'injectProses']);
 	Route::post('/ajax/get-stock-segel-tap',[FormInjectsegelController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
-	// //form inject roamax
-	// Route::get('/form/forminjectroamax', [FormInjectroamaxController::class, 'index']);
-	// Route::post('/form/forminjectroamax', [FormInjectroamaxController::class, 'injectProses']);
 	//form inject byu
 	Route::get('/form/forminjectbyu', [FormInjectbyuController::class, 'index']);
 	Route::post('/form/forminjectbyu', [FormInjectbyuController::class, 'injectProses']);
 	Route::post('/ajax/get-stock-byu-tap',[FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-byu-tap');
 
-	//keluar
-	Route::get('/keluar', [KeluarController::class, 'index']);
+	// KELUAR TAP
+	Route::get('/keluar', [KeluarController::class, 'index'])->name('keluar.index');
+	Route::get('/keluar/data', [KeluarController::class, 'data'])->name('keluar.data');
+	Route::get('/keluar/summary', [KeluarController::class, 'summary'])->name('keluar.summary');
 	Route::get('/exporttap', [KeluarController::class, 'exportexcel']);
 
 	//form keluar tap
@@ -104,9 +101,11 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/ajax/get-stock-tap-pengirim', [FormKeluartapController::class, 'getStockTapPengirim'])
     ->name('ajax.get-stock-tap-pengirim');
 
-
 	//input DO
-	Route::get('/DO', [InputDOController::class, 'index']);
+	Route::get('/DO', [InputDOController::class, 'index'])->name('do.index');
+	Route::get('/DO/DATA', [InputDOController::class, 'data'])->name('do.data');
+	Route::post('/do/get-tap', [InputDOController::class, 'getTap'])
+    ->name('do.get-tap');
 	// Route::post('/DO', [InputDOController::class, 'DOmasukform']);
 	Route::post('/DO', [InputDOController::class, 'masukproses']);
 	//untuk select bertingkat tap dan bo
@@ -115,7 +114,7 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/DO/{idmasuk}', [InputDOController::class, 'delete']);
 	Route::get('/exportexceldo', [InputDOController::class, 'exportexcel']);
 
-	// ===== BO RETUR =====
+	// bo retur
 	Route::get('/bo', [BOController::class, 'index']);
 	Route::get('/bo/data', [BOController::class, 'data'])->name('bo.data');
 	Route::post('/bo/store', [BOController::class, 'proseskeluarboform'])->name('bo.store');
@@ -124,12 +123,13 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/form/formkeluarbo', [BOController::class, 'getTap']);
 	Route::post('/bo/delete/{idkeluar}', [BOController::class, 'delete']);
 
-	//voucher rusak
-	Route::get('vrusak', [VrusakController::class, 'index']);
+	// voucher rusak
+	Route::get('vrusak', [VrusakController::class, 'index'])->name('vrusak.index');
+	Route::get('vrusak/data', [VrusakController::class, 'data'])->name('vrusak.data');
 	Route::get('form/form-vrusak', [VrusakController::class, 'vrusak']);
 	Route::post('vrusak', [VrusakController::class, 'vrusakproses']);
 	Route::post('vrusak/{idrusak}', [VrusakController::class, 'delete']);
-	Route::get('/exportrusak', [VrusakController::class, 'exportexcel']);
+	Route::get('exportrusak', [VrusakController::class, 'exportexcel']);
 
 	//stok masuk sf
 	Route::get('sf-masuk', [SfmasukController::class, 'index']);
@@ -158,23 +158,15 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('sf-keluar', [SfkeluarController::class, 'keluarsfproses']);
 	
 	//retursf
-	Route::get('retursf', [RetursfController::class, 'index']);
-	Route::post('/ajax/get-sf', [RetursfController::class, 'getSf'])->name('ajax.get-sf');
-	Route::post('/form/form-retursf', [RetursfController::class, 'getSf']);
-	Route::get('/form/form-retursf', [RetursfController::class, 'formretursf']);
-	Route::post('retursf', [RetursfController::class, 'retursfproses']);
-	Route::get('/exportretursf', [RetursfController::class, 'exportexcel']);
-	Route::post('exportretursf/{idrusak}', [RetursfController::class, 'delete']);
-
-	//cek stok daily
-	Route::get('detail', [DetailController::class, 'index']);
+	Route::get('/retursf', [ReturSfController::class, 'index'])->name('retursf.index');
+	Route::get('/retursf/data', [ReturSfController::class, 'data'])->name('retursf.data');
+	Route::get('/exportretursf', [ReturSfController::class, 'exportexcel']);
+	Route::post('/retursf/{idretur}', [ReturSfController::class, 'delete']);
+	Route::get('/form/form-retursf', [ReturSfController::class, 'form']);
+	Route::post('/retursf', [ReturSfController::class, 'store']);
 
 	// inbox
 	Route::get('inbox', [InboxController::class, 'index']);
-
-	// sisa stock 
-	Route::get('sisastock', [sisaStockController::class, 'index']);
-
 
 	//HOME NOCAN
 	Route::get('/homenocan', [HomenocanController::class, 'index']);

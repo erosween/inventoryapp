@@ -2,102 +2,109 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Exports\StockSfExport;
-use App\Exports\StockTapExport;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Facades\Excel;
-
 
 class StockSfController extends Controller
 {
     public function index()
     {
-        $idtap = session('idtap');
+        $user = auth()->user();
+        $isAllTap = strtoupper($user->idtap) === 'SBP_DUMAI';
 
-        if ($idtap == 'SBP_DUMAI') {
+        /**
+         * ======================================
+         * 1. MASTER DENOM (SF)
+         * ======================================
+         */
+        $denoms = DB::table('stockawalsf as s')
+                ->join('denom as d', 'd.iddenom', '=', 's.iddenom')
+                ->select('d.iddenom', 'd.denom')
+                ->distinct()
+                ->orderBy('d.iddenom')
+                ->get();
 
-            // Membuat array denominasi mulai dari SEGEL, V1 hingga V40
-            $denoms = ['SEGEL'];
-            for ($i = 1; $i <= 100; $i++) {
-                $denoms[] = 'V' . $i;
+        /**
+         * ======================================
+         * 2. GROUP DENOM (SAMA SEMUA VIEW)
+         * ======================================
+         */
+        $groups = [
+            'SEGEL'   => [],
+            '1 HARI'  => [],
+            '2 HARI'  => [],
+            '3 HARI'  => [],
+            '5 HARI'  => [],
+            '7 HARI'  => [],
+            '14 HARI' => [],
+            '30 HARI' => [],
+            'VOICE'   => [],
+            'LAINNYA' => [],
+        ];
+
+        foreach ($denoms as $d) {
+            $name = strtolower($d->denom);
+
+            if (str_contains($name, 'segel')) {
+                $groups['SEGEL'][] = $d;
+            } elseif (str_contains($name, '1hari')) {
+                $groups['1 HARI'][] = $d;
+            } elseif (str_contains($name, '2hari')) {
+                $groups['2 HARI'][] = $d;
+            } elseif (str_contains($name, '3hari')) {
+                $groups['3 HARI'][] = $d;
+            } elseif (str_contains($name, '5hari')) {
+                $groups['5 HARI'][] = $d;
+            } elseif (str_contains($name, '7hari')) {
+                $groups['7 HARI'][] = $d;
+            } elseif (str_contains($name, '14hari')) {
+                $groups['14 HARI'][] = $d;
+            } elseif (str_contains($name, '30hari')) {
+                $groups['30 HARI'][] = $d;
+            } elseif (str_contains($name, 'voice')) {
+                $groups['VOICE'][] = $d;
+            } else {
+                $groups['LAINNYA'][] = $d;
             }
-        
-            // Membangun array selects dengan DB::raw secara dinamis
-            $selects = ['idtap', 'namasf'];
-            foreach ($denoms as $denom) {
-                $selects[] = DB::raw('SUM(IF(iddenom="' . $denom . '", stock, 0)) AS ' . $denom);
-            }
-        
-            // Menjalankan query dengan array selects
-            $data = DB::table('stockawalsf')
-                ->select($selects)
-                ->groupBy('idtap', 'namasf')
-                ->get();
-        
-            // Inisialisasi array gTotal secara dinamis
-            $gTotal = array_fill_keys($denoms, 0);
-        
-            // Menghitung total per denominasi
-            foreach ($data as $item) {
-                foreach ($denoms as $denom) {
-                    $gTotal[$denom] += $item->$denom;
-                }
-            }
-        
-            // Menghitung totalbaris untuk setiap item
-            foreach ($data as $item) {
-                $item->totalbaris = array_reduce($denoms, function ($total, $denom) use ($item) {
-                    return $total + $item->$denom;
-                }, 0);
-            }
-        
-        
-        
-        }else{
-            // Membuat array denominasi mulai dari SEGEL, V1 hingga V40
-            $denoms = ['SEGEL'];
-            for ($i = 1; $i <= 100; $i++) {
-                $denoms[] = 'V' . $i;
-            }
-        
-            // Membangun array selects dengan DB::raw secara dinamis
-            $selects = ['idtap', 'namasf'];
-            foreach ($denoms as $denom) {
-                $selects[] = DB::raw('SUM(IF(iddenom="' . $denom . '", stock, 0)) AS ' . $denom);
-            }
-        
-            // Menjalankan query dengan array selects
-            $data = DB::table('stockawalsf')
-                ->select($selects)
-                ->where('idtap',$idtap)
-                ->groupBy('idtap', 'namasf')
-                ->get();
-        
-            // Inisialisasi array gTotal secara dinamis
-            $gTotal = array_fill_keys($denoms, 0);
-        
-            // Menghitung total per denominasi
-            foreach ($data as $item) {
-                foreach ($denoms as $denom) {
-                    $gTotal[$denom] += $item->$denom;
-                }
-            }
-        
-            // Menghitung totalbaris untuk setiap item
-            foreach ($data as $item) {
-                $item->totalbaris = array_reduce($denoms, function ($total, $denom) use ($item) {
-                    return $total + $item->$denom;
-                }, 0);
-            }
-                                
         }
-        return view('stocksf',compact('data','idtap','gTotal'));
-}
 
-    public function exportexcel(){
-        return Excel::download(new StockSfExport,'stock_SF.xlsx');
+        /**
+         * ======================================
+         * 3. BASE QUERY (SF ONLY)
+         * ======================================
+         */
+        $base = DB::table('stockawalsf')
+            ->select('idtap', 'namasf', 'iddenom', 'stock');
+
+        if (!$isAllTap) {
+            $base->where('idtap', $user->idtap);
+        }
+
+        /**
+         * ======================================
+         * 4. SELECT DINAMIS (PIVOT)
+         * ======================================
+         */
+        $selects = ['idtap', 'namasf'];
+
+        foreach ($denoms as $d) {
+            $selects[] = DB::raw(
+                'SUM(CASE WHEN iddenom = "'.$d->iddenom.'" THEN stock ELSE 0 END) AS '.$d->iddenom
+            );
+        }
+
+        /**
+         * ======================================
+         * 5. QUERY FINAL
+         * ======================================
+         */
+        $data = DB::query()
+            ->fromSub($base, 'x')
+            ->select($selects)
+            ->groupBy('idtap', 'namasf')
+            ->orderBy('idtap')
+            ->orderBy('namasf')
+            ->get();
+
+        return view('stocksf', compact('data', 'groups'));
     }
-
-
 }

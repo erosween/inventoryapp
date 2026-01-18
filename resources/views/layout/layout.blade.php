@@ -199,7 +199,7 @@
                                     <p>TAP</p>
                                     <span class="caret"></span>
                                 </a>
-                                <div class="collapse {{ request()->is('DO', 'masuk', 'keluar', 'injectvf', 'vrusak', 'BO') ? 'show' : '' }}"
+                                <div class="collapse {{ request()->is('DO', 'masuk', 'keluar', 'injectvf', 'vrusak', 'bo') ? 'show' : '' }}"
                                     id="base">
                                     <ul class="nav nav-collapse">
                                         @if (session('idtap') == 'SBP_DUMAI' ||
@@ -315,6 +315,8 @@
         <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 
+        <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+
 
         {{-- AZZARA PLUGINS --}}
         <script src="{{ asset('assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js') }}"></script>
@@ -333,10 +335,67 @@
         <!-- SweetAlert2 -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+        <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+        <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+        <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
         {{-- SCRIPT PER VIEW --}}
         @stack('scripts')
 
     </div>
+    {{-- ===============================
+   GLOBAL SWEET ALERT
+=============================== --}}
+    <script>
+        /* ===============================
+                           DELETE CONFIRM (GLOBAL)
+                        =============================== */
+        $(document).on('submit', '.form-delete', function(e) {
+            e.preventDefault();
+
+            let form = this;
+
+            Swal.fire({
+                title: 'Yakin hapus data?',
+                text: 'Data akan dihapus dan stok akan disesuaikan',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, hapus',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+
+        /* ===============================
+           SUCCESS MESSAGE
+        =============================== */
+        @if (session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil',
+                text: '{{ session('success') }}',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        @endif
+
+        /* ===============================
+           ERROR MESSAGE
+        =============================== */
+        @if (session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: '{{ session('error') }}'
+            });
+        @endif
+    </script>
 
 
 </body>

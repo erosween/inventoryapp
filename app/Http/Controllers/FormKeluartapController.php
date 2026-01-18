@@ -93,6 +93,6 @@ public function proseskeluartapform(Request $request)
         ]);
     });
 
-    return redirect('keluar')->with('status', 'Menunggu approval TAP penerima');
+    return redirect('keluar')->with('success', 'Menunggu approval TAP penerima');
 }
 }

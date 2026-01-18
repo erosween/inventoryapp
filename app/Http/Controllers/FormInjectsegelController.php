@@ -71,20 +71,20 @@ class FormInjectsegelController extends Controller
             ->where('iddenom', 'SEGEL')
             ->decrement('stock', $qty);
 
-        DB::table('stockawalall')
-            ->where('idtap', $idtap)
-            ->where('iddenom', 'SEGEL')
-            ->decrement('stock', $qty);
+        // DB::table('stockawalall')
+        //     ->where('idtap', $idtap)
+        //     ->where('iddenom', 'SEGEL')
+        //     ->decrement('stock', $qty);
 
         DB::table('stockawaltap')
             ->where('idtap', $idtap)
             ->where('iddenom', $iddenom)
             ->increment('stock', $qty);
 
-        DB::table('stockawalall')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->increment('stock', $qty);
+        // DB::table('stockawalall')
+        //     ->where('idtap', $idtap)
+        //     ->where('iddenom', $iddenom)
+        //     ->increment('stock', $qty);
     });
 
     return redirect('injectvf')->with('status', 'Inject berhasil, stok diperbarui');

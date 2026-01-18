@@ -190,28 +190,4 @@
 
         });
     </script>
-
-    {{-- confirm delete --}}
-    <script>
-        $(document).on('submit', '.form-delete', function(e) {
-            e.preventDefault();
-
-            let form = this;
-
-            Swal.fire({
-                title: 'Hapus data?',
-                text: 'Stok akan dikembalikan dan data tidak bisa dipulihkan.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Ya, hapus',
-                cancelButtonText: 'Batal'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    form.submit();
-                }
-            });
-        });
-    </script>
 @endpush

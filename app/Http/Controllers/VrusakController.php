@@ -4,182 +4,187 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\RusakExport;
+use Carbon\Carbon;
 
 class VrusakController extends Controller
 {
-    public function index(Request $request){
+    /* ===============================
+       VIEW
+    =============================== */
+    public function index()
+    {
+        return view('vrusak');
+    }
 
+    /* ===============================
+       DATATABLE SERVER SIDE
+    =============================== */
+    public function data(Request $request)
+    {
         $idtap = session('idtap');
-        $month = $request->input('bulan', date('m'));
-        $year = $request->input('tahun', date('Y'));
 
-        if($idtap == 'SBP_DUMAI'){
-
-            $data = DB::table('returvfrusak')
-                    ->join('denom', 'returvfrusak.iddenom','=','denom.iddenom')
-                    ->select('returvfrusak.*','denom.denom')
-                    ->whereMonth('returvfrusak.tgl',$month)
-                    ->whereYear('returvfrusak.tgl',$year)
-                    ->get()
-                    ->map(function($item) {
-                        $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                        return $item;
-                    });
-        }else{
-
-            $data = DB::table('returvfrusak')
-                    ->join('denom', 'returvfrusak.iddenom','=','denom.iddenom')
-                    ->select('returvfrusak.*','denom.denom')
-                    ->whereMonth('returvfrusak.tgl',$month)
-                    ->whereYear('returvfrusak.tgl',$year)
-                    ->where('returvfrusak.idtap', $idtap)
-                    ->get() ->map(function($item) {
-                        $item->tgl = Carbon::parse($item->tgl)->format('d-m-Y');
-                        return $item;
-                    });
+        if (!$request->daterange) {
+            return datatables()->of([])->make(true);
         }
 
-        
-        return view('vrusak', compact('idtap','data'));
-    }
+        [$start, $end] = explode(' - ', $request->daterange);
 
+        $query = DB::table('returvfrusak as r')
+            ->join('denom as d', 'r.iddenom', '=', 'd.iddenom')
+            ->select(
+                'r.idrusak',
+                'r.tgl',
+                'd.denom',
+                'r.qty',
+                'r.idtap',
+                'r.sn',
+                'r.ketvf',
+                'r.ketlain',
+                'r.iddenom'
+            )
+            ->whereBetween('r.tgl', [$start, $end]);
 
-    public function vrusak(){
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('r.idtap', $idtap);
+        }
 
-        $idtap = session('idtap');
-
-
-        if($idtap == 'SBP_DUMAI'){
-
-            $data = DB::table('kodetap')
-                    ->select('*')
-                    ->get();
-
-
-        }else{
-            
-            $data = DB::table('kodetap')
-                    ->select('*')
-                    ->where('idtap', $idtap)
-                    ->get();
-                }
-
-        $denom =DB::table('denom')
-                ->select('*')
-                ->get();
-
-        return view('form/form-vrusak',compact('idtap','data','denom'));
-
-    }
-
-    public function vrusakproses(Request $request)
-{
-    $tgl = $request->input('tgl');
-    $idtap = $request->input('pengirim');
-    $iddenom = $request->input('iddenom');
-    $qty = $request->input('qty');
-    $sn = $request->input('sn');
-    $ketvf = $request->input('ketvf');
-    $tambahanket = $request->input('tambahanket');
-
-    // Validasi stok Tap
-    if (!$this->cekStok($idtap, $iddenom, $qty, 'stockawaltap')) {
-        return redirect('form/form-vrusak')->withErrors(['error' => 'Stock Tap Tidak Mencukupi!']);
-    }
-
-    // Cek dan update stok
-    $this->updateStok($idtap, $iddenom, $qty);
-
-    // Insert data ke returvfrusak
-    DB::table('returvfrusak')->insert([
-        'idtap' => $idtap,
-        'tgl' => $tgl,
-        'qty' => $qty,
-        'sn' => $sn,
-        'ketvf' => $ketvf,
-        'ketlain' => $tambahanket,
-        'iddenom' => $iddenom
-    ]);
-
-    return redirect('vrusak')->with('status', 'Data Berhasil Ditambahkan!');
-}
-
-public function delete(Request $request, $idrusak)
-{
-    // Hapus data dari returvfrusak
-    DB::table('returvfrusak')->where('idrusak', $idrusak)->delete();
-
-    // Cek dan update stok
-    $this->updateStok($request->input('idtap'), $request->input('iddenom'), -$request->input('qty'));
-
-    return redirect('vrusak')->with('status', 'Data Berhasil Dihapus!');
-}
-
-/**
- * Cek apakah stok mencukupi.
- */
-private function cekStok($idtap, $iddenom, $qty, $table)
-{
-    $stock = DB::table($table)
-        ->where('idtap', $idtap)
-        ->where('iddenom', $iddenom)
-        ->value('stock');
-
-    return $stock >= $qty;
-}
-
-/**
- * Update stok pada stockawaltap dan stockawalall.
- */
-private function updateStok($idtap, $iddenom, $qty)
-{
-    // Ambil stok eksisting
-    $stap = DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
-    $sall = DB::table('stockawalall')->where('idtap', $idtap)->where('iddenom', $iddenom)->first();
-
-    // Hitung stok baru
-    $newStockTAP = $stap->stock - $qty;
-    $newStockAll = $sall->stock - $qty;
-
-    // Update stok
-    DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockTAP]);
-    DB::table('stockawalall')->where('idtap', $idtap)->where('iddenom', $iddenom)->update(['stock' => $newStockAll]);
-}
-
-    public function exportexcel(Request $request)
-        {
-            $idtap = session('idtap');
-            $month = $request->input('bulan', date('m'));
-            $year = $request->input('tahun', date('Y')); 
-
-            if ($idtap == 'SBP_DUMAI') {
-                $penjualanData = DB::table('returvfrusak as f')
-                                    ->join('denom as d','f.iddenom','=','d.iddenom')
-                                    ->select('f.tgl','d.denom',DB::raw('sum(f.qty) as qty'),'f.idtap','f.sn','f.ketvf','f.ketlain')
-                                    ->whereMonth('f.tgl', $month)
-                                    ->whereYear('f.tgl', $year)
-                                    ->groupBy('f.tgl','d.denom','f.idtap','f.sn','f.ketvf','f.ketlain')
-                                    ->get();
-            } else {
-                $penjualanData = DB::table('returvfrusak as f')
-                                    ->join('denom as d','f.iddenom','=','d.iddenom')
-                                    ->select('f.tgl','d.denom',DB::raw('sum(f.qty) as qty'),'f.idtap','f.sn','f.ketvf','f.ketlain')
-                                    ->whereMonth('f.tgl', $month)
-                                    ->whereYear('f.tgl', $year)
-                                    ->where('f.idtap', $idtap)
-                                    ->groupBy('f.tgl','d.denom','f.idtap','f.sn','f.ketvf','f.ketlain')
-                                    ->get();
+        return datatables()
+            ->of($query)
+            // ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('DD-MM-YYYY'))
+            ->editColumn('qty', fn ($r) => number_format($r->qty))
+            ->addColumn('action', function ($r) {
+                   if (session('idtap') !== 'SBP_DUMAI') {
+                return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
             }
 
-            $monthName = date('F', mktime(0, 0, 0, $month, 1));
+                return '
+                <form action="'.url('vrusak/'.$r->idrusak).'" 
+                      method="POST" 
+                      class="form-delete d-inline">
+                    '.csrf_field().'
+                    <input type="hidden" name="idtap" value="'.$r->idtap.'">
+                    <input type="hidden" name="iddenom" value="'.$r->iddenom.'">
+                    <input type="hidden" name="qty" value="'.$r->qty.'">
+                    <button class="btn btn-danger btn-sm">
+                        Delete
+                    </button>
+                </form>';
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
 
-            $fileName = 'VOUCHER_RUSAK_' . $idtap . '_' . $year . '_' . $monthName . '.xlsx';
+    /* ===============================
+       FORM INPUT
+    =============================== */
+    public function vrusak()
+    {
+        $idtap = session('idtap');
 
-            // Menggunakan Maatwebsite\Excel untuk melakukan export data
-            return Excel::download(new RusakExport($penjualanData), $fileName);
+        $tap = DB::table('kodetap')
+            ->when($idtap !== 'SBP_DUMAI', fn ($q) => $q->where('idtap', $idtap))
+            ->get();
+
+        $denom = DB::table('denom')->get();
+
+        return view('form.form-vrusak', compact('tap', 'denom', 'idtap'));
+    }
+
+    /* ===============================
+       SIMPAN
+    =============================== */
+    public function vrusakproses(Request $request)
+{
+    DB::transaction(function () use ($request) {
+
+        /* ===============================
+           VALIDASI STOK TAP
+        =============================== */
+        $stok = DB::table('stockawaltap')
+            ->where('idtap', $request->pengirim)
+            ->where('iddenom', $request->iddenom)
+            ->value('stock');
+
+        if ($stok < $request->qty) {
+            abort(400, 'Stok TAP tidak mencukupi');
         }
-    
+
+        /* ===============================
+           INSERT DATA RUSAK
+        =============================== */
+        DB::table('returvfrusak')->insert([
+            'idtap'   => $request->pengirim,
+            'tgl'     => $request->tgl,
+            'iddenom' => $request->iddenom,
+            'qty'     => $request->qty,
+            'sn'      => $request->sn,
+            'ketvf'   => $request->ketvf,
+            'ketlain' => $request->tambahanket,
+        ]);
+
+        /* ===============================
+           KURANGI STOK TAP
+        =============================== */
+        DB::table('stockawaltap')
+            ->where('idtap', $request->pengirim)
+            ->where('iddenom', $request->iddenom)
+            ->decrement('stock', $request->qty);
+    });
+
+    return redirect('vrusak')
+        ->with('success', 'Voucher rusak berhasil disimpan & stok terupdate');
+}
+
+    /* ===============================
+       DELETE
+    =============================== */
+    public function delete(Request $request, $idrusak)
+    {
+        DB::transaction(function () use ($request, $idrusak) {
+
+            DB::table('returvfrusak')
+                ->where('idrusak', $idrusak)
+                ->delete();
+
+            DB::table('stockawaltap')
+                ->where('idtap', $request->idtap)
+                ->where('iddenom', $request->iddenom)
+                ->increment('stock', $request->qty);
+        });
+
+        return back()->with('success', 'Data berhasil dihapus');
+    }
+
+    /* ===============================
+       EXPORT
+    =============================== */
+    public function exportexcel(Request $request)
+    {
+        [$start, $end] = explode(' - ', $request->daterange);
+        $idtap = session('idtap');
+
+        $query = DB::table('returvfrusak as r')
+            ->join('denom as d', 'r.iddenom', '=', 'd.iddenom')
+            ->select(
+                'r.tgl',
+                'd.denom',
+                'r.qty',
+                'r.idtap',
+                'r.sn',
+                'r.ketvf',
+                'r.ketlain'
+            )
+            ->whereBetween('r.tgl', [$start, $end]);
+
+        if ($idtap !== 'SBP_DUMAI') {
+            $query->where('r.idtap', $idtap);
+        }
+
+        return Excel::download(
+            new RusakExport($query->get()),
+            'VOUCHER_RUSAK_'.now()->format('Ymd_His').'.xlsx'
+        );
+    }
 }

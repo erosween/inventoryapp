@@ -4,70 +4,134 @@
     <div class="main-panel">
         <div class="content">
             <div class="page-inner">
+
+                {{-- Error --}}
                 @if ($errors->has('error'))
                     <div class="alert alert-danger">
                         {{ $errors->first('error') }}
                     </div>
                 @endif
+
+                {{-- Page Header --}}
                 <div class="page-header">
-                    <h4 class="page-title">INPUT VOUCHER RUSAK TAP</h4>
+                    <h4 class="page-title">Input Voucher Rusak TAP</h4>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 offset-md-2">
-                        <div class="card">
+
+                <div class="row justify-content-center">
+                    <div class="col-xl-8 col-lg-9 col-md-11">
+
+                        <div class="card shadow-sm">
                             <div class="card-header">
-                                <div class="card-title">Form Input</div>
+                                <strong>Form Input</strong>
+                                <div class="text-muted small">
+                                    Input data voucher rusak / mati dari TAP
+                                </div>
                             </div>
-                            <div class="card-body">
 
-                                <form action="{{ url('vrusak') }}" method="post">
-                                    @csrf
-                                    <label for="">Tanggal :</label>
-                                    <input type="date" name="tgl" class="form-control mb-2" id="date" required>
+                            <form action="{{ url('vrusak') }}" method="POST" id="mainForm">
+                                @csrf
 
-                                    <label for="">Pengirim :</label>
-                                    <select name="pengirim" class="form-control mb-2" id="kategorisegelmasuk" required>
-                                        <option value="">-- Pilih --</option>
+                                <div class="card-body">
+                                    <div class="row">
 
-                                        @foreach ($data as $row)
-                                            <option value="{{ $row->idtap }}">{{ $row->idtap }}</option>
-                                        @endforeach
-                                    </select>
+                                        {{-- Tanggal --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Tanggal</label>
+                                                <input type="date" id="date" name="tgl" class="form-control"
+                                                    required>
+                                            </div>
+                                        </div>
 
-                                    <select type="text" name="iddenom" placeholder="Denom" class="form-control mb-2"
-                                        required>
+                                        {{-- TAP --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Pengirim (TAP)</label>
+                                                <select name="pengirim" class="form-control select2" required>
+                                                    <option></option>
+                                                    @foreach ($tap as $row)
+                                                        <option value="{{ $row->idtap }}">
+                                                            {{ $row->idtap }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                        <option value="">--Pilih--</option>
+                                        {{-- Denom --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Denom</label>
+                                                <select name="iddenom" class="form-control select2" required>
+                                                    <option></option>
+                                                    @foreach ($denom as $row)
+                                                        <option value="{{ $row->iddenom }}">
+                                                            {{ $row->denom }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                        @foreach ($denom as $denom)
-                                            <option value="{{ $denom->iddenom }}">{{ $denom->denom }}</option>
-                                        @endforeach
-                                    </select>
+                                        {{-- Quantity --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Quantity</label>
+                                                <input type="number" name="qty" class="form-control" min="1"
+                                                    required>
+                                            </div>
+                                        </div>
 
-                                    <input type="number" name="qty" class="form-control mb-2" placeholder="Quantity"
-                                        required>
+                                        {{-- SN --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN Awal - SN Akhir</label>
+                                                <input type="text" name="sn" class="form-control"
+                                                    placeholder="SN Awal - SN Akhir" required>
+                                            </div>
+                                        </div>
 
-                                    <input type="text" name="sn" placeholder="Sn Awal - Sn Akhir"
-                                        class="form-control mb-2" required>
+                                        {{-- Status VF --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Status Voucher</label>
+                                                <select name="ketvf" class="form-control select2" required>
+                                                    <option></option>
+                                                    <option value="RUSAK">RUSAK</option>
+                                                    <option value="MATI">MATI</option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                    <label for="">Status Voucher:</label>
-                                    <select name="ketvf" id="" class="form-control mb-2" required>
-                                        <option value="">--Pilih--</option>
-                                        <option value="RUSAK">RUSAK</option>
-                                        <option value="MATI">MATI</option>
-                                    </select>
+                                        {{-- Keterangan --}}
+                                        <div class="col-md-12">
+                                            <div class="form-group mb-1">
+                                                <label>Keterangan Tambahan</label>
+                                                <input type="text" name="tambahanket" class="form-control"
+                                                    placeholder="Opsional" required>
+                                            </div>
+                                        </div>
 
-                                    <input type="text" name="tambahanket" placeholder="Tambah Keterangan"
-                                        class="form-control mb-2" required>
+                                    </div>
+                                </div>
 
-                                    <button type="submit" class="btn btn-primary" name="addbarangmasuk">Submit</button>
-                                    <a href="{{ url('vrusak') }}" type="submit" class="btn btn-danger">Back</a>
-                            </div>
+                                {{-- FOOTER --}}
+                                <div class="card-footer d-flex justify-content-end gap-2">
+                                    <a href="{{ url('vrusak') }}" class="btn btn-light">
+                                        Kembali
+                                    </a>
+
+                                    <button type="submit" id="submitBtn" class="btn btn-primary">
+                                        Simpan
+                                    </button>
+                                </div>
+
                             </form>
-
                         </div>
+
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -75,15 +139,40 @@
 
 @push('scripts')
     <script>
+        $(document).ready(function() {
+
+            /* ================= SELECT2 ================= */
+            $('.select2').select2({
+                placeholder: 'Pilih / Cari…',
+                allowClear: true,
+                width: '100%'
+            });
+
+            $(document).on('select2:open', function() {
+                document.querySelector('.select2-search__field').focus();
+            });
+
+            /* ================= ANTI DOUBLE SUBMIT ================= */
+            let submitting = false;
+            $('#mainForm').on('submit', function() {
+                if (submitting) return false;
+                submitting = true;
+
+                $('#submitBtn')
+                    .prop('disabled', true)
+                    .text('Menyimpan...');
+            });
+
+        });
+
+        /* ================= DATE LIMIT ================= */
         document.addEventListener("DOMContentLoaded", function() {
             const inputDate = document.getElementById('date');
             const today = new Date();
             const monthAgo = new Date(today);
             monthAgo.setMonth(today.getMonth() - 1);
 
-            // Mengatur tanggal maksimal hingga hari ini
             inputDate.max = today.toISOString().split('T')[0];
-            // Mengatur tanggal minimal ke satu bulan yang lalu
             inputDate.min = monthAgo.toISOString().split('T')[0];
         });
     </script>

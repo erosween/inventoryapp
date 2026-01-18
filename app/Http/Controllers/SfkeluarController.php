@@ -155,11 +155,6 @@ use Yajra\DataTables\Facades\DataTables;
             ->where('iddenom', $iddenom)
             ->decrement('stock', $qty);
 
-        DB::table('stockawalall')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->decrement('stock', $qty);
-
         // =====================
         // INSERT DATA
         // =====================
@@ -224,11 +219,6 @@ public function getStock(Request $request)
         // =====================
         DB::table('stockawalsf')
             ->where('idsf', $data->idsf)
-            ->where('iddenom', $data->iddenom)
-            ->increment('stock', $data->qty);
-
-        DB::table('stockawalall')
-            ->where('idtap', $data->idtap)
             ->where('iddenom', $data->iddenom)
             ->increment('stock', $data->qty);
 

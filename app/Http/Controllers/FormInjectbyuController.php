@@ -83,18 +83,8 @@ public function injectProses(Request $request)
                 ->where('iddenom', $kategoriSegel)
                 ->decrement('stock', $qty);
 
-            DB::table('stockawalall')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $kategoriSegel)
-                ->decrement('stock', $qty);
-
             // 🔺 TAMBAH STOK PAKET BYU
             DB::table('stockawaltap')
-                ->where('idtap', $idtap)
-                ->where('iddenom', $iddenom)
-                ->increment('stock', $qty);
-
-            DB::table('stockawalall')
                 ->where('idtap', $idtap)
                 ->where('iddenom', $iddenom)
                 ->increment('stock', $qty);

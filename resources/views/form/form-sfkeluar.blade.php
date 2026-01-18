@@ -5,18 +5,6 @@
         <div class="content">
             <div class="page-inner">
 
-                {{-- Error --}}
-                @if ($errors->has('error'))
-                    <div class="alert alert-danger">
-                        {{ $errors->first('error') }}
-                    </div>
-                @endif
-
-                <div class="alert alert-danger d-none" id="stok_warning">
-                    Quantity melebihi stok tersedia!
-                </div>
-
-
                 {{-- Page Header --}}
                 <div class="page-header">
                     <h4 class="page-title">Input Stok Keluar SF</h4>
