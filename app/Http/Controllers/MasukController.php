@@ -80,10 +80,14 @@ class MasukController extends Controller
             $query->where('k.penerima', $idtap);
         }
 
+    
         return datatables()
-            ->of($query)
-            ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('Y-m-d'))
-            ->make(true);
+        ->of($query)
+        ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('Y-m-d'))
+        ->filterColumn('denom', function ($q, $keyword) {
+            $q->whereRaw("LOWER(d.denom) LIKE ?", ["%".strtolower($keyword)."%"]);
+        })
+        ->make(true);
     }
 
     /* =====================================================

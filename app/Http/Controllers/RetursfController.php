@@ -53,25 +53,38 @@ class ReturSfController extends Controller
         $query->where('r.idtap', $idtap);
     }
 
-    return datatables()
-        ->of($query)
-        ->editColumn('qty', fn ($r) => number_format($r->qty))
-        ->addColumn('action', function ($r) {
-             if (session('idtap') !== 'SBP_DUMAI') {
-                return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
-            }
-            return '
-            <form action="'.url('retursf/'.$r->idretur).'" method="POST" class="form-delete d-inline">
-                '.csrf_field().'
-                <input type="hidden" name="idtap" value="'.$r->idtap.'">
-                <input type="hidden" name="idsf" value="'.$r->idsf.'">
-                <input type="hidden" name="iddenom" value="'.$r->iddenom.'">
-                <input type="hidden" name="qty" value="'.$r->qty.'">
-                <button class="btn btn-danger btn-sm">Delete</button>
-            </form>';
-        })
-        ->rawColumns(['action'])
-        ->make(true);
+     return datatables()
+    ->of($query)
+    ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('Y-m-d'))
+
+    // 🔎 search denom (join table)
+    ->filterColumn('denom', function ($q, $keyword) {
+        $q->whereRaw("LOWER(d.denom) LIKE ?", ["%".strtolower($keyword)."%"]);
+    })
+
+    // 🔎 search nama SF (join table)
+    ->filterColumn('namasf', function ($q, $keyword) {
+        $q->whereRaw("LOWER(s.namasf) LIKE ?", ["%".strtolower($keyword)."%"]);
+    })
+
+    ->addColumn('action', function ($r) {
+        if (session('idtap') !== 'SBP_DUMAI') {
+            return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
+        }
+
+        return '
+        <form action="'.url('retursf/'.$r->idretur).'" method="POST" class="form-delete d-inline">
+            '.csrf_field().'
+            <input type="hidden" name="idtap" value="'.$r->idtap.'">
+            <input type="hidden" name="idsf" value="'.$r->idsf.'">
+            <input type="hidden" name="iddenom" value="'.$r->iddenom.'">
+            <input type="hidden" name="qty" value="'.$r->qty.'">
+            <button class="btn btn-danger btn-sm">Delete</button>
+        </form>';
+    })
+    ->rawColumns(['action'])
+    ->make(true);
+
 }
 
 
