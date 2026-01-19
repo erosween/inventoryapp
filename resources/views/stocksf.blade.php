@@ -66,6 +66,8 @@
                                                 </th>
                                             @endif
                                         @endforeach
+                                        {{-- TOTAL KANAN --}}
+                                        <th rowspan="2" class="th-main sticky-total">TOTAL</th>
                                     </tr>
 
                                     {{-- SUB HEADER --}}
@@ -97,6 +99,10 @@
                                                     <td class="text-right">{{ number_format($val) }}</td>
                                                 @endforeach
                                             @endforeach
+                                            {{-- TOTAL PER SF --}}
+                                            <td class="text-right sticky-total font-weight-bold">
+                                                {{ number_format($rowTotal) }}
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -114,9 +120,23 @@
                                                 </th>
                                             @endforeach
                                         @endforeach
+
+                                        {{-- TOTAL GRAND --}}
+                                        <th class="text-right sticky-total">
+                                            {{ number_format(
+                                                $data->sum(function ($row) use ($groups) {
+                                                    $t = 0;
+                                                    foreach ($groups as $items) {
+                                                        foreach ($items as $d) {
+                                                            $t += $row->{$d->iddenom} ?? 0;
+                                                        }
+                                                    }
+                                                    return $t;
+                                                }),
+                                            ) }}
+                                        </th>
                                     </tr>
                                 </tfoot>
-
 
                             </table>
 

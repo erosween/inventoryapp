@@ -148,11 +148,6 @@ class MasukController extends Controller
                 ->where('iddenom', $request->iddenom)
                 ->increment('stock', $request->qty);
 
-            DB::table('stockawalall')
-                ->where('idtap', $request->penerima)
-                ->where('iddenom', $request->iddenom)
-                ->increment('stock', $request->qty);
-
             // approve
             DB::table('keluar')
                 ->where('idkeluar', $idkeluar)
