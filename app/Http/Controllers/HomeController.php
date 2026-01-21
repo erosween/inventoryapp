@@ -11,21 +11,28 @@ class HomeController extends Controller
 {
     public function index(Request $request)
     {
+        /* ================= MODE ================= */
+        $mode = $request->query('mode', 'daily');
 
-      /* ================= TIME RANGE ================= */
-        $now = Carbon::now();
-        $today = $now->day;
+        /* ================= GLOBAL CUTOFF ================= */
+        $globalCutoff = DB::table('keluarsf')
+            ->selectRaw('idtap, MAX(tgl) AS last_keluar')
+            ->groupBy('idtap')
+            ->pluck('last_keluar')
+            ->min();
 
-        $startThisMonth = $now->copy()->startOfMonth();
-        $endThisMonth   = $now->copy();
+        $cutoff = Carbon::parse($globalCutoff);
+        $cutoffDay = $cutoff->day;
 
-        $startPrevMonth = $now->copy()->subMonth()->startOfMonth();
-        $endPrevMonth   = $startPrevMonth->copy()
-            ->addDays(min($today, $startPrevMonth->daysInMonth) - 1);
+        /* ================= TIME RANGE (FAIR) ================= */
+        $startThisMonth = $cutoff->copy()->startOfMonth();
+        $endThisMonth   = $cutoff->copy();
 
+        $startPrevMonth = $cutoff->copy()->subMonth()->startOfMonth();
+        $endPrevMonth   = $startPrevMonth->copy()->addDays($cutoffDay - 1);
         $endPrevMonthFull = $startPrevMonth->copy()->endOfMonth();
 
-
+        /* ================= TAP ACTIVITY ================= */
         $tapMasuk = DB::table('masuksf')
             ->selectRaw('idtap, MAX(tgl) AS last_masuk')
             ->groupBy('idtap')
@@ -41,7 +48,7 @@ class HomeController extends Controller
             ->distinct()
             ->orderBy('idtap')
             ->pluck('idtap');
-  
+
         /* ================= KPI ================= */
         $stokSegel =
             DB::table('stockawaltap')->whereIn('iddenom', ['SEGEL','V16','V33'])->sum('stock')
@@ -63,6 +70,38 @@ class HomeController extends Controller
             ? (($salesBulanIni - $salesPrev) / $salesPrev) * 100
             : 0;
 
+        /* ================= CHART SALES ================= */
+        if ($mode === 'monthly') {
+            $chartSales = DB::table('keluarsf')
+                ->selectRaw("DATE_FORMAT(tgl,'%Y-%m') AS label, SUM(qty) AS total")
+                ->whereBetween('tgl', [
+                    $cutoff->copy()->subMonths(5)->startOfMonth(),
+                    $cutoff
+                ])
+                ->groupBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"))
+                ->orderBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"))
+                ->get();
+        } else {
+            $chartSales = DB::table('keluarsf')
+                ->selectRaw("DATE(tgl) AS label, SUM(qty) AS total")
+                ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
+                ->groupBy(DB::raw('DATE(tgl)'))
+                ->orderBy('label')
+                ->get();
+        }
+
+        /* ================= CHART INJECT ================= */
+        $chartInject = DB::table('injectvf')
+            ->selectRaw("
+                DATE(tgl) AS label,
+                SUM(CASE WHEN idtap IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN qty ELSE 0 END) AS dumai,
+                SUM(CASE WHEN idtap IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN qty ELSE 0 END) AS rohil
+            ")
+            ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
+            ->groupBy(DB::raw('DATE(tgl)'))
+            ->orderBy('label')
+            ->get();
+
         /* ================= MoM PER TAP ================= */
         $momTap = DB::table('keluarsf')
             ->selectRaw("
@@ -76,6 +115,7 @@ class HomeController extends Controller
                 $startPrevMonth, $endPrevMonthFull
             ])
             ->groupBy('idtap')
+            ->orderBy('idtap')
             ->get()
             ->map(function ($r) {
                 $r->mom = $r->prev_partial_qty > 0
@@ -84,8 +124,7 @@ class HomeController extends Controller
                 return $r;
             });
 
-
-        /* ================= CLUSTER SUMMARY ================= */
+            /* ================= CLUSTER SUMMARY ================= */
         $clusterMap = [
             'dumai_bengkalis' => ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'],
             'rokan_hilir'     => ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'],
@@ -122,40 +161,13 @@ class HomeController extends Controller
             ->groupBy('k.idtap','k.idsf','s.namasf')
             ->get()
             ->map(function ($r){
-                $r->mom = $r->prev_qty>0?(($r->curr_qty-$r->prev_qty)/$r->prev_qty)*100:0;
+                $r->mom = $r->prev_qty > 0
+                    ? (($r->curr_qty - $r->prev_qty) / $r->prev_qty) * 100
+                    : 0;
                 return $r;
             });
 
-       $topGrowth = $momSf
-            ->filter(fn($r) =>
-                Str::startsWith(strtoupper($r->idsf), 'SF')
-                && $r->mom > 0
-            )
-            ->sortByDesc('mom')
-            ->take(5)
-            ->values();
-
-
-       $topDrop = $momSf
-            ->filter(fn($r) =>
-                Str::startsWith(strtoupper($r->idsf), 'SF')
-                && $r->mom < 0
-            )
-            ->sortBy('mom') // paling minus di atas
-            ->take(5)
-            ->values();
-
-
-        // collapse SF by TAP
-       $sfByTap = $momSf
-                ->filter(fn($r) => Str::startsWith(strtoupper($r->idsf), 'SF'))
-                ->groupBy('idtap')
-                ->map(function ($rows) {
-                    return $rows->sortBy('mom')->values();
-                });
-
-
-        /* ================= MOM DAILY ================= */
+             /* ================= MOM DAILY ================= */
         $momDaily = DB::table('keluarsf')
             ->selectRaw("
                 DAY(tgl) AS day,
@@ -165,75 +177,32 @@ class HomeController extends Controller
             ->groupBy(DB::raw('DAY(tgl)'))
             ->orderBy('day')
             ->get();
+        /* ================= TOP SF ================= */
+        $topGrowth = $momSf
+            ->filter(fn($r) => Str::startsWith($r->idsf,'SF') && $r->mom > 0)
+            ->sortByDesc('mom')
+            ->take(5)
+            ->values();
 
+        $topDrop = $momSf
+            ->filter(fn($r) => Str::startsWith($r->idsf,'SF') && $r->mom < 0)
+            ->sortBy('mom')
+            ->take(5)
+            ->values();
 
-       /* ================= CHART SALES ================= */
-        $mode = $request->query('mode', 'daily');
-        if ($mode === 'monthly') {
-
-            // ===== BULANAN (6 BULAN TERAKHIR) =====
-            $chartSales = DB::table('keluarsf')
-                ->selectRaw("
-                    DATE_FORMAT(tgl, '%Y-%m') AS label,
-                    SUM(qty) AS total
-                ")
-                ->where('tgl', '>=', $now->copy()->subMonths(5)->startOfMonth())
-                ->groupBy(DB::raw("DATE_FORMAT(tgl, '%Y-%m')"))
-                ->orderBy(DB::raw("DATE_FORMAT(tgl, '%Y-%m')"))
-                ->get();
-
-        } else {
-
-            // ===== HARIAN (BULAN BERJALAN) =====
-            $chartSales = DB::table('keluarsf')
-                ->selectRaw("
-                    DATE(tgl) AS label,
-                    SUM(qty) AS total
-                ")
-                ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
-                ->groupBy(DB::raw('DATE(tgl)'))
-                ->orderBy('label')
-                ->get();
-        }
-
-
-        /* ================= CHART INJECT ================= */
-        $chartInject = DB::table('injectvf')
-            ->selectRaw("
-                DATE(tgl) AS label,
-                SUM(CASE WHEN idtap IN ('DUMAI','DURI','BENGKALIS','SEI PAKNING','RUPAT') THEN qty ELSE 0 END) AS dumai,
-                SUM(CASE WHEN idtap IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN qty ELSE 0 END) AS rohil
-            ")
-            ->whereMonth('tgl',$now->month)
-            ->whereYear('tgl',$now->year)
-            ->groupBy(DB::raw('DATE(tgl)'))
-            ->orderBy('label')
-            ->get();
-
-        $salesTap = DB::table('keluarsf')
-            ->selectRaw('idtap, SUM(qty) AS qty')
-            ->whereMonth('tgl',$now->month)
-            ->whereYear('tgl',$now->year)
+        /* ================= COLLAPSE SF BY TAP ================= */
+        $sfByTap = $momSf
+            ->filter(fn($r) => Str::startsWith($r->idsf,'SF'))
             ->groupBy('idtap')
-            ->orderByDesc('qty')
-            ->get();
+            ->map(fn($rows) => $rows->sortBy('mom')->values());
 
-        $topProduk = DB::table('keluarsf as k')
-            ->join('denom as d','k.iddenom','=','d.iddenom')
-            ->selectRaw('d.denom, SUM(k.qty) AS qty')
-            ->whereMonth('k.tgl',$now->month)
-            ->whereYear('k.tgl',$now->year)
-            ->groupBy('d.denom')
-            ->orderByDesc('qty')
-            ->limit(5)
-            ->get();
-
-
-
-     return view('home', compact('mode',
-    'stokSegel','stokInject','salesBulanIni','mom',
-    'chartSales','chartInject','salesTap','topProduk',
-    'momTap','momCluster','momSf','topGrowth','topDrop','momDaily','tapMasuk','tapKeluar','tapList','sfByTap'));
-
+        return view('home', compact(
+            'mode',
+            'stokSegel','stokInject','salesBulanIni','mom',
+            'chartSales','chartInject',
+            'momTap','momSf','topGrowth','topDrop','sfByTap',
+            'tapMasuk','tapKeluar','tapList','globalCutoff','momCluster','momDaily'
+        ));
     }
 }
+
