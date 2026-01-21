@@ -48,6 +48,90 @@
             box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, .25);
         }
     </style>
+
+
+    <style>
+        /* ===============================
+   GLOBAL DATATABLE LOADING (PREMIUM)
+=============================== */
+        .dt-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(248, 250, 252, .75);
+            backdrop-filter: blur(6px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dt-loader-card {
+            background: #fff;
+            padding: 30px 36px;
+            border-radius: 20px;
+            box-shadow:
+                0 30px 60px rgba(79, 70, 229, .25),
+                inset 0 0 0 1px rgba(99, 102, 241, .08);
+            text-align: center;
+            min-width: 260px;
+            animation: dtPop .3s ease;
+        }
+
+        /* SPINNER RING */
+        .dt-spinner {
+            position: relative;
+            /* 🔥 WAJIB */
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 4px solid rgba(99, 102, 241, .15);
+            border-top-color: #6366f1;
+            animation: dtSpin .9s linear infinite;
+            margin: auto;
+        }
+
+        /* GLOW DOT */
+        .dt-spinner::after {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            box-shadow: 0 0 18px rgba(99, 102, 241, .35);
+        }
+
+        /* TEXT */
+        .dt-text {
+            margin-top: 18px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #4f46e5;
+            letter-spacing: .4px;
+        }
+
+        /* ANIMATIONS */
+        @keyframes dtSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes dtPop {
+            from {
+                opacity: 0;
+                transform: scale(.94) translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* HILANGKAN DEFAULT "Processing..." */
+        .dataTables_processing {
+            display: none !important;
+        }
+    </style>
     <!-- Fonts and icons -->
     <script src="/assets/js/plugin/webfont/webfont.min.js"></script>
     <script>
@@ -296,17 +380,89 @@
             </div>
         </div>
 
+
         @yield('content')
-        {{-- JQUERY --}}
+
+        {{-- =============================
+       JQUERY (HARUS PALING AWAL)
+    ============================= --}}
         <script src="{{ asset('assets/js/core/jquery.3.2.1.min.js') }}"></script>
 
+        {{-- CSRF SETUP (SETELAH JQUERY) --}}
         <script>
-            /* ================= CSRF ================= */
             $.ajaxSetup({
                 headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 }
             });
+        </script>
+
+        {{-- DATATABLE (SATU KALI SAJA) --}}
+        <script src="{{ asset('assets/js/plugin/datatables/datatables.min.js') }}"></script>
+
+        <script>
+            $.extend(true, $.fn.dataTable.defaults, {
+                language: {
+                    processing: ''
+                }
+            });
+        </script>
+        <script>
+            (function() {
+
+                let searchTimer = null;
+                const SEARCH_DELAY = 1200; // ms
+
+                // Jalan SETIAP DataTable selesai init
+                $(document).on('init.dt', function(e, settings) {
+
+                    const api = new $.fn.dataTable.Api(settings);
+                    const tableId = settings.nTable.id;
+
+                    if (!tableId) return;
+
+                    const $input = $('#' + tableId + '_filter input');
+                    if (!$input.length) return;
+
+                    // ❌ matikan search bawaan DataTable
+                    $input.off('.DT');
+
+                    // ✅ debounce search
+                    $input.on('input.dt.debounce', function() {
+                        const value = this.value;
+
+                        clearTimeout(searchTimer);
+                        searchTimer = setTimeout(() => {
+                            api.search(value).draw();
+                        }, SEARCH_DELAY);
+                    });
+
+                });
+
+            })();
+        </script>
+        <script>
+            (function() {
+
+                let loaderTimer = null;
+                const SPINNER_DELAY = 250; // biar typing gak nyala
+
+                $(document)
+                    .on('preXhr.dt', function(e, settings) {
+
+                        // 🔒 HANYA serverSide
+                        if (!settings.oFeatures || !settings.oFeatures.bServerSide) return;
+
+                        loaderTimer = setTimeout(() => {
+                            $('#global-dt-loader').removeClass('d-none');
+                        }, SPINNER_DELAY);
+                    })
+                    .on('xhr.dt', function() {
+                        clearTimeout(loaderTimer);
+                        $('#global-dt-loader').addClass('d-none');
+                    });
+
+            })();
         </script>
 
         {{-- BOOTSTRAP --}}
@@ -314,90 +470,51 @@
         <script src="{{ asset('assets/js/core/bootstrap.min.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-
         <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
-
-
         {{-- AZZARA PLUGINS --}}
         <script src="{{ asset('assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/jquery-ui-touch-punch/jquery.ui.touch-punch.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js') }}"></script>
-        <script src="{{ asset('assets/js/plugin/datatables/datatables.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/bootstrap-toggle/bootstrap-toggle.min.js') }}"></script>
-        <script src="{{ asset('assets/js/plugin/sweetalert/sweetalert.min.js') }}"></script>
-
-        {{-- SELECT2 (INI PENTING) --}}
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
-
-        {{-- AZZARA CORE --}}
-        <script src="{{ asset('assets/js/ready.min.js') }}"></script>
-        <!-- SweetAlert2 -->
+        <script src="{{ asset('assets/js/plugin/sweetalert/sweetalert.min.js') }}"></script> {{-- SELECT2 (INI PENTING) --}}
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script> {{-- AZZARA CORE --}}
+        <script src="{{ asset('assets/js/ready.min.js') }}"></script> <!-- SweetAlert2 -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
         <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
         <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
         <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-        {{-- SCRIPT PER VIEW --}}
         @stack('scripts')
 
+        {{-- GLOBAL SWEETALERT DELETE --}}
+        <script>
+            $(document).on('submit', '.form-delete', function(e) {
+                e.preventDefault();
+                let form = this;
+                Swal.fire({
+                    title: 'Yakin hapus data?',
+                    text: 'Data akan dihapus & stok disesuaikan',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Ya, hapus'
+                }).then(r => {
+                    if (r.isConfirmed) form.submit();
+                });
+            });
+        </script>
+
+        {{-- GLOBAL DATATABLE LOADER --}}
+        <div id="global-dt-loader" class="dt-overlay d-none">
+            <div class="dt-loader-card">
+                <div class="dt-spinner"></div>
+                <div class="dt-text">Loading data, Please wait...</div>
+            </div>
+        </div>
+
     </div>
-    {{-- ===============================
-   GLOBAL SWEET ALERT
-=============================== --}}
-    <script>
-        /* ===============================
-                                                   DELETE CONFIRM (GLOBAL)
-                =============================== */
-        $(document).on('submit', '.form-delete', function(e) {
-            e.preventDefault();
-
-            let form = this;
-
-            Swal.fire({
-                title: 'Yakin hapus data?',
-                text: 'Data akan dihapus dan stok akan disesuaikan',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Ya, hapus',
-                cancelButtonText: 'Batal'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    form.submit();
-                }
-            });
-        });
-
-        /* ===============================
-           SUCCESS MESSAGE
-        =============================== */
-        @if (session('success'))
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil',
-                text: '{{ session('success') }}',
-                timer: 2000,
-                showConfirmButton: false
-            });
-        @endif
-
-        /* ===============================
-           ERROR MESSAGE
-        =============================== */
-        @if (session('error'))
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal',
-                text: '{{ session('error') }}'
-            });
-        @endif
-    </script>
-
-
 </body>
 
 </html>

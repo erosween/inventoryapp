@@ -13,27 +13,31 @@ class AuthController extends Controller
     }
 
 
-    public function login(Request $request)
-    {
-        $credentials = $request->only('username', 'password');
+   public function login(Request $request)
+{
+    $credentials = $request->only('username', 'password');
 
-        if (Auth::attempt($credentials)) {
-            // Jika autentikasi berhasil, simpan idtap ke dalam session
-            session(['idtap' => auth()->user()->idtap]);
+    if (Auth::attempt($credentials)) {
 
-            // Cek nilai idtap dan arahkan pengguna ke halaman yang sesuai
-            if (auth()->user()->idtap === 'SB DUMAI') {
-                return redirect('/homenocan');
-            } elseif (auth()->user()->idtap === 'SB SIDEMPUAN') {
-                return redirect('/homenocan');
-            } else {
-                return redirect('/home');
-            }
+        session(['idtap' => auth()->user()->idtap]);
+
+        if (auth()->user()->idtap === 'SB DUMAI') {
+            return redirect('/homenocan');
+        } elseif (auth()->user()->idtap === 'SB SIDEMPUAN') {
+            return redirect('/homenocan');
         } else {
-            // Jika autentikasi gagal, redirect ke halaman login dengan error message
-            return redirect()->back()->with('error', 'Username atau Password Salah!');
+            return redirect('/home');
         }
+
+    } else {
+        // ⬇️ INI KUNCINYA
+        return redirect()
+            ->back()
+            ->withInput($request->only('username')) // ⬅️ SIMPAN USERNAME
+            ->with('error', 'Username atau Password Salah!');
     }
+}
+
 
 
     public function logout(Request $request)

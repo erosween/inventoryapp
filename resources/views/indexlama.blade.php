@@ -277,33 +277,6 @@
                 background-position: 0% 50%;
             }
         }
-
-        /* ================= BACKDROP ================= */
-        body {
-            margin: 0;
-            font-family: 'Inter', system-ui, sans-serif;
-            background:
-                radial-gradient(circle at 20% 20%, rgba(109, 93, 252, .15), transparent 40%),
-                radial-gradient(circle at 80% 80%, rgba(99, 102, 241, .15), transparent 40%),
-                linear-gradient(135deg, #c7c5f4, #776bcc);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: .3s;
-        }
-
-        /* GRID OVERLAY (TWITTER FEEL) */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px);
-            background-size: 40px 40px;
-            pointer-events: none;
-        }
     </style>
 </head>
 
@@ -336,9 +309,8 @@
                 <div class="login-title">INVENTORY MSP</div>
                 <div class="login-subtitle">Secure Inventory Management System</div>
 
-                <form method="POST" action="{{ route('login.post') }}" onsubmit="handleSubmit(this)">
+                <form method="POST" action="{{ route('login.post') }}">
                     @csrf
-
 
                     <div class="login-field">
                         <i class="fas fa-user"></i>
@@ -355,9 +327,8 @@
                         <div class="alert">{{ session('error') }}</div>
                     @endif
 
-                    <button type="submit" class="login-btn">
-                        <span class="btn-text">LOG IN NOW</span>
-                        <i class="fas fa-arrow-right"></i>
+                    <button class="login-btn">
+                        LOG IN NOW <i class="fas fa-arrow-right"></i>
                     </button>
                     <div style="margin-top:14px; text-align:center; font-size:12px; color:#6b7280;">
                         <i class="fas fa-lock"></i> Secure Access • Encrypted Session
@@ -373,25 +344,6 @@
         </div>
 
     </div>
-
-    <script>
-        function handleSubmit(form) {
-            const btn = form.querySelector('.login-btn');
-            const text = btn.querySelector('.btn-text');
-
-            btn.disabled = true;
-            btn.classList.add('loading');
-            text.textContent = 'Signing in…';
-
-            // biar UI update DULU sebelum submit
-            requestAnimationFrame(() => {
-                form.submit();
-            });
-
-            return false;
-        }
-    </script>
-
 
 </body>
 
