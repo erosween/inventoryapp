@@ -117,11 +117,6 @@ class InjectController extends Controller
                 ->where('iddenom', $data->iddenom)
                 ->decrement('stock', $data->qty);
 
-            DB::table('stockawalall')
-                ->where('idtap', $data->idtap)
-                ->where('iddenom', $data->iddenom)
-                ->decrement('stock', $data->qty);
-
             /*
              |--------------------------------------------------------------------------
              | 2️⃣ TAMBAH STOK SEGEL (ROLLBACK)
@@ -133,11 +128,6 @@ class InjectController extends Controller
                 ->where('idtap', $data->idtap)
                 ->where('iddenom', $data->kategori)
                 ->lockForUpdate()
-                ->increment('stock', $data->qty);
-
-            DB::table('stockawalall')
-                ->where('idtap', $data->idtap)
-                ->where('iddenom', $data->kategori)
                 ->increment('stock', $data->qty);
 
             /*
