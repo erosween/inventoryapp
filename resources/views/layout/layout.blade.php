@@ -59,7 +59,7 @@
             inset: 0;
             background: rgba(248, 250, 252, .75);
             backdrop-filter: blur(6px);
-            z-index: 99999;
+            z-index: 1050;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -515,6 +515,27 @@
         </div>
 
     </div>
+
+    <script>
+        @if (session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: @json(session('success')),
+                timer: 1800,
+                showConfirmButton: false
+            });
+        @endif
+
+        @if (session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: @json(session('error')),
+            });
+        @endif
+    </script>
+
 </body>
 
 </html>
