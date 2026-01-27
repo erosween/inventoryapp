@@ -136,120 +136,126 @@
     <script>
         $(document).ready(function() {
 
-            let currentStock = 0;
+                    let currentStock = 0;
 
-            /* ================= SELECT2 ================= */
-            $('.select2').select2({
-                placeholder: 'Pilih / Cari…',
-                allowClear: true,
-                width: '100%'
-            });
-
-            $(document).on('select2:open', function() {
-                document.querySelector('.select2-search__field').focus();
-            });
-
-            /* ================= TAP → SF ================= */
-            $('#kategoritap').on('change', function() {
-                const idtap = $(this).val();
-                const $sf = $('#idsf');
-
-                $sf.prop('disabled', true).empty().trigger('change');
-
-                if (!idtap) return;
-
-                $.post('{{ route('ajax.get-sf') }}', {
-                        idtap
-                    })
-                    .done(res => {
-                        $sf.html(res)
-                            .prop('disabled', false)
-                            .trigger('change');
+                    /* ================= SELECT2 ================= */
+                    $('.select2').select2({
+                        placeholder: 'Pilih / Cari…',
+                        allowClear: true,
+                        width: '100%'
                     });
-            });
 
-            /* ================= RESET SAAT SF GANTI ================= */
-            $('#idsf').on('change', function() {
-                $('#iddenom').val(null).trigger('change');
-                $('#qty').val('');
-                $('#tambahanket').val('');
-                $('#stok_info').val('');
-                $('#stok_warning').addClass('d-none');
-                $('#submitBtn').prop('disabled', true);
-            });
+                    $(document).on('select2:open', function() {
+                        document.querySelector('.select2-search__field').focus();
+                    });
 
-            /* ================= DENOM → LOAD STOK ================= */
-            $('#iddenom').on('change', function() {
-                const iddenom = $(this).val();
-                const idtap = $('#kategoritap').val();
+                    /* ================= TAP → SF ================= */
+                    $('#kategoritap').on('change', function() {
+                        const idtap = $(this).val();
+                        const $sf = $('#idsf');
 
-                if (!iddenom || !idtap) return;
+                        $sf.prop('disabled', true).empty().trigger('change');
 
-                $('#stok_info').val('Loading...');
+                        if (!idtap) return;
 
-                $.post('{{ route('ajax.get-stock-tap') }}', {
-                    iddenom,
-                    idtap
-                }).done(res => {
-                    currentStock = parseInt(res.stock) || 0;
+                        $.post('{{ route('ajax.get-sf') }}', {
+                                idtap
+                            })
+                            .done(res => {
+                                $sf.html(res)
+                                    .prop('disabled', false)
+                                    .trigger('change');
+                            });
+                    });
 
-                    if (currentStock <= 0) {
-                        $('#stok_info').val('Stok TAP habis');
-                        $('#stok_warning').removeClass('d-none');
-                    } else {
-                        $('#stok_info').val(currentStock + ' pcs (stok TAP)');
+                    /* ================= RESET SAAT SF GANTI ================= */
+                    $('#idsf').on('change', function() {
+                        $('#iddenom').val(null).trigger('change');
+                        $('#qty').val('');
+                        $('#tambahanket').val('');
+                        $('#stok_info').val('');
                         $('#stok_warning').addClass('d-none');
-                    }
-                });
-            });
+                        $('#submitBtn').prop('disabled', true);
+                    });
 
-            /* ================= VALIDASI QTY ================= */
-            $('#qty').on('input', function() {
-                const qty = parseInt($(this).val()) || 0;
+                    /* ================= DENOM → LOAD STOK ================= */
+                    $('#iddenom').on('change', function() {
+                        const iddenom = $(this).val();
+                        const idtap = $('#kategoritap').val();
 
-                if (qty > currentStock) {
-                    $(this).addClass('is-invalid');
-                    $('#stok_warning').removeClass('d-none');
-                    $('#submitBtn').prop('disabled', true);
-                } else {
-                    $(this).removeClass('is-invalid');
-                    $('#stok_warning').addClass('d-none');
-                    $('#submitBtn').prop('disabled', false);
-                }
-            });
+                        if (!iddenom || !idtap) return;
 
-            /* ================= ANTI DOUBLE SUBMIT ================= */
-            let submitting = false;
-            $('#mainForm').on('submit', function() {
-                if (submitting) return false;
-                submitting = true;
+                        $('#stok_info').val('Loading...');
 
-                $('#submitBtn')
-                    .prop('disabled', true)
-                    .text('Menyimpan...');
-            });
+                        $.post('{{ route('ajax.get-stock-tap') }}', {
+                            iddenom,
+                            idtap
+                        }).done(res => {
+                            currentStock = parseInt(res.stock) || 0;
 
-        });
+                            if (currentStock <= 0) {
+                                $('#stok_info').val('Stok TAP habis');
+                                $('#stok_warning').removeClass('d-none');
+                            } else {
+                                $('#stok_info').val(currentStock + ' pcs (stok TAP)');
+                                $('#stok_warning').addClass('d-none');
+                            }
+                        });
+                    });
 
-        // Tanggal maksimal hari ini dan minimal sebulan yang lalu
-        document.addEventListener("DOMContentLoaded", function() {
-            const inputDate = document.getElementById('date');
+                    /* ================= VALIDASI QTY ================= */
+                    $('#qty').on('input', function() {
+                        const qty = parseInt($(this).val()) || 0;
 
-            const today = new Date();
+                        if (qty > currentStock) {
+                            $(this).addClass('is-invalid');
+                            $('#stok_warning').removeClass('d-none');
+                            $('#submitBtn').prop('disabled', true);
+                        } else {
+                            $(this).removeClass('is-invalid');
+                            $('#stok_warning').addClass('d-none');
+                            $('#submitBtn').prop('disabled', false);
+                        }
+                    });
 
-            // H+1 (besok)
-            const tomorrow = new Date(today);
-            tomorrow.setDate(today.getDate() + 1);
+                    /* ================= ANTI DOUBLE SUBMIT ================= */
+                    let submitting = false;
 
-            // H-1 bulan
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(today.getMonth() - 1);
+                    $('#formSfMasuk').on('submit', function(e) {
 
-            // Max: besok (H+1)
-            inputDate.max = tomorrow.toISOString().split('T')[0];
+                        if (submitting) {
+                            e.preventDefault();
+                            return;
+                        }
 
-            // Min: 1 bulan lalu
-            inputDate.min = monthAgo.toISOString().split('T')[0];
-        });
+                        submitting = true;
+
+                        $('#submitBtn')
+                            .prop('disabled', true)
+                            .text('Menyimpan...');
+
+                    });
+
+
+                    // Tanggal maksimal hari ini dan minimal sebulan yang lalu
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const inputDate = document.getElementById('date');
+
+                        const today = new Date();
+
+                        // H+1 (besok)
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(today.getDate() + 1);
+
+                        // H-1 bulan
+                        const monthAgo = new Date(today);
+                        monthAgo.setMonth(today.getMonth() - 1);
+
+                        // Max: besok (H+1)
+                        inputDate.max = tomorrow.toISOString().split('T')[0];
+
+                        // Min: 1 bulan lalu
+                        inputDate.min = monthAgo.toISOString().split('T')[0];
+                    });
     </script>
 @endpush
