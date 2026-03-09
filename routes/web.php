@@ -29,6 +29,7 @@ use App\Http\Controllers\FormInjectroamaxController;
 use App\Http\Controllers\sisaStockController;
 use App\Http\Controllers\NocanadminController;
 use App\Http\Controllers\searchController;
+use App\Http\Controllers\StockMovementController;
 
 //login
 Route::middleware([RedirectIfAuthenticated::class])->group(function () {
@@ -164,6 +165,10 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/retursf/{idretur}', [ReturSfController::class, 'delete']);
 	Route::get('/form/form-retursf', [ReturSfController::class, 'form']);
 	Route::post('/retursf', [ReturSfController::class, 'store']);
+
+	// stock movement ledger
+	Route::post('/sf-masuk-ledger',  [StockMovementController::class, 'transfer']);
+	Route::post('/sf-keluar-ledger', [StockMovementController::class, 'out']);
 
 	// inbox
 	Route::get('inbox', [InboxController::class, 'index']);
