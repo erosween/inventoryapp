@@ -21,7 +21,7 @@
                                 </div>
                             </div>
 
-                            <form action="{{ url('sf-keluar-ledger') }}" method="POST" id="mainForm">
+                            <form action="{{ url('sf-keluar') }}" method="POST" id="mainForm">
                                 @csrf
 
                                 @php use Illuminate\Support\Str; @endphp
