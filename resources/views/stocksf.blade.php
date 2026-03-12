@@ -227,6 +227,10 @@
             background: #682799;
         }
 
+        .th-28-hari {
+            background: #4022ea;
+        }
+
         .th-30-hari {
             background: #7082e8;
         }
@@ -298,6 +302,7 @@
         .th-5-hari,
         .th-7-hari,
         .th-14-hari,
+        .th-28-hari,
         .th-30-hari,
         .th-voice,
         .th-lainnya {
