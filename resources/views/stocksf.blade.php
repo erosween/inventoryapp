@@ -58,6 +58,7 @@
                                                     {{ $group == '5 HARI' ? 'th-5-hari' : '' }}
                                                     {{ $group == '7 HARI' ? 'th-7-hari' : '' }}
                                                     {{ $group == '14 HARI' ? 'th-14-hari' : '' }}
+                                                    {{ $group == '28 HARI' ? 'th-28-hari' : '' }}
                                                     {{ $group == '30 HARI' ? 'th-30-hari' : '' }}
                                                     {{ $group == 'VOICE' ? 'th-voice' : '' }}
                                                     {{ $group == 'LAINNYA' ? 'th-lainnya' : '' }}
