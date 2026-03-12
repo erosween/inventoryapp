@@ -36,6 +36,7 @@ class StockSfController extends Controller
             '5 HARI'  => [],
             '7 HARI'  => [],
             '14 HARI' => [],
+            '28 HARI' => [],
             '30 HARI' => [],
             'VOICE'   => [],
             'LAINNYA' => [],
@@ -58,6 +59,7 @@ class StockSfController extends Controller
                 $groups['7 HARI'][] = $d;
             } elseif (str_contains($name, '14hari')) {
                 $groups['14 HARI'][] = $d;
+            } elseif (str_contains($name, '28hari')) {
             } elseif (str_contains($name, '30hari')) {
                 $groups['30 HARI'][] = $d;
             } elseif (str_contains($name, 'voice')) {

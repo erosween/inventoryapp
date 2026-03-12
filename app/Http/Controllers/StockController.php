@@ -35,6 +35,7 @@ class StockController extends Controller
             '5 HARI'  => [],
             '7 HARI'  => [],
             '14 HARI' => [],
+            '28 HARI' => [],
             '30 HARI' => [],
             'VOICE'   => [],
             'LAINNYA' => [],
@@ -62,6 +63,8 @@ class StockController extends Controller
                 $groups['7 HARI'][] = $d;
             } elseif (str_contains($name, '14hari')) {
                 $groups['14 HARI'][] = $d;
+            } elseif (str_contains($name, '28hari')) {
+                $groups['28 HARI'][] = $d;
             } elseif (str_contains($name, '30hari')) {
                 $groups['30 HARI'][] = $d;
             } elseif (str_contains($name, 'voice')) {
