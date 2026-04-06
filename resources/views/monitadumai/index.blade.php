@@ -11,6 +11,9 @@
 
     <!-- Leaflet Maps CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         /* RESET */
         * {
@@ -528,9 +531,6 @@
                 <ul id="suggestions" class="suggestions-box" style="display:none;"></ul>
                 <div id="history" class="history-box"></div>
             </div>
-            <button class="btn-search" onclick="searchOutlet()">
-                <i class="fas fa-search"></i> Cari
-            </button>
             <button class="btn-scan" onclick="scanNearby()">
                 <i class="fas fa-location-crosshairs"></i> <span>Nearest Outlet</span>
             </button>
@@ -623,6 +623,9 @@
                 if (selectedIndex > -1) {
                     e.preventDefault();
                     items[selectedIndex].click();
+                } else {
+                    // IF NO ITEM SELECTED, ATTEMPT TO SEARCH THE RAW INPUT
+                    searchOutlet();
                 }
             } else if (e.key === "Escape") {
                 box.style.display = 'none';
@@ -826,7 +829,26 @@
                         resultDiv.appendChild(item);
                     });
                 } catch (e) { resultDiv.innerHTML = '<div class="card">Server Error.</div>'; }
-            }, (err) => { resultDiv.innerHTML = `<div class="card">GPS Error: ${err.message}</div>`; });
+            }, (err) => { 
+                let msg = "GPS Error: " + err.message;
+                if (err.code === 1) { // PERMISSION_DENIED
+                    msg = `
+                        <div style="text-align:center; padding:10px;">
+                            <i class="fas fa-location-dot" style="font-size:30px; color:#d10000; margin-bottom:10px;"></i>
+                            <h4 style="color:#d10000;">Akses Lokasi Ditolak</h4>
+                            <p style="font-size:13px; color:#666; margin-top:5px;">
+                                Sepertinya izin lokasi diblokir oleh Telegram/Browser.<br><br>
+                                <b>Cara Mengatasi:</b><br>
+                                1. Klik ikon (i) atau gembok di pojok browser.<br>
+                                2. Cari "Location" dan pilih "Allow/Izinkan".<br>
+                                3. Jika di App Telegram: Settings HP -> Apps -> Telegram -> Permissions -> Allow Location.
+                            </p>
+                            <button onclick="scanNearby()" style="margin-top:15px; background:#d10000; color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">Coba Lagi</button>
+                        </div>
+                    `;
+                }
+                resultDiv.innerHTML = `<div class="card">${msg}</div>`; 
+            });
         }
 
         function initMap(lat, lon, outlets) {
