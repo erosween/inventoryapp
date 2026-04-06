@@ -11,7 +11,7 @@
 
     <!-- Leaflet Maps CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
@@ -829,7 +829,7 @@
                         resultDiv.appendChild(item);
                     });
                 } catch (e) { resultDiv.innerHTML = '<div class="card">Server Error.</div>'; }
-            }, (err) => { 
+            }, (err) => {
                 let msg = "GPS Error: " + err.message;
                 if (err.code === 1) { // PERMISSION_DENIED
                     msg = `
@@ -847,7 +847,7 @@
                         </div>
                     `;
                 }
-                resultDiv.innerHTML = `<div class="card">${msg}</div>`; 
+                resultDiv.innerHTML = `<div class="card">${msg}</div>`;
             });
         }
 
