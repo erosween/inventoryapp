@@ -28,8 +28,35 @@ class MonitaDumaiController extends Controller
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
             ->where('nama_outlet', 'like', '%' . $keyword . '%')
+            ->orWhere('id_outlet', 'like', '%' . $keyword . '%')
+            ->select('nama_outlet', 'sf', 'tap')
             ->limit(10)
-            ->pluck('nama_outlet');
+            ->get();
+
+        return response()->json($data);
+    }
+
+    public function nearby(Request $request)
+    {
+        $lat = $request->input('lat');
+        $long = $request->input('long');
+
+        if (!$lat || !$long) {
+            return response()->json(['error' => 'Latitude and longitude are required'], 400);
+        }
+
+        // Haversine formula to find outlets within 300m (0.3km)
+        $data = DB::table('appsdumais')
+            ->select('*')
+            ->selectRaw(
+                '( 6371 * acos( cos( radians(?) ) * cos( radians( lat ) ) * cos( radians( `long` ) - radians(?) ) + sin( radians(?) ) * sin( radians( lat ) ) ) ) AS distance',
+                [$lat, $long, $lat]
+            )
+            ->where('sf', '!=', 'UNMAPPING')
+            ->having('distance', '<=', 0.3)
+            ->orderBy('distance')
+            ->limit(20)
+            ->get();
 
         return response()->json($data);
     }

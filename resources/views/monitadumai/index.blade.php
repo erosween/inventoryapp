@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('static/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Leaflet Maps CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         /* RESET */
         * {
@@ -18,15 +21,10 @@
         }
 
         body {
-            background: #f9f9f9;
+            background: #f4f6f9;
             color: #333;
             font-family: 'Roboto', 'Open Sans', Arial, sans-serif;
-        }
-
-        .label,
-        .table {
-            font-family: 'Open Sans', sans-serif;
-            font-weight: 400;
+            overflow-x: hidden;
         }
 
         /* HEADER */
@@ -37,20 +35,21 @@
             align-items: center;
             justify-content: center;
             padding: 15px 10px;
-            font-family: 'Roboto', sans-serif;
             font-weight: 700;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
 
-        .header .logo {
-            height: 35px;
-            margin-right: 10px;
+        .header h1 {
+            font-size: 1.4rem;
+            text-align: center;
         }
 
         /* CONTAINER */
         .container {
             max-width: 600px;
-            margin: 20px auto;
+            margin: 15px auto;
             padding: 10px;
+            padding-bottom: 90px;
         }
 
         /* SEARCH BOX */
@@ -58,462 +57,865 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            /* MOBILE FRIENDLY */
         }
 
         .input-wrapper {
             position: relative;
             flex: 1;
+            min-width: 200px;
         }
 
         .input-wrapper input {
             width: 100%;
-            padding: 12px;
+            padding: 14px 18px;
             font-size: 16px;
             border: 2px solid #d10000;
-            border-radius: 8px;
+            border-radius: 14px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(209, 0, 0, 0.08);
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            box-shadow: 0 4px 15px rgba(209, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .btn-search,
+        .btn-scan {
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .btn-search {
             background: #d10000;
             color: #fff;
-            padding: 12px 18px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
         }
 
         .btn-search:hover {
             background: #a80000;
+            transform: translateY(-2px);
         }
 
-        /* SUGGESTIONS */
-        .suggestions-box {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            background: #fff;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            max-height: 180px;
-            overflow-y: auto;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
+        .btn-scan {
+            background: #28a745;
+            color: #fff;
         }
 
-        .suggestions-box li {
-            list-style: none;
-            padding: 10px;
-            cursor: pointer;
-            font-size: 14px;
-            border-bottom: 1px solid #eee;
+        .btn-scan:hover {
+            background: #218838;
+            transform: translateY(-2px);
         }
 
-        .suggestions-box li:hover {
-            background-color: #f5f5f5;
+        /* SKELETON */
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.6;
+            }
         }
 
-        /* STATISTIK GRID */
+        .skeleton {
+            background: #e0e0e0;
+            border-radius: 14px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        .skeleton-stats {
+            height: 90px;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-card {
+            height: 140px;
+            margin-bottom: 12px;
+        }
+
+        /* STATS CARD */
         .stats-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 12px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
-            padding: 12px;
-            border-radius: 10px;
+            padding: 16px;
+            border-radius: 18px;
             color: #fff;
             text-align: center;
-            font-weight: bold;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
         }
 
         .stat-card p {
-            font-size: 14px;
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 4px;
+            font-weight: bold;
         }
 
         .stat-card h2 {
-            font-size: 20px;
-            margin: 4px 0;
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+
+        .stat-card span {
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 3px 10px;
+            border-radius: 15px;
         }
 
         .red {
-            background: #d10000;
+            background: linear-gradient(135deg, #d10000, #ff4c4c);
         }
 
         .blue {
-            background: #007bff;
+            background: linear-gradient(135deg, #007bff, #3498db);
         }
 
         .green {
-            background: #28a745;
+            background: linear-gradient(135deg, #28a745, #44cc44);
         }
 
         .orange {
-            background: #fd7e14;
+            background: linear-gradient(135deg, #fd7e14, #ff9f43);
         }
 
-        /* HASIL PENCARIAN */
-        .result-container {
+        /* NEARBY RESULTS */
+        .nearby-item {
             display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .card {
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px;
             background: #fff;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 6px solid transparent;
         }
 
-        .card h3 {
+        .nearby-item:hover {
+            transform: translateX(8px);
+            background: #fff;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+            border-left-color: #d10000;
+        }
+
+        .nearby-info h4 {
             color: #d10000;
-            margin-bottom: 6px;
-            font-size: 18px;
+            font-size: 16px;
+            margin-bottom: 4px;
         }
 
-        .card p {
-            font-size: 14px;
-            margin: 3px 0;
+        .nearby-info p {
+            font-size: 12px;
+            color: #666;
         }
 
-        /* TABEL RINCIAN */
+        .distance-tag {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        /* TABLE - MOBILE FRIENDLY */
         .table-container {
-            margin-top: 20px;
+            margin-top: 15px;
             background: #fff;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 18px;
+            padding: 5px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
         }
 
-        .table-container h2 {
-            margin-bottom: 10px;
-            font-size: 18px;
-            color: #d10000;
+        .table-header {
+            padding: 15px;
             text-align: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .table-header h2 {
+            color: #d10000;
+            font-size: 18px;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            /* ALLOW SCROLL */
+            -webkit-overflow-scrolling: touch;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            min-width: 480px;
+            /* ENSURE READABILITY */
         }
 
-        thead {
-            background: #d10000;
-            color: #fff;
+        table thead th {
+            position: sticky;
+            top: 0;
+            background: #fcfcfc;
+            z-index: 10;
+            box-shadow: 0 1px 0 #f0f0f0;
         }
 
-        thead th {
-            padding: 10px;
-            text-align: center;
+        /* Fixed First Column (Freeze Pane) */
+        table th:first-child,
+        table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: #fff;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
         }
 
-        tbody td {
-            padding: 10px;
-            text-align: center;
-            border-bottom: 1px solid #eee;
+        /* Intersection sticky header and first column */
+        table thead th:first-child {
+            z-index: 15;
+            background: #fcfcfc;
         }
 
-        tbody tr:nth-child(even) {
-            background: #f9f9f9;
+        table thead {
+            background: #fcfcfc;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        table th {
+            padding: 12px 10px;
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        table td {
+            padding: 15px 10px;
+            font-size: 13px;
+            color: #444;
+            border-bottom: 1px solid #f9f9f9;
+        }
+
+        table td:first-child {
+            font-weight: bold;
+            color: #d10000;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        table td:nth-child(n+2) {
+            text-align: right;
+        }
+
+        /* ALIGN NUMBERS RIGHT */
+
+        .mom-indicator {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .mom-positive {
+            background: #e6f7e9;
             color: #28a745;
-            font-weight: bold;
-            background: #eaf7ea;
-            border-radius: 6px;
-            padding: 4px 8px;
-            display: inline-block;
         }
 
         .mom-negative {
+            background: #fdf2f2;
             color: #d10000;
-            font-weight: bold;
-            background: #fdeaea;
-            border-radius: 6px;
-            padding: 4px 8px;
-            display: inline-block;
         }
 
         .mom-neutral {
-            color: #777;
-            font-weight: bold;
-            background: #f2f2f2;
-            border-radius: 6px;
-            padding: 4px 8px;
-            display: inline-block;
+            background: #f5f5f5;
+            color: #888;
         }
 
-        .mom-indicator i {
-            margin-right: 4px;
+        .suggestions-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 14px;
+            max-height: 250px;
+            overflow-y: auto;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            margin-top: 5px;
+            padding: 0;
+            list-style: none;
+            /* REMOVE BULLETS */
         }
 
-        /* FOOTER */
-        .footer {
+        .suggestions-box li {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f9f9f9;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .suggestions-box li small {
+            display: block;
+            color: #888;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        /* ACTIONS */
+        .history-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 14px;
+            margin-top: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            z-index: 1001;
+            padding: 10px;
+            display: none;
+        }
+
+        .history-item {
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: #fdf2f2;
+            color: #d10000;
+        }
+
+        .suggestions-box li:hover,
+        .suggestions-box li.active {
+            background: #fdf2f2;
+            color: #d10000;
+        }
+
+        .suggestions-box li.active {
+            border-left: 4px solid #d10000;
+            padding-left: 14px;
+        }
+
+        /* MAP */
+        #map {
+            width: 100%;
+            height: 250px;
+            border-radius: 18px;
+            margin-bottom: 20px;
+            border: 2px solid #d10000;
+            box-shadow: 0 8px 20px rgba(220, 0, 0, 0.1);
+            z-index: 1;
+        }
+
+        .empty-state {
             text-align: center;
-            font-size: 12px;
-            color: #777;
-            margin-top: 15px;
+            margin: 40px auto;
         }
 
-        /* RESPONSIVE */
-        @media (max-width: 480px) {
+        .empty-img {
+            max-width: 180px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(209, 0, 0, 0.1);
+        }
+
+        /* FAB */
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #d10000;
+            color: #fff;
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 20px rgba(209, 0, 0, 0.35);
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+
+        /* RESPONSIVE BREAKPOINTS */
+        @media (max-width: 520px) {
             .search-box {
-                flex-direction: row;
-                gap: 8px;
+                flex-direction: column;
             }
 
-            .btn-search {
-                padding: 10px 14px;
-                font-size: 14px;
+            .input-wrapper,
+            .btn-search,
+            .btn-scan {
+                width: 100%;
+            }
+
+            .btn-scan span {
+                display: inline;
             }
 
             .stats-container {
                 grid-template-columns: 1fr 1fr;
             }
+
+            .header h1 {
+                font-size: 1.1rem;
+            }
+
+            .stat-card h2 {
+                font-size: 18px;
+            }
         }
 
-        .empty-state {
-            text-align: center;
-            margin: 30px 0;
-            background: #f9f9f9;
-            /* warna sesuai background */
-            border-radius: 12px;
-            padding: 16px;
-        }
-
-        .empty-img {
-            width: 220px;
-            border-radius: 12px;
-            background: transparent;
-            box-shadow: 0 4px 20px rgba(220, 0, 0, 0.06);
+        @media (max-width: 360px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
-
 </head>
 
 <body>
-    <!-- Header -->
     <header class="header">
-        <h1>Monita (Monitoring Outlet Aktif)</h1>
+        <h1>Monita Dumai (Monitoring Outlet Aktif)</h1>
     </header>
 
-    <!-- Main Container -->
     <main class="container">
         <!-- Search Box -->
         <div class="search-box">
             <div class="input-wrapper">
-                <input type="text" id="keyword" placeholder="Masukkan ID atau Nama Outlet"
-                    onkeyup="showSuggestions(this.value)">
-                <ul id="suggestions" class="suggestions-box"></ul>
+                <input type="text" id="keyword" placeholder="Ketik ID atau Nama Outlet..." onkeyup="handleKeyUp(event)"
+                    onkeydown="handleKeyDown(event)" onfocus="showHistory()">
+                <ul id="suggestions" class="suggestions-box" style="display:none;"></ul>
+                <div id="history" class="history-box"></div>
             </div>
-            <button class="btn-search" onclick="searchOutlet()">Cari</button>
+            <button class="btn-search" onclick="searchOutlet()">
+                <i class="fas fa-search"></i> Cari
+            </button>
+            <button class="btn-scan" onclick="scanNearby()">
+                <i class="fas fa-location-crosshairs"></i> <span>Nearest Outlet</span>
+            </button>
         </div>
-        <!-- Statistik -->
-        <div class="stats-container" id="stats-container" style="display:none;"></div>
 
-        <!-- Hasil Pencarian -->
+        <!-- Skeleton (Hidden by Default) -->
+        <div id="skeleton-loader" style="display:none;">
+            <div class="stats-container">
+                <div class="skeleton skeleton-stats"></div>
+                <div class="skeleton skeleton-stats"></div>
+                <div class="skeleton skeleton-stats"></div>
+                <div class="skeleton skeleton-stats"></div>
+            </div>
+            <div class="skeleton skeleton-card"></div>
+        </div>
+
+        <div id="map" style="display:none;"></div>
+        <div class="stats-container" id="stats-container" style="display:none;"></div>
         <div id="result" class="result-container"></div>
 
-
-        <!-- Empty State GIF Doraemon Tidur -->
+        <!-- Empty State -->
         <div id="empty-state" class="empty-state">
             <img src="/static/images/shinchan.gif" alt="Shinchan Dance" class="empty-img">
+            <p style="margin-top:15px; color:#aaa; font-size:13px;">Silakan cari outlet atau pakai scan lokasi</p>
         </div>
 
-        <!-- Rincian Parameter -->
+        <!-- Rincian Parameter Card -->
         <div class="table-container" id="detail-table" style="display:none;">
-            <h2>Rincian Parameter</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Parameter</th>
-                        <th>M-1</th>
-                        <th>MTD</th>
-                        <th>MoM</th>
-                        <th>Update</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body"></tbody>
-            </table>
+            <div class="table-header">
+                <h2>Rincian Parameter</h2>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>M-1</th>
+                            <th>MTD</th>
+                            <th>MoM</th>
+                            <th>Update</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p>© 2025 Made by Rby
-        </p>
+    <div class="fab" id="fab-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+        <i class="fas fa-arrow-up"></i>
+    </div>
+
+    <footer class="footer" style="text-align:center; padding:10px; color:#aaa; font-size:12px;">
+        <p>© 2025 Made by Rby</p>
     </footer>
 
+    <!-- Leaflet Maps JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script>
+        let map;
+        let markers = [];
+        let history = JSON.parse(localStorage.getItem('monita_history') || '[]');
+        let selectedIndex = -1;
+
+        function handleKeyUp(e) {
+            const val = e.target.value;
+            // Ignore arrow keys, enter, escape in keyup to prevent double execution
+            if (["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(e.key)) return;
+
+            hideHistory();
+            showSuggestions(val);
+        }
+
+        function handleKeyDown(e) {
+            const box = document.getElementById('suggestions');
+            const items = box.querySelectorAll('li');
+
+            if (box.style.display === 'none' || items.length === 0) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                selectedIndex = (selectedIndex + 1) % items.length;
+                updateSelection(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+                updateSelection(items);
+            } else if (e.key === "Enter") {
+                if (selectedIndex > -1) {
+                    e.preventDefault();
+                    items[selectedIndex].click();
+                }
+            } else if (e.key === "Escape") {
+                box.style.display = 'none';
+            }
+        }
+
+        function updateSelection(items) {
+            items.forEach((item, index) => {
+                if (index === selectedIndex) {
+                    item.classList.add('active');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        // --- COUNTER ANIMATION ---
+        function animateValue(element, start, end, duration) {
+            if (isNaN(end)) {
+                element.innerHTML = end;
+                return;
+            }
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const value = Math.floor(progress * (end - start) + start);
+                element.innerHTML = value.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
         async function searchOutlet() {
             const keyword = document.getElementById('keyword').value.trim();
             const resultDiv = document.getElementById('result');
             const statsContainer = document.getElementById('stats-container');
             const detailTable = document.getElementById('detail-table');
-            const tableBody = document.getElementById('table-body');
             const emptyState = document.getElementById('empty-state');
+            const mapContainer = document.getElementById('map');
+            const skeleton = document.getElementById('skeleton-loader');
 
-            // Reset tampilan
+            if (!keyword) return;
+
+            // Start Loading State
             resultDiv.innerHTML = '';
             statsContainer.style.display = 'none';
             detailTable.style.display = 'none';
-            emptyState.style.display = 'block'; // Show empty state sebelum pencarian
-
-            if (!keyword) {
-                resultDiv.innerHTML = '<p style="color:red;">Masukkan ID Outlet/Nama Outlet</p>';
-                return;
-            }
-
-            resultDiv.innerHTML = '<p>Mencari...</p>';
+            emptyState.style.display = 'none';
+            mapContainer.style.display = 'none';
+            skeleton.style.display = 'block';
 
             try {
                 const response = await fetch(`/monitadumai/search?keyword=${encodeURIComponent(keyword)}`);
                 const data = await response.json();
 
+                skeleton.style.display = 'none';
+
                 if (data.length === 0) {
-                    resultDiv.innerHTML = '<p style="color:red;">Outlet tidak ditemukan</p>';
-                    emptyState.style.display = 'block'; // Show empty state jika gagal
-                    document.getElementById('keyword').value = '';
-                    document.getElementById('suggestions').innerHTML = '';
+                    resultDiv.innerHTML = '<div class="card" style="text-align:center; color:red;">Outlet tidak ditemukan</div>';
+                    emptyState.style.display = 'block';
                     return;
                 }
 
-                emptyState.style.display = 'none'; // Hide empty state saat hasil ditemukan
-
                 const outlet = data[0];
+                saveToHistory(outlet.id_outlet, outlet.nama_outlet);
 
-                // Tampilkan info outlet
                 resultDiv.innerHTML = `
-            <div class="card">
-                <h3>${outlet.nama_outlet}</h3>
-                <p><b>ID Outlet:</b> ${outlet.id_outlet}</p>
-                <p><b>Nama SF:</b> ${outlet.sf}</p>
-                <p><b>TAP:</b> ${outlet.tap}</p>
-            </div>
-        `;
+                    <div class="card">
+                        <h3 style="color:#d10000; font-size:22px; margin-bottom:12px;">${outlet.nama_outlet}</h3>
+                        <p style="margin-bottom:6px;"><i class="fas fa-tag"></i> <b>ID:</b> ${outlet.id_outlet}</p>
+                        <p style="margin-bottom:6px;"><i class="fas fa-user-tie"></i> <b>SF:</b> ${outlet.sf}</p>
+                        <p><i class="fas fa-map-marker-alt"></i> <b>TAP:</b> ${outlet.tap}</p>
+                    </div>
+                `;
 
-                // Tampilkan statistik
                 statsContainer.innerHTML = `
-            <div class="stat-card red"><p>ST SA</p><h2>${outlet.m_stsa}</h2><span>${outlet.mom_stsa}</span></div>
-            <div class="stat-card blue"><p>ST PV</p><h2>${Number(outlet.m_stpv).toLocaleString()}</h2><span>${outlet.mom_stpv}</span></div>
-            <div class="stat-card green"><p>CVM</p><h2>${outlet.m_cvm}</h2><span>${outlet.mom_cvm}</span></div>
-            <div class="stat-card orange"><p>DIGITAL</p><h2>${outlet.m_digital}</h2><span>${outlet.mom_digital}</span></div>
-        `;
+                    <div class="stat-card red"><p>ST SA</p><h2 id="count-sa">0</h2><span>${outlet.mom_stsa}</span></div>
+                    <div class="stat-card blue"><p>ST PV</p><h2 id="count-pv">0</h2><span>${outlet.mom_stpv}</span></div>
+                    <div class="stat-card green"><p>CVM</p><h2 id="count-cvm">0</h2><span>${outlet.mom_cvm}</span></div>
+                    <div class="stat-card orange"><p>DIGITAL</p><h2 id="count-dig">0</h2><span>${outlet.mom_digital}</span></div>
+                `;
                 statsContainer.style.display = 'grid';
 
-                // Tampilkan tabel rincian parameter
-                const parameters = [{
-                        name: "TRX DIGIPOS",
-                        m1: outlet.m1_digipos,
-                        mtd: outlet.m_digipos,
-                        mom: outlet.mom_digipos,
-                        update: outlet.tgl_pack
-                    },
-                    {
-                        name: "SUPER SERU",
-                        m1: outlet.m1_super,
-                        mtd: outlet.m_super,
-                        mom: outlet.mom_super,
-                        update: outlet.tgl_pack
-                    },
-                    {
-                        name: "HOT PROMO",
-                        m1: outlet.m1_hot,
-                        mtd: outlet.m_hot,
-                        mom: outlet.mom_hot,
-                        update: outlet.tgl_pack
-                    },
-                    {
-                        name: "COMSAK",
-                        m1: outlet.m1_comsak,
-                        mtd: outlet.m_comsak,
-                        mom: outlet.mom_comsak,
-                        update: outlet.tgl_pack
-                    },
-                    {
-                        name: "SO SA",
-                        m1: outlet.m1_sosa,
-                        mtd: outlet.m_sosa,
-                        mom: outlet.mom_sosa,
-                        update: outlet.tgl_sa
-                    },
-                    {
-                        name: "SO PV",
-                        m1: outlet.m1_sopv,
-                        mtd: outlet.m_sopv,
-                        mom: outlet.mom_sopv,
-                        update: outlet.tgl_pv
-                    },
-                ];
+                animateValue(document.getElementById('count-sa'), 0, parseInt(outlet.m_stsa), 800);
+                animateValue(document.getElementById('count-pv'), 0, parseInt(outlet.m_stpv), 1000);
+                animateValue(document.getElementById('count-cvm'), 0, parseInt(outlet.m_cvm), 1200);
+                animateValue(document.getElementById('count-dig'), 0, parseInt(outlet.m_digital), 1400);
 
-                tableBody.innerHTML = '';
-                parameters.forEach(param => {
-                    const momNumeric = parseFloat(param.mom);
-                    let momClass = "mom-neutral";
-                    let icon = '<i class="fas fa-minus"></i>';
-
-                    if (momNumeric > 0) {
-                        momClass = "mom-positive";
-                        icon = '<i class="fas fa-arrow-up"></i>';
-                    } else if (momNumeric < 0) {
-                        momClass = "mom-negative";
-                        icon = '<i class="fas fa-arrow-down"></i>';
-                    }
-
-                    const momValue = param.mom || "0%";
-
-                    const row = `
-                <tr>
-                    <td style="text-align:left; font-weight:bold;">${param.name}</td>
-                    <td>${param.m1 || 0}</td>
-                    <td>${param.mtd || 0}</td>
-                    <td><div class="mom-indicator ${momClass}">${icon} ${momValue}</div></td>
-                    <td>${param.update || 0}</td>
-                </tr>
-            `;
-                    tableBody.innerHTML += row;
-                });
-
+                renderRincian(outlet);
                 detailTable.style.display = 'block';
-            } catch (err) {
-                resultDiv.innerHTML = '<p style="color:red;">Error koneksi ke server</p>';
-                emptyState.style.display = 'block'; // Show empty state kalau error
-            }
+                window.scrollTo({ top: statsContainer.offsetTop - 10, behavior: 'smooth' });
 
-            // Reset input dan saran
+            } catch (err) {
+                skeleton.style.display = 'none';
+                resultDiv.innerHTML = '<div class="card" style="color:red;">Error koneksi ke server.</div>';
+            }
             document.getElementById('keyword').value = '';
-            document.getElementById('suggestions').innerHTML = '';
+            document.getElementById('suggestions').style.display = 'none';
         }
 
-        async function showSuggestions(value) {
-            const suggestionsBox = document.getElementById('suggestions');
-            if (!value) {
-                suggestionsBox.innerHTML = '';
-                return;
-            }
-            const response = await fetch(`/monitadumai/suggest?keyword=${value}`);
-            const suggestions = await response.json();
+        function renderRincian(outlet) {
+            const tableBody = document.getElementById('table-body');
+            const parameters = [
+                { name: "TRX DIGIPOS", m1: outlet.m1_digipos, mtd: outlet.m_digipos, mom: outlet.mom_digipos, update: outlet.tgl_pack },
+                { name: "SUPER SERU", m1: outlet.m1_super, mtd: outlet.m_super, mom: outlet.mom_super, update: outlet.tgl_pack },
+                { name: "HOT PROMO", m1: outlet.m1_hot, mtd: outlet.m_hot, mom: outlet.mom_hot, update: outlet.tgl_pack },
+                { name: "COMSAK", m1: outlet.m1_comsak, mtd: outlet.m_comsak, mom: outlet.mom_comsak, update: outlet.tgl_pack },
+                { name: "SO SA", m1: outlet.m1_sosa, mtd: outlet.m_sosa, mom: outlet.mom_sosa, update: outlet.tgl_sa },
+                { name: "SO PV", m1: outlet.m1_sopv, mtd: outlet.m_sopv, mom: outlet.mom_sopv, update: outlet.tgl_pv },
+            ];
 
-            suggestionsBox.innerHTML = '';
-            suggestions.forEach(name => {
-                const li = document.createElement('li');
-                li.textContent = name;
-                li.onclick = () => {
-                    document.getElementById('keyword').value = name;
-                    suggestionsBox.innerHTML = '';
-                };
-                suggestionsBox.appendChild(li);
+            tableBody.innerHTML = '';
+            parameters.forEach(param => {
+                const momStr = (param.mom || "0").toString().replace('%', '');
+                const momNumeric = parseFloat(momStr);
+
+                let momClass = "mom-neutral";
+                let icon = '<i class="fas fa-minus"></i>';
+
+                if (momNumeric > 0) {
+                    momClass = "mom-positive";
+                    icon = '<i class="fas fa-arrow-up"></i>';
+                } else if (momNumeric < 0) {
+                    momClass = "mom-negative";
+                    icon = '<i class="fas fa-arrow-down"></i>';
+                }
+
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>${param.name}</td>
+                        <td>${Number(param.m1 || 0).toLocaleString()}</td>
+                        <td>${Number(param.mtd || 0).toLocaleString()}</td>
+                        <td><div class="mom-indicator ${momClass}">${icon} ${param.mom || "0.0%"}</div></td>
+                        <td>${param.update || '-'}</td>
+                    </tr>
+                `;
             });
         }
+
+        async function scanNearby() {
+            const resultDiv = document.getElementById('result');
+            const mapContainer = document.getElementById('map');
+            const emptyState = document.getElementById('empty-state');
+            const statsContainer = document.getElementById('stats-container');
+            const detailTable = document.getElementById('detail-table');
+
+            if (!navigator.geolocation) return alert("Browser GPS tidak aktif!");
+
+            resultDiv.innerHTML = '<div class="card" style="text-align:center;"><i class="fas fa-circle-notch fa-spin"></i> Getting GPS...</div>';
+            emptyState.style.display = 'none';
+            statsContainer.style.display = 'none';
+            detailTable.style.display = 'none';
+            mapContainer.style.display = 'none';
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const { latitude: lat, longitude: lon } = pos.coords;
+                resultDiv.innerHTML = '<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning 300m...</div>';
+
+                try {
+                    const response = await fetch(`/monitadumai/nearby?lat=${lat}&long=${lon}`);
+                    const data = await response.json();
+
+                    if (data.length === 0) {
+                        resultDiv.innerHTML = '<div class="card" style="text-align:center; color:#d10000; font-weight:bold;">Tidak ada outlet dalam radius 300m.</div>';
+                        emptyState.style.display = 'block';
+                        return;
+                    }
+
+                    mapContainer.style.display = 'block';
+                    setTimeout(() => initMap(lat, lon, data), 100);
+
+                    resultDiv.innerHTML = `<h3 style="margin:20px 0 12px 10px; font-size:18px;"><i class="fas fa-map-marked-alt"></i> Outlet Nearby: (${data.length} Found)</h3>`;
+                    data.forEach(outlet => {
+                        const dist = parseFloat(outlet.distance);
+                        let distColor = '#27ae60';
+                        if (dist < 0.05) distColor = '#2ecc71';
+                        else if (dist > 0.15) distColor = '#f39c12';
+
+                        const item = document.createElement('div');
+                        item.className = 'nearby-item';
+                        item.innerHTML = `
+                            <div class="nearby-info">
+                                <h4>${outlet.nama_outlet}</h4>
+                                <p>${outlet.id_outlet} • <b>${outlet.sf}</b> • ${outlet.tap}</p>
+                                <p style="font-size: 11px; margin-top: 5px; color: #d10000; font-weight:bold;">
+                                    SA: ${Number(outlet.m_stsa).toLocaleString()} | PV: ${Number(outlet.m_stpv).toLocaleString()}
+                                </p>
+                            </div>
+                            <div class="distance-tag" style="background:${distColor}15; color:${distColor}; border:1px solid ${distColor}30;">
+                                ${dist.toFixed(2)} km
+                            </div>
+                        `;
+                        item.onclick = () => {
+                            document.getElementById('keyword').value = outlet.id_outlet;
+                            searchOutlet();
+                        };
+                        resultDiv.appendChild(item);
+                    });
+                } catch (e) { resultDiv.innerHTML = '<div class="card">Server Error.</div>'; }
+            }, (err) => { resultDiv.innerHTML = `<div class="card">GPS Error: ${err.message}</div>`; });
+        }
+
+        function initMap(lat, lon, outlets) {
+            if (!map) {
+                map = L.map('map').setView([lat, lon], 17);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            } else {
+                map.setView([lat, lon], 17);
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+                map.invalidateSize();
+            }
+            L.circleMarker([lat, lon], { color: '#0d6efd', radius: 10, weight: 3, fillOpacity: 0.8 }).addTo(map).bindPopup("Kamu");
+            outlets.forEach(o => {
+                if (o.lat && o.long) {
+                    const m = L.marker([o.lat, o.long]).addTo(map).bindPopup(`<b>${o.nama_outlet}</b><br><button onclick="selectFromMap('${o.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Pilih Outlet</button>`);
+                    markers.push(m);
+                }
+            });
+        }
+
+        function selectFromMap(id) { document.getElementById('keyword').value = id; searchOutlet(); }
+
+        async function showSuggestions(q) {
+            const box = document.getElementById('suggestions');
+            if (q.length < 2) { box.style.display = 'none'; return; }
+            try {
+                const res = await fetch(`/monitadumai/suggest?keyword=${q}`);
+                const data = await res.json();
+                box.innerHTML = '';
+                selectedIndex = -1; // Reset selection
+
+                if (data.length > 0) {
+                    data.forEach(item => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <b>${item.nama_outlet}</b>
+                            <small>${item.sf} • ${item.tap}</small>
+                        `;
+                        li.onclick = () => {
+                            document.getElementById('keyword').value = item.nama_outlet;
+                            box.style.display = 'none';
+                            searchOutlet();
+                        };
+                        box.appendChild(li);
+                    });
+                    box.style.display = 'block';
+                } else { box.style.display = 'none'; }
+            } catch (e) { }
+        }
+
+        function saveToHistory(id, name) {
+            history = history.filter(h => h.id !== id);
+            history.unshift({ id, name });
+            if (history.length > 5) history.pop();
+            localStorage.setItem('monita_history', JSON.stringify(history));
+            localStorage.setItem('monita_last_search', id); // SAVE LAST SEARCH
+        }
+
+        function showHistory() {
+            const hb = document.getElementById('history');
+            if (history.length === 0) return;
+            hb.innerHTML = '<p style="font-size:10px; color:#aaa; margin:5px 8px; font-weight:bold;">TERAKHIR DICARI</p>';
+            history.forEach(h => {
+                const d = document.createElement('div');
+                d.className = 'history-item';
+                d.innerHTML = `<i class="fas fa-clock-rotate-left"></i> <span>${h.name}</span>`;
+                d.onclick = () => { document.getElementById('keyword').value = h.id; searchOutlet(); hb.style.display = 'none'; };
+                hb.appendChild(d);
+            });
+            hb.style.display = 'block';
+        }
+
+        function hideHistory() { setTimeout(() => document.getElementById('history').style.display = 'none', 250); }
+
+        window.onscroll = () => {
+            const fab = document.getElementById('fab-top');
+            if (document.documentElement.scrollTop > 200) fab.style.display = 'flex';
+            else fab.style.display = 'none';
+        };
+
+        // --- PERSISTENCE ON RELOAD ---
+        window.addEventListener('DOMContentLoaded', () => {
+            const lastSearch = localStorage.getItem('monita_last_search');
+            if (lastSearch) {
+                document.getElementById('keyword').value = lastSearch;
+                searchOutlet();
+            }
+        });
     </script>
 </body>
 

@@ -55,6 +55,7 @@ use App\Http\Controllers\MonitaDumaiController;
 Route::get('/monitadumai', [MonitaDumaiController::class, 'index']);
 Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
 Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
+Route::get('/monitadumai/nearby', [MonitaDumaiController::class, 'nearby']);
 
 
 // group middleware
@@ -84,11 +85,11 @@ Route::middleware(['auth'])->group(function () {
 	//form inject segel
 	Route::get('/form/forminject', [FormInjectsegelController::class, 'index']);
 	Route::post('/form/forminject', [FormInjectsegelController::class, 'injectProses']);
-	Route::post('/ajax/get-stock-segel-tap',[FormInjectsegelController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
+	Route::post('/ajax/get-stock-segel-tap', [FormInjectsegelController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
 	//form inject byu
 	Route::get('/form/forminjectbyu', [FormInjectbyuController::class, 'index']);
 	Route::post('/form/forminjectbyu', [FormInjectbyuController::class, 'injectProses']);
-	Route::post('/ajax/get-stock-byu-tap',[FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-byu-tap');
+	Route::post('/ajax/get-stock-byu-tap', [FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-byu-tap');
 
 	// KELUAR TAP
 	Route::get('/keluar', [KeluarController::class, 'index'])->name('keluar.index');
@@ -100,13 +101,13 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('form/formkeluartap', [FormKeluartapController::class, 'index']);
 	Route::post('form/formkeluartap', [FormKeluartapController::class, 'proseskeluartapform']);
 	Route::post('/ajax/get-stock-tap-pengirim', [FormKeluartapController::class, 'getStockTapPengirim'])
-    ->name('ajax.get-stock-tap-pengirim');
+		->name('ajax.get-stock-tap-pengirim');
 
 	//input DO
 	Route::get('/DO', [InputDOController::class, 'index'])->name('do.index');
 	Route::get('/DO/DATA', [InputDOController::class, 'data'])->name('do.data');
 	Route::post('/do/get-tap', [InputDOController::class, 'getTap'])
-    ->name('do.get-tap');
+		->name('do.get-tap');
 	// Route::post('/DO', [InputDOController::class, 'DOmasukform']);
 	Route::post('/DO', [InputDOController::class, 'masukproses']);
 	//untuk select bertingkat tap dan bo
@@ -137,11 +138,11 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/form/form-sfmasuk', [SfmasukController::class, 'formmasuksf']);
 	Route::post('sf-masuk', [SfmasukController::class, 'masuksfproses']);
 	Route::post('/ajax/get-sf', [SfmasukController::class, 'getSf'])
-     ->name('ajax.get-sf');
+		->name('ajax.get-sf');
 	Route::post('/ajax/get-stock-tap', [SfmasukController::class, 'getStockTap'])
-    ->name('ajax.get-stock-tap');
+		->name('ajax.get-stock-tap');
 	Route::get('/sf-masuk/data', [SfmasukController::class, 'data'])
-    ->name('sf-masuk.data');
+		->name('sf-masuk.data');
 	Route::post('sf-masuk/{idmasuk}', [SfmasukController::class, 'delete']);
 	Route::get('/exportsfmasuk', [sfmasukController::class, 'exportexcel']);
 
@@ -149,15 +150,15 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/sf-keluar', [SfkeluarController::class, 'index']);
 	Route::get('form/form-sfkeluar', [SfkeluarController::class, 'formkeluarsf']);
 	Route::post('/ajax/get-sf', [SfkeluarController::class, 'getSf'])
-     ->name('ajax.get-sf');
+		->name('ajax.get-sf');
 	Route::post('/ajax/get-stock', [SfkeluarController::class, 'getStock'])
-     ->name('ajax.get-stock');
+		->name('ajax.get-stock');
 	Route::get('/sf-keluar/data', [SfkeluarController::class, 'data'])
-    ->name('sf-keluar.data');
+		->name('sf-keluar.data');
 	Route::get('/exportsfkeluar', [SfkeluarController::class, 'exportexcel']);
 	Route::post('sf-keluar/{idkeluar}', [SfkeluarController::class, 'delete']);
 	Route::post('sf-keluar', [SfkeluarController::class, 'keluarsfproses']);
-	
+
 	//retursf
 	Route::get('/retursf', [ReturSfController::class, 'index'])->name('retursf.index');
 	Route::get('/retursf/data', [ReturSfController::class, 'data'])->name('retursf.data');
@@ -167,7 +168,7 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/retursf', [ReturSfController::class, 'store']);
 
 	// stock movement ledger
-	Route::post('/sf-masuk-ledger',  [StockMovementController::class, 'transfer']);
+	Route::post('/sf-masuk-ledger', [StockMovementController::class, 'transfer']);
 	Route::post('/sf-keluar-ledger', [StockMovementController::class, 'out']);
 
 	// inbox
