@@ -38,8 +38,8 @@ class MonitaDumaiController extends Controller
 
     public function nearby(Request $request)
     {
-        $lat = $request->input('lat');
-        $long = $request->input('long');
+        $lat = $request->input('latitude');
+        $long = $request->input('longitude');
 
         if (!$lat || !$long) {
             return response()->json(['error' => 'Latitude and longitude are required'], 400);
@@ -49,7 +49,7 @@ class MonitaDumaiController extends Controller
         $data = DB::table('appsdumais')
             ->select('*')
             ->selectRaw(
-                '( 6371 * acos( cos( radians(?) ) * cos( radians( lat ) ) * cos( radians( `long` ) - radians(?) ) + sin( radians(?) ) * sin( radians( lat ) ) ) ) AS distance',
+                '( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS distance',
                 [$lat, $long, $lat]
             )
             ->where('sf', '!=', 'UNMAPPING')

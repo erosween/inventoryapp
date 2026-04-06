@@ -789,7 +789,7 @@
                 resultDiv.innerHTML = '<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning 300m...</div>';
 
                 try {
-                    const response = await fetch(`/monitadumai/nearby?lat=${lat}&long=${lon}`);
+                    const response = await fetch(`/monitadumai/nearby?latitude=${lat}&longitude=${lon}`);
                     const data = await response.json();
 
                     if (data.length === 0) {
@@ -863,8 +863,8 @@
             }
             L.circleMarker([lat, lon], { color: '#0d6efd', radius: 10, weight: 3, fillOpacity: 0.8 }).addTo(map).bindPopup("Kamu");
             outlets.forEach(o => {
-                if (o.lat && o.long) {
-                    const m = L.marker([o.lat, o.long]).addTo(map).bindPopup(`<b>${o.nama_outlet}</b><br><button onclick="selectFromMap('${o.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Pilih Outlet</button>`);
+                if (o.latitude && o.longitude) {
+                    const m = L.marker([o.latitude, o.longitude]).addTo(map).bindPopup(`<b>${o.nama_outlet}</b><br><button onclick="selectFromMap('${o.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Pilih Outlet</button>`);
                     markers.push(m);
                 }
             });
