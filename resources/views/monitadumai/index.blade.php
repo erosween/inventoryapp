@@ -87,6 +87,31 @@
             transform: translateY(-2px);
         }
 
+        .action-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        .radius-select {
+            padding: 14px 10px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #28a745;
+            border-radius: 14px;
+            background: #fff;
+            color: #28a745;
+            outline: none;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.08);
+            transition: all 0.3s;
+        }
+
+        .radius-select:focus,
+        .radius-select:hover {
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.15);
+            transform: translateY(-2px);
+        }
+
         .btn-search,
         .btn-scan {
             padding: 14px 20px;
@@ -487,9 +512,20 @@
             }
 
             .input-wrapper,
-            .btn-search,
-            .btn-scan {
+            .action-wrapper {
                 width: 100%;
+            }
+
+            .action-wrapper {
+                flex-direction: row;
+            }
+
+            .radius-select {
+                flex: 1;
+            }
+
+            .btn-scan {
+                flex: 2;
             }
 
             .btn-scan span {
@@ -514,6 +550,108 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* OUTLET PROFILE CARD */
+        .outlet-profile-card {
+            background: #fff;
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            border-top: 5px solid #d10000;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #eee;
+        }
+
+        .profile-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #d10000, #ff4d4d);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 24px;
+            box-shadow: 0 4px 10px rgba(209, 0, 0, 0.2);
+        }
+
+        .profile-title h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 4px;
+            font-weight: 800;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #e6f7e9;
+            color: #28a745;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .profile-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .detail-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .detail-box:hover {
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .detail-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .detail-info small {
+            display: block;
+            color: #888;
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+
+        .detail-info strong {
+            display: block;
+            color: #333;
+            font-size: 13px;
+        }
+
+        @media (max-width: 520px) {
+            .profile-details {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
@@ -531,9 +669,18 @@
                 <ul id="suggestions" class="suggestions-box" style="display:none;"></ul>
                 <div id="history" class="history-box"></div>
             </div>
-            <button class="btn-scan" onclick="scanNearby()">
-                <i class="fas fa-location-crosshairs"></i> <span>Nearest Outlet</span>
-            </button>
+            <div class="action-wrapper">
+                <select id="scan-radius" class="radius-select">
+                    <option value="0.3">300 m</option>
+                    <option value="0.5">500 m</option>
+                    <option value="1">1 km</option>
+                    <option value="2">2 km</option>
+                    <option value="5">5 km</option>
+                </select>
+                <button class="btn-scan" onclick="scanNearby()">
+                    <i class="fas fa-location-crosshairs"></i> <span>Nearest</span>
+                </button>
+            </div>
         </div>
 
         <!-- Skeleton (Hidden by Default) -->
@@ -697,11 +844,45 @@
                 saveToHistory(outlet.id_outlet, outlet.nama_outlet);
 
                 resultDiv.innerHTML = `
-                    <div class="card">
-                        <h3 style="color:#d10000; font-size:22px; margin-bottom:12px;">${outlet.nama_outlet}</h3>
-                        <p style="margin-bottom:6px;"><i class="fas fa-tag"></i> <b>ID:</b> ${outlet.id_outlet}</p>
-                        <p style="margin-bottom:6px;"><i class="fas fa-user-tie"></i> <b>SF:</b> ${outlet.sf}</p>
-                        <p><i class="fas fa-map-marker-alt"></i> <b>TAP:</b> ${outlet.tap}</p>
+                    <div class="outlet-profile-card">
+                        <div class="profile-header">
+                            <div class="profile-icon">
+                                <i class="fas fa-store"></i>
+                            </div>
+                            <div class="profile-title">
+                                <h3>${outlet.nama_outlet}</h3>
+                                <span class="status-badge"><i class="fas fa-check-circle"></i> Active Outlet</span>
+                            </div>
+                        </div>
+                        <div class="profile-details">
+                            <div class="detail-box">
+                                <div class="detail-icon" style="background:#ffe5e5; color:#d10000;">
+                                    <i class="fas fa-id-card"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <small>ID Outlet</small>
+                                    <strong>${outlet.id_outlet}</strong>
+                                </div>
+                            </div>
+                            <div class="detail-box">
+                                <div class="detail-icon" style="background:#e5f0ff; color:#007bff;">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <small>Sales Force (SF)</small>
+                                    <strong>${outlet.sf}</strong>
+                                </div>
+                            </div>
+                            <div class="detail-box">
+                                <div class="detail-icon" style="background:#e8f7ec; color:#28a745;">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </div>
+                                <div class="detail-info">
+                                    <small>TAP</small>
+                                    <strong>${outlet.tap}</strong>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
 
@@ -786,14 +967,18 @@
 
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const { latitude: lat, longitude: lon } = pos.coords;
-                resultDiv.innerHTML = '<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning 300m...</div>';
+                const radiusSelect = document.getElementById('scan-radius');
+                const radiusValue = radiusSelect.value;
+                const radiusLabel = radiusSelect.options[radiusSelect.selectedIndex].text;
+
+                resultDiv.innerHTML = `<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning ${radiusLabel}...</div>`;
 
                 try {
-                    const response = await fetch(`/monitadumai/nearby?latitude=${lat}&longitude=${lon}`);
+                    const response = await fetch(`/monitadumai/nearby?latitude=${lat}&longitude=${lon}&radius=${radiusValue}`);
                     const data = await response.json();
 
                     if (data.length === 0) {
-                        resultDiv.innerHTML = '<div class="card" style="text-align:center; color:#d10000; font-weight:bold;">Tidak ada outlet dalam radius 300m.</div>';
+                        resultDiv.innerHTML = `<div class="card" style="text-align:center; color:#d10000; font-weight:bold;">Tidak ada outlet dalam radius ${radiusLabel}.</div>`;
                         emptyState.style.display = 'block';
                         return;
                     }
@@ -930,14 +1115,7 @@
             else fab.style.display = 'none';
         };
 
-        // --- PERSISTENCE ON RELOAD ---
-        window.addEventListener('DOMContentLoaded', () => {
-            const lastSearch = localStorage.getItem('monita_last_search');
-            if (lastSearch) {
-                document.getElementById('keyword').value = lastSearch;
-                searchOutlet();
-            }
-        });
+
     </script>
 </body>
 

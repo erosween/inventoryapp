@@ -40,12 +40,13 @@ class MonitaDumaiController extends Controller
     {
         $lat = $request->input('latitude');
         $long = $request->input('longitude');
+        $radius = $request->input('radius', 0.3);
 
         if (!$lat || !$long) {
             return response()->json(['error' => 'Latitude and longitude are required'], 400);
         }
 
-        // Haversine formula to find outlets within 300m (0.3km)
+        // Haversine formula to find outlets within preferred radius
         $data = DB::table('appsdumais')
             ->select('*')
             ->selectRaw(
@@ -53,9 +54,9 @@ class MonitaDumaiController extends Controller
                 [$lat, $long, $lat]
             )
             ->where('sf', '!=', 'UNMAPPING')
-            ->having('distance', '<=', 0.3)
+            ->having('distance', '<=', $radius)
             ->orderBy('distance')
-            ->limit(20)
+            ->limit(50)
             ->get();
 
         return response()->json($data);
