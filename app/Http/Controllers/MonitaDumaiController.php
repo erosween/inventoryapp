@@ -16,8 +16,16 @@ class MonitaDumaiController extends Controller
     {
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
-            ->where('id_outlet', $keyword)
-            ->orWhere('nama_outlet', 'like', '%' . $keyword . '%')
+            ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
+            ->select(
+                'appsdumais.*',
+                'outlet_performance.total_m as m_stpv',
+                'outlet_performance.total_m1 as m1_stpv',
+                'outlet_performance.total_mom as mom_stpv',
+                'outlet_performance.tgl_update as tgl_pv'
+            )
+            ->where('appsdumais.id_outlet', $keyword)
+            ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%')
             ->get();
 
         return response()->json($data);
@@ -48,7 +56,14 @@ class MonitaDumaiController extends Controller
 
         // Haversine formula to find outlets within preferred radius
         $data = DB::table('appsdumais')
-            ->select('*')
+            ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
+            ->select(
+                'appsdumais.*',
+                'outlet_performance.total_m as m_stpv',
+                'outlet_performance.total_m1 as m1_stpv',
+                'outlet_performance.total_mom as mom_stpv',
+                'outlet_performance.tgl_update as tgl_pv'
+            )
             ->selectRaw(
                 '( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS distance',
                 [$lat, $long, $lat]
