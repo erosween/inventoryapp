@@ -54,8 +54,16 @@ class MonitaDumaiController extends Controller
             return response()->json(['error' => 'Latitude and longitude are required'], 400);
         }
 
+        // Optimization: Bounding Box filter to use indices and reduce candidate set
+        // 1 degree of latitude is approximately 111 km
+        $lat_delta = $radius / 111.0;
+        // 1 degree of longitude is approximately 111 km * cos(latitude)
+        $lon_delta = $radius / (111.0 * cos(deg2rad($lat)));
+
         // Haversine formula to find outlets within preferred radius
         $data = DB::table('appsdumais')
+            ->whereBetween('latitude', [$lat - $lat_delta, $lat + $lat_delta])
+            ->whereBetween('longitude', [$long - $lon_delta, $long + $lon_delta])
             ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
             ->select(
                 'appsdumais.*',

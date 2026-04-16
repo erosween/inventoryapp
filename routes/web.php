@@ -13,7 +13,7 @@ use App\Http\Controllers\InjectController;
 use App\Http\Controllers\KeluarController;
 use App\Http\Controllers\VrusakController;
 use App\Http\Controllers\InputDOController;
-use App\Http\Controllers\RetursfController;
+use App\Http\Controllers\ReturSfController;
 use App\Http\Controllers\SfmasukController;
 use App\Http\Controllers\StockSfController;
 use App\Http\Controllers\SfkeluarController;
@@ -30,6 +30,8 @@ use App\Http\Controllers\sisaStockController;
 use App\Http\Controllers\NocanadminController;
 use App\Http\Controllers\searchController;
 use App\Http\Controllers\StockMovementController;
+use App\Http\Controllers\MonitaDumaiController;
+use App\Http\Controllers\Api\SalesChartController;
 
 //login
 Route::middleware([RedirectIfAuthenticated::class])->group(function () {
@@ -39,19 +41,17 @@ Route::middleware([RedirectIfAuthenticated::class])->group(function () {
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 
 //  nocan
-Route::get('/nocan', [NocanController::class, 'index'])->name('nocan');
-Route::get('/form/form-nocan', [NocanController::class, 'form'])->name('nocan');
+Route::get('/nocan', [NocanController::class, 'index'])->name('nocan.index');
+Route::get('/form/form-nocan', [NocanController::class, 'form'])->name('nocan.form');
 Route::get('/getnumber', [NocanController::class, 'getnumber']);
 Route::post('/nocanproses', [NocanController::class, 'nocanproses']);
 
-Route::get('/booking', [NocanbookingController::class, 'index'])->name('nocan');
-Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan');
+Route::get('/booking', [NocanbookingController::class, 'index'])->name('nocan.booking');
+Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan.jual');
 
 Route::get('/search', [searchController::class, 'search'])->name('search');
 
 //monita dumai
-use App\Http\Controllers\MonitaDumaiController;
-
 Route::get('/monitadumai', [MonitaDumaiController::class, 'index']);
 Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
 Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
@@ -145,7 +145,7 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/sf-masuk/data', [SfmasukController::class, 'data'])
 		->name('sf-masuk.data');
 	Route::post('sf-masuk/{idmasuk}', [SfmasukController::class, 'delete']);
-	Route::get('/exportsfmasuk', [sfmasukController::class, 'exportexcel']);
+	Route::get('/exportsfmasuk', [SfmasukController::class, 'exportexcel']);
 
 	//stok keluar sf
 	Route::get('/sf-keluar', [SfkeluarController::class, 'index']);
