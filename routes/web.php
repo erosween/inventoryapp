@@ -56,6 +56,7 @@ Route::get('/monitadumai', [MonitaDumaiController::class, 'index']);
 Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
 Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
 Route::get('/monitadumai/nearby', [MonitaDumaiController::class, 'nearby']);
+Route::get('/monitadumai/performance', [MonitaDumaiController::class, 'performance']);
 
 
 // group middleware

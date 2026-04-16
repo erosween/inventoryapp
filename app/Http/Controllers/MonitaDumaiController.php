@@ -61,4 +61,14 @@ class MonitaDumaiController extends Controller
 
         return response()->json($data);
     }
+
+    public function performance(Request $request)
+    {
+        $id_outlet = $request->input('id_outlet');
+        $data = DB::table('outlet_performance')
+            ->where('id_outlet', $id_outlet)
+            ->first();
+
+        return response()->json($data);
+    }
 }

@@ -652,6 +652,95 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .modal-content {
+            background: #fff;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            animation: modalPop 0.3s ease-out;
+        }
+
+        @keyframes modalPop {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            background: linear-gradient(90deg, #d10000, #ff4d4d);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+        }
+
+        .modal-close {
+            cursor: pointer;
+            font-size: 20px;
+            opacity: 0.8;
+            transition: 0.2s;
+        }
+
+        .modal-close:hover {
+            opacity: 1;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* CUSTOM BUTTONS */
+        .btn-detail {
+            padding: 4px 10px;
+            background: #d10000;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 11px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: 0.3s;
+        }
+
+        .btn-detail:hover {
+            background: #a80000;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 
@@ -733,6 +822,22 @@
     <footer class="footer" style="text-align:center; padding:10px; color:#aaa; font-size:12px;">
         <p>© 2025 Made by Rby</p>
     </footer>
+
+    <!-- MODAL PERFORMANCE -->
+    <div id="performance-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Detail Performance PV</h3>
+                <span class="modal-close" onclick="closePerformanceModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <div style="text-align:center; padding:20px;">
+                    <i class="fas fa-circle-notch fa-spin" style="font-size:24px; color:#d10000;"></i>
+                    <p style="margin-top:10px; color:#666;">Loading data performance...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Leaflet Maps JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -913,11 +1018,24 @@
 
         function renderRincian(outlet) {
             const tableBody = document.getElementById('table-body');
+
+            const formatDate = (dateStr) => {
+                if (!dateStr || dateStr === '-') return '-';
+                try {
+                    const date = new Date(dateStr);
+                    if (isNaN(date)) return dateStr;
+                    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+                    return `${date.getDate()}-${months[date.getMonth()]}`;
+                } catch (e) { return dateStr; }
+            };
+
             const parameters = [
                 { name: "TRX DIGIPOS", m1: outlet.m1_digipos, mtd: outlet.m_digipos, mom: outlet.mom_digipos, update: outlet.tgl_pack },
                 { name: "SUPER SERU", m1: outlet.m1_super, mtd: outlet.m_super, mom: outlet.mom_super, update: outlet.tgl_pack },
                 { name: "HOT PROMO", m1: outlet.m1_hot, mtd: outlet.m_hot, mom: outlet.mom_hot, update: outlet.tgl_pack },
                 { name: "COMSAK", m1: outlet.m1_comsak, mtd: outlet.m_comsak, mom: outlet.mom_comsak, update: outlet.tgl_pack },
+                { name: "ST SA", m1: outlet.m1_stsa, mtd: outlet.m_stsa, mom: outlet.mom_stsa, update: outlet.tgl_sa },
+                { name: "ST PV", m1: outlet.m1_stpv, mtd: outlet.m_stpv, mom: outlet.mom_stpv, update: outlet.tgl_pv, showDetail: true },
                 { name: "SO SA", m1: outlet.m1_sosa, mtd: outlet.m_sosa, mom: outlet.mom_sosa, update: outlet.tgl_sa },
                 { name: "SO PV", m1: outlet.m1_sopv, mtd: outlet.m_sopv, mom: outlet.mom_sopv, update: outlet.tgl_pv },
             ];
@@ -940,11 +1058,14 @@
 
                 tableBody.innerHTML += `
                     <tr>
-                        <td>${param.name}</td>
+                        <td>
+                            ${param.name}
+                            ${param.showDetail ? ` <button class="btn-detail" onclick="showPerformanceDetail('${outlet.id_outlet}', '${outlet.nama_outlet}')"><i class="fas fa-chart-line"></i> Detail</button>` : ''}
+                        </td>
                         <td>${Number(param.m1 || 0).toLocaleString()}</td>
                         <td>${Number(param.mtd || 0).toLocaleString()}</td>
                         <td><div class="mom-indicator ${momClass}">${icon} ${param.mom || "0.0%"}</div></td>
-                        <td>${param.update || '-'}</td>
+                        <td>${formatDate(param.update)}</td>
                     </tr>
                 `;
             });
@@ -1000,7 +1121,7 @@
                                 <h4>${outlet.nama_outlet}</h4>
                                 <p>${outlet.id_outlet} • <b>${outlet.sf}</b> • ${outlet.tap}</p>
                                 <p style="font-size: 11px; margin-top: 5px; color: #d10000; font-weight:bold;">
-                                    SA: ${Number(outlet.m_stsa).toLocaleString()} | PV: ${Number(outlet.m_stpv).toLocaleString()}
+                                    SA: ${Number(outlet.m_stsa).toLocaleString()} | PV: ${Number(outlet.m_stpv).toLocaleString()} | CVM TRX: ${Number(outlet.m_cvm).toLocaleString()}
                                 </p>
                             </div>
                             <div class="distance-tag" style="background:${distColor}15; color:${distColor}; border:1px solid ${distColor}30;">
@@ -1108,6 +1229,113 @@
         }
 
         function hideHistory() { setTimeout(() => document.getElementById('history').style.display = 'none', 250); }
+
+        // MODAL PERFORMANCE LOGIC
+        async function showPerformanceDetail(id, name) {
+            const modal = document.getElementById('performance-modal');
+            const body = document.getElementById('modal-body');
+            const title = document.getElementById('modal-title');
+
+            title.innerHTML = `Performance PV: ${name}`;
+            body.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <i class="fas fa-circle-notch fa-spin" style="font-size:24px; color:#d10000;"></i>
+                    <p style="margin-top:10px; color:#666;">Mengambil data perdenom...</p>
+                </div>
+            `;
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch(`/monitadumai/performance?id_outlet=${id}`);
+                const data = await response.json();
+
+                if (!data) {
+                    body.innerHTML = '<div style="text-align:center; padding:20px; color:#d10000;">Data performance tidak ditemukan.</div>';
+                    return;
+                }
+
+                const denoms = [
+                    { label: "1D", m1: data['1d_m1'], mtd: data['1d_m'], mom: data['1d_mom'] },
+                    { label: "2D", m1: data['2d_m1'], mtd: data['2d_m'], mom: data['2d_mom'] },
+                    { label: "3D", m1: data['3d_m1'], mtd: data['3d_m'], mom: data['3d_mom'] },
+                    { label: "5D", m1: data['5d_m1'], mtd: data['5d_m'], mom: data['5d_mom'] },
+                    { label: "7D", m1: data['7d_m1'], mtd: data['7d_m'], mom: data['7d_mom'] },
+                    { label: "28D", m1: data['28d_m1'], mtd: data['28d_m'], mom: data['28d_mom'] },
+                    { label: "30D", m1: data['30d_m1'], mtd: data['30d_m'], mom: data['30d_mom'] },
+                    { label: "TOTAL PV", m1: data['total_m1'], mtd: data['total_m'], mom: data['total_mom'], isTotal: true },
+                ];
+
+                let html = `
+                    <div class="table-responsive">
+                        <table style="min-width: unset; width: 100%;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="text-align:left; color:#d10000;">Denom</th>
+                                    <th>M-1</th>
+                                    <th>MTD</th>
+                                    <th>MoM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                denoms.forEach(d => {
+                    const momVal = parseFloat((d.mom || "0").toString().replace('%', ''));
+                    let momClass = "mom-neutral";
+                    let icon = '';
+
+                    if (momVal > 0) {
+                        momClass = "mom-positive";
+                        icon = '↑';
+                    } else if (momVal < 0) {
+                        momClass = "mom-negative";
+                        icon = '↓';
+                    }
+
+                    html += `
+                        <tr style="${d.isTotal ? 'font-weight:bold; background:#fff5f5;' : ''}">
+                            <td style="text-align:left; font-size:12px;">${d.label}</td>
+                            <td style="font-size:12px;">${Number(d.m1 || 0).toLocaleString()}</td>
+                            <td style="font-size:12px;">${Number(d.mtd || 0).toLocaleString()}</td>
+                            <td><span class="mom-indicator ${momClass}" style="padding:2px 6px; font-size:10px;">${icon} ${d.mom || "0%"}</span></td>
+                        </tr>
+                    `;
+                });
+
+                const formatDate = (dateStr) => {
+                    if (!dateStr || dateStr === '-') return '-';
+                    try {
+                        const date = new Date(dateStr);
+                        if (isNaN(date)) return dateStr;
+                        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+                        return `${date.getDate()}-${months[date.getMonth()]}`;
+                    } catch (e) { return dateStr; }
+                };
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    <p style="font-size:10px; color:#aaa; margin-top:15px; text-align:center;">Last Update: ${formatDate(data.tgl_update)}</p>
+                `;
+                body.innerHTML = html;
+
+            } catch (err) {
+                body.innerHTML = '<div style="text-align:center; padding:20px; color:#d10000;">Gagal memuat data. Silakan coba lagi.</div>';
+            }
+        }
+
+        function closePerformanceModal() {
+            document.getElementById('performance-modal').style.display = 'none';
+        }
+
+        // Close on outside click
+        window.onclick = function (event) {
+            const modal = document.getElementById('performance-modal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
 
         window.onscroll = () => {
             const fab = document.getElementById('fab-top');
