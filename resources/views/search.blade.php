@@ -1,341 +1,519 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Katalog Nomor Cantik</title>
+    <title>Eksklusif Nocan - Pilih Nomor Cantik Anda</title>
+
+    <!-- Google Fonts: Montserrat for that clean, premium look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Frameworks & Icons -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
+        :root {
+            --primary: #a68b3c;
+            /* Bronze/Gold XL Prioritas */
+            --primary-light: #f4f1e8;
+            --text-dark: #332d2b;
+            --text-muted: #757575;
+            --bg-body: #ffffff;
+            --bg-card: #f8f9fa;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         body {
-            background: #fff;
-            color: #333;
-            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
         }
 
+        /* Navbar */
         nav {
-            background: #ffffff;
+            background: #fff;
+            padding: 24px 0;
             border-bottom: 1px solid #eee;
-            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
-        nav .nav-link {
-            color: #333;
-            font-weight: 500;
-            margin: 0 10px;
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: var(--text-dark) !important;
+            letter-spacing: -0.5px;
         }
 
-        nav .nav-link:hover {
-            color: #c19e2e;
+        .navbar-brand span {
+            color: var(--primary);
         }
 
+        /* Hero */
         .hero {
+            padding: 60px 20px 40px;
             text-align: center;
-            padding: 50px 20px 20px;
-            color: #c19e2e;
         }
 
         .hero h1 {
-            font-size: 2rem;
             font-weight: 800;
+            font-size: 2.5rem;
+            color: var(--text-dark);
+            margin-bottom: 16px;
+            letter-spacing: -1px;
         }
 
         .hero p {
-            color: #666;
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
-        /* Search */
-        .search-box {
-            max-width: 400px;
-            margin: 15px auto 25px;
-            position: relative;
+        /* Search Section */
+        .search-section {
+            padding-bottom: 40px;
         }
 
-        .search-box input {
-            width: 100%;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            padding: 10px 14px;
-            background: #fff;
-            color: #333;
-        }
-
-        .search-box button {
-            position: absolute;
-            right: 12px;
-            top: 6px;
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 1.2rem;
-        }
-
-        /* Category Badge */
-        .category {
-            display: inline-flex;
-            align-items: center;
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 12px;
-            padding: 8px 16px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: #333;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        .category .icon {
-            background: #c19e2e;
-            color: #fff;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
+        .search-box-wrapper {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            padding: 8px;
+            border-radius: 50px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-            font-size: 0.9rem;
+            border: 1px solid transparent;
+            transition: var(--transition);
         }
 
-        /* Grid Numbers */
-        .results-container {
+        .search-box-wrapper:focus-within {
+            background: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(166, 139, 60, 0.1);
+        }
+
+        .search-box-wrapper input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            outline: none;
+            color: var(--text-dark);
+        }
+
+        .search-box-wrapper button {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            transition: var(--transition);
+        }
+
+        .search-box-wrapper button:hover {
+            background: #8e7532;
+            transform: translateX(3px);
+        }
+
+        /* Horizontal Scroll for Categories on Mobile */
+        .category-filter {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 40px;
+            overflow-x: auto;
+            padding: 10px 0;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .category-filter::-webkit-scrollbar {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .category-filter {
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                padding: 10px 20px;
+                /* Increased padding to prevent clipping */
+                margin-left: -20px;
+                /* Pull to edges */
+                margin-right: -200px;
+                /* Allow overflow */
+                margin-right: -20px;
+            }
+
+            /* Ensure container doesn't clip the shadow/lift */
+            .container {
+                overflow: visible !important;
+            }
+        }
+
+        .cat-btn {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            color: var(--text-dark);
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            transition: var(--transition);
+            text-decoration: none;
+        }
+
+        .cat-btn:hover,
+        .cat-btn.active {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        /* Number Cards Grid */
+        .results-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 16px;
-            margin-top: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
         }
 
         .number-card {
-            background: #fafafa;
-            border: 1px solid #eee;
-            border-radius: 10px;
-            padding: 18px;
-            text-align: center;
-            transition: all 0.3s ease;
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            transition: var(--transition);
             cursor: pointer;
+            border: 1px solid #eee;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column;
         }
 
         .number-card:hover {
-            background: #fff;
-            border-color: #c19e2e;
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(166, 139, 60, 0.15);
+            border-color: var(--primary);
         }
 
-        .number {
-            font-size: 1.2rem;
+        /* Card Header Accent */
+        .card-accent {
+            padding: 15px 20px;
+            color: #fff;
+            font-size: 0.75rem;
             font-weight: 700;
-            color: #222;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .bonus {
-            font-size: 0.8rem;
-            color: #c19e2e;
-            margin-top: 6px;
+        .card-accent span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 10px;
         }
 
-        footer {
-            margin-top: 40px;
-            padding: 20px;
-            background: #fff;
+        .accent-platinum {
+            background: linear-gradient(135deg, #2c3e50, #000);
+        }
+
+        .accent-gold {
+            background: linear-gradient(135deg, #a68b3c, #8e7532);
+        }
+
+        .accent-silver {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+        }
+
+        /* Card Body */
+        .card-content {
+            padding: 30px 20px;
             text-align: center;
-            font-size: 0.9rem;
-            color: #666;
-            border-top: 1px solid #eee;
+            background: #fff;
+            flex: 1;
         }
 
-        /* Floating WhatsApp Button */
+        .number-card .num-val {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            display: block;
+            margin-bottom: 12px;
+            letter-spacing: -1px;
+        }
+
+        .bonus-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            line-height: 1.5;
+            margin-top: 5px;
+        }
+
+        .card-footer-price {
+            border-top: 1px solid #f0f0f0;
+            padding: 15px;
+            font-weight: 800;
+            color: var(--primary);
+            font-size: 1.1rem;
+            background: #fafafa;
+        }
+
+        /* Pagination */
+        .pagination-area {
+            margin-top: 50px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .page-btn {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            color: var(--text-dark);
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .page-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        /* WhatsApp Floating */
         .wa-float {
             position: fixed;
-            width: 55px;
-            height: 55px;
-            bottom: 25px;
-            right: 25px;
-            background-color: #25d366;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: #25d366;
             color: #fff;
             border-radius: 50%;
-            text-align: center;
-            font-size: 28px;
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
-            z-index: 100;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            font-size: 28px;
+            box-shadow: 0 8px 16px rgba(37, 211, 102, 0.2);
+            z-index: 1000;
+            transition: var(--transition);
         }
 
         .wa-float:hover {
-            background-color: #20bd5c;
+            transform: scale(1.1);
             color: #fff;
-            transform: scale(1.05);
         }
 
-        .wa-float {
-            position: fixed;
-            width: 75px;
-            height: 75px;
-            bottom: 20px;
-            right: 20px;
-            background-color: #25d366;
-            color: #FFF;
-            border-radius: 50%;
+        /* Modal Redesign */
+        .modal-content {
+            border: none;
+            border-radius: 24px;
+            padding: 24px;
+        }
+
+        .modal-header {
+            border: none;
+            padding: 0;
+            margin-bottom: 24px;
+        }
+
+        .modal-body {
+            padding: 0;
             text-align: center;
-            font-size: 36px;
-            box-shadow: 2px 2px 10px #999;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: pulse 1.5s infinite, wiggle 2s infinite ease-in-out;
         }
 
-        .wa-float i {
-            font-size: 40px;
+        .btn-wa-confirm {
+            background: var(--primary);
+            color: #fff;
+            font-weight: 700;
+            width: 100%;
+            padding: 16px;
+            border-radius: 50px;
+            border: none;
+            margin-top: 24px;
+            font-size: 1rem;
+            transition: var(--transition);
         }
 
-        /* Animasi Denyut */
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
-            }
-
-            70% {
-                transform: scale(1.1);
-                box-shadow: 0 0 15px 20px rgba(37, 211, 102, 0);
-            }
-
-            100% {
-                transform: scale(1);
-                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
-            }
+        .btn-wa-confirm:hover {
+            background: #8e7532;
+            color: #fff;
+            text-decoration: none;
         }
 
-        /* Animasi Goyang */
-        @keyframes wiggle {
-
-            0%,
-            100% {
-                transform: rotate(0deg);
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.8rem;
             }
 
-            15% {
-                transform: rotate(5deg);
+            .hero {
+                padding: 40px 20px;
             }
 
-            30% {
-                transform: rotate(-5deg);
+            .search-section {
+                padding: 0 10px;
             }
 
-            45% {
-                transform: rotate(3deg);
+            .search-box-wrapper {
+                border-radius: 50px;
+                padding: 6px;
             }
 
-            60% {
-                transform: rotate(-3deg);
+            .search-box-wrapper input {
+                padding: 10px 16px;
+                font-size: 0.95rem;
             }
 
-            75% {
-                transform: rotate(2deg);
+            .search-box-wrapper button {
+                padding: 10px 20px;
+                font-size: 0.8rem;
             }
-        }
 
-        .button {
-            padding: 10px 20px;
-            font-weight: 600;
-            font-size: 13px;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
+            /* Fix clipped buttons on mobile */
+            .category-filter {
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                margin: 0 -15px 30px;
+                /* Pull to screen edges */
+                padding: 10px 15px;
+                /* Match container gutter */
+            }
 
-        .button-back {
-            background: linear-gradient(135deg, #4b5563, #374151);
-            color: white;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }
+            .results-grid {
+                grid-template-columns: 1fr;
+                padding: 0 10px;
+            }
 
-        .button-next {
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
-            color: black;
-            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5);
-        }
-
-        .button:hover {
-            transform: scale(1.05);
-            filter: brightness(1.05);
-        }
-
-        button:focus,
-        a:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.4);
-            /* biru transparan */
-            border-radius: 12px;
+            .container {
+                overflow: visible !important;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Navbar -->
-    <nav class="d-flex justify-content-between align-items-center container">
-        <div class="font-weight-bold text-dark">katalog Nocan Murah</div>
+    <nav>
+        <div class="container d-flex justify-content-between align-items-center">
+            <a href="#" class="navbar-brand">Katalog<span>Nocan</span></a>
+            <div class="d-none d-md-block text-muted small">Eksklusif Selection</div>
+        </div>
     </nav>
 
-    <!-- Hero -->
-    <div class="hero">
-        <h1>Pilih Nomor Cantikmu</h1>
-        <p>Pilihan Premium</p>
-    </div>
-
-    <!-- Search -->
-    <div class="search-box">
-        <form action="{{ route('search') }}" method="GET">
-            <input type="text" name="search" placeholder="Ketik minimal 3 digit..." value="{{ request('search') }}">
-            <button type="submit"><i class="fa fa-search"></i></button>
-        </form>
-    </div>
-
-    <!-- Category -->
-    <div class="container text-center">
-        <div class="category">
-            <div class="icon">✨</div>
-            Nomor Cantik
-        </div>
-    </div>
-
-    <!-- Results -->
     <div class="container">
-        <div class="results-container">
+        <!-- Hero -->
+        <div class="hero">
+            <h1>Cari & Pilih Nomor Cantik Anda</h1>
+            <p>Temukan nomor impian untuk personal branding Anda dengan layanan premium kami.</p>
+        </div>
+
+        <!-- Search -->
+        <div class="search-section">
+            <form action="{{ route('search') }}" method="GET">
+                <div class="search-box-wrapper">
+                    <input type="text" name="search" placeholder="Contoh: 888 atau 1234..."
+                        value="{{ request('search') }}">
+                    <button type="submit">CARI NOMOR</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Filters -->
+        <div class="category-filter">
+            <a href="{{ route('search', ['search' => '777']) }}"
+                class="cat-btn {{ request('search') == '777' ? 'active' : '' }}">Triple 777</a>
+            <a href="{{ route('search', ['search' => '888']) }}"
+                class="cat-btn {{ request('search') == '888' ? 'active' : '' }}">Triple 888</a>
+            <a href="{{ route('search', ['search' => '999']) }}"
+                class="cat-btn {{ request('search') == '999' ? 'active' : '' }}">Triple 999</a>
+            <a href="{{ route('search', ['search' => '000']) }}"
+                class="cat-btn {{ request('search') == '000' ? 'active' : '' }}">Triple 000</a>
+            <a href="{{ route('search', ['search' => '123']) }}"
+                class="cat-btn {{ request('search') == '123' ? 'active' : '' }}">Berurutan</a>
+            <a href="{{ route('search') }}" class="cat-btn {{ !request('search') ? 'active' : '' }}">Semua Ganti</a>
+        </div>
+
+        <!-- Grid -->
+        <div class="results-grid">
             @if ($results->isNotEmpty())
                 @foreach ($results as $number)
+                    @php
+                        $numStr = (string) $number->nomor;
+                        $accentClass = 'accent-silver';
+                        $categoryName = 'Prio Reguler';
+                        $icon = 'fa-star';
+
+                        if (preg_match('/(\d)\1\1/', $numStr)) {
+                            $accentClass = 'accent-platinum';
+                            $categoryName = 'Prio Platinum';
+                            $icon = 'fa-crown';
+                        } elseif (substr_count($numStr, '8') >= 2 || substr_count($numStr, '9') >= 2) {
+                            $accentClass = 'accent-gold';
+                            $categoryName = 'Prio Gold';
+                            $icon = 'fa-gem';
+                        }
+                    @endphp
                     <div class="number-card pilih-nomor" data-nomor="0{{ $number->nomor }}">
-                        <div class="number">0{{ $number->nomor }}</div>
-                        <div class="bonus">+ Kuota Gratis 20GB/Bulan selama SETAHUN</div>
+                        <div class="card-accent {{ $accentClass }}">
+                            <span>{{ $categoryName }}</span>
+                            <i class="fas {{ $icon }}"></i>
+                        </div>
+                        <div class="card-content">
+                            <span class="num-val">0{{ $number->nomor }}</span>
+                            <div class="bonus-info">
+                                <div>Total Kuota 260GB / Tahun</div>
+                                <div>Masa Aktif Kartu 3 Tahun</div>
+                            </div>
+                        </div>
+                        <div class="card-footer-price">
+                            Free SIM Card
+                        </div>
                     </div>
                 @endforeach
             @else
-                <p class="text-center w-100">⚠️ Tidak ada nomor ditemukan.</p>
+                <div class="col-12 py-5 text-center">
+                    <p class="text-muted">Maaf, nomor tidak ditemukan. Coba hapus filter atau cari pola lain.</p>
+                </div>
             @endif
         </div>
 
-        <!-- Custom Pagination -->
-        @if (request()->has('search'))
-            <div class="mt-4 d-flex justify-content-center">
+        <!-- Pagination -->
+        @if ($results->hasPages())
+            <div class="pagination-area">
                 @if (!$results->onFirstPage())
-                    <a href="{{ $results->appends(['search' => request('search')])->previousPageUrl() }}"
-                        class="button button-back mr-2">
-                        ← Back
+                    <a href="{{ $results->appends(['search' => request('search')])->previousPageUrl() }}" class="page-btn">
+                        Sebelumnya
                     </a>
                 @endif
 
                 @if ($results->hasMorePages())
-                    <a href="{{ $results->appends(['search' => request('search')])->nextPageUrl() }}"
-                        class="button button-next">
-                        Next →
+                    <a href="{{ $results->appends(['search' => request('search')])->nextPageUrl() }}" class="page-btn">
+                        Selanjutnya
                     </a>
                 @endif
             </div>
@@ -343,109 +521,66 @@
     </div>
 
     <!-- Footer -->
-    <footer>
-        📞 +62 822 8333 1333 | 💬 Order via WhatsApp
+    <footer class="container text-center py-5 mt-5" style="border-top: 1px solid #eee;">
+        <span class="text-muted small">© 2024 Nocan Eksklusif. All rights reserved.</span>
     </footer>
 
-    <!-- Floating WhatsApp -->
-    <a id="wa-btn"
-        href="https://wa.me/6282283331333?text={{ urlencode('Halo, saya tertarik dengan nomor cantik Telkomsel.') }}"
-        class="wa-float" target="_blank">
+    <!-- WA Float -->
+    <a href="https://wa.me/6282283331333" class="wa-float" target="_blank">
         <i class="fab fa-whatsapp"></i>
     </a>
 
-    <!-- Tambahin Modal di bawah sebelum </body> -->
+    <!-- Modal -->
     <div class="modal fade" id="popupNomor" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content" style="border-radius: 12px; text-align: center; padding: 20px;">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title w-100" style="font-weight:700; color:#c19e2e;">Nomor Cantik Terpilih</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"
-                        style="font-size: 1.5rem; position: absolute; right: 20px; top: 20px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="font-weight-bold mb-0">Rincian Nomor</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div id="popupNomorText" style="font-size:1.2rem; font-weight:700; margin-bottom:15px;"></div>
-                    <p style="color:#555; font-size:0.95rem;">
-                        🎁 Gratis kuota 20GB PERDANA + 20GB/Bulan selama <b>SETAHUN</b> dan KARTU AKTIF selama 3 TAHUN
-                    </p>
-                </div>
-                <div class="modal-footer border-0 justify-content-center">
-                    <a id="popupWaBtn" target="_blank" class="btn btn-success"
-                        style="padding:10px 25px; font-weight:600; border-radius:10px;">
-                        Lanjut ke WhatsApp
+                    <p class="text-muted small mb-1">Nomor Terpilih</p>
+                    <div id="popupNomorText" class="h2 font-weight-bold mb-4" style="color: var(--primary);"></div>
+
+                    <div class="p-4 rounded-lg text-left" style="background: var(--bg-card);">
+                        <div class="d-flex mb-2">
+                            <i class="fas fa-check-circle text-success mt-1 mr-2"></i>
+                            <span class="small font-weight-bold">Gratis Kuota 260GB / Tahun</span>
+                        </div>
+                        <div class="d-flex">
+                            <i class="fas fa-check-circle text-success mt-1 mr-2"></i>
+                            <span class="small font-weight-bold">Masa Aktif Kartu 3 Tahun</span>
+                        </div>
+                    </div>
+
+                    <a id="popupWaBtn" target="_blank" class="btn btn-wa-confirm">
+                        BELI DI WHATSAPP
                     </a>
+                    <p class="small text-muted mt-3 mb-0">Hanya berlaku untuk pembelian hari ini.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Tambahin Bootstrap JS (kalau belum ada) -->
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        let nomorDipilih = null;
-
-        // Klik pilih nomor → buka modal
         document.querySelectorAll('.pilih-nomor').forEach(card => {
             card.addEventListener('click', () => {
-                nomorDipilih = card.getAttribute('data-nomor');
+                const nomor = card.getAttribute('data-nomor');
+                document.getElementById('popupNomorText').textContent = nomor;
 
-                // isi teks popup
-                document.getElementById('popupNomorText').textContent = nomorDipilih;
+                const pesan = `Halo, saya tertarik pesan nomor cantik ini: ${nomor}. Mohon info lanjut.`;
+                document.getElementById('popupWaBtn').href = `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
 
-                // set href tombol WA
-                let pesan =
-                    `Halo, saya tertarik dengan nomor ${nomorDipilih}. Bonus kuota 20GB PERDANA + 20GB/Bulan selama SETAHUN.`;
-                document.getElementById('popupWaBtn').href =
-                    `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
-
-                // buka modal
                 $('#popupNomor').modal('show');
             });
         });
     </script>
-
-    <script>
-        let nomorDipilih = null;
-
-        // Klik pilih nomor
-        document.querySelectorAll('.pilih-nomor').forEach(card => {
-            card.addEventListener('click', () => {
-                nomorDipilih = card.getAttribute('data-nomor');
-
-                // highlight
-                document.querySelectorAll('.pilih-nomor').forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-            });
-        });
-
-        // Klik WA
-        document.getElementById('wa-btn').addEventListener('click', function() {
-            let pesan = "";
-
-            if (nomorDipilih) {
-                pesan = `Halo, saya tertarik dengan nomor ${nomorDipilih}`;
-            } else {
-                pesan = "Halo, saya mau tanya tentang nomor cantik";
-            }
-
-            this.href = `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
-        });
-    </script>
-
-
-
-    <style>
-        .pilih-nomor.active {
-            border: 2px solid #c19e2e;
-            background: #fff7e6;
-            box-shadow: 0 4px 12px rgba(193, 158, 46, 0.3);
-        }
-    </style>
-
 </body>
 
 </html>
