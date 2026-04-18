@@ -37,6 +37,11 @@
             margin: 0;
             padding: 0;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        html {
+            overflow-x: hidden;
         }
 
         /* Navbar */
@@ -247,7 +252,8 @@
             }
 
             .container {
-                overflow: visible !important;
+                padding-left: 15px;
+                padding-right: 15px;
             }
 
             .hero h1 {
@@ -523,23 +529,17 @@
                 font-size: 0.8rem;
             }
 
-            /* Fix clipped buttons on mobile */
+            /* Avoid container bleed issues */
             .category-filter {
                 justify-content: flex-start;
                 flex-wrap: nowrap;
-                margin: 0 -15px 30px;
-                /* Pull to screen edges */
-                padding: 10px 15px;
-                /* Match container gutter */
-            }
-
-            .results-grid {
-                grid-template-columns: 1fr;
-                padding: 0 10px;
+                margin: 0 -20px 30px;
+                padding: 10px 20px;
             }
 
             .container {
-                overflow: visible !important;
+                padding-left: 20px;
+                padding-right: 20px;
             }
         }
     </style>
@@ -597,8 +597,99 @@
 
         <!-- Dynamic Area for AJAX -->
         <div id="results-area">
+            @if (!request('search'))
+                <!-- Menu Awal / Initial Menu State -->
+                <div class="menu-awal-container fade-in-content mb-5">
+                    <h5 class="font-weight-bold mb-4 text-center">Pilih Kategori Favorit</h5>
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4 mb-3">
+                            <a href="{{ route('search', ['search' => '888']) }}" class="menu-card platinum">
+                                <i class="fas fa-crown"></i>
+                                <span>Triple 888</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 mb-3">
+                            <a href="{{ route('search', ['search' => '999']) }}" class="menu-card platinum">
+                                <i class="fas fa-crown"></i>
+                                <span>Triple 999</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 mb-3">
+                            <a href="{{ route('search', ['search' => '777']) }}" class="menu-card gold">
+                                <i class="fas fa-gem"></i>
+                                <span>Triple 777</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 mb-3">
+                            <a href="{{ route('search', ['search' => '000']) }}" class="menu-card gold">
+                                <i class="fas fa-gem"></i>
+                                <span>Triple 000</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 mb-3">
+                            <a href="{{ route('search', ['search' => '123']) }}" class="menu-card silver">
+                                <i class="fas fa-arrow-trend-up"></i>
+                                <span>Berurutan</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 mb-3">
+                            <a href="{{ route('search', ['search' => '']) }}" class="menu-card silver">
+                                <i class="fas fa-list"></i>
+                                <span>Lihat Semua</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <style>
+                    .menu-card {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 25px 15px;
+                        background: #fff;
+                        border-radius: 20px;
+                        border: 1px solid #eee;
+                        text-decoration: none !important;
+                        transition: var(--transition);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+                        height: 100%;
+                    }
+
+                    .menu-card i {
+                        font-size: 1.5rem;
+                        margin-bottom: 12px;
+                    }
+
+                    .menu-card span {
+                        font-weight: 700;
+                        font-size: 0.85rem;
+                        color: var(--text-dark);
+                    }
+
+                    .menu-card.platinum i {
+                        color: #2c3e50;
+                    }
+
+                    .menu-card.gold i {
+                        color: var(--primary);
+                    }
+
+                    .menu-card.silver i {
+                        color: #95a5a6;
+                    }
+
+                    .menu-card:hover {
+                        transform: translateY(-5px);
+                        border-color: var(--primary);
+                        box-shadow: 0 10px 25px rgba(166, 139, 60, 0.1);
+                    }
+                </style>
+            @endif
+
             <!-- Grid -->
-            <div class="results-grid">
+            <div class="results-grid {{ !request('search') ? 'd-none d-md-grid' : '' }}">
                 @if ($results->isNotEmpty())
                     @foreach ($results as $number)
                         @php
@@ -641,8 +732,8 @@
                 @endif
             </div>
 
-            <!-- Pagination -->
-            @if ($results->hasPages())
+            <!-- Pagination (hide on initial state if results are hidden) -->
+            @if ($results->hasPages() && (request('search') || request('page')))
                 <div class="pagination-area">
                     @if (!$results->onFirstPage())
                         <a href="{{ $results->appends(['search' => request('search')])->previousPageUrl() }}"
