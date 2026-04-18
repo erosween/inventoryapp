@@ -17,12 +17,18 @@ class SearchController extends Controller
         $search = $request->input('search');
 
         // Query utama
-        $results = DB::table('nocan')
-            ->where('nomor', 'LIKE', "%{$search}%")
+        $query = DB::table('nocan')
             ->where('status', 'ready')
             ->where('cluster', 'dumai bengkalis')
-            ->where('alokasi','lama')
-            ->paginate(12); // ✅ Per halaman 12 nomor
+            ->where('alokasi', 'lama');
+
+        if ($search) {
+            $query->where('nomor', 'LIKE', "%{$search}%");
+        } else {
+            $query->inRandomOrder();
+        }
+
+        $results = $query->paginate(12);
 
         // Biar parameter pencarian ikut ke pagination
         $results->appends(['search' => $search]);

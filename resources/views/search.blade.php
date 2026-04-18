@@ -67,24 +67,26 @@
 
         /* Hero */
         .hero {
-            padding: 60px 20px 40px;
+            padding: 80px 20px 60px;
             text-align: center;
         }
 
         .hero h1 {
             font-weight: 800;
-            font-size: 2.5rem;
+            font-size: 2.8rem;
             color: var(--text-dark);
-            margin-bottom: 16px;
-            letter-spacing: -1px;
+            margin-bottom: 20px;
+            letter-spacing: -1.5px;
+            line-height: 1.1;
         }
 
         .hero p {
             color: var(--text-muted);
             font-weight: 400;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             max-width: 600px;
             margin: 0 auto;
+            line-height: 1.6;
         }
 
         /* Search Section */
@@ -141,7 +143,8 @@
         /* Filter Wrapper & Scroll Hint */
         .filter-container {
             position: relative;
-            margin-bottom: 40px;
+            margin-bottom: 50px;
+            margin-top: 20px;
         }
 
         .scroll-indicator-right,
@@ -325,22 +328,31 @@
 
         /* Card Header Accent */
         .card-accent {
-            padding: 15px 20px;
+            padding: 0 16px;
             color: #fff;
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 1px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            height: 38px;
+            background-size: 200% auto;
+        }
+
+        .card-accent i {
+            font-size: 0.85rem;
+            margin-left: 10px;
         }
 
         .card-accent span {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-right: 10px;
+            display: block;
+            margin-top: -1px;
+            /* Optical adjustment for vertical center */
         }
 
         /* AJAX Transitions */
@@ -503,11 +515,11 @@
 
         @media (max-width: 768px) {
             .hero h1 {
-                font-size: 1.8rem;
+                font-size: 1.9rem;
             }
 
             .hero {
-                padding: 40px 20px;
+                padding: 40px 20px 30px;
             }
 
             .search-section {
@@ -588,7 +600,7 @@
                     class="cat-btn {{ request('search') == '000' ? 'active' : '' }}">Triple 000</a>
                 <a href="{{ route('search', ['search' => '123']) }}"
                     class="cat-btn {{ request('search') == '123' ? 'active' : '' }}">Berurutan</a>
-                <a href="{{ route('search') }}" class="cat-btn {{ !request('search') ? 'active' : '' }}">Semua Ganti</a>
+                <a href="{{ route('search') }}" class="cat-btn {{ !request('search') ? 'active' : '' }}">Semua Nomor</a>
             </div>
             <div class="scroll-indicator-right">
                 <i class="fas fa-chevron-right"></i>
@@ -598,98 +610,11 @@
         <!-- Dynamic Area for AJAX -->
         <div id="results-area">
             @if (!request('search'))
-                <!-- Menu Awal / Initial Menu State -->
-                <div class="menu-awal-container fade-in-content mb-5">
-                    <h5 class="font-weight-bold mb-4 text-center">Pilih Kategori Favorit</h5>
-                    <div class="row g-3">
-                        <div class="col-6 col-md-4 mb-3">
-                            <a href="{{ route('search', ['search' => '888']) }}" class="menu-card platinum">
-                                <i class="fas fa-crown"></i>
-                                <span>Triple 888</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-4 mb-3">
-                            <a href="{{ route('search', ['search' => '999']) }}" class="menu-card platinum">
-                                <i class="fas fa-crown"></i>
-                                <span>Triple 999</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-4 mb-3">
-                            <a href="{{ route('search', ['search' => '777']) }}" class="menu-card gold">
-                                <i class="fas fa-gem"></i>
-                                <span>Triple 777</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-4 mb-3">
-                            <a href="{{ route('search', ['search' => '000']) }}" class="menu-card gold">
-                                <i class="fas fa-gem"></i>
-                                <span>Triple 000</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-4 mb-3">
-                            <a href="{{ route('search', ['search' => '123']) }}" class="menu-card silver">
-                                <i class="fas fa-arrow-trend-up"></i>
-                                <span>Berurutan</span>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-4 mb-3">
-                            <a href="{{ route('search', ['search' => '']) }}" class="menu-card silver">
-                                <i class="fas fa-list"></i>
-                                <span>Lihat Semua</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <style>
-                    .menu-card {
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 25px 15px;
-                        background: #fff;
-                        border-radius: 20px;
-                        border: 1px solid #eee;
-                        text-decoration: none !important;
-                        transition: var(--transition);
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-                        height: 100%;
-                    }
-
-                    .menu-card i {
-                        font-size: 1.5rem;
-                        margin-bottom: 12px;
-                    }
-
-                    .menu-card span {
-                        font-weight: 700;
-                        font-size: 0.85rem;
-                        color: var(--text-dark);
-                    }
-
-                    .menu-card.platinum i {
-                        color: #2c3e50;
-                    }
-
-                    .menu-card.gold i {
-                        color: var(--primary);
-                    }
-
-                    .menu-card.silver i {
-                        color: #95a5a6;
-                    }
-
-                    .menu-card:hover {
-                        transform: translateY(-5px);
-                        border-color: var(--primary);
-                        box-shadow: 0 10px 25px rgba(166, 139, 60, 0.1);
-                    }
-                </style>
+                <h5 class="font-weight-bold mb-4 text-center mt-4">Rekomendasi Untuk Anda</h5>
             @endif
 
             <!-- Grid -->
-            <div class="results-grid {{ !request('search') ? 'd-none d-md-grid' : '' }}">
+            <div class="results-grid">
                 @if ($results->isNotEmpty())
                     @foreach ($results as $number)
                         @php
@@ -698,9 +623,10 @@
                             $categoryName = 'Prio Reguler';
                             $icon = 'fa-star';
 
-                            if (preg_match('/(\d)\1\1/', $numStr)) {
+                            if (preg_match('/(\d)\1\1/', $numStr, $matches)) {
+                                $tripleDigit = $matches[1];
                                 $accentClass = 'accent-platinum';
-                                $categoryName = 'Prio Platinum';
+                                $categoryName = "Prio Platinum $tripleDigit$tripleDigit$tripleDigit";
                                 $icon = 'fa-crown';
                             } elseif (substr_count($numStr, '8') >= 2 || substr_count($numStr, '9') >= 2) {
                                 $accentClass = 'accent-gold';
