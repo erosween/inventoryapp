@@ -133,12 +133,88 @@
             transform: translateX(3px);
         }
 
+        /* Filter Wrapper & Scroll Hint */
+        .filter-container {
+            position: relative;
+            margin-bottom: 40px;
+        }
+
+        .scroll-indicator-right,
+        .scroll-indicator-left {
+            display: none;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 100%;
+            pointer-events: auto;
+            cursor: pointer;
+            z-index: 5;
+            align-items: center;
+            color: var(--primary);
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .scroll-indicator-right:hover {
+            padding-right: 10px;
+            color: #8e7532;
+        }
+
+        .scroll-indicator-left:hover {
+            padding-left: 10px;
+            color: #8e7532;
+        }
+
+        .scroll-indicator-right {
+            right: 0;
+            background: linear-gradient(to left, #fff 20%, transparent);
+            justify-content: flex-end;
+            padding-right: 15px;
+            animation: pulse-arrow-right 2s infinite ease-in-out;
+        }
+
+        .scroll-indicator-left {
+            left: 0;
+            background: linear-gradient(to right, #fff 20%, transparent);
+            justify-content: flex-start;
+            padding-left: 15px;
+            animation: pulse-arrow-left 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-arrow-right {
+
+            0%,
+            100% {
+                opacity: 0.4;
+                transform: translateY(-50%) translateX(0);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateY(-50%) translateX(5px);
+            }
+        }
+
+        @keyframes pulse-arrow-left {
+
+            0%,
+            100% {
+                opacity: 0.4;
+                transform: translateY(-50%) translateX(0);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateY(-50%) translateX(-5px);
+            }
+        }
+
         /* Horizontal Scroll for Categories on Mobile */
         .category-filter {
             display: flex;
             justify-content: center;
             gap: 12px;
-            margin-bottom: 40px;
             overflow-x: auto;
             padding: 10px 0;
             scrollbar-width: none;
@@ -150,21 +226,48 @@
         }
 
         @media (max-width: 768px) {
+            .filter-container {
+                margin: 0 -15px 30px;
+            }
+
+            .scroll-indicator-right,
+            .scroll-indicator-left {
+                display: flex;
+            }
+
             .category-filter {
                 justify-content: flex-start;
                 flex-wrap: nowrap;
-                padding: 10px 20px;
-                /* Increased padding to prevent clipping */
-                margin-left: -20px;
-                /* Pull to edges */
-                margin-right: -200px;
-                /* Allow overflow */
-                margin-right: -20px;
+                padding: 10px 15px;
             }
 
-            /* Ensure container doesn't clip the shadow/lift */
+            .results-grid {
+                grid-template-columns: 1fr;
+                padding: 0 10px;
+            }
+
             .container {
                 overflow: visible !important;
+            }
+
+            .hero h1 {
+                font-size: 1.85rem;
+                padding: 0 10px;
+            }
+
+            .search-box-wrapper {
+                margin: 0 10px;
+                padding: 5px;
+            }
+
+            .search-box-wrapper input {
+                padding: 10px 15px;
+                font-size: 0.95rem;
+            }
+
+            .search-box-wrapper button {
+                padding: 10px 20px;
+                font-size: 0.8rem;
             }
         }
 
@@ -232,6 +335,32 @@
             overflow: hidden;
             text-overflow: ellipsis;
             margin-right: 10px;
+        }
+
+        /* AJAX Transitions */
+        #results-area {
+            transition: opacity 0.3s ease;
+        }
+
+        #results-area.loading {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-content {
+            animation: fadeInScale 0.5s ease forwards;
         }
 
         .accent-platinum {
@@ -444,80 +573,93 @@
         </div>
 
         <!-- Filters -->
-        <div class="category-filter">
-            <a href="{{ route('search', ['search' => '777']) }}"
-                class="cat-btn {{ request('search') == '777' ? 'active' : '' }}">Triple 777</a>
-            <a href="{{ route('search', ['search' => '888']) }}"
-                class="cat-btn {{ request('search') == '888' ? 'active' : '' }}">Triple 888</a>
-            <a href="{{ route('search', ['search' => '999']) }}"
-                class="cat-btn {{ request('search') == '999' ? 'active' : '' }}">Triple 999</a>
-            <a href="{{ route('search', ['search' => '000']) }}"
-                class="cat-btn {{ request('search') == '000' ? 'active' : '' }}">Triple 000</a>
-            <a href="{{ route('search', ['search' => '123']) }}"
-                class="cat-btn {{ request('search') == '123' ? 'active' : '' }}">Berurutan</a>
-            <a href="{{ route('search') }}" class="cat-btn {{ !request('search') ? 'active' : '' }}">Semua Ganti</a>
+        <div class="filter-container">
+            <div class="scroll-indicator-left">
+                <i class="fas fa-chevron-left"></i>
+            </div>
+            <div class="category-filter">
+                <a href="{{ route('search', ['search' => '777']) }}"
+                    class="cat-btn {{ request('search') == '777' ? 'active' : '' }}">Triple 777</a>
+                <a href="{{ route('search', ['search' => '888']) }}"
+                    class="cat-btn {{ request('search') == '888' ? 'active' : '' }}">Triple 888</a>
+                <a href="{{ route('search', ['search' => '999']) }}"
+                    class="cat-btn {{ request('search') == '999' ? 'active' : '' }}">Triple 999</a>
+                <a href="{{ route('search', ['search' => '000']) }}"
+                    class="cat-btn {{ request('search') == '000' ? 'active' : '' }}">Triple 000</a>
+                <a href="{{ route('search', ['search' => '123']) }}"
+                    class="cat-btn {{ request('search') == '123' ? 'active' : '' }}">Berurutan</a>
+                <a href="{{ route('search') }}" class="cat-btn {{ !request('search') ? 'active' : '' }}">Semua Ganti</a>
+            </div>
+            <div class="scroll-indicator-right">
+                <i class="fas fa-chevron-right"></i>
+            </div>
         </div>
 
-        <!-- Grid -->
-        <div class="results-grid">
-            @if ($results->isNotEmpty())
-                @foreach ($results as $number)
-                    @php
-                        $numStr = (string) $number->nomor;
-                        $accentClass = 'accent-silver';
-                        $categoryName = 'Prio Reguler';
-                        $icon = 'fa-star';
+        <!-- Dynamic Area for AJAX -->
+        <div id="results-area">
+            <!-- Grid -->
+            <div class="results-grid">
+                @if ($results->isNotEmpty())
+                    @foreach ($results as $number)
+                        @php
+                            $numStr = (string) $number->nomor;
+                            $accentClass = 'accent-silver';
+                            $categoryName = 'Prio Reguler';
+                            $icon = 'fa-star';
 
-                        if (preg_match('/(\d)\1\1/', $numStr)) {
-                            $accentClass = 'accent-platinum';
-                            $categoryName = 'Prio Platinum';
-                            $icon = 'fa-crown';
-                        } elseif (substr_count($numStr, '8') >= 2 || substr_count($numStr, '9') >= 2) {
-                            $accentClass = 'accent-gold';
-                            $categoryName = 'Prio Gold';
-                            $icon = 'fa-gem';
-                        }
-                    @endphp
-                    <div class="number-card pilih-nomor" data-nomor="0{{ $number->nomor }}">
-                        <div class="card-accent {{ $accentClass }}">
-                            <span>{{ $categoryName }}</span>
-                            <i class="fas {{ $icon }}"></i>
-                        </div>
-                        <div class="card-content">
-                            <span class="num-val">0{{ $number->nomor }}</span>
-                            <div class="bonus-info">
-                                <div>Total Kuota 260GB / Tahun</div>
-                                <div>Masa Aktif Kartu 3 Tahun</div>
+                            if (preg_match('/(\d)\1\1/', $numStr)) {
+                                $accentClass = 'accent-platinum';
+                                $categoryName = 'Prio Platinum';
+                                $icon = 'fa-crown';
+                            } elseif (substr_count($numStr, '8') >= 2 || substr_count($numStr, '9') >= 2) {
+                                $accentClass = 'accent-gold';
+                                $categoryName = 'Prio Gold';
+                                $icon = 'fa-gem';
+                            }
+                        @endphp
+                        <div class="number-card pilih-nomor fade-in-content" data-nomor="0{{ $number->nomor }}">
+                            <div class="card-accent {{ $accentClass }}">
+                                <span>{{ $categoryName }}</span>
+                                <i class="fas {{ $icon }}"></i>
+                            </div>
+                            <div class="card-content">
+                                <span class="num-val">0{{ $number->nomor }}</span>
+                                <div class="bonus-info">
+                                    <div>Total Kuota 260GB / Tahun</div>
+                                    <div>Masa Aktif Kartu 3 Tahun</div>
+                                </div>
+                            </div>
+                            <div class="card-footer-price">
+                                Free SIM Card
                             </div>
                         </div>
-                        <div class="card-footer-price">
-                            Free SIM Card
-                        </div>
+                    @endforeach
+                @else
+                    <div class="col-12 py-5 text-center">
+                        <p class="text-muted">Maaf, nomor tidak ditemukan. Coba hapus filter atau cari pola lain.</p>
                     </div>
-                @endforeach
-            @else
-                <div class="col-12 py-5 text-center">
-                    <p class="text-muted">Maaf, nomor tidak ditemukan. Coba hapus filter atau cari pola lain.</p>
+                @endif
+            </div>
+
+            <!-- Pagination -->
+            @if ($results->hasPages())
+                <div class="pagination-area">
+                    @if (!$results->onFirstPage())
+                        <a href="{{ $results->appends(['search' => request('search')])->previousPageUrl() }}"
+                            class="page-btn ajax-link">
+                            Sebelumnya
+                        </a>
+                    @endif
+
+                    @if ($results->hasMorePages())
+                        <a href="{{ $results->appends(['search' => request('search')])->nextPageUrl() }}"
+                            class="page-btn ajax-link">
+                            Selanjutnya
+                        </a>
+                    @endif
                 </div>
             @endif
         </div>
-
-        <!-- Pagination -->
-        @if ($results->hasPages())
-            <div class="pagination-area">
-                @if (!$results->onFirstPage())
-                    <a href="{{ $results->appends(['search' => request('search')])->previousPageUrl() }}" class="page-btn">
-                        Sebelumnya
-                    </a>
-                @endif
-
-                @if ($results->hasMorePages())
-                    <a href="{{ $results->appends(['search' => request('search')])->nextPageUrl() }}" class="page-btn">
-                        Selanjutnya
-                    </a>
-                @endif
-            </div>
-        @endif
     </div>
 
     <!-- Footer -->
@@ -569,16 +711,156 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        document.querySelectorAll('.pilih-nomor').forEach(card => {
-            card.addEventListener('click', () => {
-                const nomor = card.getAttribute('data-nomor');
-                document.getElementById('popupNomorText').textContent = nomor;
+        // Number Selection Logic (Re-bindable)
+        function bindSelectionEvents() {
+            document.querySelectorAll('.pilih-nomor').forEach(card => {
+                card.addEventListener('click', () => {
+                    const nomor = card.getAttribute('data-nomor');
+                    document.getElementById('popupNomorText').textContent = nomor;
 
-                const pesan = `Halo, saya tertarik pesan nomor cantik ini: ${nomor}. Mohon info lanjut.`;
-                document.getElementById('popupWaBtn').href = `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
+                    const pesan = `Halo, saya tertarik pesan nomor cantik ini: ${nomor}. Mohon info lanjut.`;
+                    document.getElementById('popupWaBtn').href = `https://wa.me/6282283331333?text=${encodeURIComponent(pesan)}`;
 
-                $('#popupNomor').modal('show');
+                    $('#popupNomor').modal('show');
+                });
             });
+        }
+
+        // Auto-scroll active category into view
+        function scrollActiveIntoView() {
+            const activeBtn = document.querySelector('.cat-btn.active');
+            const filterContainer = document.querySelector('.category-filter');
+
+            if (activeBtn && filterContainer) {
+                const containerRect = filterContainer.getBoundingClientRect();
+                const btnRect = activeBtn.getBoundingClientRect();
+
+                if (btnRect.left < containerRect.left || btnRect.right > containerRect.right) {
+                    activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+            }
+        }
+
+        // AJAX Navigation Logic
+        async function loadContent(url, updateHistory = true) {
+            const resultsArea = document.getElementById('results-area');
+            const filterContainer = document.querySelector('.category-filter');
+
+            // Add loading state
+            resultsArea.classList.add('loading');
+
+            try {
+                const response = await fetch(url);
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Update Grid and Pagination
+                const newArea = doc.getElementById('results-area');
+                if (newArea) {
+                    resultsArea.innerHTML = newArea.innerHTML;
+                }
+
+                // Update Category Buttons State
+                const newFilters = doc.querySelector('.category-filter');
+                if (newFilters) {
+                    filterContainer.innerHTML = newFilters.innerHTML;
+                }
+
+                // Sync Search Input Value
+                const newSearchInput = doc.querySelector('input[name="search"]');
+                const currentSearchInput = document.querySelector('input[name="search"]');
+                if (newSearchInput && currentSearchInput) {
+                    currentSearchInput.value = newSearchInput.value;
+                }
+
+                // Smooth opacity effect
+                resultsArea.classList.remove('loading');
+
+                // Update URL
+                if (updateHistory) {
+                    window.history.pushState({ url }, '', url);
+                }
+
+                // Re-bind listeners
+                bindSelectionEvents();
+                scrollActiveIntoView();
+                bindAjaxLinks();
+
+            } catch (error) {
+                console.error('AJAX Error:', error);
+                window.location.href = url; // Fallback to full reload
+            }
+        }
+
+        function bindAjaxLinks() {
+            document.querySelectorAll('.cat-btn, .ajax-link').forEach(link => {
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    loadContent(link.href);
+                };
+            });
+        }
+
+        // Handle Scroll Indicators Visibility
+        function updateScrollIndicators() {
+            const filterContainer = document.querySelector('.category-filter');
+            const leftIndicator = document.querySelector('.scroll-indicator-left');
+            const rightIndicator = document.querySelector('.scroll-indicator-right');
+
+            if (!filterContainer || !leftIndicator || !rightIndicator) return;
+
+            const scrollLeft = filterContainer.scrollLeft;
+            const scrollWidth = filterContainer.scrollWidth;
+            const clientWidth = filterContainer.clientWidth;
+
+            // Show left indicator if scrolled
+            leftIndicator.style.opacity = scrollLeft > 20 ? '1' : '0';
+            leftIndicator.style.visibility = scrollLeft > 20 ? 'visible' : 'hidden';
+
+            // Show right indicator if more to scroll
+            const atEnd = scrollLeft + clientWidth >= scrollWidth - 20;
+            rightIndicator.style.opacity = atEnd ? '0' : '1';
+            rightIndicator.style.visibility = atEnd ? 'hidden' : 'visible';
+        }
+
+        // Initial Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            bindSelectionEvents();
+            scrollActiveIntoView();
+            bindAjaxLinks();
+
+            // Set up scroll indicator listeners
+            const filterContainer = document.querySelector('.category-filter');
+            const leftIndicator = document.querySelector('.scroll-indicator-left');
+            const rightIndicator = document.querySelector('.scroll-indicator-right');
+
+            if (filterContainer) {
+                filterContainer.addEventListener('scroll', updateScrollIndicators);
+                window.addEventListener('resize', updateScrollIndicators);
+                setTimeout(updateScrollIndicators, 500); // Initial check
+
+                // Make arrows clickable
+                if (leftIndicator) {
+                    leftIndicator.addEventListener('click', () => {
+                        filterContainer.scrollBy({ left: -200, behavior: 'smooth' });
+                    });
+                }
+                if (rightIndicator) {
+                    rightIndicator.addEventListener('click', () => {
+                        filterContainer.scrollBy({ left: 200, behavior: 'smooth' });
+                    });
+                }
+            }
+        });
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.url) {
+                loadContent(e.state.url, false);
+            } else {
+                window.location.reload();
+            }
         });
     </script>
 </body>
