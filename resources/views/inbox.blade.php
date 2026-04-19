@@ -76,7 +76,7 @@
                                                             </h5>
                                                         </div>
                                                         <div class="modal-body">
-                                                            <form action="masuk/{{ $row->idkeluar }}" method="post">
+                                                            <form action="masuk/{{ $row->idkeluar }}" method="post" class="form-approve">
                                                                 @csrf
                                                                 <h5>Pastikan Barang yang diterima sudah sesuai, stok
                                                                     <strong>{{ $row->denom }}</strong> dengan Quantity
@@ -127,9 +127,18 @@
                 [0, "desc"]
             ]
         });
-    </script>
 
-    <script>
+        // 🔒 ANTI DOUBLE-CLICK pada tombol "Terima" di modal approval
+        $(document).on('submit', '.form-approve', function(e) {
+            const $btn = $(this).find('button[type="submit"]');
+            if ($btn.prop('disabled')) {
+                e.preventDefault();
+                return false;
+            }
+            $btn.prop('disabled', true)
+                .html('<span class="spinner-border spinner-border-sm"></span> Memproses...');
+        });
+    </script>
         // Add Row untuk total disetiap menu
         $("#add-row1").DataTable({
             searching: false,

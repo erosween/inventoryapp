@@ -26,7 +26,7 @@
                                 </div>
                             </div>
 
-                            <form action="{{ url('form/formkeluartap') }}" method="POST">
+                            <form action="{{ url('form/formkeluartap') }}" method="POST" id="formKeluarTap">
                                 @csrf
 
                                 <div class="card-body">
@@ -71,7 +71,7 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
-                                                <input type="number" name="qty" class="form-control" min="1"
+                                                <input type="number" name="qty" id="qty" class="form-control" min="1"
                                                     required>
                                             </div>
                                         </div>
@@ -126,7 +126,7 @@
                                     <a href="{{ url('keluar') }}" class="btn btn-light">
                                         Kembali
                                     </a>
-                                    <button type="submit" class="btn btn-primary">
+                                    <button type="submit" id="submitBtn" class="btn btn-primary">
                                         Simpan
                                     </button>
                                 </div>
@@ -190,12 +190,28 @@
         $('input[name="qty"]').on('input', function() {
             const qty = parseInt($(this).val()) || 0;
 
-            if (qty > currentTapStock) {
+            if (qty > currentTapStock || currentTapStock <= 0) {
                 $(this).addClass('is-invalid');
                 $('#stok_tap_warning').removeClass('d-none');
+                $('#submitBtn').prop('disabled', true);
             } else {
                 $(this).removeClass('is-invalid');
                 $('#stok_tap_warning').addClass('d-none');
+                $('#submitBtn').prop('disabled', false);
+            }
+        });
+
+        // 🔒 BLOCK submit if qty > stock (belt-and-suspenders)
+        $('#formKeluarTap').on('submit', function(e) {
+            const qty = parseInt($('#qty').val()) || 0;
+            if (qty > currentTapStock || currentTapStock <= 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Stok Tidak Cukup',
+                    text: 'Quantity (' + qty + ') melebihi stok TAP (' + currentTapStock + ')'
+                });
+                return false;
             }
         });
     </script>

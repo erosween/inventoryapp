@@ -552,20 +552,42 @@
             });
         @endif
 
-        // GLOBAL ANTI DOUBLE SUBMIT
-        document.addEventListener('submit', function(e) {
-            if (e.target.method && e.target.method.toUpperCase() === 'GET') return;
-            if (e.target.classList.contains('form-delete')) return; 
+        // GLOBAL ANTI DOUBLE SUBMIT (ENTERPRISE GRADE)
+        (function() {
+            const submittedForms = new WeakSet();
 
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                setTimeout(() => {
+            document.addEventListener('submit', function(e) {
+                // Skip GET forms & delete forms (handled by SweetAlert)
+                if (e.target.method && e.target.method.toUpperCase() === 'GET') return;
+                if (e.target.classList.contains('form-delete')) return;
+
+                // ⛔ BLOCK if this form was already submitted
+                if (submittedForms.has(e.target)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+
+                // 🔒 Mark as submitted IMMEDIATELY (synchronous, no setTimeout)
+                submittedForms.add(e.target);
+
+                // 🎨 Visual feedback
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                if (submitBtn) {
                     submitBtn.disabled = true;
-                    const originalText = submitBtn.innerHTML;
-                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-                }, 50);
-            }
-        });
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Memproses...';
+                }
+
+                // 🔄 Safety: re-enable after 10s in case of network error
+                setTimeout(function() {
+                    submittedForms.delete(e.target);
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = 'Simpan';
+                    }
+                }, 10000);
+            }, true); // useCapture = true → runs BEFORE any other handler
+        })();
     </script>
 
 </body>

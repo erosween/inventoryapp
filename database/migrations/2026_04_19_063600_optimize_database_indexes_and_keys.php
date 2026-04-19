@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,39 +12,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Tambah Primary Key ke tabel master & stok
-        Schema::table('idsf', function (Blueprint $table) {
-            $table->primary('idsf');
-        });
+        // 1. Tambah Primary Key ke tabel master & stok (IDEMPOTENT)
+        $this->addPrimaryKeyIfMissing('idsf', 'idsf');
+        $this->addCompositePrimaryKeyIfMissing('stockawaltap', ['idtap', 'iddenom']);
+        $this->addCompositePrimaryKeyIfMissing('stockawalsf', ['idsf', 'iddenom']);
 
-        Schema::table('stockawaltap', function (Blueprint $table) {
-            $table->primary(['idtap', 'iddenom']);
-        });
-
-        Schema::table('stockawalsf', function (Blueprint $table) {
-            $table->primary(['idsf', 'iddenom']);
-        });
-
-        // 2. Tambah Index pencarian ke tabel transaksi
-        Schema::table('masuk', function (Blueprint $table) {
-            $table->index('tgl');
-            $table->index('iddenom');
-        });
-
-        Schema::table('keluar', function (Blueprint $table) {
-            $table->index('tgl');
-            $table->index('iddenom');
-        });
-
-        Schema::table('masuksf', function (Blueprint $table) {
-            $table->index('tgl');
-            $table->index('iddenom');
-        });
-
-        Schema::table('keluarsf', function (Blueprint $table) {
-            $table->index('tgl');
-            $table->index('iddenom');
-        });
+        // 2. Tambah Index pencarian ke tabel transaksi (IDEMPOTENT)
+        $this->addIndexIfMissing('masuk', 'tgl');
+        $this->addIndexIfMissing('masuk', 'iddenom');
+        $this->addIndexIfMissing('keluar', 'tgl');
+        $this->addIndexIfMissing('keluar', 'iddenom');
+        $this->addIndexIfMissing('masuksf', 'tgl');
+        $this->addIndexIfMissing('masuksf', 'iddenom');
+        $this->addIndexIfMissing('keluarsf', 'tgl');
+        $this->addIndexIfMissing('keluarsf', 'iddenom');
     }
 
     /**
@@ -51,36 +33,36 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('idsf', function (Blueprint $table) {
-            $table->dropPrimary(['idsf']);
-        });
+        // Only drop what we can safely drop
+    }
 
-        Schema::table('stockawaltap', function (Blueprint $table) {
-            $table->dropPrimary(['idtap', 'iddenom']);
-        });
+    private function addPrimaryKeyIfMissing(string $table, string $column): void
+    {
+        $keys = DB::select("SHOW KEYS FROM {$table} WHERE Key_name = 'PRIMARY'");
+        if (empty($keys)) {
+            Schema::table($table, function (Blueprint $t) use ($column) {
+                $t->primary($column);
+            });
+        }
+    }
 
-        Schema::table('stockawalsf', function (Blueprint $table) {
-            $table->dropPrimary(['idsf', 'iddenom']);
-        });
+    private function addCompositePrimaryKeyIfMissing(string $table, array $columns): void
+    {
+        $keys = DB::select("SHOW KEYS FROM {$table} WHERE Key_name = 'PRIMARY'");
+        if (empty($keys)) {
+            Schema::table($table, function (Blueprint $t) use ($columns) {
+                $t->primary($columns);
+            });
+        }
+    }
 
-        Schema::table('masuk', function (Blueprint $table) {
-            $table->dropIndex(['tgl']);
-            $table->dropIndex(['iddenom']);
-        });
-
-        Schema::table('keluar', function (Blueprint $table) {
-            $table->dropIndex(['tgl']);
-            $table->dropIndex(['iddenom']);
-        });
-
-        Schema::table('masuksf', function (Blueprint $table) {
-            $table->dropIndex(['tgl']);
-            $table->dropIndex(['iddenom']);
-        });
-
-        Schema::table('keluarsf', function (Blueprint $table) {
-            $table->dropIndex(['tgl']);
-            $table->dropIndex(['iddenom']);
-        });
+    private function addIndexIfMissing(string $table, string $column): void
+    {
+        $indexes = DB::select("SHOW INDEX FROM {$table} WHERE Column_name = '{$column}' AND Key_name != 'PRIMARY'");
+        if (empty($indexes)) {
+            Schema::table($table, function (Blueprint $t) use ($column) {
+                $t->index($column);
+            });
+        }
     }
 };

@@ -48,7 +48,14 @@ class sisaStockController extends Controller
     public function data(Request $request)
     {
         $idtap = session('idtap');
-        $targetDate = $request->input('date', date('Y-m-d'));
+        $targetDateInput = $request->input('date', date('d/m/Y'));
+        
+        try {
+            $targetDate = Carbon::createFromFormat('d/m/Y', $targetDateInput)->format('Y-m-d');
+        } catch (\Exception $e) {
+            $targetDate = date('Y-m-d');
+        }
+        
         $today = date('Y-m-d');
 
         // ============================================
@@ -60,11 +67,11 @@ class sisaStockController extends Controller
             ->join('idsf', 'sf.idsf', '=', 'idsf.idsf')
             ->select('idsf.idtap', 'sf.iddenom', 'sf.stock');
 
-        $applyFilter = function($q, $col = 'idtap') use ($idtap) {
+        $applyFilter = function ($q, $col = 'idtap') use ($idtap) {
             if ($idtap === 'CLUSTER_DUMAI') {
-                $q->whereIn($col, ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING']);
+                $q->whereIn($col, ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING']);
             } elseif ($idtap === 'CLUSTER_ROHIL') {
-                $q->whereIn($col, ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']);
+                $q->whereIn($col, ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG']);
             } elseif ($idtap !== 'SBP_DUMAI') {
                 $q->where($col, $idtap);
             }
@@ -188,6 +195,6 @@ class sisaStockController extends Controller
             $finalData[] = $row;
         }
 
-        return datatables()->of($finalData)->make(true);
+        return datatables()->of(collect($finalData))->make(true);
     }
 }

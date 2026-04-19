@@ -120,7 +120,7 @@
 
                                 <div class="card-footer text-end">
                                     <a href="{{ url('DO') }}" class="btn btn-light">Back</a>
-                                    <button type="submit" class="btn btn-primary">
+                                    <button type="submit" id="submitBtn" class="btn btn-primary">
                                         Simpan
                                     </button>
                                 </div>

@@ -165,7 +165,7 @@
             $('#qty').on('input', function() {
                 const qty = parseInt($(this).val()) || 0;
 
-                if (qty > currentSegelStock) {
+                if (qty > currentSegelStock || currentSegelStock <= 0) {
                     $(this).addClass('is-invalid');
                     $('#stok_warning').removeClass('d-none');
                     $('#submitBtn').prop('disabled', true);
@@ -173,6 +173,20 @@
                     $(this).removeClass('is-invalid');
                     $('#stok_warning').addClass('d-none');
                     $('#submitBtn').prop('disabled', false);
+                }
+            });
+
+            // 🔒 BLOCK submit if qty > stock
+            $('#formInject').on('submit', function(e) {
+                const qty = parseInt($('#qty').val()) || 0;
+                if (qty > currentSegelStock || currentSegelStock <= 0) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Stok Tidak Cukup',
+                        text: 'Quantity (' + qty + ') melebihi stok segel (' + currentSegelStock + ')'
+                    });
+                    return false;
                 }
             });
 
