@@ -103,7 +103,10 @@
                 ajax: {
                     url: "{{ route('sisastock.data') }}",
                     data: function(d) {
-                        d.date = $('#target_date').val();
+                        return {
+                            date: $('#target_date').val(),
+                            draw: d.draw
+                        };
                     }
                 },
                 columns: [
