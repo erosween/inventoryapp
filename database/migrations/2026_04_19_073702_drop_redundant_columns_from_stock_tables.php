@@ -12,15 +12,30 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('stockawaltap', function (Blueprint $table) {
-            $table->dropColumn(['cluster', 'denom']);
+            if (Schema::hasColumn('stockawaltap', 'cluster')) {
+                $table->dropColumn('cluster');
+            }
+            if (Schema::hasColumn('stockawaltap', 'denom')) {
+                $table->dropColumn('denom');
+            }
         });
 
         Schema::table('stockawalfeb', function (Blueprint $table) {
-            $table->dropColumn(['cluster', 'denom']);
+            if (Schema::hasColumn('stockawalfeb', 'cluster')) {
+                $table->dropColumn('cluster');
+            }
+            if (Schema::hasColumn('stockawalfeb', 'denom')) {
+                $table->dropColumn('denom');
+            }
         });
 
         Schema::table('stockawalsf', function (Blueprint $table) {
-            $table->dropColumn(['idtap', 'namasf']);
+            if (Schema::hasColumn('stockawalsf', 'idtap')) {
+                $table->dropColumn('idtap');
+            }
+            if (Schema::hasColumn('stockawalsf', 'namasf')) {
+                $table->dropColumn('namasf');
+            }
         });
     }
 
