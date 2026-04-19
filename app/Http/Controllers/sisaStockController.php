@@ -71,7 +71,7 @@ class sisaStockController extends Controller
         };
 
         $applyFilter($gudang);
-        $applyFilter($sf);
+        $applyFilter($sf, 'idsf.idtap');
 
         foreach ($gudang->unionAll($sf)->get() as $s) {
             $key = $s->idtap . '|' . $s->iddenom;
