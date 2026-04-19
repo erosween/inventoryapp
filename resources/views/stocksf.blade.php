@@ -68,7 +68,7 @@
                                             @endif
                                         @endforeach
                                         {{-- TOTAL KANAN --}}
-                                        <th rowspan="2" class="th-main sticky-total">TOTAL</th>
+                                        <th rowspan="2" class="th-main sticky-total" style="vertical-align: middle !important;">GRAND<br>TOTAL</th>
                                     </tr>
 
                                     {{-- SUB HEADER --}}
@@ -101,8 +101,8 @@
                                                 @endforeach
                                             @endforeach
                                             {{-- TOTAL PER SF --}}
-                                            <td class="text-right sticky-total font-weight-bold">
-                                                {{ number_format($rowTotal) }}
+                                            <td class="text-right sticky-total-col">
+                                                {{ number_format($row->grand_total ?? 0) }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -123,18 +123,8 @@
                                         @endforeach
 
                                         {{-- TOTAL GRAND --}}
-                                        <th class="text-right sticky-total">
-                                            {{ number_format(
-                                                $data->sum(function ($row) use ($groups) {
-                                                    $t = 0;
-                                                    foreach ($groups as $items) {
-                                                        foreach ($items as $d) {
-                                                            $t += $row->{$d->iddenom} ?? 0;
-                                                        }
-                                                    }
-                                                    return $t;
-                                                }),
-                                            ) }}
+                                        <th class="text-right sticky-total-footer">
+                                            {{ number_format($data->sum('grand_total')) }}
                                         </th>
                                     </tr>
                                 </tfoot>
@@ -154,6 +144,7 @@
 @push('scripts')
     <script>
         $('#stock').DataTable({
+            ordering: false,
             pageLength: 10,
             autoWidth: false,
             dom: '<"top"Bf>rt<"bottom"lip><"clear">',
@@ -183,8 +174,14 @@
 
         /* TABLE */
         #stock {
-            font-size: 11px;
-            min-width: 2200px;
+            font-size: 9.5px;
+            white-space: nowrap;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        #stock td, #stock th {
+            padding: 4px 6px !important;
+            border: 0.1px solid #e2e8f0;
         }
 
         /* HEADER */
@@ -201,47 +198,47 @@
         }
 
         .th-segel {
-            background: #334155;
+            background: #1e293b;
         }
 
         .th-1-hari {
-            background: #2563eb;
+            background: #1e3a8a;
         }
 
         .th-2-hari {
-            background: #0891b2;
+            background: #1e40af;
         }
 
         .th-3-hari {
-            background: #059669;
+            background: #1d4ed8;
         }
 
         .th-5-hari {
-            background: #16a34a;
+            background: #2563eb;
         }
 
         .th-7-hari {
-            background: #2173e6;
+            background: #3b82f6;
         }
 
         .th-14-hari {
-            background: #682799;
+            background: #0f766e;
         }
 
         .th-28-hari {
-            background: #4022ea;
+            background: #0d9488;
         }
 
         .th-30-hari {
-            background: #7082e8;
+            background: #0891b2;
         }
 
         .th-voice {
-            background: #7082e8;
+            background: #3730a3;
         }
 
         .th-lainnya {
-            background: #7082e8;
+            background: #475569;
         }
 
         /* SUB HEADER */
@@ -343,28 +340,53 @@
 
         /* FIX WIDTH KOLOM */
         .sticky-no {
-            width: 40px;
-            min-width: 40px;
-            max-width: 40px;
+            width: 45px !important;
+            min-width: 45px !important;
+            max-width: 45px !important;
         }
 
         .sticky-tap {
-            width: 140px;
-            min-width: 140px;
-            max-width: 140px;
+            width: 120px !important;
+            min-width: 120px !important;
+            max-width: 120px !important;
         }
 
         /* BODY BACKGROUND FIX */
-        /* HEADER */
-        #stock thead .sticky-no,
-        #stock thead .sticky-tap,
-        #stock thead .sticky-sf {
+        /* HEADER STICKY (V-Freeze) */
+        #stock thead th {
             position: sticky;
-            top: 0;
-            z-index: 20;
-            /* LEBIH TINGGI DARI GROUP */
+            z-index: 31;
             background: #4f46e5;
             color: #fff;
+            vertical-align: middle !important;
+            border: 0.1px solid #ffffff33 !important;
+        }
+
+        #stock thead tr.group-header th {
+            top: 0;
+            z-index: 33; /* Higher than sub-header */
+        }
+
+        /* Cells in Row 2 that stay sticky below Row 1 */
+        #stock thead tr.sub-header th {
+            top: 35px; /* Manually tuned offset to account for GRAND TOTAL height */
+            z-index: 32;
+            background: #f1f5f9 !important;
+            color: #1f2937 !important;
+            border: 0.1px solid #cbd5e1 !important;
+        }
+
+        /* CORNER STICKY (Horizontal + Vertical Intersections) */
+        #stock thead .sticky-no,
+        #stock thead .sticky-tap,
+        #stock thead .sticky-sf,
+        #stock thead .sticky-total,
+        #stock thead tr.group-header th[rowspan="2"] {
+            z-index: 50 !important;
+            top: 0;
+            background: #4f46e5 !important;
+            color: #fff !important;
+            vertical-align: middle !important;
         }
 
         /* BODY */
@@ -388,7 +410,7 @@
         /* TAP */
         #stock thead .sticky-tap,
         #stock tbody .sticky-tap {
-            left: 40px;
+            left: 45px;
             /* SAMA DENGAN WIDTH NO */
         }
 
@@ -408,23 +430,26 @@
             background: #0f172a;
             color: #ffffff;
             font-weight: 700;
-            width: 40px;
-            min-width: 40px;
-            max-width: 40px;
+            width: 45px !important;
+            min-width: 45px !important;
+            max-width: 45px !important;
         }
 
         /* SF */
         .sticky-sf {
             position: sticky;
-            left: 180px;
-            /* 40 (NO) + 140 (TAP) */
+            left: 165px;
+            /* 45 (NO) + 120 (TAP) */
             z-index: 20;
             background: #4f46e5;
             color: #ffffff;
             font-weight: 600;
-            width: 160px;
-            min-width: 160px;
-            max-width: 160px;
+            width: 180px !important;
+            min-width: 180px !important;
+            max-width: 180px !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
 
@@ -442,15 +467,17 @@
 
         #stock tfoot .sticky-sf {
             position: sticky;
-            left: 180px;
+            left: 165px;
             z-index: 28;
             background: #0f172a;
             color: #ffffff;
             font-weight: 700;
         }
 
-        .sticky-sf {
-            box-shadow: 2px 0 6px rgba(0, 0, 0, 0.18);
-        }
+        /* STICKY RIGHT COLUMN FOR GRAND TOTAL */
+        .sticky-total { position: sticky !important; right: 0; z-index: 10; background: #ca8a04 !important; color: #fff !important; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
+        .sticky-total-col { position: sticky !important; right: 0; z-index: 9; background: #fff; font-weight: bold; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
+        .sticky-total-footer { position: sticky !important; right: 0; z-index: 39; background: #0f172a; color: #ffffff; font-weight: 700; box-shadow: -2px 0 6px rgba(0, 0, 0, 0.25); }
+        #stock tbody tr:hover td.sticky-total-col { background-color: #f1f5f9; }
     </style>
 @endpush

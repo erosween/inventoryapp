@@ -12,9 +12,10 @@ class FormInjectsegelController extends Controller
     {
         $idtap = session('idtap');
 
-        $denom = DB::table('kategori_inject')
-                    ->select('*')
-                    ->where('kategori','SEGEL')
+        $denom = DB::table('denom')
+                    ->select('iddenom', 'denom')
+                    ->where('kategori_inject','SEGEL')
+                    ->where('iddenom', '!=', 'SEGEL')
                     ->get();
 
         if($idtap == 'SBP_DUMAI'){

@@ -52,6 +52,7 @@
                                                 {{ $groupName }}
                                             </th>
                                         @endforeach
+                                        <th rowspan="2" class="th-main sticky-total" style="vertical-align: middle !important;">GRAND<br>TOTAL</th>
                                     </tr>
 
                                     <tr>
@@ -79,6 +80,9 @@
                                                     </td>
                                                 @endforeach
                                             @endforeach
+                                            <td class="text-end font-weight-bold sticky-total-col">
+                                                {{ number_format($row->grand_total ?? 0) }}
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -95,6 +99,9 @@
                                                 </th>
                                             @endforeach
                                         @endforeach
+                                        <th class="text-end sticky-total-footer">
+                                            {{ number_format($data->sum('grand_total')) }}
+                                        </th>
                                     </tr>
                                 </tfoot>
 
@@ -113,6 +120,7 @@
 @push('scripts')
     <script>
         $('#stock').DataTable({
+            ordering: false,
             pageLength: 10,
             autoWidth: false,
             dom: '<"top"Bf>rt<"bottom"lip><"clear">',
@@ -142,8 +150,14 @@
 
         /* TABLE */
         #stock {
-            font-size: 11px;
-            min-width: 2200px;
+            font-size: 9.5px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        #stock td, #stock th {
+            padding: 4px 6px !important;
+            white-space: normal !important;
+            word-wrap: break-word;
         }
 
         /* HEADER */
@@ -158,49 +172,48 @@
             font-weight: 600;
             text-align: center
         }
-
         .th-segel {
-            background: #334155;
+            background: #1e293b;
         }
 
         .th-1-hari {
-            background: #2563eb;
+            background: #1e3a8a;
         }
 
         .th-2-hari {
-            background: #0891b2;
+            background: #1e40af;
         }
 
         .th-3-hari {
-            background: #059669;
+            background: #1d4ed8;
         }
 
         .th-5-hari {
-            background: #16a34a;
+            background: #2563eb;
         }
 
         .th-7-hari {
-            background: #2173e6;
+            background: #3b82f6;
         }
 
         .th-14-hari {
-            background: #682799;
+            background: #0f766e;
         }
 
         .th-28-hari {
-            background: #4022ea;
+            background: #0d9488;
         }
 
         .th-30-hari {
-            background: #7082e8;
+            background: #0891b2;
         }
 
         .th-voice {
-            background: #7082e8;
+            background: #3730a3;
         }
 
         .th-lainnya {
-            background: #7082e8;
+            background: #475569;
         }
 
         /* SUB HEADER */
@@ -302,27 +315,49 @@
 
         /* FIX WIDTH KOLOM */
         .sticky-no {
-            width: 40px;
-            min-width: 40px;
-            max-width: 40px;
+            width: 45px !important;
+            min-width: 45px !important;
+            max-width: 45px !important;
         }
 
         .sticky-tap {
-            width: 140px;
-            min-width: 140px;
-            max-width: 140px;
+            width: 120px !important;
+            min-width: 120px !important;
+            max-width: 120px !important;
         }
 
-        /* BODY BACKGROUND FIX */
-        /* HEADER */
-        #stock thead .sticky-no,
-        #stock thead .sticky-tap {
+        /* HEADER STICKY (V-Freeze) */
+        #stock thead th {
             position: sticky;
-            top: 0;
-            z-index: 20;
-            /* LEBIH TINGGI DARI GROUP */
+            z-index: 30;
             background: #4f46e5;
             color: #fff;
+            vertical-align: middle !important;
+        }
+
+        #stock thead tr.group-header th {
+            top: 0;
+            z-index: 31;
+        }
+
+        #stock thead tr:nth-child(2) th {
+            top: 28px; /* Fixed height for sticky sub-header */
+            z-index: 30;
+            background: #f1f5f9 !important;
+            color: #1f2937 !important;
+        }
+
+        /* CORNER STICKY (Horizontal + Vertical) */
+        #stock thead .sticky-no,
+        #stock thead .sticky-tap,
+        #stock thead .sticky-total {
+            z-index: 50 !important;
+        }
+
+        #stock thead tr.group-header .sticky-no,
+        #stock thead tr.group-header .sticky-tap,
+        #stock thead tr.group-header .sticky-total {
+            top: 0;
         }
 
         /* BODY */
@@ -346,7 +381,7 @@
         /* TAP */
         #stock thead .sticky-tap,
         #stock tbody .sticky-tap {
-            left: 40px;
+            left: 45px;
             /* SAMA DENGAN WIDTH NO */
         }
 
@@ -366,23 +401,23 @@
             background: #0f172a;
             color: #ffffff;
             font-weight: 700;
-            width: 40px;
-            min-width: 40px;
-            max-width: 40px;
+            width: 45px !important;
+            min-width: 45px !important;
+            max-width: 45px !important;
         }
 
         /* TAP */
         #stock tfoot .sticky-tap {
             position: sticky;
-            left: 40px;
+            left: 45px;
             /* HARUS sama dengan width NO */
             z-index: 29;
             background: #0f172a;
             color: #ffffff;
             font-weight: 700;
-            width: 140px;
-            min-width: 140px;
-            max-width: 140px;
+            width: 120px !important;
+            min-width: 120px !important;
+            max-width: 120px !important;
         }
 
         /* Shadow pemisah footer */
@@ -395,5 +430,11 @@
             position: sticky;
             bottom: 0;
         }
+
+        /* STICKY RIGHT COLUMN FOR GRAND TOTAL */
+        .sticky-total { position: sticky !important; right: 0; z-index: 10; background: #ca8a04 !important; color: #fff !important; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
+        .sticky-total-col { position: sticky !important; right: 0; z-index: 9; background: #fff; font-weight: bold; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
+        .sticky-total-footer { position: sticky !important; right: 0; z-index: 39; background: #0f172a; color: #ffffff; font-weight: 700; box-shadow: -2px 0 6px rgba(0, 0, 0, 0.25); }
+        #stock tbody tr:hover td.sticky-total-col { background-color: #f1f5f9; }
     </style>
 @endpush

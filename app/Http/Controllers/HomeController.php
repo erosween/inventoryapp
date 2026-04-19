@@ -13,58 +13,80 @@ class HomeController extends Controller
     {
         /* ================= MODE ================= */
         $mode = $request->query('mode', 'daily');
+        $idtap = session('idtap');
 
-        /* ================= GLOBAL CUTOFF ================= */
-        $globalCutoff = DB::table('keluarsf')
+        $applyFilter = function($q, $col = 'idtap') use ($idtap) {
+            if ($idtap === 'CLUSTER_DUMAI') {
+                $q->whereIn($col, ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING']);
+            } elseif ($idtap === 'CLUSTER_ROHIL') {
+                $q->whereIn($col, ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']);
+            } elseif ($idtap !== 'SBP_DUMAI') {
+                $q->where($col, $idtap);
+            }
+        };
+
+        /* ================= DETECT CURRENT DATE IN SYSTEM ================= */
+        $latestRecord = DB::table('keluarsf')->max('tgl');
+        $currentDate = $latestRecord ? Carbon::parse($latestRecord) : now();
+        
+        $startThisMonth = $currentDate->copy()->startOfMonth();
+        $endThisMonth   = $currentDate->copy(); // Dipakai untuk akumulasi total (Sales Bulan Ini, Pie, dll)
+
+        /* ================= FAIR GLOBAL CUTOFF (MoM 16 vs 16) ================= */
+        $maxTglHarian = DB::table('keluarsf')
+            ->whereYear('tgl', $currentDate->year)
+            ->whereMonth('tgl', $currentDate->month)
             ->selectRaw('idtap, MAX(tgl) AS last_keluar')
-            ->groupBy('idtap')
-            ->pluck('last_keluar')
-            ->min();
+            ->groupBy('idtap');
+        $applyFilter($maxTglHarian);
+        $maxTglHarian = $maxTglHarian->pluck('last_keluar');
 
-        $cutoff = Carbon::parse($globalCutoff);
-        $cutoffDay = $cutoff->day;
+        $fairCutoffThisMonth = $maxTglHarian->isEmpty() ? $currentDate->copy() : Carbon::parse($maxTglHarian->min());
+        $cutoffDay = $fairCutoffThisMonth->day;
 
-        /* ================= TIME RANGE (FAIR) ================= */
-        $startThisMonth = $cutoff->copy()->startOfMonth();
-        $endThisMonth   = $cutoff->copy();
-
-        $startPrevMonth = $cutoff->copy()->subMonth()->startOfMonth();
-        $endPrevMonth   = $startPrevMonth->copy()->addDays($cutoffDay - 1);
-        $endPrevMonthFull = $startPrevMonth->copy()->endOfMonth();
+        /* ================= PREV MONTH TIME RANGE ================= */
+        $startPrevMonth   = $currentDate->copy()->subMonth()->startOfMonth();
+        $endPrevMonthFull = $currentDate->copy()->subMonth()->endOfMonth();
+        
+        // $endPrevMonth (Partial) dibuat 'Fair' berbanding hari yang sama dengan Cutoff Terendah bulan ini
+        $endPrevMonthPartial = $startPrevMonth->copy()->addDays($cutoffDay - 1);
 
         /* ================= TAP ACTIVITY ================= */
         $tapMasuk = DB::table('masuksf')
             ->selectRaw('idtap, MAX(tgl) AS last_masuk')
-            ->groupBy('idtap')
-            ->pluck('last_masuk', 'idtap');
+            ->groupBy('idtap');
+        $applyFilter($tapMasuk);
+        $tapMasuk = $tapMasuk->pluck('last_masuk', 'idtap');
 
         $tapKeluar = DB::table('keluarsf')
             ->selectRaw('idtap, MAX(tgl) AS last_keluar')
-            ->groupBy('idtap')
-            ->pluck('last_keluar', 'idtap');
+            ->groupBy('idtap');
+        $applyFilter($tapKeluar);
+        $tapKeluar = $tapKeluar->pluck('last_keluar', 'idtap');
 
         $tapList = DB::table('keluarsf')
             ->select('idtap')
             ->distinct()
-            ->orderBy('idtap')
-            ->pluck('idtap');
+            ->orderBy('idtap');
+        $applyFilter($tapList);
+        $tapList = $tapList->pluck('idtap');
 
         /* ================= KPI ================= */
-        $stokSegel =
-            DB::table('stockawaltap')->whereIn('iddenom', ['SEGEL','V16','V33'])->sum('stock')
-            + DB::table('stockawalsf')->whereIn('iddenom', ['SEGEL','V16','V33'])->sum('stock');
+        $qStokSegel1 = DB::table('stockawaltap')->whereIn('iddenom', ['SEGEL','V16','V33']); $applyFilter($qStokSegel1);
+        $qStokSegel2 = DB::table('stockawalsf as sf')->join('idsf', 'sf.idsf', '=', 'idsf.idsf')->whereIn('sf.iddenom', ['SEGEL','V16','V33']); $applyFilter($qStokSegel2, 'idsf.idtap');
+        $stokSegel = $qStokSegel1->sum('stock') + $qStokSegel2->sum('sf.stock');
 
-        $stokInject =
-            DB::table('stockawaltap')->whereNotIn('iddenom', ['SEGEL','V16','V33'])->sum('stock')
-            + DB::table('stockawalsf')->whereNotIn('iddenom', ['SEGEL','V16','V33'])->sum('stock');
+        $qStokInject1 = DB::table('stockawaltap')->whereNotIn('iddenom', ['SEGEL','V16','V33']); $applyFilter($qStokInject1);
+        $qStokInject2 = DB::table('stockawalsf as sf')->join('idsf', 'sf.idsf', '=', 'idsf.idsf')->whereNotIn('sf.iddenom', ['SEGEL','V16','V33']); $applyFilter($qStokInject2, 'idsf.idtap');
+        $stokInject = $qStokInject1->sum('stock') + $qStokInject2->sum('sf.stock');
 
-        $salesBulanIni = DB::table('keluarsf')
-            ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
-            ->sum('qty');
+        $qSalesBulanIni = DB::table('keluarsf')->whereBetween('tgl', [$startThisMonth, $endThisMonth]);
+        $applyFilter($qSalesBulanIni);
+        $salesBulanIni = $qSalesBulanIni->sum('qty');
 
-        $salesPrev = DB::table('keluarsf')
-            ->whereBetween('tgl', [$startPrevMonth, $endPrevMonth])
-            ->sum('qty');
+        $qSalesPrev = DB::table('keluarsf')->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
+        $applyFilter($qSalesPrev);
+        $salesPrev = $qSalesPrev->sum('qty');
 
         $mom = $salesPrev > 0
             ? (($salesBulanIni - $salesPrev) / $salesPrev) * 100
@@ -72,26 +94,28 @@ class HomeController extends Controller
 
         /* ================= CHART SALES ================= */
         if ($mode === 'monthly') {
-            $chartSales = DB::table('keluarsf')
+            $qChartSales = DB::table('keluarsf')
                 ->selectRaw("DATE_FORMAT(tgl,'%Y-%m') AS label, SUM(qty) AS total")
                 ->whereBetween('tgl', [
                     $cutoff->copy()->subMonths(5)->startOfMonth(),
                     $cutoff
                 ])
                 ->groupBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"))
-                ->orderBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"))
-                ->get();
+                ->orderBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"));
+            $applyFilter($qChartSales);
+            $chartSales = $qChartSales->get();
         } else {
-            $chartSales = DB::table('keluarsf')
+            $qChartSales = DB::table('keluarsf')
                 ->selectRaw("DATE(tgl) AS label, SUM(qty) AS total")
                 ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
                 ->groupBy(DB::raw('DATE(tgl)'))
-                ->orderBy('label')
-                ->get();
+                ->orderBy('label');
+            $applyFilter($qChartSales);
+            $chartSales = $qChartSales->get();
         }
 
         /* ================= CHART INJECT ================= */
-        $chartInject = DB::table('injectvf')
+        $qChartInject = DB::table('injectvf')
             ->selectRaw("
                 DATE(tgl) AS label,
                 SUM(CASE WHEN idtap IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN qty ELSE 0 END) AS dumai,
@@ -99,24 +123,26 @@ class HomeController extends Controller
             ")
             ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
             ->groupBy(DB::raw('DATE(tgl)'))
-            ->orderBy('label')
-            ->get();
+            ->orderBy('label');
+        $applyFilter($qChartInject);
+        $chartInject = $qChartInject->get();
 
-        /* ================= MoM PER TAP ================= */
-        $momTap = DB::table('keluarsf')
+        /* ================= MoM PER TAP (FAIR 16 vs 16 CUTOFF) ================= */
+        $qMomTap = DB::table('keluarsf')
             ->selectRaw("
                 idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty
             ", [
-                $startThisMonth, $endThisMonth,
-                $startPrevMonth, $endPrevMonth,
+                $startThisMonth, $fairCutoffThisMonth, // <--- Clamp to FAIR cutoff
+                $startPrevMonth, $endPrevMonthPartial, // <--- Clamp to FAIR cutoff previous month
                 $startPrevMonth, $endPrevMonthFull
             ])
             ->groupBy('idtap')
-            ->orderBy('idtap')
-            ->get()
+            ->orderBy('idtap');
+        $applyFilter($qMomTap);
+        $momTap = $qMomTap->get()
             ->map(function ($r) {
                 $r->mom = $r->prev_partial_qty > 0
                     ? (($r->curr_qty - $r->prev_partial_qty) / $r->prev_partial_qty) * 100
@@ -134,13 +160,13 @@ class HomeController extends Controller
 
         foreach ($clusterMap as $key => $taps) {
             $curr = DB::table('keluarsf')->whereIn('idtap',$taps)
-                ->whereBetween('tgl',[$startThisMonth,$endThisMonth])->sum('qty');
+                ->whereBetween('tgl',[$startThisMonth, $fairCutoffThisMonth])->sum('qty');
 
             $prevPartial = DB::table('keluarsf')->whereIn('idtap',$taps)
-                ->whereBetween('tgl',[$startPrevMonth,$endPrevMonth])->sum('qty');
+                ->whereBetween('tgl',[$startPrevMonth, $endPrevMonthPartial])->sum('qty');
 
             $prevFull = DB::table('keluarsf')->whereIn('idtap',$taps)
-                ->whereBetween('tgl',[$startPrevMonth,$endPrevMonthFull])->sum('qty');
+                ->whereBetween('tgl',[$startPrevMonth, $endPrevMonthFull])->sum('qty');
 
             $momCluster[$key] = (object)[
                 'curr_qty'=>$curr,
@@ -151,15 +177,16 @@ class HomeController extends Controller
         }
 
         /* ================= MoM PER SF ================= */
-        $momSf = DB::table('keluarsf as k')
+        $qMomSf = DB::table('keluarsf as k')
             ->join('idsf as s','k.idsf','=','s.idsf')
             ->selectRaw("
                 k.idtap, k.idsf, s.namasf,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS prev_qty
-            ", [$startThisMonth,$endThisMonth,$startPrevMonth,$endPrevMonth])
-            ->groupBy('k.idtap','k.idsf','s.namasf')
-            ->get()
+            ", [$startThisMonth, $fairCutoffThisMonth, $startPrevMonth, $endPrevMonthPartial])
+            ->groupBy('k.idtap','k.idsf','s.namasf');
+        $applyFilter($qMomSf, 'k.idtap');
+        $momSf = $qMomSf->get()
             ->map(function ($r){
                 $r->mom = $r->prev_qty > 0
                     ? (($r->curr_qty - $r->prev_qty) / $r->prev_qty) * 100
@@ -168,15 +195,16 @@ class HomeController extends Controller
             });
 
              /* ================= MOM DAILY ================= */
-        $momDaily = DB::table('keluarsf')
+        $qMomDaily = DB::table('keluarsf')
             ->selectRaw("
                 DAY(tgl) AS day,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty
-            ", [$startThisMonth,$endThisMonth,$startPrevMonth,$endPrevMonth])
+            ", [$startThisMonth, $fairCutoffThisMonth, $startPrevMonth, $endPrevMonthPartial])
             ->groupBy(DB::raw('DAY(tgl)'))
-            ->orderBy('day')
-            ->get();
+            ->orderBy('day');
+        $applyFilter($qMomDaily);
+        $momDaily = $qMomDaily->get();
         /* ================= TOP SF ================= */
         $topGrowth = $momSf
             ->filter(fn($r) => Str::startsWith($r->idsf,'SF') && $r->mom > 0)
@@ -196,12 +224,69 @@ class HomeController extends Controller
             ->groupBy('idtap')
             ->map(fn($rows) => $rows->sortBy('mom')->values());
 
+        /* ================= NEW: MATRIX TAHUNAN PER TAP ================= */
+        $selectedYear = $request->query('year', date('Y'));
+        
+        $qMatrixData = DB::table('keluarsf')
+            ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
+            ->whereYear('tgl', $selectedYear)
+            ->groupBy('idtap', DB::raw('MONTH(tgl)'));
+        $applyFilter($qMatrixData);
+        $matrixSalesData = $qMatrixData->get();
+            
+        $matrixSales = [];
+        foreach ($tapList as $tap) {
+            $matrixSales[$tap] = array_fill(1, 12, 0); // isi 0 untuk 12 bln
+        }
+        foreach ($matrixSalesData as $row) {
+            $matrixSales[$row->idtap][$row->bulan] = $row->total;
+        }
+
+        /* ================= NEW: MATRIX TAHUNAN INJECT PV PER TAP ================= */
+        $qMatrixInjectData = DB::table('injectvf')
+            ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
+            ->whereYear('tgl', $selectedYear)
+            ->groupBy('idtap', DB::raw('MONTH(tgl)'));
+        $applyFilter($qMatrixInjectData);
+        $matrixInjectData = $qMatrixInjectData->get();
+            
+        $matrixInject = [];
+        foreach ($tapList as $tap) {
+            $matrixInject[$tap] = array_fill(1, 12, 0); // isi 0 untuk 12 bln
+        }
+        foreach ($matrixInjectData as $row) {
+            $matrixInject[$row->idtap][$row->bulan] = $row->total;
+        }
+
+        /* ================= NEW: DOUGHNUT CHART VALIDITY ================= */
+        // PIE SALES
+        $qPieSales = DB::table('keluarsf')
+            ->join('denom', 'keluarsf.iddenom', '=', 'denom.iddenom')
+            ->selectRaw('denom.group_name, SUM(keluarsf.qty) as total')
+            ->whereBetween('keluarsf.tgl', [$startThisMonth, $endThisMonth])
+            // ->whereNotIn('denom.group_name', ['SEGEL', 'VOICE', 'LAINNYA']) // Opt: Filter if needed
+            ->groupBy('denom.group_name')
+            ->orderBy('total', 'desc');
+        $applyFilter($qPieSales, 'keluarsf.idtap');
+        $pieSales = $qPieSales->get();
+
+        // PIE INJECT
+        $qPieInject = DB::table('injectvf')
+            ->join('denom', 'injectvf.iddenom', '=', 'denom.iddenom')
+            ->selectRaw('denom.group_name, SUM(injectvf.qty) as total')
+            ->whereBetween('injectvf.tgl', [$startThisMonth, $endThisMonth])
+            ->groupBy('denom.group_name')
+            ->orderBy('total', 'desc');
+        $applyFilter($qPieInject, 'injectvf.idtap');
+        $pieInject = $qPieInject->get();
+
+
         return view('home', compact(
-            'mode',
+            'mode', 'selectedYear', 'matrixSales', 'matrixInject', 'pieSales', 'pieInject',
             'stokSegel','stokInject','salesBulanIni','mom',
             'chartSales','chartInject',
             'momTap','momSf','topGrowth','topDrop','sfByTap',
-            'tapMasuk','tapKeluar','tapList','globalCutoff','momCluster','momDaily'
+            'tapMasuk','tapKeluar','tapList','momCluster','momDaily'
         ));
     }
 }

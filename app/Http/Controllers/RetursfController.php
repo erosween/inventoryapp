@@ -111,6 +111,17 @@ class ReturSfController extends Controller
     {
         DB::transaction(function () use ($request) {
 
+            // LOCK STOK SF
+            $stockSf = DB::table('stockawalsf')
+                ->where('idsf', $request->idsf)
+                ->where('iddenom', $request->iddenom)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($stockSf < $request->qty) {
+                throw new \Exception('Stok SF tidak mencukupi');
+            }
+
             DB::table('retursf')->insert([
                 'tgl'        => $request->tgl,
                 'idtap'      => $request->idtap,
@@ -143,22 +154,43 @@ class ReturSfController extends Controller
     =============================== */
     public function delete(Request $request, $idretur)
     {
-        DB::transaction(function () use ($request, $idretur) {
+        DB::transaction(function () use ($idretur) {
+
+            $data = DB::table('retursf')
+                ->where('idretur', $idretur)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$data) {
+                throw new \Exception('Data tidak ditemukan');
+            }
+
+            // LOCK STOK TAP
+            $stockTap = DB::table('stockawaltap')
+                ->where('idtap', $data->idtap)
+                ->where('iddenom', $data->iddenom)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($stockTap < $data->qty) {
+                throw new \Exception('Stok TAP tidak mencukupi untuk membatalkan retur');
+            }
+
+            // balikin stok SF
+            DB::table('stockawalsf')
+                ->where('idsf', $data->idsf)
+                ->where('iddenom', $data->iddenom)
+                ->increment('stock', $data->qty);
+
+            // kurangi stok TAP
+            DB::table('stockawaltap')
+                ->where('idtap', $data->idtap)
+                ->where('iddenom', $data->iddenom)
+                ->decrement('stock', $data->qty);
 
             DB::table('retursf')
                 ->where('idretur', $idretur)
                 ->delete();
-
-            // balikin stok
-            DB::table('stockawalsf')
-                ->where('idsf', $request->idsf)
-                ->where('iddenom', $request->iddenom)
-                ->increment('stock', $request->qty);
-
-            DB::table('stockawaltap')
-                ->where('idtap', $request->idtap)
-                ->where('iddenom', $request->iddenom)
-                ->decrement('stock', $request->qty);
         });
 
         return back()->with('success', 'Data berhasil dihapus');

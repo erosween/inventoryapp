@@ -264,109 +264,126 @@
                                     <p>STOCK GUDANG</p>
                                 </a>
                             </li>
-                            {{-- <li class="nav-item {{ request()->is('sisastock') ? 'active' : '' }}">
+                            <li class="nav-item {{ request()->is('sisastock') ? 'active' : '' }}">
                                 <a href="{{ url('sisastock') }}">
-                                    <i class="fas fa-book"></i>
-                                    <p>CEK STOCK DAILY</p>
+                                    <i class="fas fa-history"></i>
+                                    <p>CEK STOK DAILY</p>
                                 </a>
-                            </li> --}}
-                            <li class="nav-section">
-                                <span class="sidebar-mini-icon">
-                                    <i class="fa fa-ellipsis-h"></i>
-                                </span>
-                                <h4 class="text-section">INPUT STOK</h4>
                             </li>
-                            <li class="nav-item">
-                                <a data-toggle="collapse" href="#base"
-                                    class="{{ request()->is('DO') ? '' : 'collapsed' }}">
-                                    <i class="fa fa-building" aria-hidden="true"></i>
-                                    <p>TAP</p>
-                                    <span class="caret"></span>
-                                </a>
-                                <div class="collapse {{ request()->is('DO', 'masuk', 'keluar', 'injectvf', 'vrusak', 'bo') ? 'show' : '' }}"
-                                    id="base">
-                                    <ul class="nav nav-collapse">
-                                        @if (session('idtap') == 'SBP_DUMAI' ||
-                                                session('idtap') == 'DUMAI' ||
-                                                session('idtap') == 'DURI' ||
-                                                session('idtap') == 'BENGKALIS' ||
-                                                session('idtap') == 'BAGAN BATU' ||
-                                                session('idtap') == 'BAGAN SIAPI-API')
-                                            <li class="nav-item {{ request()->is('DO') ? 'active' : '' }}">
-                                                <a href="{{ url('DO') }}">
-                                                    <span class="sub-item">DO Masuk</span>
-                                                </a>
-                                            </li>
-                                        @endif
-                                        <li class="nav-item {{ request()->is('masuk') ? 'active' : '' }}">
-                                            <a href="{{ url('masuk') }}">
-                                                <span class="sub-item">Stok Masuk</span>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item {{ request()->is('keluar') ? 'active' : '' }}">
-                                            <a href="{{ url('keluar') }}">
-                                                <span class="sub-item">Stok Keluar</span>
-                                            </a>
-                                        </li>
-                                        @if (session('idtap') == 'SBP_DUMAI' ||
-                                                session('idtap') == 'DUMAI' ||
-                                                session('idtap') == 'DURI' ||
-                                                session('idtap') == 'BENGKALIS' ||
-                                                session('idtap') == 'BAGAN BATU' ||
-                                                session('idtap') == 'BAGAN SIAPI-API')
-                                            <li class="nav-item {{ request()->is('bo') ? 'active' : '' }}">
-                                                <a href="{{ url('bo') }}">
-                                                    <span class="sub-item">Retur BO</span>
-                                                </a>
-                                            </li>
-                                        @endif
-                                        <li class="nav-item {{ request()->is('injectvf') ? 'active' : '' }}">
-                                            <a href="{{ url('injectvf') }}">
-                                                <span class="sub-item">Inject VF</span>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item {{ request()->is('vrusak') ? 'active' : '' }}">
-                                            <a href="{{ url('vrusak') }}">
-                                                <span class="sub-item">Voucher Rusak</span>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </li>
-                            <li class="nav-item">
-                                <a data-toggle="collapse" href="#SF">
-                                    <i class="fas fa-user" aria-hidden="true"></i>
-                                    <p>SALES FORCE</p>
-                                    <span class="caret"></span>
-                                </a>
-                                <div class="collapse {{ request()->is('sf*', 'retursf') ? 'show' : '' }}"
-                                    id="SF">
-                                    <ul class="nav nav-collapse">
-                                        <li class="nav-item {{ request()->is('sf-masuk') ? 'active' : '' }}">
-                                            <a href="{{ url('sf-masuk') }}">
-                                                <span class="sub-item">Stok Masuk</span>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item {{ request()->is('sf-keluar') ? 'active' : '' }}">
-                                            <a href="{{ url('sf-keluar') }}">
-                                                <span class="sub-item">Stok Keluar</span>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item {{ request()->is('retursf') ? 'active' : '' }}">
-                                            <a href="{{ url('retursf') }}">
-                                                <span class="sub-item">Retur SF</span>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </li>
-                            {{-- <li class="nav-item {{ request()->is('detail') ? 'active' : ''}}">
-							<a href="{{ url('detail') }}">
-								<i class="fas fa-book"></i>
-								<p>CEK STOK DAILY</p>
-							</a>
-						</li> --}}
 
+                            @if (auth()->check() && auth()->user()->username === 'admin_cluster')
+                                <li class="nav-section">
+                                    <span class="sidebar-mini-icon">
+                                        <i class="fa fa-ellipsis-h"></i>
+                                    </span>
+                                    <h4 class="text-section">MASTER DATA</h4>
+                                </li>
+                                <li class="nav-item {{ request()->is('denoms*') ? 'active' : '' }}">
+                                    <a href="{{ url('denoms') }}">
+                                        <i class="fas fa-layer-group"></i>
+                                        <p>DAFTAR PRODUK (DENOM)</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item {{ request()->is('sf*') ? 'active' : '' }}">
+                                    <a href="{{ url('sf') }}">
+                                        <i class="fas fa-users"></i>
+                                        <p>DAFTAR SALES FORCE (SF)</p>
+                                    </a>
+                                </li>
+                            @endif
+
+                            @if (!in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']))
+                                <li class="nav-section">
+                                    <span class="sidebar-mini-icon">
+                                        <i class="fa fa-ellipsis-h"></i>
+                                    </span>
+                                    <h4 class="text-section">INPUT STOK</h4>
+                                </li>
+                                <li class="nav-item">
+                                    <a data-toggle="collapse" href="#base"
+                                        class="{{ request()->is('DO') ? '' : 'collapsed' }}">
+                                        <i class="fa fa-building" aria-hidden="true"></i>
+                                        <p>TAP</p>
+                                        <span class="caret"></span>
+                                    </a>
+                                    <div class="collapse {{ request()->is('DO', 'masuk', 'keluar', 'injectvf', 'vrusak', 'bo') ? 'show' : '' }}"
+                                        id="base">
+                                        <ul class="nav nav-collapse">
+                                            @if (session('idtap') == 'SBP_DUMAI' ||
+                                                    session('idtap') == 'DUMAI' ||
+                                                    session('idtap') == 'DURI' ||
+                                                    session('idtap') == 'BENGKALIS' ||
+                                                    session('idtap') == 'BAGAN BATU' ||
+                                                    session('idtap') == 'BAGAN SIAPI-API')
+                                                <li class="nav-item {{ request()->is('DO') ? 'active' : '' }}">
+                                                    <a href="{{ url('DO') }}">
+                                                        <span class="sub-item">DO Masuk</span>
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            <li class="nav-item {{ request()->is('masuk') ? 'active' : '' }}">
+                                                <a href="{{ url('masuk') }}">
+                                                    <span class="sub-item">Stok Masuk</span>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item {{ request()->is('keluar') ? 'active' : '' }}">
+                                                <a href="{{ url('keluar') }}">
+                                                    <span class="sub-item">Stok Keluar</span>
+                                                </a>
+                                            </li>
+                                            @if (session('idtap') == 'SBP_DUMAI' ||
+                                                    session('idtap') == 'DUMAI' ||
+                                                    session('idtap') == 'DURI' ||
+                                                    session('idtap') == 'BENGKALIS' ||
+                                                    session('idtap') == 'BAGAN BATU' ||
+                                                    session('idtap') == 'BAGAN SIAPI-API')
+                                                <li class="nav-item {{ request()->is('bo') ? 'active' : '' }}">
+                                                    <a href="{{ url('bo') }}">
+                                                        <span class="sub-item">Retur BO</span>
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            <li class="nav-item {{ request()->is('injectvf') ? 'active' : '' }}">
+                                                <a href="{{ url('injectvf') }}">
+                                                    <span class="sub-item">Inject VF</span>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item {{ request()->is('vrusak') ? 'active' : '' }}">
+                                                <a href="{{ url('vrusak') }}">
+                                                    <span class="sub-item">Voucher Rusak</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li class="nav-item">
+                                    <a data-toggle="collapse" href="#SF">
+                                        <i class="fas fa-user" aria-hidden="true"></i>
+                                        <p>SALES FORCE</p>
+                                        <span class="caret"></span>
+                                    </a>
+                                    <div class="collapse {{ request()->is('sf*', 'retursf') ? 'show' : '' }}"
+                                        id="SF">
+                                        <ul class="nav nav-collapse">
+                                            <li class="nav-item {{ request()->is('sf-masuk') ? 'active' : '' }}">
+                                                <a href="{{ url('sf-masuk') }}">
+                                                    <span class="sub-item">Stok Masuk</span>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item {{ request()->is('sf-keluar') ? 'active' : '' }}">
+                                                <a href="{{ url('sf-keluar') }}">
+                                                    <span class="sub-item">Stok Keluar</span>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item {{ request()->is('retursf') ? 'active' : '' }}">
+                                                <a href="{{ url('retursf') }}">
+                                                    <span class="sub-item">Retur SF</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                            @endif
                         @endif
                         <li class="nav-item mt-5">
                             <a href="{{ route('logout') }}">
@@ -534,6 +551,21 @@
                 text: @json(session('error')),
             });
         @endif
+
+        // GLOBAL ANTI DOUBLE SUBMIT
+        document.addEventListener('submit', function(e) {
+            if (e.target.method && e.target.method.toUpperCase() === 'GET') return;
+            if (e.target.classList.contains('form-delete')) return; 
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                setTimeout(() => {
+                    submitBtn.disabled = true;
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+                }, 50);
+            }
+        });
     </script>
 
 </body>

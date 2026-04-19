@@ -32,6 +32,8 @@ use App\Http\Controllers\searchController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\MonitaDumaiController;
 use App\Http\Controllers\Api\SalesChartController;
+use App\Http\Controllers\DenomController;
+use App\Http\Controllers\SfController;
 
 //login
 Route::middleware([RedirectIfAuthenticated::class])->group(function () {
@@ -64,6 +66,12 @@ Route::middleware(['auth'])->group(function () {
 
 	Route::get('/home', [HomeController::class, 'index'])->name('home');
 	Route::get('/chart/sales', [SalesChartController::class, 'sales']);
+
+    // sf master data
+    Route::get('/sf', [SfController::class, 'index']);
+    Route::post('/sf', [SfController::class, 'store']);
+    Route::post('/sf/update/{idsf}', [SfController::class, 'update']);
+    Route::post('/sf/{idsf}', [SfController::class, 'destroy']);
 
 	// MASUK
 	Route::get('/masuk', [MasukController::class, 'index'])->name('masuk.index');
@@ -174,6 +182,16 @@ Route::middleware(['auth'])->group(function () {
 
 	// inbox
 	Route::get('inbox', [InboxController::class, 'index']);
+
+	// sisa stock daily
+	Route::get('/sisastock', [sisaStockController::class, 'index'])->name('sisastock.index');
+	Route::get('/sisastock/data', [sisaStockController::class, 'data'])->name('sisastock.data');
+
+	// Denom Management
+	Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');
+	Route::post('/denoms', [DenomController::class, 'store'])->name('denoms.store');
+	Route::post('/denoms/{iddenom}', [DenomController::class, 'update'])->name('denoms.update');
+	Route::post('/denoms/delete/{iddenom}', [DenomController::class, 'destroy'])->name('denoms.destroy');
 
 	//HOME NOCAN
 	Route::get('/homenocan', [HomenocanController::class, 'index']);

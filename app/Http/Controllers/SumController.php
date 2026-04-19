@@ -15,39 +15,27 @@ class SumController extends Controller
         $idtap = session('idtap');
         $month = $request->input('bulan', date('m'));
         $year = $request->input('tahun', date('y'));
-        if($idtap == 'SBP_DUMAI'){
+        $q = DB::table('keluarsf as k')
+            ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
+            ->join('idsf as i','k.idsf','=','i.idsf')
+            ->select('k.tgl','k.idtap', 'd.denom' ,'i.namasf',DB::raw('SUM(k.qty) as qty'))
+            ->whereMonth('k.tgl', $month)
+            ->whereYear('k.tgl', $year)
+            ->groupBy('k.tgl', 'k.idtap', 'i.namasf','d.denom');
 
-            $data = DB::table('keluarsf as k')
-                ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                ->join('idsf as i','k.idsf','=','i.idsf')
-                ->select('k.tgl','k.idtap', 'd.denom' ,'i.namasf',DB::raw('SUM(k.qty) as qty'))
-                ->whereMonth('k.tgl', $month)
-                ->whereYear('k.tgl', $year)
-                ->groupBy('k.tgl', 'k.idtap', 'i.namasf','d.denom')
-                ->get();
+        if ($idtap === 'CLUSTER_DUMAI') {
+            $q->whereIn('k.idtap', ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING']);
+        } elseif ($idtap === 'CLUSTER_ROHIL') {
+            $q->whereIn('k.idtap', ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']);
+        } elseif ($idtap !== 'SBP_DUMAI') {
+            $q->where('k.idtap', $idtap);
+        }
+
+        $data = $q->get();
             
-            foreach ($data as $row) {
-                $formattedDate = date('d-m-Y', strtotime($row->tgl));
-                $row->tgl = $formattedDate;
-            }
-            
-        }else{
-
-            $data = DB::table('keluarsf as k')
-                ->join('denom as d', 'k.iddenom', '=', 'd.iddenom')
-                ->join('idsf as i','k.idsf','=','i.idsf')
-                ->select('k.tgl','k.idtap', 'd.denom' ,'i.namasf',DB::raw('SUM(k.qty) as qty'))
-                ->where('k.idtap', $idtap)
-                ->whereMonth('k.tgl', $month)
-                ->whereYear('k.tgl', $year)
-                ->groupBy('k.tgl', 'd.denom','k.idtap', 'i.namasf')
-                ->get();
-        
-            foreach ($data as $row) {
-                $formattedDate = date('d-m-Y', strtotime($row->tgl));
-                $row->tgl = $formattedDate;
-            }
-
+        foreach ($data as $row) {
+            $formattedDate = date('d-m-Y', strtotime($row->tgl));
+            $row->tgl = $formattedDate;
         }
 
         return view('sumpenjualan', compact('idtap', 'month', 'data','year'));
@@ -60,26 +48,23 @@ public function exportexcel(Request $request)
     $month = $request->input('bulan', date('m'));
     $year = $request->input('tahun', date('Y')); 
 
-    if ($idtap == 'SBP_DUMAI') {
-        $penjualanData = DB::table('keluarsf as f')
-                        ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                        ->join('idsf as k', 'f.idsf', '=', 'k.idsf')
-                        ->select('f.tgl','f.idtap', 'k.namasf', 'd.denom', DB::raw('SUM(f.qty) as qty'))
-                        ->whereMonth('f.tgl', $month)
-                        ->whereYear('f.tgl', $year)
-                        ->groupBy('f.tgl', 'd.denom', 'f.idtap', 'k.namasf')
-                        ->get();
-    } else {
-        $penjualanData = DB::table('keluarsf as f')
-                        ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
-                        ->join('idsf as k', 'f.idsf', '=', 'k.idsf')
-                        ->select('f.tgl', 'f.idtap', 'k.namasf', 'd.denom', DB::raw('SUM(f.qty) as qty'))
-                        ->whereMonth('f.tgl', $month)
-                        ->whereYear('f.tgl', $year)
-                        ->where('f.idtap', $idtap)
-                        ->groupBy('f.tgl', 'f.idtap', 'k.namasf', 'd.denom')
-                        ->get();
+    $q = DB::table('keluarsf as f')
+                    ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+                    ->join('idsf as k', 'f.idsf', '=', 'k.idsf')
+                    ->select('f.tgl','f.idtap', 'k.namasf', 'd.denom', DB::raw('SUM(f.qty) as qty'))
+                    ->whereMonth('f.tgl', $month)
+                    ->whereYear('f.tgl', $year)
+                    ->groupBy('f.tgl', 'd.denom', 'f.idtap', 'k.namasf');
+
+    if ($idtap === 'CLUSTER_DUMAI') {
+        $q->whereIn('f.idtap', ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING']);
+    } elseif ($idtap === 'CLUSTER_ROHIL') {
+        $q->whereIn('f.idtap', ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']);
+    } elseif ($idtap !== 'SBP_DUMAI') {
+        $q->where('f.idtap', $idtap);
     }
+    
+    $penjualanData = $q->get();
 
     $monthName = date('F', mktime(0, 0, 0, $month, 1));
 

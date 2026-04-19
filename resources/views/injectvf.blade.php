@@ -137,9 +137,7 @@
                     separator: ' - ',
                     applyLabel: 'Pilih',
                     cancelLabel: 'Batal',
-                    fromLabel: 'Dari',
-                    toLabel: 'Sampai',
-                    customRangeLabel: 'Custom'
+                    customRangeLabel: 'Custom Range'
                 },
                 ranges: {
                     'Hari Ini': [moment(), moment()],

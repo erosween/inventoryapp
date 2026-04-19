@@ -10,27 +10,182 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class sisaStockController extends Controller
 {
-    public function index(){
-        $idtaps = DB::table('stockawalfeb')->pluck('idtap')->toArray(); // Ganti 'your_table' dengan nama tabel yang sesuai
-        // $idtaps == session('idtap')
-        $stocks = []; // Inisialisasi array untuk menyimpan data stock
-    
-        foreach ($idtaps as $idtap) {
-            $stocks[$idtap] = []; // Inisialisasi array untuk setiap idtap
-            for ($i = 1; $i <= 42; $i++) {
-                // Ambil data stock dari database sesuai dengan idtap dan iddenom
-                // Ganti query berdasarkan struktur data dan relasi yang sesuai
-                $stockValue = DB::table('stockawalfeb')
-                    ->where('idtap', $idtap)
-                    ->where('iddenom', $i)
-                    ->sum('stock');
-    
-                // Simpan nilai stock ke dalam array
-                $stocks[$idtap][$i] = $stockValue;
+    public function index(Request $request)
+    {
+        $idtap = session('idtap');
+        $date = $request->input('date', date('Y-m-d'));
+
+        $denoms = DB::table('denom')->orderBy('iddenom')->get();
+
+        $groups = [];
+        // Inisialisasi grup berdasarkan data di database
+        foreach ($denoms as $d) {
+            $groupName = $d->group_name;
+            if (!isset($groups[$groupName])) {
+                $groups[$groupName] = [];
+            }
+            $groups[$groupName][] = $d;
+        }
+
+        // Urutkan grup sesuai urutan standar agar tampilan konsisten (Opsional tapi disarankan)
+        $standardOrder = ['SEGEL', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE', 'LAINNYA'];
+        $sortedGroups = [];
+        foreach ($standardOrder as $so) {
+            if (isset($groups[$so])) {
+                $sortedGroups[$so] = $groups[$so];
+                unset($groups[$so]);
             }
         }
-    
-        // Kirim data ke view 'stock.remaining' dengan variabel $idtaps dan $stocks
-        return view('sisastock', compact('idtaps', 'stocks'));
+        // Masukkan grup sisa jika ada yang tidak masuk dalam standardOrder
+        foreach ($groups as $name => $items) {
+            $sortedGroups[$name] = $items;
+        }
+        $groups = $sortedGroups;
+
+        return view('sisastock', compact('idtap', 'date', 'groups'));
+    }
+
+    public function data(Request $request)
+    {
+        $idtap = session('idtap');
+        $targetDate = $request->input('date', date('Y-m-d'));
+        $today = date('Y-m-d');
+
+        // ============================================
+        // 1. GET TRUE CURRENT STOCK
+        // ============================================
+        $stock = [];
+        $gudang = DB::table('stockawaltap')->select('idtap', 'iddenom', 'stock');
+        $sf = DB::table('stockawalsf as sf')
+            ->join('idsf', 'sf.idsf', '=', 'idsf.idsf')
+            ->select('idsf.idtap', 'sf.iddenom', 'sf.stock');
+
+        $applyFilter = function($q, $col = 'idtap') use ($idtap) {
+            if ($idtap === 'CLUSTER_DUMAI') {
+                $q->whereIn($col, ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING']);
+            } elseif ($idtap === 'CLUSTER_ROHIL') {
+                $q->whereIn($col, ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']);
+            } elseif ($idtap !== 'SBP_DUMAI') {
+                $q->where($col, $idtap);
+            }
+        };
+
+        $applyFilter($gudang);
+        $applyFilter($sf);
+
+        foreach ($gudang->unionAll($sf)->get() as $s) {
+            $key = $s->idtap . '|' . $s->iddenom;
+            $stock[$key] = ($stock[$key] ?? 0) + $s->stock;
+        }
+
+        // Jika targetDate < Hari Ini, kita REVERSE mutasi yang terjadi setelahnya.
+        if ($targetDate < $today) {
+            // Kita cari transaksi yang terjadi SETELAH target date
+            // Karena ini reverse:
+            // - Yang tadinya "masuk/penambah" -> dikurangi (-)
+            // - Yang tadinya "keluar/pengurang" -> ditambah (+)
+            $afterDate = Carbon::parse($targetDate)->addDay()->toDateString();
+
+            // REVERSE PENAMBAH -> Jadi PENGURANG (-)
+
+            // a. Terima dari TAP Lain (status 0)
+            $terimaTap = DB::table('keluar')
+                ->select('penerima as idtap', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->where('status', 0)
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($terimaTap, 'penerima');
+            foreach ($terimaTap->groupBy('penerima', 'iddenom')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) - $r->total; // REVERSE!
+            }
+
+            // b. Inject PV (Tujuan Paket)
+            $injectPv = DB::table('injectvf')
+                ->select('idtap', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($injectPv);
+            foreach ($injectPv->groupBy('idtap', 'iddenom')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) - $r->total; // REVERSE!
+            }
+
+            // c. DO Masuk
+            $doMasuk = DB::table('masuk')
+                ->select('idtap', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->where('pengirim', 'DO')
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($doMasuk);
+            foreach ($doMasuk->groupBy('idtap', 'iddenom')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) - $r->total; // REVERSE!
+            }
+
+
+            // REVERSE PENGURANG -> Jadi PENAMBAH (+)
+
+            // d. Kirim ke TAP Lain
+            $kirimTap = DB::table('keluar')
+                ->select('pengirim as idtap', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->where('status', 0)
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($kirimTap, 'pengirim');
+            foreach ($kirimTap->groupBy('pengirim', 'iddenom')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) + $r->total; // REVERSE!
+            }
+
+            // e. Inject PV (Potong Segel)
+            $injectSegel = DB::table('injectvf')
+                ->select('idtap', 'kategori as iddenom', DB::raw('SUM(qty) as total'))
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($injectSegel);
+            foreach ($injectSegel->groupBy('idtap', 'kategori')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) + $r->total; // REVERSE!
+            }
+
+            // f. Penjualan Keluar SF
+            $keluarSf = DB::table('keluarsf')
+                ->select('idtap', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($keluarSf);
+            foreach ($keluarSf->groupBy('idtap', 'iddenom')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) + $r->total; // REVERSE!
+            }
+
+            // g. Retur PV Rusak
+            $rusak = DB::table('returvfrusak')
+                ->select('idtap', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->where('tgl', '>=', $afterDate);
+            $applyFilter($rusak);
+            foreach ($rusak->groupBy('idtap', 'iddenom')->get() as $r) {
+                $key = $r->idtap . '|' . $r->iddenom;
+                $stock[$key] = ($stock[$key] ?? 0) + $r->total; // REVERSE!
+            }
+        }
+
+        // ============================================
+        // 3. GENERATE DATATABLE FORMAT
+        // ============================================
+        $denoms = DB::table('denom')->orderBy('iddenom')->get();
+        $taps = DB::table('kodetap')
+            ->when(true, fn($q) => $applyFilter($q))
+            ->pluck('idtap');
+
+        $finalData = [];
+        foreach ($taps as $t) {
+            $row = ['idtap' => $t];
+            $grand_total = 0;
+            foreach ($denoms as $d) {
+                $key = $t . '|' . $d->iddenom;
+                $row[$d->iddenom] = $stock[$key] ?? 0;
+                $grand_total += $row[$d->iddenom];
+            }
+            $row['grand_total'] = $grand_total;
+            $finalData[] = $row;
+        }
+
+        return datatables()->of($finalData)->make(true);
     }
 }

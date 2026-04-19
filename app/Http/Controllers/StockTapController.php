@@ -13,61 +13,33 @@ class StocktapController extends Controller
 
         /**
          * ======================================
-         * 1. MASTER DENOM (GUDANG)
+         * 1. MASTER DENOM & GROUPING
          * ======================================
          */
-        $denoms = DB::table('stockawaltap')
-            ->select('iddenom', 'denom')
-            ->distinct()
-            ->orderBy('iddenom')
-            ->get();
+        $denoms = DB::table('denom')->orderBy('iddenom')->get();
 
-        /**
-         * ======================================
-         * 2. GROUP DENOM (SAMA KAYAK STOCK ALL)
-         * ======================================
-         */
-        $groups = [
-            'SEGEL'   => [],
-            '1 HARI'  => [],
-            '2 HARI'  => [],
-            '3 HARI'  => [],
-            '5 HARI'  => [],
-            '7 HARI'  => [],
-            '14 HARI' => [],
-            '28 HARI' => [],
-            '30 HARI' => [],
-            'VOICE'   => [],
-            'LAINNYA' => [],
-        ];
-
+        $groups = [];
         foreach ($denoms as $d) {
-            $name = strtolower($d->denom);
+            $groupName = $d->group_name;
+            if (!isset($groups[$groupName])) {
+                $groups[$groupName] = [];
+            }
+            $groups[$groupName][] = $d;
+        }
 
-            if (str_contains($name, 'segel')) {
-                $groups['SEGEL'][] = $d;
-            } elseif (str_contains($name, '1hari')) {
-                $groups['1 HARI'][] = $d;
-            } elseif (str_contains($name, '2hari')) {
-                $groups['2 HARI'][] = $d;
-            } elseif (str_contains($name, '3hari')) {
-                $groups['3 HARI'][] = $d;
-            } elseif (str_contains($name, '5hari')) {
-                $groups['5 HARI'][] = $d;
-            } elseif (str_contains($name, '7hari')) {
-                $groups['7 HARI'][] = $d;
-            } elseif (str_contains($name, '14hari')) {
-                $groups['14 HARI'][] = $d;
-            } elseif (str_contains($name, '28hari')) {
-                $groups['28 HARI'][] = $d;
-            } elseif (str_contains($name, '30hari')) {
-                $groups['30 HARI'][] = $d;
-            } elseif (str_contains($name, 'voice')) {
-                $groups['VOICE'][] = $d;
-            } else {
-                $groups['LAINNYA'][] = $d;
+        // Urutkan grup sesuai urutan standar
+        $standardOrder = ['SEGEL', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE', 'LAINNYA'];
+        $sortedGroups = [];
+        foreach ($standardOrder as $so) {
+            if (isset($groups[$so])) {
+                $sortedGroups[$so] = $groups[$so];
+                unset($groups[$so]);
             }
         }
+        foreach ($groups as $name => $items) {
+            $sortedGroups[$name] = $items;
+        }
+        $groups = $sortedGroups;
 
         /**
          * ======================================
@@ -77,16 +49,25 @@ class StocktapController extends Controller
         $base = DB::table('stockawaltap')
             ->select('idtap', 'iddenom', 'stock');
 
-        if (!$isAllTap) {
-            $base->where('idtap', $user->idtap);
-        }
+        $idtap = session('idtap') ?? $user->idtap;
+        $applyFilter = function($q, $col = 'idtap') use ($idtap) {
+            if ($idtap === 'CLUSTER_DUMAI') {
+                $q->whereIn($col, ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING']);
+            } elseif ($idtap === 'CLUSTER_ROHIL') {
+                $q->whereIn($col, ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']);
+            } elseif ($idtap !== 'SBP_DUMAI') {
+                $q->where($col, $idtap);
+            }
+        };
+
+        $applyFilter($base);
 
         /**
          * ======================================
          * 4. SELECT DINAMIS (PIVOT)
          * ======================================
          */
-        $selects = ['idtap'];
+        $selects = ['idtap', DB::raw('SUM(stock) AS grand_total')];
 
         foreach ($denoms as $d) {
             $selects[] = DB::raw(

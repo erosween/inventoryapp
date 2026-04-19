@@ -135,7 +135,8 @@
                     format: 'YYYY-MM-DD',
                     separator: ' - ',
                     applyLabel: 'Pilih',
-                    cancelLabel: 'Batal'
+                    cancelLabel: 'Batal',
+                    customRangeLabel: 'Custom Range'
                 },
                 ranges: {
                     'Hari Ini': [moment(), moment()],

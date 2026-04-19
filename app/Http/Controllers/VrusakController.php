@@ -105,6 +105,7 @@ class VrusakController extends Controller
         $stok = DB::table('stockawaltap')
             ->where('idtap', $request->pengirim)
             ->where('iddenom', $request->iddenom)
+            ->lockForUpdate()
             ->value('stock');
 
         if ($stok < $request->qty) {

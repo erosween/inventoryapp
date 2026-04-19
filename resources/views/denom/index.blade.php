@@ -1,0 +1,263 @@
+@extends('layout.layout')
+
+@section('content')
+    <div class="main-panel">
+        <div class="content">
+            <div class="page-inner">
+                <div class="page-header">
+                    <h4 class="page-title">Manajemen Denom (Produk)</h4>
+                    <ul class="breadcrumbs">
+                        <li class="nav-home">
+                            <a href="{{ url('home') }}">
+                                <i class="flaticon-home"></i>
+                            </a>
+                        </li>
+                        <li class="separator">
+                            <i class="flaticon-right-arrow"></i>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#">Master Data</a>
+                        </li>
+                        <li class="separator">
+                            <i class="flaticon-right-arrow"></i>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#">Denom</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex align-items-center">
+                                    <h4 class="card-title">Daftar Denom</h4>
+                                    <button class="btn btn-primary btn-round ml-auto" data-toggle="modal"
+                                        data-target="#addRowModal">
+                                        <i class="fa fa-plus"></i>
+                                        Tambah Denom Baru
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (session('success'))
+                                    <div class="alert alert-success">
+                                        {{ session('success') }}
+                                    </div>
+                                @endif
+
+                                @if (session('error'))
+                                    <div class="alert alert-danger">
+                                        {{ session('error') }}
+                                    </div>
+                                @endif
+
+                                <div class="table-responsive">
+                                    <table id="add-row" class="display table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>ID Denom</th>
+                                                <th>Nama Denom</th>
+                                                <th>Grup</th>
+                                                <th>Kategori Inject</th>
+                                                <th style="width: 10%">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($denoms as $denom)
+                                                <tr>
+                                                    <td>{{ $denom->iddenom }}</td>
+                                                    <td>{{ $denom->denom }}</td>
+                                                    <td>
+                                                        <span class="badge badge-info">{{ $denom->group_name }}</span>
+                                                    </td>
+                                                    <td>
+                                                        @if($denom->kategori_inject)
+                                                            <span class="badge badge-{{ $denom->kategori_inject == 'SEGEL' ? 'primary' : ($denom->kategori_inject == 'BYU' ? 'success' : 'warning') }}">{{ $denom->kategori_inject }}</span>
+                                                        @else
+                                                            <span class="text-muted">-</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <div class="form-button-action">
+                                                            <button type="button" data-toggle="modal"
+                                                                data-target="#editModal{{ $denom->iddenom }}"
+                                                                class="btn btn-link btn-primary btn-lg">
+                                                                <i class="fa fa-edit"></i>
+                                                            </button>
+                                                            <form action="{{ url('denoms/delete/' . $denom->iddenom) }}"
+                                                                method="POST" style="display:inline"
+                                                                onsubmit="return confirm('Yakin ingin menghapus? Data stok awal untuk denom ini di SEMUA TAP & SF juga akan ikut terhapus!')">
+                                                                @csrf
+                                                                <button type="submit"
+                                                                    class="btn btn-link btn-danger btn-lg">
+                                                                    <i class="fa fa-times"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                <!-- Edit Modal -->
+                                                <div class="modal fade" id="editModal{{ $denom->iddenom }}" tabindex="-1"
+                                                    role="dialog" aria-hidden="true">
+                                                    <div class="modal-dialog" role="document">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header no-bd">
+                                                                <h5 class="modal-title">
+                                                                    <span class="fw-mediumbold">Edit</span>
+                                                                    <span class="font-weight-light">Denom</span>
+                                                                </h5>
+                                                                <button type="button" class="close" data-dismiss="modal"
+                                                                    aria-label="Close">
+                                                                    <span aria-hidden="true">&times;</span>
+                                                                </button>
+                                                            </div>
+                                                            <form action="{{ url('denoms/' . $denom->iddenom) }}"
+                                                                method="POST">
+                                                                @csrf
+                                                                <div class="modal-body">
+                                                                    <div class="row">
+                                                                        <div class="col-sm-12">
+                                                                            <div class="form-group">
+                                                                                <label>ID Denom (Kunci)</label>
+                                                                                <input type="text" class="form-control"
+                                                                                    value="{{ $denom->iddenom }}" disabled>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-sm-12">
+                                                                            <div class="form-group">
+                                                                                <label>Nama Denom</label>
+                                                                                <input type="text" name="denom"
+                                                                                    class="form-control"
+                                                                                    value="{{ $denom->denom }}" required>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-sm-12">
+                                                                            <div class="form-group">
+                                                                                <label>Grup</label>
+                                                                                <select name="group_name"
+                                                                                    class="form-control" required>
+                                                                                    @foreach ($groups as $g)
+                                                                                        <option value="{{ $g }}"
+                                                                                            {{ $denom->group_name == $g ? 'selected' : '' }}>
+                                                                                            {{ $g }}</option>
+                                                                                    @endforeach
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-sm-12">
+                                                                            <div class="form-group">
+                                                                                <label>Kategori Inject</label>
+                                                                                <select name="kategori_inject"
+                                                                                    class="form-control">
+                                                                                    <option value="">- Tidak Ada -</option>
+                                                                                    @foreach ($kategoriInjects as $ki)
+                                                                                        <option value="{{ $ki }}"
+                                                                                            {{ $denom->kategori_inject == $ki ? 'selected' : '' }}>
+                                                                                            {{ $ki }}</option>
+                                                                                    @endforeach
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="modal-footer no-bd">
+                                                                    <button type="submit"
+                                                                        class="btn btn-primary">Update</button>
+                                                                    <button type="button" class="btn btn-danger"
+                                                                        data-dismiss="modal">Batal</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Modal -->
+    <div class="modal fade" id="addRowModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header no-bd">
+                    <h5 class="modal-title">
+                        <span class="fw-mediumbold">Denom</span>
+                        <span class="font-weight-light">Baru</span>
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form action="{{ route('denoms.store') }}" method="POST">
+                    @csrf
+                    <div class="modal-body">
+                        <p class="small text-muted">Menambah denom baru akan otomatis membuat saldo awal "0" untuk SEMUA
+                            TAP dan SALES FORCE.</p>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <div class="form-group">
+                                    <label>ID Denom (Unik)</label>
+                                    <input type="text" name="iddenom" class="form-control"
+                                        placeholder="Contoh: {{ $suggestedId }}" value="{{ $suggestedId }}" required>
+                                </div>
+                            </div>
+                            <div class="col-sm-12">
+                                <div class="form-group">
+                                    <label>Nama Denom</label>
+                                    <input type="text" name="denom" class="form-control"
+                                        placeholder="Contoh: 2GB/1hari" required>
+                                </div>
+                            </div>
+                            <div class="col-sm-12">
+                                <div class="form-group">
+                                    <label>Grup</label>
+                                    <select name="group_name" class="form-control" required>
+                                        @foreach ($groups as $g)
+                                            <option value="{{ $g }}" {{ $g == 'LAINNYA' ? 'selected' : '' }}>
+                                                {{ $g }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-sm-12">
+                                <div class="form-group">
+                                    <label>Kategori Inject</label>
+                                    <select name="kategori_inject" class="form-control">
+                                        <option value="">- Tidak Ada -</option>
+                                        @foreach ($kategoriInjects as $ki)
+                                            <option value="{{ $ki }}">{{ $ki }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer no-bd">
+                        <button type="submit" class="btn btn-primary">Simpan & Inisialisasi</button>
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">Batal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            $('#add-row').DataTable({
+                "pageLength": 10,
+            });
+        });
+    </script>
+@endpush

@@ -37,6 +37,10 @@ class InputDOController extends Controller
 
         $query = DB::table('masuk as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
+            ->leftJoin('stockawalsf as sf', function ($join) {
+                $join->on('m.penerima', '=', 'sf.idsf')
+                     ->on('m.iddenom', '=', 'sf.iddenom');
+            })
             ->select(
                 'm.idmasuk',
                 'm.tgl',
@@ -48,7 +52,8 @@ class InputDOController extends Controller
                 'm.idtappenerima',
                 'm.sn',
                 'm.penerima',
-                'm.iddenom'
+                'm.iddenom',
+                DB::raw('COALESCE(sf.stock, 0) as sf_stock')
             )
             ->where('m.pengirim', 'DO')
             ->whereBetween('m.tgl', [$start, $end]);
@@ -61,14 +66,8 @@ class InputDOController extends Controller
             ->of($query)
             ->addColumn('action', function ($row) {
 
-                // cek stok SF sekarang
-                $stokSekarang = DB::table('stockawalsf')
-                    ->where('idsf', $row->penerima)
-                    ->where('iddenom', $row->iddenom)
-                    ->value('stock');
-
                 // kalau stok sudah dipakai → disable delete
-                if ($stokSekarang < $row->qty) {
+                if ($row->sf_stock < $row->qty) {
                     return '<span class="badge badge-secondary">USED</span>';
                 }
 
@@ -155,24 +154,34 @@ class InputDOController extends Controller
     public function delete(Request $request, $idmasuk)
     {
         try {
-            DB::transaction(function () use ($request, $idmasuk) {
+            DB::transaction(function () use ($idmasuk) {
+
+                $data = DB::table('masuk')
+                    ->where('idmasuk', $idmasuk)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$data) {
+                    throw new \Exception('Data DO tidak ditemukan');
+                }
 
                 // ambil stok sekarang
                 $stokSekarang = DB::table('stockawalsf')
-                    ->where('idsf', $request->penerima)
-                    ->where('iddenom', $request->iddenom)
+                    ->where('idsf', $data->penerima)
+                    ->where('iddenom', $data->iddenom)
+                    ->lockForUpdate()
                     ->value('stock');
 
                 // ❌ kalau sudah dipakai → STOP
-                if ($stokSekarang < $request->qty) {
+                if ($stokSekarang < $data->qty) {
                     throw new \Exception('DO sudah digunakan, tidak bisa dihapus');
                 }
 
                 // balikin stok
                 DB::table('stockawalsf')
-                    ->where('idsf', $request->penerima)
-                    ->where('iddenom', $request->iddenom)
-                    ->decrement('stock', $request->qty);
+                    ->where('idsf', $data->penerima)
+                    ->where('iddenom', $data->iddenom)
+                    ->decrement('stock', $data->qty);
 
                 // hapus DO
                 DB::table('masuk')

@@ -12,9 +12,10 @@ class FormInjectbyuController extends Controller
     {
         $idtap = session('idtap');
 
-        $denom = DB::table('kategori_inject')
-                    ->select('*')
-                    ->where('kategori','BYU')
+        $denom = DB::table('denom')
+                    ->select('iddenom', 'denom')
+                    ->where('kategori_inject','BYU')
+                    ->where('iddenom', '!=', 'V33')
                     ->get();
 
         if($idtap == 'SBP_DUMAI'){
