@@ -85,7 +85,7 @@
 
 @push('scripts')
     <script>
-        $(function() {
+        $(function () {
 
             let start = moment().startOf('month');
             let end = moment().endOf('month');
@@ -100,31 +100,31 @@
                 ],
                 ajax: {
                     url: "{{ route('inject.data') }}",
-                    data: function(d) {
+                    data: function (d) {
                         d.daterange = $('#daterange').val();
                     }
                 },
                 columns: [{
-                        data: 'tgl'
-                    },
-                    {
-                        data: 'denom'
-                    },
-                    {
-                        data: 'qty',
-                        className: 'text-end'
-                    },
-                    {
-                        data: 'idtap'
-                    },
-                    {
-                        data: 'sn'
-                    },
-                    {
-                        data: 'action',
-                        orderable: false,
-                        searchable: false
-                    }
+                    data: 'tgl'
+                },
+                {
+                    data: 'denom'
+                },
+                {
+                    data: 'qty',
+                    className: 'text-end'
+                },
+                {
+                    data: 'idtap'
+                },
+                {
+                    data: 'sn'
+                },
+                {
+                    data: 'action',
+                    orderable: false,
+                    searchable: false
+                }
                 ]
             });
 
@@ -150,7 +150,7 @@
                         moment().subtract(1, 'month').endOf('month')
                     ]
                 }
-            }, function(start, end) {
+            }, function (start, end) {
 
                 let range = start.format('YYYY-MM-DD') + ' - ' + end.format('YYYY-MM-DD');
                 $('#daterange').val(range);

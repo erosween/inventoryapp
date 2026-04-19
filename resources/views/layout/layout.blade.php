@@ -236,12 +236,13 @@
                                     <p>DASHBOARD</p>
                                 </a>
                             </li>
-                            <li class="nav-item {{ request()->is('inbox') ? 'active' : '' }}">
-                                <a href="{{ url('inbox') }}" style="position: relative; display: inline-block;">
-                                    <i class="fa fa-bell"></i>
-                                    <p style="margin-bottom: 0;">KOTAK MASUK
-                                        <span class="notification"
-                                            style="
+                            @if (!in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
+                                <li class="nav-item {{ request()->is('inbox') ? 'active' : '' }}">
+                                    <a href="{{ url('inbox') }}" style="position: relative; display: inline-block;">
+                                        <i class="fa fa-bell"></i>
+                                        <p style="margin-bottom: 0;">KOTAK MASUK
+                                            <span class="notification"
+                                                style="
 									display: inline-block;
 									border-radius: 50%;
 									background-color: red;
@@ -255,9 +256,10 @@
 									margin-left : 5px;
 									margin-top : 1px;
 								">{{ $notif }}</span>
-                                    </p>
-                                </a>
-                            </li>
+                                        </p>
+                                    </a>
+                                </li>
+                            @endif
                             <li class="nav-item {{ request()->is('stock') ? 'active' : '' }}">
                                 <a href="{{ url('stock') }}">
                                     <i class="fas fa-book"></i>
@@ -292,7 +294,7 @@
                                 </li>
                             @endif
 
-                            @if (!in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']))
+                            @if (!in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
                                 <li class="nav-section">
                                     <span class="sidebar-mini-icon">
                                         <i class="fa fa-ellipsis-h"></i>

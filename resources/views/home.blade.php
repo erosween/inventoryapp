@@ -11,6 +11,40 @@
     .feed-item::before { content:''; position:absolute; left:-7px; top:5px; width:11px; height:11px; border-radius:50%; background:#fff; border:2px solid #4e73df; }
     .feed-item.danger-feed::before { border-color:#e74a3b; }
     .icon-bg { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.2); }
+
+    /* HEATMAP FREEZE BOX */
+    .table-scroll-heatmap {
+        overflow: auto;
+        max-height: 500px; /* Optional: vertical scroll */
+    }
+
+    /* STICKY HEADER */
+    .table-scroll-heatmap thead th {
+        position: sticky;
+        top: 0;
+        z-index: 100 !important;
+        background: #f8fafc !important;
+        border-bottom: 2px solid #ddd !important;
+    }
+
+    /* STICKY TAP COLUMN */
+    .sticky-tap-col {
+        position: sticky;
+        left: 0;
+        z-index: 90 !important;
+        background: #fff !important;
+        box-shadow: 4px 0 8px rgba(0,0,0,0.06);
+    }
+
+    /* CORNER FIX (Top Left) */
+    .table-scroll-heatmap thead th.sticky-tap-col {
+        z-index: 110 !important;
+    }
+
+    /* HOVER FIX FOR STICKY */
+    .table-scroll-heatmap tbody tr:hover td.sticky-tap-col {
+        background-color: #f1f5f9 !important;
+    }
 </style>
 
 <div class="main-panel">
@@ -110,33 +144,117 @@
                     <small class="text-muted">Kerapatan transaksi per TAP. Warna makin gelap = performa makin tinggi.</small>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                    <div class="table-scroll-heatmap">
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
-                                <tr>
-                                    <th class="text-left font-weight-bold border-0 text-secondary">NAMA TAP</th>
+                                <tr class="text-secondary">
+                                    <th class="text-left font-weight-bold border-0 text-secondary sticky-tap-col">NAMA TAP</th>
                                     @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
-                                        <th class="border-0 text-secondary">{{ $m }}</th>
+                                        <th class="border-light">{{ $m }}</th>
+                                        <th class="border-light text-muted" style="font-size: 10px;">MoM %</th>
                                     @endforeach
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($matrixSales as $tap => $months)
                                     <tr>
-                                        <td class="text-left font-weight-bold bg-white text-dark">{{ $tap }}</td>
+                                        <td class="text-left font-weight-bold bg-white text-dark sticky-tap-col">
+                                            <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
+                                                data-target="val-sales-{{ Str::slug($tap) }}">
+                                                +
+                                            </button>
+                                            {{ $tap }}
+                                        </td>
                                         @for($i=1; $i<=12; $i++)
                                             @php 
                                                 $val = $months[$i] ?? 0; 
-                                                $opacity = $val > 0 ? min($val / 20000, 1) : 0; 
-                                                // Enterprise Blue heatmap
+                                                $opacity = $val > 0 ? min($val / 200000, 1) : 0; 
                                                 $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
                                                 $bg = $val > 0 ? "rgba(66, 133, 244, $opacity)" : "transparent"; 
                                                 $color = $opacity > 0.5 ? '#fff' : '#444';
+
+                                                // MoM Logic Sales
+                                                $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                                $prevVal = ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
+                                                
+                                                if($isCurrentMonth) {
+                                                    $momData = $momTap->firstWhere('idtap', $tap);
+                                                    $pct = $momData ? $momData->mom : 0;
+                                                    $hasPrev = $momData && $momData->prev_partial_qty > 0;
+                                                } else {
+                                                    $pct = $prevVal > 0 ? (($val - $prevVal) / $prevVal) * 100 : 0;
+                                                    $hasPrev = $prevVal > 0;
+                                                }
+                                                $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                                $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                             @endphp
                                             <td class="heatmap-cell border-light" style="background-color: {{ $bg }}; color: {{ $color }};">
                                                 {{ $val > 0 ? number_format($val) : '-' }}
                                             </td>
+                                            <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
+                                                @if($hasPrev)
+                                                    {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
                                         @endfor
+                                    </tr>
+
+                                    {{-- EXPANSION ROW: VALIDITY SALES --}}
+                                    <tr id="val-sales-{{ Str::slug($tap) }}" class="validity-row d-none bg-light">
+                                        <td colspan="25" class="p-0 border-0">
+                                            <div class="px-3 py-2 bg-light">
+                                                <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                    <thead class="bg-white">
+                                                        <tr class="text-secondary">
+                                                            <th class="text-left border-0">Validity Group</th>
+                                                            @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                                <th class="border-0">{{ $m }}</th>
+                                                            @endforeach
+                                                            <th class="border-0 bg-light-primary">TOTAL</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @php 
+                                                            $footTotals = array_fill(1, 12, 0); 
+                                                            $footGrand = 0;
+                                                        @endphp
+                                                        @foreach($validityGroups as $vg)
+                                                            @php 
+                                                                $totalVG = 0; 
+                                                                $mRow = [];
+                                                                for($m=1;$m<=12;$m++) {
+                                                                    $v = $validityMatrixSales[$tap][$vg][$m] ?? 0;
+                                                                    $mRow[$m] = $v;
+                                                                    $totalVG += $v;
+                                                                    $footTotals[$m] += $v;
+                                                                }
+                                                                $footGrand += $totalVG;
+                                                            @endphp
+                                                            @if($totalVG > 0)
+                                                            <tr>
+                                                                <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                                @for($m=1; $m<=12; $m++)
+                                                                    <td>{{ $mRow[$m] > 0 ? number_format($mRow[$m]) : '-' }}</td>
+                                                                @endfor
+                                                                <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                            </tr>
+                                                            @endif
+                                                        @endforeach
+                                                    </tbody>
+                                                    <tfoot class="bg-light font-weight-bold">
+                                                        <tr>
+                                                            <td class="text-left">TOTAL</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-secondary text-white">{{ number_format($footGrand) }}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -149,44 +267,279 @@
                                 {{-- FOOTER CLUSTER DUMAI BENGKALIS --}}
                                 @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
                                 <tr>
-                                    <td class="text-left border-0"><span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis</td>
+                                    <td class="text-left border-0 sticky-tap-col">
+                                        <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
+                                            data-target="val-sales-cluster-dumai">
+                                            +
+                                        </button>
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis
+                                    </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
                                             $totalDumai = 0;
-                                            foreach($clusterDumai as $tap) { $totalDumai += ($matrixSales[$tap][$i] ?? 0); }
+                                            $prevTotalDumai = 0;
+                                            foreach($clusterDumai as $tap) { 
+                                                $totalDumai += ($matrixSales[$tap][$i] ?? 0); 
+                                                $prevTotalDumai += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($matrixSales[$tap][$i-1] ?? 0);
+                                            }
+
+                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            if($isCurrentMonth) {
+                                                $pct = $momCluster['dumai_bengkalis']->mom ?? 0;
+                                            } else {
+                                                $pct = $prevTotalDumai > 0 ? (($totalDumai - $prevTotalDumai) / $prevTotalDumai) * 100 : 0;
+                                            }
+                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                         @endphp
-                                        <td class="border-0 opacity-75">{{ $totalDumai > 0 ? number_format($totalDumai) : '-' }}</td>
+                                        <td class="border-light opacity-75">{{ $totalDumai > 0 ? number_format($totalDumai) : '-' }}</td>
+                                        <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
+                                            @if($prevTotalDumai > 0 || ($isCurrentMonth && $pct != 0))
+                                                {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                            @else - @endif
+                                        </td>
                                     @endfor
+                                </tr>
+                                <tr id="val-sales-cluster-dumai" class="validity-row d-none bg-light">
+                                    <td colspan="25" class="p-0 border-0">
+                                        <div class="px-5 py-2" style="background: #f0f7ff">
+                                            <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                <thead class="bg-white">
+                                                    <tr class="text-primary">
+                                                        <th class="text-left border-0">Validity (Cluster Dumai)</th>
+                                                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                            <th class="border-0">{{ $m }}</th>
+                                                        @endforeach
+                                                        <th class="border-0 bg-light">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php 
+                                                        $footTotals = array_fill(1, 12, 0); 
+                                                        $footGrand = 0;
+                                                    @endphp
+                                                    @foreach($validityGroups as $vg)
+                                                        @php 
+                                                            $totalVG = 0; 
+                                                            $mTotals = array_fill(1, 12, 0);
+                                                            foreach($clusterDumai as $tap) {
+                                                                foreach($validityMatrixSales[$tap][$vg] ?? [] as $m => $val) {
+                                                                    $mTotals[$m] += $val;
+                                                                    $totalVG += $val;
+                                                                }
+                                                            }
+                                                            for($m=1;$m<=12;$m++) { $footTotals[$m] += $mTotals[$m]; }
+                                                            $footGrand += $totalVG;
+                                                        @endphp
+                                                        @if($totalVG > 0)
+                                                        <tr>
+                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="bg-light font-weight-bold">
+                                                    <tr>
+                                                        <td class="text-left">TOTAL</td>
+                                                        @for($m=1; $m<=12; $m++)
+                                                            <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                        @endfor
+                                                        <td class="bg-primary text-white">{{ number_format($footGrand) }}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endif
 
                                 @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
                                 {{-- FOOTER CLUSTER ROKAN HILIR --}}
                                 <tr>
-                                    <td class="text-left border-0"><span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir</td>
+                                    <td class="text-left border-0 sticky-tap-col">
+                                        <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
+                                            data-target="val-sales-cluster-rohil">
+                                            +
+                                        </button>
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir
+                                    </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
                                             $totalRohil = 0;
-                                            foreach($clusterRohil as $tap) { $totalRohil += ($matrixSales[$tap][$i] ?? 0); }
+                                            $prevTotalRohil = 0;
+                                            foreach($clusterRohil as $tap) { 
+                                                $totalRohil += ($matrixSales[$tap][$i] ?? 0); 
+                                                $prevTotalRohil += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($matrixSales[$tap][$i-1] ?? 0);
+                                            }
+
+                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            if($isCurrentMonth) {
+                                                $pct = $momCluster['rokan_hilir']->mom ?? 0;
+                                            } else {
+                                                $pct = $prevTotalRohil > 0 ? (($totalRohil - $prevTotalRohil) / $prevTotalRohil) * 100 : 0;
+                                            }
+                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                         @endphp
-                                        <td class="border-0 opacity-75">{{ $totalRohil > 0 ? number_format($totalRohil) : '-' }}</td>
+                                        <td class="border-light opacity-75">{{ $totalRohil > 0 ? number_format($totalRohil) : '-' }}</td>
+                                        <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
+                                            @if($prevTotalRohil > 0 || ($isCurrentMonth && $pct != 0))
+                                                {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                            @else - @endif
+                                        </td>
                                     @endfor
+                                </tr>
+                                <tr id="val-sales-cluster-rohil" class="validity-row d-none bg-light">
+                                    <td colspan="25" class="p-0 border-0">
+                                        <div class="px-5 py-2" style="background: #f0f7ff">
+                                            <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                <thead class="bg-white">
+                                                    <tr class="text-primary">
+                                                        <th class="text-left border-0">Validity (Cluster Rohil)</th>
+                                                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                            <th class="border-0">{{ $m }}</th>
+                                                        @endforeach
+                                                        <th class="border-0 bg-light">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php 
+                                                        $footTotals = array_fill(1, 12, 0); 
+                                                        $footGrand = 0;
+                                                    @endphp
+                                                    @foreach($validityGroups as $vg)
+                                                        @php 
+                                                            $totalVG = 0; 
+                                                            $mTotals = array_fill(1, 12, 0);
+                                                            foreach($clusterRohil as $tap) {
+                                                                foreach($validityMatrixSales[$tap][$vg] ?? [] as $m => $val) {
+                                                                    $mTotals[$m] += $val;
+                                                                    $totalVG += $val;
+                                                                }
+                                                            }
+                                                            for($m=1;$m<=12;$m++) { $footTotals[$m] += $mTotals[$m]; }
+                                                            $footGrand += $totalVG;
+                                                        @endphp
+                                                        @if($totalVG > 0)
+                                                        <tr>
+                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="bg-light font-weight-bold">
+                                                    <tr>
+                                                        <td class="text-left">TOTAL</td>
+                                                        @for($m=1; $m<=12; $m++)
+                                                            <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                        @endfor
+                                                        <td class="bg-primary text-white">{{ number_format($footGrand) }}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endif
 
                                 @if(session('idtap') == 'SBP_DUMAI')
                                 {{-- GRAND TOTAL KESELURUHAN --}}
                                 <tr style="background-color: #e3f2fd; color: #0d47a1;">
-                                    <td class="text-left border-0 font-weight-bold">✨ GRAND TOTAL</td>
+                                    <td class="text-left border-0 font-weight-bold sticky-tap-col">
+                                        <button class="btn btn-sm btn-primary border toggle-validity rounded py-0 px-2 mr-2"
+                                            data-target="val-sales-grand-total">
+                                            +
+                                        </button>
+                                        ✨ GRAND TOTAL
+                                    </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
-                                            $grandTotal = 0;
-                                            foreach($matrixSales as $tap => $months) {
-                                                $grandTotal += ($months[$i] ?? 0);
+                                            $totalGT = 0;
+                                            $prevTotalGT = 0;
+                                            foreach($matrixSales as $tap => $months) { 
+                                                $totalGT += ($months[$i] ?? 0); 
+                                                $prevTotalGT += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
                                             }
+
+                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            if($isCurrentMonth) {
+                                                $pct = $mom; // Global Sales MoM
+                                            } else {
+                                                $pct = $prevTotalGT > 0 ? (($totalGT - $prevTotalGT) / $prevTotalGT) * 100 : 0;
+                                            }
+                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                         @endphp
-                                        <td class="border-0 font-weight-bold">{{ $grandTotal > 0 ? number_format($grandTotal) : '-' }}</td>
+                                        <td class="border-light font-weight-bold">{{ $totalGT > 0 ? number_format($totalGT) : '-' }}</td>
+                                        <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: rgba(0,0,0,0.05)">
+                                            @if($prevTotalGT > 0 || ($isCurrentMonth && $pct != 0))
+                                                {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                            @else - @endif
+                                        </td>
                                     @endfor
+                                </tr>
+                                <tr id="val-sales-grand-total" class="validity-row d-none" style="background-color: #f8fafc">
+                                    <td colspan="25" class="p-0 border-0">
+                                        <div class="px-5 py-2" style="background: #e3f2fd">
+                                            <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                <thead class="bg-white">
+                                                    <tr style="color: #0d47a1">
+                                                        <th class="text-left border-0">Validity (Grand Total)</th>
+                                                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                            <th class="border-0">{{ $m }}</th>
+                                                        @endforeach
+                                                        <th class="border-0 bg-light">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php 
+                                                        $footTotals = array_fill(1, 12, 0); 
+                                                        $footGrand = 0;
+                                                    @endphp
+                                                    @foreach($validityGroups as $vg)
+                                                        @php 
+                                                            $totalVG = 0; 
+                                                            $mTotals = array_fill(1, 12, 0);
+                                                            foreach($matrixSales as $tap => $months) {
+                                                                foreach($validityMatrixSales[$tap][$vg] ?? [] as $m => $val) {
+                                                                    $mTotals[$m] += $val;
+                                                                    $totalVG += $val;
+                                                                }
+                                                            }
+                                                            for($m=1;$m<=12;$m++) { $footTotals[$m] += $mTotals[$m]; }
+                                                            $footGrand += $totalVG;
+                                                        @endphp
+                                                        @if($totalVG > 0)
+                                                        <tr>
+                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="bg-light font-weight-bold">
+                                                    <tr>
+                                                        <td class="text-left">TOTAL</td>
+                                                        @for($m=1; $m<=12; $m++)
+                                                            <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                        @endfor
+                                                        <td class="bg-primary text-white">{{ number_format($footGrand) }}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endif
                             </tfoot>
@@ -202,83 +555,394 @@
                     <small class="text-muted">Kerapatan transaksi Inject PV per TAP. Warna makin pekat = performa makin tinggi.</small>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                    <div class="table-scroll-heatmap">
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
-                                <tr>
-                                    <th class="text-left font-weight-bold border-0 text-secondary">NAMA TAP</th>
+                                <tr class="text-secondary">
+                                    <th class="text-left font-weight-bold border-0 text-secondary sticky-tap-col">NAMA TAP</th>
                                     @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
-                                        <th class="border-0 text-secondary">{{ $m }}</th>
+                                        <th class="border-light">{{ $m }}</th>
+                                        <th class="border-light text-muted" style="font-size: 10px;">MoM %</th>
                                     @endforeach
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($matrixInject as $tap => $months)
                                     <tr>
-                                        <td class="text-left font-weight-bold bg-white text-dark">{{ $tap }}</td>
+                                        <td class="text-left font-weight-bold bg-white text-dark sticky-tap-col">
+                                            <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
+                                                data-target="val-inject-{{ Str::slug($tap) }}">
+                                                +
+                                            </button>
+                                            {{ $tap }}
+                                        </td>
                                         @for($i=1; $i<=12; $i++)
                                             @php 
                                                 $val = $months[$i] ?? 0; 
                                                 $opacity = $val > 0 ? min($val / 20000, 1) : 0; 
-                                                // Enterprise Green heatmap
                                                 $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
                                                 $bg = $val > 0 ? "rgba(25, 135, 84, $opacity)" : "transparent"; 
                                                 $color = $opacity > 0.5 ? '#fff' : '#444';
+
+                                                // MoM Logic Inject
+                                                $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                                $prevVal = ($i == 1) ? ($prevDecInject[$tap] ?? 0) : ($months[$i-1] ?? 0);
+                                                
+                                                if($isCurrentMonth) {
+                                                    $pct = $momTapInject[$tap] ?? 0;
+                                                    $hasPrev = isset($momTapInject[$tap]);
+                                                } else {
+                                                    $pct = $prevVal > 0 ? (($val - $prevVal) / $prevVal) * 100 : 0;
+                                                    $hasPrev = $prevVal > 0;
+                                                }
+                                                $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                                $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                             @endphp
                                             <td class="heatmap-cell border-light" style="background-color: {{ $bg }}; color: {{ $color }};">
                                                 {{ $val > 0 ? number_format($val) : '-' }}
                                             </td>
+                                            <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
+                                                @if($hasPrev)
+                                                    {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
                                         @endfor
                                     </tr>
+
+                                    {{-- EXPANSION ROW: VALIDITY INJECT --}}
+                                    <tr id="val-inject-{{ Str::slug($tap) }}" class="validity-row d-none bg-light">
+                                        <td colspan="25" class="p-0 border-0">
+                                            <div class="px-3 py-2 bg-light">
+                                                <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                    <thead class="bg-white">
+                                                        <tr class="text-secondary">
+                                                            <th class="text-left border-0">Validity Group</th>
+                                                            @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                                <th class="border-0">{{ $m }}</th>
+                                                            @endforeach
+                                                            <th class="border-0 bg-light-success">TOTAL</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @php 
+                                                            $footTotals = array_fill(1, 12, 0); 
+                                                            $footGrand = 0;
+                                                        @endphp
+                                                        @foreach($validityGroups as $vg)
+                                                            @php 
+                                                                $totalVG = 0; 
+                                                                $mRow = [];
+                                                                for($m=1;$m<=12;$m++) {
+                                                                    $v = $validityMatrixInject[$tap][$vg][$m] ?? 0;
+                                                                    $mRow[$m] = $v;
+                                                                    $totalVG += $v;
+                                                                    $footTotals[$m] += $v;
+                                                                }
+                                                                $footGrand += $totalVG;
+                                                            @endphp
+                                                            @if($totalVG > 0)
+                                                            <tr>
+                                                                <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                                @for($m=1; $m<=12; $m++)
+                                                                    <td>{{ $mRow[$m] > 0 ? number_format($mRow[$m]) : '-' }}</td>
+                                                                @endfor
+                                                                <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                            </tr>
+                                                            @endif
+                                                        @endforeach
+                                                    </tbody>
+                                                    <tfoot class="bg-light font-weight-bold">
+                                                        <tr>
+                                                            <td class="text-left">TOTAL</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-success text-white">{{ number_format($footGrand) }}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 @endforeach
-                            </tbody>
-                            <tfoot class="bg-light text-dark font-weight-bold" style="border-top: 2px solid #ddd">
-                                @php
-                                    $clusterDumai = ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'];
-                                    $clusterRohil = ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'];
-                                @endphp
-                                
-                                {{-- FOOTER CLUSTER DUMAI BENGKALIS --}}
+                                      {{-- FOOTER CLUSTER DUMAI BENGKALIS --}}
                                 @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
                                 <tr>
-                                    <td class="text-left border-0"><span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis</td>
+                                    <td class="text-left border-0 sticky-tap-col">
+                                        <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
+                                            data-target="val-inject-cluster-dumai">
+                                            +
+                                        </button>
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis
+                                    </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
                                             $totalDumai = 0;
-                                            foreach($clusterDumai as $tap) { $totalDumai += ($matrixInject[$tap][$i] ?? 0); }
+                                            $prevTotalDumai = 0;
+                                            foreach($clusterDumai as $tap) { 
+                                                $totalDumai += ($matrixInject[$tap][$i] ?? 0); 
+                                                $prevTotalDumai += ($i == 1) ? ($prevDecInject[$tap] ?? 0) : ($matrixInject[$tap][$i-1] ?? 0);
+                                            }
+
+                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            if($isCurrentMonth) {
+                                                $pct = $momClusterInject['dumai_bengkalis'] ?? 0;
+                                            } else {
+                                                $pct = $prevTotalDumai > 0 ? (($totalDumai - $prevTotalDumai) / $prevTotalDumai) * 100 : 0;
+                                            }
+                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                         @endphp
-                                        <td class="border-0 opacity-75">{{ $totalDumai > 0 ? number_format($totalDumai) : '-' }}</td>
+                                        <td class="border-light opacity-75">{{ $totalDumai > 0 ? number_format($totalDumai) : '-' }}</td>
+                                        <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
+                                            @if($prevTotalDumai > 0 || ($isCurrentMonth && $pct != 0))
+                                                {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                            @else - @endif
+                                        </td>
                                     @endfor
+                                </tr>
+                                <tr id="val-inject-cluster-dumai" class="validity-row d-none bg-light">
+                                    <td colspan="25" class="p-0 border-0">
+                                        <div class="px-5 py-2" style="background: #e9f7ef">
+                                            <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                <thead class="bg-white">
+                                                    <tr class="text-success">
+                                                        <th class="text-left border-0">Validity (Cluster Dumai)</th>
+                                                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                            <th class="border-0">{{ $m }}</th>
+                                                        @endforeach
+                                                        <th class="border-0 bg-light">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php 
+                                                        $footTotals = array_fill(1, 12, 0); 
+                                                        $footGrand = 0;
+                                                    @endphp
+                                                    @foreach($validityGroups as $vg)
+                                                        @php 
+                                                            $totalVG = 0; 
+                                                            $mTotals = array_fill(1, 12, 0);
+                                                            foreach($clusterDumai as $tap) {
+                                                                foreach($validityMatrixInject[$tap][$vg] ?? [] as $m => $val) {
+                                                                    $mTotals[$m] += $val;
+                                                                    $totalVG += $val;
+                                                                }
+                                                            }
+                                                            for($m=1;$m<=12;$m++) { $footTotals[$m] += $mTotals[$m]; }
+                                                            $footGrand += $totalVG;
+                                                        @endphp
+                                                        @if($totalVG > 0)
+                                                        <tr>
+                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="bg-light font-weight-bold">
+                                                    <tr>
+                                                        <td class="text-left">TOTAL</td>
+                                                        @for($m=1; $m<=12; $m++)
+                                                            <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                        @endfor
+                                                        <td class="bg-success text-white">{{ number_format($footGrand) }}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endif
 
                                 @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
                                 {{-- FOOTER CLUSTER ROKAN HILIR --}}
                                 <tr>
-                                    <td class="text-left border-0"><span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir</td>
+                                    <td class="text-left border-0 sticky-tap-col">
+                                        <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
+                                            data-target="val-inject-cluster-rohil">
+                                            +
+                                        </button>
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir
+                                    </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
                                             $totalRohil = 0;
-                                            foreach($clusterRohil as $tap) { $totalRohil += ($matrixInject[$tap][$i] ?? 0); }
+                                            $prevTotalRohil = 0;
+                                            foreach($clusterRohil as $tap) { 
+                                                $totalRohil += ($matrixInject[$tap][$i] ?? 0); 
+                                                $prevTotalRohil += ($i == 1) ? ($prevDecInject[$tap] ?? 0) : ($matrixInject[$tap][$i-1] ?? 0);
+                                            }
+
+                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            if($isCurrentMonth) {
+                                                $pct = $momClusterInject['rokan_hilir'] ?? 0;
+                                            } else {
+                                                $pct = $prevTotalRohil > 0 ? (($totalRohil - $prevTotalRohil) / $prevTotalRohil) * 100 : 0;
+                                            }
+                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                         @endphp
-                                        <td class="border-0 opacity-75">{{ $totalRohil > 0 ? number_format($totalRohil) : '-' }}</td>
+                                        <td class="border-light opacity-75">{{ $totalRohil > 0 ? number_format($totalRohil) : '-' }}</td>
+                                        <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
+                                            @if($prevTotalRohil > 0 || ($isCurrentMonth && $pct != 0))
+                                                {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                            @else - @endif
+                                        </td>
                                     @endfor
+                                </tr>
+                                <tr id="val-inject-cluster-rohil" class="validity-row d-none bg-light">
+                                    <td colspan="25" class="p-0 border-0">
+                                        <div class="px-5 py-2" style="background: #e9f7ef">
+                                            <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                <thead class="bg-white">
+                                                    <tr class="text-success">
+                                                        <th class="text-left border-0">Validity (Cluster Rohil)</th>
+                                                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                            <th class="border-0">{{ $m }}</th>
+                                                        @endforeach
+                                                        <th class="border-0 bg-light">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php 
+                                                        $footTotals = array_fill(1, 12, 0); 
+                                                        $footGrand = 0;
+                                                    @endphp
+                                                    @foreach($validityGroups as $vg)
+                                                        @php 
+                                                            $totalVG = 0; 
+                                                            $mTotals = array_fill(1, 12, 0);
+                                                            foreach($clusterRohil as $tap) {
+                                                                foreach($validityMatrixInject[$tap][$vg] ?? [] as $m => $val) {
+                                                                    $mTotals[$m] += $val;
+                                                                    $totalVG += $val;
+                                                                }
+                                                            }
+                                                            for($m=1;$m<=12;$m++) { $footTotals[$m] += $mTotals[$m]; }
+                                                            $footGrand += $totalVG;
+                                                        @endphp
+                                                        @if($totalVG > 0)
+                                                        <tr>
+                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="bg-light font-weight-bold">
+                                                    <tr>
+                                                        <td class="text-left">TOTAL</td>
+                                                        @for($m=1; $m<=12; $m++)
+                                                            <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                        @endfor
+                                                        <td class="bg-success text-white">{{ number_format($footGrand) }}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endif
 
                                 @if(session('idtap') == 'SBP_DUMAI')
                                 {{-- GRAND TOTAL KESELURUHAN --}}
                                 <tr style="background-color: #e8f5e9; color: #1b5e20;">
-                                    <td class="text-left border-0 font-weight-bold">✨ GRAND TOTAL</td>
+                                    <td class="text-left border-0 font-weight-bold sticky-tap-col">
+                                        <button class="btn btn-sm btn-success border toggle-validity rounded py-0 px-2 mr-2"
+                                            data-target="val-inject-grand-total">
+                                            +
+                                        </button>
+                                        ✨ GRAND TOTAL
+                                    </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
-                                            $grandTotal = 0;
-                                            foreach($matrixInject as $tap => $months) {
-                                                $grandTotal += ($months[$i] ?? 0);
+                                            $totalGT = 0;
+                                            $prevTotalGT = 0;
+                                            foreach($matrixInject as $tap => $months) { 
+                                                $totalGT += ($months[$i] ?? 0); 
+                                                $prevTotalGT += ($i == 1) ? ($prevDecInject[$tap] ?? 0) : ($months[$i-1] ?? 0);
                                             }
+
+                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            if($isCurrentMonth) {
+                                                $pct = $momGTInject;
+                                            } else {
+                                                $pct = $prevTotalGT > 0 ? (($totalGT - $prevTotalGT) / $prevTotalGT) * 100 : 0;
+                                            }
+                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-white');
+                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
                                         @endphp
-                                        <td class="border-0 font-weight-bold">{{ $grandTotal > 0 ? number_format($grandTotal) : '-' }}</td>
+                                        <td class="border-light font-weight-bold">{{ $totalGT > 0 ? number_format($totalGT) : '-' }}</td>
+                                        <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: rgba(0,0,0,0.05)">
+                                            @if($prevTotalGT > 0 || ($isCurrentMonth && $pct != 0))
+                                                {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
+                                            @else - @endif
+                                        </td>
                                     @endfor
+                                </tr>
+                                <tr id="val-inject-grand-total" class="validity-row d-none" style="background-color: #f8fafc">
+                                    <td colspan="25" class="p-0 border-0">
+                                        <div class="px-5 py-2" style="background: #e8f5e9">
+                                            <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                <thead class="bg-white">
+                                                    <tr style="color: #1b5e20">
+                                                        <th class="text-left border-0">Validity (Grand Total)</th>
+                                                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                            <th class="border-0">{{ $m }}</th>
+                                                        @endforeach
+                                                        <th class="border-0 bg-light">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php 
+                                                        $footTotals = array_fill(1, 12, 0); 
+                                                        $footGrand = 0;
+                                                    @endphp
+                                                    @foreach($validityGroups as $vg)
+                                                        @php 
+                                                            $totalVG = 0; 
+                                                            $mTotals = array_fill(1, 12, 0);
+                                                            foreach($matrixInject as $tap => $months) {
+                                                                foreach($validityMatrixInject[$tap][$vg] ?? [] as $m => $val) {
+                                                                    $mTotals[$m] += $val;
+                                                                    $totalVG += $val;
+                                                                }
+                                                            }
+                                                            for($m=1;$m<=12;$m++) { $footTotals[$m] += $mTotals[$m]; }
+                                                            $footGrand += $totalVG;
+                                                        @endphp
+                                                        @if($totalVG > 0)
+                                                        <tr>
+                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            @for($m=1; $m<=12; $m++)
+                                                                <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
+                                                            @endfor
+                                                            <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="bg-light font-weight-bold">
+                                                    <tr>
+                                                        <td class="text-left">TOTAL</td>
+                                                        @for($m=1; $m<=12; $m++)
+                                                            <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                        @endfor
+                                                        <td class="bg-success text-white">{{ number_format($footGrand) }}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endif
                             </tfoot>
@@ -665,7 +1329,7 @@
     </script>
 
     <script>
-        document.querySelectorAll('.toggle-sf').forEach(btn => {
+        document.querySelectorAll('.toggle-sf, .toggle-validity').forEach(btn => {
             btn.addEventListener('click', function() {
                 const target = document.getElementById(this.dataset.target);
                 if (target.classList.contains('d-none')) {

@@ -39,18 +39,18 @@
                                                 <label for="cluster">Filter Cluster:</label>
                                                 <select name="cluster" class="form-control">
                                                     <option value="">--PILIH CLUSTER--</option>
-                                                    <option value="DUMAI BENGKALIS"
-                                                        {{ $cluster == 'DUMAI BENGKALIS' ? 'selected' : '' }}>DUMAI
+                                                    <option value="DUMAI BENGKALIS" {{ $cluster=='DUMAI BENGKALIS'
+                                                        ? 'selected' : '' }}>DUMAI
                                                         BENGKALIS
                                                     </option>
-                                                    <option value="SIDEMPUAN"
-                                                        {{ $cluster == 'SIDEMPUAN' ? 'selected' : '' }}>SIDEMPUAN
+                                                    <option value="SIDEMPUAN" {{ $cluster=='SIDEMPUAN' ? 'selected' : '' }}>
+                                                        SIDEMPUAN
                                                     </option>
-                                                    <option value="LABUHAN BATU"
-                                                        {{ $cluster == 'LABUHAN BATU' ? 'selected' : '' }}>LABUHAN BATU
+                                                    <option value="LABUHAN BATU" {{ $cluster=='LABUHAN BATU' ? 'selected'
+                                                        : '' }}>LABUHAN BATU
                                                     </option>
-                                                    <option value="PADANG LAWAS"
-                                                        {{ $cluster == 'PADANG LAWAS' ? 'selected' : '' }}>PADANG LAWAS
+                                                    <option value="PADANG LAWAS" {{ $cluster=='PADANG LAWAS' ? 'selected'
+                                                        : '' }}>PADANG LAWAS
                                                     </option>
                                                 </select>
                                                 <button type="submit" class="btn btn-primary mt-2">Filter</button>
