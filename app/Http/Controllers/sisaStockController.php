@@ -136,10 +136,12 @@ class sisaStockController extends Controller
 
             // e. Inject PV (Potong Segel)
             $injectSegel = DB::table('injectvf')
-                ->select('idtap', 'kategori as iddenom', DB::raw('SUM(qty) as total'))
-                ->where('tgl', '>=', $afterDate);
-            $applyFilter($injectSegel);
-            foreach ($injectSegel->groupBy('idtap', 'kategori')->get() as $r) {
+                ->join('denom', 'injectvf.iddenom', '=', 'denom.iddenom')
+                ->select('injectvf.idtap', 'denom.kategori_inject as iddenom', DB::raw('SUM(injectvf.qty) as total'))
+                ->whereNotNull('denom.kategori_inject')
+                ->where('injectvf.tgl', '>=', $afterDate);
+            $applyFilter($injectSegel, 'injectvf.idtap');
+            foreach ($injectSegel->groupBy('injectvf.idtap', 'denom.kategori_inject')->get() as $r) {
                 $key = $r->idtap . '|' . $r->iddenom;
                 $stock[$key] = ($stock[$key] ?? 0) + $r->total; // REVERSE!
             }
