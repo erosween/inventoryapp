@@ -189,9 +189,14 @@
                 if (!idtap) return;
 
                 $.post('{{ route('ajax.get-sf') }}', {
-                    idtap
+                    idtap,
+                    _token: '{{ csrf_token() }}'
                 }).done(res => {
-                    $sf.html(res)
+                    let options = '<option value="">-- Pilih SF --</option>';
+                    res.forEach(item => {
+                        options += `<option value="${item.idsf}">${item.namasf}</option>`;
+                    });
+                    $sf.html(options)
                         .prop('disabled', false)
                         .trigger('change');
                 });
