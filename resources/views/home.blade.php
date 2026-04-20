@@ -15,7 +15,13 @@
     /* HEATMAP FREEZE BOX */
     .table-scroll-heatmap {
         overflow: auto;
-        max-height: 500px; /* Optional: vertical scroll */
+        /* max-height removed to allow full page view */
+    }
+
+    /* COMPACT HEATMAP */
+    .table-scroll-heatmap td, .table-scroll-heatmap th {
+        padding: 6px 8px !important;
+        vertical-align: middle !important;
     }
 
     /* STICKY HEADER */
@@ -27,24 +33,48 @@
         border-bottom: 2px solid #ddd !important;
     }
 
-    /* STICKY TAP COLUMN */
-    .sticky-tap-col {
+    /* STICKY FOOTER (CLUSTER & GRAND TOTAL) */
+    .table-scroll-heatmap tfoot tr td {
         position: sticky;
-        left: 0;
-        z-index: 90 !important;
+        bottom: 0;
+        z-index: 100 !important;
+        background: #f8fafc !important; /* Solid background to prevent bleed-through */
+        box-shadow: 0 -4px 8px rgba(0,0,0,0.05);
+        border-top: 2px solid #ddd !important;
+    }
+
+    
+
+    
+
+    /* Header specific overrides */
+    .table-scroll-heatmap thead th.sticky-tap-col { z-index: 110 !important; }
+    .table-scroll-heatmap thead th.sticky-validity-col { z-index: 105 !important; background: #f8fafc !important; }
+
+    /* HEATMAP STICKY SYSTEM */
+    .sticky-tap-col, .sticky-validity-col {
+        position: sticky !important;
+        left: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
         background: #fff !important;
         box-shadow: 4px 0 8px rgba(0,0,0,0.06);
     }
-
-    /* CORNER FIX (Top Left) */
-    .table-scroll-heatmap thead th.sticky-tap-col {
-        z-index: 110 !important;
+    .sticky-tap-col {
+        z-index: 95 !important;
+        width: 240px !important;
+        min-width: 240px !important;
     }
-
-    /* HOVER FIX FOR STICKY */
-    .table-scroll-heatmap tbody tr:hover td.sticky-tap-col {
-        background-color: #f1f5f9 !important;
+    .sticky-validity-col {
+        z-index: 90 !important;
+        width: 240px !important;
+        min-width: 240px !important;
+        padding-left: 45px !important;
     }
+    .table-scroll-heatmap thead th.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
+    .table-scroll-heatmap thead th.sticky-validity-col { z-index: 105 !important; background: #f8fafc !important; }
+    .table-scroll-heatmap tfoot td.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
 </style>
 
 <div class="main-panel">
@@ -201,58 +231,94 @@
                                         @endfor
                                     </tr>
 
-                                    {{-- EXPANSION ROW: VALIDITY SALES --}}
+                                    {{-- EXPANSION ROW: SF & VALIDITY SALES --}}
                                     <tr id="val-sales-{{ Str::slug($tap) }}" class="validity-row d-none bg-light">
                                         <td colspan="25" class="p-0 border-0">
-                                            <div class="px-3 py-2 bg-light">
-                                                <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
-                                                    <thead class="bg-white">
-                                                        <tr class="text-secondary">
-                                                            <th class="text-left border-0">Validity Group</th>
-                                                            @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
-                                                                <th class="border-0">{{ $m }}</th>
-                                                            @endforeach
-                                                            <th class="border-0 bg-light-primary">TOTAL</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @php 
-                                                            $footTotals = array_fill(1, 12, 0); 
-                                                            $footGrand = 0;
-                                                        @endphp
-                                                        @foreach($validityGroups as $vg)
-                                                            @php 
-                                                                $totalVG = 0; 
-                                                                $mRow = [];
-                                                                for($m=1;$m<=12;$m++) {
-                                                                    $v = $validityMatrixSales[$tap][$vg][$m] ?? 0;
-                                                                    $mRow[$m] = $v;
-                                                                    $totalVG += $v;
-                                                                    $footTotals[$m] += $v;
-                                                                }
-                                                                $footGrand += $totalVG;
-                                                            @endphp
-                                                            @if($totalVG > 0)
-                                                            <tr>
-                                                                <td class="text-left font-weight-bold">{{ $vg }}</td>
-                                                                @for($m=1; $m<=12; $m++)
-                                                                    <td>{{ $mRow[$m] > 0 ? number_format($mRow[$m]) : '-' }}</td>
-                                                                @endfor
-                                                                <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                            <div class="py-2 pr-2 bg-light">
+                                                <div class="d-flex mb-2 pl-5">
+                                                    <button class="btn btn-xs btn-primary mr-1 btn-toggle-rincian" data-target="sf-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">👤 SF Performance</button>
+                                                    <button class="btn btn-xs btn-outline-primary btn-toggle-rincian" data-target="validity-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">🎫 Validity Group</button>
+                                                </div>
+
+                                                {{-- SUB-SECTION: SF PERFORMANCE --}}
+                                                <div id="sf-sales-{{ Str::slug($tap) }}" class="rincian-content">
+                                                    <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                        <thead class="bg-white">
+                                                            <tr class="text-primary">
+                                                                <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">Sales Force</th>
+                                                                @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                                    <th class="border-0">{{ $m }}</th>
+                                                                @endforeach
+                                                                <th class="border-0 bg-light">TOTAL</th>
                                                             </tr>
-                                                            @endif
-                                                        @endforeach
-                                                    </tbody>
-                                                    <tfoot class="bg-light font-weight-bold">
-                                                        <tr>
-                                                            <td class="text-left">TOTAL</td>
-                                                            @for($m=1; $m<=12; $m++)
-                                                                <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
-                                                            @endfor
-                                                            <td class="bg-secondary text-white">{{ number_format($footGrand) }}</td>
-                                                        </tr>
-                                                    </tfoot>
-                                                </table>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach($sfByTap[$tap] ?? [] as $sf)
+                                                                @php $sfTotal = 0; @endphp
+                                                                <tr>
+                                                                    <td class="text-left font-weight-bold sticky-validity-col">{{ $sf->namasf }}</td>
+                                                                    @for($m=1; $m<=12; $m++)
+                                                                        @php $mv = $matrixSalesSf[$sf->idsf][$m] ?? 0; $sfTotal += $mv; @endphp
+                                                                        <td>{{ $mv > 0 ? number_format($mv) : '-' }}</td>
+                                                                    @endfor
+                                                                    <td class="bg-light font-weight-bold">{{ number_format($sfTotal) }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                {{-- SUB-SECTION: VALIDITY GROUP --}}
+                                                <div id="validity-sales-{{ Str::slug($tap) }}" class="rincian-content d-none">
+                                                    <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
+                                                        <thead class="bg-white">
+                                                            <tr class="text-secondary">
+                                                                <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">Validity Group</th>
+                                                                @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                                    <th class="border-0">{{ $m }}</th>
+                                                                @endforeach
+                                                                <th class="border-0 bg-light-primary">TOTAL</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @php 
+                                                                $footTotals = array_fill(1, 12, 0); 
+                                                                $footGrand = 0;
+                                                            @endphp
+                                                            @foreach($validityGroups as $vg)
+                                                                @php 
+                                                                    $totalVG = 0; 
+                                                                    $mRow = [];
+                                                                    for($m=1;$m<=12;$m++) {
+                                                                        $v = $validityMatrixSales[$tap][$vg][$m] ?? 0;
+                                                                        $mRow[$m] = $v;
+                                                                        $totalVG += $v;
+                                                                        $footTotals[$m] += $v;
+                                                                    }
+                                                                    $footGrand += $totalVG;
+                                                                @endphp
+                                                                @if($totalVG > 0)
+                                                                <tr>
+                                                                    <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
+                                                                    @for($m=1; $m<=12; $m++)
+                                                                        <td>{{ $mRow[$m] > 0 ? number_format($mRow[$m]) : '-' }}</td>
+                                                                    @endfor
+                                                                    <td class="bg-light font-weight-bold">{{ number_format($totalVG) }}</td>
+                                                                </tr>
+                                                                @endif
+                                                            @endforeach
+                                                        </tbody>
+                                                        <tfoot class="bg-light font-weight-bold">
+                                                            <tr>
+                                                                <td class="text-left sticky-validity-col">TOTAL</td>
+                                                                @for($m=1; $m<=12; $m++)
+                                                                    <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
+                                                                @endfor
+                                                                <td class="bg-secondary text-white">{{ number_format($footGrand) }}</td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
@@ -300,13 +366,13 @@
                                         </td>
                                     @endfor
                                 </tr>
-                                <tr id="val-sales-cluster-dumai" class="validity-row d-none bg-light">
+                                                                <tr id="val-sales-cluster-dumai" class="validity-row d-none bg-light">
                                     <td colspan="25" class="p-0 border-0">
-                                        <div class="px-5 py-2" style="background: #f0f7ff">
+                                        <div class="py-2 pr-2" style="background: #f0f7ff">
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-primary">
-                                                        <th class="text-left border-0">Validity (Cluster Dumai)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Dumai)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -333,7 +399,7 @@
                                                         @endphp
                                                         @if($totalVG > 0)
                                                         <tr>
-                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -344,7 +410,7 @@
                                                 </tbody>
                                                 <tfoot class="bg-light font-weight-bold">
                                                     <tr>
-                                                        <td class="text-left">TOTAL</td>
+                                                        <td class="text-left sticky-validity-col">TOTAL</td>
                                                         @for($m=1; $m<=12; $m++)
                                                             <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                         @endfor
@@ -355,6 +421,7 @@
                                         </div>
                                     </td>
                                 </tr>
+
                                 @endif
 
                                 @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
@@ -393,13 +460,13 @@
                                         </td>
                                     @endfor
                                 </tr>
-                                <tr id="val-sales-cluster-rohil" class="validity-row d-none bg-light">
+                                                                <tr id="val-sales-cluster-rohil" class="validity-row d-none bg-light">
                                     <td colspan="25" class="p-0 border-0">
-                                        <div class="px-5 py-2" style="background: #f0f7ff">
+                                        <div class="py-2 pr-2" style="background: #f0f7ff">
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-primary">
-                                                        <th class="text-left border-0">Validity (Cluster Rohil)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Rohil)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -426,7 +493,7 @@
                                                         @endphp
                                                         @if($totalVG > 0)
                                                         <tr>
-                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -437,7 +504,7 @@
                                                 </tbody>
                                                 <tfoot class="bg-light font-weight-bold">
                                                     <tr>
-                                                        <td class="text-left">TOTAL</td>
+                                                        <td class="text-left sticky-validity-col">TOTAL</td>
                                                         @for($m=1; $m<=12; $m++)
                                                             <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                         @endfor
@@ -448,6 +515,7 @@
                                         </div>
                                     </td>
                                 </tr>
+
                                 @endif
 
                                 @if(session('idtap') == 'SBP_DUMAI')
@@ -486,13 +554,13 @@
                                         </td>
                                     @endfor
                                 </tr>
-                                <tr id="val-sales-grand-total" class="validity-row d-none" style="background-color: #f8fafc">
+                                                                <tr id="val-sales-grand-total" class="validity-row d-none" style="background-color: #f8fafc">
                                     <td colspan="25" class="p-0 border-0">
-                                        <div class="px-5 py-2" style="background: #e3f2fd">
+                                        <div class="py-2 pr-2" style="background: #e3f2fd">
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr style="color: #0d47a1">
-                                                        <th class="text-left border-0">Validity (Grand Total)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">Validity (Grand Total)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -519,7 +587,7 @@
                                                         @endphp
                                                         @if($totalVG > 0)
                                                         <tr>
-                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -530,7 +598,7 @@
                                                 </tbody>
                                                 <tfoot class="bg-light font-weight-bold">
                                                     <tr>
-                                                        <td class="text-left">TOTAL</td>
+                                                        <td class="text-left sticky-validity-col">TOTAL</td>
                                                         @for($m=1; $m<=12; $m++)
                                                             <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                         @endfor
@@ -541,6 +609,7 @@
                                         </div>
                                     </td>
                                 </tr>
+
                                 @endif
                             </tfoot>
                         </table>
@@ -614,11 +683,11 @@
                                     {{-- EXPANSION ROW: VALIDITY INJECT --}}
                                     <tr id="val-inject-{{ Str::slug($tap) }}" class="validity-row d-none bg-light">
                                         <td colspan="25" class="p-0 border-0">
-                                            <div class="px-3 py-2 bg-light">
+                                            <div class="py-2 pr-2 bg-light">
                                                 <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                     <thead class="bg-white">
                                                         <tr class="text-secondary">
-                                                            <th class="text-left border-0">Validity Group</th>
+                                                            <th class="text-left border-0 sticky-validity-col">Validity Group</th>
                                                             @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                                 <th class="border-0">{{ $m }}</th>
                                                             @endforeach
@@ -644,7 +713,7 @@
                                                             @endphp
                                                             @if($totalVG > 0)
                                                             <tr>
-                                                                <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                                <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                                 @for($m=1; $m<=12; $m++)
                                                                     <td>{{ $mRow[$m] > 0 ? number_format($mRow[$m]) : '-' }}</td>
                                                                 @endfor
@@ -655,7 +724,7 @@
                                                     </tbody>
                                                     <tfoot class="bg-light font-weight-bold">
                                                         <tr>
-                                                            <td class="text-left">TOTAL</td>
+                                                            <td class="text-left sticky-validity-col">TOTAL</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -703,13 +772,13 @@
                                         </td>
                                     @endfor
                                 </tr>
-                                <tr id="val-inject-cluster-dumai" class="validity-row d-none bg-light">
+                                                                <tr id="val-inject-cluster-dumai" class="validity-row d-none bg-light">
                                     <td colspan="25" class="p-0 border-0">
-                                        <div class="px-5 py-2" style="background: #e9f7ef">
+                                        <div class="py-2 pr-2" style="background: #e9f7ef">
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-success">
-                                                        <th class="text-left border-0">Validity (Cluster Dumai)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Dumai)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -736,7 +805,7 @@
                                                         @endphp
                                                         @if($totalVG > 0)
                                                         <tr>
-                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -747,7 +816,7 @@
                                                 </tbody>
                                                 <tfoot class="bg-light font-weight-bold">
                                                     <tr>
-                                                        <td class="text-left">TOTAL</td>
+                                                        <td class="text-left sticky-validity-col">TOTAL</td>
                                                         @for($m=1; $m<=12; $m++)
                                                             <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                         @endfor
@@ -758,6 +827,7 @@
                                         </div>
                                     </td>
                                 </tr>
+
                                 @endif
 
                                 @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
@@ -796,13 +866,13 @@
                                         </td>
                                     @endfor
                                 </tr>
-                                <tr id="val-inject-cluster-rohil" class="validity-row d-none bg-light">
+                                                                <tr id="val-inject-cluster-rohil" class="validity-row d-none bg-light">
                                     <td colspan="25" class="p-0 border-0">
-                                        <div class="px-5 py-2" style="background: #e9f7ef">
+                                        <div class="py-2 pr-2" style="background: #e9f7ef">
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-success">
-                                                        <th class="text-left border-0">Validity (Cluster Rohil)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Rohil)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -829,7 +899,7 @@
                                                         @endphp
                                                         @if($totalVG > 0)
                                                         <tr>
-                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -840,7 +910,7 @@
                                                 </tbody>
                                                 <tfoot class="bg-light font-weight-bold">
                                                     <tr>
-                                                        <td class="text-left">TOTAL</td>
+                                                        <td class="text-left sticky-validity-col">TOTAL</td>
                                                         @for($m=1; $m<=12; $m++)
                                                             <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                         @endfor
@@ -851,6 +921,7 @@
                                         </div>
                                     </td>
                                 </tr>
+
                                 @endif
 
                                 @if(session('idtap') == 'SBP_DUMAI')
@@ -889,13 +960,13 @@
                                         </td>
                                     @endfor
                                 </tr>
-                                <tr id="val-inject-grand-total" class="validity-row d-none" style="background-color: #f8fafc">
+                                                                <tr id="val-inject-grand-total" class="validity-row d-none" style="background-color: #f8fafc">
                                     <td colspan="25" class="p-0 border-0">
-                                        <div class="px-5 py-2" style="background: #e8f5e9">
+                                        <div class="py-2 pr-2" style="background: #e8f5e9">
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr style="color: #1b5e20">
-                                                        <th class="text-left border-0">Validity (Grand Total)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">Validity (Grand Total)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -922,7 +993,7 @@
                                                         @endphp
                                                         @if($totalVG > 0)
                                                         <tr>
-                                                            <td class="text-left font-weight-bold">{{ $vg }}</td>
+                                                            <td class="text-left font-weight-bold sticky-validity-col">{{ $vg }}</td>
                                                             @for($m=1; $m<=12; $m++)
                                                                 <td>{{ $mTotals[$m] > 0 ? number_format($mTotals[$m]) : '-' }}</td>
                                                             @endfor
@@ -933,7 +1004,7 @@
                                                 </tbody>
                                                 <tfoot class="bg-light font-weight-bold">
                                                     <tr>
-                                                        <td class="text-left">TOTAL</td>
+                                                        <td class="text-left sticky-validity-col">TOTAL</td>
                                                         @for($m=1; $m<=12; $m++)
                                                             <td>{{ $footTotals[$m] > 0 ? number_format($footTotals[$m]) : '-' }}</td>
                                                         @endfor
@@ -944,6 +1015,7 @@
                                         </div>
                                     </td>
                                 </tr>
+
                                 @endif
                             </tfoot>
                         </table>
@@ -988,13 +1060,13 @@
             {{-- ================= ACTIVITY & MoM DAILY ================= --}}
             <div class="row mb-4">
                 <div class="col-md-5">
-                    <div class="card enterprise-shadow h-100">
+                    <div class="card enterprise-shadow">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">🗓️ Feed Aktivitas TAP</h6>
                             <small class="text-muted">Pantau input masuk/keluar harian terakhir</small>
                         </div>
                         <div class="card-body pt-4">
-                            <div class="feed-container" style="max-height: 320px; overflow-y: auto;">
+                            <div class="feed-container">
                                 @foreach ($tapList as $tap)
                                     @php
                                         $masuk = $tapMasuk[$tap] ?? null;
@@ -1029,13 +1101,13 @@
                 </div>
 
                 <div class="col-md-7">
-                    <div class="card enterprise-shadow h-100">
+                    <div class="card enterprise-shadow">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">📉 Komparasi Sales (Day-to-day MoM)</h6>
                             <small class="text-muted">Adu laju pencapaian bulan berjalan vs bulan lalu</small>
                         </div>
                         <div class="card-body">
-                            <div style="height:300px">
+                            <div style="height:400px">
                                 <canvas id="chartMomDaily"></canvas>
                             </div>
                         </div>
@@ -1056,8 +1128,10 @@
                                 <th class="border-0">LOKASI (TAP / SF)</th>
                                 <th class="text-right border-0">ACH MTD</th>
                                 <th class="text-right border-0">M-1 PARTIAL</th>
-                                <th class="text-right border-0">BULAN LALU (FULL)</th>
-                                <th class="text-right border-0">GROWTH (%)</th>
+                                <th class="text-right border-0">M-2 PARTIAL</th>
+                                <th class="text-right border-0">M-1 FULL</th>
+                                <th class="text-right border-0">GROWTH (M-1)</th>
+                                <th class="text-right border-0">GROWTH (M-2)</th>
                             </tr>
                         </thead>
 
@@ -1073,14 +1147,18 @@
                                     </td>
                                     <td class="text-right font-weight-bold text-dark">{{ number_format($r->curr_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_partial_qty) }}</td>
+                                    <td class="text-right text-muted">{{ number_format($r->m2_partial_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_full_qty) }}</td>
                                     <td class="text-right font-weight-bold {{ $r->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom), 2) }} %
                                     </td>
+                                    <td class="text-right font-weight-bold {{ $r->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                        {!! $r->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom_m2), 2) }} %
+                                    </td>
                                 </tr>
 
                                 <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light">
-                                    <td colspan="5" class="p-0 border-0">
+                                    <td colspan="7" class="p-0 border-0">
                                         <div class="p-3 bg-light border-left border-right">
                                             <table class="table table-sm mb-0 bg-white shadow-sm rounded">
                                                 <thead class="bg-white">
@@ -1088,7 +1166,9 @@
                                                         <th class="border-top-0">Anggota Tim SF</th>
                                                         <th class="text-right border-top-0">Capai MTD</th>
                                                         <th class="text-right border-top-0">M-1</th>
-                                                        <th class="text-right border-top-0">Kinerja Status</th>
+                                                        <th class="text-right border-top-0">M-2</th>
+                                                        <th class="text-right border-top-0">Growth (M-1)</th>
+                                                        <th class="text-right border-top-0">Growth (M-2)</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1097,9 +1177,15 @@
                                                             <td class="text-muted border-bottom-0"><i data-feather="user" style="width:14px;height:14px"></i> {{ $sf->namasf ?? $sf->idsf }}</td>
                                                             <td class="text-right font-weight-bold border-bottom-0">{{ number_format($sf->curr_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_qty) }}</td>
+                                                            <td class="text-right text-muted border-bottom-0">{{ number_format($sf->m2_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $sf->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                                                 <span class="badge badge-{{ $sf->mom >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
+                                                                </span>
+                                                            </td>
+                                                            <td class="text-right border-bottom-0 {{ $sf->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                                                <span class="badge badge-{{ $sf->mom_m2 >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom_m2 >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
+                                                                    {!! $sf->mom_m2 >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom_m2, 2) }} %
                                                                 </span>
                                                             </td>
                                                         </tr>
@@ -1118,9 +1204,13 @@
                                 <td class="border-0"><span class="badge badge-secondary mr-2">CLUSTER</span> Dumai Bengkalis</td>
                                 <td class="text-right border-0">{{ number_format($momCluster['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->prev_partial_qty) }}</td>
+                                <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->prev_full_qty) }}</td>
                                 <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom), 2) }} %
+                                </td>
+                                <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {!! $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom_m2), 2) }} %
                                 </td>
                             </tr>
                             @endif
@@ -1129,9 +1219,13 @@
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
                                 <td class="text-right border-0">{{ number_format($momCluster['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->prev_partial_qty) }}</td>
+                                <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->m2_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->prev_full_qty) }}</td>
                                 <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom), 2) }} %
+                                </td>
+                                <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {!! $momCluster['rokan_hilir']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom_m2), 2) }} %
                                 </td>
                             </tr>
                             @endif
@@ -1146,9 +1240,17 @@
                                 <td class="border-0 font-weight-bold">✨ GRAND TOTAL MOM</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>
+                                <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevFull) }}</td>
                                 <td class="text-right border-0 font-weight-bold {{ $grandMom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMom), 2) }} %
+                                </td>
+                                @php
+                                    $grandM2Part = $momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty;
+                                    $grandMomM2 = $grandM2Part > 0 ? (($grandCurr - $grandM2Part) / $grandM2Part) * 100 : 0;
+                                @endphp
+                                <td class="text-right border-0 font-weight-bold {{ $grandMomM2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {!! $grandMomM2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMomM2), 2) }} %
                                 </td>
                             </tr>
                             @endif
@@ -1326,9 +1428,8 @@
                 }
             }
         });
-    </script>
-
-    <script>
+    
+        // ================= INTERACTIVE TOGGLES ================= 
         document.querySelectorAll('.toggle-sf, .toggle-validity').forEach(btn => {
             btn.addEventListener('click', function() {
                 const target = document.getElementById(this.dataset.target);
@@ -1342,6 +1443,23 @@
                     this.classList.remove('bg-secondary', 'text-white');
                 }
             });
+        });
+    
+        // Logic for toggling rincian sub-sections (SF vs Validity)
+        $(document).on("click", ".btn-toggle-rincian", function() {
+            var target = $(this).data("target");
+            var parent = $(this).data("parent");
+            var isInject = target.includes("inject");
+            var btnClass = isInject ? "btn-success" : "btn-primary";
+            var btnOutlineClass = isInject ? "btn-outline-success" : "btn-outline-primary";
+            
+            // Update button styles
+            $("#" + parent + " .btn-toggle-rincian").removeClass(btnClass).addClass(btnOutlineClass);
+            $(this).removeClass(btnOutlineClass).addClass(btnClass);
+            
+            // Show/hide content
+            $("#" + parent + " .rincian-content").addClass("d-none");
+            $("#" + target).removeClass("d-none");
         });
     </script>
 @endpush

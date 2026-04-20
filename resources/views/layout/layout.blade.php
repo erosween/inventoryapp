@@ -22,10 +22,19 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
     <style>
+        /* Stabilize layout Scrollbar Gutter */
+        html {
+            scrollbar-gutter: stable;
+            overflow-y: scroll;
+        }
+
+        /* Samakan tinggi Select2 dengan Bootstrap */
         /* Samakan tinggi Select2 dengan Bootstrap */
         .select2-container .select2-selection--single {
-            height: 38px;
+            height: 38px !important;
             padding: 5px 10px;
+            border: 1px solid #ebedf2 !important;
+            transition: none !important;
         }
 
         .select2-container--default .select2-selection--single .select2-selection__rendered {
@@ -36,16 +45,29 @@
             height: 36px;
         }
 
-        /* Biar dropdown tidak ketutup */
+        /* Biar dropdown tidak ketutup & tidak goyang */
         .select2-container {
             width: 100% !important;
             z-index: 1055;
+            transition: none !important;
+        }
+
+        /* Prevent body shift when select2 opens */
+        .select2-container--open {
+            width: 100% !important;
+        }
+
+        /* Fix jumpy search field */
+        .select2-search--dropdown .select2-search__field {
+            padding: 8px !important;
+            border: 1px solid #ebedf2 !important;
+            outline: none !important;
         }
 
         /* kolom validasi qty */
         .is-invalid {
-            border-color: #dc3545;
-            box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, .25);
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, .25) !important;
         }
     </style>
 

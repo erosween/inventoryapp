@@ -10,8 +10,8 @@
                     <h4 class="page-title">Input Stok Keluar BO</h4>
                 </div>
 
-                <div class="row justify-content-center">
-                    <div class="col-xl-8 col-lg-9 col-md-11">
+                <div class="row">
+                    <div class="col-xl-7 col-lg-8 col-md-11">
 
                         <div class="card shadow-sm">
                             <div class="card-header">
@@ -32,7 +32,7 @@
                                             <div class="form-group mb-2">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    required>
+                                                    value="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 
@@ -132,14 +132,19 @@
             /* =====================
                SELECT2
             ===================== */
-            $('.select2').select2({
-                placeholder: 'Pilih / Cari…',
-                width: '100%',
-                allowClear: true
+            $('.select2').each(function() {
+                $(this).select2({
+                    placeholder: 'Pilih / Cari…',
+                    width: '100%',
+                    allowClear: true,
+                    dropdownParent: $(this).closest('.card-body')
+                });
             });
 
             $(document).on('select2:open', () => {
-                document.querySelector('.select2-search__field')?.focus();
+                setTimeout(function() {
+                    document.querySelector('.select2-search__field')?.focus();
+                }, 50);
             });
 
             /* =====================

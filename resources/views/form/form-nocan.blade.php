@@ -5,7 +5,7 @@
         <div class="content">
             <div class="page-inner">
                 <div class="row">
-                    <div class="col-md-6 offset-md-2">
+                    <div class="col-xl-7 col-lg-8 col-md-11">
                         <div class="card">
                             <div class="card-header">
                                 <div class="card-title">Form Order</div>
@@ -44,7 +44,8 @@
                                     </select>
 
                                     <label for="tgl" class="mt-3">TANGGAL</label>
-                                    <input type="date" class="form-control mb-3" name="tgl" required>
+                                    <input type="date" class="form-control mb-3" name="tgl" id="date"
+                                        value="{{ date('Y-m-d') }}" required>
 
                                     <label class="block text-gray-700 font-medium">ID OUTLET</label>
                                     <input type="number" name="outlet" id="id_outlet"
@@ -151,17 +152,17 @@
 
     <script>
         $(document).ready(function() {
-            $('#select2').select2({
-                width: '100%',
-
+            $('#select2, #select3').each(function() {
+                $(this).select2({
+                    width: '100%',
+                    dropdownParent: $(this).closest('.card-body')
+                });
             });
-        });
-    </script>
-    <script>
-        $(document).ready(function() {
-            $('#select3').select2({
-                width: '100%',
 
+            $(document).on('select2:open', () => {
+                setTimeout(function() {
+                    document.querySelector('.select2-search__field')?.focus();
+                }, 50);
             });
         });
     </script>

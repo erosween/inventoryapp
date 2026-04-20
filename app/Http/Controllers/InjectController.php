@@ -59,14 +59,18 @@ class InjectController extends Controller
     ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
     ->editColumn('qty', fn ($r) => number_format($r->qty))
     ->addColumn('action', function ($row) {
-        if (session('idtap') !== 'SBP_DUMAI') {
-            return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
+        if (auth()->user()->username !== 'admin_cluster') {
+            return '';
         }
 
         return '
-            <form action="'.url('injectvf/'.$row->idinject).'" method="POST" class="form-delete d-inline">
+            <form action="'.url('injectvf/'.$row->idinject).'" 
+                method="POST" 
+                class="form-delete d-inline">
                 '.csrf_field().'
-                <button class="btn btn-danger btn-sm">Delete</button>
+                <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                    <i class="fas fa-trash-alt fa-lg"></i>
+                </button>
             </form>
         ';
     })
@@ -80,6 +84,10 @@ class InjectController extends Controller
     ========================= */
     public function delete($idinject)
 {
+    if (auth()->user()->username !== 'admin_cluster') {
+        return redirect('injectvf')->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
+    }
+
     try {
         DB::transaction(function () use ($idinject) {
 
@@ -180,5 +188,73 @@ class InjectController extends Controller
             new InjectExport($data),
             "INJECT_VF_{$start}_sd_{$end}.xlsx"
         );
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        if (auth()->user()->username !== 'admin_cluster') {
+            return response()->json(['success' => false, 'message' => 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.']);
+        }
+
+        $ids = $request->ids;
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada data terpilih']);
+        }
+
+        try {
+            DB::transaction(function () use ($ids) {
+                foreach ($ids as $idinject) {
+                    $data = DB::table('injectvf as r')->join('denom as d', 'r.iddenom', '=', 'd.iddenom')->select('r.*', 'd.denom')
+                        ->where('r.idinject', $idinject)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$data) continue;
+
+                    // 1. Rollback Paket di TAP
+                    $stokPaketTap = DB::table('stockawaltap')
+                        ->where('idtap', $data->idtap)
+                        ->where('iddenom', $data->iddenom)
+                        ->lockForUpdate()
+                        ->value('stock');
+
+                    if ($stokPaketTap < $data->qty) {
+                        throw new \Exception('Stok paket untuk ' . $data->denom . ' tidak mencukupi untuk rollback');
+                    }
+
+                    DB::table('stockawaltap')
+                        ->where('idtap', $data->idtap)
+                        ->where('iddenom', $data->iddenom)
+                        ->decrement('stock', $data->qty);
+
+                    // 2. Balikkan ke Segel di TAP
+                    DB::table('stockawaltap')
+                        ->where('idtap', $data->idtap)
+                        ->where('iddenom', $data->kategori)
+                        ->increment('stock', $data->qty);
+
+                    DB::table('injectvf')
+                        ->where('idinject', $idinject)
+                        ->delete();
+                }
+            });
+
+            return response()->json(['success' => true, 'message' => count($ids) . ' data berhasil dihapus']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function getAllStockTap(Request $request)
+    {
+        $request->validate([
+            'idtap' => 'required',
+        ]);
+
+        $stocks = DB::table('stockawaltap')
+            ->where('idtap', $request->idtap)
+            ->pluck('stock', 'iddenom');
+
+        return response()->json($stocks);
     }
 }

@@ -26,7 +26,7 @@ class ReturSfController extends Controller
     $idtap = session('idtap');
 
     if (!$request->daterange) {
-        return datatables()->of([])->make(true);
+        return datatables()->of(collect([]))->make(true);
     }
 
     [$start, $end] = explode(' - ', $request->daterange);
@@ -67,20 +67,21 @@ class ReturSfController extends Controller
         $q->whereRaw("LOWER(s.namasf) LIKE ?", ["%".strtolower($keyword)."%"]);
     })
 
-    ->addColumn('action', function ($r) {
-        if (session('idtap') !== 'SBP_DUMAI') {
-            return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
+    ->addColumn('action', function ($row) {
+        if (auth()->user()->username !== 'admin_cluster') {
+            return '';
         }
 
         return '
-        <form action="'.url('retursf/'.$r->idretur).'" method="POST" class="form-delete d-inline">
-            '.csrf_field().'
-            <input type="hidden" name="idtap" value="'.$r->idtap.'">
-            <input type="hidden" name="idsf" value="'.$r->idsf.'">
-            <input type="hidden" name="iddenom" value="'.$r->iddenom.'">
-            <input type="hidden" name="qty" value="'.$r->qty.'">
-            <button class="btn btn-danger btn-sm">Delete</button>
-        </form>';
+            <form action="'.url('retursf/'.$row->idretur).'" 
+                method="POST" 
+                class="form-delete d-inline">
+                '.csrf_field().'
+                <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                    <i class="fas fa-trash-alt fa-lg"></i>
+                </button>
+            </form>
+        ';
     })
     ->rawColumns(['action'])
     ->make(true);
@@ -154,6 +155,10 @@ class ReturSfController extends Controller
     =============================== */
     public function delete(Request $request, $idretur)
     {
+        if (auth()->user()->username !== 'admin_cluster') {
+            return back()->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
+        }
+
         DB::transaction(function () use ($idretur) {
 
             $data = DB::table('retursf')
@@ -227,5 +232,76 @@ class ReturSfController extends Controller
             new ReturSFExport($query->get()),
             'RETUR_SF_'.now()->format('Ymd_His').'.xlsx'
         );
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        if (auth()->user()->username !== 'admin_cluster') {
+            return response()->json(['success' => false, 'message' => 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.']);
+        }
+
+        $ids = $request->ids;
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada data terpilih']);
+        }
+
+        try {
+            DB::transaction(function () use ($ids) {
+                foreach ($ids as $idretur) {
+                    $data = DB::table('retursf as r')
+                        ->join('denom as d', 'r.iddenom', '=', 'd.iddenom')
+                        ->select('r.*', 'd.denom')
+                        ->where('idretur', $idretur)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$data) continue;
+
+                    // 🔒 LOCK STOK TAP
+                    $stockTap = DB::table('stockawaltap')
+                        ->where('idtap', $data->idtap)
+                        ->where('iddenom', $data->iddenom)
+                        ->lockForUpdate()
+                        ->value('stock');
+
+                    if ($stockTap < $data->qty) {
+                        throw new \Exception('Stok TAP untuk ' . $data->denom . ' tidak mencukupi untuk pembatalan retur ini');
+                    }
+
+                    // balikin stok SF
+                    DB::table('stockawalsf')
+                        ->where('idsf', $data->idsf)
+                        ->where('iddenom', $data->iddenom)
+                        ->increment('stock', $data->qty);
+
+                    // kurangi stok TAP
+                    DB::table('stockawaltap')
+                        ->where('idtap', $data->idtap)
+                        ->where('iddenom', $data->iddenom)
+                        ->decrement('stock', $data->qty);
+
+                    DB::table('retursf')
+                        ->where('idretur', $idretur)
+                        ->delete();
+                }
+            });
+
+            return response()->json(['success' => true, 'message' => count($ids) . ' data berhasil dihapus']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function getAllStockSf(Request $request)
+    {
+        $request->validate([
+            'idsf' => 'required',
+        ]);
+
+        $stocks = DB::table('stockawalsf')
+            ->where('idsf', $request->idsf)
+            ->pluck('stock', 'iddenom');
+
+        return response()->json($stocks);
     }
 }

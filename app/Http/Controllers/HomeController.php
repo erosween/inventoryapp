@@ -44,12 +44,15 @@ class HomeController extends Controller
         $fairCutoffThisMonth = $maxTglHarian->isEmpty() ? $currentDate->copy() : Carbon::parse($maxTglHarian->min());
         $cutoffDay = $fairCutoffThisMonth->day;
 
-        /* ================= PREV MONTH TIME RANGE ================= */
+        /* ================= PREV MONTH TIME RANGE (M-1) ================= */
         $startPrevMonth = $currentDate->copy()->subMonth()->startOfMonth();
         $endPrevMonthFull = $currentDate->copy()->subMonth()->endOfMonth();
-
-        // $endPrevMonth (Partial) dibuat 'Fair' berbanding hari yang sama dengan Cutoff Terendah bulan ini
         $endPrevMonthPartial = $startPrevMonth->copy()->addDays($cutoffDay - 1);
+
+        /* ================= TWO MONTHS AGO TIME RANGE (M-2) ================= */
+        $startM2Month = $currentDate->copy()->subMonths(2)->startOfMonth();
+        $endM2MonthFull = $currentDate->copy()->subMonths(2)->endOfMonth();
+        $endM2MonthPartial = $startM2Month->copy()->addDays($cutoffDay - 1);
 
         /* ================= TAP ACTIVITY ================= */
         $tapMasuk = DB::table('masuksf')
@@ -137,14 +140,15 @@ class HomeController extends Controller
                 idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_partial_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_full_qty
             ", [
-                $startThisMonth,
-                $fairCutoffThisMonth, // <--- Clamp to FAIR cutoff
-                $startPrevMonth,
-                $endPrevMonthPartial, // <--- Clamp to FAIR cutoff previous month
-                $startPrevMonth,
-                $endPrevMonthFull
+                $startThisMonth, $fairCutoffThisMonth,
+                $startPrevMonth, $endPrevMonthPartial,
+                $startPrevMonth, $endPrevMonthFull,
+                $startM2Month, $endM2MonthPartial,
+                $startM2Month, $endM2MonthFull
             ])
             ->groupBy('idtap')
             ->orderBy('idtap');
@@ -153,6 +157,9 @@ class HomeController extends Controller
             ->map(function ($r) {
                 $r->mom = $r->prev_partial_qty > 0
                     ? (($r->curr_qty - $r->prev_partial_qty) / $r->prev_partial_qty) * 100
+                    : 0;
+                $r->mom_m2 = $r->m2_partial_qty > 0
+                    ? (($r->curr_qty - $r->m2_partial_qty) / $r->m2_partial_qty) * 100
                     : 0;
                 return $r;
             });
@@ -175,11 +182,20 @@ class HomeController extends Controller
             $prevFull = DB::table('keluarsf')->whereIn('idtap', $taps)
                 ->whereBetween('tgl', [$startPrevMonth, $endPrevMonthFull])->sum('qty');
 
+            $m2Partial = DB::table('keluarsf')->whereIn('idtap', $taps)
+                ->whereBetween('tgl', [$startM2Month, $endM2MonthPartial])->sum('qty');
+
+            $m2Full = DB::table('keluarsf')->whereIn('idtap', $taps)
+                ->whereBetween('tgl', [$startM2Month, $endM2MonthFull])->sum('qty');
+
             $momCluster[$key] = (object) [
                 'curr_qty' => $curr,
                 'prev_partial_qty' => $prevPartial,
                 'prev_full_qty' => $prevFull,
-                'mom' => $prevPartial > 0 ? (($curr - $prevPartial) / $prevPartial) * 100 : 0
+                'm2_partial_qty' => $m2Partial,
+                'm2_full_qty' => $m2Full,
+                'mom' => $prevPartial > 0 ? (($curr - $prevPartial) / $prevPartial) * 100 : 0,
+                'mom_m2' => $m2Partial > 0 ? (($curr - $m2Partial) / $m2Partial) * 100 : 0
             ];
         }
 
@@ -189,14 +205,22 @@ class HomeController extends Controller
             ->selectRaw("
                 k.idtap, k.idsf, s.namasf,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS prev_qty
-            ", [$startThisMonth, $fairCutoffThisMonth, $startPrevMonth, $endPrevMonthPartial])
+                SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS prev_qty,
+                SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS m2_qty
+            ", [
+                $startThisMonth, $fairCutoffThisMonth, 
+                $startPrevMonth, $endPrevMonthPartial,
+                $startM2Month, $endM2MonthPartial
+            ])
             ->groupBy('k.idtap', 'k.idsf', 's.namasf');
         $applyFilter($qMomSf, 'k.idtap');
         $momSf = $qMomSf->get()
             ->map(function ($r) {
                 $r->mom = $r->prev_qty > 0
                     ? (($r->curr_qty - $r->prev_qty) / $r->prev_qty) * 100
+                    : 0;
+                $r->mom_m2 = $r->m2_qty > 0
+                    ? (($r->curr_qty - $r->m2_qty) / $r->m2_qty) * 100
                     : 0;
                 return $r;
             });
@@ -305,6 +329,19 @@ class HomeController extends Controller
             $matrixInject[$row->idtap][$row->bulan] = $row->total;
         }
 
+        /* ================= NEW: MATRIX TAHUNAN PER SF ================= */
+        $qMatrixSalesSfData = DB::table('keluarsf')
+            ->selectRaw('idsf, MONTH(tgl) as bulan, SUM(qty) as total')
+            ->whereYear('tgl', $selectedYear)
+            ->groupBy('idsf', DB::raw('MONTH(tgl)'));
+        $applyFilter($qMatrixSalesSfData, 'idtap');
+        $matrixSalesSfResults = $qMatrixSalesSfData->get();
+
+        $matrixSalesSf = [];
+        foreach ($matrixSalesSfResults as $row) {
+            $matrixSalesSf[$row->idsf][$row->bulan] = $row->total;
+        }
+
         /* ================= NEW: VALIDITY MATRIX FOR HEATMAP EXPANSION ================= */
         $validityGroups = ['SEGEL', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE'];
 
@@ -373,6 +410,7 @@ class HomeController extends Controller
             'selectedYear',
             'matrixSales',
             'matrixInject',
+            'matrixSalesSf',
             'validityMatrixSales',
             'validityMatrixInject',
             'validityGroups',
@@ -404,4 +442,3 @@ class HomeController extends Controller
         ));
     }
 }
-

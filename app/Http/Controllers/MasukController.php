@@ -45,11 +45,7 @@ class MasukController extends Controller
         $idtap = session('idtap');
 
         if (!$request->daterange) {
-            return response()->json([
-                'data' => [],
-                'recordsTotal' => 0,
-                'recordsFiltered' => 0
-            ]);
+            return datatables()->of(collect([]))->make(true);
         }
 
         [$start, $end] = explode(' - ', $request->daterange);
@@ -159,7 +155,7 @@ class MasukController extends Controller
                 ->update(['status' => 0]);
         });
 
-        return back()->with('status', 'Stock berhasil diterima');
+        return back()->with('success', 'Stock berhasil diterima');
     }
 
     /* =====================================================

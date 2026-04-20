@@ -27,7 +27,7 @@ class KeluarController extends Controller
         $kategoribo = ['BO DUMAI','BO BENGKALIS','BO BAGAN BATU','BO BAGAN SIAPI-API','BO DURI'];
 
         if (!$request->daterange) {
-            return datatables()->of([])->make(true);
+            return datatables()->of(collect([]))->make(true);
         }
 
         [$start, $end] = explode(' - ', $request->daterange);

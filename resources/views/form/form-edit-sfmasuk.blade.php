@@ -7,21 +7,24 @@
 
                 {{-- Header --}}
                 <div class="page-header">
-                    <h4 class="page-title">Input Stok Masuk SF</h4>
+                    <h4 class="page-title">Edit Stok Masuk SF</h4>
                 </div>
 
                 <div class="row">
                     <div class="col-xl-7 col-lg-8 col-md-11">
 
-                        <div class="card shadow-sm">
-                            <div class="card-header">
-                                <strong>Form Input</strong>
-                                <div class="text-muted small">
-                                    Input data stok masuk untuk Sales Force
+                        <div class="card shadow-sm border-warning">
+                            <div class="card-header bg-warning-gradient text-white">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fas fa-edit fa-lg"></i>
+                                    <div>
+                                        <strong class="d-block">Form Perbaikan Data</strong>
+                                        <small>Pastikan data yang diubah sudah benar untuk menjaga akurasi stok</small>
+                                    </div>
                                 </div>
                             </div>
 
-                            <form action="{{ url('sf-masuk') }}" method="POST" id="formSfMasuk">
+                            <form action="{{ url('sf-masuk/update/' . $data->idmasuk) }}" method="POST" id="formEditSfMasuk">
                                 @csrf
 
                                 <div class="card-body">
@@ -32,7 +35,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    value="{{ date('Y-m-d') }}" required>
+                                                    value="{{ $data->tgl }}" required>
                                             </div>
                                         </div>
 
@@ -40,11 +43,10 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>TAP</label>
-                                                <select name="idtap" id="kategoritap" class="form-control select2"
-                                                    required>
+                                                <select name="idtap" id="kategoritap" class="form-control select2" required>
                                                     <option></option>
-                                                    @foreach ($data as $row)
-                                                        <option value="{{ $row->idtap }}">
+                                                    @foreach ($kodetap as $row)
+                                                        <option value="{{ $row->idtap }}" {{ $data->idtap == $row->idtap ? 'selected' : '' }}>
                                                             {{ $row->idtap }}
                                                         </option>
                                                     @endforeach
@@ -56,9 +58,13 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Sales Force</label>
-                                                <select name="idsf" id="idsf" class="form-control select2" disabled
-                                                    required>
+                                                <select name="idsf" id="idsf" class="form-control select2" required>
                                                     <option></option>
+                                                    @foreach ($idsf as $row)
+                                                        <option value="{{ $row->idsf }}" {{ $data->idsf == $row->idsf ? 'selected' : '' }}>
+                                                            {{ $row->namasf }}
+                                                        </option>
+                                                    @endforeach
                                                 </select>
                                             </div>
                                         </div>
@@ -68,10 +74,9 @@
                                             <div class="form-group mb-1">
                                                 <label>Denom</label>
                                                 <select name="iddenom" id="iddenom" class="form-control select2" required>
-
                                                     <option></option>
                                                     @foreach ($denom as $row)
-                                                        <option value="{{ $row->iddenom }}">
+                                                        <option value="{{ $row->iddenom }}" {{ $data->iddenom == $row->iddenom ? 'selected' : '' }}>
                                                             {{ $row->denom }}
                                                         </option>
                                                     @endforeach
@@ -84,7 +89,8 @@
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
                                                 <input type="number" name="qty" class="form-control"
-                                                    id="qty"min="1" required>
+                                                    id="qty" min="1" value="{{ $data->qty }}" required>
+                                                <input type="hidden" id="old_qty" value="{{ $data->qty }}">
                                             </div>
                                         </div>
 
@@ -93,17 +99,20 @@
                                             <div class="form-group mb-1">
                                                 <label>SN</label>
                                                 <input type="text" name="sn" class="form-control"
-                                                    placeholder="SN Awal - SN Akhir" required>
+                                                    value="{{ $data->sn }}" placeholder="SN Awal - SN Akhir" required>
                                             </div>
                                         </div>
-                                        {{-- Stok --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Stok Tersedia</label>
-                                                <input type="text" id="stok_info" class="form-control mb-1" readonly>
-                                                <div class="text-danger small d-none" id="stok_warning" style="font-weight: 600;">
-                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok tersedia
+
+                                        {{-- Stok Info --}}
+                                        <div class="col-md-12 mt-2">
+                                            <div class="alert alert-info py-2 px-3 mb-0" id="stok_info_alert">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    <span id="stok_info_text">Memuat informasi stok...</span>
                                                 </div>
+                                            </div>
+                                            <div class="text-danger small d-none mt-1" id="stok_warning" style="font-weight: 600;">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i> Quantity baru melebihi batas (Stok TAP + Qty Lama)
                                             </div>
                                         </div>
 
@@ -115,10 +124,9 @@
                                     <a href="{{ url('sf-masuk') }}" class="btn btn-light">
                                         Kembali
                                     </a>
-                                    <button type="submit" id="submitBtn" class="btn btn-primary">
-                                        Simpan
+                                    <button type="submit" id="submitBtn" class="btn btn-warning text-white font-weight-bold">
+                                        Update Data
                                     </button>
-
                                 </div>
 
                             </form>
@@ -135,9 +143,9 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-
-            let currentStock = 0;
-            let tapStockData = {}; // Cache data stok TAP
+            let tapStockReal = 0;
+            let oldQty = parseInt($('#old_qty').val()) || 0;
+            let tapStockData = {};
 
             /* ================= SELECT2 ================= */
             $('.select2').each(function() {
@@ -149,83 +157,66 @@
                 });
             });
 
-            $(document).on('select2:open', function() {
-                setTimeout(function() {
-                    document.querySelector('.select2-search__field')?.focus();
-                }, 50);
-            });
-
-            /* ================= TAP → SF ================= */
-            $('#kategoritap').on('change', function() {
-                const idtap = $(this).val();
-                const $sf = $('#idsf');
-
-                $sf.prop('disabled', true).empty().trigger('change');
-
+            /* ================= INITIAL LOAD ================= */
+            function loadTapStock() {
+                const idtap = $('#kategoritap').val();
                 if (!idtap) return;
 
-                $.post('{{ route('ajax.get-sf') }}', {
-                        idtap,
-                        _token: '{{ csrf_token() }}'
-                    })
-                    .done(res => {
-                        let options = '<option value="">-- Pilih SF --</option>';
-                        res.forEach(item => {
-                            options += `<option value="${item.idsf}">${item.namasf}</option>`;
-                        });
-                        $sf.html(options)
-                            .prop('disabled', false)
-                            .trigger('change');
-                    });
-
-                // Bulk load TAP stock
                 $.post('{{ route('ajax.get-all-stock-tap-sfmasuk') }}', {
                     idtap: idtap,
                     _token: '{{ csrf_token() }}'
                 }).done(res => {
                     tapStockData = res;
-                    // Trigger change on iddenom if already selected
-                    $('#iddenom').trigger('change');
+                    updateStockDisplay();
                 });
+            }
+
+            loadTapStock();
+
+            /* ================= CHANGE HANDLERS ================= */
+            $('#kategoritap').on('change', function() {
+                const idtap = $(this).val();
+                if (!idtap) return;
+
+                // Reload SF list
+                $.post('{{ route('ajax.get-sf') }}', { idtap, _token: '{{ csrf_token() }}' })
+                .done(res => {
+                    $('#idsf').html(res).trigger('change');
+                });
+
+                loadTapStock();
             });
 
-            /* ================= RESET SAAT SF GANTI ================= */
-            $('#idsf').on('change', function() {
-                $('#iddenom').val(null).trigger('change');
-                $('#qty').val('');
-                $('#tambahanket').val('');
-                $('#stok_info').val('');
-                $('#stok_warning').addClass('d-none');
-                $('#submitBtn').prop('disabled', true);
-            });
+            $('#iddenom').on('change', updateStockDisplay);
 
-            /* ================= DENOM → LOAD STOK ================= */
-            $('#iddenom').on('change', function() {
-                const iddenom = $(this).val();
-
+            function updateStockDisplay() {
+                const iddenom = $('#iddenom').val();
+                const $infoBox = $('#stok_info_alert');
+                const $infoText = $('#stok_info_text');
+                
                 if (!iddenom) {
-                    currentStock = 0;
-                    $('#stok_info').val('');
+                    $infoText.text('Pilih Denom untuk melihat stok');
                     return;
                 }
 
-                // Ambil dari cache lokal (cepat)
-                currentStock = parseInt(tapStockData[iddenom]) || 0;
-
-                if (currentStock <= 0) {
-                    $('#stok_info').val('Stok TAP habis');
-                } else {
-                    $('#stok_info').val(currentStock + ' pcs (Stok TAP)');
-                }
+                tapStockReal = parseInt(tapStockData[iddenom]) || 0;
                 
-                // Re-validate qty with new stock
+                // Jika TAP/Denom masih sama dengan data lama, maka batasnya adalah (Stok sekarang + Qty lama)
+                // Jika sudah diganti, maka batasnya hanya (Stok sekarang)
+                const isSameTarget = ($('#kategoritap').val() == "{{ $data->idtap }}" && iddenom == "{{ $data->iddenom }}");
+                const maxAvailable = isSameTarget ? (tapStockReal + oldQty) : tapStockReal;
+
+                $infoText.html(`Stok TAP: <b>${tapStockReal}</b> | Batas Maksimal (setelah rollback): <b>${maxAvailable}</b>`);
                 validateQty();
-            });
+            }
 
             function validateQty() {
                 const qty = parseInt($('#qty').val()) || 0;
+                const iddenom = $('#iddenom').val();
+                const isSameTarget = ($('#kategoritap').val() == "{{ $data->idtap }}" && iddenom == "{{ $data->iddenom }}");
+                const maxAvailable = isSameTarget ? (tapStockReal + oldQty) : tapStockReal;
 
-                if (qty > currentStock) {
+                if (qty > maxAvailable) {
                     $('#qty').addClass('is-invalid');
                     $('#stok_warning').removeClass('d-none');
                     $('#submitBtn').prop('disabled', true);
@@ -236,47 +227,17 @@
                 }
             }
 
-            /* ================= VALIDASI QTY ================= */
             $('#qty').on('input', validateQty);
 
             /* ================= ANTI DOUBLE SUBMIT ================= */
             let submitting = false;
-
-            $('#formSfMasuk').on('submit', function(e) {
-
+            $('#formEditSfMasuk').on('submit', function(e) {
                 if (submitting) {
                     e.preventDefault();
                     return;
                 }
-
                 submitting = true;
-
-                $('#submitBtn')
-                    .prop('disabled', true)
-                    .text('Menyimpan...');
-
-            });
-
-
-            // Tanggal maksimal hari ini dan minimal sebulan yang lalu
-            document.addEventListener("DOMContentLoaded", function() {
-                const inputDate = document.getElementById('date');
-
-                const today = new Date();
-
-                // H+1 (besok)
-                const tomorrow = new Date(today);
-                tomorrow.setDate(today.getDate() + 1);
-
-                // H-1 bulan
-                const monthAgo = new Date(today);
-                monthAgo.setMonth(today.getMonth() - 1);
-
-                // Max: besok (H+1)
-                inputDate.max = tomorrow.toISOString().split('T')[0];
-
-                // Min: 1 bulan lalu
-                inputDate.min = monthAgo.toISOString().split('T')[0];
+                $('#submitBtn').prop('disabled', true).text('Memproses...');
             });
         });
     </script>

@@ -65,7 +65,7 @@ class BOController extends Controller
             ->editColumn('qty', fn($r) => number_format($r->qty))
             ->addColumn('action', function ($row) {
                 if (session('idtap') !== 'SBP_DUMAI') {
-                    return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
+                    return '';
                 }
 
                 return '
@@ -73,7 +73,9 @@ class BOController extends Controller
                           method="POST"
                           class="form-delete d-inline">
                         '.csrf_field().'
-                        <button class="btn btn-danger btn-sm">Delete</button>
+                        <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                            <i class="fas fa-trash-alt fa-lg"></i>
+                        </button>
                     </form>
                 ';
             })

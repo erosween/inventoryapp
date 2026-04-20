@@ -59,24 +59,31 @@ use Yajra\DataTables\Facades\DataTables;
     ]);
 
     return DataTables::of($query)
-        // ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
         ->editColumn('qty', fn ($r) => number_format($r->qty))
         ->addColumn('action', function ($row) {
-            // selain admin → tombol mati
-            if (session('idtap') !== 'SBP_DUMAI') {
-                return '<button class="btn btn-danger btn-sm" disabled>Delete</button>';
+            $btnEdit = '
+                <a href="'.url('sf-keluar/edit/'.$row->idkeluar).'" 
+                   class="btn btn-link btn-primary p-1" 
+                   title="Edit">
+                    <i class="fa fa-edit fa-lg"></i>
+                </a>';
+
+            if (auth()->user()->username !== 'admin_cluster') {
+                return $btnEdit;
             }
 
-            // admin → boleh delete (pakai confirm JS)
             return '
-                <form action="'.url('sf-keluar/'.$row->idkeluar).'"
-                    method="POST"
-                    class="form-delete d-inline">
-                    '.csrf_field().'
-                    <button type="submit" class="btn btn-danger btn-sm">
-                        Delete
-                    </button>
-                </form>
+                <div class="d-flex align-items-center gap-2">
+                    ' . $btnEdit . '
+                    <form action="'.url('sf-keluar/'.$row->idkeluar).'"
+                        method="POST"
+                        class="form-delete d-inline">
+                        '.csrf_field().'
+                        <button type="submit" class="btn btn-link text-danger p-1" title="Delete">
+                            <i class="fas fa-trash-alt fa-lg"></i>
+                        </button>
+                    </form>
+                </div>
             ';
         })
         ->rawColumns(['action'])
@@ -110,16 +117,14 @@ use Yajra\DataTables\Facades\DataTables;
     {
         $idtapsession = session('idtap');
         $idtaprequest = $request->idtap;
+        $idtap = ($idtapsession === 'SBP_DUMAI') ? $idtaprequest : $idtapsession;
 
-        $tapnya = DB::table('idsf')
-            ->where('idtap', $idtapsession === 'SBP_DUMAI' ? $idtaprequest : $idtapsession)
+        $sfData = DB::table('idsf')
+            ->where('idtap', $idtap)
+            ->orderBy('namasf')
             ->get();
 
-        echo "<option value=''>-- Pilih SF --</option>";
-
-        foreach ($tapnya as $tap) {
-            echo "<option value='{$tap->idsf}'>{$tap->namasf}</option>";
-        }
+        return response()->json($sfData);
     }
 
     /* =========================
@@ -168,36 +173,55 @@ use Yajra\DataTables\Facades\DataTables;
         ]);
     });
 
-    return redirect('sf-keluar')->with('status', 'Data Berhasil Ditambahkan!');
+    return redirect('sf-keluar')->with('success', 'Data Berhasil Ditambahkan!');
 }
 
 
     /* =========================
    AJAX GET STOCK
 ========================= */
-public function getStock(Request $request)
-{
-    $request->validate([
-        'iddenom' => 'required',
-        'idsf'    => 'required',
-    ]);
+    public function getStock(Request $request)
+    {
+        $request->validate([
+            'iddenom' => 'required',
+            'idsf'    => 'required',
+        ]);
 
-    $stock = DB::table('stockawalsf')
-        ->where('iddenom', $request->iddenom)
-        ->where('idsf', $request->idsf)
-        ->value('stock');
+        $stock = DB::table('stockawalsf')
+            ->where('iddenom', $request->iddenom)
+            ->where('idsf', $request->idsf)
+            ->value('stock');
 
-    return response()->json([
-        'stock' => (int) ($stock ?? 0)
-    ]);
-}
+        return response()->json([
+            'stock' => (int) ($stock ?? 0)
+        ]);
+    }
+
+    /* =========================
+       AJAX GET ALL STOCK
+    ========================= */
+    public function getAllStock(Request $request)
+    {
+        $request->validate([
+            'idsf' => 'required',
+        ]);
+
+        $stocks = DB::table('stockawalsf')
+            ->where('idsf', $request->idsf)
+            ->pluck('stock', 'iddenom');
+
+        return response()->json($stocks);
+    }
 
 
    public function delete($idkeluar)
 {
+    if (auth()->user()->username !== 'admin_cluster') {
+        return redirect('sf-keluar')->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
+    }
+
     DB::transaction(function () use ($idkeluar) {
 
-        // 🔒 LOCK DATA KELUAR
         $data = DB::table('keluarsf')
             ->where('idkeluar', $idkeluar)
             ->lockForUpdate()
@@ -207,16 +231,12 @@ public function getStock(Request $request)
             throw new \Exception('Data tidak ditemukan');
         }
 
-        // 🔒 LOCK STOK SF
         $stockSf = DB::table('stockawalsf')
             ->where('idsf', $data->idsf)
             ->where('iddenom', $data->iddenom)
             ->lockForUpdate()
             ->value('stock');
 
-        // =====================
-        // BALIKKAN STOK
-        // =====================
         DB::table('stockawalsf')
             ->where('idsf', $data->idsf)
             ->where('iddenom', $data->iddenom)
@@ -227,7 +247,138 @@ public function getStock(Request $request)
             ->delete();
     });
 
-    return redirect('sf-keluar')->with('status', 'Data Berhasil Dihapus!');
+    return redirect('sf-keluar')->with('success', 'Data Berhasil Dihapus!');
+}
+
+/* =========================
+   BULK DELETE
+========================= */
+public function bulkDelete(Request $request)
+{
+    if (auth()->user()->username !== 'admin_cluster') {
+        return response()->json(['success' => false, 'message' => 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.']);
+    }
+
+    $ids = $request->ids;
+
+    if (!$ids || !is_array($ids)) {
+        return response()->json(['success' => false, 'message' => 'Tidak ada data terpilih']);
+    }
+
+    try {
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $idkeluar) {
+                // 🔒 LOCK DATA KELUAR
+                $data = DB::table('keluarsf')
+                    ->where('idkeluar', $idkeluar)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$data) continue;
+
+                // 🔒 LOCK STOK SF
+                $stockSf = DB::table('stockawalsf')
+                    ->where('idsf', $data->idsf)
+                    ->where('iddenom', $data->iddenom)
+                    ->lockForUpdate()
+                    ->value('stock');
+
+                // BALIKKAN STOK
+                DB::table('stockawalsf')
+                    ->where('idsf', $data->idsf)
+                    ->where('iddenom', $data->iddenom)
+                    ->increment('stock', $data->qty);
+
+                DB::table('keluarsf')
+                    ->where('idkeluar', $idkeluar)
+                    ->delete();
+            }
+        });
+
+        return response()->json(['success' => true, 'message' => count($ids) . ' data berhasil dihapus']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+/* =========================
+   FORM EDIT
+========================= */
+public function editSfKeluar($id)
+{
+    $idtap = session('idtap');
+    
+    // Lock row
+    $edit = DB::table('keluarsf')->where('idkeluar', $id)->first();
+    
+    if (!$edit) {
+        return redirect('sf-keluar')->with('error', 'Data tidak ditemukan');
+    }
+
+    $denom = DB::table('denom')->get();
+    $data  = DB::table('kodetap')
+        ->when($idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
+            $q->where('idtap', $idtap);
+        })
+        ->get();
+
+    return view('form/form-edit-sfkeluar', compact('edit', 'data', 'idtap', 'denom'));
+}
+
+/* =========================
+   PROSES UPDATE (JALUR BENAR)
+========================= */
+public function updateSfKeluar(Request $request, $id)
+{
+    DB::transaction(function () use ($request, $id) {
+        
+        $newIdtap      = $request->idtap;
+        $newIdsf       = $request->idsf;
+        $newIddenom    = $request->iddenom;
+        $newQty        = $request->qty;
+        $newTgl        = $request->tgl;
+        $newKet        = $request->tambahanket;
+
+        // 1. Lock Data Lama
+        $old = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
+        if (!$old) throw new \Exception('Data transaksi tidak ditemukan');
+
+        // 2. Kembalikan Stok Lama
+        DB::table('stockawalsf')
+            ->where('idsf', $old->idsf)
+            ->where('iddenom', $old->iddenom)
+            ->increment('stock', $old->qty);
+
+        // 3. Potong Stok Baru & Lock
+        $currentStock = DB::table('stockawalsf')
+            ->where('idsf', $newIdsf)
+            ->where('iddenom', $newIddenom)
+            ->lockForUpdate()
+            ->value('stock');
+
+        if ($currentStock < $newQty) {
+            throw new \Exception('Stok SF tidak mencukupi untuk update ini');
+        }
+
+        DB::table('stockawalsf')
+            ->where('idsf', $newIdsf)
+            ->where('iddenom', $newIddenom)
+            ->decrement('stock', $newQty);
+
+        // 4. Update Transaksi
+        DB::table('keluarsf')
+            ->where('idkeluar', $id)
+            ->update([
+                'idtap'       => $newIdtap,
+                'idsf'        => $newIdsf,
+                'iddenom'     => $newIddenom,
+                'qty'         => $newQty,
+                'tgl'         => $newTgl,
+                'tambahanket' => $newKet
+            ]);
+    });
+
+    return redirect('sf-keluar')->with('success', 'Data Berhasil Diupdate!');
 }
 
 

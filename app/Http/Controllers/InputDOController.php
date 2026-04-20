@@ -72,13 +72,12 @@ class InputDOController extends Controller
                 }
 
                 return '
-                <form action="' . url('DO/' . $row->idmasuk) . '" method="POST" class="form-delete d-inline">
-                    ' . csrf_field() . '
-                    <input type="hidden" name="qty" value="' . $row->qty . '">
-                    <input type="hidden" name="iddenom" value="' . $row->iddenom . '">
-                    <input type="hidden" name="penerima" value="' . $row->penerima . '">
-                    <button type="submit" class="btn btn-danger btn-sm">
-                        Delete
+                <form action="' . url('DO/' . $row->idmasuk) . '" 
+                    method="POST" 
+                    class="form-delete d-inline">
+                    '.csrf_field().'
+                    <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                        <i class="fas fa-trash-alt fa-lg"></i>
                     </button>
                 </form>';
             })

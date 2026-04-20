@@ -95,4 +95,17 @@ public function proseskeluartapform(Request $request)
 
     return redirect('keluar')->with('success', 'Menunggu approval TAP penerima');
 }
+
+public function getAllStockTap(Request $request)
+    {
+        $request->validate([
+            'idtap' => 'required',
+        ]);
+
+        $stocks = DB::table('stockawaltap')
+            ->where('idtap', $request->idtap)
+            ->pluck('stock', 'iddenom');
+
+        return response()->json($stocks);
+    }
 }

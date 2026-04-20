@@ -17,8 +17,8 @@
                     <h4 class="page-title">Input Retur SF (Masuk TAP)</h4>
                 </div>
 
-                <div class="row justify-content-center">
-                    <div class="col-xl-8 col-lg-9 col-md-11">
+                <div class="row">
+                    <div class="col-xl-7 col-lg-8 col-md-11">
 
                         <div class="card shadow-sm">
                             <div class="card-header">
@@ -39,7 +39,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    required>
+                                                    value="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 
@@ -74,7 +74,7 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Denom</label>
-                                                <select name="iddenom" class="form-control select2" required>
+                                                <select name="iddenom" id="iddenom" class="form-control select2" required>
                                                     <option></option>
                                                     @foreach ($denom as $row)
                                                         <option value="{{ $row->iddenom }}">
@@ -89,8 +89,19 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
-                                                <input type="number" name="qty" class="form-control" min="1"
+                                                <input type="number" name="qty" id="qty" class="form-control" min="1"
                                                     required>
+                                            </div>
+                                        </div>
+
+                                        {{-- Stok SF --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Stok SF Saat Ini</label>
+                                                <input type="text" id="stok_info" class="form-control mb-1" readonly>
+                                                <div class="text-danger small d-none" id="stok_warning" style="font-weight: 600;">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok SF tersedia
+                                                </div>
                                             </div>
                                         </div>
 
@@ -153,14 +164,19 @@
         $(document).ready(function() {
 
             /* ================= SELECT2 ================= */
-            $('.select2').select2({
-                placeholder: 'Pilih / Cari…',
-                allowClear: true,
-                width: '100%'
+            $('.select2').each(function() {
+                $(this).select2({
+                    placeholder: 'Pilih / Cari…',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $(this).closest('.card-body')
+                });
             });
 
             $(document).on('select2:open', function() {
-                document.querySelector('.select2-search__field').focus();
+                setTimeout(function() {
+                    document.querySelector('.select2-search__field')?.focus();
+                }, 50);
             });
 
             /* ================= TAP → SF ================= */
@@ -180,6 +196,74 @@
                         .trigger('change');
                 });
             });
+
+            /* ================= RESET SAAT SF GANTI ================= */
+            let currentStock = 0;
+            let sfStockData = {}; // Cache data stok SF
+
+            $('#idsf').on('change', function() {
+                const idsf = $(this).val();
+
+                $('#iddenom').val(null).trigger('change');
+                $('#qty').val('');
+                $('#stok_info').val('');
+                $('#stok_warning').addClass('d-none');
+                $('#submitBtn').prop('disabled', true);
+
+                sfStockData = {}; // Clear cache
+
+                if (!idsf) return;
+
+                // Bulk load SF stock
+                $.post('{{ route('ajax.get-all-stock-sf-retur') }}', {
+                    idsf: idsf,
+                    _token: '{{ csrf_token() }}'
+                }).done(res => {
+                    sfStockData = res;
+                    // Trigger change on iddenom if already selected
+                    $('#iddenom').trigger('change');
+                });
+            });
+
+            /* ================= DENOM → LOAD STOK ================= */
+            $('#iddenom').on('change', function() {
+                const iddenom = $(this).val();
+
+                if (!iddenom) {
+                    currentStock = 0;
+                    $('#stok_info').val('');
+                    return;
+                }
+
+                // Ambil dari cache lokal (cepat)
+                currentStock = parseInt(sfStockData[iddenom]) || 0;
+
+                if (currentStock <= 0) {
+                    $('#stok_info').val('Stok SF kosong');
+                } else {
+                    $('#stok_info').val(currentStock + ' pcs');
+                }
+                
+                // Re-validate qty
+                validateQty();
+            });
+
+            function validateQty() {
+                const qty = parseInt($('#qty').val()) || 0;
+
+                if (qty > currentStock) {
+                    $('#qty').addClass('is-invalid');
+                    $('#stok_warning').removeClass('d-none');
+                    $('#submitBtn').prop('disabled', true);
+                } else {
+                    $('#qty').removeClass('is-invalid');
+                    $('#stok_warning').addClass('d-none');
+                    $('#submitBtn').prop('disabled', false);
+                }
+            }
+
+            /* ================= VALIDASI QTY ================= */
+            $('#qty').on('input', validateQty);
 
             /* ================= ANTI DOUBLE SUBMIT ================= */
             let submitting = false;

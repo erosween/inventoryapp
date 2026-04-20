@@ -13,8 +13,8 @@
                     </div>
                 </div>
 
-                <div class="row justify-content-center">
-                    <div class="col-xl-8 col-lg-9 col-md-11">
+                <div class="row">
+                    <div class="col-xl-7 col-lg-8 col-md-11">
 
                         <div class="card shadow-sm">
                             <div class="card-header">
@@ -36,7 +36,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    required>
+                                                    value="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 
@@ -79,13 +79,10 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Stok Segel BYU TAP</label>
-                                                <input type="text" id="stok_segel_info" class="form-control" readonly>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <div class="alert alert-danger d-none" id="stok_warning">
-                                                Quantity melebihi stok TAP
+                                                <input type="text" id="stok_segel_info" class="form-control mb-1" readonly>
+                                                <div class="text-danger small d-none" id="stok_warning" style="font-weight: 600;">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok TAP
+                                                </div>
                                             </div>
                                         </div>
 
@@ -127,14 +124,19 @@
 
             let currentSegelStock = 0;
 
-            $('.select2').select2({
-                placeholder: 'Pilih / Cari…',
-                allowClear: true,
-                width: '100%'
+            $('.select2').each(function() {
+                $(this).select2({
+                    placeholder: 'Pilih / Cari…',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $(this).closest('.card-body')
+                });
             });
 
             $(document).on('select2:open', () => {
-                document.querySelector('.select2-search__field')?.focus();
+                setTimeout(function() {
+                    document.querySelector('.select2-search__field')?.focus();
+                }, 50);
             });
 
             function loadSegelStock() {

@@ -15,8 +15,8 @@
                     </div>
                 </div>
 
-                <div class="row justify-content-center">
-                    <div class="col-xl-8 col-lg-9 col-md-11">
+                <div class="row">
+                    <div class="col-xl-7 col-lg-8 col-md-11">
 
                         <div class="card shadow-sm">
                             <div class="card-header">
@@ -37,7 +37,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    required>
+                                                    value="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 
@@ -78,14 +78,13 @@
 
                                         {{-- Stok TAP --}}
                                         <div class="col-md-6">
-                                            <div class="form-group mb-3">
+                                            <div class="form-group mb-1">
                                                 <label>Stok TAP Pengirim</label>
-                                                <input type="text" id="stok_tap_info" class="form-control" readonly>
+                                                <input type="text" id="stok_tap_info" class="form-control mb-1" readonly>
+                                                <div class="text-danger small d-none" id="stok_tap_warning" style="font-weight: 600;">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok TAP pengirim
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        <div class="alert alert-danger d-none" id="stok_tap_warning">
-                                            Quantity melebihi stok TAP pengirim
                                         </div>
 
                                         {{-- SN --}}
@@ -146,60 +145,87 @@
     <script>
         $(document).ready(function() {
 
-            $('.select2').select2({
-                placeholder: 'Pilih / Cari…',
-                allowClear: true,
-                width: '100%'
+            $('.select2').each(function() {
+                $(this).select2({
+                    placeholder: 'Pilih / Cari…',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $(this).closest('.card-body')
+                });
             });
 
             // autofocus search
             $(document).on('select2:open', () => {
-                document.querySelector('.select2-search__field')?.focus();
+                setTimeout(function() {
+                    document.querySelector('.select2-search__field')?.focus();
+                }, 50);
             });
 
         });
 
         let currentTapStock = 0;
+        let tapStockData = {}; // Cache data stok TAP pengirim
 
         function loadTapStock() {
-            const idtap = $('select[name="pengirim"]').val();
             const iddenom = $('select[name="iddenom"]').val();
 
-            if (!idtap || !iddenom) return;
+            if (!iddenom) {
+                currentTapStock = 0;
+                $('#stok_tap_info').val('');
+                return;
+            }
 
-            $('#stok_tap_info').val('Loading...');
+            // Ambil dari cache lokal (cepat)
+            currentTapStock = parseInt(tapStockData[iddenom]) || 0;
 
-            $.post('{{ route('ajax.get-stock-tap-pengirim') }}', {
-                idtap,
-                iddenom
-            }).done(res => {
-                currentTapStock = parseInt(res.stock) || 0;
-
-                if (currentTapStock <= 0) {
-                    $('#stok_tap_info').val('Stok TAP habis');
-                    $('#stok_tap_warning').removeClass('d-none');
-                } else {
-                    $('#stok_tap_info').val(currentTapStock + ' pcs');
-                    $('#stok_tap_warning').addClass('d-none');
-                }
-            });
+            if (currentTapStock <= 0) {
+                $('#stok_tap_info').val('Stok TAP habis');
+                $('#stok_tap_warning').removeClass('d-none');
+            } else {
+                $('#stok_tap_info').val(currentTapStock + ' pcs');
+                $('#stok_tap_warning').addClass('d-none');
+            }
+            
+            // Re-validate qty
+            validateQty();
         }
 
-        $('select[name="pengirim"], select[name="iddenom"]').on('change', loadTapStock);
+        $('select[name="pengirim"]').on('change', function() {
+            const idtap = $(this).val();
+            
+            tapStockData = {}; // Clear cache
+            $('#stok_tap_info').val('');
 
-        $('input[name="qty"]').on('input', function() {
-            const qty = parseInt($(this).val()) || 0;
+            if (!idtap) return;
+
+            // Bulk load TAP sender stock
+            $.post('{{ route('ajax.get-all-stock-tap-keluar') }}', {
+                idtap: idtap,
+                _token: '{{ csrf_token() }}'
+            }).done(res => {
+                tapStockData = res;
+                // Trigger refresh on denom to update display
+                loadTapStock();
+            });
+        });
+
+        $('select[name="iddenom"]').on('change', loadTapStock);
+
+        function validateQty() {
+            const qty = parseInt($('input[name="qty"]').val()) || 0;
 
             if (qty > currentTapStock || currentTapStock <= 0) {
-                $(this).addClass('is-invalid');
+                $('input[name="qty"]').addClass('is-invalid');
                 $('#stok_tap_warning').removeClass('d-none');
                 $('#submitBtn').prop('disabled', true);
             } else {
-                $(this).removeClass('is-invalid');
+                $('input[name="qty"]').removeClass('is-invalid');
                 $('#stok_tap_warning').addClass('d-none');
                 $('#submitBtn').prop('disabled', false);
             }
-        });
+        }
+
+        $('input[name="qty"]').on('input', validateQty);
 
         // 🔒 BLOCK submit if qty > stock (belt-and-suspenders)
         $('#formKeluarTap').on('submit', function(e) {
