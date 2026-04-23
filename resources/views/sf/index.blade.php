@@ -29,17 +29,19 @@
 
                 <div class="row">
                     <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="d-flex align-items-center">
-                                    <h4 class="card-title">Daftar Sales Force (SF)</h4>
-                                    <button class="btn btn-primary btn-round ml-auto" data-toggle="modal"
-                                        data-target="#addRowModal">
-                                        <i class="fa fa-plus"></i>
-                                        Tambah SF Baru
-                                    </button>
-                                </div>
-                            </div>
+                        <div class="card premium-card">
+                             <div class="card-header bg-white border-bottom py-3">
+                                 <div class="d-flex align-items-center">
+                                     <h4 class="card-title text-indigo font-weight-bold">
+                                         <i class="fas fa-users mr-2"></i>Daftar Sales Force (SF)
+                                     </h4>
+                                     <button class="btn btn-primary btn-round ml-auto" data-toggle="modal"
+                                         data-target="#addRowModal">
+                                         <i class="fa fa-plus"></i>
+                                         Tambah SF Baru
+                                     </button>
+                                 </div>
+                             </div>
                             <div class="card-body">
                                 @if (session('success'))
                                     <div class="alert alert-success">
@@ -64,7 +66,7 @@
                                 @endif
 
                                 <div class="table-responsive">
-                                    <table id="add-row" class="display table table-striped table-hover">
+                                    <table id="add-row" class="table table-indigo table-hover w-100">
                                         <thead>
                                             <tr>
                                                 <th>TAP</th>

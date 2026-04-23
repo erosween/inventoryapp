@@ -490,7 +490,7 @@
                                         <p>SALES FORCE</p>
                                         <span class="caret"></span>
                                     </a>
-                                    <div class="collapse {{ request()->is('sf*', 'retursf') ? 'show' : '' }}"
+                                    <div class="collapse {{ request()->is('sf-masuk', 'sf-keluar', 'retursf') ? 'show' : '' }}"
                                         id="SF">
                                         <ul class="nav nav-collapse">
                                             <li class="nav-item {{ request()->is('sf-masuk') ? 'active' : '' }}">
