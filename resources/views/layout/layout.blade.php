@@ -110,7 +110,7 @@
         .table-indigo tbody tr:hover {
             background-color: rgba(78, 115, 223, 0.05) !important;
             transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
         }
 
         /* 2. STICKY COLUMN LOGIC (ENTERPRISE) */
@@ -128,7 +128,8 @@
 
         .sticky-col-2 {
             position: sticky !important;
-            left: 50px; /* Sesuaikan lebar kolom pertama */
+            left: 50px;
+            /* Sesuaikan lebar kolom pertama */
             z-index: 10 !important;
             background-color: inherit !important;
         }
@@ -146,11 +147,21 @@
             box-shadow: var(--premium-shadow);
         }
 
-        .text-indigo { color: var(--premium-indigo) !important; }
-        .bg-indigo { background-color: var(--premium-indigo) !important; }
-        .text-gold { color: var(--premium-gold) !important; }
-        
-        .font-weight-bold { font-weight: 700 !important; }
+        .text-indigo {
+            color: var(--premium-indigo) !important;
+        }
+
+        .bg-indigo {
+            background-color: var(--premium-indigo) !important;
+        }
+
+        .text-gold {
+            color: var(--premium-gold) !important;
+        }
+
+        .font-weight-bold {
+            font-weight: 700 !important;
+        }
 
         /* Datatable Footer / Totals */
         .table-indigo tfoot th {
@@ -185,7 +196,8 @@
             inset: 0;
             background: rgba(248, 250, 252, .75);
             backdrop-filter: blur(6px);
-            z-index: 2000; /* Ditingkatkan agar di atas segalanya */
+            z-index: 2000;
+            /* Ditingkatkan agar di atas segalanya */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -269,7 +281,7 @@
                 "families": ["Flaticon", "Font Awesome 5 Solid", "Font Awesome 5 Regular", "Font Awesome 5 Brands"],
                 urls: ['/assets/css/fonts.css']
             },
-            active: function() {
+            active: function () {
                 sessionStorage.fonts = true;
             }
         });
@@ -367,21 +379,20 @@
                                     <a href="{{ url('inbox') }}" style="position: relative; display: inline-block;">
                                         <i class="fa fa-bell"></i>
                                         <p style="margin-bottom: 0;">KOTAK MASUK
-                                            <span class="notification"
-                                                style="
-									display: inline-block;
-									border-radius: 50%;
-									background-color: red;
-									color: white;
-									width: 20px;
-									height: 20px;
-									text-align: center;
-									line-height: 20px;
-									font-size: 12px;
-									position: absolute;
-									margin-left : 5px;
-									margin-top : 1px;
-								">{{ $notif }}</span>
+                                            <span class="notification" style="
+                                            display: inline-block;
+                                            border-radius: 50%;
+                                            background-color: red;
+                                            color: white;
+                                            width: 20px;
+                                            height: 20px;
+                                            text-align: center;
+                                            line-height: 20px;
+                                            font-size: 12px;
+                                            position: absolute;
+                                            margin-left : 5px;
+                                            margin-top : 1px;
+                                        ">{{ $notif }}</span>
                                         </p>
                                     </a>
                                 </li>
@@ -428,8 +439,7 @@
                                     <h4 class="text-section">INPUT STOK</h4>
                                 </li>
                                 <li class="nav-item">
-                                    <a data-toggle="collapse" href="#base"
-                                        class="{{ request()->is('DO') ? '' : 'collapsed' }}">
+                                    <a data-toggle="collapse" href="#base" class="{{ request()->is('DO') ? '' : 'collapsed' }}">
                                         <i class="fa fa-building" aria-hidden="true"></i>
                                         <p>TAP</p>
                                         <span class="caret"></span>
@@ -437,12 +447,14 @@
                                     <div class="collapse {{ request()->is('DO', 'masuk', 'keluar', 'injectvf', 'vrusak', 'bo') ? 'show' : '' }}"
                                         id="base">
                                         <ul class="nav nav-collapse">
-                                            @if (session('idtap') == 'SBP_DUMAI' ||
+                                            @if (
+                                                    session('idtap') == 'SBP_DUMAI' ||
                                                     session('idtap') == 'DUMAI' ||
                                                     session('idtap') == 'DURI' ||
                                                     session('idtap') == 'BENGKALIS' ||
                                                     session('idtap') == 'BAGAN BATU' ||
-                                                    session('idtap') == 'BAGAN SIAPI-API')
+                                                    session('idtap') == 'BAGAN SIAPI-API'
+                                                )
                                                 <li class="nav-item {{ request()->is('DO') ? 'active' : '' }}">
                                                     <a href="{{ url('DO') }}">
                                                         <span class="sub-item">DO Masuk</span>
@@ -459,12 +471,14 @@
                                                     <span class="sub-item">Stok Keluar</span>
                                                 </a>
                                             </li>
-                                            @if (session('idtap') == 'SBP_DUMAI' ||
+                                            @if (
+                                                    session('idtap') == 'SBP_DUMAI' ||
                                                     session('idtap') == 'DUMAI' ||
                                                     session('idtap') == 'DURI' ||
                                                     session('idtap') == 'BENGKALIS' ||
                                                     session('idtap') == 'BAGAN BATU' ||
-                                                    session('idtap') == 'BAGAN SIAPI-API')
+                                                    session('idtap') == 'BAGAN SIAPI-API'
+                                                )
                                                 <li class="nav-item {{ request()->is('bo') ? 'active' : '' }}">
                                                     <a href="{{ url('bo') }}">
                                                         <span class="sub-item">Retur BO</span>
@@ -537,8 +551,8 @@
         @yield('content')
 
         {{-- =============================
-       JQUERY (HARUS PALING AWAL)
-    ============================= --}}
+        JQUERY (HARUS PALING AWAL)
+        ============================= --}}
         <script src="{{ asset('assets/js/core/jquery.3.2.1.min.js') }}"></script>
 
         {{-- CSRF SETUP (SETELAH JQUERY) --}}
@@ -561,13 +575,13 @@
             });
         </script>
         <script>
-            (function() {
+            (function () {
 
                 let searchTimer = null;
                 const SEARCH_DELAY = 1200; // ms
 
                 // Jalan SETIAP DataTable selesai init
-                $(document).on('init.dt', function(e, settings) {
+                $(document).on('init.dt', function (e, settings) {
 
                     const api = new $.fn.dataTable.Api(settings);
                     const tableId = settings.nTable.id;
@@ -581,7 +595,7 @@
                     $input.off('.DT');
 
                     // ✅ debounce search
-                    $input.on('input.dt.debounce', function() {
+                    $input.on('input.dt.debounce', function () {
                         const value = this.value;
 
                         clearTimeout(searchTimer);
@@ -595,13 +609,13 @@
             })();
         </script>
         <script>
-            (function() {
+            (function () {
 
                 let loaderTimer = null;
                 const SPINNER_DELAY = 250; // biar typing gak nyala
 
                 $(document)
-                    .on('preXhr.dt', function(e, settings) {
+                    .on('preXhr.dt', function (e, settings) {
 
                         // 🔒 HANYA serverSide
                         if (!settings.oFeatures || !settings.oFeatures.bServerSide) return;
@@ -610,7 +624,7 @@
                             $('#global-dt-loader').removeClass('d-none');
                         }, SPINNER_DELAY);
                     })
-                    .on('xhr.dt', function() {
+                    .on('xhr.dt', function () {
                         clearTimeout(loaderTimer);
                         $('#global-dt-loader').addClass('d-none');
                     });
@@ -630,8 +644,10 @@
         <script src="{{ asset('assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/bootstrap-toggle/bootstrap-toggle.min.js') }}"></script>
-        <script src="{{ asset('assets/js/plugin/sweetalert/sweetalert.min.js') }}"></script> {{-- SELECT2 (INI PENTING) --}}
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script> {{-- AZZARA CORE --}}
+        <script src="{{ asset('assets/js/plugin/sweetalert/sweetalert.min.js') }}"></script> {{-- SELECT2 (INI PENTING)
+        --}}
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script> {{-- AZZARA CORE
+        --}}
         <script src="{{ asset('assets/js/ready.min.js') }}"></script> <!-- SweetAlert2 -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
@@ -643,7 +659,7 @@
 
         {{-- GLOBAL SWEETALERT DELETE --}}
         <script>
-            $(document).on('submit', '.form-delete', function(e) {
+            $(document).on('submit', '.form-delete', function (e) {
                 e.preventDefault();
                 let form = this;
                 Swal.fire({
@@ -666,7 +682,7 @@
                 <div class="dt-text">Loading data, Please wait...</div>
             </div>
         </div>
-
+        @stack('modals')
     </div>
 
     <script>
@@ -683,16 +699,24 @@
         @if (session('error'))
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
+                title: 'Gagal',
                 text: @json(session('error')),
             });
         @endif
 
+        @if ($errors->any())
+            Swal.fire({
+                icon: 'error',
+                title: 'Peringatan!',
+                html: `{!! implode('<br>', $errors->all()) !!}`,
+            });
+        @endif
+
         // GLOBAL ANTI DOUBLE SUBMIT (ENTERPRISE GRADE)
-        (function() {
+        (function () {
             const submittedForms = new WeakSet();
 
-            document.addEventListener('submit', function(e) {
+            document.addEventListener('submit', function (e) {
                 // Skip GET forms & delete forms (handled by SweetAlert)
                 if (e.target.method && e.target.method.toUpperCase() === 'GET') return;
                 if (e.target.classList.contains('form-delete')) return;
@@ -715,7 +739,7 @@
                 }
 
                 // 🔄 Safety: re-enable after 10s in case of network error
-                setTimeout(function() {
+                setTimeout(function () {
                     submittedForms.delete(e.target);
                     if (submitBtn) {
                         submitBtn.disabled = false;

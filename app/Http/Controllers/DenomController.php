@@ -21,11 +21,11 @@ class DenomController extends Controller
     {
         $denoms = DB::table('denom')->orderBy('iddenom')->get();
         // Sugest ID Denom berikutnya (Mencari numerik tertinggi jika polanya DXX)
-        $lastId = DB::table('denom')->where('iddenom', 'LIKE', 'D%')->orderByRaw('CAST(SUBSTRING(iddenom, 2) AS UNSIGNED) DESC')->first();
-        $suggestedId = 'D001';
+        $lastId = DB::table('denom')->where('iddenom', 'LIKE', 'V%')->orderByRaw('CAST(SUBSTRING(iddenom, 2) AS UNSIGNED) DESC')->first();
+        $suggestedId = 'V1';
         if ($lastId) {
             $num = (int) substr($lastId->iddenom, 1);
-            $suggestedId = 'D' . str_pad($num + 1, 3, '0', STR_PAD_LEFT);
+            $suggestedId = 'V' . ($num + 1);
         }
 
         $groups = ['SEGEL', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE', 'LAINNYA'];
@@ -114,18 +114,12 @@ class DenomController extends Controller
 
     public function destroy($iddenom)
     {
-        // Peringatan: Menghapus denom bisa merusak integritas jika sudah ada mutasi.
-        // Untuk tahap ini kita izinkan hapus jika stok awal masih 0? 
-        // Lebih aman hanya biarkan admin hapus manual di DB jika sudah ada transaksi.
-        try {
-            DB::table('denom')->where('iddenom', $iddenom)->delete();
-            DB::table('stockawaltap')->where('iddenom', $iddenom)->delete();
-            DB::table('stockawalfeb')->where('iddenom', $iddenom)->delete();
-            DB::table('stockawalsf')->where('iddenom', $iddenom)->delete();
-            
-            return redirect()->back()->with('success', 'Denom dan data stok awal terkait berhasil dihapus.');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal menghapus denom.');
-        }
+        return redirect()->back()->with('error', 'Fitur penghapusan dinonaktifkan untuk menjaga integritas history data.');
+    }
+
+    public function checkId($id)
+    {
+        $exists = DB::table('denom')->where('iddenom', $id)->exists();
+        return response()->json(['exists' => $exists]);
     }
 }

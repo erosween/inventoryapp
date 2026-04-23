@@ -43,27 +43,7 @@
                                  </div>
                              </div>
                             <div class="card-body">
-                                @if (session('success'))
-                                    <div class="alert alert-success">
-                                        {{ session('success') }}
-                                    </div>
-                                @endif
 
-                                @if (session('error'))
-                                    <div class="alert alert-danger">
-                                        {{ session('error') }}
-                                    </div>
-                                @endif
-
-                                @if ($errors->any())
-                                    <div class="alert alert-danger">
-                                        <ul class="mb-0">
-                                            @foreach ($errors->all() as $error)
-                                                <li>{{ $error }}</li>
-                                            @endforeach
-                                        </ul>
-                                    </div>
-                                @endif
 
                                 <div class="table-responsive">
                                     <table id="add-row" class="table table-indigo table-hover w-100">
@@ -88,66 +68,10 @@
                                                                 class="btn btn-link btn-primary btn-lg" data-original-title="Edit SF">
                                                                 <i class="fa fa-edit"></i>
                                                             </button>
-                                                            <form action="{{ url('sf', $sf->idsf) }}" method="POST" class="delete-form" style="display:inline">
-                                                                @csrf
-                                                                <button type="button" class="btn btn-link btn-danger btn-lg btn-delete"
-                                                                    data-original-title="Hapus SF">
-                                                                    <i class="fa fa-times"></i>
-                                                                </button>
-                                                            </form>
+
                                                         </div>
                                                     </td>
                                                 </tr>
-
-                                                <!-- Edit Modal -->
-                                                <div class="modal fade" id="editModal{{ $sf->idsf }}" tabindex="-1" role="dialog" aria-hidden="true">
-                                                    <div class="modal-dialog" role="document">
-                                                        <div class="modal-content">
-                                                            <div class="modal-header no-bd">
-                                                                <h5 class="modal-title">
-                                                                    <span class="fw-mediumbold">Edit</span>
-                                                                    <span class="font-weight-light">Sales Force</span>
-                                                                </h5>
-                                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                                    <span aria-hidden="true">&times;</span>
-                                                                </button>
-                                                            </div>
-                                                            <form action="{{ url('sf/update/' . $sf->idsf) }}" method="POST">
-                                                                @csrf
-                                                                <div class="modal-body">
-                                                                    <div class="row">
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group form-group-default">
-                                                                                <label>ID SF (Kunci)</label>
-                                                                                <input type="text" class="form-control" value="{{ $sf->idsf }}" disabled>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group form-group-default">
-                                                                                <label>Kode TAP (Area Operasional)</label>
-                                                                                <select class="form-control" name="idtap" required>
-                                                                                    @foreach ($taps as $tap)
-                                                                                        <option value="{{ $tap->idtap }}" {{ $tap->idtap == $sf->idtap ? 'selected' : '' }}>{{ $tap->idtap }}</option>
-                                                                                    @endforeach
-                                                                                </select>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group form-group-default">
-                                                                                <label>Nama SF</label>
-                                                                                <input type="text" name="namasf" class="form-control" value="{{ $sf->namasf }}" required>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="modal-footer no-bd">
-                                                                    <button type="submit" class="btn btn-primary">Update</button>
-                                                                    <button type="button" class="btn btn-danger" data-dismiss="modal">Batal</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
                                             @endforeach
                                         </tbody>
                                     </table>
@@ -159,7 +83,9 @@
             </div>
         </div>
     </div>
+@endsection
 
+@push('modals')
     <!-- Modal Tambah SF -->
     <div class="modal fade" id="addRowModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -211,7 +137,59 @@
             </div>
         </div>
     </div>
-@endsection
+
+    @foreach ($sfs as $sf)
+        <!-- Edit Modal -->
+        <div class="modal fade" id="editModal{{ $sf->idsf }}" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header no-bd">
+                        <h5 class="modal-title">
+                            <span class="fw-mediumbold">Edit</span>
+                            <span class="font-weight-light">Sales Force</span>
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <form action="{{ url('sf/update/' . $sf->idsf) }}" method="POST">
+                        @csrf
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <div class="form-group form-group-default">
+                                        <label>ID SF (Kunci)</label>
+                                        <input type="text" class="form-control" value="{{ $sf->idsf }}" disabled>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="form-group form-group-default">
+                                        <label>Kode TAP (Area Operasional)</label>
+                                        <select class="form-control" name="idtap" required>
+                                            @foreach ($taps as $tap)
+                                                <option value="{{ $tap->idtap }}" {{ $tap->idtap == $sf->idtap ? 'selected' : '' }}>{{ $tap->idtap }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="form-group form-group-default">
+                                        <label>Nama SF</label>
+                                        <input type="text" name="namasf" class="form-control" value="{{ $sf->namasf }}" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer no-bd">
+                            <button type="submit" class="btn btn-primary">Update</button>
+                            <button type="button" class="btn btn-danger" data-dismiss="modal">Batal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endforeach
+@endpush
 
 @push('scripts')
     <script>
@@ -220,23 +198,32 @@
                 "pageLength": 10,
             });
 
-            // SweetAlert for Delete Action
-            $('#add-row').on('click', '.btn-delete', function(e) {
-                e.preventDefault();
-                var form = $(this).closest('form');
-                
-                Swal.fire({
-                    title: 'Apakah Anda Yakin?',
-                    text: 'Menghapus SF ini akan ikut melenyapkan seluruh data saldo awal (stok = 0) di database. Anda tak bisa mengembalikan data ini!',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, Hapus!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.submit();
+            // 🔍 Real-time ID SF Check
+            $('input[name="idsf"]').on('input', function() {
+                var id = $(this).val();
+                var $input = $(this);
+                var $feedback = $('#idsf-feedback');
+
+                if (!$feedback.length) {
+                    $input.after('<small id="idsf-feedback" class="form-text"></small>');
+                    $feedback = $('#idsf-feedback');
+                }
+
+                if (id.length < 2) {
+                    $input.removeClass('is-invalid is-valid');
+                    $feedback.text('').removeClass('text-danger text-success');
+                    return;
+                }
+
+                $.get('{{ url("ajax/check-sf") }}/' + id, function(data) {
+                    if (data.exists) {
+                        $input.addClass('is-invalid').removeClass('is-valid');
+                        $feedback.text('⚠️ ID SF ini sudah terdaftar!').addClass('text-danger').removeClass('text-success');
+                        $('button[type="submit"]').prop('disabled', true);
+                    } else {
+                        $input.addClass('is-valid').removeClass('is-invalid');
+                        $feedback.text('✅ ID SF tersedia.').addClass('text-success').removeClass('text-danger');
+                        $('button[type="submit"]').prop('disabled', false);
                     }
                 });
             });

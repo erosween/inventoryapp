@@ -77,6 +77,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sf', [SfController::class, 'store']);
     Route::post('/sf/update/{idsf}', [SfController::class, 'update']);
     Route::post('/sf/{idsf}', [SfController::class, 'destroy']);
+    Route::get('/ajax/check-sf/{id}', [SfController::class, 'checkId'])->name('ajax.check-sf');
+
+    // Denom Management
+    Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');
+    Route::post('/denoms', [DenomController::class, 'store'])->name('denoms.store');
+    Route::post('/denoms/{iddenom}', [DenomController::class, 'update'])->name('denoms.update');
+    Route::post('/denoms/delete/{iddenom}', [DenomController::class, 'destroy'])->name('denoms.destroy');
+    Route::get('/ajax/check-denom/{id}', [DenomController::class, 'checkId'])->name('ajax.check-denom');
 
 	// MASUK
 	Route::get('/masuk', [MasukController::class, 'index'])->name('masuk.index');

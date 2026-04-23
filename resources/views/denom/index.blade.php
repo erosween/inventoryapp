@@ -43,17 +43,7 @@
                                  </div>
                              </div>
                             <div class="card-body">
-                                @if (session('success'))
-                                    <div class="alert alert-success">
-                                        {{ session('success') }}
-                                    </div>
-                                @endif
 
-                                @if (session('error'))
-                                    <div class="alert alert-danger">
-                                        {{ session('error') }}
-                                    </div>
-                                @endif
 
                                 <div class="table-responsive">
                                     <table id="add-row" class="table table-indigo table-hover w-100">
@@ -88,93 +78,10 @@
                                                                 class="btn btn-link btn-primary btn-lg">
                                                                 <i class="fa fa-edit"></i>
                                                             </button>
-                                                            <form action="{{ url('denoms/delete/' . $denom->iddenom) }}"
-                                                                method="POST" style="display:inline"
-                                                                onsubmit="return confirm('Yakin ingin menghapus? Data stok awal untuk denom ini di SEMUA TAP & SF juga akan ikut terhapus!')">
-                                                                @csrf
-                                                                <button type="submit"
-                                                                    class="btn btn-link btn-danger btn-lg">
-                                                                    <i class="fa fa-times"></i>
-                                                                </button>
-                                                            </form>
+
                                                         </div>
                                                     </td>
                                                 </tr>
-
-                                                <!-- Edit Modal -->
-                                                <div class="modal fade" id="editModal{{ $denom->iddenom }}" tabindex="-1"
-                                                    role="dialog" aria-hidden="true">
-                                                    <div class="modal-dialog" role="document">
-                                                        <div class="modal-content">
-                                                            <div class="modal-header no-bd">
-                                                                <h5 class="modal-title">
-                                                                    <span class="fw-mediumbold">Edit</span>
-                                                                    <span class="font-weight-light">Denom</span>
-                                                                </h5>
-                                                                <button type="button" class="close" data-dismiss="modal"
-                                                                    aria-label="Close">
-                                                                    <span aria-hidden="true">&times;</span>
-                                                                </button>
-                                                            </div>
-                                                            <form action="{{ url('denoms/' . $denom->iddenom) }}"
-                                                                method="POST">
-                                                                @csrf
-                                                                <div class="modal-body">
-                                                                    <div class="row">
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group">
-                                                                                <label>ID Denom (Kunci)</label>
-                                                                                <input type="text" class="form-control"
-                                                                                    value="{{ $denom->iddenom }}" disabled>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group">
-                                                                                <label>Nama Denom</label>
-                                                                                <input type="text" name="denom"
-                                                                                    class="form-control"
-                                                                                    value="{{ $denom->denom }}" required>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group">
-                                                                                <label>Grup</label>
-                                                                                <select name="group_name"
-                                                                                    class="form-control" required>
-                                                                                    @foreach ($groups as $g)
-                                                                                        <option value="{{ $g }}"
-                                                                                            {{ $denom->group_name == $g ? 'selected' : '' }}>
-                                                                                            {{ $g }}</option>
-                                                                                    @endforeach
-                                                                                </select>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-sm-12">
-                                                                            <div class="form-group">
-                                                                                <label>Kategori Inject</label>
-                                                                                <select name="kategori_inject"
-                                                                                    class="form-control">
-                                                                                    <option value="">- Tidak Ada -</option>
-                                                                                    @foreach ($kategoriInjects as $ki)
-                                                                                        <option value="{{ $ki }}"
-                                                                                            {{ $denom->kategori_inject == $ki ? 'selected' : '' }}>
-                                                                                            {{ $ki }}</option>
-                                                                                    @endforeach
-                                                                                </select>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="modal-footer no-bd">
-                                                                    <button type="submit"
-                                                                        class="btn btn-primary">Update</button>
-                                                                    <button type="button" class="btn btn-danger"
-                                                                        data-dismiss="modal">Batal</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
                                             @endforeach
                                         </tbody>
                                     </table>
@@ -186,7 +93,9 @@
             </div>
         </div>
     </div>
+@endsection
 
+@push('modals')
     <!-- Add Modal -->
     <div class="modal fade" id="addRowModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -252,13 +161,111 @@
             </div>
         </div>
     </div>
-@endsection
+
+    @foreach ($denoms as $denom)
+        <!-- Edit Modal -->
+        <div class="modal fade" id="editModal{{ $denom->iddenom }}" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header no-bd">
+                        <h5 class="modal-title">
+                            <span class="fw-mediumbold">Edit</span>
+                            <span class="font-weight-light">Denom</span>
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <form action="{{ url('denoms/' . $denom->iddenom) }}" method="POST">
+                        @csrf
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <div class="form-group">
+                                        <label>ID Denom (Kunci)</label>
+                                        <input type="text" class="form-control" value="{{ $denom->iddenom }}" disabled>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="form-group">
+                                        <label>Nama Denom</label>
+                                        <input type="text" name="denom" class="form-control"
+                                            value="{{ $denom->denom }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="form-group">
+                                        <label>Grup</label>
+                                        <select name="group_name" class="form-control" required>
+                                            @foreach ($groups as $g)
+                                                <option value="{{ $g }}"
+                                                    {{ $denom->group_name == $g ? 'selected' : '' }}>
+                                                    {{ $g }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="form-group">
+                                        <label>Kategori Inject</label>
+                                        <select name="kategori_inject" class="form-control">
+                                            <option value="">- Tidak Ada -</option>
+                                            @foreach ($kategoriInjects as $ki)
+                                                <option value="{{ $ki }}"
+                                                    {{ $denom->kategori_inject == $ki ? 'selected' : '' }}>
+                                                    {{ $ki }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer no-bd">
+                            <button type="submit" class="btn btn-primary">Update</button>
+                            <button type="button" class="btn btn-danger" data-dismiss="modal">Batal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endforeach
+@endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
             $('#add-row').DataTable({
                 "pageLength": 10,
+            });
+
+            // 🔍 Real-time ID Denom Check
+            $('input[name="iddenom"]').on('input', function() {
+                var id = $(this).val();
+                var $input = $(this);
+                var $feedback = $('#iddenom-feedback');
+
+                if (!$feedback.length) {
+                    $input.after('<small id="iddenom-feedback" class="form-text"></small>');
+                    $feedback = $('#iddenom-feedback');
+                }
+
+                if (id.length < 2) {
+                    $input.removeClass('is-invalid is-valid');
+                    $feedback.text('').removeClass('text-danger text-success');
+                    return;
+                }
+
+                $.get('{{ url("ajax/check-denom") }}/' + id, function(data) {
+                    if (data.exists) {
+                        $input.addClass('is-invalid').removeClass('is-valid');
+                        $feedback.text('⚠️ ID Denom ini sudah terdaftar!').addClass('text-danger').removeClass('text-success');
+                        $('button[type="submit"]').prop('disabled', true);
+                    } else {
+                        $input.addClass('is-valid').removeClass('is-invalid');
+                        $feedback.text('✅ ID Denom tersedia.').addClass('text-success').removeClass('text-danger');
+                        $('button[type="submit"]').prop('disabled', false);
+                    }
+                });
             });
         });
     </script>

@@ -94,13 +94,12 @@ class SfController extends Controller
 
     public function destroy($idsf)
     {
-        try {
-            DB::table('idsf')->where('idsf', $idsf)->delete();
-            DB::table('stockawalsf')->where('idsf', $idsf)->delete();
-            
-            return redirect()->back()->with('success', 'SF dan data stok terkait berhasil dihapus.');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal menghapus SF.');
-        }
+        return redirect()->back()->with('error', 'Fitur penghapusan dinonaktifkan untuk menjaga integritas history data.');
+    }
+
+    public function checkId($id)
+    {
+        $exists = DB::table('idsf')->where('idsf', $id)->exists();
+        return response()->json(['exists' => $exists]);
     }
 }
