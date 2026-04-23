@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\RusakExport;
 use Carbon\Carbon;
+use App\Helpers\AuditLogger;
 
 class VrusakController extends Controller
 {
@@ -123,7 +124,7 @@ class VrusakController extends Controller
         /* ===============================
            INSERT DATA RUSAK
         =============================== */
-        DB::table('returvfrusak')->insert([
+        $newId = DB::table('returvfrusak')->insertGetId([
             'idtap'   => $request->pengirim,
             'tgl'     => $request->tgl,
             'iddenom' => $request->iddenom,
@@ -132,6 +133,9 @@ class VrusakController extends Controller
             'ketvf'   => $request->ketvf,
             'ketlain' => $request->tambahanket,
         ]);
+
+        // 📝 LOG
+        AuditLogger::log('INSERT', 'Voucher Rusak', $newId, null, $request->all());
 
         /* ===============================
            KURANGI STOK TAP
@@ -203,6 +207,9 @@ class VrusakController extends Controller
                 'ketvf'   => $request->ketvf,
                 'ketlain' => $request->tambahanket,
             ]);
+
+            // 📝 LOG
+            AuditLogger::log('UPDATE', 'Voucher Rusak', $id, (array)$oldData, $request->all());
         });
 
         return redirect('vrusak')->with('success', 'Data berhasil diperbarui');
@@ -214,10 +221,15 @@ class VrusakController extends Controller
         }
 
         DB::transaction(function () use ($request, $idrusak) {
+            
+            $oldData = DB::table('returvfrusak')->where('idrusak', $idrusak)->first();
 
             DB::table('returvfrusak')
                 ->where('idrusak', $idrusak)
                 ->delete();
+
+            // 📝 LOG
+            AuditLogger::log('DELETE', 'Voucher Rusak', $idrusak, (array)$oldData);
 
             DB::table('stockawaltap')
                 ->where('idtap', $request->idtap)

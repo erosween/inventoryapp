@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\BOExport;
+use App\Helpers\AuditLogger;
 
 class BOController extends Controller
 {
@@ -158,7 +159,7 @@ public function getTap(Request $request)
             return back()->with('error', 'Stok BO tidak mencukupi');
         }
 
-        DB::table('keluar')->insert([
+        $newId = DB::table('keluar')->insertGetId([
             'iddenom' => $data['iddenom'],
             'pengirim' => $data['pengirim'],
             'penerima' => $data['penerima'],
@@ -169,6 +170,9 @@ public function getTap(Request $request)
             'idtap' => $data['penerima'],
             'status' => 0
         ]);
+
+        // 📝 LOG
+        AuditLogger::log('INSERT', 'BO / Retur', $newId, null, $data);
 
         DB::table('stockawalsf')
             ->where('idsf', $data['pengirim'])
@@ -233,6 +237,9 @@ public function getTap(Request $request)
                 'tambahanket' => $request->tambahanket,
                 'idtap' => $request->penerima
             ]);
+
+            // 📝 LOG
+            AuditLogger::log('UPDATE', 'BO / Retur', $id, (array)$oldData, $request->all());
         });
 
         return redirect('bo')->with('success', 'Data berhasil diperbarui');
@@ -276,6 +283,9 @@ public function getTap(Request $request)
                     ->where('idsf', $data->pengirim)
                     ->where('iddenom', $data->iddenom)
                     ->increment('stock', $data->qty);
+
+                // 📝 LOG
+                AuditLogger::log('DELETE', 'BO / Retur', $idkeluar, (array)$data);
 
                 DB::table('keluar')->where('idkeluar', $idkeluar)->delete();
             });

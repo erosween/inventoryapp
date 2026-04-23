@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\MasukExport;
+use App\Helpers\AuditLogger;
 
 class MasukController extends Controller
 {
@@ -181,6 +182,9 @@ class MasukController extends Controller
             DB::table('keluar')
                 ->where('idkeluar', $idkeluar)
                 ->update(['status' => 0]);
+
+            // 📝 LOG
+            AuditLogger::log('APPROVE', 'Stok Masuk TAP', $idkeluar, ['status' => 1], ['status' => 0]);
         });
 
         return back()->with('success', 'Stock berhasil diterima');

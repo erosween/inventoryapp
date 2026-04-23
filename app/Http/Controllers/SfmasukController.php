@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\MasukSFExport;
+use App\Helpers\AuditLogger;
 
 class SfmasukController extends Controller
 {
@@ -199,7 +200,7 @@ public function masuksfproses(Request $request)
             ->increment('stock', $qty);
 
         // Insert data
-        DB::table('masuksf')->insert([
+        $newId = DB::table('masuksf')->insertGetId([
             'idtap'   => $idtap,
             'idsf'    => $idsf,
             'iddenom' => $iddenom,
@@ -207,6 +208,9 @@ public function masuksfproses(Request $request)
             'sn'      => $sn,
             'tgl'     => $tgl
         ]);
+
+        // 📝 LOG
+        AuditLogger::log('INSERT', 'Stok Masuk SF', $newId, null, $request->all());
     });
 
     return redirect('sf-masuk')->with('success', 'Data Berhasil Ditambahkan');
@@ -254,6 +258,9 @@ public function delete(Request $request, $idmasuk)
                 ->where('idsf', $data->idsf)
                 ->where('iddenom', $data->iddenom)
                 ->decrement('stock', $data->qty);
+
+            // 📝 LOG
+            AuditLogger::log('DELETE', 'Stok Masuk SF', $idmasuk, (array)$data);
 
             DB::table('masuksf')->where('idmasuk', $idmasuk)->delete();
         });
@@ -319,6 +326,9 @@ public function bulkDelete(Request $request)
                     ->where('idsf', $data->idsf)
                     ->where('iddenom', $data->iddenom)
                     ->decrement('stock', $data->qty);
+
+                // 📝 LOG
+                AuditLogger::log('DELETE (BULK)', 'Stok Masuk SF', $idmasuk, (array)$data);
 
                 DB::table('masuksf')->where('idmasuk', $idmasuk)->delete();
             }
@@ -468,6 +478,9 @@ public function bulkDelete(Request $request)
                     'sn'      => $request->sn,
                     'tgl'     => $request->tgl
                 ]);
+
+                // 📝 LOG
+                AuditLogger::log('UPDATE', 'Stok Masuk SF', $id, (array)$oldData, $request->all());
             });
 
             return redirect('sf-masuk')->with('success', 'Data berhasil diperbarui');

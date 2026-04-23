@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\KeluarSFExport;
 use Yajra\DataTables\Facades\DataTables;
+use App\Helpers\AuditLogger;
 
     class SfkeluarController extends Controller
 {
@@ -164,7 +165,7 @@ use Yajra\DataTables\Facades\DataTables;
         // =====================
         // INSERT DATA
         // =====================
-        DB::table('keluarsf')->insert([
+        $newId = DB::table('keluarsf')->insertGetId([
             'idtap'       => $idtap,
             'idsf'        => $idsf,
             'iddenom'     => $iddenom,
@@ -172,6 +173,9 @@ use Yajra\DataTables\Facades\DataTables;
             'tgl'         => $tgl,
             'tambahanket' => $ket
         ]);
+
+        // 📝 LOG
+        AuditLogger::log('INSERT', 'Stok Keluar SF', $newId, null, $request->all());
     });
 
     return redirect('sf-keluar')->with('success', 'Data Berhasil Ditambahkan!');
@@ -246,6 +250,9 @@ use Yajra\DataTables\Facades\DataTables;
         DB::table('keluarsf')
             ->where('idkeluar', $idkeluar)
             ->delete();
+
+        // 📝 LOG
+        AuditLogger::log('DELETE', 'Stok Keluar SF', $idkeluar, (array)$data);
     });
 
     return redirect('sf-keluar')->with('success', 'Data Berhasil Dihapus!');
@@ -293,6 +300,9 @@ public function bulkDelete(Request $request)
                 DB::table('keluarsf')
                     ->where('idkeluar', $idkeluar)
                     ->delete();
+
+                // 📝 LOG
+                AuditLogger::log('DELETE (BULK)', 'Stok Keluar SF', $idkeluar, (array)$data);
             }
         });
 
@@ -366,17 +376,20 @@ public function updateSfKeluar(Request $request, $id)
             ->where('iddenom', $newIddenom)
             ->decrement('stock', $newQty);
 
-        // 4. Update Transaksi
-        DB::table('keluarsf')
-            ->where('idkeluar', $id)
-            ->update([
-                'idtap'       => $newIdtap,
-                'idsf'        => $newIdsf,
-                'iddenom'     => $newIddenom,
-                'qty'         => $newQty,
-                'tgl'         => $newTgl,
-                'tambahanket' => $newKet
-            ]);
+            // 4. Update Transaksi
+            DB::table('keluarsf')
+                ->where('idkeluar', $id)
+                ->update([
+                    'idtap'       => $newIdtap,
+                    'idsf'        => $newIdsf,
+                    'iddenom'     => $newIddenom,
+                    'qty'         => $newQty,
+                    'tgl'         => $newTgl,
+                    'tambahanket' => $newKet
+                ]);
+
+            // 📝 LOG
+            AuditLogger::log('UPDATE', 'Stok Keluar SF', $id, (array)$old, $request->all());
     });
 
     return redirect('sf-keluar')->with('success', 'Data Berhasil Diupdate!');

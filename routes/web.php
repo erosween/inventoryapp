@@ -17,6 +17,7 @@ use App\Http\Controllers\ReturSfController;
 use App\Http\Controllers\SfmasukController;
 use App\Http\Controllers\StockSfController;
 use App\Http\Controllers\SfkeluarController;
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\StockTapController;
 use App\Http\Controllers\HomenocanController;
 use App\Http\Controllers\NocanjualController;
@@ -66,6 +67,10 @@ Route::middleware(['auth'])->group(function () {
 
 	Route::get('/home', [HomeController::class, 'index'])->name('home');
 	Route::get('/chart/sales', [SalesChartController::class, 'sales']);
+
+    // Audit Trail
+    Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
+    Route::get('audit/data', [AuditController::class, 'data'])->name('audit.data');
 
     // sf master data
     Route::get('/sf', [SfController::class, 'index']);

@@ -513,6 +513,14 @@
                                 </li>
                             @endif
                         @endif
+                        @if (auth()->check() && auth()->user()->username === 'admin_cluster')
+                            <li class="nav-item {{ request()->is('audit*') ? 'active' : '' }}">
+                                <a href="{{ route('audit.index') }}">
+                                    <i class="fas fa-history"></i>
+                                    <p>AUDIT TRAIL (LOG)</p>
+                                </a>
+                            </li>
+                        @endif
                         <li class="nav-item mt-5">
                             <a href="{{ route('logout') }}">
                                 <i class="fas fa-power-off"></i>

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DOExport;
+use App\Helpers\AuditLogger;
 
 class InputDOController extends Controller
 {
@@ -132,7 +133,7 @@ class InputDOController extends Controller
         DB::transaction(function () use ($request) {
 
             // INSERT DO
-            DB::table('masuk')->insert([
+            $newId = DB::table('masuk')->insertGetId([
                 'iddenom'        => $request->kategorisegel,
                 'pengirim'       => 'DO',
                 'penerima'       => $request->penerima, // idsf
@@ -144,6 +145,9 @@ class InputDOController extends Controller
                 'idtappenerima'  => $request->idtap,
                 'idtap'          => $request->idtap
             ]);
+
+            // 📝 LOG
+            AuditLogger::log('INSERT', 'Input DO', $newId, null, $request->all());
 
             // TAMBAH STOK SF
             DB::table('stockawalsf')
@@ -218,6 +222,9 @@ class InputDOController extends Controller
                 'idtappenerima'  => $request->idtap,
                 'idtap'          => $request->idtap
             ]);
+
+            // 📝 LOG
+            AuditLogger::log('UPDATE', 'Input DO', $id, (array)$oldData, $request->all());
         });
 
         return redirect()->route('do.index')->with('success', 'Data DO berhasil diperbarui');
@@ -262,6 +269,9 @@ class InputDOController extends Controller
                 DB::table('masuk')
                     ->where('idmasuk', $idmasuk)
                     ->delete();
+
+                // 📝 LOG
+                AuditLogger::log('DELETE', 'Input DO', $idmasuk, (array)$data);
             });
 
             return back()->with('success', 'DO berhasil dihapus');

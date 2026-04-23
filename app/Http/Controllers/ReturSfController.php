@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ReturSFExport;
 use Carbon\Carbon;
+use App\Helpers\AuditLogger;
 
 class ReturSfController extends Controller
 {
@@ -131,7 +132,7 @@ class ReturSfController extends Controller
                 throw new \Exception('Stok SF tidak mencukupi');
             }
 
-            DB::table('retursf')->insert([
+            $newId = DB::table('retursf')->insertGetId([
                 'tgl'        => $request->tgl,
                 'idtap'      => $request->idtap,
                 'idsf'       => $request->idsf,
@@ -141,6 +142,9 @@ class ReturSfController extends Controller
                 'ketvf'      => $request->ketvf,
                 'tambahket'  => $request->tambahket,
             ]);
+
+            // 📝 LOG
+            AuditLogger::log('INSERT', 'Retur SF', $newId, null, $request->all());
 
             // stok SF berkurang
             DB::table('stockawalsf')
@@ -212,6 +216,9 @@ class ReturSfController extends Controller
                 'ketvf'      => $request->ketvf,
                 'tambahket'  => $request->tambahket,
             ]);
+
+            // 📝 LOG
+            AuditLogger::log('UPDATE', 'Retur SF', $id, (array)$oldData, $request->all());
         });
 
         return redirect('retursf')->with('success', 'Data retur berhasil diperbarui');
@@ -263,6 +270,9 @@ class ReturSfController extends Controller
             DB::table('retursf')
                 ->where('idretur', $idretur)
                 ->delete();
+
+            // 📝 LOG
+            AuditLogger::log('DELETE', 'Retur SF', $idretur, (array)$data);
         });
 
         return back()->with('success', 'Data berhasil dihapus');
@@ -350,6 +360,9 @@ class ReturSfController extends Controller
                     DB::table('retursf')
                         ->where('idretur', $idretur)
                         ->delete();
+
+                    // 📝 LOG
+                    AuditLogger::log('DELETE (BULK)', 'Retur SF', $idretur, (array)$data);
                 }
             });
 
