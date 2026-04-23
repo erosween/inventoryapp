@@ -136,9 +136,10 @@
                     @foreach ($groups as $items)
                         @foreach ($items as $d)
                             @php
-                                $slugId = str_replace('-', '_', Str::slug($d->iddenom));
+                                // Prefix with 'v_' to ensure it's a valid JS variable name even if it starts with a number
+                                $jsVarId = 'v_' . str_replace('-', '_', Str::slug($d->iddenom));
                             @endphp
-                            var total_{{ $slugId }} = api
+                            var total_{{ $jsVarId }} = api
                                 .column("{{ $d->iddenom }}:name", { page: 'current' })
                                 .data()
                                 .reduce(function (a, b) {
@@ -146,7 +147,7 @@
                                 }, 0);
                             
                             $(api.column("{{ $d->iddenom }}:name").footer()).html(
-                                $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $slugId }})
+                                $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $jsVarId }})
                             );
                         @endforeach
                     @endforeach
