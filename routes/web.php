@@ -212,7 +212,7 @@ Route::middleware(['auth'])->group(function () {
 
 	// sisa stock daily
 	Route::get('/sisastock', [sisaStockController::class, 'index'])->name('sisastock.index');
-	Route::get('/sisastock/data', [sisaStockController::class, 'data'])->name('sisastock.data');
+	Route::match(['get', 'post'], '/sisastock/data', [sisaStockController::class, 'data'])->name('sisastock.data');
 
 	// Denom Management
 	Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');

@@ -102,6 +102,10 @@
                 ordering: false, // Disable sorting to prevent header arrows from messing up layout
                 ajax: {
                     url: "{{ route('sisastock.data') }}",
+                    type: "POST",
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
                     data: function(d) {
                         d.date = $('#target_date').val();
                     }
