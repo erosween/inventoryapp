@@ -135,7 +135,10 @@
                     
                     @foreach ($groups as $items)
                         @foreach ($items as $d)
-                            var total_{{ Str::slug($d->iddenom) }} = api
+                            @php
+                                $slugId = str_replace('-', '_', Str::slug($d->iddenom));
+                            @endphp
+                            var total_{{ $slugId }} = api
                                 .column("{{ $d->iddenom }}:name", { page: 'current' })
                                 .data()
                                 .reduce(function (a, b) {
@@ -143,7 +146,7 @@
                                 }, 0);
                             
                             $(api.column("{{ $d->iddenom }}:name").footer()).html(
-                                $.fn.dataTable.render.number(',', '.', 0).display(total_{{ Str::slug($d->iddenom) }})
+                                $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $slugId }})
                             );
                         @endforeach
                     @endforeach
