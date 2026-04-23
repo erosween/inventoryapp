@@ -116,8 +116,9 @@ use Yajra\DataTables\Facades\DataTables;
     public function getSf(Request $request)
     {
         $idtapsession = session('idtap');
-        $idtaprequest = $request->idtap;
-        $idtap = ($idtapsession === 'SBP_DUMAI') ? $idtaprequest : $idtapsession;
+        // Jika admin, bebas pakai idtap apa aja. 
+        // Jika user TAP, prioritaskan idtap request (untuk edit) atau fallback ke session.
+        $idtap = ($idtapsession === 'SBP_DUMAI') ? ($request->idtap ?: $idtapsession) : ($request->idtap ?: $idtapsession);
 
         $sfData = DB::table('idsf')
             ->where('idtap', $idtap)

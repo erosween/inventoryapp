@@ -9,37 +9,37 @@
         <div class="content">
             <div class="page-inner">
 
-                <div class="card">
+                <div class="card premium-card">
 
                     {{-- TAB --}}
-                    <div class="card-header">
-                        <ul class="nav nav-pills nav-secondary">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <ul class="nav nav-pills nav-secondary nav-pills-no-bd d-flex align-items-center gap-2">
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('stock') ? 'active' : '' }}" href="{{ url('stock') }}">
-                                    Stock All
+                                <a class="nav-link {{ request()->is('stock') ? 'active' : '' }} font-weight-bold" href="{{ url('stock') }}" style="border-radius: 20px;">
+                                    <i class="fas fa-layer-group mr-1"></i> Stock All
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('stocktap') ? 'active' : '' }}"
-                                    href="{{ url('stocktap') }}">
-                                    Stock Gudang
+                                <a class="nav-link {{ request()->is('stocktap') ? 'active' : '' }} font-weight-bold shadow-sm"
+                                    href="{{ url('stocktap') }}" style="border-radius: 20px;">
+                                    <i class="fas fa-warehouse mr-1"></i> Stock Gudang
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('stocksf') ? 'active' : '' }}"
-                                    href="{{ url('stocksf') }}">
-                                    Stock SF
+                                <a class="nav-link {{ request()->is('stocksf') ? 'active' : '' }} font-weight-bold"
+                                    href="{{ url('stocksf') }}" style="border-radius: 20px;">
+                                    <i class="fas fa-user-tie mr-1"></i> Stock SF
                                 </a>
                             </li>
                         </ul>
                     </div>
 
-                    <div class="card-body">
+                    <div class="card-body px-0 py-0">
 
                         {{-- ⬇️ SCROLL CSS BIASA --}}
                         <div class="table-scroll">
 
-                            <table id="stock" class="table table-bordered table-hover">
+                            <table id="stock" class="table table-indigo table-hover w-100 mb-0">
 
                                 <thead>
                                     <tr>
@@ -162,7 +162,7 @@
 
         /* HEADER */
         .th-main {
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
             font-weight: 700;
         }
@@ -299,7 +299,7 @@
             position: sticky;
             left: 0;
             z-index: 6;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
         }
 
@@ -309,7 +309,7 @@
             left: 20px;
             /* SESUAIKAN DENGAN LEBAR KOLOM NO */
             z-index: 5;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
         }
 
@@ -330,7 +330,7 @@
         #stock thead th {
             position: sticky;
             z-index: 30;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
             vertical-align: middle !important;
         }

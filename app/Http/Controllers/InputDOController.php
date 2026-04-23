@@ -65,21 +65,31 @@ class InputDOController extends Controller
         return datatables()
             ->of($query)
             ->addColumn('action', function ($row) {
+                $btnEdit = '
+                    <a href="' . url('DO/edit/' . $row->idmasuk) . '" class="btn btn-link text-primary p-0 mr-2" title="Edit">
+                        <i class="fas fa-edit fa-lg"></i>
+                    </a>
+                ';
 
-                // kalau stok sudah dipakai → disable delete
+                // kalau stok sudah dipakai → disable delete (tapi edit tetap boleh kalau mau ganti info non-stok seperti nomor DO/Week?)
+                // Sebenarnya kalau Qty diganti juga harus hati-hati. 
+                // Untuk sekarang kita tampilkan tombol Delete sesuai logic stok.
+
                 if ($row->sf_stock < $row->qty) {
-                    return '<span class="badge badge-secondary">USED</span>';
+                    $btnDelete = '<span class="badge badge-secondary">USED</span>';
+                } else {
+                    $btnDelete = '
+                    <form action="' . url('DO/' . $row->idmasuk) . '" 
+                        method="POST" 
+                        class="form-delete d-inline">
+                        '.csrf_field().'
+                        <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                            <i class="fas fa-trash-alt fa-lg"></i>
+                        </button>
+                    </form>';
                 }
 
-                return '
-                <form action="' . url('DO/' . $row->idmasuk) . '" 
-                    method="POST" 
-                    class="form-delete d-inline">
-                    '.csrf_field().'
-                    <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
-                        <i class="fas fa-trash-alt fa-lg"></i>
-                    </button>
-                </form>';
+                return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . $btnDelete . '</div>';
             })
             ->editColumn('tgl', function ($row) {
                 return Carbon::parse($row->tgl)->format('Y-m-d');
@@ -145,6 +155,72 @@ class InputDOController extends Controller
         return redirect()
             ->route('do.index')
             ->with('success', 'DO berhasil ditambahkan');
+    }
+
+    /* =====================================================
+       EDIT DO
+    ===================================================== */
+    public function edit($id)
+    {
+        $idtap_session = session('idtap');
+        $edit = DB::table('masuk')->where('idmasuk', $id)->first();
+        
+        if (!$edit) return redirect()->route('do.index')->with('error', 'Data tidak ditemukan');
+
+        $data = DB::table('kategori_bo')
+            ->when($idtap_session !== 'SBP_DUMAI', fn($q) => $q->where('idtap', $idtap_session))
+            ->get();
+
+        $denom = DB::table('denom')->get();
+
+        return view('form.form-edit-DO', compact('edit', 'data', 'denom', 'idtap_session'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        DB::transaction(function () use ($request, $id) {
+            $oldData = DB::table('masuk')->where('idmasuk', $id)->lockForUpdate()->first();
+            
+            // 1. Rollback stok lama dari SF
+            DB::table('stockawalsf')
+                ->where('idsf', $oldData->penerima)
+                ->where('iddenom', $oldData->iddenom)
+                ->decrement('stock', $oldData->qty);
+
+            // 2. Cek stok SF sekarang (untuk keamanan agar tidak minus setelah rollback)
+            // Sebenarnya rollback di sini adalah mengurangi stok SF (karena DO adalah barang masuk).
+            // Jadi kita harus pastikan stok SF mencukupi untuk dikurangi (dibatalkan masuknya).
+            $currentSfStock = DB::table('stockawalsf')
+                ->where('idsf', $oldData->penerima)
+                ->where('iddenom', $oldData->iddenom)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($currentSfStock < 0) {
+                 throw new \Exception('Gagal update: Stok SF akan menjadi negatif jika data lama dibatalkan');
+            }
+
+            // 3. Tambahkan stok baru ke SF baru
+            DB::table('stockawalsf')
+                ->where('idsf', $request->penerima)
+                ->where('iddenom', $request->kategorisegel)
+                ->increment('stock', $request->qty);
+
+            // 4. Update record
+            DB::table('masuk')->where('idmasuk', $id)->update([
+                'iddenom'        => $request->kategorisegel,
+                'penerima'       => $request->penerima,
+                'qty'            => $request->qty,
+                'sn'             => $request->sn,
+                'nomor_do'       => $request->nomordo,
+                'week'           => $request->week,
+                'tgl'            => $request->tgl,
+                'idtappenerima'  => $request->idtap,
+                'idtap'          => $request->idtap
+            ]);
+        });
+
+        return redirect()->route('do.index')->with('success', 'Data DO berhasil diperbarui');
     }
 
     /* =====================================================

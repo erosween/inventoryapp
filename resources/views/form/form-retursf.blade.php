@@ -188,7 +188,7 @@
 
                 if (!idtap) return;
 
-                $.post('{{ route('ajax.get-sf') }}', {
+                $.post('{{ route('ajax.get-sf-keluar') }}', {
                     idtap,
                     _token: '{{ csrf_token() }}'
                 }).done(res => {

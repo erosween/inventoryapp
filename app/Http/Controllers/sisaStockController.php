@@ -48,11 +48,16 @@ class sisaStockController extends Controller
     public function data(Request $request)
     {
         $idtap = session('idtap');
-        $targetDateInput = $request->input('date', date('d/m/Y'));
+        $targetDateInput = $request->input('date');
         
-        try {
-            $targetDate = Carbon::createFromFormat('d/m/Y', $targetDateInput)->format('Y-m-d');
-        } catch (\Exception $e) {
+        if ($targetDateInput) {
+            try {
+                // Prioritaskan format Y-m-d dari input type="date"
+                $targetDate = Carbon::parse($targetDateInput)->format('Y-m-d');
+            } catch (\Exception $e) {
+                $targetDate = date('Y-m-d');
+            }
+        } else {
             $targetDate = date('Y-m-d');
         }
         

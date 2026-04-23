@@ -26,58 +26,69 @@
                     </script>
                 @endif
 
-                <div class="card shadow-sm">
+                <div class="card premium-card">
 
                     {{-- HEADER --}}
-                    <div class="card-header py-3">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <h4 class="card-title mb-0">Inject Voucher Fisik</h4>
+                    <div class="card-header py-3 px-4 bg-white border-bottom shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <h4 class="card-title mb-0 font-weight-bold text-indigo">
+                                    <i class="fas fa-syringe mr-2"></i>Inject Voucher Fisik
+                                </h4>
+                                <div class="text-muted small">Monitoring data aktivasi/inject voucher fisik segel</div>
+                            </div>
 
                             <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <div class="position-relative  mr-1">
-                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4"
-                                        style="min-width: 260px" placeholder="Pilih tanggal" autocomplete="off">
+                                {{-- Date Range --}}
+                                <div class="position-relative">
+                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4 shadow-none border"
+                                        style="min-width: 250px; background: #f8f9fa; border-radius: 20px;" placeholder="Pilih tanggal" autocomplete="off">
                                     <i class="fas fa-calendar-alt position-absolute"
-                                        style="right:10px; top:50%; transform:translateY(-50%); color:#6c757d"></i>
+                                        style="right:12px; top:50%; transform:translateY(-50%); color:var(--premium-indigo)"></i>
                                 </div>
 
                                 {{-- Bulk Delete --}}
                                 @if (auth()->user()->username === 'admin_cluster')
-                                    <button id="btnBulkDelete" class="btn btn-danger btn-sm d-none mr-1">
+                                    <button id="btnBulkDelete" class="btn btn-danger btn-sm d-none shadow-sm" style="border-radius: 20px;">
                                         <i class="fas fa-trash-alt"></i> Hapus Terpilih
                                     </button>
                                 @endif
 
-                                <a href="#" id="btnExport" class="btn btn-success btn-sm mr-1">
-                                    <i class="fas fa-file-export"></i>
-                                </a>
-
-                                <div class="dropdown">
-                                    <button class="btn btn-primary btn-sm dropdown-toggle" data-toggle="dropdown">
-                                        + INJECT SEGEL
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-right">
-                                        <a class="dropdown-item" href="form/forminject">SEGEL</a>
-                                        <a class="dropdown-item" href="form/forminjectbyu">SEGEL BYU</a>
+                                <div class="btn-group shadow-sm" style="border-radius: 20px; overflow: hidden;">
+                                    <a href="#" id="btnExport" class="btn btn-success btn-sm border-0" title="Export Excel">
+                                        <i class="fas fa-file-export"></i>
+                                    </a>
+                                    
+                                    <div class="btn-group">
+                                        <button class="btn btn-primary btn-sm border-0 font-weight-bold dropdown-toggle" data-toggle="dropdown">
+                                            <i class="fas fa-plus-circle mr-1"></i> Tambah
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-right shadow border-0">
+                                            <a class="dropdown-item py-2" href="form/forminject">
+                                                <i class="fas fa-barcode mr-2 text-primary"></i> SEGEL
+                                            </a>
+                                            <a class="dropdown-item py-2" href="form/forminjectbyu">
+                                                <i class="fas fa-mobile-alt mr-2 text-info"></i> SEGEL BYU
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-
                     {{-- BODY --}}
-                    <div class="card-body">
+                    <div class="card-body px-0 py-0">
                         <div class="table-responsive">
-                            <table id="inject-table" class="table table-sm table-striped table-hover">
-                                <thead class="table-light">
+                            <table id="inject-table" class="table table-indigo table-hover w-100 mb-0">
+                                <thead>
                                     <tr>
                                         @if (auth()->user()->username === 'admin_cluster')
-                                            <th width="30" class="text-center no-export">
+                                            <th width="30" class="text-center no-export sticky-col">
                                                 <input type="checkbox" id="checkAll" class="cursor-pointer">
                                             </th>
                                         @endif
-                                        <th>Tanggal</th>
+                                        <th class="{{ auth()->user()->username === 'admin_cluster' ? 'sticky-col-2' : 'sticky-col' }}">Tanggal</th>
                                         <th>Denom</th>
                                         <th class="text-end">Qty</th>
                                         <th>TAP</th>
@@ -88,7 +99,6 @@
                             </table>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>

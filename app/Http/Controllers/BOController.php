@@ -64,11 +64,17 @@ class BOController extends Controller
             ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
             ->editColumn('qty', fn($r) => number_format($r->qty))
             ->addColumn('action', function ($row) {
-                if (session('idtap') !== 'SBP_DUMAI') {
-                    return '';
+                $btnEdit = '
+                    <a href="'.url('bo/edit/'.$row->idkeluar).'" class="btn btn-link text-primary p-0 mr-2" title="Edit">
+                        <i class="fas fa-edit fa-lg"></i>
+                    </a>
+                ';
+
+                if (auth()->user()->username !== 'admin_cluster') {
+                    return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . '</div>';
                 }
 
-                return '
+                $btnDelete = '
                     <form action="'.url('bo/delete/'.$row->idkeluar).'"
                           method="POST"
                           class="form-delete d-inline">
@@ -78,6 +84,8 @@ class BOController extends Controller
                         </button>
                     </form>
                 ';
+
+                return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . $btnDelete . '</div>';
             })
             ->rawColumns(['action'])
             ->orderColumn('tgl', 'k.tgl $1')
@@ -178,10 +186,67 @@ public function getTap(Request $request)
 
 
     /* =========================
+       EDIT
+    ========================= */
+    public function edit($id)
+    {
+        $idtap_session = session('idtap');
+        $edit = DB::table('keluar')->where('idkeluar', $id)->first();
+        
+        if (!$edit) return redirect('bo')->with('error', 'Data tidak ditemukan');
+
+        $data = DB::table('kategori_bo')
+            ->when($idtap_session !== 'SBP_DUMAI', fn($q) => $q->where('idtap', $idtap_session))
+            ->get();
+
+        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        DB::transaction(function () use ($request, $id) {
+            $oldData = DB::table('keluar')->where('idkeluar', $id)->lockForUpdate()->first();
+            
+            // Rollback stok lama
+            DB::table('stockawalsf')->where('idsf', $oldData->pengirim)->where('iddenom', $oldData->iddenom)->increment('stock', $oldData->qty);
+            DB::table('stockawaltap')->where('idtap', $oldData->penerima)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
+
+            // Terapkan stok baru
+            $stokBo = DB::table('stockawalsf')->where('idsf', $request->pengirim)->where('iddenom', $request->iddenom)->lockForUpdate()->value('stock');
+
+            if ($stokBo < $request->qty) {
+                throw new \Exception('Stok BO tidak mencukupi untuk update ini');
+            }
+
+            // Kurangi BO, Tambah TAP
+            DB::table('stockawalsf')->where('idsf', $request->pengirim)->where('iddenom', $request->iddenom)->decrement('stock', $request->qty);
+            DB::table('stockawaltap')->where('idtap', $request->penerima)->where('iddenom', $request->iddenom)->increment('stock', $request->qty);
+
+            // Update record
+            DB::table('keluar')->where('idkeluar', $id)->update([
+                'iddenom' => $request->iddenom,
+                'pengirim' => $request->pengirim,
+                'penerima' => $request->penerima,
+                'qty' => $request->qty,
+                'tgl' => $request->tgl,
+                'sn' => $request->sn,
+                'tambahanket' => $request->tambahanket,
+                'idtap' => $request->penerima
+            ]);
+        });
+
+        return redirect('bo')->with('success', 'Data berhasil diperbarui');
+    }
+
+    /* =========================
        DELETE (ROLLBACK STOK)
     ========================= */
     public function delete($idkeluar)
     {
+        if (auth()->user()->username !== 'admin_cluster') {
+            return redirect('bo')->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
+        }
+
         try {
             DB::transaction(function () use ($idkeluar) {
 

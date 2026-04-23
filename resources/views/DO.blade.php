@@ -5,46 +5,49 @@
         <div class="content">
             <div class="page-inner">
 
-                <div class="card shadow-sm">
+                <div class="card premium-card">
 
                     {{-- HEADER --}}
-                    <div class="card-header py-3">
+                    <div class="card-header py-3 px-4 bg-white border-bottom shadow-sm">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-
-                            <h4 class="card-title mb-0">Input DO TAP</h4>
+                            <div>
+                                <h4 class="card-title mb-0 font-weight-bold text-indigo">
+                                    <i class="fas fa-file-invoice mr-2"></i>Input DO TAP
+                                </h4>
+                                <div class="text-muted small">Monitoring penerimaan Delivery Order (DO) dari distributor pusat</div>
+                            </div>
 
                             <div class="d-flex align-items-center gap-2 flex-wrap">
-
                                 {{-- Date Range --}}
-                                <div class="position-relative mr-1">
-                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4"
-                                        style="min-width:260px" placeholder="Pilih tanggal" autocomplete="off">
+                                <div class="position-relative">
+                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4 shadow-none border"
+                                        style="min-width: 250px; background: #f8f9fa; border-radius: 20px;" placeholder="Pilih tanggal" autocomplete="off">
                                     <i class="fas fa-calendar-alt position-absolute"
-                                        style="right:10px; top:50%; transform:translateY(-50%); color:#6c757d"></i>
+                                        style="right:12px; top:50%; transform:translateY(-50%); color:var(--premium-indigo)"></i>
                                 </div>
 
-                                {{-- Export --}}
-                                <a href="#" id="btnExport" class="btn btn-success btn-sm ml-1">
-                                    <i class="fas fa-file-export"></i> Export
-                                </a>
+                                <div class="btn-group shadow-sm" style="border-radius: 20px; overflow: hidden;">
+                                    {{-- Export --}}
+                                    <a href="#" id="btnExport" class="btn btn-success btn-sm border-0" title="Export Excel">
+                                        <i class="fas fa-file-export"></i>
+                                    </a>
 
-                                {{-- Tambah --}}
-                                <a href="{{ url('form/formDO') }}" class="btn btn-primary btn-sm ml-1">
-                                    + Tambah
-                                </a>
-
+                                    {{-- Tambah --}}
+                                    <a href="{{ url('form/formDO') }}" class="btn btn-primary btn-sm border-0 font-weight-bold">
+                                        <i class="fas fa-plus-circle mr-1"></i> Tambah
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {{-- BODY --}}
-                    <div class="card-body pt-3">
-
+                    <div class="card-body px-0 py-0">
                         <div class="table-responsive">
-                            <table id="do-table" class="table table-sm table-striped table-hover align-middle w-100">
-                                <thead class="table-light">
+                            <table id="do-table" class="table table-indigo table-hover w-100 mb-0">
+                                <thead>
                                     <tr>
-                                        <th>Tanggal</th>
+                                        <th class="sticky-col">Tanggal</th>
                                         <th>No DO</th>
                                         <th>Week</th>
                                         <th>Denom</th>
@@ -57,7 +60,6 @@
                                 </thead>
                             </table>
                         </div>
-
                     </div>
                 </div>
 

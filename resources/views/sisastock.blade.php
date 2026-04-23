@@ -13,24 +13,24 @@
                     <h4 class="page-title">Cek Sisa Stok Daily</h4>
                 </div>
 
-                <div class="card">
-                    <div class="card-header">
+                <div class="card premium-card">
+                    <div class="card-header bg-white border-bottom py-3 px-4 shadow-sm">
                         <form id="filter_form" class="row align-items-center">
                             <div class="col-md-4 col-sm-12">
-                                <h4 class="card-title mb-0" style="font-weight: 700; color: #1e293b;">
-                                    <i class="fas fa-history text-primary mr-2"></i>Histori Sisa Stok
+                                <h4 class="card-title mb-0 font-weight-bold text-indigo">
+                                    <i class="fas fa-history mr-2"></i>Sisa Stok Daily
                                 </h4>
-                                <small class="text-muted">Pilih tanggal untuk melihat sisa stok pada periode tersebut</small>
+                                <div class="text-muted small">Monitoring sisa stok harian untuk audit dan histori data</div>
                             </div>
                             <div class="col-md-8 col-sm-12 d-flex justify-content-md-end justify-content-start mt-3 mt-md-0">
-                                <div class="input-group" style="max-width: 320px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+                                <div class="input-group shadow-sm" style="max-width: 350px; border-radius: 25px; border: 1px solid #e2e8f0; background: #f8f9fa;">
                                     <div class="input-group-prepend">
-                                        <span class="input-group-text bg-primary text-white border-0"><i class="fas fa-calendar-day"></i></span>
+                                        <span class="input-group-text bg-transparent border-0 px-3"><i class="fas fa-calendar-day text-indigo"></i></span>
                                     </div>
-                                    <input type="date" id="target_date" class="form-control border-0 bg-light" value="{{ $date }}" style="height: 42px; font-weight: 600; color: #334155;">
+                                    <input type="date" id="target_date" class="form-control border-0 bg-transparent font-weight-bold shadow-none" value="{{ $date }}" style="height: 42px; color: #334155;">
                                     <div class="input-group-append">
-                                        <button id="btn_apply" type="button" class="btn btn-primary" style="height: 42px; border: none; font-weight: 600;">
-                                            Cari <i class="fas fa-arrow-right ml-1"></i>
+                                        <button id="btn_apply" type="button" class="btn btn-primary px-4 font-weight-bold" style="border-radius: 0 25px 25px 0; z-index: 5; cursor: pointer;">
+                                            CARI <i class="fas fa-search ml-1"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -38,9 +38,9 @@
                         </form>
                     </div>
 
-                    <div class="card-body">
+                    <div class="card-body px-0 py-0">
                         <div class="table-scroll">
-                            <table id="sisastock" class="display table table-striped table-hover">
+                            <table id="sisastock" class="table table-indigo table-hover w-100 mb-0">
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="th-main sticky-no">NO</th>
@@ -103,10 +103,7 @@
                 ajax: {
                     url: "{{ route('sisastock.data') }}",
                     data: function(d) {
-                        return {
-                            date: $('#target_date').val(),
-                            draw: d.draw
-                        };
+                        d.date = $('#target_date').val();
                     }
                 },
                 columns: [
@@ -184,8 +181,8 @@
                 ]
             });
 
-            $('#btn_apply').click(function() {
-                table.draw();
+            $(document).on('click', '#btn_apply', function() {
+                table.ajax.reload();
             });
         });
     </script>
@@ -210,7 +207,7 @@
 
         /* HEADER STYLING */
         #sisastock thead th { vertical-align: middle !important; }
-        .th-main { background: #4f46e5 !important; color: #fff !important; font-weight: 700; text-align: center; }
+        .th-main { background: #4e73df !important; color: #fff !important; font-weight: 700; text-align: center; }
         .th-group { color: #fff !important; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
         
         .th-segel { background: #1e293b !important; }
@@ -234,7 +231,7 @@
             position: sticky;
             left: 0;
             z-index: 6;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
         }
 
@@ -243,7 +240,7 @@
             position: sticky;
             left: 0; /* Default layout fallback */
             z-index: 5;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
         }
 
@@ -269,7 +266,7 @@
             top: 0;
             z-index: 20;
             /* LEBIH TINGGI DARI GROUP */
-            background: #4f46e5 !important;
+            background: #4e73df !important;
             color: #fff !important;
         }
 
@@ -277,7 +274,7 @@
         #sisastock thead th {
             position: sticky;
             z-index: 30;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
             vertical-align: middle !important;
         }

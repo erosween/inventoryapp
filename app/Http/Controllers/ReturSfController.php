@@ -68,11 +68,17 @@ class ReturSfController extends Controller
     })
 
     ->addColumn('action', function ($row) {
+        $btnEdit = '
+            <a href="'.url('retursf/edit/'.$row->idretur).'" class="btn btn-link text-primary p-0 mr-2" title="Edit">
+                <i class="fas fa-edit fa-lg"></i>
+            </a>
+        ';
+
         if (auth()->user()->username !== 'admin_cluster') {
-            return '';
+            return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . '</div>';
         }
 
-        return '
+        $btnDelete = '
             <form action="'.url('retursf/'.$row->idretur).'" 
                 method="POST" 
                 class="form-delete d-inline">
@@ -82,6 +88,8 @@ class ReturSfController extends Controller
                 </button>
             </form>
         ';
+
+        return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . $btnDelete . '</div>';
     })
     ->rawColumns(['action'])
     ->make(true);
@@ -148,6 +156,65 @@ class ReturSfController extends Controller
         });
 
         return redirect('retursf')->with('success', 'Retur SF berhasil disimpan');
+    }
+
+    /* ===============================
+       EDIT
+    =============================== */
+    public function edit($id)
+    {
+        $idtap_session = session('idtap');
+        $edit = DB::table('retursf')->where('idretur', $id)->first();
+        
+        if (!$edit) return redirect('retursf')->with('error', 'Data tidak ditemukan');
+
+        $tap = DB::table('kodetap')
+            ->when($idtap_session !== 'SBP_DUMAI', fn ($q) => $q->where('idtap', $idtap_session))
+            ->get();
+
+        $idsf = DB::table('idsf')->where('idtap', $edit->idtap)->get();
+        $denom = DB::table('denom')->get();
+
+        return view('form.form-edit-retursf', compact('edit', 'tap', 'idsf', 'denom', 'idtap_session'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        DB::transaction(function () use ($request, $id) {
+            $oldData = DB::table('retursf')->where('idretur', $id)->lockForUpdate()->first();
+            
+            // 1. Rollback stok lama
+            // retur: SF -> TAP. Rollback: TAP -> SF
+            $stokTapOld = DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->lockForUpdate()->value('stock');
+            if ($stokTapOld < $oldData->qty) {
+                throw new \Exception('Stok TAP tidak mencukupi untuk membatalkan data lama');
+            }
+            DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
+            DB::table('stockawalsf')->where('idsf', $oldData->idsf)->where('iddenom', $oldData->iddenom)->increment('stock', $oldData->qty);
+
+            // 2. Terapkan stok baru
+            // retur baru: SF -> TAP
+            $stokSfNew = DB::table('stockawalsf')->where('idsf', $request->idsf)->where('iddenom', $request->iddenom)->lockForUpdate()->value('stock');
+            if ($stokSfNew < $request->qty) {
+                throw new \Exception('Stok SF tidak mencukupi untuk data baru ini');
+            }
+            DB::table('stockawalsf')->where('idsf', $request->idsf)->where('iddenom', $request->iddenom)->decrement('stock', $request->qty);
+            DB::table('stockawaltap')->where('idtap', $request->idtap)->where('iddenom', $request->iddenom)->increment('stock', $request->qty);
+
+            // 3. Update record
+            DB::table('retursf')->where('idretur', $id)->update([
+                'tgl'        => $request->tgl,
+                'idtap'      => $request->idtap,
+                'idsf'       => $request->idsf,
+                'iddenom'    => $request->iddenom,
+                'qty'        => $request->qty,
+                'sn'         => $request->sn,
+                'ketvf'      => $request->ketvf,
+                'tambahket'  => $request->tambahket,
+            ]);
+        });
+
+        return redirect('retursf')->with('success', 'Data retur berhasil diperbarui');
     }
 
     /* ===============================

@@ -9,37 +9,37 @@
         <div class="content">
             <div class="page-inner">
 
-                <div class="card">
+                <div class="card premium-card">
 
                     {{-- TAB --}}
-                    <div class="card-header">
-                        <ul class="nav nav-pills nav-secondary">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <ul class="nav nav-pills nav-secondary nav-pills-no-bd d-flex align-items-center gap-2">
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('stock') ? 'active' : '' }}" href="{{ url('stock') }}">
-                                    Stock All
+                                <a class="nav-link {{ request()->is('stock') ? 'active' : '' }} font-weight-bold" href="{{ url('stock') }}" style="border-radius: 20px;">
+                                    <i class="fas fa-layer-group mr-1"></i> Stock All
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('stocktap') ? 'active' : '' }}"
-                                    href="{{ url('stocktap') }}">
-                                    Stock Gudang
+                                <a class="nav-link {{ request()->is('stocktap') ? 'active' : '' }} font-weight-bold"
+                                    href="{{ url('stocktap') }}" style="border-radius: 20px;">
+                                    <i class="fas fa-warehouse mr-1"></i> Stock Gudang
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('stocksf') ? 'active' : '' }}"
-                                    href="{{ url('stocksf') }}">
-                                    Stock SF
+                                <a class="nav-link {{ request()->is('stocksf') ? 'active' : '' }} font-weight-bold shadow-sm"
+                                    href="{{ url('stocksf') }}" style="border-radius: 20px;">
+                                    <i class="fas fa-user-tie mr-1"></i> Stock SF
                                 </a>
                             </li>
                         </ul>
                     </div>
 
-                    <div class="card-body">
+                    <div class="card-body px-0 py-0">
 
                         {{-- ⬇️ SCROLL CSS BIASA --}}
                         <div class="table-scroll">
 
-                            <table id="stock" class="display table table-striped table-hover">
+                            <table id="stock" class="table table-indigo table-hover w-100 mb-0">
                                 <thead>
                                     {{-- GROUP HEADER --}}
                                     <tr class="group-header">
@@ -186,7 +186,7 @@
 
         /* HEADER */
         .th-main {
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
             font-weight: 700;
         }
@@ -324,7 +324,7 @@
             position: sticky;
             left: 0;
             z-index: 6;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
         }
 
@@ -334,7 +334,7 @@
             left: 40px;
             /* SESUAIKAN DENGAN LEBAR KOLOM NO */
             z-index: 5;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
         }
 
@@ -351,12 +351,11 @@
             max-width: 120px !important;
         }
 
-        /* BODY BACKGROUND FIX */
         /* HEADER STICKY (V-Freeze) */
         #stock thead th {
             position: sticky;
             z-index: 31;
-            background: #4f46e5;
+            background: #4e73df;
             color: #fff;
             vertical-align: middle !important;
             border: 0.1px solid #ffffff33 !important;
@@ -384,7 +383,7 @@
         #stock thead tr.group-header th[rowspan="2"] {
             z-index: 50 !important;
             top: 0;
-            background: #4f46e5 !important;
+            background: #4e73df !important;
             color: #fff !important;
             vertical-align: middle !important;
         }
@@ -441,7 +440,7 @@
             left: 165px;
             /* 45 (NO) + 120 (TAP) */
             z-index: 20;
-            background: #4f46e5;
+            background: #4e73df;
             color: #ffffff;
             font-weight: 600;
             width: 180px !important;
@@ -456,7 +455,7 @@
         #stock thead .sticky-sf {
             top: 0;
             z-index: 10;
-            background: #4f46e5;
+            background: #4e73df;
             color: #ffffff;
         }
 

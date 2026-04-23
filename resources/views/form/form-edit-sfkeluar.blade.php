@@ -156,10 +156,15 @@
             /* ================= INITIAL LOAD SF LIST ================= */
             const initialTap = $('#kategoritap').val();
             if (initialTap) {
-                $.post('{{ route('ajax.get-sf') }}', {
-                    idtap: initialTap
+                $.post('{{ route('ajax.get-sf-keluar') }}', {
+                    idtap: initialTap,
+                    _token: '{{ csrf_token() }}'
                 }).done(res => {
-                    $('#idsf').html(res).val(originalIdSf).trigger('change');
+                    let options = '<option value=""></option>';
+                    res.forEach(item => {
+                        options += `<option value="${item.idsf}">${item.namasf}</option>`;
+                    });
+                    $('#idsf').html(options).val(originalIdSf).trigger('change');
                 });
             }
 
@@ -172,11 +177,16 @@
 
                 if (!idtap) return;
 
-                $.post('{{ route('ajax.get-sf') }}', {
-                        idtap
+                $.post('{{ route('ajax.get-sf-keluar') }}', {
+                        idtap: idtap,
+                        _token: '{{ csrf_token() }}'
                     })
                     .done(res => {
-                        $sf.html(res)
+                        let options = '<option value=""></option>';
+                        res.forEach(item => {
+                            options += `<option value="${item.idsf}">${item.namasf}</option>`;
+                        });
+                        $sf.html(options)
                             .prop('disabled', false)
                             .trigger('change');
                     });

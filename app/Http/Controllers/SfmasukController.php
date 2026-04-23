@@ -64,15 +64,15 @@ class SfmasukController extends Controller
             number_format($r->qty)
         )
         ->addColumn('action', function ($row) {
-            if (auth()->user()->username !== 'admin_cluster') {
-                return '';
-            }
-
             $btnEdit = '
                 <a href="'.url('sf-masuk/edit/'.$row->idmasuk).'" class="btn btn-link text-primary p-0 mr-2" title="Edit">
                     <i class="fas fa-edit fa-lg"></i>
                 </a>
             ';
+
+            if (auth()->user()->username !== 'admin_cluster') {
+                return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . '</div>';
+            }
 
             $btnDelete = '
                 <form action="'.url('sf-masuk/'.$row->idmasuk).'" 
@@ -85,7 +85,7 @@ class SfmasukController extends Controller
                 </form>
             ';
 
-            return '<div class="d-flex align-items-center">' . $btnEdit . $btnDelete . '</div>';
+            return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . $btnDelete . '</div>';
         })
 
         ->rawColumns(['action'])
@@ -124,12 +124,12 @@ class SfmasukController extends Controller
 
     public function getSf(Request $request)
     {
-        $request->validate([
-            'idtap' => 'required'
-        ]);
+        $idtapsession = session('idtap');
+        // Prioritaskan idtap dari request (untuk edit) atau fallback ke session
+        $idtap = $request->idtap ?: $idtapsession;
 
         $sf = DB::table('idsf')
-            ->where('idtap', $request->idtap)
+            ->where('idtap', $idtap)
             ->orderBy('namasf')
             ->get();
 

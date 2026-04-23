@@ -73,6 +73,110 @@
 
 
     <style>
+        /* =========================================
+           ENTERPRISE GRADE CSS (DNA SYSTEM)
+        ========================================= */
+        :root {
+            --premium-indigo: #4e73df;
+            --premium-indigo-dark: #224abe;
+            --premium-gold: #ffc107;
+            --premium-slate: #f8fafc;
+            --premium-border: #e2e8f0;
+            --premium-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* 1. TABLE INDIGO HEADER */
+        .table-indigo thead th {
+            background-color: var(--premium-indigo) !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            padding: 12px 15px !important;
+            border: none !important;
+            white-space: nowrap;
+        }
+
+        .table-indigo {
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+        }
+
+        .table-indigo tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .table-indigo tbody tr:hover {
+            background-color: rgba(78, 115, 223, 0.05) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        /* 2. STICKY COLUMN LOGIC (ENTERPRISE) */
+        .table-responsive {
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .sticky-col {
+            position: sticky !important;
+            left: 0;
+            z-index: 10 !important;
+            background-color: inherit !important;
+        }
+
+        .sticky-col-2 {
+            position: sticky !important;
+            left: 50px; /* Sesuaikan lebar kolom pertama */
+            z-index: 10 !important;
+            background-color: inherit !important;
+        }
+
+        /* Shadow for sticky columns on scroll */
+        .table-indigo th.sticky-col,
+        .table-indigo td.sticky-col {
+            border-right: 1px solid var(--premium-border) !important;
+        }
+
+        /* 3. PREMIUM CARD & TYPOGRAPHY */
+        .card.premium-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: var(--premium-shadow);
+        }
+
+        .text-indigo { color: var(--premium-indigo) !important; }
+        .bg-indigo { background-color: var(--premium-indigo) !important; }
+        .text-gold { color: var(--premium-gold) !important; }
+        
+        .font-weight-bold { font-weight: 700 !important; }
+
+        /* Datatable Footer / Totals */
+        .table-indigo tfoot th {
+            background-color: #f1f5f9 !important;
+            color: var(--premium-indigo-dark) !important;
+            font-weight: 800 !important;
+            border-top: 2px solid var(--premium-indigo) !important;
+        }
+
+        /* DataTables Custom Search Input */
+        .dataTables_filter input {
+            border-radius: 20px !important;
+            padding: 5px 15px !important;
+            border: 1px solid var(--premium-border) !important;
+            background: #fff !important;
+            transition: all 0.3s;
+        }
+
+        .dataTables_filter input:focus {
+            box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.2) !important;
+            border-color: var(--premium-indigo) !important;
+            outline: none;
+        }
+    </style>
+
+    <style>
         /* ===============================
    GLOBAL DATATABLE LOADING (PREMIUM)
 =============================== */
@@ -81,7 +185,7 @@
             inset: 0;
             background: rgba(248, 250, 252, .75);
             backdrop-filter: blur(6px);
-            z-index: 1050;
+            z-index: 2000; /* Ditingkatkan agar di atas segalanya */
             display: flex;
             align-items: center;
             justify-content: center;

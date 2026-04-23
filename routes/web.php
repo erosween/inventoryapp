@@ -126,6 +126,8 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('form/formDO', [InputDOController::class, 'formDO']);
 	Route::post('form/formDO', [InputDOController::class, 'getTap']);
 	Route::post('/DO/{idmasuk}', [InputDOController::class, 'delete']);
+	Route::get('/DO/edit/{id}', [InputDOController::class, 'edit'])->name('do.edit');
+	Route::post('/DO/update/{id}', [InputDOController::class, 'update'])->name('do.update');
 	Route::get('/exportexceldo', [InputDOController::class, 'exportexcel']);
 
 	// bo retur
@@ -136,6 +138,8 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/form/formkeluarbo', [BOController::class, 'keluarboform']);
 	Route::post('/form/formkeluarbo', [BOController::class, 'getTap']);
 	Route::post('/bo/delete/{idkeluar}', [BOController::class, 'delete']);
+	Route::get('/bo/edit/{id}', [BOController::class, 'edit'])->name('bo.edit');
+	Route::post('/bo/update/{id}', [BOController::class, 'update'])->name('bo.update');
 
 	// voucher rusak
 	Route::get('vrusak', [VrusakController::class, 'index'])->name('vrusak.index');
@@ -143,14 +147,16 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('form/form-vrusak', [VrusakController::class, 'vrusak']);
 	Route::post('vrusak', [VrusakController::class, 'vrusakproses']);
 	Route::post('vrusak/{idrusak}', [VrusakController::class, 'delete']);
+	Route::get('vrusak/edit/{id}', [VrusakController::class, 'edit'])->name('vrusak.edit');
+	Route::post('vrusak/update/{id}', [VrusakController::class, 'update'])->name('vrusak.update');
 	Route::get('exportrusak', [VrusakController::class, 'exportexcel']);
 
 	//stok masuk sf
 	Route::get('sf-masuk', [SfmasukController::class, 'index']);
 	Route::get('/form/form-sfmasuk', [SfmasukController::class, 'formmasuksf']);
 	Route::post('sf-masuk', [SfmasukController::class, 'masuksfproses']);
-	Route::post('/ajax/get-sf', [SfmasukController::class, 'getSf'])
-		->name('ajax.get-sf');
+	Route::post('/ajax/get-sf-masuk', [SfmasukController::class, 'getSf'])
+		->name('ajax.get-sf-masuk');
 	Route::post('/ajax/get-stock-tap', [SfmasukController::class, 'getStockTap'])
 		->name('ajax.get-stock-tap');
 	Route::post('/ajax/get-all-stock-tap-sfmasuk', [SfmasukController::class, 'getAllStockTap'])->name('ajax.get-all-stock-tap-sfmasuk');
@@ -165,8 +171,8 @@ Route::middleware(['auth'])->group(function () {
 	//stok keluar sf
 	Route::get('/sf-keluar', [SfkeluarController::class, 'index']);
 	Route::get('form/form-sfkeluar', [SfkeluarController::class, 'formkeluarsf']);
-	Route::post('/ajax/get-sf', [SfkeluarController::class, 'getSf'])
-		->name('ajax.get-sf');
+	Route::post('/ajax/get-sf-keluar', [SfkeluarController::class, 'getSf'])
+		->name('ajax.get-sf-keluar');
 	Route::post('/ajax/get-stock', [SfkeluarController::class, 'getStock'])
 		->name('ajax.get-stock');
 	Route::post('/ajax/get-all-stock', [SfkeluarController::class, 'getAllStock'])
@@ -186,6 +192,8 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/exportretursf', [ReturSfController::class, 'exportexcel']);
 	Route::post('/retursf/bulk-delete', [ReturSfController::class, 'bulkDelete'])->name('retursf.bulk-delete');
 	Route::post('/retursf/{idretur}', [ReturSfController::class, 'delete']);
+	Route::get('/retursf/edit/{id}', [ReturSfController::class, 'edit'])->name('retursf.edit');
+	Route::post('/retursf/update/{id}', [ReturSfController::class, 'update'])->name('retursf.update');
 	Route::get('/form/form-retursf', [ReturSfController::class, 'form']);
 	Route::post('/retursf', [ReturSfController::class, 'store']);
 	Route::post('/ajax/get-all-stock-sf-retur', [ReturSfController::class, 'getAllStockSf'])->name('ajax.get-all-stock-sf-retur');

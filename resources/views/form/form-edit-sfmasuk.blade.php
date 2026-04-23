@@ -179,9 +179,13 @@
                 if (!idtap) return;
 
                 // Reload SF list
-                $.post('{{ route('ajax.get-sf') }}', { idtap, _token: '{{ csrf_token() }}' })
+                $.post('{{ route('ajax.get-sf-masuk') }}', { idtap, _token: '{{ csrf_token() }}' })
                 .done(res => {
-                    $('#idsf').html(res).trigger('change');
+                    let options = '<option value=""></option>';
+                    res.forEach(item => {
+                        options += `<option value="${item.idsf}">${item.namasf}</option>`;
+                    });
+                    $('#idsf').html(options).trigger('change');
                 });
 
                 loadTapStock();

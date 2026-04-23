@@ -20,55 +20,59 @@
                     </div>
                 @endif
 
-                <div class="card shadow-sm">
-
+                <div class="card premium-card">
                     {{-- HEADER --}}
-                    <div class="card-header py-3">
+                    <div class="card-header py-3 px-4 bg-white border-bottom shadow-sm">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-
-                            <h4 class="card-title mb-0">Barang Masuk TAP</h4>
+                            <div>
+                                <h4 class="card-title mb-0 font-weight-bold text-indigo">
+                                    <i class="fas fa-file-download mr-2"></i>Barang Masuk TAP
+                                </h4>
+                                <div class="text-muted small">Monitoring penerimaan stok ke gudang TAP</div>
+                            </div>
 
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 {{-- DATE RANGE --}}
                                 <div class="position-relative">
-                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4"
-                                        style="min-width:260px" placeholder="Pilih tanggal" autocomplete="off">
+                                    <input type="text" id="daterange" class="form-control form-control-sm pe-4 shadow-none border"
+                                        style="min-width: 250px; background: #f8f9fa; border-radius: 20px;" placeholder="Pilih tanggal" autocomplete="off">
                                     <i class="fas fa-calendar-alt position-absolute"
-                                        style="right:10px; top:50%; transform:translateY(-50%); color:#6c757d"></i>
+                                        style="right:12px; top:50%; transform:translateY(-50%); color:var(--premium-indigo)"></i>
                                 </div>
 
-                                {{-- EXPORT --}}
-                                <a href="#" id="btnExport" class="btn btn-success btn-sm ml-1">
-                                    <i class="fas fa-file-export"></i> Export
-                                </a>
+                                <div class="btn-group shadow-sm" style="border-radius: 20px; overflow: hidden;">
+                                    {{-- EXPORT --}}
+                                    <a href="#" id="btnExport" class="btn btn-success btn-sm border-0" title="Export Excel">
+                                        <i class="fas fa-file-export"></i>
+                                    </a>
 
-                                {{-- VIEW SUMMARY --}}
-                                <button class="btn btn-primary btn-sm ml-1" data-toggle="modal" data-target="#show">
-                                    <i class="fas fa-eye"></i> View
-                                </button>
+                                    {{-- VIEW SUMMARY --}}
+                                    <button class="btn btn-primary btn-sm border-0 font-weight-bold" data-toggle="modal" data-target="#show">
+                                        <i class="fas fa-eye mr-1"></i> Summary
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {{-- BODY --}}
-                    <div class="card-body">
-
+                    <div class="card-body px-0 py-0">
                         <div class="table-responsive">
-                            <table id="masuk-table" class="table table-sm table-striped table-hover align-middle w-100">
-                                <thead class="table-light">
+                            <table id="masuk-table" class="table table-indigo table-hover w-100 mb-0">
+                                <thead>
                                     <tr>
-                                        <th>Tanggal</th>
+                                        <th class="sticky-col">Tanggal</th>
                                         <th>Denom</th>
                                         <th class="text-end">Quantity</th>
                                         <th>Pengirim</th>
                                         <th>Penerima</th>
                                         <th>SN</th>
                                         <th>Status</th>
+                                        <th width="100" class="text-center">Action</th>
                                     </tr>
                                 </thead>
                             </table>
                         </div>
-
                     </div>
                 </div>
 
@@ -165,6 +169,12 @@
                         render: s => s == 0 ?
                             '<span class="badge badge-success">Approved</span>' :
                             '<span class="badge badge-warning">Wait for Approval</span>'
+                    },
+                    {
+                        data: 'action',
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center'
                     }
                 ]
             });

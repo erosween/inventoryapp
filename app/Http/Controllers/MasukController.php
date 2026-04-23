@@ -61,13 +61,15 @@ class MasukController extends Controller
         $query = DB::table('keluar as k')
             ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
             ->select(
+                'k.idkeluar',
                 'k.tgl',
                 'd.denom',
                 'k.qty',
                 'k.idtap',
                 'k.penerima',
                 'k.sn',
-                'k.status'
+                'k.status',
+                'k.iddenom'
             )
             ->whereBetween('k.tgl', [$start, $end])
             ->whereNotIn('k.pengirim', $kategoribo);
@@ -80,9 +82,22 @@ class MasukController extends Controller
         return datatables()
         ->of($query)
         ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('Y-m-d'))
-        ->filterColumn('denom', function ($q, $keyword) {
-            $q->whereRaw("LOWER(d.denom) LIKE ?", ["%".strtolower($keyword)."%"]);
+        ->addColumn('action', function ($row) {
+            if ($row->status == 1) {
+                // Hanya penerima yang boleh approve
+                if (session('idtap') === $row->penerima || session('idtap') === 'SBP_DUMAI') {
+                    return '
+                    <form action="'.url('masuk/'.$row->idkeluar).'" method="POST" class="d-inline">
+                        '.csrf_field().'
+                        <button type="submit" class="btn btn-success btn-sm font-weight-bold" style="border-radius:20px;">
+                            <i class="fas fa-check-circle mr-1"></i> TERIMA
+                        </button>
+                    </form>';
+                }
+            }
+            return '<span class="text-muted small">No Action</span>';
         })
+        ->rawColumns(['action'])
         ->make(true);
     }
 
@@ -124,30 +139,43 @@ class MasukController extends Controller
     ===================================================== */
     public function masuk(Request $request, $idkeluar)
     {
-        DB::transaction(function () use ($request, $idkeluar) {
+        DB::transaction(function () use ($idkeluar) {
+            // Tarik data asli dari DB untuk keamanan
+            $data = DB::table('keluar')
+                ->where('idkeluar', $idkeluar)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$data) {
+                throw new \Exception('Data tidak ditemukan');
+            }
+
+            if ($data->status == 0) {
+                throw new \Exception('Data sudah pernah disetujui');
+            }
 
             // cek stok pengirim
             $stok = DB::table('stockawaltap')
-                ->where('idtap', $request->pengirim)
-                ->where('iddenom', $request->iddenom)
+                ->where('idtap', $data->idtap) // pengirim adalah idtap di tabel keluar
+                ->where('iddenom', $data->iddenom)
                 ->lockForUpdate()
                 ->value('stock');
 
-            if ($stok < $request->qty) {
+            if ($stok < $data->qty) {
                 throw new \Exception('Stok Tap Pengirim Tidak Mencukupi');
             }
 
             // kurangi pengirim
             DB::table('stockawaltap')
-                ->where('idtap', $request->pengirim)
-                ->where('iddenom', $request->iddenom)
-                ->decrement('stock', $request->qty);
+                ->where('idtap', $data->idtap)
+                ->where('iddenom', $data->iddenom)
+                ->decrement('stock', $data->qty);
 
             // tambah penerima
             DB::table('stockawaltap')
-                ->where('idtap', $request->penerima)
-                ->where('iddenom', $request->iddenom)
-                ->increment('stock', $request->qty);
+                ->where('idtap', $data->penerima)
+                ->where('iddenom', $data->iddenom)
+                ->increment('stock', $data->qty);
 
             // approve
             DB::table('keluar')

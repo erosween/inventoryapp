@@ -164,7 +164,7 @@
 
                 if (!idtap) return;
 
-                $.post('{{ route('ajax.get-sf') }}', {
+                $.post('{{ route('ajax.get-sf-masuk') }}', {
                         idtap,
                         _token: '{{ csrf_token() }}'
                     })
