@@ -409,13 +409,13 @@
                                 <li class="nav-item {{ request()->is('denoms*') ? 'active' : '' }}">
                                     <a href="{{ url('denoms') }}">
                                         <i class="fas fa-layer-group"></i>
-                                        <p>DAFTAR PRODUK (DENOM)</p>
+                                        <p>DENOM</p>
                                     </a>
                                 </li>
                                 <li class="nav-item {{ request()->is('sf*') ? 'active' : '' }}">
                                     <a href="{{ url('sf') }}">
                                         <i class="fas fa-users"></i>
-                                        <p>DAFTAR SALES FORCE (SF)</p>
+                                        <p>SF</p>
                                     </a>
                                 </li>
                             @endif
