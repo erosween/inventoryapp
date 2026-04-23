@@ -54,13 +54,13 @@
                                     </button>
                                 @endif
 
-                                <div class="btn-group shadow-sm" style="border-radius: 20px; overflow: hidden;">
-                                    <a href="#" id="btnExport" class="btn btn-success btn-sm border-0" title="Export Excel">
+                                <div class="btn-group shadow-sm" style="border-radius: 20px;">
+                                    <a href="#" id="btnExport" class="btn btn-success btn-sm border-0" title="Export Excel" style="border-radius: 20px 0 0 20px;">
                                         <i class="fas fa-file-export"></i>
                                     </a>
                                     
                                     <div class="btn-group">
-                                        <button class="btn btn-primary btn-sm border-0 font-weight-bold dropdown-toggle" data-toggle="dropdown">
+                                        <button class="btn btn-primary btn-sm border-0 font-weight-bold dropdown-toggle" data-toggle="dropdown" style="border-radius: 0 20px 20px 0;">
                                             <i class="fas fa-plus-circle mr-1"></i> Tambah
                                         </button>
                                         <div class="dropdown-menu dropdown-menu-right shadow border-0">
