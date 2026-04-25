@@ -717,36 +717,46 @@
             const submittedForms = new WeakSet();
 
             document.addEventListener('submit', function (e) {
+                const form = e.target;
+
                 // Skip GET forms & delete forms (handled by SweetAlert)
-                if (e.target.method && e.target.method.toUpperCase() === 'GET') return;
-                if (e.target.classList.contains('form-delete')) return;
+                if (form.method && form.method.toUpperCase() === 'GET') return;
+                if (form.classList.contains('form-delete')) return;
 
                 // ⛔ BLOCK if this form was already submitted
-                if (submittedForms.has(e.target)) {
+                if (submittedForms.has(form)) {
+                    console.warn('Form submission blocked to prevent double-submit');
                     e.preventDefault();
                     e.stopImmediatePropagation();
                     return false;
                 }
 
-                // 🔒 Mark as submitted IMMEDIATELY (synchronous, no setTimeout)
-                submittedForms.add(e.target);
+                // 🔒 Mark as submitted
+                submittedForms.add(form);
 
                 // 🎨 Visual feedback
-                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const submitBtn = form.querySelector('button[type="submit"]');
                 if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Memproses...';
+                    // Use setTimeout to ensure the browser has started the submission process 
+                    // before we disable the button.
+                    setTimeout(() => {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Memproses...';
+                    }, 10);
                 }
 
-                // 🔄 Safety: re-enable after 10s in case of network error
+                // 🔄 Safety: re-enable after 30s in case of network error or slow processing
                 setTimeout(function () {
-                    submittedForms.delete(e.target);
+                    submittedForms.delete(form);
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = 'Simpan';
+                        // Restore original text if possible, or default to Simpan
+                        if (submitBtn.innerHTML.includes('Memproses')) {
+                            submitBtn.innerHTML = 'Simpan'; 
+                        }
                     }
-                }, 10000);
-            }, true); // useCapture = true → runs BEFORE any other handler
+                }, 30000);
+            }, true); 
         })();
     </script>
 

@@ -86,7 +86,7 @@
                                             </button>
                                         </div>
                                         <div class="modal-body">
-                                            <form action="masuk/{{ $row->idkeluar }}" method="post" class="form-approve">
+                                            <form action="{{ route('masuk.approve', $row->idkeluar) }}" method="post" class="form-approve">
                                                 @csrf
                                                 <h5>Pastikan Barang yang diterima sudah sesuai, stok
                                                     <strong>{{ $row->denom }}</strong> dengan Quantity
@@ -132,17 +132,6 @@
             order: [
                 [0, "desc"]
             ]
-        });
-
-        // 🔒 ANTI DOUBLE-CLICK pada tombol "Terima" di modal approval
-        $(document).on('submit', '.form-approve', function(e) {
-            const $btn = $(this).find('button[type="submit"]');
-            if ($btn.prop('disabled')) {
-                e.preventDefault();
-                return false;
-            }
-            $btn.prop('disabled', true)
-                .html('<span class="spinner-border spinner-border-sm"></span> Memproses...');
         });
     </script>
 

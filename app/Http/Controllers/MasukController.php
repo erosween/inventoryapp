@@ -140,54 +140,83 @@ class MasukController extends Controller
     ===================================================== */
     public function masuk(Request $request, $idkeluar)
     {
-        DB::transaction(function () use ($idkeluar) {
-            // Tarik data asli dari DB untuk keamanan
-            $data = DB::table('keluar')
-                ->where('idkeluar', $idkeluar)
-                ->lockForUpdate()
-                ->first();
+        try {
+            DB::transaction(function () use ($idkeluar) {
+                // 1. Lock data keluar
+                $data = DB::table('keluar')
+                    ->where('idkeluar', $idkeluar)
+                    ->lockForUpdate()
+                    ->first();
 
-            if (!$data) {
-                throw new \Exception('Data tidak ditemukan');
-            }
+                if (!$data) {
+                    throw new \Exception('Data transaksi tidak ditemukan');
+                }
 
-            if ($data->status == 0) {
-                throw new \Exception('Data sudah pernah disetujui');
-            }
+                if ($data->status == 0) {
+                    throw new \Exception('Data sudah pernah disetujui');
+                }
 
-            // cek stok pengirim
-            $stok = DB::table('stockawaltap')
-                ->where('idtap', $data->idtap) // pengirim adalah idtap di tabel keluar
-                ->where('iddenom', $data->iddenom)
-                ->lockForUpdate()
-                ->value('stock');
+                $sender = $data->idtap;
+                $receiver = $data->penerima;
+                $iddenom = $data->iddenom;
+                $qty = $data->qty;
 
-            if ($stok < $data->qty) {
-                throw new \Exception('Stok Tap Pengirim Tidak Mencukupi');
-            }
+                \Log::info("Transfer info: Sender $sender, Receiver $receiver, Qty $qty");
 
-            // kurangi pengirim
-            DB::table('stockawaltap')
-                ->where('idtap', $data->idtap)
-                ->where('iddenom', $data->iddenom)
-                ->decrement('stock', $data->qty);
+                // 2. Cegah DEADLOCK dengan urutan konsisten
+                $taps = [$sender, $receiver];
+                sort($taps);
 
-            // tambah penerima
-            DB::table('stockawaltap')
-                ->where('idtap', $data->penerima)
-                ->where('iddenom', $data->iddenom)
-                ->increment('stock', $data->qty);
+                foreach ($taps as $tap) {
+                    // Pastikan record ada sebelum dilock (Tanpa updated_at)
+                    DB::table('stockawaltap')->insertOrIgnore([
+                        'idtap' => $tap,
+                        'iddenom' => $iddenom,
+                        'stock' => 0
+                    ]);
 
-            // approve
-            DB::table('keluar')
-                ->where('idkeluar', $idkeluar)
-                ->update(['status' => 0]);
+                    DB::table('stockawaltap')
+                        ->where('idtap', $tap)
+                        ->where('iddenom', $iddenom)
+                        ->lockForUpdate()
+                        ->get();
+                }
 
-            // 📝 LOG
-            AuditLogger::log('APPROVE', 'Stok Masuk TAP', $idkeluar, ['status' => 1], ['status' => 0]);
-        });
+                // 3. Ambil nilai stok pengirim terbaru setelah dilock
+                $stokPengirim = DB::table('stockawaltap')
+                    ->where('idtap', $sender)
+                    ->where('iddenom', $iddenom)
+                    ->value('stock');
 
-        return back()->with('success', 'Stock berhasil diterima');
+                if ($stokPengirim < $qty) {
+                    throw new \Exception("Stok TAP Pengirim ($sender) tidak mencukupi. Tersedia: " . number_format($stokPengirim));
+                }
+
+                // 4. Update stok
+                DB::table('stockawaltap')
+                    ->where('idtap', $sender)
+                    ->where('iddenom', $iddenom)
+                    ->decrement('stock', $qty);
+
+                DB::table('stockawaltap')
+                    ->where('idtap', $receiver)
+                    ->where('iddenom', $iddenom)
+                    ->increment('stock', $qty);
+
+                // 5. Update status
+                DB::table('keluar')
+                    ->where('idkeluar', $idkeluar)
+                    ->update(['status' => 0]);
+
+                AuditLogger::log('APPROVE', 'Stok Masuk TAP', $idkeluar, ['status' => 1], ['status' => 0]);
+            });
+
+            return back()->with('success', 'Stock berhasil diterima');
+
+        } catch (\Exception $e) {
+            \Log::error("Error approving stock transfer ID $idkeluar: " . $e->getMessage());
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     /* =====================================================
