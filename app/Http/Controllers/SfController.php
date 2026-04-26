@@ -106,4 +106,20 @@ class SfController extends Controller
         $exists = DB::table('idsf')->where('idsf', $id)->exists();
         return response()->json(['exists' => $exists]);
     }
+
+    public function syncLogin()
+    {
+        $sfs = DB::table('idsf')->whereNull('login_code')->get();
+        $count = 0;
+
+        foreach ($sfs as $sf) {
+            DB::table('idsf')->where('idsf', $sf->idsf)->update([
+                'login_code' => strtoupper(Str::random(6)),
+                'password' => Hash::make('123')
+            ]);
+            $count++;
+        }
+
+        return redirect()->back()->with('success', $count . ' SF berhasil di-sinkronisasi data login-nya (Password Default: 123).');
+    }
 }

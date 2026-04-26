@@ -40,6 +40,10 @@
                                          <i class="fa fa-plus"></i>
                                          Tambah SF Baru
                                      </button>
+                                     <a href="{{ route('sf.sync-login') }}" class="btn btn-outline-primary btn-round ml-2">
+                                         <i class="fas fa-sync-alt"></i>
+                                         Sinkronkan Login SF
+                                     </a>
                                  </div>
                              </div>
                             <div class="card-body">

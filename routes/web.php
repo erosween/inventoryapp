@@ -78,6 +78,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sf/update/{idsf}', [SfController::class, 'update']);
     Route::post('/sf/{idsf}', [SfController::class, 'destroy']);
     Route::get('/ajax/check-sf/{id}', [SfController::class, 'checkId'])->name('ajax.check-sf');
+    Route::get('/sf/sync-login', [SfController::class, 'syncLogin'])->name('sf.sync-login');
 
     // Denom Management
     Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');
