@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,19 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('appsdumais', function (Blueprint $table) {
-            $table->index('id_outlet');
-        });
-
-        Schema::table('masuksf', function (Blueprint $table) {
-            $table->index('idsf');
-            $table->index('tgl');
-        });
-
-        Schema::table('keluarsf', function (Blueprint $table) {
-            $table->index('idsf');
-            $table->index('tgl');
-        });
+        $this->addIndexIfMissing('appsdumais', 'id_outlet');
+        $this->addIndexIfMissing('masuksf', 'idsf');
+        $this->addIndexIfMissing('masuksf', 'tgl');
+        $this->addIndexIfMissing('keluarsf', 'idsf');
+        $this->addIndexIfMissing('keluarsf', 'tgl');
     }
 
     /**
@@ -31,18 +24,34 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('appsdumais', function (Blueprint $table) {
-            $table->dropIndex(['id_outlet']);
-        });
+        $this->dropIndexIfExists('appsdumais', 'id_outlet');
+        $this->dropIndexIfExists('masuksf', 'idsf');
+        $this->dropIndexIfExists('masuksf', 'tgl');
+        $this->dropIndexIfExists('keluarsf', 'idsf');
+        $this->dropIndexIfExists('keluarsf', 'tgl');
+    }
 
-        Schema::table('masuksf', function (Blueprint $table) {
-            $table->dropIndex(['idsf']);
-            $table->dropIndex(['tgl']);
-        });
+    private function addIndexIfMissing($table, $column)
+    {
+        $indexName = "{$table}_{$column}_index";
+        $exists = collect(DB::select("SHOW INDEX FROM {$table}"))->where('Key_name', $indexName)->count() > 0;
+        
+        if (!$exists) {
+            Schema::table($table, function (Blueprint $table) use ($column) {
+                $table->index($column);
+            });
+        }
+    }
 
-        Schema::table('keluarsf', function (Blueprint $table) {
-            $table->dropIndex(['idsf']);
-            $table->dropIndex(['tgl']);
-        });
+    private function dropIndexIfExists($table, $column)
+    {
+        $indexName = "{$table}_{$column}_index";
+        $exists = collect(DB::select("SHOW INDEX FROM {$table}"))->where('Key_name', $indexName)->count() > 0;
+        
+        if ($exists) {
+            Schema::table($table, function (Blueprint $table) use ($column) {
+                $table->dropIndex([$column]);
+            });
+        }
     }
 };
