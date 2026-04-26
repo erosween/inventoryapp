@@ -1,0 +1,24 @@
+{
+  "name": "MSP Connect Mobile",
+  "short_name": "MSP Mobile",
+  "description": "Sales Force Mobile History and Journey Plan for MSP Connect",
+  "start_url": "/mobile",
+  "display": "standalone",
+  "background_color": "#F4F7F9",
+  "theme_color": "#EC2028",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/img/MSP5.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/img/MSP5.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

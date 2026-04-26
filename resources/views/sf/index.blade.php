@@ -52,6 +52,7 @@
                                                 <th>TAP</th>
                                                 <th>ID SF</th>
                                                 <th>Nama SF</th>
+                                                <th>Login Code (Mobile)</th>
                                                 <th style="width: 10%">Aksi</th>
                                             </tr>
                                         </thead>
@@ -61,6 +62,7 @@
                                                     <td>{{ $sf->idtap }}</td>
                                                     <td>{{ $sf->idsf }}</td>
                                                     <td>{{ $sf->namasf }}</td>
+                                                    <td><code class="text-primary font-weight-bold">{{ $sf->login_code }}</code></td>
                                                     <td>
                                                         <div class="form-button-action">
                                                             <button type="button" data-toggle="modal"

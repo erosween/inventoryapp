@@ -234,4 +234,24 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/nocanadmin/{id}', [NocanadminController::class, 'edit']);
 	Route::post('/reset/{id}', [NocanadminController::class, 'reset']);
 	Route::get('/exportnocan', [HomenocanController::class, 'exportexcel']);
+
+});
+
+// MOBILE SALES FORCE (Independent Access)
+Route::prefix('mobile')->name('mobile.')->group(function () {
+    Route::get('/login', [\App\Http\Controllers\MobileAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [\App\Http\Controllers\MobileAuthController::class, 'login'])->name('login.post');
+    Route::get('/logout', [\App\Http\Controllers\MobileAuthController::class, 'logout'])->name('logout');
+
+    Route::middleware([\App\Http\Middleware\MobileSFAccess::class])->group(function () {
+        Route::get('/', [\App\Http\Controllers\MobileSalesController::class, 'index'])->name('index');
+        Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
+        Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
+        Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
+        Route::get('/search-outlet', [\App\Http\Controllers\MobileSalesController::class, 'searchOutlet'])->name('search-outlet');
+        Route::get('/edit/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'edit'])->name('edit');
+        Route::put('/update/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'update'])->name('update');
+        Route::get('/password', [\App\Http\Controllers\MobileAuthController::class, 'showChangePasswordForm'])->name('password');
+        Route::post('/password', [\App\Http\Controllers\MobileAuthController::class, 'updatePassword'])->name('password.update');
+    });
 });

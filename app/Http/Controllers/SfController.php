@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class SfController extends Controller
 {
@@ -48,7 +50,9 @@ class SfController extends Controller
                 'idsf' => $request->idsf,
                 'idtap' => $request->idtap,
                 // Nama SF distandarisasi huruf kapital
-                'namasf' => strtoupper($request->namasf) 
+                'namasf' => strtoupper($request->namasf),
+                'login_code' => strtoupper(Str::random(6)),
+                'password' => Hash::make('123')
             ]);
 
             // 2. Automasi Inisialisasi Stok Awal ke 0 untuk semua Denom pada tabel stockawalsf
