@@ -181,7 +181,9 @@ class MobileSalesController extends Controller
                 $masuk_query->whereDate('masuksf.tgl', $filter_date);
             }
         }
-        $masuksf_history = $masuk_query->orderBy('masuksf.tgl', 'desc')->get();
+        $masuksf_history = $masuk_query->orderBy('masuksf.tgl', 'desc')
+            ->limit(20)
+            ->get();
 
         // Fetch KeluarSF History (Sales inputted by Web Admin)
         $keluar_query = DB::table('keluarsf')
@@ -197,7 +199,9 @@ class MobileSalesController extends Controller
                 $keluar_query->whereDate('keluarsf.tgl', $filter_date);
             }
         }
-        $keluarsf_history = $keluar_query->orderBy('keluarsf.tgl', 'desc')->get();
+        $keluarsf_history = $keluar_query->orderBy('keluarsf.tgl', 'desc')
+            ->limit(20)
+            ->get();
 
         return view('mobile.history', compact('history', 'filter_date', 'masuksf_history', 'keluarsf_history'));
     }
