@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Cookie;
 
 class MobileAuthController extends Controller
 {
@@ -34,6 +35,11 @@ class MobileAuthController extends Controller
             Session::put('mobile_sf_name', $sf->namasf);
             Session::put('idtap', $sf->idtap);
 
+            if ($request->has('remember')) {
+                // Store idsf in cookie for 30 days
+                Cookie::queue('mobile_remember_id', $sf->idsf, 43200);
+            }
+
             return redirect()->route('mobile.index');
         }
 
@@ -43,6 +49,7 @@ class MobileAuthController extends Controller
     public function logout()
     {
         Session::forget(['mobile_sf_id', 'mobile_sf_name', 'idtap']);
+        Cookie::queue(Cookie::forget('mobile_remember_id'));
         return redirect()->route('mobile.login');
     }
 

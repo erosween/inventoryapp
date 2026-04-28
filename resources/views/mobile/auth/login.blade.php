@@ -193,6 +193,15 @@
                 <input type="password" name="password" class="glass-input" placeholder="••••••••" required>
             </div>
 
+            <div class="form-group d-flex align-items-center mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="remember" id="remember" style="cursor: pointer;">
+                    <label class="form-check-label ms-2" for="remember" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor: pointer;">
+                        Ingat Saya
+                    </label>
+                </div>
+            </div>
+
             <button type="submit" class="btn-premium">
                 LOG IN <i class="fas fa-arrow-right ms-2"></i>
             </button>
