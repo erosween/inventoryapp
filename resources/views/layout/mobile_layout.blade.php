@@ -24,9 +24,6 @@
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
@@ -301,13 +298,17 @@
                 <i class="fas fa-home"></i>
                 <div>Home</div>
             </a>
+            <a href="{{ route('mobile.stock') }}" class="nav-item {{ request()->is('mobile/stock') ? 'active' : '' }}">
+                <i class="fas fa-boxes-stacked"></i>
+                <div>Stok</div>
+            </a>
             <a href="{{ route('mobile.history') }}" class="nav-item {{ request()->is('mobile/history') ? 'active' : '' }}">
                 <i class="fas fa-history"></i>
                 <div>History</div>
             </a>
-            <a href="{{ route('mobile.logout') }}" class="nav-item text-danger">
-                <i class="fas fa-power-off"></i>
-                <div>Keluar</div>
+            <a href="#" class="nav-item" id="nav-settings">
+                <i class="fas fa-ellipsis"></i>
+                <div>Lainnya</div>
             </a>
         </nav>
     </div>
@@ -348,6 +349,48 @@
         }
     </script>
     @stack('modals')
+
+    <!-- Settings Bottom Sheet -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog" style="margin: 0 auto; max-width: 480px; position: absolute; bottom: 0; left: 0; right: 0; width: 100%;">
+            <div class="modal-content border-0" style="border-radius: 30px 30px 0 0; box-shadow: 0 -10px 50px rgba(0,0,0,0.15);">
+                <div class="d-flex justify-content-center pt-3">
+                    <div style="width: 45px; height: 6px; background: #e2e8f0; border-radius: 10px;"></div>
+                </div>
+                <div class="modal-body p-4">
+                    <h6 class="fw-800 mb-4" style="font-size: 1.1rem;">Pengaturan</h6>
+                    <a href="{{ route('mobile.password') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);">
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-800" style="font-size: 0.9rem;">Ganti Password</div>
+                            <div class="small text-muted" style="font-size: 0.7rem;">Ubah password login Anda</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: 0.7rem;"></i>
+                    </a>
+                    <a href="{{ route('mobile.logout') }}" class="d-flex align-items-center py-3 text-decoration-none" style="color: #ef4444;">
+                        <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3">
+                            <i class="fas fa-power-off"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-800" style="font-size: 0.9rem;">Keluar</div>
+                            <div class="small text-muted" style="font-size: 0.7rem;">Logout dari akun ini</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: 0.7rem;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @stack('scripts')
+    <script>
+        // Settings bottom sheet
+        document.getElementById('nav-settings')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            new bootstrap.Modal(document.getElementById('settingsModal')).show();
+        });
+    </script>
 </body>
 </html>

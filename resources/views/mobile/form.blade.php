@@ -88,6 +88,24 @@
             </div>
         </div>
 
+        <!-- Live Total Setoran Summary -->
+        <div id="setoran-summary" class="glass-card mb-4 p-0 border-0 shadow-sm overflow-hidden" style="background: white; border-radius: 24px; display: none;">
+            <div class="d-flex align-items-stretch">
+                <div style="width: 6px; background: #10b981; opacity: 0.8;"></div>
+                <div class="p-4 w-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-800 mb-1 text-dark" style="font-size: 0.75rem; letter-spacing: 1px;">ESTIMASI SETORAN</h6>
+                            <div class="text-muted fw-bold" style="font-size: 0.65rem;"><span id="total-items">0</span> item • <span id="total-pcs">0</span> pcs</div>
+                        </div>
+                        <div class="text-end">
+                            <h4 class="fw-800 text-success mb-0" id="total-setoran" style="font-size: 1.3rem;">Rp 0</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="sticky-bottom pb-4 pt-2 px-1" style="background: linear-gradient(to top, var(--bg-body) 70%, transparent); z-index: 10;">
             <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-800 shadow" style="font-size: 0.95rem; background: var(--primary); border: none;">
                 Log Activity <i class="fas fa-paper-plane ms-1"></i>
@@ -129,7 +147,8 @@
                         <button type="button" class="list-group-item list-group-item-action border-0 mb-3 rounded-4 py-3 px-4 d-flex align-items-center select-product-btn" 
                                 style="background: #ffffff; border: 1px solid #f1f5f9 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s;"
                                 data-id="{{ $denom->iddenom }}" 
-                                data-name="{{ $denom->denom }}">
+                                data-name="{{ $denom->denom }}"
+                                data-harga="{{ $denom->harga_jual ?? 0 }}">
                             <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3 text-primary">
                                 <i class="fas fa-box-open fs-5"></i>
                             </div>
@@ -142,6 +161,9 @@
                                     @else
                                         <span class="badge bg-danger bg-opacity-10 text-danger me-2 px-2 py-1 rounded-pill">EMPTY</span>
                                         <span class="text-danger">STOK HABIS</span>
+                                    @endif
+                                    @if($denom->harga_jual > 0)
+                                        <span class="ms-2 text-success fw-bold">• Rp {{ number_format($denom->harga_jual, 0, ',', '.') }}</span>
                                     @endif
                                 </div>
                             </div>
@@ -189,8 +211,47 @@
             });
         }
 
+        // Price map for live total calculation
+        const priceMap = {};
+        @foreach($denoms as $denom)
+            priceMap['{{ $denom->iddenom }}'] = {{ $denom->harga_jual ?? 0 }};
+        @endforeach
+
         let productCount = 1;
         let activeRow = null;
+
+        // Recalculate total setoran
+        function recalcTotal() {
+            let totalSetoran = 0;
+            let totalPcs = 0;
+            let totalItems = 0;
+
+            $('#product-container .iddenom-input').each(function() {
+                const iddenom = $(this).val();
+                const qtyInput = $(this).closest('.p-4').find('input[type="number"]');
+                const qty = parseInt(qtyInput.val()) || 0;
+
+                if (iddenom && qty > 0) {
+                    totalItems++;
+                    totalPcs += qty;
+                    totalSetoran += qty * (priceMap[iddenom] || 0);
+                }
+            });
+
+            if (totalItems > 0) {
+                $('#setoran-summary').slideDown(200);
+                $('#total-items').text(totalItems);
+                $('#total-pcs').text(totalPcs.toLocaleString('id-ID'));
+                $('#total-setoran').text('Rp ' + totalSetoran.toLocaleString('id-ID'));
+            } else {
+                $('#setoran-summary').slideUp(200);
+            }
+        }
+
+        // Recalc on qty change
+        $(document).on('input', 'input[type="number"]', function() {
+            recalcTotal();
+        });
 
         // Open Picker
         $(document).on('click', '.product-trigger', function() {
@@ -199,7 +260,7 @@
             $('#product-search-modal').val('').trigger('keyup').focus();
         });
 
-        // Search in Modal - Enhanced for Mobile
+        // Search in Modal
         $('#product-search-modal').on('input', function() {
             let val = $(this).val().toLowerCase().trim();
             let matches = 0;
@@ -215,7 +276,6 @@
                 }
             });
 
-            // Show/Hide no results message
             if (matches === 0) {
                 if ($('#no-results').length === 0) {
                     $('#modal-product-list').append('<div id="no-results" class="text-center py-5 opacity-50"><i class="fas fa-search fs-1 mb-3"></i><p>Produk tidak ditemukan</p></div>');
@@ -229,11 +289,25 @@
         $(document).on('click', '.select-product-btn', function() {
             let id = $(this).data('id');
             let name = $(this).data('name');
+            let harga = $(this).data('harga') || 0;
             
             activeRow.find('.product-placeholder').text(name).css('color', 'var(--text-main)');
             activeRow.find('.iddenom-input').val(id);
             
+            // Show price badge
+            let priceLabel = activeRow.closest('.p-4').find('.price-label');
+            if (priceLabel.length === 0) {
+                if (harga > 0) {
+                    activeRow.after('<div class="price-label mt-1"><span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp ' + harga.toLocaleString('id-ID') + '/pcs</span></div>');
+                }
+            } else {
+                if (harga > 0) {
+                    priceLabel.html('<span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp ' + harga.toLocaleString('id-ID') + '/pcs</span>');
+                }
+            }
+            
             $('#productPickerModal').modal('hide');
+            recalcTotal();
         });
 
         $('#add-product').click(function() {
@@ -281,6 +355,7 @@
         $(document).on('click', '.remove-row', function() {
             let rowId = $(this).data('id');
             $(`#row-${rowId}`).remove();
+            recalcTotal();
         });
     });
 </script>

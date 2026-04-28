@@ -33,7 +33,7 @@ class MobileSalesController extends Controller
         
         $latest = MobilePenjualan::where('idsf', $idsf)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select('mobile_penjualan.*', 'denom.denom')
+            ->select('mobile_penjualan.*', 'denom.denom', 'denom.harga_jual')
             ->orderBy('mobile_penjualan.created_at', 'desc')
             ->limit(5)
             ->get();
@@ -47,6 +47,18 @@ class MobileSalesController extends Controller
             ->whereMonth('tgl', date('m'))
             ->whereYear('tgl', date('Y'))
             ->sum('qty');
+
+        // Calculate Setoran (Revenue)
+        $today_setoran = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
+            ->whereDate('mobile_penjualan.tgl', date('Y-m-d'))
+            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
+            ->sum(DB::raw('mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)'));
+
+        $month_setoran = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
+            ->whereMonth('mobile_penjualan.tgl', date('m'))
+            ->whereYear('mobile_penjualan.tgl', date('Y'))
+            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
+            ->sum(DB::raw('mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)'));
 
         // PJP List Logic
         $days = [
@@ -84,7 +96,7 @@ class MobileSalesController extends Controller
             ->whereIn('id_outlet', $non_pjp_visited_ids)
             ->get();
 
-        return view('mobile.index', compact('latest', 'today_sales', 'month_sales', 'pjp_list', 'non_pjp_list', 'today_name'));
+        return view('mobile.index', compact('latest', 'today_sales', 'month_sales', 'today_setoran', 'month_setoran', 'pjp_list', 'non_pjp_list', 'today_name'));
     }
 
     public function form(Request $request)
@@ -116,24 +128,49 @@ class MobileSalesController extends Controller
             'longitude' => 'nullable|numeric',
         ]);
 
-        DB::transaction(function () use ($request) {
-            foreach ($request->products as $product) {
-                MobilePenjualan::create([
-                    'tgl' => $request->tgl,
-                    'id_outlet' => strtoupper($request->id_outlet),
-                    'idtap' => session('idtap'),
-                    'idsf' => session('mobile_sf_id'),
-                    'iddenom' => $product['iddenom'],
-                    'qty' => $product['qty'],
-                    'keterangan' => $request->keterangan,
-                    'status' => 'pending',
-                    'latitude' => $request->latitude,
-                    'longitude' => $request->longitude,
-                ]);
-            }
-        });
+        $idsf = session('mobile_sf_id');
 
-        return redirect()->route('mobile.history')->with('success', 'Data penjualan berhasil disimpan!');
+        try {
+            DB::transaction(function () use ($request, $idsf) {
+                foreach ($request->products as $product) {
+                    $iddenom = $product['iddenom'];
+                    $qty = $product['qty'];
+
+                    // 🔒 Lock & cek stok SF
+                    $stockSf = DB::table('stockawalsf')
+                        ->where('idsf', $idsf)
+                        ->where('iddenom', $iddenom)
+                        ->lockForUpdate()
+                        ->value('stock');
+
+                    // Ambil nama denom untuk pesan error yang jelas
+                    $denomName = DB::table('denom')->where('iddenom', $iddenom)->value('denom') ?? $iddenom;
+
+                    if (($stockSf ?? 0) < $qty) {
+                        throw new \Exception("Stok {$denomName} tidak cukup! Sisa stok: " . number_format($stockSf ?? 0) . ", dibutuhkan: " . number_format($qty));
+                    }
+
+                    // ✅ Simpan data penjualan
+                    MobilePenjualan::create([
+                        'tgl' => $request->tgl,
+                        'id_outlet' => strtoupper($request->id_outlet),
+                        'idtap' => session('idtap'),
+                        'idsf' => $idsf,
+                        'iddenom' => $iddenom,
+                        'qty' => $qty,
+                        'keterangan' => $request->keterangan,
+                        'status' => 'pending',
+                        'latitude' => $request->latitude,
+                        'longitude' => $request->longitude,
+                    ]);
+                }
+            });
+
+            return redirect()->route('mobile.history')->with('success', 'Data penjualan berhasil disimpan!');
+
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     public function history(Request $request)
@@ -141,14 +178,16 @@ class MobileSalesController extends Controller
         $idsf = session('mobile_sf_id');
         $filter_date = $request->get('filter_date');
         
-        $query = MobilePenjualan::where('idsf', $idsf)
+        $query = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
             ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
+            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(
                 'mobile_penjualan.id_outlet', 
                 'mobile_penjualan.tgl', 
                 'appsdumais.nama_outlet',
                 DB::raw('count(*) as item_count'), 
-                DB::raw('sum(qty) as total_qty'), 
+                DB::raw('sum(mobile_penjualan.qty) as total_qty'), 
+                DB::raw('sum(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total_setoran'),
                 DB::raw('max(mobile_penjualan.id) as last_id')
             )
             ->groupBy('mobile_penjualan.id_outlet', 'mobile_penjualan.tgl', 'appsdumais.nama_outlet');
@@ -214,7 +253,7 @@ class MobileSalesController extends Controller
             ->where('id_outlet', $id_outlet)
             ->where('tgl', $tgl)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select('mobile_penjualan.*', 'denom.denom')
+            ->select('mobile_penjualan.*', 'denom.denom', 'denom.harga_jual')
             ->get();
             
         if ($sales->isEmpty()) {
@@ -245,5 +284,24 @@ class MobileSalesController extends Controller
         });
 
         return redirect()->route('mobile.history')->with('success', 'Data kunjungan berhasil diperbarui!');
+    }
+
+    public function stock()
+    {
+        $idsf = session('mobile_sf_id');
+
+        $stocks = DB::table('stockawalsf')
+            ->where('stockawalsf.idsf', $idsf)
+            ->leftJoin('denom', 'stockawalsf.iddenom', '=', 'denom.iddenom')
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'denom.harga_jual', 'stockawalsf.stock')
+            ->orderBy('denom.group_name')
+            ->orderBy('denom.denom')
+            ->get();
+
+        $total_value = $stocks->sum(function($item) {
+            return $item->stock * ($item->harga_jual ?? 0);
+        });
+
+        return view('mobile.stock', compact('stocks', 'total_value'));
     }
 }

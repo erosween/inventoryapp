@@ -27,17 +27,36 @@
 
 <div class="reveal position-relative" style="margin-top: -45px; z-index: 10;">
     <!-- Quick Performance Overlapping Card -->
-    <div class="glass-card mb-4 p-4 text-center d-flex justify-content-around">
-        <div>
-            <div class="text-muted fw-bold mb-1" style="font-size: 0.7rem;"><i class="fas fa-calendar-day text-primary me-1"></i> Hari Ini</div>
-            <h3 class="fw-800 mb-0" style="color: var(--text-main);">{{ number_format($today_sales) }}</h3>
-            <div class="small fw-bold text-success" style="font-size: 0.6rem;">PCS TERJUAL</div>
-        </div>
-        <div style="width: 1px; background: #e2e8f0; margin: 0 10px;"></div>
-        <div>
-            <div class="text-muted fw-bold mb-1" style="font-size: 0.7rem;"><i class="fas fa-calendar-alt text-accent me-1"></i> Bulan Ini</div>
-            <h3 class="fw-800 mb-0" style="color: var(--text-main);">{{ number_format($month_sales) }}</h3>
-            <div class="small fw-bold text-success" style="font-size: 0.6rem;">PCS TERJUAL</div>
+    <div class="glass-card mb-4 p-4 border-0 shadow-sm" style="background: white; border-radius: 24px;">
+        <div class="row g-3 text-center">
+            <div class="col-6">
+                <div class="p-3 rounded-4" style="background: linear-gradient(135deg, rgba(236,32,40,0.05), rgba(236,32,40,0.12));">
+                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-calendar-day me-1" style="color: var(--primary);"></i> SALES HARI INI</div>
+                    <h3 class="fw-800 mb-0" style="color: var(--primary);">{{ number_format($today_sales) }}</h3>
+                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">PCS TERJUAL</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-3 rounded-4" style="background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(16,185,129,0.12));">
+                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-wallet me-1 text-success"></i> SETORAN HARI INI</div>
+                    <h4 class="fw-800 mb-0 text-success" style="font-size: 1.05rem;">Rp {{ number_format($today_setoran, 0, ',', '.') }}</h4>
+                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">ESTIMASI</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-3 rounded-4" style="background: rgba(0,0,0,0.02);">
+                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-calendar-alt me-1" style="color: var(--accent);"></i> SALES BULAN INI</div>
+                    <h3 class="fw-800 mb-0" style="color: var(--text-main);">{{ number_format($month_sales) }}</h3>
+                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">PCS TERJUAL</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-3 rounded-4" style="background: rgba(0,0,0,0.02);">
+                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-money-bill-wave me-1 text-success"></i> SETORAN BULAN INI</div>
+                    <h4 class="fw-800 mb-0" style="color: var(--text-main); font-size: 1.05rem;">Rp {{ number_format($month_setoran, 0, ',', '.') }}</h4>
+                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">ESTIMASI</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -178,8 +197,12 @@
                                     <div class="text-muted" style="font-size: 0.75rem;">Outlet: {{ $item->id_outlet }}</div>
                                 </div>
                                 <div class="text-end">
-                                    <div class="fw-800 text-primary" style="font-size: 0.9rem;">{{ number_format($item->qty) }}</div>
-                                    <div class="text-muted" style="font-size: 0.65rem;">{{ $item->created_at->diffForHumans() }}</div>
+                                    <div class="fw-800 text-primary" style="font-size: 0.9rem;">{{ number_format($item->qty) }} pcs</div>
+                                    @if($item->harga_jual > 0)
+                                        <div class="text-success fw-bold" style="font-size: 0.6rem;">Rp {{ number_format($item->qty * $item->harga_jual, 0, ',', '.') }}</div>
+                                    @else
+                                        <div class="text-muted" style="font-size: 0.65rem;">{{ $item->created_at->diffForHumans() }}</div>
+                                    @endif
                                 </div>
                             </div>
                         @empty

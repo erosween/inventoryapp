@@ -86,13 +86,21 @@
                     </div>
                     
                     <div class="row g-0 mt-3 pt-3 border-top border-light">
-                        <div class="col-6">
+                        <div class="col-4">
                             <div class="small text-muted fw-bold" style="font-size: 0.6rem;">ITEMS</div>
-                            <div class="fw-800 text-dark">{{ $item->item_count }} Jenis Produk</div>
+                            <div class="fw-800 text-dark">{{ $item->item_count }} Produk</div>
                         </div>
-                        <div class="col-6 text-end">
+                        <div class="col-4 text-center">
                             <div class="small text-muted fw-bold" style="font-size: 0.6rem;">TOTAL SALES</div>
-                            <div class="fw-800 fs-5" style="color: var(--primary);">{{ number_format($item->total_qty) }} <span class="small fw-normal text-muted" style="font-size: 0.65rem;">PCS</span></div>
+                            <div class="fw-800" style="color: var(--primary);">{{ number_format($item->total_qty) }} <span class="small fw-normal text-muted" style="font-size: 0.65rem;">PCS</span></div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <div class="small text-muted fw-bold" style="font-size: 0.6rem;">SETORAN</div>
+                            @if($item->total_setoran > 0)
+                                <div class="fw-800 text-success" style="font-size: 0.85rem;">Rp {{ number_format($item->total_setoran, 0, ',', '.') }}</div>
+                            @else
+                                <div class="fw-bold text-muted" style="font-size: 0.8rem;">-</div>
+                            @endif
                         </div>
                     </div>
                 </div>

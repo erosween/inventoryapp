@@ -252,6 +252,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/search-outlet', [\App\Http\Controllers\MobileSalesController::class, 'searchOutlet'])->name('search-outlet');
         Route::get('/edit/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'edit'])->name('edit');
         Route::put('/update/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'update'])->name('update');
+        Route::get('/stock', [\App\Http\Controllers\MobileSalesController::class, 'stock'])->name('stock');
         Route::get('/password', [\App\Http\Controllers\MobileAuthController::class, 'showChangePasswordForm'])->name('password');
         Route::post('/password', [\App\Http\Controllers\MobileAuthController::class, 'updatePassword'])->name('password.update');
     });

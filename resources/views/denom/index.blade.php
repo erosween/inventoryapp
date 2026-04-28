@@ -53,6 +53,7 @@
                                                 <th>Nama Denom</th>
                                                 <th>Grup</th>
                                                 <th>Kategori Inject</th>
+                                                <th>Harga Jual</th>
                                                 <th style="width: 10%">Aksi</th>
                                             </tr>
                                         </thead>
@@ -67,6 +68,13 @@
                                                     <td>
                                                         @if($denom->kategori_inject)
                                                             <span class="badge badge-{{ $denom->kategori_inject == 'SEGEL' ? 'primary' : ($denom->kategori_inject == 'BYU' ? 'success' : 'warning') }}">{{ $denom->kategori_inject }}</span>
+                                                        @else
+                                                            <span class="text-muted">-</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @if($denom->harga_jual > 0)
+                                                            <span class="font-weight-bold text-success">Rp {{ number_format($denom->harga_jual, 0, ',', '.') }}</span>
                                                         @else
                                                             <span class="text-muted">-</span>
                                                         @endif
@@ -151,6 +159,12 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="col-sm-12">
+                                <div class="form-group">
+                                    <label>Harga Jual (Rp)</label>
+                                    <input type="number" name="harga_jual" class="form-control" placeholder="Contoh: 5000" min="0" value="0">
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer no-bd">
@@ -216,6 +230,12 @@
                                                     {{ $ki }}</option>
                                             @endforeach
                                         </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="form-group">
+                                        <label>Harga Jual (Rp)</label>
+                                        <input type="number" name="harga_jual" class="form-control" value="{{ $denom->harga_jual ?? 0 }}" min="0">
                                     </div>
                                 </div>
                             </div>

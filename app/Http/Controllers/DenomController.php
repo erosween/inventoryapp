@@ -49,7 +49,8 @@ class DenomController extends Controller
                 'iddenom' => $request->iddenom,
                 'denom' => $request->denom,
                 'group_name' => $request->group_name,
-                'kategori_inject' => $request->kategori_inject
+                'kategori_inject' => $request->kategori_inject,
+                'harga_jual' => $request->harga_jual ?? 0
             ]);
 
             // 2. Automasi Inisialisasi Stok Awal (Saldo Awal) ke 0 untuk semua TAP
@@ -100,7 +101,8 @@ class DenomController extends Controller
             DB::table('denom')->where('iddenom', $iddenom)->update([
                 'denom' => $request->denom,
                 'group_name' => $request->group_name,
-                'kategori_inject' => $request->kategori_inject
+                'kategori_inject' => $request->kategori_inject,
+                'harga_jual' => $request->harga_jual ?? 0
             ]);
 
             // Update master denom saja karena relasi stock awal akan membaca dari sini.

@@ -14,8 +14,7 @@ class MobileAuthController extends Controller
         if (Session::has('mobile_sf_id')) {
             return redirect()->route('mobile.index');
         }
-        $rememberedCode = request()->cookie('remember_sf_code');
-        return view('mobile.auth.login', compact('rememberedCode'));
+        return view('mobile.auth.login');
     }
 
     public function login(Request $request)
@@ -35,17 +34,10 @@ class MobileAuthController extends Controller
             Session::put('mobile_sf_name', $sf->namasf);
             Session::put('idtap', $sf->idtap);
 
-            $response = redirect()->route('mobile.index');
-            
-            if ($request->has('remember')) {
-                // Simpan login_code di cookie selama 30 hari (43200 menit)
-                $response->withCookie(cookie('remember_sf_code', $request->login_code, 43200));
-            }
-
-            return $response;
+            return redirect()->route('mobile.index');
         }
 
-        return back()->with('error', 'Login Code atau Password salah!');
+        return back()->withInput()->with('error', 'Login Code atau Password salah!');
     }
 
     public function logout()

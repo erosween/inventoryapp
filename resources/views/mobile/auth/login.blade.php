@@ -185,21 +185,12 @@
             @csrf
             <div class="form-group">
                 <label class="form-label">Sales Login Code</label>
-                <input type="text" name="login_code" class="glass-input" placeholder="SF-XXXX" value="{{ $rememberedCode ?? '' }}" required {{ !$rememberedCode ? 'autofocus' : '' }}>
+                <input type="text" name="login_code" class="glass-input" placeholder="SF-XXXX" value="{{ old('login_code') }}" required autofocus>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" name="password" class="glass-input" placeholder="••••••••" required {{ $rememberedCode ? 'autofocus' : '' }}>
-            </div>
-
-            <div class="d-flex align-items-center mb-4 px-2">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="remember" id="remember" style="cursor: pointer;" {{ $rememberedCode ? 'checked' : '' }}>
-                    <label class="form-check-label small fw-bold text-muted ms-1" for="remember" style="cursor: pointer;">
-                        Ingat Saya
-                    </label>
-                </div>
+                <input type="password" name="password" class="glass-input" placeholder="••••••••" required>
             </div>
 
             <button type="submit" class="btn-premium">
