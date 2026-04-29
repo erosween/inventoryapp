@@ -223,12 +223,6 @@ Route::middleware(['auth'])->group(function () {
 	Route::get('/sisastock', [sisaStockController::class, 'index'])->name('sisastock.index');
 	Route::match(['get', 'post'], '/sisastock/data', [sisaStockController::class, 'data'])->name('sisastock.data');
 
-	// Denom Management
-	Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');
-	Route::post('/denoms', [DenomController::class, 'store'])->name('denoms.store');
-	Route::post('/denoms/{iddenom}', [DenomController::class, 'update'])->name('denoms.update');
-	Route::post('/denoms/delete/{iddenom}', [DenomController::class, 'destroy'])->name('denoms.destroy');
-
 	//HOME NOCAN
 	Route::get('/homenocan', [HomenocanController::class, 'index']);
 	Route::get('/nocanadmin', [NocanadminController::class, 'index']);

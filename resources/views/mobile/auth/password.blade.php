@@ -42,11 +42,12 @@
                     <span class="input-group-text bg-white border-2 border-end-0" style="border-radius: 15px 0 0 15px;">
                         <i class="fas fa-check-double text-muted"></i>
                     </span>
-                    <input type="password" name="new_password_confirmation" class="form-control border-start-0" placeholder="Ulangi password baru" style="border-radius: 0 15px 15px 0;" required>
+                    <input type="password" name="new_password_confirmation" id="new_password_confirmation" class="form-control border-start-0" placeholder="Ulangi password baru" style="border-radius: 0 15px 15px 0;" required>
                 </div>
+                <div id="password-match-feedback" class="small fw-bold mt-2 px-1 text-muted">Menunggu input password baru.</div>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-3 mb-3">
+            <button type="submit" id="password-submit-btn" class="btn btn-primary w-100 py-3 mb-3" disabled>
                 <i class="fas fa-save me-2"></i> UPDATE PASSWORD
             </button>
             
@@ -57,3 +58,50 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    $(document).ready(function() {
+        const newPasswordInput = $('input[name="new_password"]');
+        const confirmPasswordInput = $('#new_password_confirmation');
+        const feedback = $('#password-match-feedback');
+        const submitButton = $('#password-submit-btn');
+
+        function updatePasswordMatchState() {
+            const newPassword = newPasswordInput.val();
+            const confirmPassword = confirmPasswordInput.val();
+
+            if (!confirmPassword) {
+                feedback
+                    .removeClass('text-success text-danger')
+                    .addClass('text-muted')
+                    .text('Menunggu input password baru.');
+                submitButton.prop('disabled', true);
+                confirmPasswordInput.removeClass('is-valid is-invalid');
+                return;
+            }
+
+            if (newPassword && confirmPassword === newPassword) {
+                feedback
+                    .removeClass('text-muted text-danger')
+                    .addClass('text-success')
+                    .html('<i class="fas fa-circle-check me-1"></i> Password sudah sesuai.');
+                submitButton.prop('disabled', false);
+                confirmPasswordInput.removeClass('is-invalid').addClass('is-valid');
+                return;
+            }
+
+            feedback
+                .removeClass('text-muted text-success')
+                .addClass('text-danger')
+                .html('<i class="fas fa-triangle-exclamation me-1"></i> Password belum sama.');
+            submitButton.prop('disabled', true);
+            confirmPasswordInput.removeClass('is-valid').addClass('is-invalid');
+        }
+
+        newPasswordInput.on('input', updatePasswordMatchState);
+        confirmPasswordInput.on('input', updatePasswordMatchState);
+        updatePasswordMatchState();
+    });
+</script>
+@endpush

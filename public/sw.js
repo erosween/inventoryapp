@@ -1,6 +1,5 @@
-const CACHE_NAME = 'msp-connect-cache-v1';
+const CACHE_NAME = 'msp-connect-cache-v2';
 const urlsToCache = [
-  '/mobile',
   '/assets/img/MSP5.png',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
@@ -12,9 +11,21 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('fetch', event => {
+  const requestUrl = new URL(event.request.url);
+
+  if (
+    event.request.method !== 'GET' ||
+    event.request.mode === 'navigate' ||
+    requestUrl.pathname.startsWith('/mobile')
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -39,4 +50,5 @@ self.addEventListener('activate', event => {
       );
     })
   );
+  self.clients.claim();
 });

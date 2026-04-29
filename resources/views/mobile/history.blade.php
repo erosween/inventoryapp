@@ -19,7 +19,7 @@
     <div class="mb-4">
         <form action="{{ route('mobile.history') }}" method="GET" id="filterForm">
             <div class="glass-card p-4 border-0 shadow-sm" style="background: white; border-radius: 20px;">
-                <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-3">
                     <div class="d-flex align-items-center">
                         <div class="theme-icon-box p-2 rounded-3 me-3">
                             <i class="fas fa-calendar-alt" style="font-size: 1rem;"></i>
@@ -28,12 +28,12 @@
                             <h6 class="fw-800 mb-0 text-dark" style="font-size: 0.9rem;">Filter Tanggal</h6>
                         </div>
                     </div>
-                    <div>
+                    <div style="width: 100%;">
                         <div class="position-relative">
                             <input type="text" id="filter_date" name="filter_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-4 py-2 fw-bold text-dark text-center shadow-sm" 
                                    value="{{ $filter_date ?? '' }}" 
                                    placeholder="Pilih Tanggal..."
-                                   style="font-size: 0.75rem; width: 200px; cursor: pointer;">
+                                   style="font-size: 0.75rem; width: min(100%, 220px); cursor: pointer;">
                             <i class="fas fa-chevron-down position-absolute text-muted" style="right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.6rem; pointer-events: none;"></i>
                         </div>
                     </div>

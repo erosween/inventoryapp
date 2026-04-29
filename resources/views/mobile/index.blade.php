@@ -97,7 +97,8 @@
                     <div class="p-3 w-100">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
-                                <div class="bg-light p-2 rounded-4 me-3 text-muted d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <div class="p-2 rounded-4 me-3 d-flex align-items-center justify-content-center"
+                                     style="width: 40px; height: 40px; background: {{ $pjp->is_visited ? 'rgba(236,32,40,0.10)' : '#f8fafc' }}; color: {{ $pjp->is_visited ? 'var(--primary)' : 'var(--text-muted)' }};">
                                     <i class="fas fa-store" style="font-size: 0.9rem;"></i>
                                 </div>
                                 <div>

@@ -16,21 +16,28 @@
                 <div class="p-4 w-100">
                     <h6 class="fw-800 mb-3 text-dark" style="font-size: 0.75rem; letter-spacing: 1px;">CLIENT & VISIT DETAILS</h6>
                     
-                    <div class="row align-items-center mb-3">
-                        <div class="col-4">
-                            <label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Visit Date</label>
-                        </div>
-                        <div class="col-8">
-                            <input type="date" name="tgl" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" value="{{ date('Y-m-d') }}" required>
-                        </div>
-                    </div>
-
                     <div class="row align-items-center">
                         <div class="col-4">
                             <label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Client ID</label>
                         </div>
                         <div class="col-8">
-                            <input type="text" name="id_outlet" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" placeholder="Search or scan..." value="{{ $pre_id_outlet ?? '' }}" required>
+                            @if($pre_id_outlet)
+                                <input type="hidden" name="id_outlet" value="{{ strtoupper($pre_id_outlet) }}">
+                                <input type="text" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" value="{{ strtoupper($pre_id_outlet) }}" disabled>
+                            @else
+                                <input type="text" name="id_outlet" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" placeholder="Search or scan..." required>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="row align-items-center mt-2">
+                        <div class="col-4">
+                            <label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Nama Outlet</label>
+                        </div>
+                        <div class="col-8">
+                            <div class="bg-light rounded-3 px-3 py-2 fw-bold text-dark" style="font-size: 0.85rem; min-height: 35px;">
+                                {{ $selected_outlet->nama_outlet ?? 'Outlet belum ditemukan' }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -70,6 +77,7 @@
                             </div>
                             <div class="col-8">
                                 <input type="number" name="products[0][qty]" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" placeholder="0" min="1" required style="font-size: 0.85rem;">
+                                <div class="stock-warning mt-2 d-none rounded-3 px-3 py-2 fw-bold" style="font-size: 0.68rem; background: rgba(239, 68, 68, 0.08); color: #dc2626;"></div>
                             </div>
                         </div>
                     </div>
@@ -148,7 +156,8 @@
                                 style="background: #ffffff; border: 1px solid #f1f5f9 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s;"
                                 data-id="{{ $denom->iddenom }}" 
                                 data-name="{{ $denom->denom }}"
-                                data-harga="{{ $denom->harga_jual ?? 0 }}">
+                                data-harga="{{ $denom->harga_jual ?? 0 }}"
+                                data-stock="{{ $denom->stock_qty ?? 0 }}">
                             <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3 text-primary">
                                 <i class="fas fa-box-open fs-5"></i>
                             </div>
@@ -213,12 +222,57 @@
 
         // Price map for live total calculation
         const priceMap = {};
+        const stockMap = {};
         @foreach($denoms as $denom)
             priceMap['{{ $denom->iddenom }}'] = {{ $denom->harga_jual ?? 0 }};
+            stockMap['{{ $denom->iddenom }}'] = {{ $denom->stock_qty ?? 0 }};
         @endforeach
 
         let productCount = 1;
         let activeRow = null;
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('id-ID');
+        }
+
+        function validateStock(row) {
+            const iddenom = row.find('.iddenom-input').val();
+            const qtyInput = row.find('input[type="number"]');
+            const qty = parseInt(qtyInput.val()) || 0;
+            const stock = stockMap[iddenom] ?? 0;
+            const warning = row.find('.stock-warning');
+
+            if (!iddenom || qty <= 0) {
+                qtyInput.removeClass('is-invalid');
+                warning.addClass('d-none').text('');
+                return true;
+            }
+
+            if (qty > stock) {
+                qtyInput.addClass('is-invalid');
+                warning
+                    .removeClass('d-none')
+                    .html('<i class="fas fa-triangle-exclamation me-1"></i> Stok tidak cukup. Tersedia ' + formatNumber(stock) + ' pcs, input ' + formatNumber(qty) + ' pcs.');
+                return false;
+            }
+
+            qtyInput.removeClass('is-invalid');
+            warning.addClass('d-none').text('');
+            return true;
+        }
+
+        function validateAllStocks() {
+            let isValid = true;
+
+            $('#product-container .glass-card').each(function() {
+                if (!validateStock($(this))) {
+                    isValid = false;
+                }
+            });
+
+            $('#sales-form button[type="submit"]').prop('disabled', !isValid);
+            return isValid;
+        }
 
         // Recalculate total setoran
         function recalcTotal() {
@@ -251,6 +305,8 @@
         // Recalc on qty change
         $(document).on('input', 'input[type="number"]', function() {
             recalcTotal();
+            validateStock($(this).closest('.glass-card'));
+            validateAllStocks();
         });
 
         // Open Picker
@@ -290,6 +346,7 @@
             let id = $(this).data('id');
             let name = $(this).data('name');
             let harga = $(this).data('harga') || 0;
+            let stock = $(this).data('stock') || 0;
             
             activeRow.find('.product-placeholder').text(name).css('color', 'var(--text-main)');
             activeRow.find('.iddenom-input').val(id);
@@ -308,6 +365,8 @@
             
             $('#productPickerModal').modal('hide');
             recalcTotal();
+            validateStock(activeRow.closest('.glass-card'));
+            validateAllStocks();
         });
 
         $('#add-product').click(function() {
@@ -342,6 +401,7 @@
                                 </div>
                                 <div class="col-8">
                                     <input type="number" name="products[${productCount}][qty]" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" placeholder="0" min="1" required style="font-size: 0.85rem;">
+                                    <div class="stock-warning mt-2 d-none rounded-3 px-3 py-2 fw-bold" style="font-size: 0.68rem; background: rgba(239, 68, 68, 0.08); color: #dc2626;"></div>
                                 </div>
                             </div>
                         </div>
@@ -356,6 +416,19 @@
             let rowId = $(this).data('id');
             $(`#row-${rowId}`).remove();
             recalcTotal();
+            validateAllStocks();
+        });
+
+        $('#sales-form').on('submit', function(e) {
+            if (!validateAllStocks()) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Stok Tidak Cukup',
+                    text: 'Periksa kembali quantity produk yang melebihi stok tersedia.',
+                    confirmButtonColor: 'var(--primary)'
+                });
+            }
         });
     });
 </script>

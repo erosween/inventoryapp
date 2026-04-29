@@ -47,6 +47,7 @@
             padding: 0;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
+            overscroll-behavior-y: contain;
         }
 
         .mobile-container {
@@ -236,6 +237,14 @@
             flex-direction: column;
             align-items: center;
             min-width: 75px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-item:active,
+        .nav-item.is-loading {
+            color: var(--primary);
+            background: rgba(236, 32, 40, 0.08);
+            transform: translateY(-2px) scale(0.98);
         }
 
         .nav-item i {
@@ -261,12 +270,33 @@
         }
 
         @keyframes reveal {
-            from { opacity: 0; transform: translateY(15px); }
+            from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .reveal {
-            animation: reveal 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            animation: reveal 0.24s ease-out forwards;
+        }
+
+        .main-content {
+            will-change: opacity, transform;
+            transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+
+        body.page-is-leaving .main-content {
+            opacity: 0.65;
+            transform: translateY(4px);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal,
+            .main-content,
+            .nav-item,
+            .nav-item i {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
         }
     </style>
     @stack('styles')
@@ -274,7 +304,7 @@
 <body>
 
     <div class="mobile-container">
-        @if(!request()->is('mobile') && !request()->is('mobile/history'))
+        @if(!request()->is('mobile') && !request()->is('mobile/history') && !request()->is('mobile/stock'))
             <!-- Premium Header Light for Non-Dashboard Pages -->
             <header class="premium-header reveal px-4 pt-4">
                 <div class="header-info">
@@ -390,6 +420,55 @@
         document.getElementById('nav-settings')?.addEventListener('click', function(e) {
             e.preventDefault();
             new bootstrap.Modal(document.getElementById('settingsModal')).show();
+        });
+
+        // Smooth mobile menu navigation without changing backend routing.
+        const mobileNavLinks = document.querySelectorAll('.floating-nav a[href]:not([href="#"])');
+        const currentUrl = new URL(window.location.href);
+
+        // Ensure transition helper classes are always reset after navigation restore.
+        const resetPageTransitionState = function() {
+            document.body.classList.remove('page-is-leaving');
+            mobileNavLinks.forEach(function(link) {
+                link.classList.remove('is-loading');
+            });
+        };
+
+        window.addEventListener('pageshow', resetPageTransitionState);
+        window.addEventListener('load', resetPageTransitionState);
+
+        mobileNavLinks.forEach(function(link) {
+            const targetUrl = new URL(link.href, window.location.origin);
+
+            if (targetUrl.origin === currentUrl.origin && targetUrl.href !== currentUrl.href) {
+                const prefetch = document.createElement('link');
+                prefetch.rel = 'prefetch';
+                prefetch.href = targetUrl.href;
+                document.head.appendChild(prefetch);
+            }
+
+            link.addEventListener('click', function(e) {
+                if (
+                    e.defaultPrevented ||
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey ||
+                    link.target ||
+                    targetUrl.origin !== currentUrl.origin ||
+                    targetUrl.href === currentUrl.href
+                ) {
+                    return;
+                }
+
+                e.preventDefault();
+                link.classList.add('is-loading');
+                document.body.classList.add('page-is-leaving');
+
+                window.setTimeout(function() {
+                    window.location.href = targetUrl.href;
+                }, 90);
+            });
         });
     </script>
 </body>

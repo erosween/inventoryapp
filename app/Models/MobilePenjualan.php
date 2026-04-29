@@ -18,6 +18,8 @@ class MobilePenjualan extends Model
         'idsf',
         'iddenom',
         'qty',
+        'latitude',
+        'longitude',
         'keterangan',
         'status',
     ];

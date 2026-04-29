@@ -103,7 +103,16 @@ class MobileSalesController extends Controller
     {
         $idtap = session('idtap');
         $idsf = session('mobile_sf_id');
+        $namasf = session('mobile_sf_name');
         $pre_id_outlet = $request->query('id_outlet');
+
+        $selected_outlet = null;
+        if ($pre_id_outlet) {
+            $selected_outlet = DB::table('appsdumais')
+                ->where('id_outlet', strtoupper($pre_id_outlet))
+                ->where('sf', 'LIKE', '%' . $namasf . '%')
+                ->first(['id_outlet', 'nama_outlet']);
+        }
         
         $denoms = DB::table('denom')
             ->leftJoin('stockawalsf', function($join) use ($idsf) {
@@ -113,13 +122,12 @@ class MobileSalesController extends Controller
             ->select('denom.*', DB::raw('COALESCE(stockawalsf.stock, 0) as stock_qty'))
             ->get();
 
-        return view('mobile.form', compact('denoms', 'idtap', 'idsf', 'pre_id_outlet'));
+        return view('mobile.form', compact('denoms', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'tgl' => 'required|date',
             'id_outlet' => 'required',
             'products' => 'required|array',
             'products.*.iddenom' => 'required',
@@ -129,9 +137,10 @@ class MobileSalesController extends Controller
         ]);
 
         $idsf = session('mobile_sf_id');
+        $salesDate = now()->toDateString();
 
         try {
-            DB::transaction(function () use ($request, $idsf) {
+            DB::transaction(function () use ($request, $idsf, $salesDate) {
                 foreach ($request->products as $product) {
                     $iddenom = $product['iddenom'];
                     $qty = $product['qty'];
@@ -152,7 +161,7 @@ class MobileSalesController extends Controller
 
                     // ✅ Simpan data penjualan
                     MobilePenjualan::create([
-                        'tgl' => $request->tgl,
+                        'tgl' => $salesDate,
                         'id_outlet' => strtoupper($request->id_outlet),
                         'idtap' => session('idtap'),
                         'idsf' => $idsf,
@@ -249,11 +258,25 @@ class MobileSalesController extends Controller
     {
         $idsf = session('mobile_sf_id');
         
-        $sales = MobilePenjualan::where('idsf', $idsf)
-            ->where('id_outlet', $id_outlet)
-            ->where('tgl', $tgl)
+        $sales = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
+            ->where('mobile_penjualan.id_outlet', $id_outlet)
+            ->where('mobile_penjualan.tgl', $tgl)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select('mobile_penjualan.*', 'denom.denom', 'denom.harga_jual')
+            ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
+            ->select(
+                'mobile_penjualan.id',
+                'mobile_penjualan.tgl',
+                'mobile_penjualan.id_outlet',
+                'mobile_penjualan.idtap',
+                'mobile_penjualan.idsf',
+                'mobile_penjualan.iddenom',
+                'mobile_penjualan.qty',
+                'mobile_penjualan.keterangan',
+                'mobile_penjualan.status',
+                'denom.denom',
+                'denom.harga_jual',
+                'appsdumais.nama_outlet'
+            )
             ->get();
             
         if ($sales->isEmpty()) {

@@ -30,6 +30,9 @@ class MobileAuthController extends Controller
             ->first();
 
         if ($sf && Hash::check($request->password, $sf->password)) {
+            $request->session()->forget(['mobile_sf_id', 'mobile_sf_name', 'idtap']);
+            $request->session()->regenerate();
+
             // Set custom session for mobile SF
             Session::put('mobile_sf_id', $sf->idsf);
             Session::put('mobile_sf_name', $sf->namasf);
@@ -46,10 +49,13 @@ class MobileAuthController extends Controller
         return back()->withInput()->with('error', 'Login Code atau Password salah!');
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
         Session::forget(['mobile_sf_id', 'mobile_sf_name', 'idtap']);
         Cookie::queue(Cookie::forget('mobile_remember_id'));
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect()->route('mobile.login');
     }
 
