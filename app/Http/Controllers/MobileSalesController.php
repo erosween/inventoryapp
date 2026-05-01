@@ -120,7 +120,11 @@ class MobileSalesController extends Controller
                      ->where('stockawalsf.idsf', '=', $idsf);
             })
             ->select('denom.*', DB::raw('COALESCE(stockawalsf.stock, 0) as stock_qty'))
-            ->get();
+            ->get()
+            ->sortByDesc(function($item) {
+                $name = strtoupper($item->denom);
+                return (str_contains($name, 'SA SIMPATI 3GB') || str_contains($name, 'SA BYU 3GB')) ? 1 : 0;
+            });
 
         return view('mobile.form', compact('denoms', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
     }
@@ -153,9 +157,11 @@ class MobileSalesController extends Controller
                         ->value('stock');
 
                     // Ambil nama denom untuk pesan error yang jelas
-                    $denomName = DB::table('denom')->where('iddenom', $iddenom)->value('denom') ?? $iddenom;
+                    $denomData = DB::table('denom')->where('iddenom', $iddenom)->first();
+                    $denomName = $denomData->denom ?? $iddenom;
+                    $isVirtual = ($denomData->group_name ?? '') === 'SA' || str_starts_with($iddenom, 'SA_');
 
-                    if (($stockSf ?? 0) < $qty) {
+                    if (!$isVirtual && ($stockSf ?? 0) < $qty) {
                         throw new \Exception("Stok {$denomName} tidak cukup! Sisa stok: " . number_format($stockSf ?? 0) . ", dibutuhkan: " . number_format($qty));
                     }
 
@@ -196,8 +202,11 @@ class MobileSalesController extends Controller
                 'appsdumais.nama_outlet',
                 DB::raw('count(*) as item_count'), 
                 DB::raw('sum(mobile_penjualan.qty) as total_qty'), 
-                DB::raw('sum(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total_setoran'),
-                DB::raw('max(mobile_penjualan.id) as last_id')
+                DB::raw('sum(CASE WHEN mobile_penjualan.status = "rejected" THEN 0 ELSE mobile_penjualan.qty * COALESCE(denom.harga_jual, 0) END) as total_setoran'),
+                DB::raw('max(mobile_penjualan.id) as last_id'),
+                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "approved" THEN 1 ELSE 0 END) as approved_count'),
+                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "rejected" THEN 1 ELSE 0 END) as rejected_count'),
+                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "pending" THEN 1 ELSE 0 END) as pending_count')
             )
             ->groupBy('mobile_penjualan.id_outlet', 'mobile_penjualan.tgl', 'appsdumais.nama_outlet');
             
@@ -257,6 +266,7 @@ class MobileSalesController extends Controller
     public function edit($id_outlet, $tgl)
     {
         $idsf = session('mobile_sf_id');
+        $idtap = session('idtap');
         
         $sales = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
             ->where('mobile_penjualan.id_outlet', $id_outlet)
@@ -264,15 +274,7 @@ class MobileSalesController extends Controller
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
             ->select(
-                'mobile_penjualan.id',
-                'mobile_penjualan.tgl',
-                'mobile_penjualan.id_outlet',
-                'mobile_penjualan.idtap',
-                'mobile_penjualan.idsf',
-                'mobile_penjualan.iddenom',
-                'mobile_penjualan.qty',
-                'mobile_penjualan.keterangan',
-                'mobile_penjualan.status',
+                'mobile_penjualan.*',
                 'denom.denom',
                 'denom.harga_jual',
                 'appsdumais.nama_outlet'
@@ -282,27 +284,72 @@ class MobileSalesController extends Controller
         if ($sales->isEmpty()) {
             abort(404);
         }
+
+        // Cek jika sudah ada yang di-approve/reject
+        $processedCount = $sales->where('status', '!=', 'pending')->count();
+        if ($processedCount > 0) {
+            return redirect()->route('mobile.history')->with('error', 'Kunjungan ini sudah diverifikasi oleh admin dan tidak dapat diubah lagi.');
+        }
+
+        $outletName = $sales->first()->nama_outlet ?? 'Unknown';
+        $totalQty = $sales->sum('qty');
+        $grandTotal = $sales->sum(function($s) { return $s->qty * ($s->harga_jual ?? 0); });
+
+        $denoms = DB::table('denom')
+            ->leftJoin('stockawalsf', function($join) use ($idsf) {
+                $join->on('denom.iddenom', '=', 'stockawalsf.iddenom')
+                     ->where('stockawalsf.idsf', '=', $idsf);
+            })
+            ->select('denom.*', DB::raw('COALESCE(stockawalsf.stock, 0) as stock_qty'))
+            ->get();
         
-        return view('mobile.edit', compact('sales', 'id_outlet', 'tgl'));
+        return view('mobile.edit', compact('sales', 'id_outlet', 'tgl', 'denoms', 'idtap', 'outletName', 'totalQty', 'grandTotal'));
     }
 
     public function update(Request $request, $id_outlet, $tgl)
     {
         $idsf = session('mobile_sf_id');
+        $idtap = session('idtap');
         
         $request->validate([
             'products' => 'required|array',
-            'products.*.id' => 'required',
+            'products.*.iddenom' => 'required',
             'products.*.qty' => 'required|numeric|min:1',
         ]);
 
-        DB::transaction(function () use ($request, $idsf, $id_outlet, $tgl) {
+        // Cek lagi status di server
+        $existingProcessed = MobilePenjualan::where('idsf', $idsf)
+            ->where('id_outlet', $id_outlet)
+            ->where('tgl', $tgl)
+            ->where('status', '!=', 'pending')
+            ->count();
+            
+        if ($existingProcessed > 0) {
+            return redirect()->route('mobile.history')->with('error', 'Update gagal! Kunjungan sudah diverifikasi oleh admin.');
+        }
+
+        DB::transaction(function () use ($request, $idsf, $idtap, $id_outlet, $tgl) {
             foreach ($request->products as $productData) {
-                MobilePenjualan::where('id', $productData['id'])
-                    ->where('idsf', $idsf)
-                    ->update([
-                        'qty' => $productData['qty']
+                if (isset($productData['id'])) {
+                    // Update existing
+                    MobilePenjualan::where('id', $productData['id'])
+                        ->where('idsf', $idsf)
+                        ->update([
+                            'qty' => $productData['qty']
+                        ]);
+                } else {
+                    // Create new
+                    MobilePenjualan::create([
+                        'tgl' => $tgl,
+                        'id_outlet' => $id_outlet,
+                        'idtap' => $idtap,
+                        'idsf' => $idsf,
+                        'iddenom' => $productData['iddenom'],
+                        'qty' => $productData['qty'],
+                        'status' => 'pending',
+                        'keterangan' => 'Tambahan via edit'
                     ]);
+                }
             }
         });
 
@@ -326,5 +373,40 @@ class MobileSalesController extends Controller
         });
 
         return view('mobile.stock', compact('stocks', 'total_value'));
+    }
+
+    public function getVisitDetails(Request $request)
+    {
+        $idsf = session('mobile_sf_id');
+        $id_outlet = $request->id_outlet;
+        $tgl = $request->tgl;
+
+        $sales = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
+            ->where('mobile_penjualan.id_outlet', $id_outlet)
+            ->where('mobile_penjualan.tgl', $tgl)
+            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
+            ->select(
+                'mobile_penjualan.*',
+                'denom.denom',
+                'denom.harga_jual'
+            )
+            ->get();
+
+        if ($sales->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'Data tidak ditemukan']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'items' => $sales->map(function($s) {
+                return [
+                    'produk' => $s->denom,
+                    'qty' => $s->qty,
+                    'harga' => $s->harga_jual ?? 0,
+                    'total' => $s->qty * ($s->harga_jual ?? 0),
+                    'status' => $s->status,
+                ];
+            })
+        ]);
     }
 }

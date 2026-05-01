@@ -8,6 +8,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\RusakExport;
 use Carbon\Carbon;
 use App\Helpers\AuditLogger;
+use Yajra\DataTables\Facades\DataTables;
 
 class VrusakController extends Controller
 {
@@ -26,8 +27,8 @@ class VrusakController extends Controller
     {
         $idtap = session('idtap');
 
-        if (!$request->daterange) {
-            return datatables()->of([])->make(true);
+        if (!$request->daterange || !str_contains($request->daterange, ' - ')) {
+            return DataTables::of(collect([]))->make(true);
         }
 
         [$start, $end] = explode(' - ', $request->daterange);
@@ -51,9 +52,11 @@ class VrusakController extends Controller
             $query->where('r.idtap', $idtap);
         }
 
-        return datatables()
-            ->of($query)
-            // ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('DD-MM-YYYY'))
+        return DataTables::of($query)
+            ->filterColumn('denom', function($query, $keyword) {
+                $query->where('d.denom', 'LIKE', "%{$keyword}%");
+            })
+            ->editColumn('tgl', fn ($r) => date('d-m-Y', strtotime($r->tgl)))
             ->editColumn('qty', fn ($r) => number_format($r->qty))
             ->addColumn('action', function ($r) {
                 $btnEdit = '

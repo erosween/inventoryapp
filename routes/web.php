@@ -230,6 +230,16 @@ Route::middleware(['auth'])->group(function () {
 	Route::post('/reset/{id}', [NocanadminController::class, 'reset']);
 	Route::get('/exportnocan', [HomenocanController::class, 'exportexcel']);
 
+	// mobile approval
+	Route::get('/mobile-approval', [\App\Http\Controllers\MobileApprovalController::class, 'index'])->name('admin.mobile-approval.index');
+	Route::get('/mobile-approval/data', [\App\Http\Controllers\MobileApprovalController::class, 'data'])->name('admin.mobile-approval.data');
+	Route::get('/mobile-approval/stats', [\App\Http\Controllers\MobileApprovalController::class, 'getStats'])->name('admin.mobile-approval.stats');
+	Route::get('/mobile-approval/sf-details', [\App\Http\Controllers\MobileApprovalController::class, 'getSfDetails'])->name('admin.mobile-approval.sf-details');
+	Route::post('/mobile-approval/approve', [\App\Http\Controllers\MobileApprovalController::class, 'approve'])->name('admin.mobile-approval.approve');
+	Route::post('/mobile-approval/bulk-approve', [\App\Http\Controllers\MobileApprovalController::class, 'bulkApprove'])->name('admin.mobile-approval.bulk-approve');
+	Route::post('/mobile-approval/bulk-reject', [\App\Http\Controllers\MobileApprovalController::class, 'bulkReject'])->name('admin.mobile-approval.bulk-reject');
+	Route::post('/mobile-approval/reject', [\App\Http\Controllers\MobileApprovalController::class, 'reject'])->name('admin.mobile-approval.reject');
+
 });
 
 // MOBILE SALES FORCE (Independent Access)
@@ -243,6 +253,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
+        Route::get('/history/details', [\App\Http\Controllers\MobileSalesController::class, 'getVisitDetails'])->name('history.details');
         Route::get('/search-outlet', [\App\Http\Controllers\MobileSalesController::class, 'searchOutlet'])->name('search-outlet');
         Route::get('/edit/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'edit'])->name('edit');
         Route::put('/update/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'update'])->name('update');

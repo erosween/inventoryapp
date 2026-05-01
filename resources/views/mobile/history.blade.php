@@ -65,7 +65,11 @@
             <div class="mb-4">
                 {{-- Penjualan Mobile --}}
                 @foreach($history as $item)
-                <div class="glass-card p-4 mb-3 reveal shadow-sm border-0" style="background: white; border-radius: 24px;">
+                <div class="glass-card p-4 mb-3 reveal shadow-sm border-0 history-card cursor-pointer" 
+                     style="background: white; border-radius: 24px;"
+                     data-id-outlet="{{ $item->id_outlet }}"
+                     data-tgl="{{ $item->tgl }}"
+                     data-nama-outlet="{{ $item->nama_outlet ?? 'ID: '.$item->id_outlet }}">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div class="d-flex align-items-center">
                             <div class="theme-icon-box p-3 rounded-4 me-3">
@@ -79,9 +83,29 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <a href="{{ route('mobile.edit', [$item->id_outlet, $item->tgl]) }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-800" style="font-size: 0.6rem; padding: 5px 12px;">
-                                <i class="fas fa-edit me-1"></i> EDIT
-                            </a>
+                            @if($item->pending_count == 0)
+                                @if($item->rejected_count > 0 && $item->approved_count == 0)
+                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
+                                        <i class="fas fa-times-circle me-1"></i> DITOLAK
+                                    </span>
+                                @elseif($item->approved_count > 0 && $item->rejected_count == 0)
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
+                                        <i class="fas fa-check-circle me-1"></i> DISETUJUI
+                                    </span>
+                                @else
+                                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
+                                        <i class="fas fa-exclamation-circle me-1"></i> SEBAGIAN DITOLAK
+                                    </span>
+                                @endif
+                            @elseif($item->approved_count > 0 || $item->rejected_count > 0)
+                                <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
+                                    <i class="fas fa-hourglass-half me-1"></i> PROSES VALIDASI
+                                </span>
+                            @else
+                                <a href="{{ route('mobile.edit', [$item->id_outlet, $item->tgl]) }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-800" style="font-size: 0.6rem; padding: 5px 12px;" onclick="event.stopPropagation();">
+                                    <i class="fas fa-edit me-1"></i> EDIT
+                                </a>
+                            @endif
                         </div>
                     </div>
                     
@@ -274,6 +298,34 @@
 </style>
 @endpush
 
+@push('modals')
+<!-- Detail Visit Modal -->
+<div class="modal fade" id="historyDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable mx-auto" style="max-width: 440px; position: absolute; bottom: 0; left: 0; right: 0; margin: 0;">
+        <div class="modal-content border-0" style="border-radius: 30px 30px 0 0; max-height: 85vh;">
+            <div class="d-flex justify-content-center pt-3">
+                <div style="width: 45px; height: 6px; background: #e2e8f0; border-radius: 10px;"></div>
+            </div>
+            <div class="modal-header border-0 p-4 pb-2">
+                <div>
+                    <h5 class="fw-800 mb-0" id="detail-outlet-name">Detail Kunjungan</h5>
+                    <p class="small text-muted mb-0" id="detail-date">-</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-2">
+                <div id="detail-items-container">
+                    <!-- Loaded via AJAX -->
+                    <div class="text-center py-5">
+                        <i class="fas fa-circle-notch fa-spin fs-2 text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endpush
+
 @push('scripts')
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -284,12 +336,61 @@
             dateFormat: "Y-m-d",
             altInput: true,
             altFormat: "d M Y",
-            disableMobile: "true", /* Force custom UI on mobile for consistent premium look */
+            disableMobile: "true",
             onChange: function(selectedDates, dateStr, instance) {
                 if (selectedDates.length === 2 || selectedDates.length === 0) {
                     document.getElementById('filterForm').submit();
                 }
             }
+        });
+
+        // Detail Modal Logic
+        $('.history-card').on('click', function() {
+            const idOutlet = $(this).data('id-outlet');
+            const tgl = $(this).data('tgl');
+            const namaOutlet = $(this).data('nama-outlet');
+            const tglFormatted = $(this).find('.small.text-muted').text().trim();
+
+            $('#detail-outlet-name').text(namaOutlet);
+            $('#detail-date').text(tglFormatted);
+            $('#detail-items-container').html('<div class="text-center py-5"><i class="fas fa-circle-notch fa-spin fs-2 text-primary opacity-50"></i></div>');
+            $('#historyDetailModal').modal('show');
+
+            $.get("{{ route('mobile.history.details') }}", { id_outlet: idOutlet, tgl: tgl }, function(res) {
+                if (res.success) {
+                    let html = '';
+                    res.items.forEach(item => {
+                        let badgeClass = 'bg-warning';
+                        let statusText = 'PENDING';
+                        
+                        if (item.status === 'approved') {
+                            badgeClass = 'bg-success';
+                            statusText = 'DISETUJUI';
+                        } else if (item.status === 'rejected') {
+                            badgeClass = 'bg-danger';
+                            statusText = 'DITOLAK';
+                        }
+
+                        html += `
+                            <div class="d-flex align-items-center mb-4 pb-3 border-bottom border-light">
+                                <div class="bg-light p-3 rounded-4 me-3">
+                                    <i class="fas fa-box text-muted"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-800 text-dark" style="font-size: 0.85rem;">${item.produk}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <span class="fw-bold text-primary" style="font-size: 0.75rem;">${item.qty} PCS</span>
+                                        <span class="badge ${badgeClass} bg-opacity-10 text-${badgeClass.replace('bg-', '')} fw-800 rounded-pill px-2 py-1" style="font-size: 0.6rem;">${statusText}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    $('#detail-items-container').html(html);
+                } else {
+                    $('#detail-items-container').html('<div class="alert alert-danger">Gagal mengambil data.</div>');
+                }
+            });
         });
     });
 </script>

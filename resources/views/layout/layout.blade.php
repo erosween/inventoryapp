@@ -522,6 +522,11 @@
                                                     <span class="sub-item">Retur SF</span>
                                                 </a>
                                             </li>
+                                            <li class="nav-item {{ request()->is('mobile-approval') ? 'active' : '' }}">
+                                                <a href="{{ url('mobile-approval') }}">
+                                                    <span class="sub-item text-warning fw-bold">Approval Sales Mobile</span>
+                                                </a>
+                                            </li>
                                         </ul>
                                     </div>
                                 </li>

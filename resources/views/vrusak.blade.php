@@ -116,6 +116,7 @@
                     },
                     {
                         data: 'qty',
+                        name: 'r.qty',
                         className: 'text-end'
                     },
                     {
@@ -123,13 +124,16 @@
                         name: 'r.idtap'
                     },
                     {
-                        data: 'sn'
+                        data: 'sn',
+                        name: 'r.sn'
                     },
                     {
-                        data: 'ketvf'
+                        data: 'ketvf',
+                        name: 'r.ketvf'
                     },
                     {
-                        data: 'ketlain'
+                        data: 'ketlain',
+                        name: 'r.ketlain'
                     },
                     {
                         data: 'action',

@@ -67,7 +67,16 @@
                                                     </td>
                                                     <td>
                                                         @if($denom->kategori_inject)
-                                                            <span class="badge badge-{{ $denom->kategori_inject == 'SEGEL' ? 'primary' : ($denom->kategori_inject == 'BYU' ? 'success' : 'warning') }}">{{ $denom->kategori_inject }}</span>
+                                                            @php
+                                                                $ki_badges = [
+                                                                    'SEGEL' => 'primary',
+                                                                    'BYU' => 'success',
+                                                                    'SA' => 'danger',
+                                                                    'ROAMAX' => 'warning'
+                                                                ];
+                                                                $badge = $ki_badges[$denom->kategori_inject] ?? 'secondary';
+                                                            @endphp
+                                                            <span class="badge badge-{{ $badge }}">{{ $denom->kategori_inject }}</span>
                                                         @else
                                                             <span class="text-muted">-</span>
                                                         @endif
