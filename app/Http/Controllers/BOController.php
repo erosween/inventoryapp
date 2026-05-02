@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -57,9 +59,7 @@ class BOController extends Controller
                 $end.' 23:59:59'
             ]);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('k.idtap', $idtap);
-        }
+        TapFilter::apply($query, 'k.idtap');
 
         return DataTables::of($query)
             ->editColumn('tgl', fn($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
@@ -330,9 +330,7 @@ public function getTap(Request $request)
         ])
         ->groupBy('m.tgl','m.pengirim','m.penerima','d.denom');
 
-    if ($idtap !== 'SBP_DUMAI') {
-        $query->where('m.idtap', $idtap);
-    }
+    TapFilter::apply($query, 'm.idtap');
 
     return Excel::download(
         new BOExport($query->get()),

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -57,11 +59,9 @@ class InputDOController extends Controller
                 DB::raw('COALESCE(sf.stock, 0) as sf_stock')
             )
             ->where('m.pengirim', 'DO')
-            ->whereBetween('m.tgl', [$start, $end]);
+            ->whereBetween('m.tgl', [$start . ' 00:00:00', $end . ' 23:59:59']);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('m.idtappenerima', $idtap);
-        }
+        TapFilter::apply($query, 'm.idtappenerima');
 
         return datatables()
             ->of($query)
@@ -329,12 +329,10 @@ public function getTap(Request $request)
                 DB::raw('SUM(m.qty) as qty')
             )
             ->where('m.pengirim', 'DO')
-            ->whereBetween('m.tgl', [$start, $end])
+            ->whereBetween('m.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->groupBy('m.tgl', 'm.nomor_do', 'm.sn', 'm.idtappenerima', 'd.denom');
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('m.idtappenerima', $idtap);
-        }
+        TapFilter::apply($query, 'm.idtappenerima');
 
         $filename = 'DO_MASUK_' . now()->format('Ymd_His') . '.xlsx';
 

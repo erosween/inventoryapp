@@ -166,7 +166,9 @@
                     }
                 ],
                 drawCallback: function(settings) {
-                    updateCheckAllState();
+                    if (typeof updateCheckAllState === 'function') {
+                        updateCheckAllState();
+                    }
                 }
             });
 

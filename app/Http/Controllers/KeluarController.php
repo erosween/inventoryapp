@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -45,12 +47,10 @@ class KeluarController extends Controller
                 'k.tambahanket',
                 'k.status'
             )
-            ->whereBetween('k.tgl', [$start, $end])
+            ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->whereNotIn('k.pengirim', $kategoribo);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('k.pengirim', $idtap);
-        }
+        TapFilter::apply($query, 'k.pengirim');
 
         return datatables()
             ->of($query)
@@ -83,12 +83,10 @@ class KeluarController extends Controller
                 'd.denom',
                 DB::raw('SUM(k.qty) as qty')
             )
-            ->whereBetween('k.tgl', [$start, $end])
+            ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->groupBy('k.tgl','k.sn','k.pengirim','k.penerima','d.denom');
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('k.pengirim', $idtap);
-        }
+        TapFilter::apply($query, 'k.pengirim');
 
         return Excel::download(
             new KeluarExport($query->get()),

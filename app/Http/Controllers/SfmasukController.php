@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -53,9 +55,7 @@ class SfmasukController extends Controller
         ]);
 
     // ===== FILTER TAP (ANTI NULL) =====
-    if (!empty($idtap) && $idtap !== 'SBP_DUMAI') {
-        $query->where('f.idtap', $idtap);
-    }
+    TapFilter::apply($query, 'f.idtap');
 
     return DataTables::of($query)
         ->editColumn('tgl', fn ($r) =>
@@ -360,9 +360,7 @@ public function bulkDelete(Request $request)
                 'f.sn'
             );
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('f.idtap', $idtap);
-        }
+        TapFilter::apply($query, 'f.idtap');
 
         if ($daterange) {
             [$start, $end] = explode(' - ', $daterange);

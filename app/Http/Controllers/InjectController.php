@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\InjectExport;
 use Yajra\DataTables\Facades\DataTables;
+use App\Helpers\TapFilter;
 
 class InjectController extends Controller
 {
@@ -41,42 +43,40 @@ class InjectController extends Controller
             'f.idtap',
             'f.sn'
         )
-        ->whereDate('f.tgl', '>=', $start)
-        ->whereDate('f.tgl', '<=', $end);
+        ->whereBetween('f.tgl', [
+        $start,
+        $end
+    ]);
 
-    // 🔒 filter TAP (konsisten)
-    if (session('idtap') !== 'SBP_DUMAI') {
-        $query->where('f.idtap', session('idtap'));
-    }
+    TapFilter::apply($query, 'f.idtap');
 
     return DataTables::of($query)
-    ->filterColumn('denom', function ($query, $keyword) {
-        $query->where('d.denom', 'like', "%{$keyword}%");
-    })
-    ->filterColumn('tgl', function ($query, $keyword) {
-        $query->whereDate('f.tgl', $keyword);
-    })
-    ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
-    ->editColumn('qty', fn ($r) => number_format($r->qty))
-    ->addColumn('action', function ($row) {
-        if (auth()->user()->username !== 'admin_cluster') {
-            return '';
-        }
+        ->filterColumn('denom', function ($query, $keyword) {
+            $query->where('d.denom', 'like', "%{$keyword}%");
+        })
+        ->filterColumn('tgl', function ($query, $keyword) {
+            $query->whereDate('f.tgl', $keyword);
+        })
+        ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
+        ->editColumn('qty', fn ($r) => number_format($r->qty))
+        ->addColumn('action', function ($row) {
+            if (auth()->user()->username !== 'admin_cluster') {
+                return '';
+            }
 
-        return '
-            <form action="'.url('injectvf/'.$row->idinject).'" 
-                method="POST" 
-                class="form-delete d-inline">
-                '.csrf_field().'
-                <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
-                    <i class="fas fa-trash-alt fa-lg"></i>
-                </button>
-            </form>
-        ';
-    })
-    ->rawColumns(['action'])
-    ->make(true);
-
+            return '
+                <form action="'.url('injectvf/'.$row->idinject).'" 
+                    method="POST" 
+                    class="form-delete d-inline">
+                    '.csrf_field().'
+                    <button type="submit" class="btn btn-link text-danger p-0" title="Delete">
+                        <i class="fas fa-trash-alt fa-lg"></i>
+                    </button>
+                </form>
+            ';
+        })
+        ->rawColumns(['action'])
+        ->make(true);
 }
 
     /* =========================
@@ -169,7 +169,7 @@ class InjectController extends Controller
             $end   = now()->endOfMonth()->format('Y-m-d');
         }
 
-        $data = DB::table('injectvf as f')
+        $query = DB::table('injectvf as f')
             ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
             ->select(
                 'f.tgl',
@@ -177,8 +177,11 @@ class InjectController extends Controller
                 'f.qty',
                 'f.idtap',
                 'f.sn'
-            )
-            ->whereBetween('f.tgl', [
+            );
+
+        TapFilter::apply($query, 'f.idtap');
+
+        $data = $query->whereBetween('f.tgl', [
                 $start.' 00:00:00',
                 $end.' 23:59:59'
             ])

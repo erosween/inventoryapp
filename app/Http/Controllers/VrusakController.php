@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -46,11 +48,9 @@ class VrusakController extends Controller
                 'r.ketlain',
                 'r.iddenom'
             )
-            ->whereBetween('r.tgl', [$start, $end]);
+            ->whereBetween('r.tgl', [$start . ' 00:00:00', $end . ' 23:59:59']);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('r.idtap', $idtap);
-        }
+        TapFilter::apply($query, 'r.idtap');
 
         return DataTables::of($query)
             ->filterColumn('denom', function($query, $keyword) {
@@ -262,11 +262,9 @@ class VrusakController extends Controller
                 'r.ketvf',
                 'r.ketlain'
             )
-            ->whereBetween('r.tgl', [$start, $end]);
+            ->whereBetween('r.tgl', [$start . ' 00:00:00', $end . ' 23:59:59']);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('r.idtap', $idtap);
-        }
+        TapFilter::apply($query, 'r.idtap');
 
         return Excel::download(
             new RusakExport($query->get()),

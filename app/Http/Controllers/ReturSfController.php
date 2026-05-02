@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -48,11 +50,9 @@ class ReturSfController extends Controller
             'r.iddenom',
             'r.idsf'
         )
-        ->whereBetween('r.tgl', [$start, $end]);
+        ->whereBetween('r.tgl', [$start . ' 00:00:00', $end . ' 23:59:59']);
 
-    if ($idtap !== 'SBP_DUMAI') {
-        $query->where('r.idtap', $idtap);
-    }
+    TapFilter::apply($query, 'r.idtap');
 
      return datatables()
     ->of($query)
@@ -299,11 +299,9 @@ class ReturSfController extends Controller
                 'r.ketvf',
                 'r.tambahket'
             )
-            ->whereBetween('r.tgl', [$start, $end]);
+            ->whereBetween('r.tgl', [$start . ' 00:00:00', $end . ' 23:59:59']);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('r.idtap', $idtap);
-        }
+        TapFilter::apply($query, 'r.idtap');
 
         return Excel::download(
             new ReturSFExport($query->get()),

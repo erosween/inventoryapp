@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -72,12 +74,10 @@ class MasukController extends Controller
                 'k.status',
                 'k.iddenom'
             )
-            ->whereBetween('k.tgl', [$start, $end])
+            ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->whereNotIn('k.pengirim', $kategoribo);
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('k.penerima', $idtap);
-        }
+        TapFilter::apply($query, 'k.penerima');
 
     
         return datatables()
@@ -124,13 +124,11 @@ class MasukController extends Controller
         $query = DB::table('keluar as k')
             ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
             ->select('d.denom', DB::raw('SUM(k.qty) as qty'))
-            ->whereBetween('k.tgl', [$start, $end])
+            ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->whereNotIn('k.pengirim', $kategoribo)
             ->groupBy('d.denom');
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('k.penerima', $idtap);
-        }
+        TapFilter::apply($query, 'k.penerima');
 
         return $query->get();
     }
@@ -245,13 +243,11 @@ class MasukController extends Controller
                 'd.denom',
                 DB::raw('SUM(k.qty) as qty')
             )
-            ->whereBetween('k.tgl', [$start, $end])
+            ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->whereNotIn('k.pengirim', $kategoribo)
             ->groupBy('k.tgl', 'k.sn', 'k.idtap', 'k.penerima', 'd.denom');
 
-        if ($idtap !== 'SBP_DUMAI') {
-            $query->where('k.penerima', $idtap);
-        }
+        TapFilter::apply($query, 'k.penerima');
 
         $filename = 'STOK_MASUK_' . now()->format('Ymd_His') . '.xlsx';
 

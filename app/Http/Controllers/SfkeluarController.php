@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TapFilter;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -42,9 +44,7 @@ use App\Helpers\AuditLogger;
             'f.tambahanket'
         );
 
-    if ($idtap !== 'SBP_DUMAI') {
-        $query->where('f.idtap', $idtap);
-    }
+    TapFilter::apply($query, 'f.idtap');
 
     // 🔥 DEFAULT: BULAN BERJALAN
     if ($daterange) {
@@ -426,9 +426,7 @@ public function updateSfKeluar(Request $request, $id)
     /* ===============================
        FILTER TAP
     =============================== */
-    if ($idtap !== 'SBP_DUMAI') {
-        $query->where('f.idtap', $idtap);
-    }
+    TapFilter::apply($query, 'f.idtap');
 
     /* ===============================
        FILTER DATE RANGE (PRIORITY)
