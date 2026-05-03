@@ -75,7 +75,10 @@
     .table-scroll-heatmap thead th.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
     .table-scroll-heatmap thead th.sticky-validity-col { z-index: 105 !important; background: #f8fafc !important; }
     .table-scroll-heatmap tfoot td.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
-    .export-actions { gap: 10px; }
+    .export-actions {
+        gap: 10px;
+        flex-wrap: wrap;
+    }
     .export-action-btn {
         border: 0 !important;
         border-radius: 14px !important;
@@ -84,6 +87,13 @@
         background: #f1f3f5 !important;
         color: #1f2933 !important;
         font-weight: 700 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        line-height: 1.2 !important;
+        vertical-align: middle !important;
+        gap: 6px !important;
         box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04), 0 4px 12px rgba(31,41,51,0.06);
     }
     .export-action-btn:hover {
@@ -91,8 +101,16 @@
         color: #111827 !important;
         transform: translateY(-1px);
     }
-    .export-action-btn i { opacity: 0.72; }
+    .export-action-btn i {
+        flex: 0 0 auto;
+        opacity: 0.72;
+        margin: 0 !important;
+    }
     .export-status { display: none; font-weight: 600; }
+
+    @media (max-width: 576px) {
+        .export-status { text-align: center; }
+    }
 </style>
 
 <div class="main-panel">
@@ -1428,9 +1446,22 @@
             });
         }
 
+        function getCardExportHeading(cardId, fallbackTitle, fallbackSubtitle) {
+            const card = document.getElementById(cardId);
+            return {
+                title: card?.querySelector('.card-header h6')?.innerText?.trim() || fallbackTitle,
+                subtitle: card?.querySelector('.card-header small.text-muted')?.innerText?.trim() || fallbackSubtitle
+            };
+        }
+
         async function renderMomClusterCardToCanvas() {
             const rows = getMomExportRows();
             if (!rows.length) return null;
+            const heading = getCardExportHeading(
+                'mom-cluster-card',
+                '📊 MoM Sales Tap',
+                'Bulan ini (MTD) vs Bulan lalu (partial M-1)'
+            );
 
             const pixelRatio = 1.5;
             const width = 2048;
@@ -1454,11 +1485,11 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
 
-            drawText(ctx, '📊 Rapor MoM Performa Cluster', 42, 42, {
+            drawText(ctx, heading.title, 42, 42, {
                 font: '700 24px Arial, sans-serif',
                 color: '#343a40'
             });
-            drawText(ctx, 'Bulan ini (MTD) vs Bulan lalu (partial M-1)', 42, 76, {
+            drawText(ctx, heading.subtitle, 42, 76, {
                 font: '400 24px Arial, sans-serif',
                 color: '#7b858e'
             });
@@ -1628,6 +1659,7 @@
         async function renderHeatmapToCanvas(config) {
             const rows = getHeatmapExportRows(config.wrapId);
             if (!rows.length) return null;
+            const heading = getCardExportHeading(config.cardId, config.title, config.subtitle);
 
             const pixelRatio = 1.4;
             const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
@@ -1649,11 +1681,11 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
 
-            drawText(ctx, config.title, 38, 42, {
+            drawText(ctx, heading.title, 38, 42, {
                 font: '700 24px Arial, sans-serif',
                 color: '#343a40'
             });
-            drawText(ctx, config.subtitle, 38, 76, {
+            drawText(ctx, heading.subtitle, 38, 76, {
                 font: '400 23px Arial, sans-serif',
                 color: '#7b858e'
             });
@@ -1882,6 +1914,7 @@
         document.getElementById('mom-download-btn')?.addEventListener('click', downloadMomClusterAsPng);
 
         const heatmapSalesConfig = {
+            cardId: 'heatmap-sales-card',
             wrapId: 'heatmap-sales-wrap',
             title: '🗺️ Heatmap Penjualan Bulanan (Tahun {{ $selectedYear }})',
             subtitle: 'Kerapatan transaksi per TAP. Warna makin gelap = performa makin tinggi.',
@@ -1891,6 +1924,7 @@
         };
 
         const heatmapInjectConfig = {
+            cardId: 'heatmap-inject-card',
             wrapId: 'heatmap-inject-wrap',
             title: '🪄 Heatmap Inject PV Bulanan (Tahun {{ $selectedYear }})',
             subtitle: 'Kerapatan transaksi Inject PV per TAP. Warna makin pekat = performa makin tinggi.',

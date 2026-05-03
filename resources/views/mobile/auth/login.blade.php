@@ -32,13 +32,16 @@
             font-family: 'Plus Jakarta Sans', sans-serif;
             /* Telkomsel Red Gradient Background */
             background: linear-gradient(135deg, #EC2028 0%, #B00B11 100%);
-            height: 100vh;
+            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0;
             padding: 24px;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             color: var(--text-main);
         }
 
@@ -162,6 +165,33 @@
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 24px;
+        }
+
+        @media (max-width: 480px), (max-height: 720px) {
+            body {
+                align-items: flex-start;
+                padding: 18px 16px;
+            }
+
+            .glass-login-card {
+                padding: 32px 24px;
+                border-radius: 22px;
+                margin: 0 auto;
+            }
+
+            .logo-section {
+                margin-bottom: 28px;
+            }
+
+            .logo-section img {
+                width: 68px;
+                height: 68px;
+                margin-bottom: 18px;
+            }
+
+            .text-center.mt-5 {
+                margin-top: 2rem !important;
+            }
         }
     </style>
 </head>

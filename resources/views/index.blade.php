@@ -17,6 +17,7 @@
         body {
             margin: 0;
             min-height: 100vh;
+            min-height: 100dvh;
             background:
                 radial-gradient(900px at 15% 20%, rgba(255, 255, 255, .18), transparent 40%),
                 radial-gradient(800px at 85% 80%, rgba(255, 255, 255, .15), transparent 40%),
@@ -24,7 +25,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         /* BLUR BACKDROP */
@@ -286,10 +289,14 @@
                 radial-gradient(circle at 20% 20%, rgba(109, 93, 252, .15), transparent 40%),
                 radial-gradient(circle at 80% 80%, rgba(99, 102, 241, .15), transparent 40%),
                 linear-gradient(135deg, #c7c5f4, #776bcc);
-            height: 100vh;
+            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             transition: .3s;
         }
 
@@ -303,6 +310,24 @@
                 linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px);
             background-size: 40px 40px;
             pointer-events: none;
+        }
+
+        @media (max-width: 900px), (max-height: 720px) {
+            body {
+                align-items: flex-start;
+            }
+
+            .auth-wrapper {
+                padding: 28px 18px;
+            }
+
+            .auth-left {
+                padding-bottom: 24px;
+            }
+
+            .login-card {
+                padding: 30px 24px;
+            }
         }
     </style>
 </head>
