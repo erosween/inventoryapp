@@ -75,6 +75,24 @@
     .table-scroll-heatmap thead th.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
     .table-scroll-heatmap thead th.sticky-validity-col { z-index: 105 !important; background: #f8fafc !important; }
     .table-scroll-heatmap tfoot td.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
+    .export-actions { gap: 10px; }
+    .export-action-btn {
+        border: 0 !important;
+        border-radius: 14px !important;
+        padding: 9px 18px !important;
+        min-width: 86px;
+        background: #f1f3f5 !important;
+        color: #1f2933 !important;
+        font-weight: 700 !important;
+        box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04), 0 4px 12px rgba(31,41,51,0.06);
+    }
+    .export-action-btn:hover {
+        background: #e9ecef !important;
+        color: #111827 !important;
+        transform: translateY(-1px);
+    }
+    .export-action-btn i { opacity: 0.72; }
+    .export-status { display: none; font-weight: 600; }
 </style>
 
 <div class="main-panel">
@@ -87,12 +105,12 @@
                 <form action="" method="GET" class="d-flex shadow-sm rounded">
                     <select name="year" class="form-control mr-2 border-0 bg-white text-dark font-weight-bold" onchange="this.form.submit()">
                         @for($i = date('Y'); $i >= 2023; $i--)
-                            <option value="{{ $i }}" {{ $selectedYear == $i ? 'selected' : '' }}>📅 Tahun {{ $i }}</option>
+                            <option value="{{ $i }}" {{ $selectedYear == $i ? 'selected' : '' }}>Tahun {{ $i }}</option>
                         @endfor
                     </select>
                     <select name="mode" class="form-control border-0 bg-white text-dark font-weight-bold" onchange="this.form.submit()">
-                        <option value="daily" {{ $mode == 'daily' ? 'selected' : '' }}>⏱ Harian</option>
-                        <option value="monthly" {{ $mode == 'monthly' ? 'selected' : '' }}>📊 Bulanan</option>
+                        <option value="daily" {{ $mode == 'daily' ? 'selected' : '' }}>Harian</option>
+                        <option value="monthly" {{ $mode == 'monthly' ? 'selected' : '' }}>Bulanan</option>
                     </select>
                 </form>
             </div>
@@ -141,7 +159,7 @@
                 <div class="col-md-6">
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
-                            <h6 class="font-weight-bold text-dark mb-0">🍩 Distribusi Sales (Bulan Berjalan)</h6>
+                            <h6 class="font-weight-bold text-dark mb-0">Distribusi Sales (Bulan Berjalan)</h6>
                             <small class="text-muted">Porsi penjualan per validity / grup</small>
                         </div>
                         <div class="card-body">
@@ -155,8 +173,8 @@
                 <div class="col-md-6">
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
-                            <h6 class="font-weight-bold text-dark mb-0">🍩 Distribusi Inject (Bulan Berjalan)</h6>
-                            <small class="text-muted">Porsi tembak injeksi ke Outlet</small>
+                            <h6 class="font-weight-bold text-dark mb-0">Inject Voucher Fisik (Bulan Berjalan)</h6>
+                            <small class="text-muted">Porsi Inject Voucher Fisik</small>
                         </div>
                         <div class="card-body">
                             <div style="height:260px">
@@ -168,13 +186,26 @@
             </div>
 
             {{-- ================= YEARLY MATRIX (HEATMAP) ================= --}}
-            <div class="card enterprise-shadow mb-4">
+            <div class="card enterprise-shadow mb-4" id="heatmap-sales-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
-                    <h6 class="font-weight-bold text-dark mb-0">🗺️ Heatmap Penjualan Bulanan (Tahun {{ $selectedYear }})</h6>
-                    <small class="text-muted">Kerapatan transaksi per TAP. Warna makin gelap = performa makin tinggi.</small>
+                    <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
+                        <div>
+                            <h6 class="font-weight-bold text-dark mb-0">🗺️ Penjualan Bulanan (Tahun {{ $selectedYear }})</h6>
+                            <small class="text-muted">Transaksi per TAP</small>
+                        </div>
+                        <div class="d-flex align-items-center export-actions">
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-sales-copy-btn" title="Copy heatmap penjualan sebagai gambar" style="gap:6px;">
+                                <i data-feather="copy" style="width:14px;height:14px"></i> Copy
+                            </button>
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-sales-download-btn" title="Download heatmap penjualan PNG" style="gap:6px;">
+                                <i data-feather="download" style="width:14px;height:14px"></i> PNG
+                            </button>
+                        </div>
+                        <small id="heatmap-sales-status" class="text-muted w-100 export-status"></small>
+                    </div>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-scroll-heatmap">
+                    <div class="table-scroll-heatmap" id="heatmap-sales-wrap">
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
                                 <tr class="text-secondary">
@@ -618,13 +649,26 @@
             </div>
 
             {{-- ================= YEARLY MATRIX INJECT (HEATMAP) ================= --}}
-            <div class="card enterprise-shadow mb-4">
+            <div class="card enterprise-shadow mb-4" id="heatmap-inject-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
-                    <h6 class="font-weight-bold text-dark mb-0">🪄 Heatmap Inject PV Bulanan (Tahun {{ $selectedYear }})</h6>
-                    <small class="text-muted">Kerapatan transaksi Inject PV per TAP. Warna makin pekat = performa makin tinggi.</small>
+                    <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
+                        <div>
+                            <h6 class="font-weight-bold text-dark mb-0">🪄Inject PV Bulanan (Tahun {{ $selectedYear }})</h6>
+                            <small class="text-muted">Inject PV per TAP</small>
+                        </div>
+                        <div class="d-flex align-items-center export-actions">
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-copy-btn" title="Copy heatmap inject sebagai gambar" style="gap:6px;">
+                                <i data-feather="copy" style="width:14px;height:14px"></i> Copy
+                            </button>
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-download-btn" title="Download heatmap inject PNG" style="gap:6px;">
+                                <i data-feather="download" style="width:14px;height:14px"></i> PNG
+                            </button>
+                        </div>
+                        <small id="heatmap-inject-status" class="text-muted w-100 export-status"></small>
+                    </div>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-scroll-heatmap">
+                    <div class="table-scroll-heatmap" id="heatmap-inject-wrap">
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
                                 <tr class="text-secondary">
@@ -1046,7 +1090,7 @@
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">⚡ Inject per Cluster</h6>
-                            <small class="text-muted">Volume injeksi antar distrik</small>
+                            <small class="text-muted">Quantity Inject Cluster</small>
                         </div>
                         <div class="card-body">
                             <div style="height:300px">
@@ -1116,12 +1160,25 @@
             </div>
 
             {{-- ================= MoM PER TAP ================= --}}
-            <div class="card enterprise-shadow mb-4">
+            <div class="card enterprise-shadow mb-4" id="mom-cluster-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
-                    <h6 class="font-weight-bold text-dark mb-0">📊 Rapor MoM Performa Cluster</h6>
-                    <small class="text-muted">Bulan ini (MTD) vs Bulan lalu (partial M-1)</small>
+                    <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
+                        <div>
+                            <h6 class="font-weight-bold text-dark mb-0">📊 MoM Sales Tap</h6>
+                            <small class="text-muted">Bulan ini (MTD) vs Bulan lalu (partial M-1)</small>
+                        </div>
+                        <div class="d-flex align-items-center export-actions">
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="mom-copy-btn" title="Copy sebagai gambar" style="gap:6px;">
+                                <i data-feather="copy" style="width:14px;height:14px"></i> Copy
+                            </button>
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="mom-download-btn" title="Download PNG" style="gap:6px;">
+                                <i data-feather="download" style="width:14px;height:14px"></i> PNG
+                            </button>
+                        </div>
+                        <small id="mom-export-status" class="text-muted w-100 export-status"></small>
+                    </div>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive" id="mom-cluster-table-wrap">
                     <table class="table table-hover mb-0">
                         <thead class="bg-light text-secondary">
                             <tr>
@@ -1269,6 +1326,596 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const nf = v => new Intl.NumberFormat('id-ID').format(v); 
+
+        function setMomExportStatus(text, isError) {
+            const el = document.getElementById('mom-export-status');
+            if (!el) return;
+            el.style.display = text ? 'block' : 'none';
+            el.classList.remove('text-danger', 'text-success', 'text-muted');
+            el.classList.add(isError ? 'text-danger' : 'text-success');
+            el.textContent = text || '';
+        }
+
+        function getMomCellText(cell) {
+            return (cell?.innerText || '')
+                .replace(/\s+/g, ' ')
+                .replace(/^\+\s*/, '')
+                .trim();
+        }
+
+        function getMomExportRows() {
+            const table = document.querySelector('#mom-cluster-table-wrap > table');
+            if (!table) return [];
+
+            const rows = [];
+            table.querySelectorAll('tbody > tr:not(.sf-row), tfoot > tr').forEach(tr => {
+                const cells = Array.from(tr.children);
+                if (cells.length < 7) return;
+                const firstText = getMomCellText(cells[0]).replace(/^CLUSTER\s+/i, '');
+                rows.push({
+                    type: tr.closest('tfoot')
+                        ? (firstText.toUpperCase().includes('GRAND TOTAL') ? 'grand' : 'cluster')
+                        : 'tap',
+                    cells: [
+                        firstText,
+                        getMomCellText(cells[1]),
+                        getMomCellText(cells[2]),
+                        getMomCellText(cells[3]),
+                        getMomCellText(cells[4]),
+                        getMomCellText(cells[5]),
+                        getMomCellText(cells[6])
+                    ],
+                    growth1Down: getMomCellText(cells[5]).includes('▼'),
+                    growth2Down: getMomCellText(cells[6]).includes('▼')
+                });
+            });
+            return rows;
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + width, y, x + width, y + height, r);
+            ctx.arcTo(x + width, y + height, x, y + height, r);
+            ctx.arcTo(x, y + height, x, y, r);
+            ctx.arcTo(x, y, x + width, y, r);
+            ctx.closePath();
+        }
+
+        function drawText(ctx, text, x, y, options = {}) {
+            const {
+                color = '#343a40',
+                font = '600 22px Arial, sans-serif',
+                align = 'left',
+                baseline = 'middle',
+                maxWidth
+            } = options;
+            ctx.fillStyle = color;
+            ctx.font = font;
+            ctx.textAlign = align;
+            ctx.textBaseline = baseline;
+            if (maxWidth) {
+                ctx.fillText(text, x, y, maxWidth);
+            } else {
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        function wrapText(ctx, text, maxWidth) {
+            const words = String(text).split(' ');
+            const lines = [];
+            let line = '';
+            words.forEach(word => {
+                const testLine = line ? `${line} ${word}` : word;
+                if (ctx.measureText(testLine).width <= maxWidth || !line) {
+                    line = testLine;
+                } else {
+                    lines.push(line);
+                    line = word;
+                }
+            });
+            if (line) lines.push(line);
+            return lines;
+        }
+
+        function drawWrappedText(ctx, text, x, centerY, maxWidth, lineHeight, options = {}) {
+            ctx.font = options.font || '700 22px Arial, sans-serif';
+            const lines = wrapText(ctx, text, maxWidth).slice(0, options.maxLines || 3);
+            const startY = centerY - ((lines.length - 1) * lineHeight / 2);
+            lines.forEach((line, index) => {
+                drawText(ctx, line, x, startY + (index * lineHeight), options);
+            });
+        }
+
+        async function renderMomClusterCardToCanvas() {
+            const rows = getMomExportRows();
+            if (!rows.length) return null;
+
+            const pixelRatio = 1.5;
+            const width = 2048;
+            const titleHeight = 118;
+            const headHeight = 80;
+            const rowHeight = 82;
+            const height = titleHeight + headHeight + (rows.length * rowHeight);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(width * pixelRatio);
+            canvas.height = Math.ceil(height * pixelRatio);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) return null;
+            ctx.scale(pixelRatio, pixelRatio);
+
+            const cols = [530, 210, 250, 250, 240, 280, 288];
+            const lefts = cols.reduce((acc, col, i) => {
+                acc.push(i === 0 ? 0 : acc[i - 1] + cols[i - 1]);
+                return acc;
+            }, []);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            drawText(ctx, '📊 Rapor MoM Performa Cluster', 42, 42, {
+                font: '700 24px Arial, sans-serif',
+                color: '#343a40'
+            });
+            drawText(ctx, 'Bulan ini (MTD) vs Bulan lalu (partial M-1)', 42, 76, {
+                font: '400 24px Arial, sans-serif',
+                color: '#7b858e'
+            });
+
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, titleHeight);
+            ctx.lineTo(width, titleHeight);
+            ctx.stroke();
+
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(0, titleHeight, width, headHeight);
+            const headers = ['LOKASI (TAP / SF)', 'ACH MTD', 'M-1 PARTIAL', 'M-2 PARTIAL', 'M-1 FULL', 'GROWTH (M-1)', 'GROWTH (M-2)'];
+            headers.forEach((header, index) => {
+                const x = index === 0 ? lefts[index] + 28 : lefts[index] + cols[index] - 24;
+                drawText(ctx, header, x, titleHeight + 40, {
+                    font: '700 24px Arial, sans-serif',
+                    color: '#55554c',
+                    align: index === 0 ? 'left' : 'right'
+                });
+            });
+
+            rows.forEach((row, rowIndex) => {
+                const y = titleHeight + headHeight + (rowIndex * rowHeight);
+                const centerY = y + (rowHeight / 2);
+
+                if (row.type === 'grand') {
+                    ctx.fillStyle = '#e3f2fd';
+                    ctx.fillRect(0, y, width, rowHeight);
+                } else if (row.type === 'cluster') {
+                    ctx.fillStyle = rowIndex % 2 === 0 ? '#f8f9fa' : '#ffffff';
+                    ctx.fillRect(0, y, width, rowHeight);
+                }
+
+                ctx.strokeStyle = row.type === 'cluster' && rowIndex > 0 ? '#dedede' : '#e9ecef';
+                ctx.lineWidth = row.type === 'cluster' ? 2 : 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+
+                if (row.type === 'tap') {
+                    roundRect(ctx, 28, centerY - 17, 44, 34, 6);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.strokeStyle = '#dde2e7';
+                    ctx.stroke();
+                    drawText(ctx, '+', 50, centerY, {
+                        font: '400 20px Arial, sans-serif',
+                        color: '#343a40',
+                        align: 'center'
+                    });
+                    drawWrappedText(ctx, row.cells[0], 92, centerY, cols[0] - 120, 27, {
+                        font: '700 24px Arial, sans-serif',
+                        color: '#343a40',
+                        maxLines: 2
+                    });
+                } else if (row.type === 'cluster') {
+                    roundRect(ctx, 28, centerY - 22, 120, 44, 22);
+                    ctx.fillStyle = rowIndex % 2 === 0 ? '#7467d4' : '#ffffff';
+                    ctx.fill();
+                    ctx.strokeStyle = rowIndex % 2 === 0 ? '#7467d4' : '#dde2e7';
+                    ctx.stroke();
+                    drawText(ctx, 'CLUSTER', 88, centerY, {
+                        font: '400 20px Arial, sans-serif',
+                        color: rowIndex % 2 === 0 ? '#ffffff' : '#343a40',
+                        align: 'center'
+                    });
+                    drawWrappedText(ctx, row.cells[0], 168, centerY, cols[0] - 190, 27, {
+                        font: '700 24px Arial, sans-serif',
+                        color: '#343a40',
+                        maxLines: 2
+                    });
+                } else {
+                    drawWrappedText(ctx, row.cells[0], 28, centerY, cols[0] - 48, 28, {
+                        font: '700 24px Arial, sans-serif',
+                        color: '#1657b7',
+                        maxLines: 2
+                    });
+                }
+
+                for (let i = 1; i < row.cells.length; i++) {
+                    let color = '#7b858e';
+                    let font = '400 24px Arial, sans-serif';
+                    if (i === 1 || row.type !== 'tap') {
+                        color = row.type === 'grand' ? '#1657b7' : '#343a40';
+                        font = '700 24px Arial, sans-serif';
+                    }
+                    if (i >= 5) {
+                        const down = i === 5 ? row.growth1Down : row.growth2Down;
+                        color = down ? '#ff5b66' : '#32cd43';
+                        font = '700 24px Arial, sans-serif';
+                    }
+
+                    drawText(ctx, row.cells[i], lefts[i] + cols[i] - 24, centerY, {
+                        font,
+                        color,
+                        align: 'right',
+                        maxWidth: cols[i] - 32
+                    });
+                }
+            });
+
+            return canvas;
+        }
+
+        async function canvasToPngBlob(canvas) {
+            if (canvas.toBlob) {
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                if (blob) return blob;
+            }
+
+            const dataUrl = canvas.toDataURL('image/png');
+            const response = await fetch(dataUrl);
+            return response.blob();
+        }
+
+        function setExportStatus(statusId, text, isError) {
+            const el = document.getElementById(statusId);
+            if (!el) return;
+            el.style.display = text ? 'block' : 'none';
+            el.classList.remove('text-danger', 'text-success', 'text-muted');
+            el.classList.add(isError ? 'text-danger' : 'text-success');
+            el.textContent = text || '';
+        }
+
+        function renderArrowText(text) {
+            return text.replace('↑', '▲').replace('↓', '▼');
+        }
+
+        function getHeatmapExportRows(wrapId) {
+            const wrap = document.getElementById(wrapId);
+            const table = wrap?.querySelector('table');
+            if (!table) return [];
+
+            const rowSelector = 'tbody > tr:not(.validity-row), tfoot > tr:not(.validity-row)';
+            return Array.from(table.querySelectorAll(rowSelector)).map(tr => {
+                const cells = Array.from(tr.children);
+                if (cells.length < 25) return null;
+                const firstRaw = getMomCellText(cells[0]);
+                const firstText = firstRaw.replace(/^CLUSTER\s+/i, '');
+                const months = [];
+                for (let i = 1; i < cells.length; i += 2) {
+                    const valueCell = cells[i];
+                    const momCell = cells[i + 1];
+                    months.push({
+                        value: getMomCellText(valueCell),
+                        mom: renderArrowText(getMomCellText(momCell)),
+                        valueBg: valueCell?.style?.backgroundColor || '',
+                        valueColor: valueCell?.style?.color || '',
+                        momDown: getMomCellText(momCell).includes('↓') || /^-\d/.test(getMomCellText(momCell)),
+                        momUp: getMomCellText(momCell).includes('↑') || /^\d/.test(getMomCellText(momCell))
+                    });
+                }
+
+                return {
+                    type: firstText.toUpperCase().includes('GRAND TOTAL')
+                        ? 'grand'
+                        : (firstRaw.toUpperCase().includes('CLUSTER') ? 'cluster' : 'tap'),
+                    name: firstText,
+                    months
+                };
+            }).filter(Boolean);
+        }
+
+        async function renderHeatmapToCanvas(config) {
+            const rows = getHeatmapExportRows(config.wrapId);
+            if (!rows.length) return null;
+
+            const pixelRatio = 1.4;
+            const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+            const firstCol = 340;
+            const valueCol = 116;
+            const momCol = 84;
+            const width = firstCol + (monthNames.length * (valueCol + momCol));
+            const titleHeight = 118;
+            const headHeight = 78;
+            const rowHeight = 72;
+            const height = titleHeight + headHeight + (rows.length * rowHeight);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(width * pixelRatio);
+            canvas.height = Math.ceil(height * pixelRatio);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) return null;
+            ctx.scale(pixelRatio, pixelRatio);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            drawText(ctx, config.title, 38, 42, {
+                font: '700 24px Arial, sans-serif',
+                color: '#343a40'
+            });
+            drawText(ctx, config.subtitle, 38, 76, {
+                font: '400 23px Arial, sans-serif',
+                color: '#7b858e'
+            });
+
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, titleHeight);
+            ctx.lineTo(width, titleHeight);
+            ctx.stroke();
+
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(0, titleHeight, width, headHeight);
+            drawText(ctx, 'NAMA TAP', 24, titleHeight + 39, {
+                font: '700 21px Arial, sans-serif',
+                color: '#55554c'
+            });
+
+            monthNames.forEach((month, index) => {
+                const x = firstCol + (index * (valueCol + momCol));
+                drawText(ctx, month, x + (valueCol / 2), titleHeight + 28, {
+                    font: '700 18px Arial, sans-serif',
+                    color: '#55554c',
+                    align: 'center'
+                });
+                drawText(ctx, 'MoM', x + valueCol + (momCol / 2), titleHeight + 28, {
+                    font: '700 15px Arial, sans-serif',
+                    color: '#7b858e',
+                    align: 'center'
+                });
+                drawText(ctx, '%', x + valueCol + (momCol / 2), titleHeight + 52, {
+                    font: '700 13px Arial, sans-serif',
+                    color: '#9aa3aa',
+                    align: 'center'
+                });
+            });
+
+            rows.forEach((row, rowIndex) => {
+                const y = titleHeight + headHeight + (rowIndex * rowHeight);
+                const centerY = y + (rowHeight / 2);
+                const isGrand = row.type === 'grand';
+                const isCluster = row.type === 'cluster';
+
+                ctx.fillStyle = isGrand ? config.grandBg : (isCluster ? '#f8f9fa' : '#ffffff');
+                ctx.fillRect(0, y, width, rowHeight);
+
+                ctx.strokeStyle = isCluster || isGrand ? '#dedede' : '#e9ecef';
+                ctx.lineWidth = isCluster || isGrand ? 2 : 1.3;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+
+                if (row.type === 'tap') {
+                    roundRect(ctx, 22, centerY - 16, 40, 32, 6);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.strokeStyle = '#dde2e7';
+                    ctx.stroke();
+                    drawText(ctx, '+', 42, centerY, {
+                        font: '400 18px Arial, sans-serif',
+                        color: '#343a40',
+                        align: 'center'
+                    });
+                    drawWrappedText(ctx, row.name, 78, centerY, firstCol - 96, 25, {
+                        font: '700 21px Arial, sans-serif',
+                        color: '#343a40',
+                        maxLines: 2
+                    });
+                } else if (row.type === 'cluster') {
+                    roundRect(ctx, 20, centerY - 19, 112, 38, 19);
+                    ctx.fillStyle = config.accent;
+                    ctx.fill();
+                    drawText(ctx, 'CLUSTER', 76, centerY, {
+                        font: '400 17px Arial, sans-serif',
+                        color: '#ffffff',
+                        align: 'center'
+                    });
+                    drawWrappedText(ctx, row.name, 148, centerY, firstCol - 166, 24, {
+                        font: '700 20px Arial, sans-serif',
+                        color: '#343a40',
+                        maxLines: 2
+                    });
+                } else {
+                    drawWrappedText(ctx, row.name, 22, centerY, firstCol - 42, 25, {
+                        font: '700 21px Arial, sans-serif',
+                        color: config.grandColor,
+                        maxLines: 2
+                    });
+                }
+
+                row.months.forEach((month, index) => {
+                    const x = firstCol + (index * (valueCol + momCol));
+                    const valueBg = month.valueBg && month.valueBg !== 'transparent'
+                        ? month.valueBg
+                        : (isGrand ? config.grandBg : '#ffffff');
+
+                    ctx.fillStyle = valueBg;
+                    ctx.fillRect(x, y, valueCol, rowHeight);
+                    ctx.fillStyle = isGrand ? 'rgba(0,0,0,0.05)' : '#fafafa';
+                    ctx.fillRect(x + valueCol, y, momCol, rowHeight);
+
+                    ctx.strokeStyle = '#edf0f2';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x, y + rowHeight);
+                    ctx.moveTo(x + valueCol, y);
+                    ctx.lineTo(x + valueCol, y + rowHeight);
+                    ctx.stroke();
+
+                    const valueColor = isGrand ? config.grandColor : (month.valueColor || '#444');
+                    drawText(ctx, month.value, x + valueCol - 12, centerY, {
+                        font: (isGrand || isCluster) ? '700 18px Arial, sans-serif' : '600 17px Arial, sans-serif',
+                        color: valueColor,
+                        align: 'right',
+                        maxWidth: valueCol - 18
+                    });
+
+                    let momColor = '#9aa3aa';
+                    if (month.momDown) momColor = '#ff5b66';
+                    if (!month.momDown && month.momUp && month.mom !== '-') momColor = '#32a852';
+                    drawText(ctx, month.mom, x + valueCol + momCol - 9, centerY, {
+                        font: '700 15px Arial, sans-serif',
+                        color: momColor,
+                        align: 'right',
+                        maxWidth: momCol - 12
+                    });
+                });
+            });
+
+            return canvas;
+        }
+
+        async function copyCanvasExport(renderFn, statusId) {
+            try {
+                setExportStatus(statusId, 'Membuat gambar...', false);
+                const canvas = await renderFn();
+                if (!canvas) throw new Error('capture-failed');
+                const blob = await canvasToPngBlob(canvas);
+                if (!blob) throw new Error('png-failed');
+
+                if (navigator.clipboard && window.ClipboardItem) {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    setExportStatus(statusId, 'Tersalin. Tinggal paste di chat.', false);
+                    return;
+                }
+
+                setExportStatus(statusId, 'Clipboard tidak didukung. Pakai tombol PNG.', true);
+            } catch (e) {
+                console.error('Canvas copy failed', e);
+                setExportStatus(statusId, 'Gagal copy gambar. Coba download PNG.', true);
+            }
+        }
+
+        async function downloadCanvasExport(renderFn, statusId, filePrefix) {
+            try {
+                setExportStatus(statusId, 'Membuat PNG...', false);
+                const canvas = await renderFn();
+                if (!canvas) throw new Error('capture-failed');
+                const blob = await canvasToPngBlob(canvas);
+                if (!blob) throw new Error('png-failed');
+                const ts = new Date();
+                const yyyy = ts.getFullYear();
+                const mm = String(ts.getMonth() + 1).padStart(2, '0');
+                const dd = String(ts.getDate()).padStart(2, '0');
+                const link = document.createElement('a');
+                link.download = `${filePrefix}-${yyyy}${mm}${dd}.png`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                setExportStatus(statusId, 'PNG siap didownload.', false);
+            } catch (e) {
+                console.error('Canvas download failed', e);
+                setExportStatus(statusId, 'Gagal download PNG.', true);
+            }
+        }
+
+        async function copyMomClusterAsImage() {
+            try {
+                setMomExportStatus('Membuat gambar...', false);
+                const canvas = await renderMomClusterCardToCanvas();
+                if (!canvas) throw new Error('capture-failed');
+
+                const blob = await canvasToPngBlob(canvas);
+                if (!blob) throw new Error('png-failed');
+
+                if (navigator.clipboard && window.ClipboardItem) {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                    setMomExportStatus('Tersalin. Tinggal paste di chat.', false);
+                    return;
+                }
+
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                setMomExportStatus('Clipboard tidak didukung. Gambar dibuka di tab baru.', true);
+            } catch (e) {
+                console.error('MoM copy failed', e);
+                setMomExportStatus('Gagal copy gambar. Coba download PNG.', true);
+            }
+        }
+
+        async function downloadMomClusterAsPng() {
+            try {
+                setMomExportStatus('Membuat PNG...', false);
+                const canvas = await renderMomClusterCardToCanvas();
+                if (!canvas) throw new Error('capture-failed');
+
+                const link = document.createElement('a');
+                const ts = new Date();
+                const yyyy = ts.getFullYear();
+                const mm = String(ts.getMonth() + 1).padStart(2, '0');
+                const dd = String(ts.getDate()).padStart(2, '0');
+                link.download = `rapor-mom-${yyyy}${mm}${dd}.png`;
+                const blob = await canvasToPngBlob(canvas);
+                if (!blob) throw new Error('png-failed');
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                setMomExportStatus('PNG siap didownload.', false);
+            } catch (e) {
+                console.error('MoM download failed', e);
+                setMomExportStatus('Gagal download PNG.', true);
+            }
+        }
+
+        document.getElementById('mom-copy-btn')?.addEventListener('click', copyMomClusterAsImage);
+        document.getElementById('mom-download-btn')?.addEventListener('click', downloadMomClusterAsPng);
+
+        const heatmapSalesConfig = {
+            wrapId: 'heatmap-sales-wrap',
+            title: '🗺️ Heatmap Penjualan Bulanan (Tahun {{ $selectedYear }})',
+            subtitle: 'Kerapatan transaksi per TAP. Warna makin gelap = performa makin tinggi.',
+            accent: '#4285F4',
+            grandBg: '#e3f2fd',
+            grandColor: '#0d47a1'
+        };
+
+        const heatmapInjectConfig = {
+            wrapId: 'heatmap-inject-wrap',
+            title: '🪄 Heatmap Inject PV Bulanan (Tahun {{ $selectedYear }})',
+            subtitle: 'Kerapatan transaksi Inject PV per TAP. Warna makin pekat = performa makin tinggi.',
+            accent: '#198754',
+            grandBg: '#e8f5e9',
+            grandColor: '#1b5e20'
+        };
+
+        document.getElementById('heatmap-sales-copy-btn')?.addEventListener('click', () => {
+            copyCanvasExport(() => renderHeatmapToCanvas(heatmapSalesConfig), 'heatmap-sales-status');
+        });
+        document.getElementById('heatmap-sales-download-btn')?.addEventListener('click', () => {
+            downloadCanvasExport(() => renderHeatmapToCanvas(heatmapSalesConfig), 'heatmap-sales-status', 'heatmap-penjualan');
+        });
+        document.getElementById('heatmap-inject-copy-btn')?.addEventListener('click', () => {
+            copyCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status');
+        });
+        document.getElementById('heatmap-inject-download-btn')?.addEventListener('click', () => {
+            downloadCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
+        });
+
+        // Make sure feather icons inside the header buttons render.
+        if (window.feather && typeof window.feather.replace === 'function') {
+            window.feather.replace();
+        }
 
         // ================= DOUGHNUT CHART SETUP =================
         const pieColors = ['#4285F4','#DB4437','#F4B400','#0F9D58','#AB47BC','#00ACC1','#FF7043','#9E9D24', '#5C6BC0'];
