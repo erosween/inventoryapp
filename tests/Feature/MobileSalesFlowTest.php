@@ -191,6 +191,62 @@ class MobileSalesFlowTest extends TestCase
         ]);
     }
 
+    public function test_mobile_sales_update_removes_items_deleted_from_edit_form_and_updates_notes(): void
+    {
+        DB::table('mobile_penjualan')->insert([
+            [
+                'id' => 1,
+                'tgl' => '2026-04-29',
+                'id_outlet' => 'OUTLET-1',
+                'idtap' => 'TAP001',
+                'idsf' => 'SF001',
+                'iddenom' => 'D001',
+                'qty' => 2,
+                'keterangan' => 'Catatan lama',
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 2,
+                'tgl' => '2026-04-29',
+                'id_outlet' => 'OUTLET-1',
+                'idtap' => 'TAP001',
+                'idsf' => 'SF001',
+                'iddenom' => 'D002',
+                'qty' => 4,
+                'keterangan' => 'Catatan lama',
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ])->put(route('mobile.update', ['OUTLET-1', '2026-04-29']), [
+            'keterangan' => 'Catatan baru',
+            'products' => [
+                [
+                    'id' => 1,
+                    'iddenom' => 'D001',
+                    'qty' => 5,
+                ],
+            ],
+        ])->assertRedirect(route('mobile.history'));
+
+        $this->assertDatabaseHas('mobile_penjualan', [
+            'id' => 1,
+            'qty' => 5,
+            'keterangan' => 'Catatan baru',
+        ]);
+        $this->assertDatabaseMissing('mobile_penjualan', [
+            'id' => 2,
+        ]);
+    }
+
     private function createMobileSchema(): void
     {
         Schema::create('idsf', function ($table) {
