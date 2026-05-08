@@ -37,7 +37,7 @@ class MonitaDumaiController extends Controller
         $data = DB::table('appsdumais')
             ->where('nama_outlet', 'like', '%' . $keyword . '%')
             ->orWhere('id_outlet', 'like', '%' . $keyword . '%')
-            ->select('nama_outlet', 'sf', 'tap')
+            ->select('id_outlet', 'nama_outlet', 'sf', 'tap')
             ->limit(10)
             ->get();
 

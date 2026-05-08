@@ -1192,10 +1192,10 @@
                         const li = document.createElement('li');
                         li.innerHTML = `
                             <b>${item.nama_outlet}</b>
-                            <small>${item.sf} • ${item.tap}</small>
+                            <small>${item.id_outlet} • ${item.sf} • ${item.tap}</small>
                         `;
                         li.onclick = () => {
-                            document.getElementById('keyword').value = item.nama_outlet;
+                            document.getElementById('keyword').value = item.id_outlet;
                             box.style.display = 'none';
                             searchOutlet();
                         };
