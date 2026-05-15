@@ -1203,10 +1203,10 @@
                                 <th class="border-0">LOKASI (TAP / SF)</th>
                                 <th class="text-right border-0">ACH MTD</th>
                                 <th class="text-right border-0">M-1 PARTIAL</th>
-                                <th class="text-right border-0">M-2 PARTIAL</th>
+                                <!-- <th class="text-right border-0">M-2 PARTIAL</th> -->
                                 <th class="text-right border-0">M-1 FULL</th>
                                 <th class="text-right border-0">GROWTH (M-1)</th>
-                                <th class="text-right border-0">GROWTH (M-2)</th>
+                                <!-- <th class="text-right border-0">GROWTH (M-2)</th> -->
                             </tr>
                         </thead>
 
@@ -1222,14 +1222,14 @@
                                     </td>
                                     <td class="text-right font-weight-bold text-dark">{{ number_format($r->curr_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_partial_qty) }}</td>
-                                    <td class="text-right text-muted">{{ number_format($r->m2_partial_qty) }}</td>
+                                    <!-- <td class="text-right text-muted">{{ number_format($r->m2_partial_qty) }}</td> -->
                                     <td class="text-right text-muted">{{ number_format($r->prev_full_qty) }}</td>
                                     <td class="text-right font-weight-bold {{ $r->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom), 2) }} %
                                     </td>
-                                    <td class="text-right font-weight-bold {{ $r->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                    <!-- <td class="text-right font-weight-bold {{ $r->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom_m2), 2) }} %
-                                    </td>
+                                    </td> -->
                                 </tr>
 
                                 <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light">
@@ -1241,9 +1241,9 @@
                                                         <th class="border-top-0">Anggota Tim SF</th>
                                                         <th class="text-right border-top-0">Capai MTD</th>
                                                         <th class="text-right border-top-0">M-1</th>
-                                                        <th class="text-right border-top-0">M-2</th>
+                                                        <!-- <th class="text-right border-top-0">M-2</th> -->
                                                         <th class="text-right border-top-0">Growth (M-1)</th>
-                                                        <th class="text-right border-top-0">Growth (M-2)</th>
+                                                        <!-- <th class="text-right border-top-0">Growth (M-2)</th> -->
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1258,11 +1258,11 @@
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
                                                                 </span>
                                                             </td>
-                                                            <td class="text-right border-bottom-0 {{ $sf->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                                            <!-- <td class="text-right border-bottom-0 {{ $sf->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                                                 <span class="badge badge-{{ $sf->mom_m2 >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom_m2 >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
                                                                     {!! $sf->mom_m2 >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom_m2, 2) }} %
                                                                 </span>
-                                                            </td>
+                                                            </td> -->
                                                         </tr>
                                                     @endforeach
                                                 </tbody>
@@ -1279,14 +1279,14 @@
                                 <td class="border-0"><span class="badge badge-secondary mr-2">CLUSTER</span> Dumai Bengkalis</td>
                                 <td class="text-right border-0">{{ number_format($momCluster['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->prev_partial_qty) }}</td>
-                                <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty) }}</td>
+                                <!-- <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty) }}</td> -->
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->prev_full_qty) }}</td>
                                 <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom), 2) }} %
                                 </td>
-                                <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                <!-- <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom_m2), 2) }} %
-                                </td>
+                                </td> -->
                             </tr>
                             @endif
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
@@ -1294,14 +1294,14 @@
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
                                 <td class="text-right border-0">{{ number_format($momCluster['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->prev_partial_qty) }}</td>
-                                <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->m2_partial_qty) }}</td>
+                                <!-- <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->m2_partial_qty) }}</td> -->
                                 <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->prev_full_qty) }}</td>
                                 <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom), 2) }} %
                                 </td>
-                                <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                <!-- <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['rokan_hilir']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom_m2), 2) }} %
-                                </td>
+                                </td> -->
                             </tr>
                             @endif
                             @if(session('idtap') == 'SBP_DUMAI')
@@ -1315,7 +1315,7 @@
                                 <td class="border-0 font-weight-bold">✨ GRAND TOTAL MOM</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>
-                                <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty) }}</td>
+                                <!-- <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty) }}</td> -->
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevFull) }}</td>
                                 <td class="text-right border-0 font-weight-bold {{ $grandMom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMom), 2) }} %
@@ -1324,9 +1324,9 @@
                                     $grandM2Part = $momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty;
                                     $grandMomM2 = $grandM2Part > 0 ? (($grandCurr - $grandM2Part) / $grandM2Part) * 100 : 0;
                                 @endphp
-                                <td class="text-right border-0 font-weight-bold {{ $grandMomM2 >= 0 ? 'text-success' : 'text-danger' }}">
+                                <!-- <td class="text-right border-0 font-weight-bold {{ $grandMomM2 >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMomM2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMomM2), 2) }} %
-                                </td>
+                                </td> -->
                             </tr>
                             @endif
                         </tfoot>
