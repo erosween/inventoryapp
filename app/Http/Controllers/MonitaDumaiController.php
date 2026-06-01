@@ -19,6 +19,7 @@ class MonitaDumaiController extends Controller
             ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
             ->select(
                 'appsdumais.*',
+                'outlet_performance.total_sp_m as m_stsa',
                 'outlet_performance.total_m as m_stpv',
                 'outlet_performance.total_m1 as m1_stpv',
                 'outlet_performance.total_mom as mom_stpv',
@@ -67,6 +68,7 @@ class MonitaDumaiController extends Controller
             ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
             ->select(
                 'appsdumais.*',
+                'outlet_performance.total_sp_m as m_stsa',
                 'outlet_performance.total_m as m_stpv',
                 'outlet_performance.total_m1 as m1_stpv',
                 'outlet_performance.total_mom as mom_stpv',
