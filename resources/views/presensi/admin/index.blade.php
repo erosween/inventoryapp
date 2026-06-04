@@ -11,12 +11,35 @@
         'cepat_pulang' => 'Izin Cepat Pulang',
         'sakit' => 'Sakit',
     ];
+    $statusLabels = [
+        'submitted' => 'Menunggu',
+        'pending' => 'Menunggu',
+        'approved' => 'Disetujui',
+        'verified' => 'Terverifikasi',
+        'completed' => 'Selesai',
+        'rejected' => 'Ditolak',
+    ];
+    $statusClasses = [
+        'submitted' => 'warning',
+        'pending' => 'warning',
+        'approved' => 'success',
+        'verified' => 'success',
+        'completed' => 'success',
+        'rejected' => 'danger',
+    ];
+    $serviceRequestLabels = [
+        'cuti' => 'Pengajuan Cuti',
+        'ubah-kehadiran' => 'Ubah Kehadiran',
+        'lembur' => 'Lembur',
+        'reimbursement' => 'Reimbursement',
+        'pengeluaran' => 'Pengeluaran',
+    ];
 @endphp
 <div class="main-panel">
     <div class="content">
         <div class="page-inner">
             <div class="page-header">
-                <h4 class="page-title">Pengaturan Presensi</h4>
+                <h4 class="page-title">Command Center Presensi</h4>
                 <ul class="breadcrumbs">
                     <li class="nav-home">
                         <a href="{{ route('admin-presensi.index') }}"><i class="fas fa-house"></i></a>
@@ -28,15 +51,304 @@
                 </ul>
             </div>
 
-            <div class="row">
+            <nav class="admin-command-nav mb-4" aria-label="Menu admin presensi">
+                <a href="#overview" class="active"><i class="fas fa-chart-pie"></i><span>Overview</span></a>
+                <a href="#pengajuan"><i class="fas fa-inbox"></i><span>Pengajuan</span><em>{{ $dashboardStats['pending_total'] }}</em></a>
+                <a href="#monitoring"><i class="fas fa-user-clock"></i><span>Monitoring</span></a>
+                <a href="#karyawan"><i class="fas fa-users-gear"></i><span>Karyawan</span></a>
+                <a href="#riwayat"><i class="fas fa-clock-rotate-left"></i><span>Riwayat</span></a>
+                <a href="#pengaturan"><i class="fas fa-sliders"></i><span>Pengaturan</span></a>
+            </nav>
+
+            <section class="admin-ops-hero mb-4" id="overview">
+                <div class="ops-copy">
+                    <span class="ops-eyebrow">Super Admin Workspace</span>
+                    <h1>Kontrol presensi, approval, lokasi, dan jam kerja dari satu layar.</h1>
+                    <p>Dashboard ini memantau kehadiran hari ini, pengajuan cuti/izin, Face ID, struktur atasan, dan data karyawan.</p>
+                    <div class="ops-actions">
+                        <a href="#pengajuan" class="btn btn-light btn-round"><i class="fas fa-check-double mr-1"></i> Review Pengajuan</a>
+                        <a href="{{ route('presensi.login') }}" class="btn btn-outline-light btn-round" target="_blank"><i class="fas fa-mobile-screen-button mr-1"></i> Buka App Karyawan</a>
+                    </div>
+                </div>
+                <div class="ops-scoreboard">
+                    <div>
+                        <strong>{{ $dashboardStats['checked_in_today'] }}</strong>
+                        <span>Check-in hari ini</span>
+                    </div>
+                    <div>
+                        <strong>{{ $dashboardStats['pending_total'] }}</strong>
+                        <span>Butuh approval</span>
+                    </div>
+                    <div>
+                        <strong>{{ $dashboardStats['face_rate'] }}%</strong>
+                        <span>Face ID aktif</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="stats-grid mb-4">
+                <div class="ops-stat-card">
+                    <i class="fas fa-users"></i>
+                    <span>Karyawan Aktif</span>
+                    <strong>{{ $dashboardStats['active_employees'] }}</strong>
+                    <em>{{ $dashboardStats['total_employees'] }} total karyawan</em>
+                </div>
+                <div class="ops-stat-card success">
+                    <i class="fas fa-circle-check"></i>
+                    <span>Presensi Hari Ini</span>
+                    <strong>{{ $dashboardStats['checked_in_today'] }}</strong>
+                    <em>{{ $dashboardStats['completed_today'] }} sudah check-out</em>
+                </div>
+                <div class="ops-stat-card warning">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span>Terlambat Hari Ini</span>
+                    <strong>{{ $dashboardStats['late_today'] }}</strong>
+                    <em>Berbasis jam kerja karyawan</em>
+                </div>
+                <div class="ops-stat-card danger">
+                    <i class="fas fa-inbox"></i>
+                    <span>Menunggu Approval</span>
+                    <strong>{{ $dashboardStats['pending_total'] }}</strong>
+                    <em>{{ $dashboardStats['pending_attendance'] }} HR, {{ $dashboardStats['pending_services'] }} layanan</em>
+                </div>
+                <div class="ops-stat-card info">
+                    <i class="fas fa-location-crosshairs"></i>
+                    <span>Aturan Lokasi</span>
+                    <strong>{{ $dashboardStats['locked_location'] }}</strong>
+                    <em>{{ $dashboardStats['anywhere_location'] }} bebas lokasi</em>
+                </div>
+                <div class="ops-stat-card violet">
+                    <i class="fas fa-face-smile"></i>
+                    <span>Enrollment Face ID</span>
+                    <strong>{{ $dashboardStats['face_rate'] }}%</strong>
+                    <em>{{ $dashboardStats['face_ready'] }} wajah terdaftar</em>
+                </div>
+            </section>
+
+            <section class="row mb-4" id="monitoring">
+                <div class="col-lg-7 mb-4 mb-lg-0">
+                    <div class="card premium-card h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                    <i class="fas fa-chart-column mr-2"></i>Tren Kehadiran 7 Hari
+                                </h4>
+                                <span class="history-count-pill ml-auto">{{ $dashboardStats['completion_rate'] }}% checkout</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="admin-trend-chart">
+                                @foreach($attendanceTrend as $trend)
+                                    <div class="admin-trend-item">
+                                        <div class="admin-trend-track">
+                                            <span style="height: {{ $trend['height'] }}%;"></span>
+                                        </div>
+                                        <strong>{{ $trend['day'] }}</strong>
+                                        <em>{{ $trend['present'] }} hadir</em>
+                                    </div>
+                                @endforeach
+                            </div>
+                            <div class="trend-legend mt-3">
+                                <span><i class="legend-dot hadir"></i>Hadir</span>
+                                <span><i class="legend-dot late"></i>Telat</span>
+                                <span><i class="legend-dot request"></i>Pengajuan</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="card premium-card h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                <i class="fas fa-satellite-dish mr-2"></i>Live Monitoring Hari Ini
+                            </h4>
+                        </div>
+                        <div class="card-body live-monitor-list">
+                            @forelse($todayAttendances->take(6) as $attendance)
+                                @php($employeeRow = $attendance->employee)
+                                @php($arrival = $attendance->arrivalStatus())
+                                <div class="live-monitor-item">
+                                    <div class="live-avatar">{{ strtoupper(substr($employeeRow?->name ?? 'K', 0, 1)) }}</div>
+                                    <div class="min-w-0 flex-grow-1">
+                                        <strong>{{ $employeeRow?->name ?? '-' }}</strong>
+                                        <span>{{ $attendanceTypeLabels[$attendance->attendance_type] ?? ucfirst($attendance->attendance_type) }} - {{ $attendance->check_in_at?->format('H:i') ?? 'Belum masuk' }}</span>
+                                    </div>
+                                    <em class="{{ $arrival['class'] }}">{{ $arrival['label'] }}</em>
+                                </div>
+                            @empty
+                                <div class="empty-admin-panel">Belum ada check-in hari ini.</div>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="row mb-4" id="pengajuan">
+                <div class="col-xl-6 mb-4 mb-xl-0">
+                    <div class="card premium-card h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                    <i class="fas fa-file-signature mr-2"></i>Approval Cuti / Izin / Sakit
+                                </h4>
+                                <span class="history-count-pill ml-auto">{{ $dashboardStats['pending_attendance'] }} pending</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="presence-request-table" class="table table-indigo table-hover w-100">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>Karyawan</th>
+                                            <th>Pengajuan</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($attendanceRequests as $requestRow)
+                                            @php($employeeRow = $requestRow->employee)
+                                            @php($isPending = in_array($requestRow->status, ['submitted', 'pending'], true))
+                                            <tr>
+                                                <td data-order="{{ $requestRow->attendance_date?->format('Ymd') }}{{ $requestRow->created_at?->format('His') }}">
+                                                    <div class="font-weight-bold">{{ $requestRow->attendance_date?->format('d M Y') }}</div>
+                                                    <div class="small text-muted">{{ $requestRow->created_at?->format('H:i') }}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="font-weight-bold">{{ $employeeRow?->name ?? '-' }}</div>
+                                                    <div class="small text-muted">{{ $employeeRow?->employee_code ?? '-' }}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="font-weight-bold">{{ $attendanceTypeLabels[$requestRow->attendance_type] ?? ucfirst($requestRow->attendance_type) }}</div>
+                                                    <div class="request-note">{{ $requestRow->reason ?: 'Tidak ada keterangan.' }}</div>
+                                                </td>
+                                                <td>
+                                                    <span class="approval-pill {{ $statusClasses[$requestRow->status] ?? 'warning' }}">
+                                                        {{ $statusLabels[$requestRow->status] ?? strtoupper($requestRow->status) }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if($isPending)
+                                                        <div class="approval-actions">
+                                                            <form action="{{ route('admin-presensi.attendance-status', $requestRow) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="status" value="approved">
+                                                                <button type="submit" class="btn btn-success btn-sm btn-round"><i class="fas fa-check"></i></button>
+                                                            </form>
+                                                            <form action="{{ route('admin-presensi.attendance-status', $requestRow) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="status" value="rejected">
+                                                                <button type="submit" class="btn btn-outline-danger btn-sm btn-round"><i class="fas fa-xmark"></i></button>
+                                                            </form>
+                                                        </div>
+                                                    @else
+                                                        <span class="small text-muted font-weight-bold">Selesai</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-6">
+                    <div class="card premium-card h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                    <i class="fas fa-briefcase mr-2"></i>Pengajuan Layanan Karyawan
+                                </h4>
+                                <span class="history-count-pill ml-auto">{{ $dashboardStats['pending_services'] }} pending</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="presence-service-request-table" class="table table-indigo table-hover w-100">
+                                    <thead>
+                                        <tr>
+                                            <th>Dibuat</th>
+                                            <th>Karyawan</th>
+                                            <th>Layanan</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($presenceRequests as $serviceRequest)
+                                            @php($employeeRow = $serviceRequest->employee)
+                                            @php($isPending = $serviceRequest->status === 'pending')
+                                            <tr>
+                                                <td data-order="{{ $serviceRequest->created_at?->format('YmdHis') }}">
+                                                    <div class="font-weight-bold">{{ $serviceRequest->created_at?->format('d M Y') }}</div>
+                                                    <div class="small text-muted">{{ $serviceRequest->created_at?->format('H:i') }}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="font-weight-bold">{{ $employeeRow?->name ?? '-' }}</div>
+                                                    <div class="small text-muted">{{ $employeeRow?->employee_code ?? '-' }}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="font-weight-bold">{{ $serviceRequestLabels[$serviceRequest->request_type] ?? strtoupper(str_replace('-', ' ', $serviceRequest->request_type)) }}</div>
+                                                    <div class="request-note">
+                                                        {{ $serviceRequest->category }}
+                                                        @if($serviceRequest->start_date)
+                                                            - {{ $serviceRequest->start_date?->format('d M') }}{{ $serviceRequest->end_date && !$serviceRequest->end_date->equalTo($serviceRequest->start_date) ? ' - ' . $serviceRequest->end_date->format('d M') : '' }}
+                                                        @endif
+                                                        @if($serviceRequest->amount)
+                                                            - Rp {{ number_format((float) $serviceRequest->amount, 0, ',', '.') }}
+                                                        @endif
+                                                    </div>
+                                                    <div class="request-note">{{ $serviceRequest->description ?: '-' }}</div>
+                                                    @if($serviceRequest->attachment_path)
+                                                        <a href="{{ asset('storage/' . $serviceRequest->attachment_path) }}" target="_blank" class="attachment-link">
+                                                            <i class="fas fa-paperclip mr-1"></i>Lampiran
+                                                        </a>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <span class="approval-pill {{ $statusClasses[$serviceRequest->status] ?? 'warning' }}">
+                                                        {{ $statusLabels[$serviceRequest->status] ?? strtoupper($serviceRequest->status) }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if($isPending)
+                                                        <div class="approval-actions">
+                                                            <form action="{{ route('admin-presensi.request-status', $serviceRequest) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="status" value="approved">
+                                                                <button type="submit" class="btn btn-success btn-sm btn-round"><i class="fas fa-check"></i></button>
+                                                            </form>
+                                                            <form action="{{ route('admin-presensi.request-status', $serviceRequest) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="status" value="rejected">
+                                                                <button type="submit" class="btn btn-outline-danger btn-sm btn-round"><i class="fas fa-xmark"></i></button>
+                                                            </form>
+                                                        </div>
+                                                    @else
+                                                        <span class="small text-muted font-weight-bold">Selesai</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="row" id="pengaturan">
                 <div class="col-md-12">
                     <div class="card card-round border-0 shadow-sm text-white mb-4" style="background: linear-gradient(135deg, #5b37e5 0%, #2f1aa8 100%);">
                         <div class="card-body py-4">
                             <div class="d-flex align-items-center justify-content-between flex-wrap">
                                 <div>
-                                    <div class="text-white-50 font-weight-bold text-uppercase small mb-1">Super Admin</div>
-                                    <h2 class="font-weight-bold mb-1">Lokasi & Jam Kerja Presensi</h2>
-                                    <p class="mb-0 text-white-50">Level 1 GM. Level 2 SPV/Manager. Level 3 Admin/Sales bisa dipilihkan atasan.</p>
+                                    <div class="text-white-50 font-weight-bold text-uppercase small mb-1">Pengaturan Operasional</div>
+                                    <h2 class="font-weight-bold mb-1">Lokasi, Jam Kerja, dan Struktur Karyawan</h2>
+                                    <p class="mb-0 text-white-50">Upload karyawan, atur level, atasan, radius lokasi, jam masuk, jam pulang, dan toleransi keterlambatan.</p>
                                 </div>
                                 <div class="text-right mt-3 mt-md-0">
                                     <div class="h1 font-weight-bold mb-0">{{ $employees->count() }}</div>
@@ -119,7 +431,7 @@
                 </div>
             </div>
 
-            <div class="row">
+            <div class="row" id="karyawan">
                 <div class="col-md-12">
                     <div class="card premium-card">
                         <div class="card-header bg-white border-bottom py-3">
@@ -165,7 +477,7 @@
                                                 <td>
                                                     @if($photoPath)
                                                         <button type="button" class="attendance-photo-btn" data-toggle="modal" data-target="#attendancePhoto{{ $employee->id }}">
-                                                            <img src="{{ route('admin-presensi.attendance-photo', [$latestAttendance, 'thumb']) }}" alt="Foto presensi {{ $employee->name }}" loading="lazy" data-photo-fallback="true">
+                                                            <img src="{{ route('admin-presensi.attendance-photo', [$latestAttendance, 'thumb'], false) }}" alt="Foto presensi {{ $employee->name }}" loading="lazy" data-photo-fallback="true">
                                                             <span>Match {{ $latestAttendance->face_match_score }}%</span>
                                                         </button>
                                                         <div class="small text-muted mt-1">{{ $latestAttendance->attendance_date?->format('d M Y') }}</div>
@@ -216,7 +528,7 @@
                 </div>
             </div>
 
-            <div class="row mt-4">
+            <div class="row mt-4" id="riwayat">
                 <div class="col-md-12">
                     <div class="card premium-card">
                         <div class="card-header bg-white border-bottom py-3">
@@ -256,8 +568,8 @@
                                                     <div class="small text-muted">{{ $employeeRow?->employee_code ?? '-' }} - {{ $employeeRow?->department ?? '-' }}</div>
                                                 </td>
                                                 <td>
-                                                    <span class="badge badge-{{ in_array($attendance->status, ['verified', 'completed'], true) ? 'success' : 'warning' }}">
-                                                        {{ strtoupper($attendance->status) }}
+                                                    <span class="badge badge-{{ $statusClasses[$attendance->status] ?? 'warning' }}">
+                                                        {{ $statusLabels[$attendance->status] ?? strtoupper($attendance->status) }}
                                                     </span>
                                                     <div class="small text-muted mt-1">{{ $attendanceTypeLabels[$attendance->attendance_type] ?? ucfirst(str_replace('_', ' ', $attendance->attendance_type)) }}</div>
                                                 </td>
@@ -271,7 +583,7 @@
                                                 <td>
                                                     @if($attendance->face_photo_path)
                                                         <button type="button" class="attendance-photo-btn mini" data-toggle="modal" data-target="#attendanceHistoryPhoto{{ $attendance->id }}">
-                                                            <img src="{{ route('admin-presensi.attendance-photo', [$attendance, 'thumb']) }}" alt="Foto presensi {{ $employeeRow?->name }}" loading="lazy" data-photo-fallback="true">
+                                                            <img src="{{ route('admin-presensi.attendance-photo', [$attendance, 'thumb'], false) }}" alt="Foto presensi {{ $employeeRow?->name }}" loading="lazy" data-photo-fallback="true">
                                                             <span>{{ $attendance->face_match_score }}%</span>
                                                         </button>
                                                     @else
@@ -619,7 +931,7 @@
                             </button>
                         </div>
                         <div class="modal-body">
-                            <img src="{{ route('admin-presensi.attendance-photo', [$employee->latestAttendance, 'full']) }}" alt="Foto presensi {{ $employee->name }}" class="attendance-photo-full" data-photo-fallback="true">
+                            <img src="{{ route('admin-presensi.attendance-photo', [$employee->latestAttendance, 'full'], false) }}" alt="Foto presensi {{ $employee->name }}" class="attendance-photo-full" data-photo-fallback="true">
                             <div class="attendance-photo-meta">
                                 <span><i class="fas fa-calendar-day mr-1"></i>{{ $employee->latestAttendance->attendance_date?->format('d M Y') }}</span>
                                 <span><i class="fas fa-clock mr-1"></i>{{ $employee->latestAttendance->check_in_at?->format('H:i') ?? '-' }}</span>
@@ -647,7 +959,7 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        <img src="{{ route('admin-presensi.attendance-photo', [$attendance, 'full']) }}" alt="Foto presensi {{ $employeeRow?->name }}" class="attendance-photo-full" data-photo-fallback="true">
+                        <img src="{{ route('admin-presensi.attendance-photo', [$attendance, 'full'], false) }}" alt="Foto presensi {{ $employeeRow?->name }}" class="attendance-photo-full" data-photo-fallback="true">
                         <div class="attendance-photo-meta">
                             <span><i class="fas fa-calendar-day mr-1"></i>{{ $attendance->attendance_date?->format('d M Y') }}</span>
                             <span><i class="fas fa-clock mr-1"></i>{{ $attendance->check_in_at?->format('H:i') ?? '-' }}</span>
@@ -662,6 +974,422 @@
 
 @push('styles')
 <style>
+    html {
+        scroll-behavior: smooth;
+    }
+
+    .admin-command-nav {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid rgba(232,234,246,0.96);
+        border-radius: 22px;
+        background: rgba(255,255,255,0.82);
+        box-shadow: 0 18px 44px rgba(31,35,85,0.06);
+        backdrop-filter: blur(14px);
+        position: sticky;
+        top: 10px;
+        z-index: 20;
+    }
+
+    .admin-command-nav a {
+        min-height: 52px;
+        border-radius: 16px;
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #737997;
+        background: transparent;
+        font-size: 0.74rem;
+        font-weight: 900;
+        text-decoration: none;
+        position: relative;
+    }
+
+    .admin-command-nav a.active,
+    .admin-command-nav a:hover {
+        color: #5b37e5;
+        background: #f1edff;
+        text-decoration: none;
+    }
+
+    .admin-command-nav em {
+        min-width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        background: #ef4444;
+        font-size: 0.64rem;
+        font-style: normal;
+        font-weight: 900;
+    }
+
+    .admin-ops-hero {
+        min-height: 280px;
+        border-radius: 28px;
+        padding: 28px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 330px;
+        gap: 24px;
+        color: #fff;
+        background:
+            linear-gradient(135deg, rgba(16,19,51,0.92) 0%, rgba(91,55,229,0.92) 58%, rgba(15,118,110,0.9) 100%),
+            url("https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1800&q=80");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 24px 60px rgba(31,35,85,0.18);
+        overflow: hidden;
+    }
+
+    .ops-copy {
+        max-width: 760px;
+        align-self: center;
+    }
+
+    .ops-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border-radius: 999px;
+        padding: 7px 12px;
+        color: #dff7ed;
+        background: rgba(255,255,255,0.14);
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .ops-copy h1 {
+        max-width: 760px;
+        margin: 15px 0 10px;
+        font-size: 2.22rem;
+        line-height: 1.08;
+        font-weight: 900;
+    }
+
+    .ops-copy p {
+        max-width: 640px;
+        margin: 0;
+        color: rgba(255,255,255,0.78);
+        font-size: 0.94rem;
+        font-weight: 700;
+        line-height: 1.6;
+    }
+
+    .ops-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+    }
+
+    .ops-actions .btn {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ops-scoreboard {
+        align-self: stretch;
+        display: grid;
+        gap: 12px;
+    }
+
+    .ops-scoreboard > div {
+        min-height: 76px;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 20px;
+        padding: 18px;
+        display: grid;
+        align-content: center;
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(12px);
+    }
+
+    .ops-scoreboard strong {
+        font-size: 2rem;
+        line-height: 1;
+        font-weight: 900;
+    }
+
+    .ops-scoreboard span {
+        margin-top: 5px;
+        color: rgba(255,255,255,0.72);
+        font-size: 0.74rem;
+        font-weight: 900;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .ops-stat-card {
+        min-height: 156px;
+        border: 1px solid rgba(232,234,246,0.96);
+        border-radius: 22px;
+        padding: 18px;
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        background: #fff;
+        box-shadow: 0 18px 44px rgba(31,35,85,0.07);
+    }
+
+    .ops-stat-card i {
+        width: 38px;
+        height: 38px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #5b37e5;
+        background: #f1edff;
+        font-size: 1rem;
+    }
+
+    .ops-stat-card span {
+        color: #737997;
+        font-size: 0.68rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .ops-stat-card strong {
+        color: #101333;
+        font-size: 1.9rem;
+        line-height: 1;
+        font-weight: 900;
+    }
+
+    .ops-stat-card em {
+        color: #737997;
+        font-size: 0.7rem;
+        font-style: normal;
+        font-weight: 800;
+        line-height: 1.35;
+    }
+
+    .ops-stat-card.success i { color: #047857; background: #dcfce7; }
+    .ops-stat-card.warning i { color: #b45309; background: #fef3c7; }
+    .ops-stat-card.danger i { color: #dc2626; background: #fee2e2; }
+    .ops-stat-card.info i { color: #2563eb; background: #e7efff; }
+    .ops-stat-card.violet i { color: #6d28d9; background: #f3e8ff; }
+
+    .admin-trend-chart {
+        min-height: 230px;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        align-items: end;
+        gap: 12px;
+    }
+
+    .admin-trend-item {
+        display: grid;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .admin-trend-track {
+        height: 160px;
+        border-radius: 999px;
+        padding: 6px;
+        display: flex;
+        align-items: end;
+        background: #f5f6ff;
+    }
+
+    .admin-trend-track span {
+        width: 100%;
+        min-height: 18px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #5b37e5 0%, #0f766e 100%);
+        box-shadow: 0 10px 20px rgba(91,55,229,0.18);
+    }
+
+    .admin-trend-item strong {
+        color: #101333;
+        font-size: 0.72rem;
+        font-weight: 900;
+    }
+
+    .admin-trend-item em {
+        color: #737997;
+        font-size: 0.62rem;
+        font-style: normal;
+        font-weight: 800;
+    }
+
+    .trend-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .trend-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #737997;
+        font-size: 0.7rem;
+        font-weight: 900;
+    }
+
+    .legend-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        display: inline-block;
+    }
+
+    .legend-dot.hadir { background: #5b37e5; }
+    .legend-dot.late { background: #f59e0b; }
+    .legend-dot.request { background: #0f766e; }
+
+    .live-monitor-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .live-monitor-item {
+        min-height: 72px;
+        border: 1px solid #e8eaf6;
+        border-radius: 18px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #fff;
+    }
+
+    .live-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        background: linear-gradient(135deg, #5b37e5, #2563eb);
+        flex: 0 0 auto;
+        font-weight: 900;
+    }
+
+    .live-monitor-item strong,
+    .live-monitor-item span {
+        display: block;
+    }
+
+    .live-monitor-item strong {
+        overflow: hidden;
+        color: #101333;
+        font-size: 0.82rem;
+        font-weight: 900;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .live-monitor-item span {
+        overflow: hidden;
+        color: #737997;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .live-monitor-item em,
+    .approval-pill {
+        border-radius: 999px;
+        padding: 7px 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.64rem;
+        font-style: normal;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .live-monitor-item em.success,
+    .approval-pill.success { color: #047857; background: #dcfce7; }
+    .live-monitor-item em.warning,
+    .approval-pill.warning { color: #b45309; background: #fef3c7; }
+    .live-monitor-item em.info,
+    .approval-pill.info { color: #2563eb; background: #e7efff; }
+    .live-monitor-item em.danger,
+    .approval-pill.danger { color: #dc2626; background: #fee2e2; }
+
+    .request-note {
+        max-width: 320px;
+        overflow: hidden;
+        color: #737997;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .attachment-link {
+        min-height: 26px;
+        border-radius: 999px;
+        padding: 5px 9px;
+        display: inline-flex;
+        align-items: center;
+        margin-top: 5px;
+        color: #2563eb;
+        background: #e7efff;
+        font-size: 0.64rem;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .attachment-link:hover {
+        color: #1d4ed8;
+        text-decoration: none;
+    }
+
+    .approval-actions {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .approval-actions form {
+        margin: 0;
+    }
+
+    .approval-actions .btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .empty-admin-panel {
+        min-height: 128px;
+        border: 1px dashed #d8dcf0;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #737997;
+        background: #fbfbff;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-align: center;
+    }
+
     .level-card {
         min-height: 120px;
         border-radius: 18px;
@@ -858,6 +1586,37 @@
     }
 
     @media (max-width: 575.98px) {
+        .admin-command-nav {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            position: static;
+        }
+
+        .admin-command-nav a {
+            min-height: 48px;
+            font-size: 0.68rem;
+        }
+
+        .admin-ops-hero {
+            grid-template-columns: 1fr;
+            padding: 22px;
+        }
+
+        .ops-copy h1 {
+            font-size: 1.55rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .ops-stat-card {
+            min-height: 146px;
+        }
+
+        .admin-trend-chart {
+            gap: 8px;
+        }
+
         .presence-admin-actions {
             width: 100%;
             margin-left: 0 !important;
@@ -874,16 +1633,78 @@
             text-align: left;
         }
     }
+
+    @media (min-width: 576px) and (max-width: 991.98px) {
+        .admin-command-nav {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .admin-ops-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (min-width: 992px) and (max-width: 1399.98px) {
+        .stats-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script>
     $(document).ready(function() {
-        $('#presence-admin-table').DataTable({ pageLength: 10 });
-        $('#presence-history-table').DataTable({
-            pageLength: 10,
-            order: [[0, 'desc']],
+        const initDataTable = function(selector, options = {}) {
+            if ($(selector).length) {
+                $(selector).DataTable(Object.assign({
+                    pageLength: 8,
+                    autoWidth: false,
+                    language: {
+                        search: 'Cari:',
+                        lengthMenu: 'Tampilkan _MENU_ data',
+                        info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
+                        infoEmpty: 'Belum ada data',
+                        zeroRecords: 'Data tidak ditemukan',
+                        paginate: { previous: 'Prev', next: 'Next' },
+                    },
+                }, options));
+            }
+        };
+
+        initDataTable('#presence-request-table', { order: [[0, 'desc']] });
+        initDataTable('#presence-service-request-table', { order: [[0, 'desc']] });
+        initDataTable('#presence-admin-table', { pageLength: 10 });
+        initDataTable('#presence-history-table', { pageLength: 10, order: [[0, 'desc']] });
+
+        $('.admin-command-nav a').on('click', function() {
+            $('.admin-command-nav a').removeClass('active');
+            $(this).addClass('active');
+        });
+
+        $('.approval-actions form').on('submit', function(event) {
+            event.preventDefault();
+            const form = this;
+            const status = $(form).find('input[name="status"]').val();
+            const isApprove = status === 'approved';
+
+            Swal.fire({
+                icon: isApprove ? 'question' : 'warning',
+                title: isApprove ? 'Setujui pengajuan?' : 'Tolak pengajuan?',
+                text: isApprove ? 'Status akan berubah menjadi disetujui.' : 'Status akan berubah menjadi ditolak.',
+                showCancelButton: true,
+                confirmButtonText: isApprove ? 'Ya, setujui' : 'Ya, tolak',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: isApprove ? '#16a34a' : '#dc2626',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
         });
 
         $('.employee-level-select').on('change', function() {

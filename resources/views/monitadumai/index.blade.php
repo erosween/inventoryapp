@@ -662,6 +662,13 @@
             margin-top: 10px;
         }
 
+        .tap-active-scroll {
+            max-height: 72vh;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+
         .table-view-toolbar {
             display: flex;
             align-items: center;
@@ -712,6 +719,7 @@
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
+            min-width: 980px;
         }
 
         .tap-active-table th,
@@ -725,6 +733,9 @@
         }
 
         .tap-active-table th {
+            position: sticky;
+            top: 0;
+            z-index: 4;
             background: #f6f7f9;
             color: #667085;
             text-transform: uppercase;
@@ -732,11 +743,26 @@
             text-align: center;
         }
 
+        .tap-active-table thead tr:nth-child(2) th {
+            top: 37px;
+            z-index: 4;
+        }
+
         .tap-active-table th:first-child,
         .tap-active-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background: #fff;
+            box-shadow: 1px 0 0 #edf0f4;
             text-align: left;
             font-weight: 900;
             width: 16%;
+        }
+
+        .tap-active-table thead th:first-child {
+            z-index: 6;
+            background: #f6f7f9;
         }
 
         .tap-active-table td {
@@ -765,6 +791,10 @@
         }
 
         .tap-active-table .active-group-row td:first-child {
+            left: 0;
+            z-index: 3;
+            background: #20293a;
+            box-shadow: 1px 0 0 rgba(255,255,255,0.08);
             text-align: left;
         }
 
@@ -1485,26 +1515,58 @@
 
         /* RESPONSIVE BREAKPOINTS */
         @media (max-width: 520px) {
+            body {
+                background: #1f1d2b;
+            }
+
+            .header {
+                padding: 10px 8px;
+            }
+
+            .container {
+                max-width: calc(100vw - 10px);
+                margin: 6px auto;
+                padding: 0;
+                padding-bottom: 72px;
+            }
+
             .leader-dashboard {
-                padding: 18px;
-                border-radius: 24px;
+                padding: 10px;
+                border-radius: 18px;
+                margin-bottom: 12px;
             }
 
             .leader-top,
             .leader-grid {
                 grid-template-columns: 1fr;
+                gap: 12px;
             }
 
             .leader-title {
-                font-size: 24px;
+                font-size: 22px;
+            }
+
+            .leader-subtitle {
+                font-size: 12px;
+                line-height: 1.55;
+            }
+
+            .leader-top-actions {
+                margin-bottom: 14px;
             }
 
             .leader-kpis {
                 grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .coverage-kpi {
+                padding: 12px;
             }
 
             .coverage-gauges {
                 grid-template-columns: 1fr;
+                gap: 10px;
             }
 
             .coverage-gauge {
@@ -1512,24 +1574,122 @@
                 height: 74px;
             }
 
+            .territory-panel {
+                border-radius: 18px;
+                padding: 10px;
+                margin-top: 18px;
+            }
+
             .map-toolbar {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+
+            .map-toggle {
+                min-height: 38px;
+                border-radius: 12px;
+                gap: 6px;
+                font-size: 11px;
+            }
+
+            .map-toggle[data-map-mode="competition"] {
+                grid-column: 1 / -1;
+            }
+
+            .map-mode-note {
+                min-height: 0;
+                align-items: flex-start;
+                padding: 9px 10px;
+                font-size: 11px;
+                line-height: 1.45;
+                margin-bottom: 10px;
             }
 
             .map-thresholds {
-                grid-template-columns: 1fr;
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+                margin-bottom: 10px;
+            }
+
+            .threshold-field {
+                min-width: 0;
+                padding: 8px 6px;
+                border-radius: 12px;
+                display: grid;
+                justify-items: center;
+                gap: 6px;
+            }
+
+            .threshold-field input {
+                width: 58px;
+                height: 32px;
+            }
+
+            .threshold-field label {
+                font-size: 9px;
             }
 
             .map-legend-row {
                 grid-template-columns: 1fr;
+                gap: 6px;
+                margin-bottom: 10px;
+            }
+
+            .map-legend-item {
+                min-height: 32px;
+                padding: 7px 10px;
+                font-size: 10px;
+            }
+
+            #leader-map {
+                height: 430px;
+                border-radius: 16px;
             }
 
             .insight-strip {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: 1fr;
+                gap: 8px;
             }
 
             .territory-legend {
                 grid-template-columns: 1fr;
+            }
+
+            .table-view-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+                padding: 10px;
+            }
+
+            .table-view-toggle {
+                width: 100%;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .table-view-btn {
+                min-width: 0;
+                min-height: 32px;
+                font-size: 9px;
+            }
+
+            .tap-active-scroll {
+                max-height: 62vh;
+            }
+
+            .tap-active-table table {
+                min-width: 860px;
+            }
+
+            .tap-active-table th,
+            .tap-active-table td {
+                padding: 9px 8px;
+                font-size: 9px;
+            }
+
+            .tap-active-table th:first-child,
+            .tap-active-table td:first-child {
+                width: 150px;
             }
 
             .mix-row {
@@ -1943,28 +2103,30 @@
                                 <button type="button" class="table-view-btn" data-table-view="sales_force">Sales Force</button>
                             </div>
                         </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th rowspan="2" id="active-table-dimension">TAP</th>
-                                    <th colspan="3">Outlet Aktif CVM</th>
-                                    <th colspan="3">Outlet Aktif PV</th>
-                                    <th colspan="3">Outlet Aktif SA</th>
-                                </tr>
-                                <tr>
-                                    <th>M</th>
-                                    <th>M-1</th>
-                                    <th>MoM</th>
-                                    <th>M</th>
-                                    <th>M-1</th>
-                                    <th>MoM</th>
-                                    <th>M</th>
-                                    <th>M-1</th>
-                                    <th>MoM</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tap-active-body"></tbody>
-                        </table>
+                        <div class="tap-active-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2" id="active-table-dimension">TAP</th>
+                                        <th colspan="3">Outlet Aktif CVM</th>
+                                        <th colspan="3">Outlet Aktif PV</th>
+                                        <th colspan="3">Outlet Aktif SA</th>
+                                    </tr>
+                                    <tr>
+                                        <th>M</th>
+                                        <th>M-1</th>
+                                        <th>MoM</th>
+                                        <th>M</th>
+                                        <th>M-1</th>
+                                        <th>MoM</th>
+                                        <th>M</th>
+                                        <th>M-1</th>
+                                        <th>MoM</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tap-active-body"></tbody>
+                            </table>
+                        </div>
                     </div>
             </div>
 

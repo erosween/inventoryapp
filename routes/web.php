@@ -253,6 +253,8 @@ Route::prefix('admin-presensi')->name('admin-presensi.')->group(function () {
     Route::get('/', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'index'])->name('index');
     Route::get('/template', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'template'])->name('template');
     Route::get('/attendances/{attendance}/photo/{variant?}', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'attendancePhoto'])->name('attendance-photo');
+    Route::post('/attendances/{attendance}/status', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'updateAttendanceStatus'])->name('attendance-status');
+    Route::post('/requests/{presenceRequest}/status', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'updatePresenceRequestStatus'])->name('request-status');
     Route::post('/import', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'import'])->name('import');
     Route::post('/employees', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'store'])->name('store');
     Route::post('/employees/{employee}', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'update'])->name('update');

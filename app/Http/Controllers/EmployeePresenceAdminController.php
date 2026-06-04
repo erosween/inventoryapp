@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceEmployee;
 use App\Models\EmployeeAttendance;
+use App\Models\EmployeePresenceRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,8 +75,47 @@ class EmployeePresenceAdminController extends Controller
             ->orderByDesc('created_at')
             ->limit(150)
             ->get();
+        $todayAttendances = EmployeeAttendance::with('employee')
+            ->whereDate('attendance_date', now()->toDateString())
+            ->orderByDesc('created_at')
+            ->get();
+        $attendanceRequests = EmployeeAttendance::with('employee')
+            ->whereIn('attendance_type', ['cuti', 'sakit', 'terlambat', 'cepat_pulang'])
+            ->latest()
+            ->limit(120)
+            ->get()
+            ->sortBy(fn ($attendance) => match ($attendance->status) {
+                'submitted', 'pending' => 0,
+                'approved' => 1,
+                'verified', 'completed' => 2,
+                'rejected' => 3,
+                default => 4,
+            })
+            ->values();
+        $presenceRequests = EmployeePresenceRequest::with('employee')
+            ->latest()
+            ->limit(120)
+            ->get()
+            ->sortBy(fn ($request) => match ($request->status) {
+                'pending' => 0,
+                'approved' => 1,
+                'rejected' => 2,
+                default => 3,
+            })
+            ->values();
+        $dashboardStats = $this->dashboardStats($employees, $todayAttendances, $attendanceHistory, $attendanceRequests, $presenceRequests);
+        $attendanceTrend = $this->attendanceTrend($attendanceHistory);
 
-        return view('presensi.admin.index', compact('employees', 'supervisors', 'attendanceHistory'));
+        return view('presensi.admin.index', compact(
+            'employees',
+            'supervisors',
+            'attendanceHistory',
+            'todayAttendances',
+            'attendanceRequests',
+            'presenceRequests',
+            'dashboardStats',
+            'attendanceTrend'
+        ));
     }
 
     public function store(Request $request)
@@ -247,6 +287,45 @@ class EmployeePresenceAdminController extends Controller
         ]);
     }
 
+    public function updateAttendanceStatus(Request $request, EmployeeAttendance $attendance)
+    {
+        if ($redirect = $this->redirectIfNotPresenceAdmin()) {
+            return $redirect;
+        }
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['approved', 'rejected'])],
+        ]);
+
+        $attendance->update([
+            'status' => $validated['status'],
+        ]);
+
+        $message = $validated['status'] === 'approved' ? 'Pengajuan presensi disetujui.' : 'Pengajuan presensi ditolak.';
+
+        return back()->with('success', $message);
+    }
+
+    public function updatePresenceRequestStatus(Request $request, EmployeePresenceRequest $presenceRequest)
+    {
+        if ($redirect = $this->redirectIfNotPresenceAdmin()) {
+            return $redirect;
+        }
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['approved', 'rejected'])],
+        ]);
+
+        $presenceRequest->update([
+            'status' => $validated['status'],
+            'approved_at' => $validated['status'] === 'approved' ? now() : null,
+        ]);
+
+        $message = $validated['status'] === 'approved' ? 'Pengajuan layanan disetujui.' : 'Pengajuan layanan ditolak.';
+
+        return back()->with('success', $message);
+    }
+
     private function redirectIfNotPresenceAdmin()
     {
         if (Session::has('presence_admin_id')) {
@@ -271,6 +350,54 @@ SVG;
             'Content-Type' => 'image/svg+xml',
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    private function dashboardStats($employees, $todayAttendances, $attendanceHistory, $attendanceRequests, $presenceRequests): array
+    {
+        $activeEmployees = $employees->where('status', 'active')->count();
+        $checkedIn = $todayAttendances->filter(fn ($attendance) => !empty($attendance->check_in_at))->count();
+        $completed = $todayAttendances->filter(fn ($attendance) => !empty($attendance->check_out_at))->count();
+        $lateToday = $todayAttendances->filter(fn ($attendance) => $attendance->lateMinutes() > 0 || $attendance->attendance_type === 'terlambat')->count();
+        $pendingAttendance = $attendanceRequests->whereIn('status', ['submitted', 'pending'])->count();
+        $pendingServices = $presenceRequests->where('status', 'pending')->count();
+        $faceReady = $employees->filter(fn ($employee) => !empty($employee->face_enrolled_at))->count();
+
+        return [
+            'total_employees' => $employees->count(),
+            'active_employees' => $activeEmployees,
+            'checked_in_today' => $checkedIn,
+            'completed_today' => $completed,
+            'late_today' => $lateToday,
+            'pending_total' => $pendingAttendance + $pendingServices,
+            'pending_attendance' => $pendingAttendance,
+            'pending_services' => $pendingServices,
+            'face_ready' => $faceReady,
+            'face_rate' => $employees->count() > 0 ? (int) round(($faceReady / $employees->count()) * 100) : 0,
+            'locked_location' => $employees->filter(fn ($employee) => !$employee->canAttendAnywhere())->count(),
+            'anywhere_location' => $employees->filter(fn ($employee) => $employee->canAttendAnywhere())->count(),
+            'history_count' => $attendanceHistory->count(),
+            'completion_rate' => $checkedIn > 0 ? (int) round(($completed / $checkedIn) * 100) : 0,
+        ];
+    }
+
+    private function attendanceTrend($attendanceHistory)
+    {
+        return collect(range(6, 0))->map(function (int $daysAgo) use ($attendanceHistory) {
+            $date = now()->copy()->subDays($daysAgo);
+            $rows = $attendanceHistory->filter(fn ($attendance) => $attendance->attendance_date?->isSameDay($date));
+            $present = $rows->filter(fn ($attendance) => !empty($attendance->check_in_at))->count();
+            $late = $rows->filter(fn ($attendance) => $attendance->lateMinutes() > 0 || $attendance->attendance_type === 'terlambat')->count();
+            $requests = $rows->whereIn('attendance_type', ['cuti', 'sakit', 'cepat_pulang'])->count();
+
+            return [
+                'day' => $date->locale('id')->translatedFormat('D'),
+                'date' => $date->format('d M'),
+                'present' => $present,
+                'late' => $late,
+                'requests' => $requests,
+                'height' => min(100, max(18, ($present * 28) + ($requests * 18) + ($late * 12))),
+            ];
+        });
     }
 
     private function validatedSupervisorId(?AttendanceEmployee $employee, int $level, mixed $supervisorId): ?int
