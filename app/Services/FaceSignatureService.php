@@ -10,16 +10,45 @@ class FaceSignatureService
 
     public function storeImage(string $image, string $folder, string $prefix): ?string
     {
+        $stored = $this->storeCompressedImage($image, $folder, $prefix, 960, 84, null);
+
+        return $stored['path'] ?? null;
+    }
+
+    public function storeCompressedImage(string $image, string $folder, string $prefix, int $maxSide = 960, int $quality = 82, ?int $thumbnailSide = 240): ?array
+    {
         $binary = $this->binaryFromDataUrl($image);
         if (!$binary) {
             return null;
         }
 
-        $safePrefix = preg_replace('/[^A-Za-z0-9_-]/', '_', $prefix);
-        $path = trim($folder, '/') . '/' . $safePrefix . '-' . now()->format('YmdHis') . '.jpg';
-        Storage::disk('public')->put($path, $binary);
+        $source = @imagecreatefromstring($binary);
+        if (!$source) {
+            return null;
+        }
 
-        return $path;
+        $safePrefix = preg_replace('/[^A-Za-z0-9_-]/', '_', $prefix);
+        $filename = $safePrefix . '-' . now()->format('YmdHis') . '-' . substr(sha1($binary), 0, 8);
+        $path = trim($folder, '/') . '/' . $filename . '.jpg';
+
+        $main = $this->resizedImage($source, $maxSide);
+        Storage::disk('public')->put($path, $this->jpegBinary($main, $quality));
+        imagedestroy($main);
+
+        $thumbnailPath = null;
+        if ($thumbnailSide) {
+            $thumbnailPath = trim($folder, '/') . '/thumbs/' . $filename . '.jpg';
+            $thumbnail = $this->resizedImage($source, $thumbnailSide);
+            Storage::disk('public')->put($thumbnailPath, $this->jpegBinary($thumbnail, 68));
+            imagedestroy($thumbnail);
+        }
+
+        imagedestroy($source);
+
+        return [
+            'path' => $path,
+            'thumbnail_path' => $thumbnailPath,
+        ];
     }
 
     public function signatureFromDataUrl(?string $image): ?array
@@ -119,5 +148,30 @@ class FaceSignatureService
         $variance = $variance > 0 ? $variance : 1;
 
         return array_map(fn ($value) => round(($value - $average) / $variance, 4), $values);
+    }
+
+    private function resizedImage($source, int $maxSide)
+    {
+        $width = imagesx($source);
+        $height = imagesy($source);
+        $scale = min(1, $maxSide / max($width, $height));
+        $targetWidth = max(1, (int) round($width * $scale));
+        $targetHeight = max(1, (int) round($height * $scale));
+        $target = imagecreatetruecolor($targetWidth, $targetHeight);
+        $white = imagecolorallocate($target, 255, 255, 255);
+
+        imagefill($target, 0, 0, $white);
+        imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+        return $target;
+    }
+
+    private function jpegBinary($image, int $quality): string
+    {
+        ob_start();
+        imageinterlace($image, true);
+        imagejpeg($image, null, max(40, min(92, $quality)));
+
+        return (string) ob_get_clean();
     }
 }

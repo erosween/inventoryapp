@@ -19,6 +19,7 @@ class EmployeeAttendance extends Model
         'latitude',
         'longitude',
         'face_photo_path',
+        'face_thumbnail_path',
         'face_match_score',
         'face_signature_hash',
         'reason',

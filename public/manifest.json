@@ -1,21 +1,25 @@
 {
-  "name": "MSP Connect Mobile",
+  "id": "/presensi",
+  "name": "MSP Presensi & Sales",
   "short_name": "MSP Mobile",
-  "description": "Sales Force Mobile History and Journey Plan for MSP Connect",
-  "start_url": "/mobile",
+  "description": "Aplikasi mobile MSP untuk presensi karyawan dan aktivitas penjualan.",
+  "start_url": "/presensi/login",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#F4F7F9",
-  "theme_color": "#EC2028",
+  "theme_color": "#5B37E5",
   "orientation": "portrait",
+  "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/assets/img/MSP5.png",
+      "src": "/assets/img/pwa-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/assets/img/MSP5.png",
+      "src": "/assets/img/pwa-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

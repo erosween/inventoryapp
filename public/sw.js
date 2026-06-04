@@ -1,54 +1,80 @@
-const CACHE_NAME = 'msp-connect-cache-v2';
-const urlsToCache = [
+const CACHE_NAME = 'msp-mobile-pwa-v4';
+const CORE_ASSETS = [
+  '/offline.html',
+  '/manifest.json',
   '/assets/img/MSP5.png',
+  '/assets/img/pwa-192.png',
+  '/assets/img/pwa-512.png',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap'
+  'https://cdn.jsdelivr.net/npm/sweetalert2@11',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then(cache => Promise.allSettled(
+      CORE_ASSETS.map(url => cache.add(url))
+    ))
   );
   self.skipWaiting();
 });
 
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => Promise.all(
+      cacheNames
+        .filter(cacheName => cacheName !== CACHE_NAME)
+        .map(cacheName => caches.delete(cacheName))
+    ))
+  );
+  self.clients.claim();
+});
+
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const requestUrl = new URL(event.request.url);
 
-  if (
-    event.request.method !== 'GET' ||
-    event.request.mode === 'navigate' ||
-    requestUrl.pathname.startsWith('/mobile')
-  ) {
-    event.respondWith(fetch(event.request));
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/offline.html'))
+    );
+    return;
+  }
+
+  const isLocalStatic =
+    requestUrl.origin === self.location.origin &&
+    (
+      requestUrl.pathname.startsWith('/assets/') ||
+      requestUrl.pathname.startsWith('/build/') ||
+      requestUrl.pathname === '/manifest.json' ||
+      requestUrl.pathname === '/offline.html'
+    );
+
+  const isCdnStatic = requestUrl.origin !== self.location.origin;
+
+  if (!isLocalStatic && !isCdnStatic) {
     return;
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
-  );
-});
-
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
+    caches.match(event.request).then(cachedResponse => {
+      const networkFetch = fetch(event.request)
+        .then(response => {
+          if (response && response.status < 500) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
           }
+
+          return response;
         })
-      );
+        .catch(() => cachedResponse);
+
+      return cachedResponse || networkFetch;
     })
   );
-  self.clients.claim();
 });

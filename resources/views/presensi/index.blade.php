@@ -159,15 +159,20 @@
                 </div>
             </div>
 
-            <div class="d-flex gap-2 mt-3">
-                <button type="button" class="camera-action flex-fill" id="startCameraBtn"><i class="fas fa-video me-1"></i> Kamera</button>
-                <button type="button" class="camera-action active flex-fill" id="captureFaceBtn"><i class="fas fa-camera me-1"></i> Capture</button>
+            <button type="button" class="primary-btn w-100 mt-3" id="faceScanBtn">
+                <i class="fas fa-face-smile"></i>
+                Mulai Face ID
+            </button>
+
+            <div class="face-flow-note mt-3">
+                <i class="fas fa-circle-info"></i>
+                <span>Kamera akan auto-capture saat wajah stabil. Setelah siap, tombol presensi aktif.</span>
             </div>
 
             <div class="verification-row mt-3">
                 <div>
-                    <div class="fw-900 text-dark" style="font-size: 0.84rem;">Kualitas Capture</div>
-                    <div class="text-muted fw-bold" id="faceStatus" style="font-size: 0.68rem;">Menunggu capture wajah</div>
+                    <div class="fw-900 text-dark" style="font-size: 0.84rem;">Status Face ID</div>
+                    <div class="text-muted fw-bold" id="faceStatus" style="font-size: 0.68rem;">Tekan Mulai Face ID</div>
                 </div>
                 <div class="confidence-pill" id="confidencePill">0%</div>
             </div>
@@ -185,7 +190,10 @@
                             <div class="screen-subtitle">Capture ini menjadi referensi validasi presensi berikutnya.</div>
                         </div>
                     </div>
-                    <button type="submit" class="primary-btn w-100">Simpan Enrollment</button>
+                    <button type="submit" class="primary-btn w-100 presence-submit-btn" id="enrollSubmitBtn" disabled data-default-label="Simpan Enrollment">
+                        <i class="fas fa-lock"></i>
+                        Face ID dulu
+                    </button>
                 </div>
             </form>
         @else
@@ -212,9 +220,9 @@
                     </div>
                 </div>
 
-                <button type="submit" class="primary-btn w-100" {{ $hasClockIn && $currentType === 'hadir' ? 'disabled' : '' }}>
+                <button type="submit" class="primary-btn w-100 presence-submit-btn" id="attendanceSubmitBtn" {{ $hasClockIn && $currentType === 'hadir' ? 'disabled' : 'disabled' }} data-default-label="{{ $hasClockIn && $currentType === 'hadir' ? 'Sudah Check In' : 'Check In Sekarang' }}">
                     <i class="fas fa-fingerprint"></i>
-                    {{ $hasClockIn && $currentType === 'hadir' ? 'Sudah Check In' : 'Check In' }}
+                    {{ $hasClockIn && $currentType === 'hadir' ? 'Sudah Check In' : 'Face ID dulu' }}
                 </button>
             </form>
 
@@ -224,8 +232,8 @@
                     <input type="hidden" name="latitude" class="latitude-input">
                     <input type="hidden" name="longitude" class="longitude-input">
                     <input type="hidden" name="face_image" class="face-image-input">
-                    <button type="submit" class="outline-btn w-100">
-                        <i class="fas fa-right-from-bracket"></i> Ajukan Check Out
+                    <button type="submit" class="outline-btn w-100 presence-submit-btn" id="checkoutSubmitBtn" disabled data-default-label="Check Out Sekarang">
+                        <i class="fas fa-right-from-bracket"></i> Face ID dulu untuk Check Out
                     </button>
                 </form>
             @endif
@@ -598,20 +606,39 @@
     .scan-frame span:nth-child(3) { bottom: -1px; left: -1px; border-width: 0 0 3px 3px; border-radius: 0 0 0 18px; }
     .scan-frame span:nth-child(4) { bottom: -1px; right: -1px; border-width: 0 3px 3px 0; border-radius: 0 0 18px 0; }
 
-    .camera-action {
-        min-height: 52px;
-        border-radius: 15px;
-        border: 1px solid #e3e6f2;
-        color: var(--ink);
-        background: #f6f8ff;
+    .face-flow-note {
+        min-height: 44px;
+        border-radius: 14px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--primary);
+        background: var(--primary-soft);
+        font-size: 0.68rem;
         font-weight: 900;
+        line-height: 1.35;
     }
 
-    .camera-action.active {
-        color: var(--primary);
-        background: #fff;
-        border-color: rgba(91,55,229,0.42);
-        box-shadow: 0 0 0 3px rgba(91,55,229,0.07);
+    .face-flow-note i {
+        flex: 0 0 auto;
+    }
+
+    .camera-stage.face-ready .scan-frame {
+        border-color: rgba(24,184,122,0.42);
+    }
+
+    .camera-stage.face-ready .scan-frame span {
+        border-color: #55f0a7;
+    }
+
+    .camera-stage.face-ready .face-lock-ring {
+        background:
+            conic-gradient(#18b87a calc(var(--lock-score) * 1%), rgba(255,255,255,0.16) 0),
+            rgba(24,184,122,0.08);
+        box-shadow:
+            0 0 0 1px rgba(255,255,255,0.12),
+            0 0 42px rgba(24,184,122,0.32);
     }
 
     .verification-row {
@@ -755,12 +782,20 @@
     const faceLockRing = document.getElementById('faceLockRing');
     const faceLockPercent = document.getElementById('faceLockPercent');
     const faceLockCaption = document.getElementById('faceLockCaption');
+    const faceScanBtn = document.getElementById('faceScanBtn');
+    const enrollSubmitBtn = document.getElementById('enrollSubmitBtn');
+    const attendanceSubmitBtn = document.getElementById('attendanceSubmitBtn');
+    const checkoutSubmitBtn = document.getElementById('checkoutSubmitBtn');
     const geoStatus = document.getElementById('geoStatus');
     const locationPolicyBadge = document.getElementById('locationPolicyBadge');
     const attendanceLocationPolicy = @json($locationPolicy);
+    const attendanceAlreadyLocked = @json($hasClockIn && $currentType === 'hadir');
     let cameraStream = null;
     let liveScanTimer = null;
     let liveCaptureScore = 0;
+    let faceReady = false;
+    let stableScanCount = 0;
+    let autoCaptureBusy = false;
 
     function setConfidence(score, text) {
         liveCaptureScore = score;
@@ -771,6 +806,60 @@
         if (faceLockRing) faceLockRing.style.setProperty('--lock-score', score);
         if (faceLockPercent) faceLockPercent.textContent = score + '%';
         if (faceLockCaption) faceLockCaption.textContent = text;
+    }
+
+    function setFaceScanButton(icon, text, disabled = false) {
+        if (!faceScanBtn) return;
+
+        faceScanBtn.disabled = disabled;
+        faceScanBtn.innerHTML = '<i class="fas ' + icon + '"></i>' + text;
+    }
+
+    function faceRequiredForForm(form) {
+        if (!form) return false;
+        if (form.id === 'enrollForm' || form.id === 'checkoutForm') return true;
+
+        const type = form.querySelector('input[name="attendance_type"]:checked')?.value;
+        return ['hadir', 'terlambat', 'cepat_pulang'].includes(type);
+    }
+
+    function updateSubmitStates() {
+        if (enrollSubmitBtn) {
+            enrollSubmitBtn.disabled = !faceReady;
+            enrollSubmitBtn.innerHTML = faceReady
+                ? '<i class="fas fa-user-check"></i>Simpan Enrollment'
+                : '<i class="fas fa-lock"></i>Face ID dulu';
+        }
+
+        if (attendanceSubmitBtn) {
+            const form = document.getElementById('attendanceForm');
+            const type = form?.querySelector('input[name="attendance_type"]:checked')?.value;
+            const requiresFace = faceRequiredForForm(form);
+
+            if (attendanceAlreadyLocked) {
+                attendanceSubmitBtn.disabled = true;
+                attendanceSubmitBtn.innerHTML = '<i class="fas fa-fingerprint"></i>Sudah Check In';
+            } else if (!requiresFace) {
+                attendanceSubmitBtn.disabled = false;
+                attendanceSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i>Kirim Pengajuan';
+            } else {
+                attendanceSubmitBtn.disabled = !faceReady;
+                attendanceSubmitBtn.innerHTML = faceReady
+                    ? '<i class="fas fa-fingerprint"></i>' + (attendanceSubmitBtn.dataset.defaultLabel || 'Check In Sekarang')
+                    : '<i class="fas fa-lock"></i>Face ID dulu';
+            }
+
+            if (type === 'cepat_pulang' && faceReady) {
+                attendanceSubmitBtn.innerHTML = '<i class="fas fa-person-walking-arrow-right"></i>Ajukan Cepat Pulang';
+            }
+        }
+
+        if (checkoutSubmitBtn) {
+            checkoutSubmitBtn.disabled = !faceReady;
+            checkoutSubmitBtn.innerHTML = faceReady
+                ? '<i class="fas fa-right-from-bracket"></i>Check Out Sekarang'
+                : '<i class="fas fa-lock"></i>Face ID dulu untuk Check Out';
+        }
     }
 
     function estimateFrameQuality() {
@@ -820,20 +909,38 @@
         if (liveScanTimer) clearInterval(liveScanTimer);
 
         cameraStage?.classList.add('scanning');
+        cameraStage?.classList.remove('face-ready');
         setConfidence(45, 'Mendeteksi wajah...');
+        stableScanCount = 0;
 
         liveScanTimer = setInterval(function() {
             const score = estimateFrameQuality();
             const text = score >= 86
-                ? 'Wajah stabil, siap capture'
+                ? 'Wajah stabil, auto-capture...'
                 : (score >= 70 ? 'Wajah terdeteksi, tahan posisi' : 'Dekatkan wajah ke frame');
 
             setConfidence(score, text);
+
+            if (score >= 86) {
+                stableScanCount++;
+            } else {
+                stableScanCount = 0;
+            }
+
+            if (stableScanCount >= 2 && !autoCaptureBusy && !faceReady) {
+                captureFace(true);
+            }
         }, 700);
     }
 
     async function startCamera() {
         try {
+            faceReady = false;
+            updateSubmitStates();
+            setFaceScanButton('fa-spinner fa-spin', 'Membuka kamera...', true);
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
             cameraStream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'user', width: { ideal: 900 }, height: { ideal: 1200 } },
                 audio: false
@@ -842,28 +949,62 @@
             video.style.display = 'block';
             placeholder.style.display = 'none';
             startLiveFaceScan();
+            setFaceScanButton('fa-wand-magic-sparkles', 'Scanning wajah...', true);
         } catch (error) {
+            setFaceScanButton('fa-face-smile', 'Mulai Face ID', false);
             Swal.fire({ icon: 'error', title: 'Kamera tidak aktif', text: 'Izinkan akses kamera dari browser.', confirmButtonColor: '#5b37e5' });
         }
     }
 
-    async function captureFace() {
+    function canvasToDataUrl(sourceCanvas, mimeType = 'image/jpeg', quality = 0.78) {
+        return new Promise(resolve => {
+            sourceCanvas.toBlob(blob => {
+                if (!blob) {
+                    resolve(sourceCanvas.toDataURL('image/jpeg', quality));
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            }, mimeType, quality);
+        });
+    }
+
+    async function compressedFaceImage() {
+        const maxSide = 960;
+        const sourceWidth = video.videoWidth;
+        const sourceHeight = video.videoHeight;
+        const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        return canvasToDataUrl(canvas, 'image/jpeg', 0.78);
+    }
+
+    async function captureFace(isAuto = false) {
+        if (autoCaptureBusy) return;
+        autoCaptureBusy = true;
+
         if (!video.srcObject) {
             await startCamera();
         }
 
         if (!video.videoWidth) {
             setConfidence(25, 'Kamera masih menyiapkan preview');
+            autoCaptureBusy = false;
             return;
         }
 
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const image = canvas.toDataURL('image/jpeg', 0.82);
+        const image = await compressedFaceImage();
         document.querySelectorAll('.face-image-input').forEach(input => input.value = image);
 
         let score = liveCaptureScore || 88;
@@ -877,7 +1018,24 @@
             }
         }
 
-        setConfidence(score, score >= 80 ? 'Foto cukup jelas, siap dikirim untuk matching server' : 'Foto belum jelas, coba capture ulang');
+        if (score >= 80) {
+            faceReady = true;
+            if (liveScanTimer) clearInterval(liveScanTimer);
+            cameraStage?.classList.add('face-ready');
+            setConfidence(score, 'Face ID siap, lanjut tekan presensi');
+            setFaceScanButton('fa-rotate-right', 'Ulangi Face ID', false);
+            updateSubmitStates();
+
+            const targetButton = checkoutSubmitBtn && !checkoutSubmitBtn.disabled ? checkoutSubmitBtn : (attendanceSubmitBtn || enrollSubmitBtn);
+            targetButton?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            faceReady = false;
+            updateSubmitStates();
+            setConfidence(score, isAuto ? 'Cahaya kurang, tahan wajah di frame' : 'Foto belum jelas, coba ulangi Face ID');
+            setFaceScanButton('fa-rotate-right', 'Ulangi Face ID', false);
+        }
+
+        autoCaptureBusy = false;
     }
 
     function distanceMeters(fromLat, fromLng, toLat, toLng) {
@@ -951,13 +1109,13 @@
         }, { enableHighAccuracy: true, timeout: 8000 });
     }
 
-    document.getElementById('startCameraBtn')?.addEventListener('click', startCamera);
-    document.getElementById('captureFaceBtn')?.addEventListener('click', captureFace);
+    faceScanBtn?.addEventListener('click', startCamera);
 
     document.querySelectorAll('.type-option').forEach(option => {
         option.addEventListener('click', function() {
             document.querySelectorAll('.type-option').forEach(item => item.classList.remove('active'));
             this.classList.add('active');
+            updateSubmitStates();
         });
     });
 
@@ -973,12 +1131,15 @@
                 return;
             }
 
-            if ((this.id !== 'attendanceForm' || ['hadir', 'terlambat', 'cepat_pulang'].includes(type)) && !face) {
+            if (faceRequiredForForm(this) && !face) {
                 e.preventDefault();
-                Swal.fire({ icon: 'warning', title: 'Capture wajah dulu', text: 'Aktifkan kamera lalu tekan Capture sebelum menyimpan.', confirmButtonColor: '#5b37e5' });
+                startCamera();
+                Swal.fire({ icon: 'warning', title: 'Face ID dulu', text: 'Kamera akan auto-capture saat wajah sudah pas.', confirmButtonColor: '#5b37e5' });
             }
         });
     });
+
+    updateSubmitStates();
 
     setInterval(function() {
         const now = new Date();

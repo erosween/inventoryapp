@@ -253,6 +253,7 @@ Route::prefix('admin-presensi')->name('admin-presensi.')->group(function () {
     Route::get('/', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'index'])->name('index');
     Route::get('/template', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'template'])->name('template');
     Route::post('/import', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'import'])->name('import');
+    Route::post('/employees', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'store'])->name('store');
     Route::post('/employees/{employee}', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'update'])->name('update');
 });
 

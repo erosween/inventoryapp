@@ -58,7 +58,7 @@ class EmployeePresenceAdminController extends Controller
             return $redirect;
         }
 
-        $employees = AttendanceEmployee::with('supervisor')
+        $employees = AttendanceEmployee::with(['supervisor', 'latestAttendance'])
             ->withCount('subordinates')
             ->orderBy('employee_level')
             ->orderBy('name')
@@ -69,6 +69,53 @@ class EmployeePresenceAdminController extends Controller
             ->get();
 
         return view('presensi.admin.index', compact('employees', 'supervisors'));
+    }
+
+    public function store(Request $request)
+    {
+        if ($redirect = $this->redirectIfNotPresenceAdmin()) {
+            return $redirect;
+        }
+
+        $request->merge([
+            'employee_code' => strtoupper((string) $request->input('employee_code')),
+        ]);
+
+        $validated = $request->validate([
+            'employee_code' => ['required', 'string', 'max:40', Rule::unique('attendance_employees', 'employee_code')],
+            'name' => ['required', 'string', 'max:255'],
+            'department' => ['nullable', 'string', 'max:120'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'work_location' => ['nullable', 'string', 'max:120'],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'employee_level' => ['required', 'integer', Rule::in([1, 2, 3])],
+            'supervisor_id' => ['nullable', 'integer', 'exists:attendance_employees,id'],
+            'attendance_location_mode' => ['required', Rule::in(['locked', 'anywhere'])],
+            'attendance_location_label' => ['nullable', 'string', 'max:120'],
+            'attendance_latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'attendance_longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'attendance_radius_meters' => ['required', 'integer', 'min:25', 'max:5000'],
+            'work_start_time' => ['nullable', 'date_format:H:i'],
+            'work_end_time' => ['nullable', 'date_format:H:i'],
+            'late_tolerance_minutes' => ['required', 'integer', 'min:0', 'max:240'],
+            'password' => ['nullable', 'string', 'min:3', 'max:80'],
+        ]);
+
+        $validated['employee_level'] = (int) $validated['employee_level'];
+
+        if ($validated['employee_level'] >= 2) {
+            $validated['attendance_location_mode'] = 'anywhere';
+        }
+
+        $validated['supervisor_id'] = $this->validatedSupervisorId(null, $validated['employee_level'], $validated['supervisor_id'] ?? null);
+        $validated['role'] = $this->roleForLevel($validated['employee_level']);
+        $plainPassword = blank($validated['password'] ?? null) ? '123456' : $validated['password'];
+        $validated['password'] = Hash::make($plainPassword);
+
+        $employee = AttendanceEmployee::create($validated);
+
+        return back()->with('success', 'Karyawan ' . $employee->name . ' berhasil ditambahkan manual. Password awal: ' . $plainPassword . '.');
     }
 
     public function update(Request $request, AttendanceEmployee $employee)
@@ -96,6 +143,7 @@ class EmployeePresenceAdminController extends Controller
         }
 
         $validated['supervisor_id'] = $this->validatedSupervisorId($employee, (int) $validated['employee_level'], $validated['supervisor_id'] ?? null);
+        $validated['role'] = $this->roleForLevel((int) $validated['employee_level']);
 
         if (!blank($validated['new_password'] ?? null)) {
             $validated['password'] = Hash::make($validated['new_password']);
@@ -177,13 +225,13 @@ class EmployeePresenceAdminController extends Controller
         return redirect()->route('admin-presensi.login')->with('error', 'Silakan login admin presensi terlebih dahulu.');
     }
 
-    private function validatedSupervisorId(AttendanceEmployee $employee, int $level, mixed $supervisorId): ?int
+    private function validatedSupervisorId(?AttendanceEmployee $employee, int $level, mixed $supervisorId): ?int
     {
         if ($level !== 3 || blank($supervisorId)) {
             return null;
         }
 
-        if ((int) $supervisorId === (int) $employee->id) {
+        if ($employee && (int) $supervisorId === (int) $employee->id) {
             throw ValidationException::withMessages([
                 'supervisor_id' => 'Atasan tidak boleh diri sendiri.',
             ]);

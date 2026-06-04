@@ -172,6 +172,7 @@ class EmployeePresenceController extends Controller
 
         if ($faceResult) {
             $attendance->face_photo_path = $faceResult['path'];
+            $attendance->face_thumbnail_path = $faceResult['thumbnail_path'];
             $attendance->face_match_score = $faceResult['score'];
             $attendance->face_signature_hash = $faceResult['hash'];
         }
@@ -226,6 +227,7 @@ class EmployeePresenceController extends Controller
             'latitude' => $request->input('latitude', $attendance->latitude),
             'longitude' => $request->input('longitude', $attendance->longitude),
             'face_photo_path' => $faceResult['path'],
+            'face_thumbnail_path' => $faceResult['thumbnail_path'],
             'face_match_score' => $faceResult['score'],
             'face_signature_hash' => $faceResult['hash'],
             'status' => 'completed',
@@ -276,13 +278,20 @@ class EmployeePresenceController extends Controller
             ];
         }
 
-        $path = $this->faces->storeImage($image, 'attendance/employees/checks', $employee->employee_code);
+        $stored = $this->faces->storeCompressedImage($image, 'attendance/employees/checks', $employee->employee_code, 960, 82, 240);
+        if (!$stored) {
+            return [
+                'passed' => false,
+                'message' => 'Foto wajah gagal disimpan. Coba capture ulang.',
+            ];
+        }
 
         return [
             'passed' => true,
             'score' => $score,
             'hash' => $this->faces->hash($signature),
-            'path' => $path,
+            'path' => $stored['path'],
+            'thumbnail_path' => $stored['thumbnail_path'],
         ];
     }
 

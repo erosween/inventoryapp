@@ -144,6 +144,11 @@ class AttendanceEmployee extends Model
         return $this->hasMany(self::class, 'supervisor_id');
     }
 
+    public function latestAttendance()
+    {
+        return $this->hasOne(EmployeeAttendance::class)->latestOfMany();
+    }
+
     public function activeFaceEnrollment()
     {
         return $this->hasOne(EmployeeFaceEnrollment::class)->where('status', 'active')->latestOfMany();
