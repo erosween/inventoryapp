@@ -9,7 +9,609 @@ class MonitaDumaiController extends Controller
 {
     public function index()
     {
-        return view('monitadumai.index');
+        $showLeaderDashboard = session()->has('monita_leader_auth');
+        $dashboard = $showLeaderDashboard ? $this->buildLeaderDashboard() : null;
+
+        return view('monitadumai.index', compact('dashboard', 'showLeaderDashboard'));
+    }
+
+    public function showLeaderLogin()
+    {
+        if (session()->has('monita_leader_auth')) {
+            return redirect('/monitadumai');
+        }
+
+        return view('monitadumai.login');
+    }
+
+    public function leaderLogin(Request $request)
+    {
+        $request->validate([
+            'access_code' => ['required', 'string', 'max:80'],
+        ], [
+            'access_code.required' => 'Kode akses wajib diisi.',
+        ]);
+
+        $expectedCode = (string) env('MSP123', 'msp123');
+
+        if (!hash_equals($expectedCode, (string) $request->input('access_code'))) {
+            return back()
+                ->withInput()
+                ->with('error', 'Kode akses Monita belum sesuai.');
+        }
+
+        $request->session()->put('monita_leader_auth', true);
+        $request->session()->put('monita_leader_login_at', now()->toDateTimeString());
+
+        return redirect('/monitadumai')->with('success', 'Dashboard leader Monita aktif.');
+    }
+
+    public function leaderLogout(Request $request)
+    {
+        $request->session()->forget(['monita_leader_auth', 'monita_leader_login_at']);
+
+        return redirect('/monitadumai')->with('success', 'Akses dashboard leader ditutup.');
+    }
+
+    private function buildLeaderDashboard(): array
+    {
+        $areaTaps = [
+            'Kota Dumai' => ['DUMAI'],
+            'Kabupaten Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            'Kabupaten Bengkalis' => ['BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
+        ];
+
+        $tapRows = collect($areaTaps)
+            ->flatten()
+            ->unique()
+            ->map(fn ($tap) => $this->aggregateTapPerformance($tap))
+            ->filter(fn ($tap) => $tap['outlets'] > 0)
+            ->values();
+
+        $areas = collect($areaTaps)->map(function ($taps, $name) use ($tapRows) {
+            $items = $tapRows->whereIn('tap', $taps)->values();
+            $current = $items->sum('current');
+            $previous = $items->sum('previous');
+            $outlets = $items->sum('outlets');
+            $productive = $items->sum('productive_outlets');
+            $mom = $previous > 0 ? (($current - $previous) / $previous) * 100 : 0;
+            $productivity = $outlets > 0 ? ($productive / $outlets) * 100 : 0;
+
+            return [
+                'name' => $name,
+                'taps' => $items->pluck('tap')->all(),
+                'outlets' => $outlets,
+                'productive_outlets' => $productive,
+                'productivity' => round($productivity, 1),
+                'st_sa' => $items->sum('st_sa'),
+                'st_pv' => $items->sum('st_pv'),
+                'trx_m' => $items->sum('trx_m'),
+                'trx_cvm' => $items->sum('trx_cvm'),
+                'current' => $current,
+                'previous' => $previous,
+                'mom' => round($mom, 1),
+                'latitude' => $items->whereNotNull('latitude')->avg('latitude'),
+                'longitude' => $items->whereNotNull('longitude')->avg('longitude'),
+                'risk' => $this->areaRiskLabel($mom, $productivity),
+            ];
+        })->values();
+
+        $totalCurrent = $tapRows->sum('current');
+        $totalPrevious = $tapRows->sum('previous');
+        $totalOutlets = $tapRows->sum('outlets');
+        $totalProductive = $tapRows->sum('productive_outlets');
+        $totalMom = $totalPrevious > 0 ? (($totalCurrent - $totalPrevious) / $totalPrevious) * 100 : 0;
+        $totalProductivity = $totalOutlets > 0 ? ($totalProductive / $totalOutlets) * 100 : 0;
+
+        $riskTaps = $tapRows
+            ->sortBy(function ($tap) {
+                return [$tap['mom'], $tap['productivity']];
+            })
+            ->take(5)
+            ->values();
+
+        $growthTaps = $tapRows
+            ->sortByDesc('mom')
+            ->take(4)
+            ->values();
+
+        $leaderActions = $this->leaderActions($riskTaps, $areas);
+        $outletPoints = $this->leaderOutletPoints($areaTaps);
+        $activeThresholds = [
+            'sa' => 5,
+            'pv' => 40,
+            'cvm' => 11,
+        ];
+        $clusterCoverage = $this->leaderClusterCoverage($activeThresholds);
+        $coveragePoints = $this->leaderCoveragePoints();
+        $competitionPoints = $this->leaderCompetitionPoints();
+        $hotOutletCount = collect($outletPoints)->where('status', 'hot')->count();
+        $coldOutletCount = collect($outletPoints)->where('status', 'cold')->count();
+        $unmappedOutletCount = collect($outletPoints)->where('status', 'unmapped')->count();
+
+        return [
+            'summary' => [
+                'outlets' => $totalOutlets,
+                'productive_outlets' => $totalProductive,
+                'productivity' => round($totalProductivity, 1),
+                'current' => $totalCurrent,
+                'previous' => $totalPrevious,
+                'mom' => round($totalMom, 1),
+                'st_sa' => $tapRows->sum('st_sa'),
+                'st_pv' => $tapRows->sum('st_pv'),
+                'trx_m' => $tapRows->sum('trx_m'),
+                'trx_cvm' => $tapRows->sum('trx_cvm'),
+                'mapped_outlets' => count($outletPoints),
+                'hot_outlets' => $hotOutletCount,
+                'cold_outlets' => $coldOutletCount,
+                'unmapped_outlets' => $unmappedOutletCount,
+            ],
+            'areas' => $areas->all(),
+            'tapRows' => $tapRows->all(),
+            'riskTaps' => $riskTaps->all(),
+            'growthTaps' => $growthTaps->all(),
+            'leaderActions' => $leaderActions,
+            'outletPoints' => $outletPoints,
+            'clusterCoverage' => $clusterCoverage,
+            'coveragePoints' => $coveragePoints,
+            'competitionPoints' => $competitionPoints,
+        ];
+    }
+
+    private function leaderCompetitionPoints(): array
+    {
+        if (!DB::getSchemaBuilder()->hasTable('peta_kompetisi')) {
+            return [];
+        }
+
+        $operators = [
+            ['key' => 'tsel', 'label' => 'TSEL', 'mtd' => 'tsel_mtd', 'mom' => 'tsel_mom', 'color' => '#e30613'],
+            ['key' => 'isat', 'label' => 'ISAT', 'mtd' => 'isat_mtd', 'mom' => 'isat_mom', 'color' => '#f5c400'],
+            ['key' => 'xl', 'label' => 'XL', 'mtd' => 'xl_mtd', 'mom' => 'xl_mom', 'color' => '#0057ff'],
+            ['key' => 'tri', 'label' => '3', 'mtd' => '3_mtd', 'mom' => '3_mom', 'color' => '#111827'],
+            ['key' => 'sfren', 'label' => 'SFREN', 'mtd' => 'sfren_mtd', 'mom' => 'sfren_mom', 'color' => '#ff4b8b'],
+            ['key' => 'istri', 'label' => 'ISAT+3', 'mtd' => 'istri_mtd', 'mom' => 'istri_mom', 'color' => '#f97316'],
+            ['key' => 'xlsf', 'label' => 'XL+SF', 'mtd' => 'xlsf_mtd', 'mom' => 'xlsf_mom', 'color' => '#00a7e1'],
+        ];
+
+        $competitionRows = DB::table('peta_kompetisi')
+            ->orderBy('cluster')
+            ->orderBy('tap')
+            ->orderBy('kecamatan')
+            ->get();
+
+        if ($competitionRows->isEmpty()) {
+            return [];
+        }
+
+        $outletCoordinates = DB::table('appsdumais')
+            ->whereIn('tap', $competitionRows->pluck('tap')->filter()->unique()->values()->all())
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->where('latitude', '!=', '')
+            ->where('longitude', '!=', '')
+            ->whereNotNull('sf')
+            ->where('sf', '!=', '')
+            ->where('sf', '!=', 'UNMAPPING')
+            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [0, 3])
+            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [100, 102.5])
+            ->whereNotNull('kecamatan')
+            ->where('kecamatan', '!=', '')
+            ->select('kecamatan', 'tap', 'latitude', 'longitude')
+            ->get()
+            ->groupBy(fn ($row) => $this->competitionCenterKey((string) $row->kecamatan, (string) $row->tap));
+
+        return $competitionRows
+            ->map(function ($row) use ($operators, $outletCoordinates) {
+                $values = collect($operators)->map(function ($operator) use ($row) {
+                    return [
+                        'key' => $operator['key'],
+                        'label' => $operator['label'],
+                        'color' => $operator['color'],
+                        'share' => $this->parsePercentValue($row->{$operator['mtd']} ?? 0),
+                        'mom' => $this->parsePercentValue($row->{$operator['mom']} ?? 0),
+                    ];
+                })->values();
+
+                $winner = $values->sortByDesc('share')->first();
+                $coordinateRows = $outletCoordinates->get($this->competitionCenterKey((string) $row->kecamatan, (string) $row->tap), collect());
+                $points = $coordinateRows
+                    ->map(fn ($point) => [
+                        'lat' => (float) $point->latitude,
+                        'lng' => (float) $point->longitude,
+                    ])
+                    ->filter(fn ($point) => $point['lat'] && $point['lng'])
+                    ->values();
+
+                if ($points->isEmpty()) {
+                    return null;
+                }
+
+                $latitude = $points->avg('lat');
+                $longitude = $points->avg('lng');
+                $hullPoints = $this->convexHullPoints($points->all());
+
+                return [
+                    'kecamatan' => $row->kecamatan,
+                    'tap' => $row->tap,
+                    'cluster' => $row->cluster,
+                    'latitude' => (float) $latitude,
+                    'longitude' => (float) $longitude,
+                    'outlet_count' => $points->count(),
+                    'hull_points' => $hullPoints,
+                    'winner_key' => $winner['key'],
+                    'winner_operator' => $winner['label'],
+                    'winner_share' => round($winner['share'], 2),
+                    'winner_mom' => round($winner['mom'], 2),
+                    'winner_color' => $winner['color'],
+                    'operators' => $values->sortByDesc('share')->values()->all(),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function convexHullPoints(array $points): array
+    {
+        $unique = collect($points)
+            ->map(fn ($point) => [
+                'lat' => round((float) ($point['lat'] ?? 0), 7),
+                'lng' => round((float) ($point['lng'] ?? 0), 7),
+            ])
+            ->filter(fn ($point) => $point['lat'] && $point['lng'])
+            ->unique(fn ($point) => $point['lat'] . '|' . $point['lng'])
+            ->sortBy(fn ($point) => $point['lng'] . '|' . $point['lat'])
+            ->values()
+            ->all();
+
+        if (count($unique) < 3) {
+            return array_map(fn ($point) => [$point['lat'], $point['lng']], $unique);
+        }
+
+        $cross = function ($origin, $a, $b) {
+            return (($a['lng'] - $origin['lng']) * ($b['lat'] - $origin['lat']))
+                - (($a['lat'] - $origin['lat']) * ($b['lng'] - $origin['lng']));
+        };
+
+        $lower = [];
+        foreach ($unique as $point) {
+            while (count($lower) >= 2 && $cross($lower[count($lower) - 2], $lower[count($lower) - 1], $point) <= 0) {
+                array_pop($lower);
+            }
+            $lower[] = $point;
+        }
+
+        $upper = [];
+        for ($i = count($unique) - 1; $i >= 0; $i--) {
+            $point = $unique[$i];
+            while (count($upper) >= 2 && $cross($upper[count($upper) - 2], $upper[count($upper) - 1], $point) <= 0) {
+                array_pop($upper);
+            }
+            $upper[] = $point;
+        }
+
+        $hull = array_slice($lower, 0, -1);
+        $hull = array_merge($hull, array_slice($upper, 0, -1));
+
+        return array_map(fn ($point) => [$point['lat'], $point['lng']], $hull);
+    }
+
+    private function parsePercentValue($value): float
+    {
+        $raw = trim((string) ($value ?? '0'));
+        $hasPercent = str_contains($raw, '%');
+        $number = (float) str_replace(['%', ',', ' '], ['', '.', ''], $raw);
+
+        if (!$hasPercent && abs($number) <= 1) {
+            return $number * 100;
+        }
+
+        return $number;
+    }
+
+    private function normalizeDistrictName(string $name): string
+    {
+        return preg_replace('/[^A-Z0-9]/', '', strtoupper($name)) ?: '';
+    }
+
+    private function competitionCenterKey(string $district, string $tap): string
+    {
+        return $this->normalizeDistrictName($district) . '|' . $this->normalizeDistrictName($tap);
+    }
+
+    private function leaderCoveragePoints(): array
+    {
+        $clusterGroups = [
+            'dumai_bengkalis' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+            'rokan_hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+        ];
+
+        $tapGroupMap = collect($clusterGroups)
+            ->flatMap(fn ($taps, $key) => collect($taps)->mapWithKeys(fn ($tap) => [$tap => $key]));
+
+        $outlets = DB::table('appsdumais')
+            ->whereIn('tap', $tapGroupMap->keys()->all())
+            ->whereNotNull('sf')
+            ->where('sf', '!=', '')
+            ->where('sf', '!=', 'UNMAPPING')
+            ->select('id_outlet', 'tap', 'm_cvm')
+            ->get();
+
+        $performance = $outlets->isEmpty()
+            ? collect()
+            : DB::table('outlet_performance')
+                ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
+                ->select('id_outlet', 'total_sp_m', 'total_m')
+                ->get()
+                ->keyBy('id_outlet');
+
+        return $outlets->map(function ($outlet) use ($performance, $tapGroupMap) {
+            $perf = $performance->get($outlet->id_outlet);
+
+            return [
+                'group' => $tapGroupMap->get($outlet->tap),
+                'st_sa' => (int) ($perf->total_sp_m ?? 0),
+                'st_pv' => (int) ($perf->total_m ?? 0),
+                'trx_cvm' => (int) ($outlet->m_cvm ?? 0),
+            ];
+        })->filter(fn ($point) => !empty($point['group']))->values()->all();
+    }
+
+    private function leaderClusterCoverage(array $thresholds): array
+    {
+        $clusterGroups = [
+            'dumai_bengkalis' => [
+                'label' => 'Dumai Bengkalis',
+                'taps' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+            ],
+            'rokan_hilir' => [
+                'label' => 'Rokan Hilir',
+                'taps' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            ],
+        ];
+
+        $tapGroupMap = collect($clusterGroups)
+            ->flatMap(fn ($group, $key) => collect($group['taps'])->mapWithKeys(fn ($tap) => [$tap => $key]));
+
+        $outlets = DB::table('appsdumais')
+            ->whereIn('tap', $tapGroupMap->keys()->all())
+            ->whereNotNull('sf')
+            ->where('sf', '!=', '')
+            ->where('sf', '!=', 'UNMAPPING')
+            ->select('id_outlet', 'tap', 'm_cvm')
+            ->get();
+
+        $performance = $outlets->isEmpty()
+            ? collect()
+            : DB::table('outlet_performance')
+                ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
+                ->select('id_outlet', 'total_sp_m', 'total_m')
+                ->get()
+                ->keyBy('id_outlet');
+
+        $coverage = collect($clusterGroups)->mapWithKeys(function ($group, $key) {
+            return [$key => [
+                'label' => $group['label'],
+                'pjp' => 0,
+                'sa' => 0,
+                'pv' => 0,
+                'cvm' => 0,
+            ]];
+        })->all();
+
+        foreach ($outlets as $outlet) {
+            $groupKey = $tapGroupMap->get($outlet->tap);
+            if (!$groupKey) continue;
+
+            $perf = $performance->get($outlet->id_outlet);
+            $coverage[$groupKey]['pjp']++;
+            $coverage[$groupKey]['sa'] += (int) ($perf->total_sp_m ?? 0) >= $thresholds['sa'] ? 1 : 0;
+            $coverage[$groupKey]['pv'] += (int) ($perf->total_m ?? 0) >= $thresholds['pv'] ? 1 : 0;
+            $coverage[$groupKey]['cvm'] += (int) ($outlet->m_cvm ?? 0) >= $thresholds['cvm'] ? 1 : 0;
+        }
+
+        return [
+            'thresholds' => $thresholds,
+            'groups' => array_values($coverage),
+        ];
+    }
+
+    private function aggregateTapPerformance(string $tap): array
+    {
+        $currentExpr = $this->appsdumaiTransactionExpression('m_');
+        $previousExpr = $this->appsdumaiTransactionExpression('m1_');
+        $outletQuery = DB::table('appsdumais')->where('tap', $tap);
+
+        $base = (clone $outletQuery)
+            ->selectRaw("
+                COUNT(*) as outlets,
+                SUM(CASE WHEN sf IS NULL OR sf = '' OR sf = 'UNMAPPING' THEN 1 ELSE 0 END) as unmapped_outlets,
+                AVG(NULLIF(latitude, '')) as avg_latitude,
+                AVG(NULLIF(longitude, '')) as avg_longitude,
+                SUM($currentExpr) as trx_m,
+                SUM($previousExpr) as trx_m1,
+                SUM(COALESCE(m_cvm, 0)) as trx_cvm
+            ")
+            ->first();
+
+        $outletIds = (clone $outletQuery)->pluck('id_outlet');
+        $performance = $outletIds->isEmpty()
+            ? null
+            : DB::table('outlet_performance')
+                ->whereIn('id_outlet', $outletIds)
+                ->selectRaw('
+                    SUM(COALESCE(total_sp_m, 0)) as st_sa,
+                    SUM(COALESCE(total_sp_m1, 0)) as st_sa_m1,
+                    SUM(COALESCE(total_m, 0)) as st_pv,
+                    SUM(COALESCE(total_m1, 0)) as st_pv_m1
+                ')
+                ->first();
+
+        $appProductiveIds = (clone $outletQuery)
+            ->whereRaw("$currentExpr > 0")
+            ->pluck('id_outlet');
+
+        $performanceProductiveIds = $outletIds->isEmpty()
+            ? collect()
+            : DB::table('outlet_performance')
+                ->whereIn('id_outlet', $outletIds)
+                ->whereRaw('COALESCE(total_sp_m, 0) + COALESCE(total_m, 0) > 0')
+                ->pluck('id_outlet');
+
+        $productiveOutlets = $appProductiveIds
+            ->merge($performanceProductiveIds)
+            ->unique()
+            ->count();
+
+        $stSa = (int) ($performance->st_sa ?? 0);
+        $stPv = (int) ($performance->st_pv ?? 0);
+        $trxM = (int) ($base->trx_m ?? 0);
+        $trxCvm = (int) ($base->trx_cvm ?? 0);
+        $current = $stSa + $stPv + $trxM;
+        $previous = (int) ($performance->st_sa_m1 ?? 0) + (int) ($performance->st_pv_m1 ?? 0) + (int) ($base->trx_m1 ?? 0);
+        $outlets = (int) ($base->outlets ?? 0);
+        $productivity = $outlets > 0 ? ($productiveOutlets / $outlets) * 100 : 0;
+        $mom = $previous > 0 ? (($current - $previous) / $previous) * 100 : 0;
+
+        return [
+            'tap' => $tap,
+            'outlets' => $outlets,
+            'unmapped_outlets' => (int) ($base->unmapped_outlets ?? 0),
+            'productive_outlets' => $productiveOutlets,
+            'productivity' => round($productivity, 1),
+            'st_sa' => $stSa,
+            'st_pv' => $stPv,
+            'trx_m' => $trxM,
+            'trx_cvm' => $trxCvm,
+            'current' => $current,
+            'previous' => $previous,
+            'mom' => round($mom, 1),
+            'latitude' => $base->avg_latitude ? (float) $base->avg_latitude : null,
+            'longitude' => $base->avg_longitude ? (float) $base->avg_longitude : null,
+        ];
+    }
+
+    private function appsdumaiTransactionExpression(string $prefix): string
+    {
+        $columns = ['digipos', 'cvm', 'comsak', 'hot', 'insak', 'digital', 'voice', 'renewal', 'super', 'hyper'];
+
+        return collect($columns)
+            ->map(fn ($column) => 'COALESCE(' . $prefix . $column . ', 0)')
+            ->implode(' + ');
+    }
+
+    private function leaderOutletPoints(array $areaTaps): array
+    {
+        $tapAreaMap = collect($areaTaps)
+            ->flatMap(fn ($taps, $area) => collect($taps)->mapWithKeys(fn ($tap) => [$tap => $area]));
+
+        $currentExpr = $this->appsdumaiTransactionExpression('m_');
+        $previousExpr = $this->appsdumaiTransactionExpression('m1_');
+        $taps = $tapAreaMap->keys()->all();
+
+        $outlets = DB::table('appsdumais')
+            ->whereIn('tap', $taps)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->where('latitude', '!=', '')
+            ->where('longitude', '!=', '')
+            ->whereNotNull('sf')
+            ->where('sf', '!=', '')
+            ->where('sf', '!=', 'UNMAPPING')
+            ->select(
+                'id_outlet',
+                'nama_outlet',
+                'tap',
+                'kecamatan',
+                'sf',
+                'latitude',
+                'longitude',
+                'm_cvm',
+                'm1_cvm'
+            )
+            ->selectRaw("($currentExpr) as trx_m")
+            ->selectRaw("($previousExpr) as trx_m1")
+            ->orderByDesc('trx_m')
+            ->limit(1000)
+            ->get();
+
+        $performance = $outlets->isEmpty()
+            ? collect()
+            : DB::table('outlet_performance')
+                ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
+                ->select('id_outlet', 'total_sp_m', 'total_sp_m1', 'total_m', 'total_m1')
+                ->get()
+                ->keyBy('id_outlet');
+
+        return $outlets->map(function ($outlet) use ($performance, $tapAreaMap) {
+            $perf = $performance->get($outlet->id_outlet);
+            $stSa = (int) ($perf->total_sp_m ?? 0);
+            $stSaM1 = (int) ($perf->total_sp_m1 ?? 0);
+            $stPv = (int) ($perf->total_m ?? 0);
+            $stPvM1 = (int) ($perf->total_m1 ?? 0);
+            $trx = (int) ($outlet->trx_m ?? 0);
+            $trxM1 = (int) ($outlet->trx_m1 ?? 0);
+            $trxCvm = (int) ($outlet->m_cvm ?? 0);
+            $trxCvmM1 = (int) ($outlet->m1_cvm ?? 0);
+            $current = $stSa + $stPv + $trx;
+
+            return [
+                'id_outlet' => $outlet->id_outlet,
+                'nama_outlet' => $outlet->nama_outlet,
+                'tap' => $outlet->tap,
+                'kecamatan' => $outlet->kecamatan ?: 'KECAMATAN BELUM ADA',
+                'area' => $tapAreaMap->get($outlet->tap, 'Area lain'),
+                'sf' => $outlet->sf ?: 'UNMAPPING',
+                'latitude' => (float) $outlet->latitude,
+                'longitude' => (float) $outlet->longitude,
+                'trx_m' => $trx,
+                'trx_m1' => $trxM1,
+                'trx_cvm' => $trxCvm,
+                'trx_cvm_m1' => $trxCvmM1,
+                'st_sa' => $stSa,
+                'st_sa_m1' => $stSaM1,
+                'st_pv' => $stPv,
+                'st_pv_m1' => $stPvM1,
+                'current' => $current,
+                'status' => $current > 0 ? 'hot' : 'cold',
+            ];
+        })->values()->all();
+    }
+
+    private function areaRiskLabel(float $mom, float $productivity): string
+    {
+        if ($mom < -15 || $productivity < 35) return 'Prioritas';
+        if ($mom < 0 || $productivity < 50) return 'Pantau';
+        return 'Aman';
+    }
+
+    private function leaderActions($riskTaps, $areas): array
+    {
+        $topRisk = $riskTaps->first();
+        $lowestArea = $areas->sortBy('productivity')->first();
+
+        return [
+            [
+                'title' => 'Recovery TAP prioritas',
+                'body' => $topRisk
+                    ? 'Fokuskan kunjungan leader ke ' . $topRisk['tap'] . ' karena produktivitas ' . $topRisk['productivity'] . '% dan MoM ' . $topRisk['mom'] . '%.'
+                    : 'Semua TAP terlihat stabil, lanjutkan monitoring harian.',
+                'tone' => 'danger',
+            ],
+            [
+                'title' => 'Aktivasi outlet tidur',
+                'body' => $lowestArea
+                    ? $lowestArea['name'] . ' punya produktivitas outlet ' . $lowestArea['productivity'] . '%. Dorong sampling, retensi, dan follow-up outlet tanpa transaksi.'
+                    : 'Data area belum cukup untuk menentukan outlet tidur.',
+                'tone' => 'warning',
+            ],
+            [
+                'title' => 'Jaga momentum SA dan PV',
+                'body' => 'Bandingkan ST SA, ST PV, dan transaksi appsdumais di tiap TAP sebelum briefing pagi agar CTA sales lebih tajam.',
+                'tone' => 'success',
+            ],
+        ];
     }
 
     public function search(Request $request)

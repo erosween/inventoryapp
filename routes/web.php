@@ -56,6 +56,9 @@ Route::get('/search', [searchController::class, 'search'])->name('search');
 
 //monita dumai
 Route::get('/monitadumai', [MonitaDumaiController::class, 'index']);
+Route::get('/monitadumai/leader-login', [MonitaDumaiController::class, 'showLeaderLogin'])->name('monita.leader.login');
+Route::post('/monitadumai/leader-login', [MonitaDumaiController::class, 'leaderLogin'])->name('monita.leader.login.post');
+Route::get('/monitadumai/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('monita.leader.logout');
 Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
 Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
 Route::get('/monitadumai/nearby', [MonitaDumaiController::class, 'nearby']);
@@ -242,6 +245,19 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
+// EMPLOYEE PRESENCE ADMIN (Standalone Access)
+Route::prefix('admin-presensi')->name('admin-presensi.')->group(function () {
+    Route::get('/login', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'showLogin'])->name('login');
+    Route::post('/login', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'login'])->name('login.post');
+    Route::get('/logout', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'logout'])->name('logout');
+    Route::get('/', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'index'])->name('index');
+    Route::get('/template', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'template'])->name('template');
+    Route::post('/import', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'import'])->name('import');
+    Route::post('/employees/{employee}', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'update'])->name('update');
+});
+
+Route::get('/presensi-admin', fn () => redirect()->route(session()->has('presence_admin_id') ? 'admin-presensi.index' : 'admin-presensi.login'));
+
 // MOBILE SALES FORCE (Independent Access)
 Route::prefix('mobile')->name('mobile.')->group(function () {
     Route::get('/login', [\App\Http\Controllers\MobileAuthController::class, 'showLoginForm'])->name('login');
@@ -250,6 +266,9 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
 
     Route::middleware([\App\Http\Middleware\MobileSFAccess::class])->group(function () {
         Route::get('/', [\App\Http\Controllers\MobileSalesController::class, 'index'])->name('index');
+        Route::get('/attendance', [\App\Http\Controllers\MobileAttendanceController::class, 'index'])->name('attendance');
+        Route::post('/attendance', [\App\Http\Controllers\MobileAttendanceController::class, 'store'])->name('attendance.store');
+        Route::post('/attendance/checkout', [\App\Http\Controllers\MobileAttendanceController::class, 'checkout'])->name('attendance.checkout');
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
@@ -260,5 +279,26 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/stock', [\App\Http\Controllers\MobileSalesController::class, 'stock'])->name('stock');
         Route::get('/password', [\App\Http\Controllers\MobileAuthController::class, 'showChangePasswordForm'])->name('password');
         Route::post('/password', [\App\Http\Controllers\MobileAuthController::class, 'updatePassword'])->name('password.update');
+    });
+});
+
+// EMPLOYEE PRESENCE (Independent Access)
+Route::prefix('presensi')->name('presensi.')->group(function () {
+    Route::get('/login', [\App\Http\Controllers\EmployeeAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [\App\Http\Controllers\EmployeeAuthController::class, 'login'])->name('login.post');
+    Route::get('/logout', [\App\Http\Controllers\EmployeeAuthController::class, 'logout'])->name('logout');
+
+    Route::middleware([\App\Http\Middleware\EmployeeAttendanceAccess::class])->group(function () {
+        Route::get('/', [\App\Http\Controllers\EmployeePresenceController::class, 'index'])->name('index');
+        Route::get('/riwayat', [\App\Http\Controllers\EmployeePresenceController::class, 'history'])->name('history');
+        Route::post('/enroll', [\App\Http\Controllers\EmployeePresenceController::class, 'enroll'])->name('enroll');
+        Route::post('/attendance', [\App\Http\Controllers\EmployeePresenceController::class, 'store'])->name('attendance.store');
+        Route::post('/attendance/checkout', [\App\Http\Controllers\EmployeePresenceController::class, 'checkout'])->name('attendance.checkout');
+        Route::get('/menu', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'dashboard'])->name('menu');
+        Route::get('/pengajuan/{type}', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'create'])->name('request.create');
+        Route::post('/pengajuan/{type}', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'store'])->name('request.store');
+        Route::get('/kotak-masuk', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'inbox'])->name('inbox');
+        Route::get('/slip-gaji', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'payslip'])->name('payslip');
+        Route::get('/akun', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'account'])->name('account');
     });
 });

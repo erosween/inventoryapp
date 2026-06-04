@@ -315,6 +315,7 @@ class MobileSalesController extends Controller
             'products' => 'required|array',
             'products.*.iddenom' => 'required',
             'products.*.qty' => 'required|numeric|min:1',
+            'keterangan' => 'nullable|string',
         ]);
 
         // Cek lagi status di server
@@ -329,17 +330,24 @@ class MobileSalesController extends Controller
         }
 
         DB::transaction(function () use ($request, $idsf, $idtap, $id_outlet, $tgl) {
+            $keptIds = [];
+
             foreach ($request->products as $productData) {
                 if (isset($productData['id'])) {
-                    // Update existing
+                    $keptIds[] = $productData['id'];
+
                     MobilePenjualan::where('id', $productData['id'])
                         ->where('idsf', $idsf)
+                        ->where('id_outlet', $id_outlet)
+                        ->where('tgl', $tgl)
+                        ->where('status', 'pending')
                         ->update([
-                            'qty' => $productData['qty']
+                            'iddenom' => $productData['iddenom'],
+                            'qty' => $productData['qty'],
+                            'keterangan' => $request->input('keterangan'),
                         ]);
                 } else {
-                    // Create new
-                    MobilePenjualan::create([
+                    $newSale = MobilePenjualan::create([
                         'tgl' => $tgl,
                         'id_outlet' => $id_outlet,
                         'idtap' => $idtap,
@@ -347,10 +355,20 @@ class MobileSalesController extends Controller
                         'iddenom' => $productData['iddenom'],
                         'qty' => $productData['qty'],
                         'status' => 'pending',
-                        'keterangan' => 'Tambahan via edit'
+                        'keterangan' => $request->input('keterangan') ?: 'Tambahan via edit'
                     ]);
+                    $keptIds[] = $newSale->id;
                 }
             }
+
+            MobilePenjualan::where('idsf', $idsf)
+                ->where('id_outlet', $id_outlet)
+                ->where('tgl', $tgl)
+                ->where('status', 'pending')
+                ->when(!empty($keptIds), function ($query) use ($keptIds) {
+                    $query->whereNotIn('id', $keptIds);
+                })
+                ->delete();
         });
 
         return redirect()->route('mobile.history')->with('success', 'Data kunjungan berhasil diperbarui!');

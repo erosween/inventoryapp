@@ -3,61 +3,78 @@
 @section('title', 'Dashboard')
 
 @section('content')
-<!-- Red Header Section (Telkomsel Style) -->
-<div class="px-4 pt-4 pb-5" style="background: linear-gradient(135deg, var(--primary) 0%, #B00B11 100%); margin: 0 -16px; position: relative;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center">
-            <img src="/assets/img/MSP5.png" alt="Avatar" style="width: 42px; height: 42px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.2);" class="me-3">
-            <div>
-                <p class="text-white text-opacity-75 mb-0 fw-bold" style="font-size: 0.65rem;">Hai, Sales Force</p>
-                <h6 class="text-white fw-800 mb-0" style="font-size: 1rem;">{{ session('mobile_sf_name') }}</h6>
+@php
+    $progress = $pjp_list->count() > 0 ? ($pjp_list->where('is_visited', true)->count() / $pjp_list->count()) * 100 : 0;
+@endphp
+
+<div class="px-4 pt-4 pb-5 mobile-home-hero" style="margin: 0 -16px; position: relative;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center min-w-0">
+            <img src="/assets/img/MSP5.png" alt="Avatar" class="me-3" style="width: 46px; height: 46px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.55); box-shadow: 0 12px 28px rgba(0,0,0,0.18); background: #fff;">
+            <div class="min-w-0">
+                <p class="text-white-50 mb-1 fw-800" style="font-size: 0.66rem;">SALES FORCE CONSOLE</p>
+                <h6 class="text-white fw-900 mb-0 text-truncate" style="font-size: 1rem;">{{ session('mobile_sf_name') }}</h6>
             </div>
         </div>
         <div class="text-end">
-            <i class="fas fa-bell text-white fs-5 position-relative">
-                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-light rounded-circle"></span>
-            </i>
+            <div class="text-white-50 fw-bold" style="font-size: 0.62rem;">{{ date('d M Y') }}</div>
+            <div class="text-white fw-900" style="font-size: 0.95rem;">{{ session('idtap') }}</div>
         </div>
     </div>
-    <div class="text-white pb-3">
-        <p class="mb-0 fw-bold" style="font-size: 0.65rem; opacity: 0.8;">ID TAP</p>
-        <h5 class="fw-800 mb-0">{{ session('idtap') }}</h5>
+
+    <div class="hero-command">
+        <div>
+            <div class="text-white-50 fw-900 mb-2" style="font-size: 0.66rem;">TARGET KUNJUNGAN HARI INI</div>
+            <div class="text-white fw-900" style="font-size: 2.15rem; line-height: 1;">{{ round($progress) }}%</div>
+            <div class="text-white-50 fw-bold mt-1" style="font-size: 0.72rem;">{{ $pjp_list->where('is_visited', true)->count() }} dari {{ $pjp_list->count() }} outlet PJP selesai</div>
+        </div>
+        <a href="{{ route('mobile.form') }}" class="hero-action" aria-label="Input penjualan">
+            <i class="fas fa-plus"></i>
+        </a>
     </div>
 </div>
 
-<div class="reveal position-relative" style="margin-top: -45px; z-index: 10;">
-    <!-- Quick Performance Overlapping Card -->
-    <div class="glass-card mb-4 p-4 border-0 shadow-sm" style="background: white; border-radius: 24px;">
-        <div class="row g-3 text-center">
-            <div class="col-6">
-                <div class="p-3 rounded-4" style="background: linear-gradient(135deg, rgba(236,32,40,0.05), rgba(236,32,40,0.12));">
-                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-calendar-day me-1" style="color: var(--primary);"></i> SALES HARI INI</div>
-                    <h3 class="fw-800 mb-0" style="color: var(--primary);">{{ number_format($today_sales) }}</h3>
-                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">PCS TERJUAL</div>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="p-3 rounded-4" style="background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(16,185,129,0.12));">
-                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-wallet me-1 text-success"></i> SETORAN HARI INI</div>
-                    <h4 class="fw-800 mb-0 text-success" style="font-size: 1.05rem;">Rp {{ number_format($today_setoran, 0, ',', '.') }}</h4>
-                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">ESTIMASI</div>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="p-3 rounded-4" style="background: rgba(0,0,0,0.02);">
-                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-calendar-alt me-1" style="color: var(--accent);"></i> SALES BULAN INI</div>
-                    <h3 class="fw-800 mb-0" style="color: var(--text-main);">{{ number_format($month_sales) }}</h3>
-                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">PCS TERJUAL</div>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="p-3 rounded-4" style="background: rgba(0,0,0,0.02);">
-                    <div class="text-muted fw-bold mb-1" style="font-size: 0.6rem;"><i class="fas fa-money-bill-wave me-1 text-success"></i> SETORAN BULAN INI</div>
-                    <h4 class="fw-800 mb-0" style="color: var(--text-main); font-size: 1.05rem;">Rp {{ number_format($month_setoran, 0, ',', '.') }}</h4>
-                    <div class="small fw-bold text-muted" style="font-size: 0.55rem;">ESTIMASI</div>
-                </div>
-            </div>
+<div class="reveal position-relative" style="margin-top: -48px; z-index: 10;">
+    <div class="mobile-kpi-grid mb-3">
+        <div class="mobile-kpi-card accent-red">
+            <span>Sales Hari Ini</span>
+            <strong>{{ number_format($today_sales) }}</strong>
+            <small>PCS terjual</small>
         </div>
+        <div class="mobile-kpi-card accent-green">
+            <span>Setoran Hari Ini</span>
+            <strong>Rp {{ number_format($today_setoran, 0, ',', '.') }}</strong>
+            <small>Estimasi</small>
+        </div>
+        <div class="mobile-kpi-card">
+            <span>Sales Bulan Ini</span>
+            <strong>{{ number_format($month_sales) }}</strong>
+            <small>PCS terjual</small>
+        </div>
+        <div class="mobile-kpi-card">
+            <span>Setoran Bulan Ini</span>
+            <strong>Rp {{ number_format($month_setoran, 0, ',', '.') }}</strong>
+            <small>Estimasi</small>
+        </div>
+    </div>
+
+    <div class="quick-action-row mb-4">
+        <a href="{{ route('mobile.form') }}" class="quick-action">
+            <i class="fas fa-cart-plus"></i>
+            <span>Input</span>
+        </a>
+        <a href="{{ route('mobile.stock') }}" class="quick-action">
+            <i class="fas fa-boxes-stacked"></i>
+            <span>Stok</span>
+        </a>
+        <a href="{{ route('mobile.history') }}" class="quick-action">
+            <i class="fas fa-clock-rotate-left"></i>
+            <span>History</span>
+        </a>
+        <button type="button" class="quick-action" data-bs-toggle="modal" data-bs-target="#searchOutletModal">
+            <i class="fas fa-store"></i>
+            <span>Outlet</span>
+        </button>
     </div>
 
     <!-- PJP Section Header -->
@@ -72,9 +89,6 @@
                     data-bs-toggle="modal" data-bs-target="#searchOutletModal">
                 <i class="fas fa-plus me-1"></i> TAMBAH
             </button>
-            @php
-                $progress = $pjp_list->count() > 0 ? ($pjp_list->where('is_visited', true)->count() / $pjp_list->count()) * 100 : 0;
-            @endphp
             <div class="text-end">
                 <span class="text-primary fw-800" style="font-size: 0.9rem;">{{ round($progress) }}%</span>
             </div>
@@ -214,6 +228,119 @@
 </div>
 </div>
 @endsection
+
+@push('styles')
+<style>
+    .mobile-home-hero {
+        min-height: 292px;
+    }
+
+    .hero-command {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-action {
+        width: 62px;
+        height: 62px;
+        border-radius: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        color: #111827;
+        background: #fff;
+        text-decoration: none;
+        box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+    }
+
+    .hero-action i {
+        font-size: 1.25rem;
+    }
+
+    .mobile-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .mobile-kpi-card {
+        min-height: 118px;
+        border-radius: 24px;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.97);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+    }
+
+    .mobile-kpi-card span,
+    .mobile-kpi-card small {
+        color: #64748b;
+        font-size: 0.61rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .mobile-kpi-card strong {
+        color: #111827;
+        font-size: clamp(1rem, 4.5vw, 1.58rem);
+        line-height: 1.05;
+        font-weight: 900;
+        overflow-wrap: anywhere;
+    }
+
+    .mobile-kpi-card.accent-red strong {
+        color: var(--primary);
+    }
+
+    .mobile-kpi-card.accent-green strong {
+        color: #059669;
+    }
+
+    .quick-action-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 9px;
+    }
+
+    .quick-action {
+        min-height: 78px;
+        border: 0;
+        border-radius: 22px;
+        background: #fff;
+        color: #111827;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.07);
+        font-weight: 900;
+        font-size: 0.68rem;
+    }
+
+    .quick-action i {
+        width: 34px;
+        height: 34px;
+        border-radius: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(236, 32, 40, 0.1);
+        color: var(--primary);
+        font-size: 0.95rem;
+    }
+</style>
+@endpush
 
 @push('modals')
 <!-- Modal Cari Outlet -->
