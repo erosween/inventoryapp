@@ -48,6 +48,12 @@ class EmployeePresenceController extends Controller
             'izin' => $monthRows->whereIn('attendance_type', ['terlambat', 'cepat_pulang'])->count(),
             'sakit' => $monthRows->where('attendance_type', 'sakit')->count(),
         ];
+        $monthRows->each(fn ($row) => $row->setRelation('employee', $employee));
+        if ($todayAttendance) {
+            $todayAttendance->setRelation('employee', $employee);
+        }
+        $dashboardInsights = $this->dashboardInsights($employee, $monthRows);
+        $lateNotice = $this->lateNotice($employee, $todayAttendance);
 
         return view('presensi.index', [
             'employee' => $employee,
@@ -55,6 +61,8 @@ class EmployeePresenceController extends Controller
             'todayAttendance' => $todayAttendance,
             'history' => $monthRows->take(14),
             'summary' => $summary,
+            'dashboardInsights' => $dashboardInsights,
+            'lateNotice' => $lateNotice,
             'types' => $this->types,
             'faceThreshold' => self::FACE_MATCH_THRESHOLD,
             'locationPolicy' => $employee->attendanceLocationPolicy(),
@@ -292,6 +300,106 @@ class EmployeePresenceController extends Controller
             'hash' => $this->faces->hash($signature),
             'path' => $stored['path'],
             'thumbnail_path' => $stored['thumbnail_path'],
+        ];
+    }
+
+    private function dashboardInsights(AttendanceEmployee $employee, $monthRows): array
+    {
+        $workedRows = $monthRows->filter(fn ($row) => !empty($row->check_in_at));
+        $lateRows = $workedRows->filter(fn ($row) => $row->lateMinutes() > 0 || $row->attendance_type === 'terlambat');
+        $completedRows = $workedRows->filter(fn ($row) => !empty($row->check_out_at));
+        $requestRows = $monthRows->whereIn('attendance_type', ['cuti', 'sakit', 'cepat_pulang']);
+        $onTimeCount = max(0, $workedRows->count() - $lateRows->count());
+
+        $trend = collect(range(6, 0))->map(function (int $daysAgo) use ($monthRows) {
+            $date = now()->copy()->subDays($daysAgo);
+            $row = $monthRows->first(fn ($item) => $item->attendance_date?->isSameDay($date));
+
+            if (!$row) {
+                return [
+                    'day' => $date->locale('id')->translatedFormat('D'),
+                    'date' => $date->format('d M'),
+                    'label' => '-',
+                    'class' => 'empty',
+                    'height' => 18,
+                ];
+            }
+
+            $arrival = $row->arrivalStatus();
+            $isRequest = in_array($row->attendance_type, ['cuti', 'sakit'], true);
+            $class = $isRequest ? 'info' : $arrival['class'];
+
+            return [
+                'day' => $date->locale('id')->translatedFormat('D'),
+                'date' => $date->format('d M'),
+                'label' => $arrival['label'],
+                'class' => $class,
+                'height' => match ($class) {
+                    'success' => 92,
+                    'warning' => 66,
+                    'info' => 46,
+                    default => 24,
+                },
+            ];
+        });
+
+        return [
+            'on_time' => $onTimeCount,
+            'late' => $lateRows->count(),
+            'requests' => $requestRows->count(),
+            'completion_rate' => $workedRows->count() > 0 ? (int) round(($completedRows->count() / $workedRows->count()) * 100) : 0,
+            'trend' => $trend,
+            'schedule' => $employee->scheduleLabel(),
+        ];
+    }
+
+    private function lateNotice(AttendanceEmployee $employee, ?EmployeeAttendance $todayAttendance): array
+    {
+        $start = now()->copy()->setTimeFromTimeString($employee->work_start_time ? substr((string) $employee->work_start_time, 0, 5) : '08:30');
+        $limit = $start->copy()->addMinutes((int) ($employee->late_tolerance_minutes ?? 15));
+
+        if ($todayAttendance?->check_in_at) {
+            $lateMinutes = $todayAttendance->lateMinutes();
+            if ($lateMinutes > 0) {
+                return [
+                    'class' => 'warning',
+                    'icon' => 'fa-clock',
+                    'title' => 'Terlambat ' . $lateMinutes . ' menit',
+                    'description' => 'Check in pukul ' . $todayAttendance->check_in_at->format('H:i') . ', melewati batas toleransi ' . $limit->format('H:i') . '.',
+                ];
+            }
+
+            return [
+                'class' => 'success',
+                'icon' => 'fa-circle-check',
+                'title' => 'Check in tepat waktu',
+                'description' => 'Masuk pukul ' . $todayAttendance->check_in_at->format('H:i') . ', jadwal kerja ' . $employee->scheduleLabel() . '.',
+            ];
+        }
+
+        if (now()->greaterThan($limit)) {
+            return [
+                'class' => 'danger',
+                'icon' => 'fa-triangle-exclamation',
+                'title' => 'Sudah melewati toleransi',
+                'description' => 'Batas toleransi ' . $limit->format('H:i') . '. Keterlambatan berjalan sekitar ' . (int) round($limit->diffInMinutes(now())) . ' menit.',
+            ];
+        }
+
+        if (now()->greaterThan($start)) {
+            return [
+                'class' => 'warning',
+                'icon' => 'fa-hourglass-half',
+                'title' => 'Masuk masa toleransi',
+                'description' => 'Jadwal masuk ' . $start->format('H:i') . '. Toleransi sampai ' . $limit->format('H:i') . '.',
+            ];
+        }
+
+        return [
+            'class' => 'info',
+            'icon' => 'fa-business-time',
+            'title' => 'Siap check in',
+            'description' => 'Jadwal masuk hari ini ' . $start->format('H:i') . ', toleransi ' . ($employee->late_tolerance_minutes ?? 15) . ' menit.',
         ];
     }
 

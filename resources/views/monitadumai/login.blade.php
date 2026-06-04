@@ -14,8 +14,15 @@
             font-family: "Inter", Arial, sans-serif;
         }
 
+        html {
+            min-height: 100%;
+            overflow-x: hidden;
+            background: #101828;
+        }
+
         body {
             min-height: 100vh;
+            min-height: 100svh;
             background:
                 linear-gradient(135deg, rgba(16, 24, 40, 0.95), rgba(130, 24, 31, 0.92)),
                 url("https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1800&q=80");
@@ -26,6 +33,14 @@
             align-items: center;
             justify-content: center;
             padding: 28px;
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
+        }
+
+        @supports not (height: 100svh) {
+            body {
+                min-height: 100vh;
+            }
         }
 
         .login-shell {
@@ -240,6 +255,7 @@
                 align-items: flex-start;
                 padding: 18px;
                 overflow-y: auto;
+                overscroll-behavior-y: contain;
             }
 
             .login-shell {
@@ -304,7 +320,7 @@
                     <label for="access_code">Kode akses</label>
                     <div class="input-wrap">
                         <i class="fas fa-key"></i>
-                        <input id="access_code" name="access_code" type="password" value="{{ old('access_code') }}" autocomplete="current-password" autofocus>
+                        <input id="access_code" name="access_code" type="password" value="{{ old('access_code') }}" autocomplete="current-password">
                     </div>
                 </div>
 

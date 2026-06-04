@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceEmployee;
+use App\Models\EmployeeAttendance;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -67,8 +69,13 @@ class EmployeePresenceAdminController extends Controller
             ->orderBy('employee_level')
             ->orderBy('name')
             ->get();
+        $attendanceHistory = EmployeeAttendance::with('employee')
+            ->orderByDesc('attendance_date')
+            ->orderByDesc('created_at')
+            ->limit(150)
+            ->get();
 
-        return view('presensi.admin.index', compact('employees', 'supervisors'));
+        return view('presensi.admin.index', compact('employees', 'supervisors', 'attendanceHistory'));
     }
 
     public function store(Request $request)
@@ -184,9 +191,9 @@ class EmployeePresenceAdminController extends Controller
         ];
 
         $rows = [
-            ['EMP-GM01', 'Nama GM', 'OPERASIONAL', 'General Manager', '081200000001', '1', '', 'DUMAI', 'locked', 'Kantor Dumai', '-1.1234567', '101.1234567', '150', '08:30', '17:00', '15', '123456', 'active'],
-            ['EMP-SPV01', 'Nama SPV', 'OPERASIONAL', 'Supervisor', '081200000002', '2', '', 'DUMAI', 'anywhere', '', '', '', '150', '08:30', '17:00', '15', '123456', 'active'],
-            ['EMP-SLS01', 'Nama Sales', 'SALES', 'Sales', '081200000003', '3', 'EMP-SPV01', 'DUMAI', 'anywhere', '', '', '', '150', '08:30', '17:00', '15', '123456', 'active'],
+            ['EMP-GM01', 'Nama GM', 'OPERASIONAL', 'General Manager', '081200000001', '1', '', 'DUMAI', 'locked', 'Kantor Dumai', '-1.1234567', '101.1234567', '150', '08:00', '16:30', '15', '123456', 'active'],
+            ['EMP-SPV01', 'Nama SPV', 'OPERASIONAL', 'Supervisor', '081200000002', '2', '', 'DUMAI', 'anywhere', '', '', '', '150', '08:00', '16:30', '15', '123456', 'active'],
+            ['EMP-SLS01', 'Nama Sales', 'SALES', 'Sales', '081200000003', '3', 'EMP-SPV01', 'DUMAI', 'anywhere', '', '', '', '150', '08:00', '16:30', '15', '123456', 'active'],
         ];
 
         return response()->streamDownload(function () use ($headers, $rows) {
@@ -216,6 +223,30 @@ class EmployeePresenceAdminController extends Controller
         return back()->with('success', "Upload selesai. Baru: {$result['created']}, update: {$result['updated']}, dilewati: {$result['skipped']}.");
     }
 
+    public function attendancePhoto(EmployeeAttendance $attendance, string $variant = 'thumb')
+    {
+        if (!Session::has('presence_admin_id')) {
+            abort(403);
+        }
+
+        $isFull = $variant === 'full';
+        $path = $isFull
+            ? $attendance->face_photo_path
+            : ($attendance->face_thumbnail_path ?: $attendance->face_photo_path);
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            $path = $attendance->face_photo_path;
+        }
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            return $this->photoPlaceholderResponse();
+        }
+
+        return Storage::disk('public')->response($path, null, [
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
     private function redirectIfNotPresenceAdmin()
     {
         if (Session::has('presence_admin_id')) {
@@ -223,6 +254,23 @@ class EmployeePresenceAdminController extends Controller
         }
 
         return redirect()->route('admin-presensi.login')->with('error', 'Silakan login admin presensi terlebih dahulu.');
+    }
+
+    private function photoPlaceholderResponse()
+    {
+        $svg = <<<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180">
+  <rect width="240" height="180" rx="22" fill="#f1edff"/>
+  <circle cx="120" cy="78" r="28" fill="#d9d2ff"/>
+  <path d="M70 145c8-28 27-43 50-43s42 15 50 43" fill="#d9d2ff"/>
+  <text x="120" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#5b37e5">Foto belum tersedia</text>
+</svg>
+SVG;
+
+        return response($svg, 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     private function validatedSupervisorId(?AttendanceEmployee $employee, int $level, mixed $supervisorId): ?int
@@ -300,8 +348,8 @@ class EmployeePresenceAdminController extends Controller
                     'attendance_latitude' => $this->nullableNumericCell($sheet, $row, $headings, ['latitude', 'lat', 'attendance_latitude']),
                     'attendance_longitude' => $this->nullableNumericCell($sheet, $row, $headings, ['longitude', 'lng', 'long', 'attendance_longitude']),
                     'attendance_radius_meters' => $this->intCell($sheet, $row, $headings, ['radius_meters', 'radius', 'attendance_radius_meters'], 150),
-                    'work_start_time' => $this->timeCell($sheet, $row, $headings, ['work_start', 'jam_masuk', 'work_start_time'], '08:30'),
-                    'work_end_time' => $this->timeCell($sheet, $row, $headings, ['work_end', 'jam_pulang', 'work_end_time'], '17:00'),
+                    'work_start_time' => $this->timeCell($sheet, $row, $headings, ['work_start', 'jam_masuk', 'work_start_time'], '08:00'),
+                    'work_end_time' => $this->timeCell($sheet, $row, $headings, ['work_end', 'jam_pulang', 'work_end_time'], '16:30'),
                     'late_tolerance_minutes' => $this->intCell($sheet, $row, $headings, ['late_tolerance', 'toleransi_telat', 'late_tolerance_minutes'], 15),
                     'status' => $this->nullableCell($sheet, $row, $headings, ['status']) ?: 'active',
                     'role' => $this->roleForLevel($level),

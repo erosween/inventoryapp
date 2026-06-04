@@ -3,6 +3,15 @@
 @section('title', 'Dashboard Admin Presensi')
 
 @section('content')
+@php
+    $attendanceTypeLabels = [
+        'hadir' => 'Kehadiran',
+        'cuti' => 'Cuti',
+        'terlambat' => 'Izin Terlambat Masuk',
+        'cepat_pulang' => 'Izin Cepat Pulang',
+        'sakit' => 'Sakit',
+    ];
+@endphp
 <div class="main-panel">
     <div class="content">
         <div class="page-inner">
@@ -148,7 +157,6 @@
                                             @php($policy = $employee->attendanceLocationPolicy())
                                             @php($latestAttendance = $employee->latestAttendance)
                                             @php($photoPath = $latestAttendance?->face_photo_path)
-                                            @php($thumbPath = $latestAttendance?->face_thumbnail_path ?: $photoPath)
                                             <tr>
                                                 <td>
                                                     <div class="font-weight-bold">{{ $employee->name }}</div>
@@ -157,7 +165,7 @@
                                                 <td>
                                                     @if($photoPath)
                                                         <button type="button" class="attendance-photo-btn" data-toggle="modal" data-target="#attendancePhoto{{ $employee->id }}">
-                                                            <img src="{{ \Illuminate\Support\Facades\Storage::url($thumbPath) }}" alt="Foto presensi {{ $employee->name }}" loading="lazy">
+                                                            <img src="{{ route('admin-presensi.attendance-photo', [$latestAttendance, 'thumb']) }}" alt="Foto presensi {{ $employee->name }}" loading="lazy" data-photo-fallback="true">
                                                             <span>Match {{ $latestAttendance->face_match_score }}%</span>
                                                         </button>
                                                         <div class="small text-muted mt-1">{{ $latestAttendance->attendance_date?->format('d M Y') }}</div>
@@ -197,6 +205,81 @@
                                                     <button type="button" class="btn btn-link btn-primary btn-lg" data-toggle="modal" data-target="#editPresence{{ $employee->id }}">
                                                         <i class="fa fa-edit"></i>
                                                     </button>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card premium-card">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <div class="d-flex align-items-center flex-wrap">
+                                <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                    <i class="fas fa-clock-rotate-left mr-2"></i>Riwayat Absensi Karyawan
+                                </h4>
+                                <span class="history-count-pill ml-auto">{{ $attendanceHistory->count() }} data terakhir</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="presence-history-table" class="table table-indigo table-hover w-100">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>Karyawan</th>
+                                            <th>Status</th>
+                                            <th>Masuk</th>
+                                            <th>Pulang</th>
+                                            <th>Keterlambatan</th>
+                                            <th>Foto</th>
+                                            <th>Keterangan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($attendanceHistory as $attendance)
+                                            @php($employeeRow = $attendance->employee)
+                                            @php($arrival = $attendance->arrivalStatus())
+                                            <tr>
+                                                <td data-order="{{ $attendance->attendance_date?->format('Ymd') }}{{ $attendance->created_at?->format('His') }}">
+                                                    <div class="font-weight-bold">{{ $attendance->attendance_date?->format('d M Y') }}</div>
+                                                    <div class="small text-muted">{{ $attendance->created_at?->format('H:i') }}</div>
+                                                </td>
+                                                <td>
+                                                    <div class="font-weight-bold">{{ $employeeRow?->name ?? '-' }}</div>
+                                                    <div class="small text-muted">{{ $employeeRow?->employee_code ?? '-' }} - {{ $employeeRow?->department ?? '-' }}</div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge badge-{{ in_array($attendance->status, ['verified', 'completed'], true) ? 'success' : 'warning' }}">
+                                                        {{ strtoupper($attendance->status) }}
+                                                    </span>
+                                                    <div class="small text-muted mt-1">{{ $attendanceTypeLabels[$attendance->attendance_type] ?? ucfirst(str_replace('_', ' ', $attendance->attendance_type)) }}</div>
+                                                </td>
+                                                <td>{{ $attendance->check_in_at?->format('H:i') ?? '-' }}</td>
+                                                <td>{{ $attendance->check_out_at?->format('H:i') ?? '-' }}</td>
+                                                <td>
+                                                    <span class="arrival-pill {{ $arrival['class'] }}">
+                                                        {{ $arrival['label'] }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if($attendance->face_photo_path)
+                                                        <button type="button" class="attendance-photo-btn mini" data-toggle="modal" data-target="#attendanceHistoryPhoto{{ $attendance->id }}">
+                                                            <img src="{{ route('admin-presensi.attendance-photo', [$attendance, 'thumb']) }}" alt="Foto presensi {{ $employeeRow?->name }}" loading="lazy" data-photo-fallback="true">
+                                                            <span>{{ $attendance->face_match_score }}%</span>
+                                                        </button>
+                                                    @else
+                                                        <span class="text-muted small font-weight-bold">-</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <div class="history-reason">{{ $attendance->reason ?: '-' }}</div>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -536,7 +619,7 @@
                             </button>
                         </div>
                         <div class="modal-body">
-                            <img src="{{ \Illuminate\Support\Facades\Storage::url($employee->latestAttendance->face_photo_path) }}" alt="Foto presensi {{ $employee->name }}" class="attendance-photo-full">
+                            <img src="{{ route('admin-presensi.attendance-photo', [$employee->latestAttendance, 'full']) }}" alt="Foto presensi {{ $employee->name }}" class="attendance-photo-full" data-photo-fallback="true">
                             <div class="attendance-photo-meta">
                                 <span><i class="fas fa-calendar-day mr-1"></i>{{ $employee->latestAttendance->attendance_date?->format('d M Y') }}</span>
                                 <span><i class="fas fa-clock mr-1"></i>{{ $employee->latestAttendance->check_in_at?->format('H:i') ?? '-' }}</span>
@@ -547,6 +630,33 @@
                 </div>
             </div>
         @endif
+    @endforeach
+
+    @foreach($attendanceHistory->whereNotNull('face_photo_path') as $attendance)
+        @php($employeeRow = $attendance->employee)
+        <div class="modal fade" id="attendanceHistoryPhoto{{ $attendance->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content attendance-photo-modal">
+                    <div class="modal-header no-bd">
+                        <h5 class="modal-title">
+                            <span class="fw-mediumbold">Foto Riwayat</span>
+                            <span class="fw-light">{{ $employeeRow?->name ?? 'Karyawan' }}</span>
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <img src="{{ route('admin-presensi.attendance-photo', [$attendance, 'full']) }}" alt="Foto presensi {{ $employeeRow?->name }}" class="attendance-photo-full" data-photo-fallback="true">
+                        <div class="attendance-photo-meta">
+                            <span><i class="fas fa-calendar-day mr-1"></i>{{ $attendance->attendance_date?->format('d M Y') }}</span>
+                            <span><i class="fas fa-clock mr-1"></i>{{ $attendance->check_in_at?->format('H:i') ?? '-' }}</span>
+                            <span><i class="fas fa-face-smile mr-1"></i>Match {{ $attendance->face_match_score }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     @endforeach
 @endpush
 
@@ -593,6 +703,15 @@
 
     .presence-admin-actions {
         gap: 8px;
+    }
+
+    .history-count-pill {
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: #5b37e5;
+        background: #f1edff;
+        font-size: 0.72rem;
+        font-weight: 900;
     }
 
     .presence-admin-actions .btn,
@@ -665,6 +784,41 @@
         white-space: nowrap;
     }
 
+    .attendance-photo-btn.mini {
+        width: 66px;
+        min-height: 62px;
+        padding: 5px;
+    }
+
+    .attendance-photo-btn.mini img {
+        height: 34px;
+    }
+
+    .arrival-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 28px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 0.68rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .arrival-pill.success { color: #047857; background: #dcfce7; }
+    .arrival-pill.warning { color: #b45309; background: #fef3c7; }
+    .arrival-pill.info { color: #235ecf; background: #e7efff; }
+    .arrival-pill.danger { color: #c62828; background: #fee2e2; }
+
+    .history-reason {
+        max-width: 260px;
+        color: #737997;
+        font-size: 0.72rem;
+        font-weight: 800;
+        line-height: 1.45;
+    }
+
     .attendance-photo-modal .modal-body {
         padding-top: 0;
     }
@@ -727,6 +881,10 @@
 <script>
     $(document).ready(function() {
         $('#presence-admin-table').DataTable({ pageLength: 10 });
+        $('#presence-history-table').DataTable({
+            pageLength: 10,
+            order: [[0, 'desc']],
+        });
 
         $('.employee-level-select').on('change', function() {
             const form = $(this).closest('form');
@@ -778,6 +936,18 @@
         $('.custom-file-input').on('change', function() {
             const fileName = this.files && this.files.length ? this.files[0].name : 'Pilih file Excel / CSV';
             $(this).next('.custom-file-label').text(fileName);
+        });
+
+        $('img[data-photo-fallback="true"]').on('error', function() {
+            this.onerror = null;
+            this.src = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180">
+                    <rect width="240" height="180" rx="22" fill="#f1edff"/>
+                    <circle cx="120" cy="78" r="28" fill="#d9d2ff"/>
+                    <path d="M70 145c8-28 27-43 50-43s42 15 50 43" fill="#d9d2ff"/>
+                    <text x="120" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#5b37e5">Foto belum tersedia</text>
+                </svg>
+            `);
         });
 
         @if($errors->any() && old('manual_form'))

@@ -76,6 +76,14 @@
         </div>
     </section>
 
+    <section class="late-notice-card {{ $lateNotice['class'] }} mb-3">
+        <i class="fas {{ $lateNotice['icon'] }}"></i>
+        <div class="min-w-0">
+            <strong>{{ $lateNotice['title'] }}</strong>
+            <span>{{ $lateNotice['description'] }}</span>
+        </div>
+    </section>
+
     <section class="quick-grid mb-4">
         <a href="#scan" class="quick-action purple">
             <i class="fas fa-fingerprint"></i>
@@ -105,6 +113,44 @@
             <div class="summary-box green"><span>Izin</span><strong>{{ $summary['izin'] }}</strong><em>Hari</em></div>
             <div class="summary-box orange"><span>Cuti</span><strong>{{ $summary['cuti'] }}</strong><em>Hari</em></div>
             <div class="summary-box red"><span>Sakit</span><strong>{{ $summary['sakit'] }}</strong><em>Hari</em></div>
+        </div>
+    </section>
+
+    <section class="presence-card p-3 mb-4 insight-card">
+        <div class="section-row">
+            <h2>Insight Kehadiran</h2>
+            <span>{{ now()->locale('id')->translatedFormat('M Y') }}</span>
+        </div>
+        <div class="insight-kpis mb-3">
+            <div>
+                <span>Tepat Waktu</span>
+                <strong>{{ $dashboardInsights['on_time'] }}</strong>
+            </div>
+            <div>
+                <span>Terlambat</span>
+                <strong>{{ $dashboardInsights['late'] }}</strong>
+            </div>
+            <div>
+                <span>Checkout</span>
+                <strong>{{ $dashboardInsights['completion_rate'] }}%</strong>
+            </div>
+        </div>
+        <div class="trend-chart" aria-label="Grafik kehadiran tujuh hari terakhir">
+            @foreach($dashboardInsights['trend'] as $bar)
+                <div class="trend-item">
+                    <div class="trend-bar-wrap">
+                        <div class="trend-bar {{ $bar['class'] }}" style="--bar-height: {{ $bar['height'] }}%;"></div>
+                    </div>
+                    <strong>{{ $bar['day'] }}</strong>
+                    <span>{{ $bar['date'] }}</span>
+                </div>
+            @endforeach
+        </div>
+        <div class="trend-legend mt-3">
+            <span><i class="success"></i>Tepat</span>
+            <span><i class="warning"></i>Telat</span>
+            <span><i class="info"></i>Izin</span>
+            <span><i class="empty"></i>Kosong</span>
         </div>
     </section>
 
@@ -247,6 +293,7 @@
         </div>
         <div class="history-list">
             @forelse($history->take(4) as $item)
+                @php($arrival = $item->arrivalStatus())
                 <div class="history-row">
                     <div class="history-icon" style="--accent: {{ $typeColors[$item->attendance_type] ?? '#94a3b8' }};">
                         <i class="fas {{ $typeIcons[$item->attendance_type] ?? 'fa-calendar-check' }}"></i>
@@ -259,7 +306,7 @@
                             @if($item->check_out_at) - OUT {{ $item->check_out_at->format('H:i') }} @endif
                         </div>
                     </div>
-                    <span class="status-badge {{ $item->status === 'completed' || $item->status === 'verified' ? 'success' : 'warning' }}">{{ strtoupper($item->status) }}</span>
+                    <span class="status-badge {{ $arrival['class'] }}">{{ $arrival['label'] }}</span>
                 </div>
             @empty
                 <div class="empty-state">
@@ -385,6 +432,172 @@
     .summary-box.green { color: #059669; background: #e9fbf3; }
     .summary-box.orange { color: #f59e0b; background: #fff6e6; }
     .summary-box.red { color: #ef4444; background: #fff0f0; }
+
+    .late-notice-card {
+        min-height: 74px;
+        border-radius: 20px;
+        padding: 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid var(--line);
+        background: #fff;
+        box-shadow: var(--shadow);
+    }
+
+    .late-notice-card > i {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+    }
+
+    .late-notice-card strong,
+    .late-notice-card span {
+        display: block;
+    }
+
+    .late-notice-card strong {
+        color: var(--ink);
+        font-size: 0.86rem;
+        font-weight: 900;
+    }
+
+    .late-notice-card span {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 0.68rem;
+        font-weight: 800;
+        line-height: 1.45;
+    }
+
+    .late-notice-card.success > i { color: #047857; background: #dcfce7; }
+    .late-notice-card.warning > i { color: #b45309; background: #fef3c7; }
+    .late-notice-card.danger > i { color: #c62828; background: #fee2e2; }
+    .late-notice-card.info > i { color: #235ecf; background: #e7efff; }
+
+    .insight-kpis {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .insight-kpis div {
+        min-height: 70px;
+        border-radius: 16px;
+        padding: 12px 10px;
+        background: #f8f9ff;
+        border: 1px solid #edf0f8;
+    }
+
+    .insight-kpis span,
+    .insight-kpis strong {
+        display: block;
+        text-align: center;
+    }
+
+    .insight-kpis span {
+        color: var(--muted);
+        font-size: 0.58rem;
+        font-weight: 900;
+    }
+
+    .insight-kpis strong {
+        margin-top: 6px;
+        color: var(--ink);
+        font-size: 1.22rem;
+        line-height: 1;
+        font-weight: 900;
+    }
+
+    .trend-chart {
+        min-height: 142px;
+        border-radius: 18px;
+        padding: 14px 10px 10px;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+        background: linear-gradient(180deg, #fbfcff 0%, #f2f5ff 100%);
+        border: 1px solid #edf0f8;
+    }
+
+    .trend-item {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: 84px auto auto;
+        align-items: end;
+        justify-items: center;
+        gap: 4px;
+    }
+
+    .trend-bar-wrap {
+        width: 100%;
+        height: 84px;
+        border-radius: 999px;
+        display: flex;
+        align-items: end;
+        justify-content: center;
+        background: rgba(232,234,246,0.62);
+        overflow: hidden;
+    }
+
+    .trend-bar {
+        width: 100%;
+        min-height: 10px;
+        height: var(--bar-height);
+        border-radius: 999px 999px 0 0;
+        background: #d5daeb;
+    }
+
+    .trend-bar.success { background: linear-gradient(180deg, #34d399, #059669); }
+    .trend-bar.warning { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+    .trend-bar.info { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+    .trend-bar.empty { background: #d5daeb; }
+
+    .trend-item strong {
+        color: var(--ink);
+        font-size: 0.58rem;
+        font-weight: 900;
+    }
+
+    .trend-item span {
+        color: var(--muted);
+        font-size: 0.52rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .trend-legend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .trend-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--muted);
+        font-size: 0.62rem;
+        font-weight: 900;
+    }
+
+    .trend-legend i {
+        width: 9px;
+        height: 9px;
+        border-radius: 99px;
+        display: inline-block;
+    }
+
+    .trend-legend i.success { background: #059669; }
+    .trend-legend i.warning { background: #f59e0b; }
+    .trend-legend i.info { background: #2563eb; }
+    .trend-legend i.empty { background: #d5daeb; }
 
     .location-card {
         display: flex;

@@ -25,9 +25,15 @@
             box-sizing: border-box;
         }
 
+        html {
+            min-height: 100%;
+            overflow-x: hidden;
+            background: #e9eff6;
+        }
+
         body {
             min-height: 100vh;
-            min-height: 100dvh;
+            min-height: 100svh;
             margin: 0;
             font-family: "Plus Jakarta Sans", sans-serif;
             color: var(--ink);
@@ -39,21 +45,25 @@
             justify-content: center;
             align-items: stretch;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
         }
 
         .login-phone {
             width: 100%;
             max-width: 480px;
             min-height: 100vh;
-            min-height: 100dvh;
+            min-height: 100svh;
             background: var(--surface);
             position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
+            overscroll-behavior-y: contain;
             box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.05), var(--shadow);
         }
 
         .login-hero {
-            min-height: 45vh;
+            min-height: clamp(330px, 45svh, 430px);
             padding: 26px 24px 92px;
             color: #fff;
             background: linear-gradient(145deg, #111827 0%, #293241 50%, #ec2028 100%);
@@ -184,12 +194,14 @@
             border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 28px;
             box-shadow: 0 22px 55px rgba(15, 23, 42, 0.12);
-            animation: lift 0.28s ease-out both;
+            transform: translateZ(0);
         }
 
-        @keyframes lift {
-            from { opacity: 0; transform: translateY(14px); }
-            to { opacity: 1; transform: translateY(0); }
+        @supports not (height: 100svh) {
+            body,
+            .login-phone {
+                min-height: 100vh;
+            }
         }
 
         .form-title {
@@ -422,7 +434,7 @@
                     <label class="field-label" for="login_code">Sales Login Code</label>
                     <div class="field-wrap">
                         <i class="fas fa-id-badge"></i>
-                        <input type="text" name="login_code" id="login_code" class="login-input" placeholder="06D5LA" value="{{ old('login_code') }}" required autofocus autocomplete="username">
+                        <input type="text" name="login_code" id="login_code" class="login-input" placeholder="06D5LA" value="{{ old('login_code') }}" required autocomplete="username">
                     </div>
                 </div>
 
