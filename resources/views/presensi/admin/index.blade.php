@@ -34,6 +34,20 @@
         'reimbursement' => 'Reimbursement',
         'pengeluaran' => 'Pengeluaran',
     ];
+    $activeAdminSection = $activeAdminSection ?? 'dashboard';
+    $showStats = in_array($activeAdminSection, ['dashboard', 'presensi'], true);
+    $showMonitoring = in_array($activeAdminSection, ['dashboard', 'presensi'], true);
+    $showAttendanceRequests = in_array($activeAdminSection, ['dashboard', 'izin-cuti'], true);
+    $showServiceRequests = in_array($activeAdminSection, ['dashboard', 'izin-cuti', 'lembur'], true);
+    $showApproval = $showAttendanceRequests || $showServiceRequests;
+    $showSettingsHero = in_array($activeAdminSection, ['karyawan', 'lokasi', 'pengaturan', 'role-akses'], true);
+    $showUploadStructure = in_array($activeAdminSection, ['karyawan', 'pengaturan', 'role-akses'], true);
+    $showEmployeeList = in_array($activeAdminSection, ['karyawan', 'lokasi', 'role-akses'], true);
+    $showHistory = in_array($activeAdminSection, ['rekap', 'aktivitas'], true);
+    $showAnnouncement = $activeAdminSection === 'pengumuman';
+    $visiblePresenceRequests = $activeAdminSection === 'lembur'
+        ? $presenceRequests->where('request_type', 'lembur')->values()
+        : $presenceRequests;
 @endphp
 <div class="main-panel">
     <div class="content">
@@ -86,45 +100,42 @@
                 </div>
             </section>
 
+            @if($showStats)
             <section class="stats-grid mb-4">
                 <div class="ops-stat-card">
                     <i class="fas fa-users"></i>
                     <span>Karyawan Aktif</span>
                     <strong>{{ $dashboardStats['active_employees'] }}</strong>
-                    <em>{{ $dashboardStats['total_employees'] }} total karyawan</em>
+                    <em>{{ $dashboardStats['total_employees'] }} total data karyawan</em>
                 </div>
                 <div class="ops-stat-card success">
                     <i class="fas fa-circle-check"></i>
-                    <span>Presensi Hari Ini</span>
+                    <span>Hadir Hari Ini</span>
                     <strong>{{ $dashboardStats['checked_in_today'] }}</strong>
                     <em>{{ $dashboardStats['completed_today'] }} sudah check-out</em>
                 </div>
                 <div class="ops-stat-card warning">
-                    <i class="fas fa-triangle-exclamation"></i>
-                    <span>Terlambat Hari Ini</span>
+                    <i class="fas fa-clock"></i>
+                    <span>Terlambat</span>
                     <strong>{{ $dashboardStats['late_today'] }}</strong>
                     <em>Berbasis jam kerja karyawan</em>
                 </div>
                 <div class="ops-stat-card danger">
+                    <i class="fas fa-user-slash"></i>
+                    <span>Belum Hadir</span>
+                    <strong>{{ $dashboardStats['not_checked_in_today'] }}</strong>
+                    <em>Karyawan aktif belum check-in</em>
+                </div>
+                <div class="ops-stat-card violet">
                     <i class="fas fa-inbox"></i>
-                    <span>Menunggu Approval</span>
+                    <span>Izin / Cuti</span>
                     <strong>{{ $dashboardStats['pending_total'] }}</strong>
                     <em>{{ $dashboardStats['pending_attendance'] }} HR, {{ $dashboardStats['pending_services'] }} layanan</em>
                 </div>
-                <div class="ops-stat-card info">
-                    <i class="fas fa-location-crosshairs"></i>
-                    <span>Aturan Lokasi</span>
-                    <strong>{{ $dashboardStats['locked_location'] }}</strong>
-                    <em>{{ $dashboardStats['anywhere_location'] }} bebas lokasi</em>
-                </div>
-                <div class="ops-stat-card violet">
-                    <i class="fas fa-face-smile"></i>
-                    <span>Enrollment Face ID</span>
-                    <strong>{{ $dashboardStats['face_rate'] }}%</strong>
-                    <em>{{ $dashboardStats['face_ready'] }} wajah terdaftar</em>
-                </div>
             </section>
+            @endif
 
+            @if($showMonitoring)
             <section class="row mb-4" id="monitoring">
                 <div class="col-lg-7 mb-4 mb-lg-0">
                     <div class="card premium-card h-100">
@@ -182,9 +193,12 @@
                     </div>
                 </div>
             </section>
+            @endif
 
+            @if($showApproval)
             <section class="row mb-4" id="pengajuan">
-                <div class="col-xl-6 mb-4 mb-xl-0">
+                @if($showAttendanceRequests)
+                <div class="{{ $showServiceRequests ? 'col-xl-6 mb-4 mb-xl-0' : 'col-xl-12' }}">
                     <div class="card premium-card h-100">
                         <div class="card-header bg-white border-bottom py-3">
                             <div class="d-flex align-items-center flex-wrap">
@@ -254,14 +268,16 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-xl-6">
+                @endif
+                @if($showServiceRequests)
+                <div class="{{ $showAttendanceRequests ? 'col-xl-6' : 'col-xl-12' }}">
                     <div class="card premium-card h-100">
                         <div class="card-header bg-white border-bottom py-3">
                             <div class="d-flex align-items-center flex-wrap">
                                 <h4 class="card-title text-indigo font-weight-bold mb-0">
                                     <i class="fas fa-briefcase mr-2"></i>Pengajuan Layanan Karyawan
                                 </h4>
-                                <span class="history-count-pill ml-auto">{{ $dashboardStats['pending_services'] }} pending</span>
+                                <span class="history-count-pill ml-auto">{{ $visiblePresenceRequests->where('status', 'pending')->count() }} pending</span>
                             </div>
                         </div>
                         <div class="card-body">
@@ -277,7 +293,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach($presenceRequests as $serviceRequest)
+                                        @foreach($visiblePresenceRequests as $serviceRequest)
                                             @php($employeeRow = $serviceRequest->employee)
                                             @php($isPending = $serviceRequest->status === 'pending')
                                             <tr>
@@ -338,8 +354,11 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </section>
+            @endif
 
+            @if($showSettingsHero)
             <div class="row" id="pengaturan">
                 <div class="col-md-12">
                     <div class="card card-round border-0 shadow-sm text-white mb-4" style="background: linear-gradient(135deg, #5b37e5 0%, #2f1aa8 100%);">
@@ -359,7 +378,9 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if($showUploadStructure)
             <div class="row">
                 <div class="col-lg-4 mb-4">
                     <div class="card premium-card h-100">
@@ -430,7 +451,9 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if($showEmployeeList)
             <div class="row" id="karyawan">
                 <div class="col-md-12">
                     <div class="card premium-card">
@@ -537,7 +560,9 @@
                     </div>
                 </div>
             </div>
+            @endif
 
+            @if($showHistory)
             <div class="row mt-4" id="riwayat">
                 <div class="col-md-12">
                     <div class="card premium-card">
@@ -612,6 +637,51 @@
                     </div>
                 </div>
             </div>
+            @endif
+
+            @if($showAnnouncement)
+            <section class="row">
+                <div class="col-lg-7 mb-4 mb-lg-0">
+                    <div class="card premium-card h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                <i class="fas fa-bullhorn mr-2"></i>Pengumuman HR
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="empty-admin-panel">Belum ada pengumuman aktif.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="card premium-card h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h4 class="card-title text-indigo font-weight-bold mb-0">
+                                <i class="fas fa-calendar-day mr-2"></i>Info Hari Ini
+                            </h4>
+                        </div>
+                        <div class="card-body live-monitor-list">
+                            <div class="live-monitor-item">
+                                <div class="live-avatar"><i class="fas fa-users"></i></div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <strong>{{ $dashboardStats['active_employees'] }} karyawan aktif</strong>
+                                    <span>{{ $dashboardStats['checked_in_today'] }} sudah check-in hari ini</span>
+                                </div>
+                                <em class="info">Live</em>
+                            </div>
+                            <div class="live-monitor-item">
+                                <div class="live-avatar"><i class="fas fa-inbox"></i></div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <strong>{{ $dashboardStats['pending_total'] }} approval pending</strong>
+                                    <span>Cuti, izin, sakit, dan layanan karyawan</span>
+                                </div>
+                                <em class="warning">HR</em>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            @endif
         </div>
     </div>
 </div>
@@ -1167,12 +1237,12 @@
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 14px;
     }
 
     .ops-stat-card {
-        min-height: 156px;
+        min-height: 148px;
         border: 1px solid rgba(232,234,246,0.96);
         border-radius: 22px;
         padding: 18px;
@@ -1180,7 +1250,7 @@
         align-content: start;
         gap: 8px;
         background: #fff;
-        box-shadow: 0 18px 44px rgba(31,35,85,0.07);
+        box-shadow: 0 16px 42px rgba(31,35,85,0.055);
     }
 
     .ops-stat-card i {
@@ -1204,7 +1274,7 @@
 
     .ops-stat-card strong {
         color: #101333;
-        font-size: 1.9rem;
+        font-size: 1.82rem;
         line-height: 1;
         font-weight: 900;
     }

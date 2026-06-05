@@ -18,6 +18,20 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class EmployeePresenceAdminController extends Controller
 {
+    private const ADMIN_SECTIONS = [
+        'dashboard' => ['title' => 'Dashboard', 'subtitle' => 'Ringkasan data presensi dan aktivitas karyawan'],
+        'karyawan' => ['title' => 'Karyawan', 'subtitle' => 'Kelola data karyawan, foto profil, level, dan atasan'],
+        'presensi' => ['title' => 'Presensi', 'subtitle' => 'Pantau check-in, checkout, keterlambatan, dan Face ID hari ini'],
+        'rekap' => ['title' => 'Rekap Presensi', 'subtitle' => 'Riwayat absensi, foto verifikasi, dan status kehadiran karyawan'],
+        'izin-cuti' => ['title' => 'Izin & Cuti', 'subtitle' => 'Approval cuti, izin terlambat, cepat pulang, dan sakit'],
+        'lembur' => ['title' => 'Lembur', 'subtitle' => 'Pantau dan proses pengajuan lembur karyawan'],
+        'lokasi' => ['title' => 'Lokasi', 'subtitle' => 'Atur mode lokasi, radius, dan titik presensi karyawan'],
+        'pengumuman' => ['title' => 'Pengumuman', 'subtitle' => 'Kelola informasi HR untuk karyawan presensi'],
+        'pengaturan' => ['title' => 'Pengaturan', 'subtitle' => 'Upload data, struktur level, lokasi, dan jam kerja'],
+        'role-akses' => ['title' => 'Role & Akses', 'subtitle' => 'Kelola level karyawan, atasan, dan akses presensi'],
+        'aktivitas' => ['title' => 'Aktivitas', 'subtitle' => 'Pantau aktivitas absensi dan perubahan data terbaru'],
+    ];
+
     public function showLogin()
     {
         if (Session::has('presence_admin_id')) {
@@ -56,6 +70,20 @@ class EmployeePresenceAdminController extends Controller
     }
 
     public function index()
+    {
+        return $this->showSection('dashboard');
+    }
+
+    public function section(string $section)
+    {
+        if (!array_key_exists($section, self::ADMIN_SECTIONS)) {
+            abort(404);
+        }
+
+        return $this->showSection($section);
+    }
+
+    private function showSection(string $activeAdminSection)
     {
         if ($redirect = $this->redirectIfNotPresenceAdmin()) {
             return $redirect;
@@ -105,6 +133,7 @@ class EmployeePresenceAdminController extends Controller
             ->values();
         $dashboardStats = $this->dashboardStats($employees, $todayAttendances, $attendanceHistory, $attendanceRequests, $presenceRequests);
         $attendanceTrend = $this->attendanceTrend($attendanceHistory);
+        $adminPageMeta = self::ADMIN_SECTIONS[$activeAdminSection] ?? self::ADMIN_SECTIONS['dashboard'];
 
         return view('presensi.admin.index', compact(
             'employees',
@@ -114,7 +143,9 @@ class EmployeePresenceAdminController extends Controller
             'attendanceRequests',
             'presenceRequests',
             'dashboardStats',
-            'attendanceTrend'
+            'attendanceTrend',
+            'activeAdminSection',
+            'adminPageMeta'
         ));
     }
 
@@ -401,6 +432,7 @@ SVG;
             'checked_in_today' => $checkedIn,
             'completed_today' => $completed,
             'late_today' => $lateToday,
+            'not_checked_in_today' => max($activeEmployees - $checkedIn, 0),
             'pending_total' => $pendingAttendance + $pendingServices,
             'pending_attendance' => $pendingAttendance,
             'pending_services' => $pendingServices,

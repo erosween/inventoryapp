@@ -188,7 +188,7 @@ class MonitaDumaiController extends Controller
             ['key' => 'tsel', 'label' => 'TSEL', 'mtd' => 'tsel_mtd', 'mom' => 'tsel_mom', 'color' => '#e30613'],
             ['key' => 'isat', 'label' => 'ISAT', 'mtd' => 'isat_mtd', 'mom' => 'isat_mom', 'color' => '#f5c400'],
             ['key' => 'xl', 'label' => 'XL', 'mtd' => 'xl_mtd', 'mom' => 'xl_mom', 'color' => '#0057ff'],
-            ['key' => 'tri', 'label' => '3', 'mtd' => '3_mtd', 'mom' => '3_mom', 'color' => '#111827'],
+            ['key' => 'tri', 'label' => '3', 'mtd' => '3_mtd', 'mom' => '3_mom', 'color' => '#e6007e'],
             ['key' => 'sfren', 'label' => 'SFREN', 'mtd' => 'sfren_mtd', 'mom' => 'sfren_mom', 'color' => '#ff4b8b'],
             ['key' => 'istri', 'label' => 'ISAT+3', 'mtd' => 'istri_mtd', 'mom' => 'istri_mom', 'color' => '#f97316'],
             ['key' => 'xlsf', 'label' => 'XL+SF', 'mtd' => 'xlsf_mtd', 'mom' => 'xlsf_mom', 'color' => '#00a7e1'],

@@ -602,22 +602,28 @@
         }
 
         .competition-area-label .operator-logo {
-            width: 18px;
-            height: 18px;
-            min-width: 18px;
-            min-height: 18px;
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            min-height: 22px;
             padding: 0;
-            border-radius: 999px;
+            border-radius: 7px;
             background: #fff;
-            color: var(--operator-color, #20293a);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 7px;
-            line-height: 1;
-            font-weight: 950;
-            box-shadow: inset 0 0 0 1px rgba(15,23,42,0.08);
+            border: 0;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.64), inset 0 0 0 1px rgba(15,23,42,0.08);
+            backdrop-filter: none;
             flex: 0 0 auto;
+            overflow: hidden;
+        }
+
+        .competition-area-label .operator-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
 
         .competition-area-label .competition-label-text {
@@ -2714,28 +2720,40 @@
             return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
         }
 
-        function leaderOperatorLogoText(operator) {
-            const normalized = String(operator || '').trim().toUpperCase();
+        function leaderOperatorLogoPath(display) {
+            const key = String(display.key || '').trim().toLowerCase();
+            const label = String(display.operator || '').trim().toUpperCase();
             const logos = {
-                TSEL: 'T',
-                ISAT: 'I',
-                XL: 'XL',
-                '3': '3',
-                SFREN: 'S',
-                'ISAT+3': 'I3',
-                'XL+SF': 'XS'
+                tsel: '/static/images/operators/telkomsel.svg',
+                telkomsel: '/static/images/operators/telkomsel.svg',
+                xl: '/static/images/operators/xl.svg',
+                axis: '/static/images/operators/axis.svg',
+                isat: '/static/images/operators/indosat.svg',
+                indosat: '/static/images/operators/indosat.svg',
+                tri: '/static/images/operators/tri.svg',
+                '3': '/static/images/operators/tri.svg',
+                sfren: '/static/images/operators/smartfren.svg',
+                smartfren: '/static/images/operators/smartfren.svg',
+                istri: '/static/images/operators/indosat.svg',
+                xlsf: '/static/images/operators/xl.svg'
             };
 
-            return logos[normalized] || normalized.slice(0, 2) || '?';
+            return logos[key] || logos[label.toLowerCase()] || '';
         }
 
         function leaderCompetitionLabelHtml(point, display, shareText) {
             const district = leaderShortLabel(point.kecamatan, 18);
-            const operatorLogo = leaderOperatorLogoText(display.operator);
+            const logoPath = leaderOperatorLogoPath(display);
+            const operatorName = String(display.operator || 'Operator').trim();
+            const fallbackText = operatorName.slice(0, 2).toUpperCase();
 
             return `
                 <span style="background:${display.color}; --operator-color:${display.color};">
-                    <span class="operator-logo">${operatorLogo}</span>
+                    <span class="operator-logo">
+                        ${logoPath
+                            ? `<img src="${logoPath}" alt="${operatorName}">`
+                            : fallbackText}
+                    </span>
                     <span class="competition-label-text">${district} ${shareText}%</span>
                 </span>
             `;

@@ -258,6 +258,9 @@ Route::prefix('admin-presensi')->name('admin-presensi.')->group(function () {
     Route::post('/import', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'import'])->name('import');
     Route::post('/employees', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'store'])->name('store');
     Route::post('/employees/{employee}', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'update'])->name('update');
+    Route::get('/{section}', [\App\Http\Controllers\EmployeePresenceAdminController::class, 'section'])
+        ->whereIn('section', ['dashboard', 'karyawan', 'presensi', 'rekap', 'izin-cuti', 'lembur', 'lokasi', 'pengumuman', 'pengaturan', 'role-akses', 'aktivitas'])
+        ->name('section');
 });
 
 Route::get('/presensi-admin', fn () => redirect()->route(session()->has('presence_admin_id') ? 'admin-presensi.index' : 'admin-presensi.login'));
