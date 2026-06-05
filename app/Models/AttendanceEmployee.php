@@ -28,8 +28,10 @@ class AttendanceEmployee extends Model
         'late_tolerance_minutes',
         'password',
         'phone',
+        'profile_photo_path',
         'status',
         'face_enrolled_at',
+        'pwa_prompted_at',
     ];
 
     protected $casts = [
@@ -40,6 +42,7 @@ class AttendanceEmployee extends Model
         'attendance_radius_meters' => 'integer',
         'late_tolerance_minutes' => 'integer',
         'face_enrolled_at' => 'datetime',
+        'pwa_prompted_at' => 'datetime',
     ];
 
     public function canAttendAnywhere(): bool
@@ -50,9 +53,9 @@ class AttendanceEmployee extends Model
     public function levelLabel(): string
     {
         return match ((int) ($this->employee_level ?? 1)) {
-            1 => 'GM',
+            1 => 'Admin / Sales',
             2 => 'SPV / Manager',
-            3 => 'Admin / Sales',
+            3 => 'GM',
             default => 'Karyawan',
         };
     }

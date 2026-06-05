@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceEmployee;
+use App\Models\EmployeeAttendance;
 use App\Models\EmployeePresenceRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -55,12 +56,19 @@ class EmployeePresenceMenuController extends Controller
             ->latest()
             ->take(5)
             ->get();
+        $leaderPendingCount = EmployeePresenceRequest::whereHas('employee', fn ($query) => $query->where('supervisor_id', $employee->id))
+            ->where('status', 'pending')
+            ->count();
+        $leaderAttendancePendingCount = EmployeeAttendance::whereHas('employee', fn ($query) => $query->where('supervisor_id', $employee->id))
+            ->whereIn('attendance_type', ['cuti', 'sakit', 'terlambat', 'cepat_pulang'])
+            ->whereIn('status', ['submitted', 'pending'])
+            ->count();
 
         return view('presensi.menu', [
             'employee' => $employee,
             'modules' => $this->modules,
             'recentRequests' => $recentRequests,
-            'pendingCount' => $recentRequests->where('status', 'pending')->count(),
+            'pendingCount' => $recentRequests->where('status', 'pending')->count() + $leaderPendingCount + $leaderAttendancePendingCount,
         ]);
     }
 
@@ -132,8 +140,54 @@ class EmployeePresenceMenuController extends Controller
             ->latest()
             ->take(20)
             ->get();
+        $leaderRequests = EmployeePresenceRequest::with('employee')
+            ->whereHas('employee', fn ($query) => $query->where('supervisor_id', $employee->id))
+            ->latest()
+            ->take(30)
+            ->get();
+        $leaderAttendanceRequests = EmployeeAttendance::with('employee')
+            ->whereHas('employee', fn ($query) => $query->where('supervisor_id', $employee->id))
+            ->whereIn('attendance_type', ['cuti', 'sakit', 'terlambat', 'cepat_pulang'])
+            ->latest()
+            ->take(30)
+            ->get();
 
-        return view('presensi.inbox', compact('employee', 'requests'));
+        return view('presensi.inbox', compact('employee', 'requests', 'leaderRequests', 'leaderAttendanceRequests'));
+    }
+
+    public function updateLeaderRequest(Request $request, EmployeePresenceRequest $presenceRequest)
+    {
+        $employee = $this->employee();
+
+        abort_unless((int) $presenceRequest->employee?->supervisor_id === (int) $employee->id, 403);
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['approved', 'rejected'])],
+        ]);
+
+        $presenceRequest->update([
+            'status' => $validated['status'],
+            'approved_at' => $validated['status'] === 'approved' ? now() : null,
+        ]);
+
+        return back()->with('success', $validated['status'] === 'approved' ? 'Pengajuan tim disetujui.' : 'Pengajuan tim ditolak.');
+    }
+
+    public function updateLeaderAttendance(Request $request, EmployeeAttendance $attendance)
+    {
+        $employee = $this->employee();
+
+        abort_unless((int) $attendance->employee?->supervisor_id === (int) $employee->id, 403);
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['approved', 'rejected'])],
+        ]);
+
+        $attendance->update([
+            'status' => $validated['status'],
+        ]);
+
+        return back()->with('success', $validated['status'] === 'approved' ? 'Pengajuan presensi tim disetujui.' : 'Pengajuan presensi tim ditolak.');
     }
 
     public function payslip()

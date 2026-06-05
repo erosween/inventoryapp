@@ -365,7 +365,7 @@
 
         .map-toolbar {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 7px;
             margin-bottom: 8px;
         }
@@ -391,6 +391,40 @@
             color: #fff;
             border-color: #d10000;
             box-shadow: 0 10px 24px rgba(209,0,0,0.22);
+        }
+
+        .fb-share-toggle {
+            display: none;
+            width: fit-content;
+            grid-template-columns: repeat(2, minmax(132px, 1fr));
+            gap: 5px;
+            padding: 4px;
+            margin: 0 auto 8px;
+            border: 1px solid #e3e7ec;
+            border-radius: 14px;
+            background: #f1f4f8;
+        }
+
+        .fb-share-toggle.is-visible {
+            display: inline-grid;
+        }
+
+        .fb-share-btn {
+            min-height: 32px;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: #667085;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .fb-share-btn.active {
+            background: #20293a;
+            color: #fff;
+            box-shadow: 0 8px 18px rgba(32,41,58,0.18);
         }
 
         .map-mode-note {
@@ -552,7 +586,7 @@
             align-items: center;
             justify-content: center;
             gap: 5px;
-            min-width: 112px;
+            min-width: 136px;
             min-height: 30px;
             padding: 6px 11px;
             border-radius: 999px;
@@ -565,6 +599,41 @@
             white-space: nowrap;
             letter-spacing: 0;
             backdrop-filter: blur(8px);
+        }
+
+        .competition-area-label .operator-logo {
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            min-height: 18px;
+            padding: 0;
+            border-radius: 999px;
+            background: #fff;
+            color: var(--operator-color, #20293a);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7px;
+            line-height: 1;
+            font-weight: 950;
+            box-shadow: inset 0 0 0 1px rgba(15,23,42,0.08);
+            flex: 0 0 auto;
+        }
+
+        .competition-area-label .competition-label-text {
+            display: inline-block;
+            min-width: 0;
+            min-height: 0;
+            max-width: 156px;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .leader-map-tooltip {
@@ -717,7 +786,8 @@
 
         .tap-active-table table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             table-layout: fixed;
             min-width: 980px;
         }
@@ -733,9 +803,6 @@
         }
 
         .tap-active-table th {
-            position: sticky;
-            top: 0;
-            z-index: 4;
             background: #f6f7f9;
             color: #667085;
             text-transform: uppercase;
@@ -743,12 +810,15 @@
             text-align: center;
         }
 
-        .tap-active-table thead tr:nth-child(2) th {
-            top: 37px;
-            z-index: 4;
+        .tap-active-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 8;
+            background: #f6f7f9;
+            box-shadow: 0 2px 0 #edf0f4;
         }
 
-        .tap-active-table th:first-child,
+        .tap-active-table thead th:first-child,
         .tap-active-table td:first-child {
             position: sticky;
             left: 0;
@@ -761,8 +831,12 @@
         }
 
         .tap-active-table thead th:first-child {
-            z-index: 6;
+            z-index: 10;
             background: #f6f7f9;
+        }
+
+        .active-table-sticky-spacer {
+            color: transparent;
         }
 
         .tap-active-table td {
@@ -1592,10 +1666,6 @@
                 font-size: 11px;
             }
 
-            .map-toggle[data-map-mode="competition"] {
-                grid-column: 1 / -1;
-            }
-
             .map-mode-note {
                 min-height: 0;
                 align-items: flex-start;
@@ -1610,6 +1680,11 @@
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 6px;
                 margin-bottom: 10px;
+            }
+
+            .fb-share-toggle {
+                width: 100%;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .threshold-field {
@@ -1687,7 +1762,7 @@
                 font-size: 9px;
             }
 
-            .tap-active-table th:first-child,
+            .tap-active-table thead th:first-child,
             .tap-active-table td:first-child {
                 width: 150px;
             }
@@ -1955,6 +2030,7 @@
             $growthTaps = $dashboard['growthTaps'] ?? [];
             $leaderActions = $dashboard['leaderActions'] ?? [];
             $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
+            $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
             $coverageGroupKeys = ['dumai_bengkalis', 'rokan_hilir'];
             $coverageMetrics = [
                 ['key' => 'cvm', 'title' => 'CVM', 'color' => '#0f9d58'],
@@ -2033,12 +2109,13 @@
                         <button type="button" class="map-toggle" data-map-mode="st_sa">
                             <i class="fas fa-sim-card"></i> ST SA
                         </button>
-                        <button type="button" class="map-toggle" data-map-mode="all">
-                            <i class="fas fa-layer-group"></i> ALL
-                        </button>
                         <button type="button" class="map-toggle" data-map-mode="competition">
-                            <i class="fas fa-chart-pie"></i> Kompetisi
+                            <i class="fas fa-chart-pie"></i> FB Share
                         </button>
+                    </div>
+                    <div class="fb-share-toggle" id="fb-share-toggle" aria-label="Mode FB Share">
+                        <button type="button" class="fb-share-btn active" data-fb-share-view="dominant">Dominan</button>
+                        <button type="button" class="fb-share-btn" data-fb-share-view="closest">Closest competitor</button>
                     </div>
                     <div class="map-mode-note" id="map-mode-note">
                         <i class="fas fa-circle-info"></i>
@@ -2086,17 +2163,11 @@
                             </button>
                         </div>
                     </div>
-                    <div class="territory-legend">
-                        @foreach($areas as $area)
-                            <div class="territory-chip">
-                                <small>{{ $area['risk'] }}</small>
-                                <strong>{{ $area['name'] }}</strong>
-                            </div>
-                        @endforeach
-                    </div>
                     <div class="tap-active-table">
                         <div class="table-view-toolbar">
-                            <div class="table-view-title">Monitoring outlet aktif</div>
+                            <div class="table-view-title">
+                                Monitoring outlet aktif{{ $monitoringUpdateDate ? ' (' . $monitoringUpdateDate . ')' : '' }}
+                            </div>
                             <div class="table-view-toggle" aria-label="Pilih agregasi tabel">
                                 <button type="button" class="table-view-btn active" data-table-view="tap">TAP</button>
                                 <button type="button" class="table-view-btn" data-table-view="kecamatan">Kecamatan</button>
@@ -2107,12 +2178,13 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th rowspan="2" id="active-table-dimension">TAP</th>
+                                        <th id="active-table-dimension">TAP</th>
                                         <th colspan="3">Outlet Aktif CVM</th>
                                         <th colspan="3">Outlet Aktif PV</th>
                                         <th colspan="3">Outlet Aktif SA</th>
                                     </tr>
                                     <tr>
+                                        <th class="active-table-sticky-spacer" aria-hidden="true"></th>
                                         <th>M</th>
                                         <th>M-1</th>
                                         <th>MoM</th>
@@ -2339,6 +2411,7 @@
         let leaderCompetitionLayer;
         let leaderBounds = [];
         let activeLeaderMapMode = 'trx_cvm';
+        let activeFbShareView = 'dominant';
         let activeTableView = 'tap';
         let focusedDistricts = new Set();
         let leaderOutletMarkers = [];
@@ -2601,6 +2674,73 @@
             applyDistrictFocus();
         }
 
+        function leaderCompetitionDisplay(point) {
+            const operators = Array.isArray(point.operators) ? point.operators : [];
+            const winner = {
+                key: point.winner_key || '',
+                operator: point.winner_operator || 'N/A',
+                share: Number(point.winner_share || 0),
+                mom: Number(point.winner_mom || 0),
+                color: point.winner_color || '#20293a'
+            };
+
+            if (activeFbShareView === 'closest') {
+                const competitor = operators
+                    .filter((operator) => String(operator.key || '').toLowerCase() !== 'tsel')
+                    .sort((a, b) => Number(b.share || 0) - Number(a.share || 0))[0];
+
+                if (competitor) {
+                    return {
+                        viewLabel: 'Closest competitor',
+                        key: competitor.key || '',
+                        operator: competitor.label || 'N/A',
+                        share: Number(competitor.share || 0),
+                        mom: Number(competitor.mom || 0),
+                        color: competitor.color || '#20293a',
+                        winner
+                    };
+                }
+            }
+
+            return {
+                viewLabel: 'Dominan',
+                ...winner,
+                winner
+            };
+        }
+
+        function leaderShortLabel(value, maxLength = 18) {
+            const text = String(value || '').trim().toUpperCase();
+            return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+        }
+
+        function leaderOperatorLogoText(operator) {
+            const normalized = String(operator || '').trim().toUpperCase();
+            const logos = {
+                TSEL: 'T',
+                ISAT: 'I',
+                XL: 'XL',
+                '3': '3',
+                SFREN: 'S',
+                'ISAT+3': 'I3',
+                'XL+SF': 'XS'
+            };
+
+            return logos[normalized] || normalized.slice(0, 2) || '?';
+        }
+
+        function leaderCompetitionLabelHtml(point, display, shareText) {
+            const district = leaderShortLabel(point.kecamatan, 18);
+            const operatorLogo = leaderOperatorLogoText(display.operator);
+
+            return `
+                <span style="background:${display.color}; --operator-color:${display.color};">
+                    <span class="operator-logo">${operatorLogo}</span>
+                    <span class="competition-label-text">${district} ${shareText}%</span>
+                </span>
+            `;
+        }
+
         function renderLeaderCompetitionLayer() {
             if (!leaderCompetitionLayer) return;
 
@@ -2610,19 +2750,24 @@
             leaderCompetitionPoints.forEach((point) => {
                 const lat = Number(point.latitude);
                 const lng = Number(point.longitude);
-                const share = Number(point.winner_share || 0);
                 const hullPoints = Array.isArray(point.hull_points) ? point.hull_points : [];
 
                 if (!lat || !lng) return;
 
+                const display = leaderCompetitionDisplay(point);
+                const share = Number(display.share || 0);
                 leaderBounds.push([lat, lng]);
-                const color = point.winner_color || '#20293a';
+                const color = display.color || '#20293a';
                 const radius = Math.max(8, Math.min(18, 6 + (share / 8)));
-                const shareText = Number(point.winner_share || 0).toLocaleString('id-ID', {
+                const shareText = share.toLocaleString('id-ID', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
                 });
-                const momText = Number(point.winner_mom || 0).toLocaleString('id-ID', {
+                const momText = Number(display.mom || 0).toLocaleString('id-ID', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1
+                });
+                const winnerShareText = Number(display.winner.share || 0).toLocaleString('id-ID', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
                 });
@@ -2643,9 +2788,11 @@
                     TAP: ${point.tap}<br>
                     Cluster: ${point.cluster}<br>
                     Outlet PJP diplot: ${Number(point.outlet_count || 0).toLocaleString('id-ID')}<br>
-                    Dominan: <b>${point.winner_operator}</b><br>
+                    Mode: <b>${display.viewLabel}</b><br>
+                    Operator: <b>${display.operator}</b><br>
                     Share: ${shareText}%<br>
-                    MoM: ${momText}%<br><br>
+                    MoM: ${momText}%<br>
+                    Dominan: ${display.winner.operator} ${winnerShareText}%<br><br>
                     ${topOperators}
                 `;
 
@@ -2676,16 +2823,72 @@
                     interactive: true,
                     icon: L.divIcon({
                         className: 'competition-area-label',
-                        html: `<span style="background:${color}">${point.winner_operator} ${shareText}%</span>`,
-                        iconSize: [124, 32],
-                        iconAnchor: [62, 16]
+                        html: leaderCompetitionLabelHtml(point, display, shareText),
+                        iconSize: [172, 32],
+                        iconAnchor: [86, 16]
                     })
                 }).addTo(leaderCompetitionLayer).bindPopup(popupHtml);
             });
 
+            renderCompetitionSaOverlay();
+
             if (leaderBounds.length) {
                 leaderMap.fitBounds(leaderBounds, { padding: [28, 28], maxZoom: 10 });
             }
+        }
+
+        function renderCompetitionSaOverlay() {
+            if (!leaderOutletLayer) return;
+
+            leaderOutletPoints.forEach((outlet) => {
+                if (!isPjpOutlet(outlet)) return;
+
+                const lat = Number(outlet.latitude);
+                const lng = Number(outlet.longitude);
+                if (!lat || !lng) return;
+
+                const stSa = Number(outlet.st_sa || 0);
+                const stSaM1 = Number(outlet.st_sa_m1 || 0);
+                const hasSa = stSa >= leaderThresholds.st_sa;
+                const statusColor = leaderStatusColor(hasSa, stSa < stSaM1);
+                const popupRows = `
+                    <tr>
+                        <td>ST SA</td>
+                        <td>${leaderFormatNumber(stSaM1)}</td>
+                        <td>${leaderFormatNumber(stSa)}</td>
+                        <td>${leaderFormatMom(stSa, stSaM1)}</td>
+                    </tr>
+                `;
+
+                L.circleMarker([lat, lng], {
+                    radius: hasSa ? Math.max(3.8, Math.min(8.5, 3.8 + Math.sqrt(stSa) / 5.5)) : 4.6,
+                    color: statusColor.border,
+                    weight: hasSa ? 1.3 : 2.6,
+                    fillColor: statusColor.fill,
+                    fillOpacity: hasSa ? 0.84 : 0.04,
+                    opacity: hasSa ? 0.96 : 0.8
+                }).addTo(leaderOutletLayer).bindPopup(`
+                    <div class="leader-popup-title">${outlet.nama_outlet}</div>
+                    <div class="leader-popup-meta">
+                        ${outlet.id_outlet}<br>
+                        Mode: FB Share + ST SA<br>
+                        Kecamatan: ${outlet.kecamatan}<br>
+                        TAP: ${outlet.tap}<br>
+                        SF: ${outlet.sf}
+                    </div>
+                    <table class="leader-popup-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>M-1</th>
+                                <th>M</th>
+                                <th>%MoM</th>
+                            </tr>
+                        </thead>
+                        <tbody>${popupRows}</tbody>
+                    </table>
+                `);
+            });
         }
 
         function isPjpOutlet(outlet) {
@@ -2771,7 +2974,9 @@
 
             const labels = {
                 activity: 'Mode aktif menampilkan outlet produktif, cold outlet, dan unmapping.',
-                competition: 'Mode kompetisi menampilkan dominasi FB share per kecamatan. Warna area mengikuti operator dengan share MTD tertinggi.',
+                competition: activeFbShareView === 'closest'
+                    ? 'Mode FB Share menampilkan closest competitor non-TSEL per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.'
+                    : 'Mode FB Share menampilkan operator dominan per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.',
                 all: `Hijau berarti capai minimal salah satu target dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min apa pun.`,
                 st_sa: `Hijau berarti ST SA minimal ${leaderThresholds.st_sa} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min SA.`,
                 st_pv: `Hijau berarti ST PV minimal ${leaderThresholds.st_pv} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min PV.`,
@@ -2787,22 +2992,49 @@
             const belowThreshold = document.getElementById('legend-below-threshold');
             if (!legend) return;
 
-            const dot = legend.querySelector('.legend-dot');
-            dot.className = 'legend-dot';
-            dot.classList.add('mom-up');
+            const legendItems = document.querySelectorAll('.map-legend-item');
+            const dot = legendItems[0]?.querySelector('.legend-dot');
+            const secondDot = legendItems[1]?.querySelector('.legend-dot');
+            const thirdDot = legendItems[2]?.querySelector('.legend-dot');
+            if (dot) {
+                dot.className = 'legend-dot mom-up';
+                dot.style.background = '';
+            }
+            if (secondDot) {
+                secondDot.className = 'legend-dot mom-down';
+                secondDot.style.background = '';
+            }
+            if (thirdDot) {
+                thirdDot.className = 'legend-dot no-st';
+                thirdDot.style.background = '';
+            }
+
             const thresholdBox = document.querySelector('.map-thresholds');
-            if (thresholdBox) thresholdBox.style.display = mode === 'competition' ? 'none' : 'flex';
+            if (thresholdBox) {
+                thresholdBox.style.display = '';
+                thresholdBox.querySelectorAll('.threshold-field').forEach((field) => {
+                    const input = field.querySelector('[data-threshold]');
+                    field.style.display = mode === 'competition' && input?.dataset.threshold !== 'st_sa' ? 'none' : '';
+                });
+            }
+            const fbShareToggle = document.getElementById('fb-share-toggle');
+            if (fbShareToggle) fbShareToggle.classList.toggle('is-visible', mode === 'competition');
 
             if (mode === 'competition') {
-                dot.style.background = 'linear-gradient(90deg, #e30613, #0057ff, #f5c400)';
-                if (goodStatus) goodStatus.textContent = 'Area = operator dominan';
-                if (belowThreshold) belowThreshold.textContent = 'Label = share MTD';
+                if (dot) dot.style.background = 'linear-gradient(90deg, #e30613, #0057ff, #f5c400)';
+                if (secondDot) {
+                    secondDot.className = 'legend-dot';
+                    secondDot.style.background = 'linear-gradient(90deg, #0f9d58 0 50%, #f97316 50% 100%)';
+                }
+                if (goodStatus) goodStatus.textContent = activeFbShareView === 'closest'
+                    ? 'Area = closest competitor FB Share'
+                    : 'Area = operator dominan FB Share';
+                if (belowThreshold) belowThreshold.textContent = `Ring merah = ST SA < ${leaderThresholds.st_sa}`;
                 const secondLegend = document.querySelectorAll('.map-legend-item span:last-child')[1];
-                if (secondLegend) secondLegend.textContent = 'Klik area untuk detail';
+                if (secondLegend) secondLegend.textContent = `Titik hijau/oranye = ST SA >= ${leaderThresholds.st_sa}`;
                 return;
             }
 
-            dot.style.background = '';
             const secondLegend = document.querySelectorAll('.map-legend-item span:last-child')[1];
             if (secondLegend) secondLegend.textContent = 'Capai min tapi MoM minus';
 
@@ -2833,10 +3065,10 @@
                 dimensionHeader.textContent = isDistrictView ? 'Kecamatan' : (isSalesForceView ? 'Sales Force' : 'TAP');
             }
 
-            leaderOutletPoints.forEach((outlet) => {
+            leaderCoveragePoints.forEach((outlet) => {
                 const tap = outlet.tap || 'TAP BELUM ADA';
                 const cluster = leaderClusterLabelForTap(tap);
-                const group = isDistrictView ? cluster : (isSalesForceView ? tap : '');
+                const group = isSalesForceView ? tap : cluster;
                 const label = isDistrictView
                     ? (outlet.kecamatan || 'KECAMATAN BELUM ADA')
                     : (isSalesForceView ? (outlet.sf || 'SF BELUM ADA') : tap);
@@ -2846,7 +3078,7 @@
                     rows[key] = {
                         label,
                         group,
-                        groupOrder: leaderActiveTableGroupOrder(group, isDistrictView),
+                        groupOrder: leaderActiveTableGroupOrder(group, activeTableView),
                         sa: 0,
                         saM1: 0,
                         pv: 0,
@@ -2873,7 +3105,7 @@
 
             let lastGroup = null;
             tableBody.innerHTML = sortedRows.map((row) => {
-                const needsGroupHeader = (isDistrictView || isSalesForceView) && row.group !== lastGroup;
+                const needsGroupHeader = row.group !== lastGroup;
                 lastGroup = row.group;
 
                 return `${needsGroupHeader ? renderActiveTableGroupRow(row.group, groupSummaries[row.group]) : ''}${renderActiveTableDataRow(row)}`;
@@ -2916,17 +3148,29 @@
             return 'Cluster Lain';
         }
 
-        function leaderActiveTableGroupOrder(group, isDistrictView) {
-            if (isDistrictView) {
-                const orders = {
-                    'Dumai Bengkalis': 1,
-                    'Rokan Hilir': 2,
-                    'Cluster Lain': 3
-                };
-                return orders[group] || 99;
+        function leaderActiveTableGroupOrder(group, view) {
+            const clusterOrders = {
+                'Dumai Bengkalis': 1,
+                'Rokan Hilir': 2,
+                'Cluster Lain': 3
+            };
+
+            if (view === 'tap' || view === 'kecamatan') {
+                return clusterOrders[group] || 99;
             }
 
-            return 10;
+            const tapOrders = {
+                'BAGAN BATU': 1,
+                'BAGAN SIAPI-API': 2,
+                'BENGKALIS': 3,
+                'DUMAI': 4,
+                'DURI': 5,
+                'RUPAT': 6,
+                'SEI PAKNING': 7,
+                'UJUNG TANJUNG': 8
+            };
+
+            return tapOrders[String(group || '').trim().toUpperCase()] || 99;
         }
 
         function renderActiveTableGroupRow(group, summary = {}) {
@@ -3092,10 +3336,26 @@
             });
         }
 
+        function bindFbShareToggles() {
+            document.querySelectorAll('[data-fb-share-view]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    activeFbShareView = button.dataset.fbShareView || 'dominant';
+                    document.querySelectorAll('[data-fb-share-view]').forEach((item) => {
+                        item.classList.toggle('active', item === button);
+                    });
+
+                    if (activeLeaderMapMode === 'competition') {
+                        renderLeaderOutletLayer(activeLeaderMapMode);
+                    }
+                });
+            });
+        }
+
         window.addEventListener('load', () => {
             bindLeaderThresholds();
             initLeaderMap();
             bindLeaderMapToggles();
+            bindFbShareToggles();
             bindLeaderMapZoom();
             bindActiveTableViewToggles();
         });

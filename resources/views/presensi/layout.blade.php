@@ -274,6 +274,24 @@
             box-shadow: 0 0 0 4px rgba(91,55,229,0.09);
         }
 
+        input[type="date"].presence-input,
+        input[type="time"].presence-input {
+            display: block;
+            min-height: 56px;
+            line-height: 56px;
+            padding: 0 14px;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="date"].presence-input::-webkit-calendar-picker-indicator,
+        input[type="time"].presence-input::-webkit-calendar-picker-indicator {
+            width: 20px;
+            height: 20px;
+            margin-left: 8px;
+            opacity: 0.72;
+        }
+
         .primary-btn,
         .outline-btn,
         .danger-btn {
@@ -432,6 +450,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let deferredPwaPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', function(event) {
+            event.preventDefault();
+            deferredPwaPrompt = event;
+        });
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -458,6 +483,41 @@
                 toast: true,
                 position: 'top',
                 confirmButtonColor: '#5b37e5'
+            });
+        @endif
+
+        @if(session()->pull('attendance_show_pwa_prompt', false))
+            window.addEventListener('load', function() {
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                if (isStandalone) return;
+
+                setTimeout(function() {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Install PresensiKu',
+                        text: 'Akses presensi lebih stabil lewat mode aplikasi di HP.',
+                        confirmButtonText: 'Install / Tambah',
+                        cancelButtonText: 'Nanti saja',
+                        showCancelButton: true,
+                        confirmButtonColor: '#5b37e5',
+                    }).then(async function(result) {
+                        if (!result.isConfirmed) return;
+
+                        if (deferredPwaPrompt) {
+                            deferredPwaPrompt.prompt();
+                            await deferredPwaPrompt.userChoice.catch(function() {});
+                            deferredPwaPrompt = null;
+                            return;
+                        }
+
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Tambah ke layar utama',
+                            text: 'Buka menu browser, lalu pilih Add to Home Screen atau Install App.',
+                            confirmButtonColor: '#5b37e5',
+                        });
+                    });
+                }, 900);
             });
         @endif
     </script>

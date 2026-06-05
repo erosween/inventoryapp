@@ -404,7 +404,7 @@
                                 <div class="col-md-4 mb-3">
                                     <div class="level-card level-one">
                                         <strong>Level 1</strong>
-                                        <span>GM</span>
+                                        <span>Admin / Sales</span>
                                         <em>{{ $employees->where('employee_level', 1)->count() }} orang</em>
                                     </div>
                                 </div>
@@ -418,13 +418,13 @@
                                 <div class="col-md-4 mb-3">
                                     <div class="level-card level-three">
                                         <strong>Level 3</strong>
-                                        <span>Admin / Sales</span>
+                                        <span>GM</span>
                                         <em>{{ $employees->where('employee_level', 3)->count() }} orang</em>
                                     </div>
                                 </div>
                             </div>
                             <div class="alert alert-light border mb-0 small font-weight-bold text-muted">
-                                Atasan bisa dipilih untuk karyawan Level 3. Pilihan atasan berasal dari Level 1 dan Level 2.
+                                Level 1 Admin/Sales bisa dikunci lokasi dan dipilihkan atasan. Level 2 SPV/Manager dan Level 3 GM otomatis bebas lokasi.
                             </div>
                         </div>
                     </div>
@@ -455,7 +455,7 @@
                                     <thead>
                                         <tr>
                                             <th>Karyawan</th>
-                                            <th>Foto</th>
+                                            <th>Face ID</th>
                                             <th>Level</th>
                                             <th>Atasan</th>
                                             <th>Aturan Lokasi</th>
@@ -469,10 +469,20 @@
                                             @php($policy = $employee->attendanceLocationPolicy())
                                             @php($latestAttendance = $employee->latestAttendance)
                                             @php($photoPath = $latestAttendance?->face_photo_path)
+                                            @php($profilePhotoUrl = $employee->profile_photo_path ? asset('storage/' . $employee->profile_photo_path) : null)
                                             <tr>
                                                 <td>
-                                                    <div class="font-weight-bold">{{ $employee->name }}</div>
-                                                    <div class="small text-muted">{{ $employee->employee_code }} - {{ $employee->department ?? '-' }}</div>
+                                                    <div class="employee-inline">
+                                                        @if($profilePhotoUrl)
+                                                            <img src="{{ $profilePhotoUrl }}" alt="Foto {{ $employee->name }}" class="employee-avatar-img" loading="lazy">
+                                                        @else
+                                                            <span class="employee-avatar-fallback">{{ strtoupper(substr($employee->name ?? 'K', 0, 1)) }}</span>
+                                                        @endif
+                                                        <div class="min-w-0">
+                                                            <div class="font-weight-bold text-truncate">{{ $employee->name }}</div>
+                                                            <div class="small text-muted text-truncate">{{ $employee->employee_code }} - {{ $employee->department ?? '-' }}</div>
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     @if($photoPath)
@@ -620,11 +630,11 @@
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <form action="{{ route('admin-presensi.store') }}" method="POST">
+                <form action="{{ route('admin-presensi.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" name="manual_form" value="1">
                     <div class="modal-body">
-                        <p class="small text-muted">Isi data utama karyawan, pilih level, lalu tentukan atasan untuk Level 3 jika diperlukan.</p>
+                        <p class="small text-muted">Isi data utama karyawan, pilih level, lalu tentukan atasan untuk Level 1 jika diperlukan.</p>
 
                         <div class="row">
                             <div class="col-md-4">
@@ -672,13 +682,26 @@
                         </div>
 
                         <div class="row">
+                            <div class="col-md-12">
+                                <label class="profile-upload-box">
+                                    <input type="file" name="profile_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                    <span><i class="fas fa-camera"></i></span>
+                                    <div>
+                                        <strong>Foto Profil Karyawan</strong>
+                                        <em>Opsional. JPG, PNG, atau WEBP maksimal 4MB.</em>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group form-group-default">
                                     <label>Level Karyawan</label>
                                     <select class="form-control employee-level-select" name="employee_level" required>
-                                        <option value="1" @selected((int) old('employee_level', 3) === 1)>Level 1 - GM</option>
-                                        <option value="2" @selected((int) old('employee_level', 3) === 2)>Level 2 - SPV / Manager</option>
-                                        <option value="3" @selected((int) old('employee_level', 3) === 3)>Level 3 - Admin / Sales</option>
+                                        <option value="1" @selected((int) old('employee_level', 1) === 1)>Level 1 - Admin / Sales</option>
+                                        <option value="2" @selected((int) old('employee_level', 1) === 2)>Level 2 - SPV / Manager</option>
+                                        <option value="3" @selected((int) old('employee_level', 1) === 3)>Level 3 - GM</option>
                                     </select>
                                 </div>
                             </div>
@@ -686,8 +709,8 @@
                                 <div class="form-group form-group-default">
                                     <label>Mode Lokasi</label>
                                     <select class="form-control location-mode-select" name="attendance_location_mode" required>
-                                        <option value="locked" @selected(old('attendance_location_mode') === 'locked')>Lock Lokasi</option>
-                                        <option value="anywhere" @selected(old('attendance_location_mode', 'anywhere') === 'anywhere')>Semua Lokasi</option>
+                                        <option value="locked" @selected(old('attendance_location_mode', 'locked') === 'locked')>Lock Lokasi</option>
+                                        <option value="anywhere" @selected(old('attendance_location_mode') === 'anywhere')>Semua Lokasi</option>
                                     </select>
                                 </div>
                             </div>
@@ -702,7 +725,7 @@
                         <div class="row supervisor-row">
                             <div class="col-md-12">
                                 <div class="form-group form-group-default">
-                                    <label>Atasan Level 3</label>
+                                    <label>Atasan Level 1</label>
                                     <select class="form-control supervisor-select" name="supervisor_id">
                                         <option value="">Pilih atasan...</option>
                                         @foreach($supervisors as $supervisor)
@@ -712,7 +735,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="small text-muted font-weight-bold mb-2">Untuk Level 3, atasan bisa GM, SPV, atau Manager.</div>
+                                <div class="small text-muted font-weight-bold mb-2">Untuk Level 1, atasan bisa Level 2 SPV/Manager atau Level 3 GM.</div>
                             </div>
                         </div>
 
@@ -800,19 +823,35 @@
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
-                            <form action="{{ route('admin-presensi.update', $employee) }}" method="POST">
+                            <form action="{{ route('admin-presensi.update', $employee) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="modal-body">
-                            <p class="small text-muted">Level 1 GM. Level 2 SPV/Manager. Level 3 Admin/Sales bisa dipilihkan atasan dari level 1 atau 2.</p>
+                            <p class="small text-muted">Level 1 Admin/Sales bisa dikunci lokasi dan dipilihkan atasan. Level 2 SPV/Manager dan Level 3 GM otomatis bebas lokasi.</p>
+
+                            <div class="profile-edit-row mb-3">
+                                @if($employee->profile_photo_path)
+                                    <img src="{{ asset('storage/' . $employee->profile_photo_path) }}" alt="Foto {{ $employee->name }}" class="profile-edit-preview">
+                                @else
+                                    <span class="profile-edit-preview fallback">{{ strtoupper(substr($employee->name ?? 'K', 0, 1)) }}</span>
+                                @endif
+                                <label class="profile-upload-box flex-grow-1 mb-0">
+                                    <input type="file" name="profile_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                    <span><i class="fas fa-camera"></i></span>
+                                    <div>
+                                        <strong>Ganti Foto Profil</strong>
+                                        <em>Opsional. JPG, PNG, atau WEBP maksimal 4MB.</em>
+                                    </div>
+                                </label>
+                            </div>
 
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-group form-group-default">
                                         <label>Level Karyawan</label>
                                         <select class="form-control employee-level-select" name="employee_level" required>
-                                            <option value="1" @selected(($employee->employee_level ?? 1) === 1)>Level 1 - Lock/Admin</option>
+                                            <option value="1" @selected(($employee->employee_level ?? 1) === 1)>Level 1 - Admin / Sales</option>
                                             <option value="2" @selected(($employee->employee_level ?? 1) === 2)>Level 2 - SPV / Manager</option>
-                                            <option value="3" @selected(($employee->employee_level ?? 1) === 3)>Level 3 - Admin / Sales</option>
+                                            <option value="3" @selected(($employee->employee_level ?? 1) === 3)>Level 3 - GM</option>
                                         </select>
                                     </div>
                                 </div>
@@ -836,7 +875,7 @@
                             <div class="row supervisor-row">
                                 <div class="col-md-12">
                                     <div class="form-group form-group-default">
-                                        <label>Atasan Level 3</label>
+                                        <label>Atasan Level 1</label>
                                         <select class="form-control supervisor-select" name="supervisor_id">
                                             <option value="">Pilih atasan...</option>
                                             @foreach($supervisors as $supervisor)
@@ -848,7 +887,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="small text-muted font-weight-bold mb-2">Field ini aktif untuk Level 3. Level 1 dan 2 otomatis tidak memakai atasan di aplikasi ini.</div>
+                                    <div class="small text-muted font-weight-bold mb-2">Field ini aktif untuk Level 1. Level 2 dan 3 otomatis tidak memakai atasan di aplikasi ini.</div>
                                 </div>
                             </div>
 
@@ -1390,6 +1429,99 @@
         text-align: center;
     }
 
+    .employee-inline {
+        min-width: 210px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .employee-avatar-img,
+    .employee-avatar-fallback,
+    .profile-edit-preview {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        flex: 0 0 auto;
+    }
+
+    .employee-avatar-img,
+    .profile-edit-preview {
+        object-fit: cover;
+        background: #eef1fb;
+    }
+
+    .employee-avatar-fallback,
+    .profile-edit-preview.fallback {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        background: linear-gradient(135deg, #5b37e5, #0f766e);
+        font-weight: 900;
+    }
+
+    .profile-upload-box {
+        min-height: 76px;
+        border: 1px dashed rgba(91,55,229,0.35);
+        border-radius: 18px;
+        padding: 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #101333;
+        background: #fbfaff;
+        cursor: pointer;
+    }
+
+    .profile-upload-box input {
+        display: none;
+    }
+
+    .profile-upload-box > span {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #5b37e5;
+        background: #f1edff;
+        flex: 0 0 auto;
+    }
+
+    .profile-upload-box strong,
+    .profile-upload-box em {
+        display: block;
+    }
+
+    .profile-upload-box strong {
+        color: #101333;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .profile-upload-box em {
+        color: #737997;
+        font-size: 0.66rem;
+        font-style: normal;
+        font-weight: 800;
+        margin-top: 2px;
+    }
+
+    .profile-edit-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .form-group-default input[type="date"].form-control,
+    .form-group-default input[type="time"].form-control {
+        min-height: 34px;
+        line-height: 34px;
+        padding-right: 4px;
+    }
+
     .level-card {
         min-height: 120px;
         border-radius: 18px;
@@ -1719,7 +1851,7 @@
                 mode.prop('disabled', false);
             }
 
-            if (Number(this.value) === 3) {
+            if (Number(this.value) === 1) {
                 supervisorRow.show();
                 supervisorSelect.prop('disabled', false);
             } else {

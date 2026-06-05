@@ -125,6 +125,7 @@ class MonitaDumaiController extends Controller
         $clusterCoverage = $this->leaderClusterCoverage($activeThresholds);
         $coveragePoints = $this->leaderCoveragePoints();
         $competitionPoints = $this->leaderCompetitionPoints();
+        $monitoringUpdateDate = $this->leaderMonitoringUpdateDate();
         $hotOutletCount = collect($outletPoints)->where('status', 'hot')->count();
         $coldOutletCount = collect($outletPoints)->where('status', 'cold')->count();
         $unmappedOutletCount = collect($outletPoints)->where('status', 'unmapped')->count();
@@ -155,7 +156,26 @@ class MonitaDumaiController extends Controller
             'clusterCoverage' => $clusterCoverage,
             'coveragePoints' => $coveragePoints,
             'competitionPoints' => $competitionPoints,
+            'monitoringUpdateDate' => $monitoringUpdateDate,
         ];
+    }
+
+    private function leaderMonitoringUpdateDate(): ?string
+    {
+        $latestDate = DB::table('appsdumais')
+            ->whereNotNull('tgl_pack')
+            ->where('tgl_pack', '!=', '')
+            ->max('tgl_pack');
+
+        if (!$latestDate) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($latestDate)->format('d-M');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function leaderCompetitionPoints(): array
@@ -335,14 +355,14 @@ class MonitaDumaiController extends Controller
             ->whereNotNull('sf')
             ->where('sf', '!=', '')
             ->where('sf', '!=', 'UNMAPPING')
-            ->select('id_outlet', 'tap', 'm_cvm')
+            ->select('id_outlet', 'tap', 'kecamatan', 'sf', 'm_cvm', 'm1_cvm')
             ->get();
 
         $performance = $outlets->isEmpty()
             ? collect()
             : DB::table('outlet_performance')
                 ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
-                ->select('id_outlet', 'total_sp_m', 'total_m')
+                ->select('id_outlet', 'total_sp_m', 'total_sp_m1', 'total_m', 'total_m1')
                 ->get()
                 ->keyBy('id_outlet');
 
@@ -351,9 +371,15 @@ class MonitaDumaiController extends Controller
 
             return [
                 'group' => $tapGroupMap->get($outlet->tap),
+                'tap' => $outlet->tap ?: 'TAP BELUM ADA',
+                'kecamatan' => $outlet->kecamatan ?: 'KECAMATAN BELUM ADA',
+                'sf' => $outlet->sf ?: 'SF BELUM ADA',
                 'st_sa' => (int) ($perf->total_sp_m ?? 0),
+                'st_sa_m1' => (int) ($perf->total_sp_m1 ?? 0),
                 'st_pv' => (int) ($perf->total_m ?? 0),
+                'st_pv_m1' => (int) ($perf->total_m1 ?? 0),
                 'trx_cvm' => (int) ($outlet->m_cvm ?? 0),
+                'trx_cvm_m1' => (int) ($outlet->m1_cvm ?? 0),
             ];
         })->filter(fn ($point) => !empty($point['group']))->values()->all();
     }

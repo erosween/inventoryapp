@@ -301,6 +301,8 @@ Route::prefix('presensi')->name('presensi.')->group(function () {
         Route::get('/menu', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'dashboard'])->name('menu');
         Route::get('/pengajuan/{type}', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'create'])->name('request.create');
         Route::post('/pengajuan/{type}', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'store'])->name('request.store');
+        Route::post('/pengajuan-leader/{presenceRequest}/status', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'updateLeaderRequest'])->name('leader-request.update');
+        Route::post('/pengajuan-presensi-leader/{attendance}/status', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'updateLeaderAttendance'])->name('leader-attendance.update');
         Route::get('/kotak-masuk', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'inbox'])->name('inbox');
         Route::get('/slip-gaji', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'payslip'])->name('payslip');
         Route::get('/akun', [\App\Http\Controllers\EmployeePresenceMenuController::class, 'account'])->name('account');

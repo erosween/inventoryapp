@@ -38,13 +38,20 @@ class EmployeeAuthController extends Controller
             'attendance_employee_name',
             'attendance_employee_code',
             'attendance_employee_role',
+            'attendance_show_pwa_prompt',
         ]);
         $request->session()->regenerate();
+
+        $showPwaPrompt = !$employee->pwa_prompted_at;
+        if ($showPwaPrompt) {
+            $employee->forceFill(['pwa_prompted_at' => now()])->save();
+        }
 
         Session::put('attendance_employee_id', $employee->id);
         Session::put('attendance_employee_name', $employee->name);
         Session::put('attendance_employee_code', $employee->employee_code);
         Session::put('attendance_employee_role', $employee->role);
+        Session::put('attendance_show_pwa_prompt', $showPwaPrompt);
 
         return redirect()->route('presensi.index');
     }
@@ -56,6 +63,7 @@ class EmployeeAuthController extends Controller
             'attendance_employee_name',
             'attendance_employee_code',
             'attendance_employee_role',
+            'attendance_show_pwa_prompt',
         ]);
         $request->session()->invalidate();
         $request->session()->regenerateToken();

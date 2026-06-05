@@ -66,7 +66,7 @@ class EmployeePresenceAdminController extends Controller
             ->orderBy('employee_level')
             ->orderBy('name')
             ->get();
-        $supervisors = AttendanceEmployee::whereIn('employee_level', [1, 2])
+        $supervisors = AttendanceEmployee::whereIn('employee_level', [2, 3])
             ->orderBy('employee_level')
             ->orderBy('name')
             ->get();
@@ -147,9 +147,11 @@ class EmployeePresenceAdminController extends Controller
             'work_end_time' => ['nullable', 'date_format:H:i'],
             'late_tolerance_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'password' => ['nullable', 'string', 'min:3', 'max:80'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
 
         $validated['employee_level'] = (int) $validated['employee_level'];
+        unset($validated['profile_photo']);
 
         if ($validated['employee_level'] >= 2) {
             $validated['attendance_location_mode'] = 'anywhere';
@@ -159,6 +161,10 @@ class EmployeePresenceAdminController extends Controller
         $validated['role'] = $this->roleForLevel($validated['employee_level']);
         $plainPassword = blank($validated['password'] ?? null) ? '123456' : $validated['password'];
         $validated['password'] = Hash::make($plainPassword);
+
+        if ($request->hasFile('profile_photo')) {
+            $validated['profile_photo_path'] = $this->storeEmployeeProfilePhoto($request);
+        }
 
         $employee = AttendanceEmployee::create($validated);
 
@@ -183,7 +189,10 @@ class EmployeePresenceAdminController extends Controller
             'work_end_time' => ['nullable', 'date_format:H:i'],
             'late_tolerance_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'new_password' => ['nullable', 'string', 'min:3', 'max:80'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
+
+        unset($validated['profile_photo']);
 
         if ((int) $validated['employee_level'] >= 2) {
             $validated['attendance_location_mode'] = 'anywhere';
@@ -197,6 +206,10 @@ class EmployeePresenceAdminController extends Controller
         }
 
         unset($validated['new_password']);
+
+        if ($request->hasFile('profile_photo')) {
+            $validated['profile_photo_path'] = $this->storeEmployeeProfilePhoto($request, $employee);
+        }
 
         $employee->update($validated);
 
@@ -231,9 +244,9 @@ class EmployeePresenceAdminController extends Controller
         ];
 
         $rows = [
-            ['EMP-GM01', 'Nama GM', 'OPERASIONAL', 'General Manager', '081200000001', '1', '', 'DUMAI', 'locked', 'Kantor Dumai', '-1.1234567', '101.1234567', '150', '08:00', '16:30', '15', '123456', 'active'],
+            ['EMP-GM01', 'Nama GM', 'OPERASIONAL', 'General Manager', '081200000001', '3', '', 'DUMAI', 'anywhere', '', '', '', '150', '08:00', '16:30', '15', '123456', 'active'],
             ['EMP-SPV01', 'Nama SPV', 'OPERASIONAL', 'Supervisor', '081200000002', '2', '', 'DUMAI', 'anywhere', '', '', '', '150', '08:00', '16:30', '15', '123456', 'active'],
-            ['EMP-SLS01', 'Nama Sales', 'SALES', 'Sales', '081200000003', '3', 'EMP-SPV01', 'DUMAI', 'anywhere', '', '', '', '150', '08:00', '16:30', '15', '123456', 'active'],
+            ['EMP-SLS01', 'Nama Sales', 'SALES', 'Sales', '081200000003', '1', 'EMP-SPV01', 'DUMAI', 'locked', 'Kantor Dumai', '-1.1234567', '101.1234567', '150', '08:00', '16:30', '15', '123456', 'active'],
         ];
 
         return response()->streamDownload(function () use ($headers, $rows) {
@@ -335,6 +348,26 @@ class EmployeePresenceAdminController extends Controller
         return redirect()->route('admin-presensi.login')->with('error', 'Silakan login admin presensi terlebih dahulu.');
     }
 
+    private function storeEmployeeProfilePhoto(Request $request, ?AttendanceEmployee $employee = null): ?string
+    {
+        if (!$request->hasFile('profile_photo')) {
+            return null;
+        }
+
+        $file = $request->file('profile_photo');
+        $code = $request->input('employee_code', $employee?->employee_code ?? 'employee');
+        $safeCode = preg_replace('/[^A-Za-z0-9_-]/', '_', strtoupper((string) $code));
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $filename = $safeCode . '-' . now()->format('YmdHis') . '.' . $extension;
+        $path = $file->storeAs('attendance/employees/profiles', $filename, 'public');
+
+        if ($employee?->profile_photo_path && Storage::disk('public')->exists($employee->profile_photo_path)) {
+            Storage::disk('public')->delete($employee->profile_photo_path);
+        }
+
+        return $path;
+    }
+
     private function photoPlaceholderResponse()
     {
         $svg = <<<'SVG'
@@ -402,7 +435,7 @@ SVG;
 
     private function validatedSupervisorId(?AttendanceEmployee $employee, int $level, mixed $supervisorId): ?int
     {
-        if ($level !== 3 || blank($supervisorId)) {
+        if ($level !== 1 || blank($supervisorId)) {
             return null;
         }
 
@@ -413,9 +446,9 @@ SVG;
         }
 
         $supervisor = AttendanceEmployee::find($supervisorId);
-        if (!$supervisor || !in_array((int) $supervisor->employee_level, [1, 2], true)) {
+        if (!$supervisor || !in_array((int) $supervisor->employee_level, [2, 3], true)) {
             throw ValidationException::withMessages([
-                'supervisor_id' => 'Atasan level 3 harus GM, SPV, atau Manager.',
+                'supervisor_id' => 'Atasan Level 1 harus GM, SPV, atau Manager.',
             ]);
         }
 
@@ -499,13 +532,13 @@ SVG;
                     continue;
                 }
 
-                if ((int) $employee->employee_level !== 3 || $supervisorCode === '') {
+                if ((int) $employee->employee_level !== 1 || $supervisorCode === '') {
                     $employee->update(['supervisor_id' => null]);
                     continue;
                 }
 
                 $supervisor = AttendanceEmployee::where('employee_code', $supervisorCode)
-                    ->whereIn('employee_level', [1, 2])
+                    ->whereIn('employee_level', [2, 3])
                     ->first();
 
                 if ($supervisor && $supervisor->id !== $employee->id) {
@@ -575,7 +608,8 @@ SVG;
 
         return match (true) {
             $normalized === '2' || str_contains($normalized, 'spv') || str_contains($normalized, 'supervisor') || str_contains($normalized, 'manager') => 2,
-            $normalized === '3' || str_contains($normalized, 'admin') || str_contains($normalized, 'sales') => 3,
+            $normalized === '3' || str_contains($normalized, 'gm') || str_contains($normalized, 'general_manager') => 3,
+            $normalized === '1' || str_contains($normalized, 'admin') || str_contains($normalized, 'sales') => 1,
             default => 1,
         };
     }
@@ -590,9 +624,9 @@ SVG;
     private function roleForLevel(int $level): string
     {
         return match ($level) {
-            1 => 'gm',
+            3 => 'gm',
             2 => 'spv_manager',
-            3 => 'staff',
+            1 => 'staff',
             default => 'employee',
         };
     }

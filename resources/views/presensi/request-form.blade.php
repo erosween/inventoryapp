@@ -150,8 +150,12 @@
 
     .date-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         gap: 10px;
+    }
+
+    .date-grid .presence-input {
+        margin-bottom: 0 !important;
     }
 
     .upload-box {

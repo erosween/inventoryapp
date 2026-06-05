@@ -38,10 +38,14 @@ self.addEventListener('fetch', event => {
   }
 
   const requestUrl = new URL(event.request.url);
+  const isMobilePage =
+    requestUrl.origin === self.location.origin &&
+    requestUrl.pathname.startsWith('/mobile');
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/offline.html'))
+      fetch(event.request, isMobilePage ? { cache: 'no-store' } : undefined)
+        .catch(() => caches.match('/offline.html'))
     );
     return;
   }
