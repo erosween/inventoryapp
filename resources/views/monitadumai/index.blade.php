@@ -586,14 +586,14 @@
             align-items: center;
             justify-content: center;
             gap: 5px;
-            min-width: 136px;
-            min-height: 30px;
-            padding: 6px 11px;
+            min-width: 122px;
+            min-height: 28px;
+            padding: 5px 9px;
             border-radius: 999px;
             color: #fff;
             border: 1px solid rgba(255,255,255,0.72);
             box-shadow: 0 14px 32px rgba(15,23,42,0.24);
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 900;
             text-align: center;
             white-space: nowrap;
@@ -602,10 +602,10 @@
         }
 
         .competition-area-label .operator-logo {
-            width: 22px;
-            height: 22px;
-            min-width: 22px;
-            min-height: 22px;
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            min-height: 20px;
             padding: 0;
             border-radius: 7px;
             background: #fff;
@@ -630,7 +630,7 @@
             display: inline-block;
             min-width: 0;
             min-height: 0;
-            max-width: 156px;
+            max-width: 136px;
             padding: 0;
             border: 0;
             border-radius: 0;
@@ -2415,6 +2415,9 @@
         let leaderAreaLayer;
         let leaderDistrictLayer;
         let leaderCompetitionLayer;
+        let leaderCompetitionBoundaryCollection = null;
+        let leaderCompetitionBoundaryIndex = null;
+        let leaderCompetitionBoundaryPromise = null;
         let leaderBounds = [];
         let activeLeaderMapMode = 'trx_cvm';
         let activeFbShareView = 'dominant';
@@ -2433,6 +2436,7 @@
         const leaderOutletPoints = @json($showLeaderDashboard ? ($dashboard['outletPoints'] ?? []) : []);
         const leaderCoveragePoints = @json($showLeaderDashboard ? ($dashboard['coveragePoints'] ?? []) : []);
         const leaderCompetitionPoints = @json($showLeaderDashboard ? ($dashboard['competitionPoints'] ?? []) : []);
+        const leaderCompetitionBoundaryUrl = '/static/geo/monita-kecamatan-boundaries.geojson';
 
         function initLeaderMap() {
             const mapEl = document.getElementById('leader-map');
@@ -2450,6 +2454,11 @@
             leaderAreaLayer = L.layerGroup().addTo(leaderMap);
             leaderDistrictLayer = L.layerGroup().addTo(leaderMap);
             leaderCompetitionLayer = L.layerGroup().addTo(leaderMap);
+            loadLeaderCompetitionBoundaries().then(() => {
+                if (activeLeaderMapMode === 'competition') {
+                    renderLeaderCompetitionLayer();
+                }
+            });
 
             const fallbackCenters = {
                 'Kota Dumai': [1.667, 101.447],
@@ -2590,7 +2599,7 @@
             return `<span class="${tone}">${text}</span>`;
         }
 
-        function renderLeaderOutletLayer(mode) {
+        function renderLeaderOutletLayer(mode, options = {}) {
             if (!leaderOutletLayer) return;
             leaderOutletLayer.clearLayers();
             if (leaderDistrictLayer) leaderDistrictLayer.clearLayers();
@@ -2599,7 +2608,7 @@
             leaderOutletMarkers = [];
 
             if (mode === 'competition') {
-                renderLeaderCompetitionLayer();
+                renderLeaderCompetitionLayer(options);
                 updateLeaderMapNote(mode);
                 updateLeaderMapLegend(mode);
                 return;
@@ -2759,24 +2768,82 @@
             `;
         }
 
-        function renderLeaderCompetitionLayer() {
+        function leaderCompetitionAreaRadius(point) {
+            const outletCount = Number(point.outlet_count || 0);
+            return Math.max(1800, Math.min(7800, 1600 + (Math.sqrt(outletCount) * 520)));
+        }
+
+        function leaderBoundaryNormalize(value) {
+            return String(value || '')
+                .toUpperCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^A-Z0-9]+/g, ' ')
+                .trim();
+        }
+
+        function leaderBoundaryKey(kecamatan, tap) {
+            return `${leaderBoundaryNormalize(kecamatan)}|${leaderBoundaryNormalize(tap)}`;
+        }
+
+        function loadLeaderCompetitionBoundaries() {
+            if (leaderCompetitionBoundaryCollection) {
+                return Promise.resolve(leaderCompetitionBoundaryCollection);
+            }
+
+            if (!leaderCompetitionBoundaryPromise) {
+                leaderCompetitionBoundaryPromise = fetch(leaderCompetitionBoundaryUrl)
+                    .then((response) => response.ok ? response.json() : null)
+                    .then((geojson) => {
+                        if (!geojson || !Array.isArray(geojson.features)) return null;
+
+                        leaderCompetitionBoundaryCollection = geojson;
+                        leaderCompetitionBoundaryIndex = new Map();
+                        geojson.features.forEach((feature) => {
+                            const properties = feature.properties || {};
+                            const key = properties.key || leaderBoundaryKey(properties.kecamatan, properties.tap);
+                            if (key) {
+                                leaderCompetitionBoundaryIndex.set(key, feature);
+                            }
+                        });
+
+                        return geojson;
+                    })
+                    .catch(() => null);
+            }
+
+            return leaderCompetitionBoundaryPromise;
+        }
+
+        function leaderCompetitionBoundaryFeature(point) {
+            if (!leaderCompetitionBoundaryIndex) return null;
+
+            return leaderCompetitionBoundaryIndex.get(leaderBoundaryKey(point.kecamatan, point.tap)) || null;
+        }
+
+        function renderLeaderCompetitionLayer(options = {}) {
             if (!leaderCompetitionLayer) return;
 
             leaderCompetitionLayer.clearLayers();
             leaderBounds = [];
 
+            if (!leaderCompetitionBoundaryCollection) {
+                loadLeaderCompetitionBoundaries().then(() => {
+                    if (activeLeaderMapMode === 'competition') {
+                        renderLeaderCompetitionLayer(options);
+                    }
+                });
+            }
+
             leaderCompetitionPoints.forEach((point) => {
                 const lat = Number(point.latitude);
                 const lng = Number(point.longitude);
-                const hullPoints = Array.isArray(point.hull_points) ? point.hull_points : [];
 
                 if (!lat || !lng) return;
 
                 const display = leaderCompetitionDisplay(point);
                 const share = Number(display.share || 0);
-                leaderBounds.push([lat, lng]);
                 const color = display.color || '#20293a';
-                const radius = Math.max(8, Math.min(18, 6 + (share / 8)));
                 const shareText = share.toLocaleString('id-ID', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
@@ -2813,44 +2880,60 @@
                     Dominan: ${display.winner.operator} ${winnerShareText}%<br><br>
                     ${topOperators}
                 `;
+                const boundaryFeature = leaderCompetitionBoundaryFeature(point);
+                const fillOpacity = Math.max(0.26, Math.min(0.56, share / 145));
+                leaderBounds.push([lat, lng]);
 
-                if (hullPoints.length >= 3) {
-                    hullPoints.forEach((coord) => leaderBounds.push(coord));
-
-                    L.polygon(hullPoints, {
-                        color: '#ffffff',
-                        weight: 1.6,
-                        opacity: 0.82,
-                        fillColor: color,
-                        fillOpacity: Math.max(0.34, Math.min(0.62, share / 150)),
-                        smoothFactor: 1
+                if (boundaryFeature) {
+                    const boundaryLayer = L.geoJSON(boundaryFeature, {
+                        style: {
+                            color: '#ffffff',
+                            weight: 1.5,
+                            opacity: 0.82,
+                            fillColor: color,
+                            fillOpacity
+                        }
                     }).addTo(leaderCompetitionLayer).bindPopup(popupHtml);
-                } else if (hullPoints.length > 0) {
-                    hullPoints.forEach((coord) => leaderBounds.push(coord));
-                }
 
-                L.circleMarker([lat, lng], {
-                    radius,
-                    color: '#ffffff',
-                    weight: 2,
-                    fillColor: color,
-                    fillOpacity: 0.92
-                }).addTo(leaderCompetitionLayer).bindPopup(popupHtml);
+                    boundaryLayer.eachLayer((layer) => {
+                        layer.on({
+                            mouseover: () => layer.setStyle({
+                                weight: 2.8,
+                                opacity: 0.95,
+                                fillOpacity: Math.min(0.68, fillOpacity + 0.12)
+                            }),
+                            mouseout: () => layer.setStyle({
+                                weight: 1.5,
+                                opacity: 0.82,
+                                fillOpacity
+                            })
+                        });
+                    });
+                } else {
+                    L.circle([lat, lng], {
+                        radius: leaderCompetitionAreaRadius(point),
+                        color: '#ffffff',
+                        weight: 1.3,
+                        opacity: 0.7,
+                        fillColor: color,
+                        fillOpacity: Math.max(0.18, Math.min(0.42, share / 210))
+                    }).addTo(leaderCompetitionLayer).bindPopup(popupHtml);
+                }
 
                 L.marker([lat, lng], {
                     interactive: true,
                     icon: L.divIcon({
                         className: 'competition-area-label',
                         html: leaderCompetitionLabelHtml(point, display, shareText),
-                        iconSize: [172, 32],
-                        iconAnchor: [86, 16]
+                        iconSize: [154, 30],
+                        iconAnchor: [77, 15]
                     })
                 }).addTo(leaderCompetitionLayer).bindPopup(popupHtml);
             });
 
             renderCompetitionSaOverlay();
 
-            if (leaderBounds.length) {
+            if (leaderBounds.length && !options.preserveMapView) {
                 leaderMap.fitBounds(leaderBounds, { padding: [28, 28], maxZoom: 10 });
             }
         }
@@ -3318,7 +3401,7 @@
 
                 input.addEventListener('input', () => {
                     leaderThresholds[key] = Math.max(0, Number(input.value || 0));
-                    renderLeaderOutletLayer(activeLeaderMapMode);
+                    renderLeaderOutletLayer(activeLeaderMapMode, { preserveMapView: true });
                     updateLeaderCoverageBadges();
                 });
             });
@@ -3349,7 +3432,7 @@
                     document.querySelectorAll('[data-map-mode]').forEach((item) => {
                         item.classList.toggle('active', item === button);
                     });
-                    renderLeaderOutletLayer(activeLeaderMapMode);
+                    renderLeaderOutletLayer(activeLeaderMapMode, { preserveMapView: true });
                 });
             });
         }
@@ -3363,7 +3446,7 @@
                     });
 
                     if (activeLeaderMapMode === 'competition') {
-                        renderLeaderOutletLayer(activeLeaderMapMode);
+                        renderLeaderOutletLayer(activeLeaderMapMode, { preserveMapView: true });
                     }
                 });
             });

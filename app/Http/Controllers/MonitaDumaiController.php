@@ -188,7 +188,7 @@ class MonitaDumaiController extends Controller
             ['key' => 'tsel', 'label' => 'TSEL', 'mtd' => 'tsel_mtd', 'mom' => 'tsel_mom', 'color' => '#e30613'],
             ['key' => 'isat', 'label' => 'ISAT', 'mtd' => 'isat_mtd', 'mom' => 'isat_mom', 'color' => '#f5c400'],
             ['key' => 'xl', 'label' => 'XL', 'mtd' => 'xl_mtd', 'mom' => 'xl_mom', 'color' => '#0057ff'],
-            ['key' => 'tri', 'label' => '3', 'mtd' => '3_mtd', 'mom' => '3_mom', 'color' => '#e6007e'],
+            ['key' => 'tri', 'label' => '3', 'mtd' => '3_mtd', 'mom' => '3_mom', 'color' => '#111827'],
             ['key' => 'sfren', 'label' => 'SFREN', 'mtd' => 'sfren_mtd', 'mom' => 'sfren_mom', 'color' => '#ff4b8b'],
             ['key' => 'istri', 'label' => 'ISAT+3', 'mtd' => 'istri_mtd', 'mom' => 'istri_mom', 'color' => '#f97316'],
             ['key' => 'xlsf', 'label' => 'XL+SF', 'mtd' => 'xlsf_mtd', 'mom' => 'xlsf_mom', 'color' => '#00a7e1'],
@@ -249,7 +249,6 @@ class MonitaDumaiController extends Controller
 
                 $latitude = $points->avg('lat');
                 $longitude = $points->avg('lng');
-                $hullPoints = $this->convexHullPoints($points->all());
 
                 return [
                     'kecamatan' => $row->kecamatan,
@@ -258,7 +257,6 @@ class MonitaDumaiController extends Controller
                     'latitude' => (float) $latitude,
                     'longitude' => (float) $longitude,
                     'outlet_count' => $points->count(),
-                    'hull_points' => $hullPoints,
                     'winner_key' => $winner['key'],
                     'winner_operator' => $winner['label'],
                     'winner_share' => round($winner['share'], 2),
@@ -270,51 +268,6 @@ class MonitaDumaiController extends Controller
             ->filter()
             ->values()
             ->all();
-    }
-
-    private function convexHullPoints(array $points): array
-    {
-        $unique = collect($points)
-            ->map(fn ($point) => [
-                'lat' => round((float) ($point['lat'] ?? 0), 7),
-                'lng' => round((float) ($point['lng'] ?? 0), 7),
-            ])
-            ->filter(fn ($point) => $point['lat'] && $point['lng'])
-            ->unique(fn ($point) => $point['lat'] . '|' . $point['lng'])
-            ->sortBy(fn ($point) => $point['lng'] . '|' . $point['lat'])
-            ->values()
-            ->all();
-
-        if (count($unique) < 3) {
-            return array_map(fn ($point) => [$point['lat'], $point['lng']], $unique);
-        }
-
-        $cross = function ($origin, $a, $b) {
-            return (($a['lng'] - $origin['lng']) * ($b['lat'] - $origin['lat']))
-                - (($a['lat'] - $origin['lat']) * ($b['lng'] - $origin['lng']));
-        };
-
-        $lower = [];
-        foreach ($unique as $point) {
-            while (count($lower) >= 2 && $cross($lower[count($lower) - 2], $lower[count($lower) - 1], $point) <= 0) {
-                array_pop($lower);
-            }
-            $lower[] = $point;
-        }
-
-        $upper = [];
-        for ($i = count($unique) - 1; $i >= 0; $i--) {
-            $point = $unique[$i];
-            while (count($upper) >= 2 && $cross($upper[count($upper) - 2], $upper[count($upper) - 1], $point) <= 0) {
-                array_pop($upper);
-            }
-            $upper[] = $point;
-        }
-
-        $hull = array_slice($lower, 0, -1);
-        $hull = array_merge($hull, array_slice($upper, 0, -1));
-
-        return array_map(fn ($point) => [$point['lat'], $point['lng']], $hull);
     }
 
     private function parsePercentValue($value): float
