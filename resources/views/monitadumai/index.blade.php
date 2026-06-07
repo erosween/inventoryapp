@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cari Outlet</title>
+    <title>Monita Dumai</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('static/style.css') }}">
@@ -2091,11 +2091,11 @@
                 <div class="leader-top">
                     <div class="leader-intro">
                         <div class="leader-eyebrow">Leader command center</div>
-                        <h2 class="leader-title">Analisa outlet Dumai, Rohil, dan Bengkalis</h2>
+                        <h2 class="leader-title">Analisa Outlet Cluster Dumai Bengkalis dan Cluster Rokan Hilir</h2>
                         <p class="leader-subtitle">
-                            Dashboard ini mengonsolidasikan performa outlet dari appsdumais serta data ST SA dan ST PV
-                            dari outlet_performance.
-                            Analisa disajikan untuk mendukung prioritas kunjungan, evaluasi produktivitas wilayah, dan
+                            Dashboard ini mengonsolidasikan penyebaran outlet aktif CVM, PV dan SA.
+                            <br>Analisa disajikan untuk mendukung prioritas kunjungan, evaluasi produktivitas wilayah,
+                            dan
                             pengambilan keputusan leader secara terukur.
                         </p>
                         <div class="leader-top-actions">
@@ -2159,13 +2159,13 @@
                 <div class="territory-panel">
                     <div class="map-toolbar" aria-label="Mode peta analisa">
                         <button type="button" class="map-toggle active" data-map-mode="trx_cvm">
-                            <i class="fas fa-chart-simple"></i> TRX CVM
+                            <i class="fas fa-chart-simple"></i>CVM
                         </button>
                         <button type="button" class="map-toggle" data-map-mode="st_pv">
-                            <i class="fas fa-bolt"></i> ST PV
+                            <i class="fas fa-bolt"></i>PV
                         </button>
                         <button type="button" class="map-toggle" data-map-mode="st_sa">
-                            <i class="fas fa-sim-card"></i> ST SA
+                            <i class="fas fa-sim-card"></i>SA
                         </button>
                         <button type="button" class="map-toggle" data-map-mode="competition">
                             <i class="fas fa-chart-pie"></i> FB Share
@@ -3155,10 +3155,9 @@
                 competition: activeFbShareView === 'closest' ?
                     'Mode FB Share menampilkan closest competitor non-TSEL per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.' :
                     'Mode FB Share menampilkan operator dominan per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.',
-                all: `Hijau berarti capai minimal salah satu target dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min apa pun.`,
-                st_sa: `Hijau berarti ST SA minimal ${leaderThresholds.st_sa} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min SA.`,
-                st_pv: `Hijau berarti ST PV minimal ${leaderThresholds.st_pv} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min PV.`,
-                trx_cvm: `Hijau berarti TRX CVM minimal ${leaderThresholds.trx_cvm} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min CVM.`
+                st_sa: `Hijau berarti ST SA minimal ${leaderThresholds.st_sa} dan MoM positif/stabil. Orange berarti capai min tapi MoM minus. Merah berarti belum capai min SA.`,
+                st_pv: `Hijau berarti ST PV minimal ${leaderThresholds.st_pv} dan MoM positif/stabil. Orange berarti capai min tapi MoM minus. Merah berarti belum capai min PV.`,
+                trx_cvm: `Hijau berarti TRX CVM minimal ${leaderThresholds.trx_cvm} dan MoM positif/stabil. Orange berarti capai min tapi MoM minus. Merah berarti belum capai min CVM.`
             };
 
             note.querySelector('span').textContent = labels[mode] || labels.activity;
