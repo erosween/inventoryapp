@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cari Outlet</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('static/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -79,7 +80,7 @@
             pointer-events: none;
         }
 
-        .leader-dashboard > * {
+        .leader-dashboard>* {
             position: relative;
             z-index: 1;
         }
@@ -107,7 +108,7 @@
         }
 
         .leader-subtitle {
-            color: rgba(255,255,255,0.74);
+            color: rgba(255, 255, 255, 0.74);
             font-size: 14px;
             line-height: 1.7;
             max-width: 780px;
@@ -141,9 +142,9 @@
         }
 
         .leader-pill {
-            color: rgba(255,255,255,0.76);
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.14);
+            color: rgba(255, 255, 255, 0.76);
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.14);
         }
 
         .leader-logout {
@@ -160,8 +161,8 @@
         }
 
         .leader-kpi {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 18px;
             padding: 14px;
             backdrop-filter: blur(10px);
@@ -171,7 +172,7 @@
 
         .leader-kpi small {
             display: block;
-            color: rgba(255,255,255,0.62);
+            color: rgba(255, 255, 255, 0.62);
             font-weight: 800;
             font-size: 10px;
             text-transform: uppercase;
@@ -188,7 +189,7 @@
 
         .leader-kpi span {
             display: block;
-            color: rgba(255,255,255,0.66);
+            color: rgba(255, 255, 255, 0.66);
             font-size: 11px;
             margin-top: 8px;
             line-height: 1.35;
@@ -196,14 +197,14 @@
 
         .coverage-kpi {
             padding: 18px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.075));
-            border-color: rgba(255,255,255,0.16);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.075));
+            border-color: rgba(255, 255, 255, 0.16);
             border-radius: 20px;
         }
 
         .coverage-kpi small {
             margin-bottom: 3px;
-            color: rgba(255,255,255,0.72);
+            color: rgba(255, 255, 255, 0.72);
             letter-spacing: 0;
         }
 
@@ -215,7 +216,7 @@
         }
 
         .coverage-region-sub {
-            color: rgba(255,255,255,0.58);
+            color: rgba(255, 255, 255, 0.58);
             font-size: 10px;
             font-weight: 900;
             margin-bottom: 13px;
@@ -230,8 +231,8 @@
         .coverage-gauge-card {
             min-width: 0;
             border-radius: 15px;
-            background: rgba(15,23,42,0.26);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(15, 23, 42, 0.26);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 12px 10px;
             text-align: center;
         }
@@ -248,7 +249,7 @@
 
         .coverage-gauge-value {
             fill: #fff;
-            stroke: rgba(15,23,42,0.7);
+            stroke: rgba(15, 23, 42, 0.7);
             stroke-width: 3px;
             paint-order: stroke;
             font-size: 17px;
@@ -278,7 +279,7 @@
 
         .coverage-gauge-target {
             stroke: var(--gauge-color);
-            filter: drop-shadow(0 6px 10px rgba(0,0,0,0.24));
+            filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.24));
         }
 
         .coverage-gauge-needle {
@@ -290,19 +291,19 @@
 
         .coverage-gauge-pin {
             fill: #ffd11a;
-            stroke: rgba(255,255,255,0.78);
+            stroke: rgba(255, 255, 255, 0.78);
             stroke-width: 2;
         }
 
         .coverage-meta {
-            color: rgba(255,255,255,0.62);
+            color: rgba(255, 255, 255, 0.62);
             font-size: 9px;
             font-weight: 900;
             line-height: 1.35;
         }
 
         .coverage-label {
-            color: rgba(255,255,255,0.76);
+            color: rgba(255, 255, 255, 0.76);
             font-size: 11px;
             font-weight: 900;
             margin-bottom: 6px;
@@ -317,12 +318,12 @@
         }
 
         .territory-panel {
-            background: rgba(255,255,255,0.96);
+            background: rgba(255, 255, 255, 0.96);
             color: #20293a;
             border-radius: 24px;
             padding: 14px;
-            box-shadow: 0 24px 60px rgba(15,23,42,0.18);
-            border: 1px solid rgba(226,232,240,0.84);
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            border: 1px solid rgba(226, 232, 240, 0.84);
             margin-top: 34px;
         }
 
@@ -330,7 +331,7 @@
             height: clamp(560px, 70vh, 820px);
             border-radius: 20px;
             overflow: hidden;
-            border: 1px solid rgba(32,41,58,0.08);
+            border: 1px solid rgba(32, 41, 58, 0.08);
             margin-bottom: 12px;
         }
 
@@ -352,9 +353,9 @@
             height: 38px;
             border: 0;
             border-radius: 12px;
-            background: rgba(255,255,255,0.96);
+            background: rgba(255, 255, 255, 0.96);
             color: #20293a;
-            box-shadow: 0 10px 24px rgba(32,41,58,0.18);
+            box-shadow: 0 10px 24px rgba(32, 41, 58, 0.18);
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -390,7 +391,7 @@
             background: #d10000;
             color: #fff;
             border-color: #d10000;
-            box-shadow: 0 10px 24px rgba(209,0,0,0.22);
+            box-shadow: 0 10px 24px rgba(209, 0, 0, 0.22);
         }
 
         .fb-share-toggle {
@@ -424,7 +425,7 @@
         .fb-share-btn.active {
             background: #20293a;
             color: #fff;
-            box-shadow: 0 8px 18px rgba(32,41,58,0.18);
+            box-shadow: 0 8px 18px rgba(32, 41, 58, 0.18);
         }
 
         .map-mode-note {
@@ -509,11 +510,23 @@
             flex: 0 0 auto;
         }
 
-        .legend-dot.has-pv { background: #7c3aed; }
-        .legend-dot.has-sa { background: #0b5cab; }
+        .legend-dot.has-pv {
+            background: #7c3aed;
+        }
+
+        .legend-dot.has-sa {
+            background: #0b5cab;
+        }
+
         .legend-dot.has-cvm,
-        .legend-dot.mom-up { background: #0f9d58; }
-        .legend-dot.mom-down { background: #f97316; }
+        .legend-dot.mom-up {
+            background: #0f9d58;
+        }
+
+        .legend-dot.mom-down {
+            background: #f97316;
+        }
+
         .legend-dot.no-st {
             background: #fff;
             border: 3px solid #ef4444;
@@ -534,8 +547,8 @@
             border-radius: 999px;
             background: rgba(15, 23, 42, 0.46);
             color: #fff;
-            border: 1px solid rgba(255,255,255,0.36);
-            box-shadow: 0 8px 18px rgba(15,23,42,0.10);
+            border: 1px solid rgba(255, 255, 255, 0.36);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
             font-size: 9px;
             font-weight: 900;
             text-align: center;
@@ -549,8 +562,8 @@
         .district-label.active span {
             background: rgba(15, 23, 42, 0.9);
             transform: translateY(-1px);
-            box-shadow: 0 14px 28px rgba(15,23,42,0.22);
-            border-color: rgba(255,255,255,0.7);
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.22);
+            border-color: rgba(255, 255, 255, 0.7);
         }
 
         .competition-label {
@@ -567,8 +580,8 @@
             padding: 5px 10px;
             border-radius: 999px;
             color: #fff;
-            border: 2px solid rgba(255,255,255,0.84);
-            box-shadow: 0 12px 28px rgba(15,23,42,0.22);
+            border: 2px solid rgba(255, 255, 255, 0.84);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
             font-size: 9px;
             font-weight: 900;
             text-align: center;
@@ -591,8 +604,8 @@
             padding: 5px 9px;
             border-radius: 999px;
             color: #fff;
-            border: 1px solid rgba(255,255,255,0.72);
-            box-shadow: 0 14px 32px rgba(15,23,42,0.24);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.24);
             font-size: 8px;
             font-weight: 900;
             text-align: center;
@@ -613,7 +626,7 @@
             align-items: center;
             justify-content: center;
             border: 0;
-            box-shadow: 0 0 0 1px rgba(255,255,255,0.64), inset 0 0 0 1px rgba(15,23,42,0.08);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.64), inset 0 0 0 1px rgba(15, 23, 42, 0.08);
             backdrop-filter: none;
             flex: 0 0 auto;
             overflow: hidden;
@@ -648,7 +661,7 @@
             border: 0;
             border-radius: 12px;
             padding: 9px 10px;
-            box-shadow: 0 14px 32px rgba(15,23,42,0.26);
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.26);
             font-size: 11px;
             font-weight: 800;
         }
@@ -787,7 +800,7 @@
         .table-view-btn.active {
             color: #fff;
             background: #20293a;
-            box-shadow: 0 8px 18px rgba(32,41,58,0.18);
+            box-shadow: 0 8px 18px rgba(32, 41, 58, 0.18);
         }
 
         .tap-active-table table {
@@ -850,9 +863,17 @@
             font-weight: 800;
         }
 
-        .tap-active-table .mom-up { color: #0f9d58; }
-        .tap-active-table .mom-down { color: #d10000; }
-        .tap-active-table .mom-flat { color: #667085; }
+        .tap-active-table .mom-up {
+            color: #0f9d58;
+        }
+
+        .tap-active-table .mom-down {
+            color: #d10000;
+        }
+
+        .tap-active-table .mom-flat {
+            color: #667085;
+        }
 
         .tap-active-table tr:last-child td {
             border-bottom: 0;
@@ -874,7 +895,7 @@
             left: 0;
             z-index: 3;
             background: #20293a;
-            box-shadow: 1px 0 0 rgba(255,255,255,0.08);
+            box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
             text-align: left;
         }
 
@@ -914,7 +935,7 @@
             background: #fff;
             border-radius: 24px;
             padding: 18px;
-            box-shadow: 0 14px 36px rgba(32,41,58,0.08);
+            box-shadow: 0 14px 36px rgba(32, 41, 58, 0.08);
             color: #20293a;
         }
 
@@ -931,11 +952,11 @@
         }
 
         .insight-box {
-            background: rgba(255,255,255,0.96);
+            background: rgba(255, 255, 255, 0.96);
             color: #20293a;
             border-radius: 20px;
             padding: 16px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
         }
 
         .insight-box small {
@@ -1021,9 +1042,17 @@
             color: #fff;
         }
 
-        .leader-action.danger .leader-action-icon { background: #d10000; }
-        .leader-action.warning .leader-action-icon { background: #f59e0b; }
-        .leader-action.success .leader-action-icon { background: #0f9d58; }
+        .leader-action.danger .leader-action-icon {
+            background: #d10000;
+        }
+
+        .leader-action.warning .leader-action-icon {
+            background: #f59e0b;
+        }
+
+        .leader-action.success .leader-action-icon {
+            background: #0f9d58;
+        }
 
         .leader-action strong {
             display: block;
@@ -1096,7 +1125,7 @@
             border-radius: 24px;
             padding: 18px;
             margin-bottom: 18px;
-            box-shadow: 0 14px 36px rgba(32,41,58,0.08);
+            box-shadow: 0 14px 36px rgba(32, 41, 58, 0.08);
             display: grid;
             grid-template-columns: 46px 1fr auto;
             gap: 14px;
@@ -2045,66 +2074,89 @@
             ];
             $fmt = fn($value) => number_format((float) ($value ?? 0), 0, ',', '.');
             $pct = fn($value) => number_format((float) ($value ?? 0), 1, ',', '.') . '%';
-            $share = fn($value, $pjp) => ((float) ($pjp ?? 0)) > 0 ? number_format((((float) ($value ?? 0)) / ((float) $pjp)) * 100, 1, ',', '.') . '%' : '0,0%';
-            $shareRaw = fn($value, $pjp) => ((float) ($pjp ?? 0)) > 0 ? min(100, max(0, (((float) ($value ?? 0)) / ((float) $pjp)) * 100)) : 0;
-            $mixTotal = max(1, (float) (($summary['st_sa'] ?? 0) + ($summary['st_pv'] ?? 0) + ($summary['trx_cvm'] ?? 0)));
+            $share = fn($value, $pjp) => ((float) ($pjp ?? 0)) > 0
+                ? number_format((((float) ($value ?? 0)) / ((float) $pjp)) * 100, 1, ',', '.') . '%'
+                : '0,0%';
+            $shareRaw = fn($value, $pjp) => ((float) ($pjp ?? 0)) > 0
+                ? min(100, max(0, (((float) ($value ?? 0)) / ((float) $pjp)) * 100))
+                : 0;
+            $mixTotal = max(
+                1,
+                (float) (($summary['st_sa'] ?? 0) + ($summary['st_pv'] ?? 0) + ($summary['trx_cvm'] ?? 0)),
+            );
         @endphp
 
-        @if($showLeaderDashboard)
-        <section class="leader-dashboard">
-            <div class="leader-top">
-                <div class="leader-intro">
-                    <div class="leader-eyebrow">Leader command center</div>
-                    <h2 class="leader-title">Analisa outlet Dumai, Rohil, dan Bengkalis</h2>
-                    <p class="leader-subtitle">
-                        Dashboard ini mengonsolidasikan performa outlet dari appsdumais serta data ST SA dan ST PV dari outlet_performance.
-                        Analisa disajikan untuk mendukung prioritas kunjungan, evaluasi produktivitas wilayah, dan pengambilan keputusan leader secara terukur.
-                    </p>
-                    <div class="leader-top-actions">
-                        <div class="leader-pill"><i class="fas fa-shield-halved"></i> Akses Monita aktif</div>
-                        <a href="{{ route('monita.leader.logout') }}" class="leader-logout"><i class="fas fa-arrow-right-from-bracket"></i> Logout</a>
-                    </div>
+        @if ($showLeaderDashboard)
+            <section class="leader-dashboard">
+                <div class="leader-top">
+                    <div class="leader-intro">
+                        <div class="leader-eyebrow">Leader command center</div>
+                        <h2 class="leader-title">Analisa outlet Dumai, Rohil, dan Bengkalis</h2>
+                        <p class="leader-subtitle">
+                            Dashboard ini mengonsolidasikan performa outlet dari appsdumais serta data ST SA dan ST PV
+                            dari outlet_performance.
+                            Analisa disajikan untuk mendukung prioritas kunjungan, evaluasi produktivitas wilayah, dan
+                            pengambilan keputusan leader secara terukur.
+                        </p>
+                        <div class="leader-top-actions">
+                            <div class="leader-pill"><i class="fas fa-shield-halved"></i> Akses Monita aktif</div>
+                            <a href="{{ route('monita.leader.logout') }}" class="leader-logout"><i
+                                    class="fas fa-arrow-right-from-bracket"></i> Logout</a>
+                        </div>
 
-                    <div class="leader-kpis">
-                        @foreach($clusterCoverage as $groupIndex => $group)
-                            <div class="leader-kpi coverage-kpi">
-                                <small>Coverage PJP</small>
-                                <div class="coverage-region-title">{{ $group['label'] }}</div>
-                                <div class="coverage-region-sub">{{ $fmt($group['pjp'] ?? 0) }} outlet PJP</div>
-                                <div class="coverage-gauges">
-                                    @foreach($coverageMetrics as $metric)
-                                        @php
-                                            $metricValue = $group[$metric['key']] ?? 0;
-                                            $metricShare = $shareRaw($metricValue, $group['pjp'] ?? 0);
-                                            $needleRadians = pi() - (($metricShare / 100) * pi());
-                                            $needleX = 100 + (cos($needleRadians) * 56);
-                                            $needleY = 90 - (sin($needleRadians) * 56);
-                                        @endphp
-                                        <div class="coverage-gauge-card" data-coverage-row data-coverage-group="{{ $coverageGroupKeys[$groupIndex] ?? $groupIndex }}" data-coverage-metric="{{ $metric['key'] }}">
-                                            <div class="coverage-label">{{ $metric['title'] }}</div>
-                                            <svg class="coverage-gauge" viewBox="0 0 200 112" style="--gauge-color: {{ $metric['color'] }};" role="img" aria-label="{{ $metric['title'] }} {{ $share($metricValue, $group['pjp'] ?? 0) }}">
-                                                <path class="coverage-gauge-track coverage-gauge-low" d="M 25 90 A 75 75 0 0 1 47 37"></path>
-                                                <path class="coverage-gauge-track coverage-gauge-mid" d="M 47 37 A 75 75 0 0 1 100 15"></path>
-                                                <path class="coverage-gauge-track coverage-gauge-high" d="M 100 15 A 75 75 0 0 1 153 37"></path>
-                                                <path class="coverage-gauge-track coverage-gauge-target" d="M 153 37 A 75 75 0 0 1 175 90"></path>
-                                                <line class="coverage-gauge-needle" x1="100" y1="90" x2="{{ number_format($needleX, 2, '.', '') }}" y2="{{ number_format($needleY, 2, '.', '') }}"></line>
-                                                <circle class="coverage-gauge-pin" cx="100" cy="90" r="8"></circle>
-                                                <text class="coverage-gauge-value" data-coverage-percent x="100" y="76">{{ $share($metricValue, $group['pjp'] ?? 0) }}</text>
-                                            </svg>
-                                            <div class="coverage-number" data-coverage-value>{{ $fmt($metricValue) }}</div>
-                                            <div class="coverage-meta" data-coverage-meta>
-                                                dari {{ $fmt($group['pjp'] ?? 0) }} PJP
+                        <div class="leader-kpis">
+                            @foreach ($clusterCoverage as $groupIndex => $group)
+                                <div class="leader-kpi coverage-kpi">
+                                    <small>Coverage PJP</small>
+                                    <div class="coverage-region-title">{{ $group['label'] }}</div>
+                                    <div class="coverage-region-sub">{{ $fmt($group['pjp'] ?? 0) }} outlet PJP</div>
+                                    <div class="coverage-gauges">
+                                        @foreach ($coverageMetrics as $metric)
+                                            @php
+                                                $metricValue = $group[$metric['key']] ?? 0;
+                                                $metricShare = $shareRaw($metricValue, $group['pjp'] ?? 0);
+                                                $needleRadians = pi() - ($metricShare / 100) * pi();
+                                                $needleX = 100 + cos($needleRadians) * 56;
+                                                $needleY = 90 - sin($needleRadians) * 56;
+                                            @endphp
+                                            <div class="coverage-gauge-card" data-coverage-row
+                                                data-coverage-group="{{ $coverageGroupKeys[$groupIndex] ?? $groupIndex }}"
+                                                data-coverage-metric="{{ $metric['key'] }}">
+                                                <div class="coverage-label">{{ $metric['title'] }}</div>
+                                                <svg class="coverage-gauge" viewBox="0 0 200 112"
+                                                    style="--gauge-color: {{ $metric['color'] }};" role="img"
+                                                    aria-label="{{ $metric['title'] }} {{ $share($metricValue, $group['pjp'] ?? 0) }}">
+                                                    <path class="coverage-gauge-track coverage-gauge-low"
+                                                        d="M 25 90 A 75 75 0 0 1 47 37"></path>
+                                                    <path class="coverage-gauge-track coverage-gauge-mid"
+                                                        d="M 47 37 A 75 75 0 0 1 100 15"></path>
+                                                    <path class="coverage-gauge-track coverage-gauge-high"
+                                                        d="M 100 15 A 75 75 0 0 1 153 37"></path>
+                                                    <path class="coverage-gauge-track coverage-gauge-target"
+                                                        d="M 153 37 A 75 75 0 0 1 175 90"></path>
+                                                    <line class="coverage-gauge-needle" x1="100" y1="90"
+                                                        x2="{{ number_format($needleX, 2, '.', '') }}"
+                                                        y2="{{ number_format($needleY, 2, '.', '') }}"></line>
+                                                    <circle class="coverage-gauge-pin" cx="100" cy="90"
+                                                        r="8"></circle>
+                                                    <text class="coverage-gauge-value" data-coverage-percent x="100"
+                                                        y="76">{{ $share($metricValue, $group['pjp'] ?? 0) }}</text>
+                                                </svg>
+                                                <div class="coverage-number" data-coverage-value>
+                                                    {{ $fmt($metricValue) }}</div>
+                                                <div class="coverage-meta" data-coverage-meta>
+                                                    dari {{ $fmt($group['pjp'] ?? 0) }} PJP
+                                                </div>
                                             </div>
-                                        </div>
-                                    @endforeach
+                                        @endforeach
+                                    </div>
                                 </div>
-                            </div>
-                        @endforeach
+                            @endforeach
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="territory-panel">
+                <div class="territory-panel">
                     <div class="map-toolbar" aria-label="Mode peta analisa">
                         <button type="button" class="map-toggle active" data-map-mode="trx_cvm">
                             <i class="fas fa-chart-simple"></i> TRX CVM
@@ -2120,8 +2172,10 @@
                         </button>
                     </div>
                     <div class="fb-share-toggle" id="fb-share-toggle" aria-label="Mode FB Share">
-                        <button type="button" class="fb-share-btn active" data-fb-share-view="dominant">Dominan</button>
-                        <button type="button" class="fb-share-btn" data-fb-share-view="closest">Closest competitor</button>
+                        <button type="button" class="fb-share-btn active"
+                            data-fb-share-view="dominant">Dominan</button>
+                        <button type="button" class="fb-share-btn" data-fb-share-view="closest">Closest
+                            competitor</button>
                     </div>
                     <div class="map-mode-note" id="map-mode-note">
                         <i class="fas fa-circle-info"></i>
@@ -2130,15 +2184,18 @@
                     <div class="map-thresholds" aria-label="Minimum transaksi outlet aktif">
                         <div class="threshold-field">
                             <label for="threshold-cvm">Min CVM</label>
-                            <input id="threshold-cvm" data-threshold="trx_cvm" type="number" min="0" step="1" value="11">
+                            <input id="threshold-cvm" data-threshold="trx_cvm" type="number" min="0"
+                                step="1" value="11">
                         </div>
                         <div class="threshold-field">
                             <label for="threshold-pv">Min PV</label>
-                            <input id="threshold-pv" data-threshold="st_pv" type="number" min="0" step="1" value="40">
+                            <input id="threshold-pv" data-threshold="st_pv" type="number" min="0"
+                                step="1" value="40">
                         </div>
                         <div class="threshold-field">
                             <label for="threshold-sa">Min SA</label>
-                            <input id="threshold-sa" data-threshold="st_sa" type="number" min="0" step="1" value="5">
+                            <input id="threshold-sa" data-threshold="st_sa" type="number" min="0"
+                                step="1" value="5">
                         </div>
                     </div>
                     <div class="map-legend-row">
@@ -2172,12 +2229,16 @@
                     <div class="tap-active-table">
                         <div class="table-view-toolbar">
                             <div class="table-view-title">
-                                Monitoring outlet aktif{{ $monitoringUpdateDate ? ' (' . $monitoringUpdateDate . ')' : '' }}
+                                Monitoring outlet
+                                aktif{{ $monitoringUpdateDate ? ' (' . $monitoringUpdateDate . ')' : '' }}
                             </div>
                             <div class="table-view-toggle" aria-label="Pilih agregasi tabel">
-                                <button type="button" class="table-view-btn active" data-table-view="tap">TAP</button>
-                                <button type="button" class="table-view-btn" data-table-view="kecamatan">Kecamatan</button>
-                                <button type="button" class="table-view-btn" data-table-view="sales_force">Sales Force</button>
+                                <button type="button" class="table-view-btn active"
+                                    data-table-view="tap">TAP</button>
+                                <button type="button" class="table-view-btn"
+                                    data-table-view="kecamatan">Kecamatan</button>
+                                <button type="button" class="table-view-btn" data-table-view="sales_force">Sales
+                                    Force</button>
                             </div>
                         </div>
                         <div class="tap-active-scroll">
@@ -2206,121 +2267,122 @@
                             </table>
                         </div>
                     </div>
-            </div>
-
-            <div class="insight-strip">
-                <div class="insight-box">
-                    <small>TRX CVM</small>
-                    <strong>{{ $fmt($summary['trx_cvm'] ?? 0) }}</strong>
-                    <span>Layer hijau di peta memperlihatkan kantong CVM terkuat.</span>
-                </div>
-                <div class="insight-box">
-                    <small>ST PV</small>
-                    <strong>{{ $fmt($summary['st_pv'] ?? 0) }}</strong>
-                    <span>{{ $pct((($summary['st_pv'] ?? 0) / $mixTotal) * 100) }} dari total aktivitas.</span>
-                </div>
-                <div class="insight-box">
-                    <small>ST SA</small>
-                    <strong>{{ $fmt($summary['st_sa'] ?? 0) }}</strong>
-                    <span>{{ $pct((($summary['st_sa'] ?? 0) / $mixTotal) * 100) }} dari total aktivitas.</span>
-                </div>
-            </div>
-
-            <div class="leader-grid">
-                <div class="leader-section">
-                    <h2>Call to action leader</h2>
-                    @foreach($leaderActions as $action)
-                        <div class="leader-action {{ $action['tone'] }}">
-                            <div class="leader-action-icon">
-                                <i class="fas fa-bolt"></i>
-                            </div>
-                            <div>
-                                <strong>{{ $action['title'] }}</strong>
-                                <p>{{ $action['body'] }}</p>
-                            </div>
-                        </div>
-                    @endforeach
                 </div>
 
-                <div class="leader-section">
-                    <h2>Mix aktivitas bulan ini</h2>
-                    @foreach([
-                        ['label' => 'CVM', 'value' => $summary['trx_cvm'] ?? 0],
-                        ['label' => 'ST PV', 'value' => $summary['st_pv'] ?? 0],
-                        ['label' => 'ST SA', 'value' => $summary['st_sa'] ?? 0],
-                    ] as $mix)
-                        <div class="mix-row">
-                            <div class="mix-label">{{ $mix['label'] }}</div>
-                            <div class="mix-track">
-                                <span style="width: {{ max(3, min(100, ((float) $mix['value'] / $mixTotal) * 100)) }}%;"></span>
-                            </div>
-                            <div class="mix-value">{{ $fmt($mix['value']) }}</div>
-                        </div>
-                    @endforeach
+                <div class="insight-strip">
+                    <div class="insight-box">
+                        <small>TRX CVM</small>
+                        <strong>{{ $fmt($summary['trx_cvm'] ?? 0) }}</strong>
+                        <span>Layer hijau di peta memperlihatkan kantong CVM terkuat.</span>
+                    </div>
+                    <div class="insight-box">
+                        <small>ST PV</small>
+                        <strong>{{ $fmt($summary['st_pv'] ?? 0) }}</strong>
+                        <span>{{ $pct((($summary['st_pv'] ?? 0) / $mixTotal) * 100) }} dari total aktivitas.</span>
+                    </div>
+                    <div class="insight-box">
+                        <small>ST SA</small>
+                        <strong>{{ $fmt($summary['st_sa'] ?? 0) }}</strong>
+                        <span>{{ $pct((($summary['st_sa'] ?? 0) / $mixTotal) * 100) }} dari total aktivitas.</span>
+                    </div>
                 </div>
 
-                <div class="leader-section">
-                    <h2>TAP perlu perhatian</h2>
-                    @forelse($riskTaps as $tap)
-                        <div class="tap-row">
-                            <div>
-                                <div class="tap-name">{{ $tap['tap'] }}</div>
-                                <div class="tap-bar">
-                                    <span style="width: {{ max(4, min(100, (float) $tap['productivity'])) }}%;"></span>
+                <div class="leader-grid">
+                    <div class="leader-section">
+                        <h2>Call to action leader</h2>
+                        @foreach ($leaderActions as $action)
+                            <div class="leader-action {{ $action['tone'] }}">
+                                <div class="leader-action-icon">
+                                    <i class="fas fa-bolt"></i>
                                 </div>
-                                <div class="tap-meta">{{ $fmt($tap['productive_outlets']) }} dari {{ $fmt($tap['outlets']) }} outlet produktif</div>
-                            </div>
-                            <div class="tap-score">
-                                {{ $pct($tap['mom']) }}
-                            </div>
-                        </div>
-                    @empty
-                        <p style="color:#657180; font-size:12px;">Data TAP belum tersedia.</p>
-                    @endforelse
-                </div>
-
-                <div class="leader-section">
-                    <h2>Momentum terbaik</h2>
-                    @forelse($growthTaps as $tap)
-                        <div class="tap-row">
-                            <div>
-                                <div class="tap-name">{{ $tap['tap'] }}</div>
-                                <div class="tap-bar">
-                                    <span style="width: {{ max(4, min(100, abs((float) $tap['mom']))) }}%; background: linear-gradient(90deg, #0f9d58, #6fdc8c);"></span>
+                                <div>
+                                    <strong>{{ $action['title'] }}</strong>
+                                    <p>{{ $action['body'] }}</p>
                                 </div>
-                                <div class="tap-meta">{{ $fmt($tap['current']) }} aktivitas bulan ini</div>
                             </div>
-                            <div class="tap-score" style="color:#0f9d58;">
-                                {{ $pct($tap['mom']) }}
+                        @endforeach
+                    </div>
+
+                    <div class="leader-section">
+                        <h2>Mix aktivitas bulan ini</h2>
+                        @foreach ([['label' => 'CVM', 'value' => $summary['trx_cvm'] ?? 0], ['label' => 'ST PV', 'value' => $summary['st_pv'] ?? 0], ['label' => 'ST SA', 'value' => $summary['st_sa'] ?? 0]] as $mix)
+                            <div class="mix-row">
+                                <div class="mix-label">{{ $mix['label'] }}</div>
+                                <div class="mix-track">
+                                    <span
+                                        style="width: {{ max(3, min(100, ((float) $mix['value'] / $mixTotal) * 100)) }}%;"></span>
+                                </div>
+                                <div class="mix-value">{{ $fmt($mix['value']) }}</div>
                             </div>
-                        </div>
-                    @empty
-                        <p style="color:#657180; font-size:12px;">Data momentum belum tersedia.</p>
-                    @endforelse
+                        @endforeach
+                    </div>
+
+                    <div class="leader-section">
+                        <h2>TAP perlu perhatian</h2>
+                        @forelse($riskTaps as $tap)
+                            <div class="tap-row">
+                                <div>
+                                    <div class="tap-name">{{ $tap['tap'] }}</div>
+                                    <div class="tap-bar">
+                                        <span
+                                            style="width: {{ max(4, min(100, (float) $tap['productivity'])) }}%;"></span>
+                                    </div>
+                                    <div class="tap-meta">{{ $fmt($tap['productive_outlets']) }} dari
+                                        {{ $fmt($tap['outlets']) }} outlet produktif</div>
+                                </div>
+                                <div class="tap-score">
+                                    {{ $pct($tap['mom']) }}
+                                </div>
+                            </div>
+                        @empty
+                            <p style="color:#657180; font-size:12px;">Data TAP belum tersedia.</p>
+                        @endforelse
+                    </div>
+
+                    <div class="leader-section">
+                        <h2>Momentum terbaik</h2>
+                        @forelse($growthTaps as $tap)
+                            <div class="tap-row">
+                                <div>
+                                    <div class="tap-name">{{ $tap['tap'] }}</div>
+                                    <div class="tap-bar">
+                                        <span
+                                            style="width: {{ max(4, min(100, abs((float) $tap['mom']))) }}%; background: linear-gradient(90deg, #0f9d58, #6fdc8c);"></span>
+                                    </div>
+                                    <div class="tap-meta">{{ $fmt($tap['current']) }} aktivitas bulan ini</div>
+                                </div>
+                                <div class="tap-score" style="color:#0f9d58;">
+                                    {{ $pct($tap['mom']) }}
+                                </div>
+                            </div>
+                        @empty
+                            <p style="color:#657180; font-size:12px;">Data momentum belum tersedia.</p>
+                        @endforelse
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
         @else
-        <section class="leader-lock">
-            <div class="leader-lock-icon">
-                <i class="fas fa-lock"></i>
-            </div>
-            <div>
-                <h2>Dashboard leader terkunci</h2>
-                <p>Search outlet tetap aktif untuk Telegram. Analisa wilayah, peta performa, dan call to action hanya tampil setelah login internal.</p>
-            </div>
-            <a href="{{ route('monita.leader.login') }}" class="leader-login-btn">
-                <i class="fas fa-right-to-bracket"></i> Login Dashboard
-            </a>
-        </section>
+            <section class="leader-lock">
+                <div class="leader-lock-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div>
+                    <h2>Dashboard leader terkunci</h2>
+                    <p>Search outlet tetap aktif untuk Telegram. Analisa wilayah, peta performa, dan call to action
+                        hanya tampil setelah login internal.</p>
+                </div>
+                <a href="{{ route('monita.leader.login') }}" class="leader-login-btn">
+                    <i class="fas fa-right-to-bracket"></i> Login Dashboard
+                </a>
+            </section>
         @endif
 
         <h2 class="search-panel-title">Cari dan bedah outlet</h2>
         <!-- Search Box -->
         <div class="search-box">
             <div class="input-wrapper">
-                <input type="text" id="keyword" placeholder="Ketik ID atau Nama Outlet..." onkeyup="handleKeyUp(event)"
-                    onkeydown="handleKeyDown(event)" onfocus="showHistory()">
+                <input type="text" id="keyword" placeholder="Ketik ID atau Nama Outlet..."
+                    onkeyup="handleKeyUp(event)" onkeydown="handleKeyDown(event)" onfocus="showHistory()">
                 <ul id="suggestions" class="suggestions-box" style="display:none;"></ul>
                 <div id="history" class="history-box"></div>
             </div>
@@ -2433,9 +2495,9 @@
         let history = JSON.parse(localStorage.getItem('monita_history') || '[]');
         let selectedIndex = -1;
         const leaderAreas = @json($showLeaderDashboard ? $areas : []);
-        const leaderOutletPoints = @json($showLeaderDashboard ? ($dashboard['outletPoints'] ?? []) : []);
-        const leaderCoveragePoints = @json($showLeaderDashboard ? ($dashboard['coveragePoints'] ?? []) : []);
-        const leaderCompetitionPoints = @json($showLeaderDashboard ? ($dashboard['competitionPoints'] ?? []) : []);
+        const leaderOutletPoints = @json($showLeaderDashboard ? $dashboard['outletPoints'] ?? [] : []);
+        const leaderCoveragePoints = @json($showLeaderDashboard ? $dashboard['coveragePoints'] ?? [] : []);
+        const leaderCompetitionPoints = @json($showLeaderDashboard ? $dashboard['competitionPoints'] ?? [] : []);
         const leaderCompetitionBoundaryUrl = '/static/geo/monita-kecamatan-boundaries.geojson';
 
         function initLeaderMap() {
@@ -2471,7 +2533,10 @@
             renderLeaderOutletLayer(activeLeaderMapMode);
 
             if (leaderBounds.length) {
-                leaderMap.fitBounds(leaderBounds, { padding: [28, 28], maxZoom: 10 });
+                leaderMap.fitBounds(leaderBounds, {
+                    padding: [28, 28],
+                    maxZoom: 10
+                });
             }
         }
 
@@ -2488,7 +2553,8 @@
 
             if (mode === 'all') {
                 const hasValue = hasCvm || hasPv || hasSa;
-                const hasNegativeMom = (hasCvm && trxCvm < trxCvmM1) || (hasPv && stPv < stPvM1) || (hasSa && stSa < stSaM1);
+                const hasNegativeMom = (hasCvm && trxCvm < trxCvmM1) || (hasPv && stPv < stPvM1) || (hasSa && stSa <
+                    stSaM1);
                 const statusColor = leaderStatusColor(hasValue, hasNegativeMom);
 
                 return {
@@ -2624,7 +2690,13 @@
                 leaderBounds.push([lat, lng]);
                 const districtName = outlet.kecamatan || 'KECAMATAN BELUM ADA';
                 if (!districts[districtName]) {
-                    districts[districtName] = { lat: 0, lng: 0, total: 0, pjp: 0, activePjp: 0 };
+                    districts[districtName] = {
+                        lat: 0,
+                        lng: 0,
+                        total: 0,
+                        pjp: 0,
+                        activePjp: 0
+                    };
                 }
                 const isPjp = isPjpOutlet(outlet);
 
@@ -2801,7 +2873,8 @@
                         leaderCompetitionBoundaryIndex = new Map();
                         geojson.features.forEach((feature) => {
                             const properties = feature.properties || {};
-                            const key = properties.key || leaderBoundaryKey(properties.kecamatan, properties.tap);
+                            const key = properties.key || leaderBoundaryKey(properties.kecamatan, properties
+                                .tap);
                             if (key) {
                                 leaderCompetitionBoundaryIndex.set(key, feature);
                             }
@@ -2934,7 +3007,10 @@
             renderCompetitionSaOverlay();
 
             if (leaderBounds.length && !options.preserveMapView) {
-                leaderMap.fitBounds(leaderBounds, { padding: [28, 28], maxZoom: 10 });
+                leaderMap.fitBounds(leaderBounds, {
+                    padding: [28, 28],
+                    maxZoom: 10
+                });
             }
         }
 
@@ -3053,7 +3129,8 @@
                 const activeBoost = marker.__isActive ? 1 : 0.58;
                 const fillOpacity = isTarget ? Math.max(base.opacity || 0.1, activeBoost) : 0.05;
                 const opacity = isTarget ? 1 : 0.18;
-                const radius = isTarget ? (base.radius || 5.8) + (hasFocus ? 1.6 : 0) : Math.max(3, (base.radius || 5.8) - 1.8);
+                const radius = isTarget ? (base.radius || 5.8) + (hasFocus ? 1.6 : 0) : Math.max(3, (base.radius ||
+                    5.8) - 1.8);
 
                 marker.setStyle({
                     fillOpacity,
@@ -3075,9 +3152,9 @@
 
             const labels = {
                 activity: 'Mode aktif menampilkan outlet produktif, cold outlet, dan unmapping.',
-                competition: activeFbShareView === 'closest'
-                    ? 'Mode FB Share menampilkan closest competitor non-TSEL per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.'
-                    : 'Mode FB Share menampilkan operator dominan per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.',
+                competition: activeFbShareView === 'closest' ?
+                    'Mode FB Share menampilkan closest competitor non-TSEL per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.' :
+                    'Mode FB Share menampilkan operator dominan per kecamatan. Titik di peta menunjukkan sebaran outlet ST SA.',
                 all: `Hijau berarti capai minimal salah satu target dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min apa pun.`,
                 st_sa: `Hijau berarti ST SA minimal ${leaderThresholds.st_sa} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min SA.`,
                 st_pv: `Hijau berarti ST PV minimal ${leaderThresholds.st_pv} dan MoM positif/stabil. Oranye berarti capai min tapi MoM minus. Merah berarti belum capai min PV.`,
@@ -3115,7 +3192,8 @@
                 thresholdBox.style.display = '';
                 thresholdBox.querySelectorAll('.threshold-field').forEach((field) => {
                     const input = field.querySelector('[data-threshold]');
-                    field.style.display = mode === 'competition' && input?.dataset.threshold !== 'st_sa' ? 'none' : '';
+                    field.style.display = mode === 'competition' && input?.dataset.threshold !== 'st_sa' ? 'none' :
+                        '';
                 });
             }
             const fbShareToggle = document.getElementById('fb-share-toggle');
@@ -3127,9 +3205,9 @@
                     secondDot.className = 'legend-dot';
                     secondDot.style.background = 'linear-gradient(90deg, #0f9d58 0 50%, #f97316 50% 100%)';
                 }
-                if (goodStatus) goodStatus.textContent = activeFbShareView === 'closest'
-                    ? 'Area = closest competitor FB Share'
-                    : 'Area = operator dominan FB Share';
+                if (goodStatus) goodStatus.textContent = activeFbShareView === 'closest' ?
+                    'Area = closest competitor FB Share' :
+                    'Area = operator dominan FB Share';
                 if (belowThreshold) belowThreshold.textContent = `Ring merah = ST SA < ${leaderThresholds.st_sa}`;
                 const secondLegend = document.querySelectorAll('.map-legend-item span:last-child')[1];
                 if (secondLegend) secondLegend.textContent = `Titik hijau/oranye = ST SA >= ${leaderThresholds.st_sa}`;
@@ -3170,9 +3248,9 @@
                 const tap = outlet.tap || 'TAP BELUM ADA';
                 const cluster = leaderClusterLabelForTap(tap);
                 const group = isSalesForceView ? tap : cluster;
-                const label = isDistrictView
-                    ? (outlet.kecamatan || 'KECAMATAN BELUM ADA')
-                    : (isSalesForceView ? (outlet.sf || 'SF BELUM ADA') : tap);
+                const label = isDistrictView ?
+                    (outlet.kecamatan || 'KECAMATAN BELUM ADA') :
+                    (isSalesForceView ? (outlet.sf || 'SF BELUM ADA') : tap);
                 const key = `${group}::${label}`;
 
                 if (!rows[key]) {
@@ -3326,14 +3404,28 @@
                 rokan_hilir: 'Rokan Hilir'
             };
             const metricMap = {
-                sa: { field: 'st_sa', threshold: 'st_sa' },
-                pv: { field: 'st_pv', threshold: 'st_pv' },
-                cvm: { field: 'trx_cvm', threshold: 'trx_cvm' }
+                sa: {
+                    field: 'st_sa',
+                    threshold: 'st_sa'
+                },
+                pv: {
+                    field: 'st_pv',
+                    threshold: 'st_pv'
+                },
+                cvm: {
+                    field: 'trx_cvm',
+                    threshold: 'trx_cvm'
+                }
             };
             const rows = {};
 
             Object.keys(groupLabels).forEach((group) => {
-                rows[group] = { pjp: 0, sa: 0, pv: 0, cvm: 0 };
+                rows[group] = {
+                    pjp: 0,
+                    sa: 0,
+                    pv: 0,
+                    cvm: 0
+                };
             });
 
             leaderCoveragePoints.forEach((point) => {
@@ -3341,14 +3433,18 @@
 
                 rows[point.group].pjp += 1;
                 Object.entries(metricMap).forEach(([metric, config]) => {
-                    rows[point.group][metric] += Number(point[config.field] || 0) >= leaderThresholds[config.threshold] ? 1 : 0;
+                    rows[point.group][metric] += Number(point[config.field] || 0) >= leaderThresholds[config
+                        .threshold] ? 1 : 0;
                 });
             });
 
             document.querySelectorAll('[data-coverage-row]').forEach((row) => {
                 const group = row.dataset.coverageGroup;
                 const metric = row.dataset.coverageMetric;
-                const data = rows[group] || { pjp: 0, [metric]: 0 };
+                const data = rows[group] || {
+                    pjp: 0,
+                    [metric]: 0
+                };
                 const value = Number(data[metric] || 0);
                 const pjp = Number(data.pjp || 0);
                 const percent = pjp > 0 ? (value / pjp) * 100 : 0;
@@ -3380,7 +3476,7 @@
         }
 
         function formatMom(current, previous) {
-            if (!previous) return current > 0 ? 'New' : '0,0%';
+            if (!previous) return current > 0 ? '100%' : '0,0%';
             return `${(((current / previous) - 1) * 100).toLocaleString('id-ID', {
                 minimumFractionDigits: 1,
                 maximumFractionDigits: 1
@@ -3401,7 +3497,9 @@
 
                 input.addEventListener('input', () => {
                     leaderThresholds[key] = Math.max(0, Number(input.value || 0));
-                    renderLeaderOutletLayer(activeLeaderMapMode, { preserveMapView: true });
+                    renderLeaderOutletLayer(activeLeaderMapMode, {
+                        preserveMapView: true
+                    });
                     updateLeaderCoverageBadges();
                 });
             });
@@ -3419,7 +3517,10 @@
                     } else if (action === 'out') {
                         leaderMap.zoomOut();
                     } else if (action === 'fit' && leaderBounds.length) {
-                        leaderMap.fitBounds(leaderBounds, { padding: [28, 28], maxZoom: 10 });
+                        leaderMap.fitBounds(leaderBounds, {
+                            padding: [28, 28],
+                            maxZoom: 10
+                        });
                     }
                 });
             });
@@ -3432,7 +3533,9 @@
                     document.querySelectorAll('[data-map-mode]').forEach((item) => {
                         item.classList.toggle('active', item === button);
                     });
-                    renderLeaderOutletLayer(activeLeaderMapMode, { preserveMapView: true });
+                    renderLeaderOutletLayer(activeLeaderMapMode, {
+                        preserveMapView: true
+                    });
                 });
             });
         }
@@ -3446,7 +3549,9 @@
                     });
 
                     if (activeLeaderMapMode === 'competition') {
-                        renderLeaderOutletLayer(activeLeaderMapMode, { preserveMapView: true });
+                        renderLeaderOutletLayer(activeLeaderMapMode, {
+                            preserveMapView: true
+                        });
                     }
                 });
             });
@@ -3501,7 +3606,9 @@
             items.forEach((item, index) => {
                 if (index === selectedIndex) {
                     item.classList.add('active');
-                    item.scrollIntoView({ block: 'nearest' });
+                    item.scrollIntoView({
+                        block: 'nearest'
+                    });
                 } else {
                     item.classList.remove('active');
                 }
@@ -3553,7 +3660,8 @@
                 skeleton.style.display = 'none';
 
                 if (data.length === 0) {
-                    resultDiv.innerHTML = '<div class="card" style="text-align:center; color:red;">Outlet tidak ditemukan</div>';
+                    resultDiv.innerHTML =
+                        '<div class="card" style="text-align:center; color:red;">Outlet tidak ditemukan</div>';
                     emptyState.style.display = 'block';
                     return;
                 }
@@ -3619,7 +3727,10 @@
 
                 renderRincian(outlet);
                 detailTable.style.display = 'block';
-                window.scrollTo({ top: statsContainer.offsetTop - 10, behavior: 'smooth' });
+                window.scrollTo({
+                    top: statsContainer.offsetTop - 10,
+                    behavior: 'smooth'
+                });
 
             } catch (err) {
                 skeleton.style.display = 'none';
@@ -3639,18 +3750,68 @@
                     if (isNaN(date)) return dateStr;
                     const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
                     return `${date.getDate()}-${months[date.getMonth()]}`;
-                } catch (e) { return dateStr; }
+                } catch (e) {
+                    return dateStr;
+                }
             };
 
-            const parameters = [
-                { name: "TRX DIGIPOS", m1: outlet.m1_digipos, mtd: outlet.m_digipos, mom: outlet.mom_digipos, update: outlet.tgl_pack },
-                { name: "SUPER SERU", m1: outlet.m1_super, mtd: outlet.m_super, mom: outlet.mom_super, update: outlet.tgl_pack },
-                { name: "HOT PROMO", m1: outlet.m1_hot, mtd: outlet.m_hot, mom: outlet.mom_hot, update: outlet.tgl_pack },
-                { name: "COMSAK", m1: outlet.m1_comsak, mtd: outlet.m_comsak, mom: outlet.mom_comsak, update: outlet.tgl_pack },
-                { name: "ST SA", m1: outlet.m1_stsa, mtd: outlet.m_stsa, mom: outlet.mom_stsa, update: outlet.tgl_sa },
-                { name: "ST PV", m1: outlet.m1_stpv, mtd: outlet.m_stpv, mom: outlet.mom_stpv, update: outlet.tgl_pv, showDetail: true },
-                { name: "SO SA", m1: outlet.m1_sosa, mtd: outlet.m_sosa, mom: outlet.mom_sosa, update: outlet.tgl_sa },
-                { name: "SO PV", m1: outlet.m1_sopv, mtd: outlet.m_sopv, mom: outlet.mom_sopv, update: outlet.tgl_pv },
+            const parameters = [{
+                    name: "TRX DIGIPOS",
+                    m1: outlet.m1_digipos,
+                    mtd: outlet.m_digipos,
+                    mom: outlet.mom_digipos,
+                    update: outlet.tgl_pack
+                },
+                {
+                    name: "SUPER SERU",
+                    m1: outlet.m1_super,
+                    mtd: outlet.m_super,
+                    mom: outlet.mom_super,
+                    update: outlet.tgl_pack
+                },
+                {
+                    name: "HOT PROMO",
+                    m1: outlet.m1_hot,
+                    mtd: outlet.m_hot,
+                    mom: outlet.mom_hot,
+                    update: outlet.tgl_pack
+                },
+                {
+                    name: "COMSAK",
+                    m1: outlet.m1_comsak,
+                    mtd: outlet.m_comsak,
+                    mom: outlet.mom_comsak,
+                    update: outlet.tgl_pack
+                },
+                {
+                    name: "ST SA",
+                    m1: outlet.m1_stsa,
+                    mtd: outlet.m_stsa,
+                    mom: outlet.mom_stsa,
+                    update: outlet.tgl_sa
+                },
+                {
+                    name: "ST PV",
+                    m1: outlet.m1_stpv,
+                    mtd: outlet.m_stpv,
+                    mom: outlet.mom_stpv,
+                    update: outlet.tgl_pv,
+                    showDetail: true
+                },
+                {
+                    name: "SO SA",
+                    m1: outlet.m1_sosa,
+                    mtd: outlet.m_sosa,
+                    mom: outlet.mom_sosa,
+                    update: outlet.tgl_sa
+                },
+                {
+                    name: "SO PV",
+                    m1: outlet.m1_sopv,
+                    mtd: outlet.m_sopv,
+                    mom: outlet.mom_sopv,
+                    update: outlet.tgl_pv
+                },
             ];
 
             tableBody.innerHTML = '';
@@ -3693,26 +3854,33 @@
 
             if (!navigator.geolocation) return alert("Browser GPS tidak aktif!");
 
-            resultDiv.innerHTML = '<div class="card" style="text-align:center;"><i class="fas fa-circle-notch fa-spin"></i> Getting GPS...</div>';
+            resultDiv.innerHTML =
+                '<div class="card" style="text-align:center;"><i class="fas fa-circle-notch fa-spin"></i> Getting GPS...</div>';
             emptyState.style.display = 'none';
             statsContainer.style.display = 'none';
             detailTable.style.display = 'none';
             mapContainer.style.display = 'none';
 
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                const { latitude: lat, longitude: lon } = pos.coords;
+                const {
+                    latitude: lat,
+                    longitude: lon
+                } = pos.coords;
                 const radiusSelect = document.getElementById('scan-radius');
                 const radiusValue = radiusSelect.value;
                 const radiusLabel = radiusSelect.options[radiusSelect.selectedIndex].text;
 
-                resultDiv.innerHTML = `<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning ${radiusLabel}...</div>`;
+                resultDiv.innerHTML =
+                    `<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning ${radiusLabel}...</div>`;
 
                 try {
-                    const response = await fetch(`/monitadumai/nearby?latitude=${lat}&longitude=${lon}&radius=${radiusValue}`);
+                    const response = await fetch(
+                        `/monitadumai/nearby?latitude=${lat}&longitude=${lon}&radius=${radiusValue}`);
                     const data = await response.json();
 
                     if (data.length === 0) {
-                        resultDiv.innerHTML = `<div class="card" style="text-align:center; color:#d10000; font-weight:bold;">Tidak ada outlet dalam radius ${radiusLabel}.</div>`;
+                        resultDiv.innerHTML =
+                            `<div class="card" style="text-align:center; color:#d10000; font-weight:bold;">Tidak ada outlet dalam radius ${radiusLabel}.</div>`;
                         emptyState.style.display = 'block';
                         return;
                     }
@@ -3720,7 +3888,8 @@
                     mapContainer.style.display = 'block';
                     setTimeout(() => initMap(lat, lon, data), 100);
 
-                    resultDiv.innerHTML = `<h3 style="margin:20px 0 12px 10px; font-size:18px;"><i class="fas fa-map-marked-alt"></i> Outlet Nearby: (${data.length} Found)</h3>`;
+                    resultDiv.innerHTML =
+                        `<h3 style="margin:20px 0 12px 10px; font-size:18px;"><i class="fas fa-map-marked-alt"></i> Outlet Nearby: (${data.length} Found)</h3>`;
                     data.forEach(outlet => {
                         const dist = parseFloat(outlet.distance);
                         let distColor = '#27ae60';
@@ -3747,7 +3916,9 @@
                         };
                         resultDiv.appendChild(item);
                     });
-                } catch (e) { resultDiv.innerHTML = '<div class="card">Server Error.</div>'; }
+                } catch (e) {
+                    resultDiv.innerHTML = '<div class="card">Server Error.</div>';
+                }
             }, (err) => {
                 let msg = "GPS Error: " + err.message;
                 if (err.code === 1) { // PERMISSION_DENIED
@@ -3780,20 +3951,33 @@
                 markers = [];
                 map.invalidateSize();
             }
-            L.circleMarker([lat, lon], { color: '#0d6efd', radius: 10, weight: 3, fillOpacity: 0.8 }).addTo(map).bindPopup("Kamu");
+            L.circleMarker([lat, lon], {
+                color: '#0d6efd',
+                radius: 10,
+                weight: 3,
+                fillOpacity: 0.8
+            }).addTo(map).bindPopup("Kamu");
             outlets.forEach(o => {
                 if (o.latitude && o.longitude) {
-                    const m = L.marker([o.latitude, o.longitude]).addTo(map).bindPopup(`<b>${o.nama_outlet}</b><br><button onclick="selectFromMap('${o.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Pilih Outlet</button>`);
+                    const m = L.marker([o.latitude, o.longitude]).addTo(map).bindPopup(
+                        `<b>${o.nama_outlet}</b><br><button onclick="selectFromMap('${o.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Pilih Outlet</button>`
+                    );
                     markers.push(m);
                 }
             });
         }
 
-        function selectFromMap(id) { document.getElementById('keyword').value = id; searchOutlet(); }
+        function selectFromMap(id) {
+            document.getElementById('keyword').value = id;
+            searchOutlet();
+        }
 
         async function showSuggestions(q) {
             const box = document.getElementById('suggestions');
-            if (q.length < 2) { box.style.display = 'none'; return; }
+            if (q.length < 2) {
+                box.style.display = 'none';
+                return;
+            }
             try {
                 const res = await fetch(`/monitadumai/suggest?keyword=${q}`);
                 const data = await res.json();
@@ -3815,13 +3999,18 @@
                         box.appendChild(li);
                     });
                     box.style.display = 'block';
-                } else { box.style.display = 'none'; }
-            } catch (e) { }
+                } else {
+                    box.style.display = 'none';
+                }
+            } catch (e) {}
         }
 
         function saveToHistory(id, name) {
             history = history.filter(h => h.id !== id);
-            history.unshift({ id, name });
+            history.unshift({
+                id,
+                name
+            });
             if (history.length > 5) history.pop();
             localStorage.setItem('monita_history', JSON.stringify(history));
             localStorage.setItem('monita_last_search', id); // SAVE LAST SEARCH
@@ -3835,13 +4024,19 @@
                 const d = document.createElement('div');
                 d.className = 'history-item';
                 d.innerHTML = `<i class="fas fa-clock-rotate-left"></i> <span>${h.name}</span>`;
-                d.onclick = () => { document.getElementById('keyword').value = h.id; searchOutlet(); hb.style.display = 'none'; };
+                d.onclick = () => {
+                    document.getElementById('keyword').value = h.id;
+                    searchOutlet();
+                    hb.style.display = 'none';
+                };
                 hb.appendChild(d);
             });
             hb.style.display = 'block';
         }
 
-        function hideHistory() { setTimeout(() => document.getElementById('history').style.display = 'none', 250); }
+        function hideHistory() {
+            setTimeout(() => document.getElementById('history').style.display = 'none', 250);
+        }
 
         // MODAL PERFORMANCE LOGIC
         async function showPerformanceDetail(id, name) {
@@ -3863,19 +4058,60 @@
                 const data = await response.json();
 
                 if (!data) {
-                    body.innerHTML = '<div style="text-align:center; padding:20px; color:#d10000;">Data performance tidak ditemukan.</div>';
+                    body.innerHTML =
+                        '<div style="text-align:center; padding:20px; color:#d10000;">Data performance tidak ditemukan.</div>';
                     return;
                 }
 
-                const denoms = [
-                    { label: "1D", m1: data['1d_m1'], mtd: data['1d_m'], mom: data['1d_mom'] },
-                    { label: "2D", m1: data['2d_m1'], mtd: data['2d_m'], mom: data['2d_mom'] },
-                    { label: "3D", m1: data['3d_m1'], mtd: data['3d_m'], mom: data['3d_mom'] },
-                    { label: "5D", m1: data['5d_m1'], mtd: data['5d_m'], mom: data['5d_mom'] },
-                    { label: "7D", m1: data['7d_m1'], mtd: data['7d_m'], mom: data['7d_mom'] },
-                    { label: "28D", m1: data['28d_m1'], mtd: data['28d_m'], mom: data['28d_mom'] },
-                    { label: "30D", m1: data['30d_m1'], mtd: data['30d_m'], mom: data['30d_mom'] },
-                    { label: "TOTAL PV", m1: data['total_m1'], mtd: data['total_m'], mom: data['total_mom'], isTotal: true },
+                const denoms = [{
+                        label: "1D",
+                        m1: data['1d_m1'],
+                        mtd: data['1d_m'],
+                        mom: data['1d_mom']
+                    },
+                    {
+                        label: "2D",
+                        m1: data['2d_m1'],
+                        mtd: data['2d_m'],
+                        mom: data['2d_mom']
+                    },
+                    {
+                        label: "3D",
+                        m1: data['3d_m1'],
+                        mtd: data['3d_m'],
+                        mom: data['3d_mom']
+                    },
+                    {
+                        label: "5D",
+                        m1: data['5d_m1'],
+                        mtd: data['5d_m'],
+                        mom: data['5d_mom']
+                    },
+                    {
+                        label: "7D",
+                        m1: data['7d_m1'],
+                        mtd: data['7d_m'],
+                        mom: data['7d_mom']
+                    },
+                    {
+                        label: "28D",
+                        m1: data['28d_m1'],
+                        mtd: data['28d_m'],
+                        mom: data['28d_mom']
+                    },
+                    {
+                        label: "30D",
+                        m1: data['30d_m1'],
+                        mtd: data['30d_m'],
+                        mom: data['30d_mom']
+                    },
+                    {
+                        label: "TOTAL PV",
+                        m1: data['total_m1'],
+                        mtd: data['total_m'],
+                        mom: data['total_mom'],
+                        isTotal: true
+                    },
                 ];
 
                 let html = `
@@ -3920,9 +4156,13 @@
                     try {
                         const date = new Date(dateStr);
                         if (isNaN(date)) return dateStr;
-                        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+                        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov",
+                            "Des"
+                        ];
                         return `${date.getDate()}-${months[date.getMonth()]}`;
-                    } catch (e) { return dateStr; }
+                    } catch (e) {
+                        return dateStr;
+                    }
                 };
 
                 html += `
@@ -3934,7 +4174,8 @@
                 body.innerHTML = html;
 
             } catch (err) {
-                body.innerHTML = '<div style="text-align:center; padding:20px; color:#d10000;">Gagal memuat data. Silakan coba lagi.</div>';
+                body.innerHTML =
+                    '<div style="text-align:center; padding:20px; color:#d10000;">Gagal memuat data. Silakan coba lagi.</div>';
             }
         }
 
@@ -3943,7 +4184,7 @@
         }
 
         // Close on outside click
-        window.onclick = function (event) {
+        window.onclick = function(event) {
             const modal = document.getElementById('performance-modal');
             if (event.target == modal) {
                 modal.style.display = "none";
@@ -3955,8 +4196,6 @@
             if (document.documentElement.scrollTop > 200) fab.style.display = 'flex';
             else fab.style.display = 'none';
         };
-
-
     </script>
 </body>
 
