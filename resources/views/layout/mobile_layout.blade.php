@@ -90,7 +90,7 @@
         }
 
         .main-content > .px-4:first-child,
-        .attendance-hero {
+        .sales-hero {
             background: var(--hero-surface) !important;
             border-radius: 0 0 34px 34px;
             box-shadow: 0 24px 58px rgba(17, 24, 39, 0.24);
@@ -98,7 +98,7 @@
         }
 
         .main-content > .px-4:first-child::after,
-        .attendance-hero::after {
+        .sales-hero::after {
             content: "";
             position: absolute;
             inset: auto 18px 16px auto;

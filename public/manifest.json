@@ -1,10 +1,10 @@
 {
-  "id": "/presensi",
-  "name": "MSP Presensi & Sales",
+  "id": "/mobile",
+  "name": "MSP Sales Mobile",
   "short_name": "MSP Mobile",
-  "description": "Aplikasi mobile MSP untuk presensi karyawan dan aktivitas penjualan.",
-  "start_url": "/presensi/login",
-  "scope": "/",
+  "description": "Aplikasi mobile MSP untuk aktivitas penjualan.",
+  "start_url": "/mobile/login",
+  "scope": "/mobile/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#F4F7F9",
@@ -13,13 +13,13 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/assets/img/pwa-192.png",
+      "src": "/assets/img/MSP5.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/assets/img/pwa-512.png",
+      "src": "/assets/img/MSP5.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

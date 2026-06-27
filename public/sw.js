@@ -1,10 +1,8 @@
-const CACHE_NAME = 'msp-mobile-pwa-v4';
+const CACHE_NAME = 'msp-sales-mobile-pwa-v1';
 const CORE_ASSETS = [
   '/offline.html',
   '/manifest.json',
   '/assets/img/MSP5.png',
-  '/assets/img/pwa-192.png',
-  '/assets/img/pwa-512.png',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
