@@ -15,7 +15,7 @@ class NocanController extends Controller
         $data = DB::table('nocan')
             ->select("*")
             ->where('status', 'ready')
-            ->where('alokasi','lama')
+            // ->where('alokasi','lama')
             ->get();
 
         return view('nocan', compact('data'));
@@ -30,7 +30,7 @@ class NocanController extends Controller
         $data = DB::table('nocan')
             ->select("*")
             ->where('status', 'ready')
-            ->where('alokasi','lama')
+            // ->where('alokasi','lama')
             ->get();
 
         return view('form/form-nocan', compact('data',));

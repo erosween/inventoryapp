@@ -45,7 +45,7 @@ class NocanbookingController extends Controller
         $ready = DB::table('nocan')
             ->where('nomor', $nomor)
             ->where('status', 'ready')
-            ->where('alokasi','lama')
+            // ->where('alokasi','lama')
             ->first();
 
         if ($ready) {
