@@ -378,7 +378,7 @@
                                     <p>DASHBOARD</p>
                                 </a>
                             </li>
-                            @if (!in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
+                            @if (!$isAsmen && !in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
                                 <li class="nav-item {{ request()->is('inbox') ? 'active' : '' }}">
                                     <a href="{{ url('inbox') }}" style="position: relative; display: inline-block;">
                                         <i class="fa fa-bell"></i>
