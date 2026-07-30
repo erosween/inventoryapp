@@ -21,30 +21,58 @@ class StockController extends Controller
          * 1. AMBIL MASTER DENOM & GROUPING
          * ======================================
          */
-        $denoms = DB::table('denom')->orderBy('iddenom')->get();
+        $denoms = DB::table('denom')
+            ->where('group_name', '!=', 'VOICE')
+            ->where(function ($query) {
+                $query->whereNull('kategori_inject')
+                    ->orWhere('kategori_inject', '!=', 'ROAMAX');
+            })
+            ->orderBy('iddenom')
+            ->get();
+        $visibleDenomIds = $denoms->pluck('iddenom')->all();
 
-        $groups = [];
+        $groups = ['VOUCHER FISIK' => [], 'VOUCHER by.U' => []];
         foreach ($denoms as $d) {
             $groupName = $d->group_name;
-            if (!isset($groups[$groupName])) {
-                $groups[$groupName] = [];
+            $voucherType = strtoupper((string) $d->kategori_inject) === 'BYU'
+                ? 'VOUCHER by.U'
+                : 'VOUCHER FISIK';
+            if (!isset($groups[$voucherType][$groupName])) {
+                $groups[$voucherType][$groupName] = [];
             }
-            $groups[$groupName][] = $d;
+            $groups[$voucherType][$groupName][] = $d;
         }
 
         // Urutkan grup sesuai urutan standar
         $standardOrder = ['SEGEL', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE', 'LAINNYA'];
-        $sortedGroups = [];
-        foreach ($standardOrder as $so) {
-            if (isset($groups[$so])) {
-                $sortedGroups[$so] = $groups[$so];
-                unset($groups[$so]);
+        $sortDenomsByQuota = function (array &$items) {
+            usort($items, function ($a, $b) {
+                preg_match('/(\d+(?:[.,]\d+)?)\s*GB/i', $a->denom, $aQuota);
+                preg_match('/(\d+(?:[.,]\d+)?)\s*GB/i', $b->denom, $bQuota);
+
+                $aSize = isset($aQuota[1]) ? (float) str_replace(',', '.', $aQuota[1]) : PHP_FLOAT_MAX;
+                $bSize = isset($bQuota[1]) ? (float) str_replace(',', '.', $bQuota[1]) : PHP_FLOAT_MAX;
+
+                return $aSize <=> $bSize ?: strnatcasecmp($a->denom, $b->denom);
+            });
+        };
+        foreach ($groups as $voucherType => $validityGroups) {
+            $sortedGroups = [];
+            foreach ($validityGroups as &$items) {
+                $sortDenomsByQuota($items);
             }
+            unset($items);
+            foreach ($standardOrder as $so) {
+                if (isset($validityGroups[$so])) {
+                    $sortedGroups[$so] = $validityGroups[$so];
+                    unset($validityGroups[$so]);
+                }
+            }
+            foreach ($validityGroups as $name => $items) {
+                $sortedGroups[$name] = $items;
+            }
+            $groups[$voucherType] = $sortedGroups;
         }
-        foreach ($groups as $name => $items) {
-            $sortedGroups[$name] = $items;
-        }
-        $groups = $sortedGroups;
 
         /**
          * ======================================
@@ -58,11 +86,13 @@ class StockController extends Controller
          * ======================================
          */
         $gudang = DB::table('stockawaltap')
-            ->select('idtap', 'iddenom', 'stock');
+            ->select('idtap', 'iddenom', 'stock')
+            ->whereIn('iddenom', $visibleDenomIds);
 
         $sf = DB::table('stockawalsf as sf')
             ->join('idsf', 'sf.idsf', '=', 'idsf.idsf')
-            ->select('idsf.idtap', 'sf.iddenom', 'sf.stock as stock');
+            ->select('idsf.idtap', 'sf.iddenom', 'sf.stock as stock')
+            ->whereIn('sf.iddenom', $visibleDenomIds);
 
         $idtap = session('idtap') ?? $user->idtap;
         $applyFilter = function($q, $col = 'idtap') use ($idtap) {

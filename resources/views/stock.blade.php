@@ -42,25 +42,41 @@
                             <table id="stock" class="table table-indigo table-hover w-100 mb-0">
 
                                 <thead>
-                                    <tr>
-                                        <th rowspan="2" class="th-main sticky-no">NO</th>
-                                        <th rowspan="2" class="th-main sticky-tap">TAP</th>
-
-                                        @foreach ($groups as $groupName => $items)
-                                            <th colspan="{{ count($items) }}"
-                                                class="th-group th-{{ Str::slug($groupName) }}">
-                                                {{ $groupName }}
-                                            </th>
+                                    <tr class="voucher-header">
+                                        <th rowspan="3" class="th-main sticky-no">NO</th>
+                                        <th rowspan="3" class="th-main sticky-tap">TAP</th>
+                                        @foreach ($groups as $voucherType => $validityGroups)
+                                            @php
+                                                $voucherColspan = collect($validityGroups)->sum(fn ($items) => count($items) + 1);
+                                            @endphp
+                                            @if ($voucherColspan)
+                                                <th colspan="{{ $voucherColspan }}"
+                                                    class="th-voucher {{ $voucherType === 'VOUCHER by.U' ? 'th-voucher-byu' : 'th-voucher-fisik' }}">
+                                                    {{ $voucherType }}
+                                                </th>
+                                            @endif
                                         @endforeach
-                                        <th rowspan="2" class="th-main sticky-total" style="vertical-align: middle !important;">GRAND<br>TOTAL</th>
+                                        <th rowspan="3" class="th-main sticky-total">GRAND<br>TOTAL</th>
                                     </tr>
 
-                                    <tr>
-                                        @foreach ($groups as $groupName => $items)
-                                            @foreach ($items as $d)
-                                                <th class="th-sub th-{{ Str::slug($groupName) }}-sub">
-                                                    {{ $d->denom }}
+                                    <tr class="group-header">
+                                        @foreach ($groups as $validityGroups)
+                                            @foreach ($validityGroups as $groupName => $items)
+                                                <th colspan="{{ count($items) + 1 }}"
+                                                    class="th-group th-{{ Str::slug($groupName) }}">
+                                                    {{ $groupName }}
                                                 </th>
+                                            @endforeach
+                                        @endforeach
+                                    </tr>
+
+                                    <tr class="sub-header">
+                                        @foreach ($groups as $validityGroups)
+                                            @foreach ($validityGroups as $groupName => $items)
+                                                @foreach ($items as $d)
+                                                    <th class="th-sub">{{ $d->denom }}</th>
+                                                @endforeach
+                                                <th class="th-validity-total">TOTAL<br>{{ $groupName }}</th>
                                             @endforeach
                                         @endforeach
                                     </tr>
@@ -73,10 +89,15 @@
                                             <td class="sticky-tap">{{ $row->idtap }}</td>
 
 
-                                            @foreach ($groups as $items)
-                                                @foreach ($items as $d)
-                                                    <td class="text-end">
-                                                        {{ number_format($row->{$d->iddenom} ?? 0) }}
+                                            @foreach ($groups as $validityGroups)
+                                                @foreach ($validityGroups as $items)
+                                                    @foreach ($items as $d)
+                                                        <td class="text-end">
+                                                            {{ number_format($row->{$d->iddenom} ?? 0) }}
+                                                        </td>
+                                                    @endforeach
+                                                    <td class="text-end validity-total">
+                                                        {{ number_format(collect($items)->sum(fn ($d) => $row->{$d->iddenom} ?? 0)) }}
                                                     </td>
                                                 @endforeach
                                             @endforeach
@@ -92,10 +113,15 @@
                                         <th class="sticky-footer-left sticky-no"></th>
                                         <th class="sticky-footer-left sticky-tap" style="text-align: center;">TOTAL</th>
 
-                                        @foreach ($groups as $items)
-                                            @foreach ($items as $d)
-                                                <th class="text-end">
-                                                    {{ number_format($data->sum($d->iddenom)) }}
+                                        @foreach ($groups as $validityGroups)
+                                            @foreach ($validityGroups as $items)
+                                                @foreach ($items as $d)
+                                                    <th class="text-end">
+                                                        {{ number_format($data->sum($d->iddenom)) }}
+                                                    </th>
+                                                @endforeach
+                                                <th class="text-end validity-total-footer">
+                                                    {{ number_format(collect($items)->sum(fn ($d) => $data->sum($d->iddenom))) }}
                                                 </th>
                                             @endforeach
                                         @endforeach
@@ -171,6 +197,32 @@
             color: #fff;
             font-weight: 600;
             text-align: center
+        }
+        .th-voucher {
+            color: #fff !important;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .6px;
+            text-align: center !important;
+            border-left: 3px solid #fff !important;
+        }
+        .th-voucher-fisik { background: #334155 !important; }
+        .th-voucher-byu { background: #047857 !important; }
+        .th-validity-total {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+            font-weight: 800 !important;
+            border-right: 3px solid #cbd5e1 !important;
+        }
+        .validity-total {
+            background: #fffbeb;
+            color: #92400e;
+            font-weight: 800;
+            border-right: 3px solid #cbd5e1 !important;
+        }
+        .validity-total-footer {
+            background: #78350f !important;
+            border-right: 3px solid #cbd5e1 !important;
         }
         .th-segel {
             background: #1e293b;
@@ -335,13 +387,18 @@
             vertical-align: middle !important;
         }
 
-        #stock thead tr.group-header th {
+        #stock thead tr.voucher-header th {
             top: 0;
+            z-index: 32;
+        }
+
+        #stock thead tr.group-header th {
+            top: 28px; /* Fixed height for sticky sub-header */
             z-index: 31;
         }
 
-        #stock thead tr:nth-child(2) th {
-            top: 28px; /* Fixed height for sticky sub-header */
+        #stock thead tr.sub-header th {
+            top: 56px;
             z-index: 30;
             background: #f1f5f9 !important;
             color: #1f2937 !important;

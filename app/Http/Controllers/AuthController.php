@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\AuditLogger;
 
 class AuthController extends Controller
 {
@@ -30,6 +31,12 @@ class AuthController extends Controller
         \Illuminate\Support\Facades\RateLimiter::clear($throttleKey);
 
         session(['idtap' => auth()->user()->idtap]);
+        $request->session()->regenerate();
+
+        AuditLogger::log('LOGIN', 'Authentication', auth()->id(), null, [
+            'idtap' => auth()->user()->idtap,
+            'level' => auth()->user()->level,
+        ]);
 
         if (auth()->user()->idtap === 'SB DUMAI') {
             return redirect('/homenocan');
@@ -54,6 +61,12 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        if (Auth::check()) {
+            AuditLogger::log('LOGOUT', 'Authentication', auth()->id(), [
+                'idtap' => auth()->user()->idtap,
+            ]);
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();

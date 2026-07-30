@@ -66,7 +66,7 @@ Route::get('/monitadumai/performance', [MonitaDumaiController::class, 'performan
 
 
 // group middleware
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'asmen.access'])->group(function () {
 
 	Route::get('/home', [HomeController::class, 'index'])->name('home');
 	Route::get('/chart/sales', [SalesChartController::class, 'sales']);

@@ -200,10 +200,10 @@ class HomeController extends Controller
         }
 
         /* ================= MoM PER SF ================= */
-        $qMomSf = DB::table('keluarsf as k')
-            ->join('idsf as s', 'k.idsf', '=', 's.idsf')
+        $qMomSf = DB::table('idsf as s')
+            ->leftJoin('keluarsf as k', 'k.idsf', '=', 's.idsf')
             ->selectRaw("
-                k.idtap, k.idsf, s.namasf,
+                s.idtap, s.idsf, s.namasf,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS prev_qty,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS m2_qty
@@ -212,8 +212,8 @@ class HomeController extends Controller
                 $startPrevMonth, $endPrevMonthPartial,
                 $startM2Month, $endM2MonthPartial
             ])
-            ->groupBy('k.idtap', 'k.idsf', 's.namasf');
-        $applyFilter($qMomSf, 'k.idtap');
+            ->groupBy('s.idtap', 's.idsf', 's.namasf');
+        $applyFilter($qMomSf, 's.idtap');
         $momSf = $qMomSf->get()
             ->map(function ($r) {
                 $r->mom = $r->prev_qty > 0
@@ -249,11 +249,10 @@ class HomeController extends Controller
             ->take(5)
             ->values();
 
-        /* ================= COLLAPSE SF BY TAP ================= */
+        /* ================= COLLAPSE SELURUH PETUGAS BY TAP ================= */
         $sfByTap = $momSf
-            ->filter(fn($r) => Str::startsWith($r->idsf, 'SF'))
             ->groupBy('idtap')
-            ->map(fn($rows) => $rows->sortBy('mom')->values());
+            ->map(fn($rows) => $rows->sortBy('namasf')->values());
 
         /* ================= NEW: MATRIX TAHUNAN PER TAP ================= */
         $selectedYear = $request->query('year', date('Y'));

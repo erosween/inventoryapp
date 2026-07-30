@@ -1,5 +1,9 @@
 @php
     $idtap = session('idtap');
+    $isAsmen = auth()->check() && \Illuminate\Support\Str::startsWith(
+        \Illuminate\Support\Str::lower(auth()->user()->username),
+        'asmen_'
+    );
 @endphp
 
 <!DOCTYPE html>
@@ -341,7 +345,7 @@
                             <a data-toggle="collapse" href="#collapseExample" aria-expanded="true">
                                 <span>
                                     <strong>{{ $idtap }}</strong>
-                                    <span class="user-level">Administrator</span>
+                                    <span class="user-level">{{ $isAsmen ? 'Asisten Manager' : 'Administrator' }}</span>
                                 </span>
                             </a>
                             <div class="clearfix"></div>
@@ -403,6 +407,7 @@
                                     <p>STOCK GUDANG</p>
                                 </a>
                             </li>
+                            @if (!$isAsmen)
                             <li class="nav-item {{ request()->is('sisastock') ? 'active' : '' }}">
                                 <a href="{{ url('sisastock') }}">
                                     <i class="fas fa-history"></i>
@@ -530,6 +535,7 @@
                                         </ul>
                                     </div>
                                 </li>
+                            @endif
                             @endif
                         @endif
                         @if (auth()->check() && auth()->user()->username === 'admin_cluster')

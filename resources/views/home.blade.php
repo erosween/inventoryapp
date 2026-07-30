@@ -285,16 +285,16 @@
                                         <td colspan="25" class="p-0 border-0">
                                             <div class="py-2 pr-2 bg-light">
                                                 <div class="d-flex mb-2 pl-5">
-                                                    <button class="btn btn-xs btn-primary mr-1 btn-toggle-rincian" data-target="sf-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">👤 SF Performance</button>
+                                                    <button class="btn btn-xs btn-primary mr-1 btn-toggle-rincian" data-target="sf-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">👤 Performance Petugas</button>
                                                     <button class="btn btn-xs btn-outline-primary btn-toggle-rincian" data-target="validity-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">🎫 Validity Group</button>
                                                 </div>
 
-                                                {{-- SUB-SECTION: SF PERFORMANCE --}}
+                                                {{-- SUB-SECTION: PERFORMANCE SELURUH PETUGAS --}}
                                                 <div id="sf-sales-{{ Str::slug($tap) }}" class="rincian-content">
                                                     <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                         <thead class="bg-white">
                                                             <tr class="text-primary">
-                                                                <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">Sales Force</th>
+                                                                <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">Nama Petugas</th>
                                                                 @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                                     <th class="border-0">{{ $m }}</th>
                                                                 @endforeach
@@ -1238,7 +1238,7 @@
                                             <table class="table table-sm mb-0 bg-white shadow-sm rounded">
                                                 <thead class="bg-white">
                                                     <tr>
-                                                        <th class="border-top-0">Anggota Tim SF</th>
+                                                        <th class="border-top-0">Nama Petugas</th>
                                                         <th class="text-right border-top-0">Capai MTD</th>
                                                         <th class="text-right border-top-0">M-1</th>
                                                         <!-- <th class="text-right border-top-0">M-2</th> -->
