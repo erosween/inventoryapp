@@ -25,6 +25,7 @@
     <!-- SELECT2 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
     <style>
         /* Stabilize layout Scrollbar Gutter */
         html {
@@ -127,13 +128,11 @@
         }
 
         .table-indigo tbody tr {
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease;
         }
 
         .table-indigo tbody tr:hover {
             background-color: rgba(78, 115, 223, 0.05) !important;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
         }
 
         /* 2. STICKY COLUMN LOGIC (ENTERPRISE) */
@@ -622,7 +621,6 @@
         <script>
             (function () {
 
-                let searchTimer = null;
                 const SEARCH_DELAY = 1200; // ms
 
                 // Jalan SETIAP DataTable selesai init
@@ -643,10 +641,11 @@
                     $input.on('input.dt.debounce', function () {
                         const value = this.value;
 
-                        clearTimeout(searchTimer);
-                        searchTimer = setTimeout(() => {
+                        clearTimeout($input.data('inventorySearchTimer'));
+                        const searchTimer = setTimeout(() => {
                             api.search(value).draw();
                         }, SEARCH_DELAY);
+                        $input.data('inventorySearchTimer', searchTimer);
                     });
 
                 });
@@ -682,7 +681,6 @@
         <script src="{{ asset('assets/js/core/bootstrap.min.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-        <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
         {{-- AZZARA PLUGINS --}}
         <script src="{{ asset('assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js') }}"></script>
         <script src="{{ asset('assets/js/plugin/jquery-ui-touch-punch/jquery.ui.touch-punch.min.js') }}"></script>
@@ -787,6 +785,8 @@
                 // Skip GET forms & delete forms (handled by SweetAlert)
                 if (form.method && form.method.toUpperCase() === 'GET') return;
                 if (form.classList.contains('form-delete')) return;
+                // Validasi halaman boleh membatalkan submit tanpa mengunci form.
+                if (e.defaultPrevented || !form.checkValidity()) return;
 
                 // ⛔ BLOCK if this form was already submitted
                 if (submittedForms.has(form)) {
@@ -802,9 +802,11 @@
                 // 🎨 Visual feedback
                 const submitBtn = form.querySelector('button[type="submit"]');
                 if (submitBtn) {
+                    const originalButtonHtml = submitBtn.innerHTML;
                     // Use setTimeout to ensure the browser has started the submission process 
                     // before we disable the button.
                     setTimeout(() => {
+                        if (!submittedForms.has(form)) return;
                         submitBtn.disabled = true;
                         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Memproses...';
                     }, 10);
@@ -815,13 +817,10 @@
                     submittedForms.delete(form);
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        // Restore original text if possible, or default to Simpan
-                        if (submitBtn.innerHTML.includes('Memproses')) {
-                            submitBtn.innerHTML = 'Simpan'; 
-                        }
+                        submitBtn.innerHTML = originalButtonHtml;
                     }
                 }, 30000);
-            }, true); 
+            });
         })();
     </script>
 

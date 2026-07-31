@@ -186,6 +186,7 @@ public function masuksfproses(Request $request)
         'items.*.qty' => 'required|integer|min:1',
         'items.*.sn' => 'required|string|max:255',
     ]);
+    usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
     if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) {
         abort(403);
@@ -216,6 +217,12 @@ public function masuksfproses(Request $request)
                 ->where('idtap', $validated['idtap'])
                 ->where('iddenom', $item['iddenom'])
                 ->decrement('stock', $item['qty']);
+
+            DB::table('stockawalsf')->insertOrIgnore([
+                'idsf' => $validated['idsf'],
+                'iddenom' => $item['iddenom'],
+                'stock' => 0,
+            ]);
 
             DB::table('stockawalsf')
                 ->where('idsf', $validated['idsf'])

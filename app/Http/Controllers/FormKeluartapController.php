@@ -78,6 +78,7 @@ public function proseskeluartapform(Request $request)
         'items.*.qty' => 'required|integer|min:1',
         'items.*.sn' => 'required|string|max:255',
     ]);
+    usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
     if (session('idtap') !== 'SBP_DUMAI' && $validated['pengirim'] !== session('idtap')) {
         abort(403);
