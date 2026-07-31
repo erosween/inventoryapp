@@ -13,8 +13,8 @@ class SfController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (auth()->check() && in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL'])) {
-                abort(403, 'Akses Ditolak! Hanya superadmin yang diizinkan mengakses menu ini.');
+            if (auth()->check() && !auth()->user()->isSuperAdmin()) {
+                abort(403, 'Akses Ditolak! Master Data hanya dapat diakses admin super.');
             }
             return $next($request);
         });

@@ -71,7 +71,7 @@ class BOController extends Controller
                     </a>
                 ';
 
-                if (auth()->user()->username !== 'admin_cluster') {
+                if (!auth()->user()->hasClusterAdminAccess()) {
                     return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . '</div>';
                 }
 
@@ -250,7 +250,7 @@ public function getTap(Request $request)
     ========================= */
     public function delete($idkeluar)
     {
-        if (auth()->user()->username !== 'admin_cluster') {
+        if (!auth()->user()->hasClusterAdminAccess()) {
             return redirect('bo')->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
         }
 

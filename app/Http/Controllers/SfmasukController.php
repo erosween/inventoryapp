@@ -71,7 +71,7 @@ class SfmasukController extends Controller
                 </a>
             ';
 
-            if (auth()->user()->username !== 'admin_cluster') {
+            if (!auth()->user()->hasClusterAdminAccess()) {
                 return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . '</div>';
             }
 
@@ -168,52 +168,78 @@ class SfmasukController extends Controller
 
 public function masuksfproses(Request $request)
 {
-    DB::transaction(function () use ($request) {
+    $items = $request->input('items');
+    if (!is_array($items)) {
+        $request->merge(['items' => [[
+            'iddenom' => $request->iddenom,
+            'qty' => $request->qty,
+            'sn' => $request->sn,
+        ]]]);
+    }
 
-        $idtap    = $request->idtap;
-        $idsf     = $request->idsf;
-        $iddenom  = $request->iddenom;
-        $qty      = $request->qty;
-        $sn       = $request->sn;
-        $tgl      = $request->tgl;
+    $validated = $request->validate([
+        'tgl' => 'required|date',
+        'idtap' => 'required|exists:kodetap,idtap',
+        'idsf' => 'required|exists:idsf,idsf',
+        'items' => 'required|array|min:1',
+        'items.*.iddenom' => 'required|distinct|exists:denom,iddenom',
+        'items.*.qty' => 'required|integer|min:1',
+        'items.*.sn' => 'required|string|max:255',
+    ]);
 
-        // LOCK stok TAP (ANTI RACE)
-        $stockTap = DB::table('stockawaltap')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->lockForUpdate()
-            ->value('stock');
+    if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) {
+        abort(403);
+    }
+    abort_unless(
+        DB::table('idsf')->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
+        422,
+        'Petugas tidak sesuai dengan TAP.'
+    );
 
-        if ($stockTap < $qty) {
-            throw new \Exception('Stok TAP tidak mencukupi');
+    DB::transaction(function () use ($validated) {
+        foreach ($validated['items'] as $item) {
+            $stockTap = DB::table('stockawaltap')
+                ->where('idtap', $validated['idtap'])
+                ->where('iddenom', $item['iddenom'])
+                ->lockForUpdate()
+                ->value('stock') ?? 0;
+
+            if ($stockTap < $item['qty']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => "Stok TAP untuk {$item['iddenom']} tidak mencukupi. Tersedia: {$stockTap}.",
+                ]);
+            }
         }
 
-        // Update stok
-        DB::table('stockawaltap')
-            ->where('idtap', $idtap)
-            ->where('iddenom', $iddenom)
-            ->decrement('stock', $qty);
+        foreach ($validated['items'] as $item) {
+            DB::table('stockawaltap')
+                ->where('idtap', $validated['idtap'])
+                ->where('iddenom', $item['iddenom'])
+                ->decrement('stock', $item['qty']);
 
-        DB::table('stockawalsf')
-            ->where('idsf', $idsf)
-            ->where('iddenom', $iddenom)
-            ->increment('stock', $qty);
+            DB::table('stockawalsf')
+                ->where('idsf', $validated['idsf'])
+                ->where('iddenom', $item['iddenom'])
+                ->increment('stock', $item['qty']);
 
-        // Insert data
-        $newId = DB::table('masuksf')->insertGetId([
-            'idtap'   => $idtap,
-            'idsf'    => $idsf,
-            'iddenom' => $iddenom,
-            'qty'     => $qty,
-            'sn'      => $sn,
-            'tgl'     => $tgl
-        ]);
+            $newId = DB::table('masuksf')->insertGetId([
+                'idtap' => $validated['idtap'],
+                'idsf' => $validated['idsf'],
+                'iddenom' => $item['iddenom'],
+                'qty' => $item['qty'],
+                'sn' => $item['sn'],
+                'tgl' => $validated['tgl'],
+            ]);
 
-        // 📝 LOG
-        AuditLogger::log('INSERT', 'Stok Masuk SF', $newId, null, $request->all());
+            AuditLogger::log('INSERT', 'Stok Masuk SF (Bulk)', $newId, null, $item + [
+                'idtap' => $validated['idtap'],
+                'idsf' => $validated['idsf'],
+                'tgl' => $validated['tgl'],
+            ]);
+        }
     });
 
-    return redirect('sf-masuk')->with('success', 'Data Berhasil Ditambahkan');
+    return redirect('sf-masuk')->with('success', count($validated['items']) . ' denom berhasil ditambahkan');
 }
 
 
@@ -223,7 +249,7 @@ public function masuksfproses(Request $request)
 
 public function delete(Request $request, $idmasuk)
 {
-    if (auth()->user()->username !== 'admin_cluster') {
+    if (!auth()->user()->hasClusterAdminAccess()) {
         return redirect('sf-masuk')->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
     }
 
@@ -280,7 +306,7 @@ public function delete(Request $request, $idmasuk)
 ========================= */
 public function bulkDelete(Request $request)
 {
-    if (auth()->user()->username !== 'admin_cluster') {
+    if (!auth()->user()->hasClusterAdminAccess()) {
         return response()->json(['success' => false, 'message' => 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.']);
     }
 

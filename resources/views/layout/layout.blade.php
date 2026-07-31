@@ -52,13 +52,32 @@
         /* Biar dropdown tidak ketutup & tidak goyang */
         .select2-container {
             width: 100% !important;
-            z-index: 1055;
+            z-index: auto;
             transition: none !important;
         }
 
         /* Prevent body shift when select2 opens */
         .select2-container--open {
             width: 100% !important;
+            z-index: 1055;
+        }
+
+        /* Navbar harus selalu menutup elemen form saat halaman di-scroll. */
+        .main-header {
+            z-index: 1100 !important;
+        }
+
+        .btn-new-window {
+            color: #fff !important;
+            border: 1px solid rgba(255, 255, 255, .45) !important;
+            background: rgba(255, 255, 255, .12) !important;
+            border-radius: 18px !important;
+            padding: 6px 13px !important;
+            font-size: 12px !important;
+        }
+
+        .btn-new-window:hover {
+            background: rgba(255, 255, 255, .24) !important;
         }
 
         /* Fix jumpy search field */
@@ -329,6 +348,13 @@
 
             <!-- Navbar Header -->
             <nav class="navbar navbar-header navbar-expand-lg">
+                <div class="container-fluid justify-content-end px-3">
+                    <button type="button" class="btn btn-sm btn-new-window" id="open-new-window"
+                        title="Buka halaman ini di window kedua">
+                        <i class="fas fa-external-link-alt mr-1"></i>
+                        <span class="d-none d-md-inline">Buka Window Baru</span>
+                    </button>
+                </div>
             </nav>
             <!-- End Navbar -->
         </div>
@@ -415,7 +441,7 @@
                                 </a>
                             </li>
 
-                            @if (auth()->check() && auth()->user()->username === 'admin_cluster')
+                            @if (auth()->check() && auth()->user()->isSuperAdmin())
                                 <li class="nav-section">
                                     <span class="sidebar-mini-icon">
                                         <i class="fa fa-ellipsis-h"></i>
@@ -538,11 +564,19 @@
                             @endif
                             @endif
                         @endif
-                        @if (auth()->check() && auth()->user()->username === 'admin_cluster')
+                        @if (auth()->check() && auth()->user()->hasClusterAdminAccess())
                             <li class="nav-item {{ request()->is('audit*') ? 'active' : '' }}">
                                 <a href="{{ route('audit.index') }}">
                                     <i class="fas fa-history"></i>
                                     <p>AUDIT TRAIL (LOG)</p>
+                                </a>
+                            </li>
+                        @endif
+                        @if (auth()->check() && auth()->user()->isSuperAdmin())
+                            <li class="nav-item {{ request()->is('stock-adjustment*') ? 'active' : '' }}">
+                                <a href="{{ route('stock-adjustment.index') }}">
+                                    <i class="fas fa-sliders-h"></i>
+                                    <p>PENYESUAIAN STOK</p>
                                 </a>
                             </li>
                         @endif
@@ -697,6 +731,26 @@
     </div>
 
     <script>
+        document.getElementById('open-new-window')?.addEventListener('click', function () {
+            const width = Math.min(1400, Math.max(900, Math.round(screen.availWidth * 0.82)));
+            const height = Math.min(950, Math.max(650, Math.round(screen.availHeight * 0.86)));
+            const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
+            const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
+            const secondWindow = window.open(
+                window.location.href,
+                '_blank',
+                `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+            );
+
+            if (!secondWindow) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Popup diblokir browser',
+                    text: 'Izinkan popup untuk situs ini, lalu klik Buka Window Baru kembali.'
+                });
+            }
+        });
+
         @if (session('success'))
             Swal.fire({
                 icon: 'success',

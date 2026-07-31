@@ -58,42 +58,62 @@ public function getStockTapPengirim(Request $request)
 
 public function proseskeluartapform(Request $request)
 {
-    DB::transaction(function () use ($request) {
+    $items = $request->input('items');
+    if (!is_array($items)) {
+        $items = [[
+            'iddenom' => $request->iddenom,
+            'qty' => $request->qty,
+            'sn' => $request->sn,
+        ]];
+        $request->merge(['items' => $items]);
+    }
 
-        $tgl        = $request->tgl;
-        $pengirim   = $request->pengirim;
-        $penerima   = $request->penerima;
-        $iddenom    = $request->iddenom;
-        $qty        = $request->qty;
-        $sn         = $request->sn;
-        $tambahket  = $request->tambahket;
+    $validated = $request->validate([
+        'tgl' => 'required|date',
+        'pengirim' => 'required|exists:kodetap,idtap',
+        'penerima' => 'required|different:pengirim|exists:kodetap,idtap',
+        'tambahket' => 'nullable|string|max:500',
+        'items' => 'required|array|min:1',
+        'items.*.iddenom' => 'required|distinct|exists:denom,iddenom',
+        'items.*.qty' => 'required|integer|min:1',
+        'items.*.sn' => 'required|string|max:255',
+    ]);
 
-        // LOCK stok pengirim
-        $stock = DB::table('stockawaltap')
-            ->where('idtap', $pengirim)
-            ->where('iddenom', $iddenom)
-            ->lockForUpdate()
-            ->value('stock');
+    if (session('idtap') !== 'SBP_DUMAI' && $validated['pengirim'] !== session('idtap')) {
+        abort(403);
+    }
 
-        if ($stock < $qty) {
-            throw new \Exception('Stok TAP Tidak Mencukupi');
+    DB::transaction(function () use ($validated) {
+        foreach ($validated['items'] as $item) {
+            $stock = DB::table('stockawaltap')
+                ->where('idtap', $validated['pengirim'])
+                ->where('iddenom', $item['iddenom'])
+                ->lockForUpdate()
+                ->value('stock') ?? 0;
+
+            if ($stock < $item['qty']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => "Stok {$item['iddenom']} tidak mencukupi. Tersedia: {$stock}.",
+                ]);
+            }
         }
 
-        // INSERT keluar (stok BELUM pindah)
-        DB::table('keluar')->insert([
-            'iddenom'     => $iddenom,
-            'pengirim'    => $pengirim,
-            'penerima'    => $penerima,
-            'qty'         => $qty,
-            'tgl'         => $tgl,
-            'sn'          => $sn,
-            'tambahanket' => $tambahket,
-            'idtap'       => $pengirim,
-            'status'      => 1 // pending
-        ]);
+        foreach ($validated['items'] as $item) {
+            DB::table('keluar')->insert([
+                'iddenom' => $item['iddenom'],
+                'pengirim' => $validated['pengirim'],
+                'penerima' => $validated['penerima'],
+                'qty' => $item['qty'],
+                'tgl' => $validated['tgl'],
+                'sn' => $item['sn'],
+                'tambahanket' => $validated['tambahket'] ?? null,
+                'idtap' => $validated['pengirim'],
+                'status' => 1,
+            ]);
+        }
     });
 
-    return redirect('keluar')->with('success', 'Menunggu approval TAP penerima');
+    return redirect('keluar')->with('success', count($validated['items']) . ' denom menunggu approval TAP penerima');
 }
 
 public function getAllStockTap(Request $request)

@@ -65,7 +65,7 @@ class VrusakController extends Controller
                     </a>
                 ';
 
-                if (auth()->user()->username !== 'admin_cluster') {
+                if (!auth()->user()->hasClusterAdminAccess()) {
                     return '<div class="d-flex align-items-center justify-content-center">' . $btnEdit . '</div>';
                 }
 
@@ -219,7 +219,7 @@ class VrusakController extends Controller
     }
     public function delete(Request $request, $idrusak)
     {
-        if (auth()->user()->username !== 'admin_cluster') {
+        if (!auth()->user()->hasClusterAdminAccess()) {
             return back()->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
         }
 

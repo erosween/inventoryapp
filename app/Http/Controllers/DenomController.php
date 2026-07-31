@@ -11,8 +11,8 @@ class DenomController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (auth()->check() && auth()->user()->username !== 'admin_cluster') {
-                abort(403, 'Akses Ditolak! Hanya admin_cluster yang diizinkan mengakses menu ini.');
+            if (auth()->check() && !auth()->user()->isSuperAdmin()) {
+                abort(403, 'Akses Ditolak! Master Data hanya dapat diakses admin super.');
             }
             return $next($request);
         });

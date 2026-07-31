@@ -31,6 +31,7 @@ use App\Http\Controllers\sisaStockController;
 use App\Http\Controllers\NocanadminController;
 use App\Http\Controllers\searchController;
 use App\Http\Controllers\StockMovementController;
+use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\MonitaDumaiController;
 use App\Http\Controllers\Api\SalesChartController;
 use App\Http\Controllers\DenomController;
@@ -74,6 +75,11 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
     // Audit Trail
     Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
     Route::get('audit/data', [AuditController::class, 'data'])->name('audit.data');
+
+    // Penyesuaian saldo stok (khusus admin_super)
+    Route::get('/stock-adjustment', [StockAdjustmentController::class, 'index'])->name('stock-adjustment.index');
+    Route::get('/stock-adjustment/current', [StockAdjustmentController::class, 'current'])->name('stock-adjustment.current');
+    Route::post('/stock-adjustment', [StockAdjustmentController::class, 'update'])->name('stock-adjustment.update');
 
     // sf master data
     Route::get('/sf', [SfController::class, 'index']);

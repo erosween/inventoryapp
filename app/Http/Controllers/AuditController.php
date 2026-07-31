@@ -12,7 +12,7 @@ class AuditController extends Controller
     public function index()
     {
         // Hanya admin cluster yang bisa lihat log
-        if (auth()->user()->username !== 'admin_cluster') {
+        if (!auth()->user()->hasClusterAdminAccess()) {
             return redirect('dashboard')->with('error', 'Akses ditolak.');
         }
 

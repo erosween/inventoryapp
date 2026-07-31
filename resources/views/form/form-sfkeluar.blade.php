@@ -65,11 +65,21 @@
                                             </div>
                                         </div>
 
-                                        {{-- Denom --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
+                                                <label>Mode Input</label>
+                                                <select id="input_mode" class="form-control">
+                                                    <option value="single">Satu Denom</option>
+                                                    <option value="bulk">Bulk Banyak Denom</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {{-- Denom --}}
+                                        <div class="col-md-6 single-entry">
+                                            <div class="form-group mb-1">
                                                 <label>Denom</label>
-                                                <select name="iddenom" id="iddenom" class="form-control select2" required>
+                                                <select name="iddenom" id="iddenom" class="form-control select2" required disabled>
                                                     <option></option>
                                                     @foreach ($denom as $row)
                                                         <option value="{{ $row->iddenom }}">
@@ -81,7 +91,7 @@
                                         </div>
 
                                         {{-- Quantity --}}
-                                        <div class="col-md-6">
+                                        <div class="col-md-6 single-entry">
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
                                                 <input type="number" name="qty" id="qty" class="form-control"
@@ -89,7 +99,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="col-md-6">
+                                        <div class="col-md-6 single-entry">
                                             <div class="form-group mb-1">
                                                 <label>SN Awal - SN Akhir</label>
                                                 <input type="text" name="tambahanket" id="tambahanket"
@@ -98,7 +108,7 @@
                                         </div>
 
                                         {{-- Stok --}}
-                                        <div class="col-md-6">
+                                        <div class="col-md-6 single-entry">
                                             <div class="form-group mb-1">
                                                 <label>Stok Tersedia</label>
                                                 <input type="text" id="stok_info" class="form-control mb-1" readonly>
@@ -106,6 +116,19 @@
                                                     <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok tersedia
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-none" id="bulk-entry">
+                                        <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                                            <strong>Daftar Denom</strong>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-row">+ Tambah Denom</button>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered">
+                                                <thead><tr><th>Denom</th><th width="130">Stok SF</th><th width="130">Qty</th><th>SN / Keterangan</th><th width="50"></th></tr></thead>
+                                                <tbody id="bulk-rows"></tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
@@ -188,6 +211,7 @@
                 $('#stok_info').val('');
                 $('#stok_warning').addClass('d-none');
                 $('#submitBtn').prop('disabled', true);
+                $('#iddenom, .bulk-denom').prop('disabled', true).empty().trigger('change');
                 
                 sfStockData = {}; // Clear cache
 
@@ -200,8 +224,8 @@
                     })
                     .done(res => {
                         sfStockData = res;
-                        // Trigger change standar agar iddenom load stoknya ke kotak stok_info
-                        $('#iddenom').trigger('change'); 
+                        refreshAvailableDenoms();
+                        if ($('#input_mode').val() === 'bulk') $('#submitBtn').prop('disabled', false);
                     });
             });
 
@@ -245,14 +269,89 @@
 
             /* ================= ANTI DOUBLE SUBMIT ================= */
             let submitting = false;
-            $('#mainForm').on('submit', function() {
+            $('#mainForm').on('submit', function(e) {
                 if (submitting) return false;
+
+                if ($('#input_mode').val() === 'bulk') {
+                    let valid = true;
+                    $('#bulk-rows tr').each(function() {
+                        const denom = $(this).find('.bulk-denom').val();
+                        const qty = parseInt($(this).find('.bulk-qty').val()) || 0;
+                        if (!denom || qty < 1 || qty > (parseInt(sfStockData[denom]) || 0)) valid = false;
+                    });
+                    if (!valid) {
+                        e.preventDefault();
+                        Swal.fire({ icon: 'error', title: 'Periksa Item Bulk', text: 'Qty salah satu denom melebihi stok petugas atau data belum lengkap.' });
+                        return false;
+                    }
+                }
                 submitting = true;
 
                 $('#submitBtn')
                     .prop('disabled', true)
                     .text('Menyimpan...');
             });
+
+            const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
+            let bulkIndex = 0;
+            function availableDenoms() {
+                return bulkDenoms.filter(d => (parseInt(sfStockData[d.id]) || 0) > 0);
+            }
+            function denomOptions() {
+                return availableDenoms().map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            }
+            function refreshAvailableDenoms() {
+                const options = denomOptions();
+                const bulk = $('#input_mode').val() === 'bulk';
+                $('#iddenom')
+                    .html(`<option value="">Pilih / cari denom</option>${options}`)
+                    .prop('disabled', !$('#idsf').val() || bulk)
+                    .val(null)
+                    .trigger('change');
+                $('.bulk-denom').each(function() {
+                    $(this)
+                        .html(`<option value="">Pilih / cari denom</option>${options}`)
+                        .prop('disabled', !$('#idsf').val() || !bulk)
+                        .val(null)
+                        .trigger('change');
+                });
+            }
+            function addBulkRow() {
+                const index = bulkIndex++;
+                const options = denomOptions();
+                const disabled = $('#idsf').val() ? '' : 'disabled';
+                const row = $(`<tr>
+                    <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${options}</select></td>
+                    <td class="bulk-stock text-right align-middle">-</td>
+                    <td><input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-qty" min="1" required></td>
+                    <td><input type="text" name="items[${index}][tambahanket]" class="form-control form-control-sm"></td>
+                    <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row">×</button></td>
+                </tr>`);
+                $('#bulk-rows').append(row);
+                row.find('.bulk-denom').select2({
+                    placeholder: 'Pilih / cari denom',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $('#bulk-entry')
+                });
+            }
+            $('#input_mode').on('change', function() {
+                const bulk = this.value === 'bulk';
+                $('.single-entry').toggleClass('d-none', bulk).find(':input').prop('disabled', bulk);
+                $('#bulk-entry').toggleClass('d-none', !bulk).find(':input').prop('disabled', !bulk);
+                if (bulk && !$('#bulk-rows tr').length) addBulkRow();
+                $('.bulk-denom').prop('disabled', !bulk || !$('#idsf').val());
+                $('#iddenom').prop('disabled', bulk || !$('#idsf').val());
+                if (bulk) $('#submitBtn').prop('disabled', false);
+            });
+            $('#add-bulk-row').on('click', addBulkRow);
+            $('#bulk-rows').on('click', '.remove-bulk-row', function() {
+                if ($('#bulk-rows tr').length > 1) $(this).closest('tr').remove();
+            }).on('change', '.bulk-denom', function() {
+                const stock = parseInt(sfStockData[$(this).val()]) || 0;
+                $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
+            });
+            $('#bulk-entry :input').prop('disabled', true);
 
         });
 

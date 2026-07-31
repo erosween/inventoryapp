@@ -26,7 +26,7 @@
                                 </div>
 
                                 {{-- Bulk Delete --}}
-                                @if (auth()->user()->username === 'admin_cluster')
+                                @if (auth()->user()->hasClusterAdminAccess())
                                     <button id="btnBulkDelete" class="btn btn-danger btn-sm d-none shadow-sm" style="border-radius: 20px;">
                                         <i class="fas fa-trash-alt"></i> Hapus Terpilih
                                     </button>
@@ -50,12 +50,12 @@
                             <table id="sfkeluar-table" class="table table-indigo table-hover w-100 mb-0">
                                 <thead>
                                     <tr>
-                                        @if (auth()->user()->username === 'admin_cluster')
+                                        @if (auth()->user()->hasClusterAdminAccess())
                                             <th width="30" class="text-center no-export sticky-col">
                                                 <input type="checkbox" id="checkAll" class="cursor-pointer">
                                             </th>
                                         @endif
-                                        <th class="{{ auth()->user()->username === 'admin_cluster' ? 'sticky-col-2' : 'sticky-col' }}">Tanggal</th>
+                                        <th class="{{ auth()->user()->hasClusterAdminAccess() ? 'sticky-col-2' : 'sticky-col' }}">Tanggal</th>
                                         <th>Denom</th>
                                         <th class="text-end">Quantity</th>
                                         <th>TAP</th>
@@ -99,7 +99,7 @@
                 serverSide: true,
                 pageLength: 10,
                 order: [
-                    [{{ auth()->user()->username === 'admin_cluster' ? 1 : 0 }}, 'desc']
+                    [{{ auth()->user()->hasClusterAdminAccess() ? 1 : 0 }}, 'desc']
                 ],
                 ajax: {
                     url: "{{ route('sf-keluar.data') }}",
@@ -108,7 +108,7 @@
                     }
                 },
                 columns: [
-                    @if (auth()->user()->username === 'admin_cluster')
+                    @if (auth()->user()->hasClusterAdminAccess())
                     {
                         data: 'idkeluar',
                         name: 'f.idkeluar',
@@ -217,7 +217,7 @@
                 '/exportsfkeluar?daterange=' + encodeURIComponent($daterange.val())
             );
 
-            @if (auth()->user()->username === 'admin_cluster')
+            @if (auth()->user()->hasClusterAdminAccess())
                 /* ==========================
                 GLOBAL SELECTION LOGIC
                 ========================== */

@@ -27,4 +27,14 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    public function hasClusterAdminAccess(): bool
+    {
+        return in_array($this->username, ['admin_cluster', 'admin_super'], true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->username === 'admin_super';
+    }
 }

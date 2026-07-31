@@ -60,7 +60,7 @@ class InjectController extends Controller
         ->editColumn('tgl', fn ($r) => Carbon::parse($r->tgl)->format('d-m-Y'))
         ->editColumn('qty', fn ($r) => number_format($r->qty))
         ->addColumn('action', function ($row) {
-            if (auth()->user()->username !== 'admin_cluster') {
+            if (!auth()->user()->hasClusterAdminAccess()) {
                 return '';
             }
 
@@ -84,7 +84,7 @@ class InjectController extends Controller
     ========================= */
     public function delete($idinject)
 {
-    if (auth()->user()->username !== 'admin_cluster') {
+    if (!auth()->user()->hasClusterAdminAccess()) {
         return redirect('injectvf')->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
     }
 
@@ -195,7 +195,7 @@ class InjectController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        if (auth()->user()->username !== 'admin_cluster') {
+        if (!auth()->user()->hasClusterAdminAccess()) {
             return response()->json(['success' => false, 'message' => 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.']);
         }
 
