@@ -65,61 +65,11 @@
                                             </div>
                                         </div>
 
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Mode Input</label>
-                                                <select id="input_mode" class="form-control">
-                                                    <option value="single">Satu Denom</option>
-                                                    <option value="bulk">Bulk Banyak Denom</option>
-                                                </select>
-                                            </div>
-                                        </div>
+                                        <input type="hidden" id="input_mode" value="bulk">
 
-                                        {{-- Denom --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>Denom</label>
-                                                <select name="iddenom" id="iddenom" class="form-control select2" required disabled>
-                                                    <option></option>
-                                                    @foreach ($denom as $row)
-                                                        <option value="{{ $row->iddenom }}">
-                                                            {{ $row->denom }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Quantity --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>Quantity</label>
-                                                <input type="number" name="qty" id="qty" class="form-control"
-                                                    min="1" required>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>SN Awal - SN Akhir</label>
-                                                <input type="text" name="tambahanket" id="tambahanket"
-                                                    class="form-control" placeholder="SN Awal - SN Akhir">
-                                            </div>
-                                        </div>
-
-                                        {{-- Stok --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>Stok Tersedia</label>
-                                                <input type="text" id="stok_info" class="form-control mb-1" readonly>
-                                                <div class="text-danger small d-none" id="stok_warning" style="font-weight: 600;">
-                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok tersedia
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
 
-                                    <div class="d-none" id="bulk-entry">
+                                    <div id="bulk-entry">
                                         <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
                                             <strong>Daftar Denom</strong>
                                             <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-row">+ Tambah Denom</button>
@@ -281,7 +231,7 @@
                     });
                     if (!valid) {
                         e.preventDefault();
-                        Swal.fire({ icon: 'error', title: 'Periksa Item Bulk', text: 'Qty salah satu denom melebihi stok petugas atau data belum lengkap.' });
+                        Swal.fire({ icon: 'error', title: 'Periksa Daftar Denom', text: 'Qty salah satu denom melebihi stok petugas atau data belum lengkap.' });
                         return false;
                     }
                 }
@@ -351,7 +301,7 @@
                 const stock = parseInt(sfStockData[$(this).val()]) || 0;
                 $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
             });
-            $('#bulk-entry :input').prop('disabled', true);
+            $('#input_mode').trigger('change');
 
         });
 

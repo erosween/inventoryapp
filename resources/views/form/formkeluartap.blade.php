@@ -54,57 +54,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Mode Input</label>
-                                                <select id="input_mode" class="form-control">
-                                                    <option value="single">Satu Denom</option>
-                                                    <option value="bulk">Bulk Banyak Denom</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Denom --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>DENOM</label>
-                                                <select name="iddenom" class="form-control select2" required disabled>
-                                                    <option></option>
-                                                    @foreach ($denom as $d)
-                                                        <option value="{{ $d->iddenom }}">{{ $d->denom }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Qty --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>Quantity</label>
-                                                <input type="number" name="qty" id="qty" class="form-control" min="1"
-                                                    required>
-                                            </div>
-                                        </div>
-
-                                        {{-- Stok TAP --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>Stok TAP Pengirim</label>
-                                                <input type="text" id="stok_tap_info" class="form-control mb-1" readonly>
-                                                <div class="text-danger small d-none" id="stok_tap_warning" style="font-weight: 600;">
-                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok TAP pengirim
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {{-- SN --}}
-                                        <div class="col-md-6 single-entry">
-                                            <div class="form-group mb-1">
-                                                <label>SN</label>
-                                                <input type="text" name="sn" class="form-control"
-                                                    placeholder="SN Awal - SN Akhir" required>
-                                            </div>
-                                        </div>
+                                        <input type="hidden" id="input_mode" value="bulk">
 
                                         {{-- Penerima --}}
                                         <div class="col-md-6">
@@ -127,7 +77,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="col-md-12 d-none" id="bulk-entry">
+                                        <div class="col-md-12" id="bulk-entry">
                                             <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
                                                 <strong>Daftar Denom</strong>
                                                 <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-row">
@@ -275,7 +225,7 @@
                 });
                 if (!valid) {
                     e.preventDefault();
-                    Swal.fire({ icon: 'error', title: 'Periksa Item Bulk', text: 'Pastikan denom, qty, SN, dan stok setiap baris valid.' });
+                    Swal.fire({ icon: 'error', title: 'Periksa Daftar Denom', text: 'Pastikan denom, qty, SN, dan stok setiap baris valid.' });
                     return false;
                 }
                 return true;
@@ -332,7 +282,7 @@
             const stock = parseInt(tapStockData[$(this).val()]) || 0;
             $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
         });
-        $('#bulk-entry :input').prop('disabled', true);
+        $('#input_mode').trigger('change');
     </script>
 
     <script>

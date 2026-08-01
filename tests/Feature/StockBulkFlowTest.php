@@ -130,6 +130,108 @@ class StockBulkFlowTest extends TestCase
         }
     }
 
+    public function test_bulk_retur_sf_moves_each_denom_back_to_tap(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+
+        $before = $stocks->mapWithKeys(function ($stock) use ($sales) {
+            $tapStock = DB::table('stockawaltap')
+                ->where('idtap', $sales->idtap)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock') ?? 0;
+
+            return [$stock->iddenom => [
+                'sf' => (int) $stock->stock,
+                'tap' => (int) $tapStock,
+            ]];
+        });
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->post('/retursf', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'ketvf' => 'OK',
+                'items' => $stocks->map(fn ($stock) => [
+                    'iddenom' => $stock->iddenom,
+                    'qty' => 1,
+                    'sn' => 'UJI-RETUR-'.$stock->iddenom,
+                    'tambahket' => 'Uji retur bulk otomatis',
+                ])->all(),
+            ])->assertRedirect('retursf');
+
+        foreach ($stocks as $stock) {
+            $afterSf = (int) DB::table('stockawalsf')
+                ->where('idsf', $sales->idsf)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock');
+            $afterTap = (int) DB::table('stockawaltap')
+                ->where('idtap', $sales->idtap)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock');
+
+            $this->assertSame($before[$stock->iddenom]['sf'] - 1, $afterSf);
+            $this->assertSame($before[$stock->iddenom]['tap'] + 1, $afterTap);
+            $this->assertSame(
+                $before[$stock->iddenom]['sf'] + $before[$stock->iddenom]['tap'],
+                $afterSf + $afterTap
+            );
+        }
+    }
+
+    public function test_failed_bulk_retur_sf_does_not_move_any_stock(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+
+        $tapStocks = $stocks->mapWithKeys(fn ($stock) => [
+            $stock->iddenom => (int) (DB::table('stockawaltap')
+                ->where('idtap', $sales->idtap)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock') ?? 0),
+        ]);
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-retursf')
+            ->post('/retursf', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'ketvf' => 'OK',
+                'items' => [
+                    [
+                        'iddenom' => $stocks[0]->iddenom,
+                        'qty' => 1,
+                        'sn' => 'UJI-RETUR-1',
+                        'tambahket' => 'Uji retur bulk otomatis',
+                    ],
+                    [
+                        'iddenom' => $stocks[1]->iddenom,
+                        'qty' => (int) $stocks[1]->stock + 1,
+                        'sn' => 'UJI-RETUR-2',
+                        'tambahket' => 'Uji retur bulk otomatis',
+                    ],
+                ],
+            ])->assertRedirect('/form/form-retursf')
+            ->assertSessionHasErrors('items');
+
+        foreach ($stocks as $stock) {
+            $this->assertSame(
+                (int) $stock->stock,
+                (int) DB::table('stockawalsf')
+                    ->where('idsf', $sales->idsf)
+                    ->where('iddenom', $stock->iddenom)
+                    ->value('stock')
+            );
+            $this->assertSame(
+                $tapStocks[$stock->iddenom],
+                (int) (DB::table('stockawaltap')
+                    ->where('idtap', $sales->idtap)
+                    ->where('iddenom', $stock->iddenom)
+                    ->value('stock') ?? 0)
+            );
+        }
+    }
+
     private function bulkFixture(string $table, string $targetColumn): array
     {
         $admin = User::where('username', 'admin_super')->first();

@@ -119,47 +119,89 @@ class ReturSfController extends Controller
     =============================== */
     public function store(Request $request)
     {
-        DB::transaction(function () use ($request) {
+        if (!is_array($request->input('items'))) {
+            $request->merge(['items' => [[
+                'iddenom' => $request->iddenom,
+                'qty' => $request->qty,
+                'sn' => $request->sn,
+                'tambahket' => $request->tambahket,
+            ]]]);
+        }
 
-            // LOCK STOK SF
-            $stockSf = DB::table('stockawalsf')
-                ->where('idsf', $request->idsf)
-                ->where('iddenom', $request->iddenom)
-                ->lockForUpdate()
-                ->value('stock');
+        $validated = $request->validate([
+            'tgl' => 'required|date',
+            'idtap' => 'required|exists:kodetap,idtap',
+            'idsf' => 'required|exists:idsf,idsf',
+            'ketvf' => 'required|in:OK,RUSAK,MATI',
+            'items' => 'required|array|min:1',
+            'items.*.iddenom' => 'required|distinct|exists:denom,iddenom',
+            'items.*.qty' => 'required|integer|min:1',
+            'items.*.sn' => 'required|string|max:255',
+            'items.*.tambahket' => 'required|string|max:500',
+        ]);
+        usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
-            if ($stockSf < $request->qty) {
-                throw new \Exception('Stok SF tidak mencukupi');
+        if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) {
+            abort(403);
+        }
+        abort_unless(
+            DB::table('idsf')->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
+            422,
+            'Petugas tidak sesuai dengan TAP.'
+        );
+
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['items'] as $item) {
+                $stockSf = DB::table('stockawalsf')
+                    ->where('idsf', $validated['idsf'])
+                    ->where('iddenom', $item['iddenom'])
+                    ->lockForUpdate()
+                    ->value('stock') ?? 0;
+
+                if ($stockSf < $item['qty']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'items' => "Stok petugas untuk {$item['iddenom']} tidak mencukupi. Tersedia: {$stockSf}.",
+                    ]);
+                }
             }
 
-            $newId = DB::table('retursf')->insertGetId([
-                'tgl'        => $request->tgl,
-                'idtap'      => $request->idtap,
-                'idsf'       => $request->idsf,
-                'iddenom'    => $request->iddenom,
-                'qty'        => $request->qty,
-                'sn'         => $request->sn,
-                'ketvf'      => $request->ketvf,
-                'tambahket'  => $request->tambahket,
-            ]);
+            foreach ($validated['items'] as $item) {
+                $newId = DB::table('retursf')->insertGetId([
+                    'tgl' => $validated['tgl'],
+                    'idtap' => $validated['idtap'],
+                    'idsf' => $validated['idsf'],
+                    'iddenom' => $item['iddenom'],
+                    'qty' => $item['qty'],
+                    'sn' => $item['sn'],
+                    'ketvf' => $validated['ketvf'],
+                    'tambahket' => $item['tambahket'],
+                ]);
 
-            // 📝 LOG
-            AuditLogger::log('INSERT', 'Retur SF', $newId, null, $request->all());
+                DB::table('stockawalsf')
+                    ->where('idsf', $validated['idsf'])
+                    ->where('iddenom', $item['iddenom'])
+                    ->decrement('stock', $item['qty']);
 
-            // stok SF berkurang
-            DB::table('stockawalsf')
-                ->where('idsf', $request->idsf)
-                ->where('iddenom', $request->iddenom)
-                ->decrement('stock', $request->qty);
+                DB::table('stockawaltap')->insertOrIgnore([
+                    'idtap' => $validated['idtap'],
+                    'iddenom' => $item['iddenom'],
+                    'stock' => 0,
+                ]);
+                DB::table('stockawaltap')
+                    ->where('idtap', $validated['idtap'])
+                    ->where('iddenom', $item['iddenom'])
+                    ->increment('stock', $item['qty']);
 
-            // stok TAP bertambah
-            DB::table('stockawaltap')
-                ->where('idtap', $request->idtap)
-                ->where('iddenom', $request->iddenom)
-                ->increment('stock', $request->qty);
+                AuditLogger::log('INSERT', 'Retur SF (Bulk)', $newId, null, $item + [
+                    'tgl' => $validated['tgl'],
+                    'idtap' => $validated['idtap'],
+                    'idsf' => $validated['idsf'],
+                    'ketvf' => $validated['ketvf'],
+                ]);
+            }
         });
 
-        return redirect('retursf')->with('success', 'Retur SF berhasil disimpan');
+        return redirect('retursf')->with('success', count($validated['items']) . ' denom retur SF berhasil disimpan');
     }
 
     /* ===============================
