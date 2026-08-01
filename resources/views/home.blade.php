@@ -108,8 +108,126 @@
     }
     .export-status { display: none; font-weight: 600; }
 
+    .monthly-sales-view-toggle {
+        display: inline-flex;
+        padding: 3px;
+        border-radius: 12px;
+        background: #eef1f5;
+        gap: 2px;
+    }
+    .monthly-sales-view-btn {
+        min-width: 74px;
+        padding: 7px 13px !important;
+        border: 0 !important;
+        border-radius: 9px !important;
+        color: #6b7280 !important;
+        background: transparent !important;
+        font-weight: 700 !important;
+        box-shadow: none !important;
+    }
+    .monthly-sales-view-btn.active {
+        color: #fff !important;
+        background: #4e73df !important;
+        box-shadow: 0 3px 8px rgba(78, 115, 223, .22) !important;
+    }
+    #monthly-sales-chart-wrap {
+        height: 430px;
+        padding: 22px 24px 18px;
+    }
+    #heatmap-sales-card {
+        scroll-margin-top: 88px;
+    }
+    .annual-sales-table tfoot td {
+        position: static !important;
+        box-shadow: none !important;
+    }
+    .monthly-sales-filter-form {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .monthly-sales-year-select {
+        min-width: 126px;
+        border-radius: 10px !important;
+        border-color: #e5e7eb !important;
+    }
+    .sales-reload-btn {
+        min-width: 42px !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        color: #4b5563 !important;
+        font-size: 14px !important;
+    }
+
+
+
+    /* MOM SALES TAP - polished web table layout */
+    #mom-cluster-card .card-header {
+        padding: 16px 20px 14px !important;
+    }
+    #mom-cluster-table-wrap {
+        overflow-x: auto;
+    }
+    #mom-cluster-table-wrap > table {
+        table-layout: fixed;
+        min-width: 920px;
+    }
+    #mom-cluster-table-wrap th,
+    #mom-cluster-table-wrap td {
+        padding: 9px 14px !important;
+        vertical-align: middle !important;
+        white-space: nowrap;
+    }
+    #mom-cluster-table-wrap thead th {
+        background: #f8fafc;
+        color: #4b5563;
+        font-size: 11.5px;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #edf0f2 !important;
+    }
+    #mom-cluster-table-wrap tbody td,
+    #mom-cluster-table-wrap tfoot td {
+        font-size: 13px;
+        border-top: 1px solid #edf0f2 !important;
+    }
+    #mom-cluster-table-wrap .mom-location-col { width: 34%; }
+    #mom-cluster-table-wrap .mom-number-col { width: 16.5%; }
+    #mom-cluster-table-wrap .mom-growth-col { width: 16.5%; }
+    #mom-cluster-table-wrap .toggle-sf {
+        width: 24px;
+        height: 24px;
+        line-height: 1;
+        padding: 0 !important;
+        margin-right: 9px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #374151;
+        background: #ffffff;
+        border-color: #e5e7eb !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    #mom-cluster-table-wrap tfoot tr {
+        background: #f8fafc;
+    }
+    #mom-cluster-table-wrap tfoot tr:last-child {
+        background: #e3f2fd;
+    }
+    #mom-cluster-table-wrap .sf-row > td > div {
+        padding: 10px 14px !important;
+    }
+    #mom-cluster-table-wrap .badge {
+        font-weight: 700;
+        letter-spacing: .01em;
+    }
+
     @media (max-width: 576px) {
         .export-status { text-align: center; }
+        #monthly-sales-chart-wrap {
+            height: 360px;
+            padding: 16px 10px;
+        }
     }
 </style>
 
@@ -121,6 +239,10 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="font-weight-bold mb-0 text-dark">Executive Summary</h4>
                 <form action="" method="GET" class="d-flex shadow-sm rounded">
+                    <input type="hidden" name="sales_year" value="{{ $salesYear }}">
+                    <input type="hidden" name="sales_view" value="{{ $salesView }}">
+                    <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
+                    <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
                     <select name="year" class="form-control mr-2 border-0 bg-white text-dark font-weight-bold" onchange="this.form.submit()">
                         @for($i = date('Y'); $i >= 2023; $i--)
                             <option value="{{ $i }}" {{ $selectedYear == $i ? 'selected' : '' }}>Tahun {{ $i }}</option>
@@ -204,14 +326,53 @@
             </div>
 
             {{-- ================= YEARLY MATRIX (HEATMAP) ================= --}}
+            @php
+                $annualMonthLabels = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+                $annualCutoffLabel = $annualCutoff === 'full' ? 'Full' : $annualMonthLabels[(int) $annualCutoff];
+                $clusterDumai = ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'];
+                $clusterRohil = ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'];
+            @endphp
             <div class="card enterprise-shadow mb-4" id="heatmap-sales-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
                     <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
                         <div>
-                            <h6 class="font-weight-bold text-dark mb-0">🗺️ Penjualan Bulanan (Tahun {{ $selectedYear }})</h6>
-                            <small class="text-muted">Transaksi per TAP</small>
+                            <h6 class="font-weight-bold text-dark mb-0">🗺️ Penjualan {{ $salesPeriod === 'annual' ? 'Tahunan (2024–'.date('Y').')' : 'Bulanan (Tahun '.$salesYear.')' }}</h6>
+                            <small class="text-muted">{{ $salesPeriod === 'annual' ? 'Perbandingan total penjualan setiap TAP per tahun · '.$annualCutoffLabel : 'Transaksi bulanan per TAP' }}</small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
+                            <form method="GET" action="{{ url('home') }}#heatmap-sales-card" class="monthly-sales-filter-form mb-0" id="monthly-sales-filter-form">
+                                <input type="hidden" name="year" value="{{ $selectedYear }}">
+                                <input type="hidden" name="mode" value="{{ $mode }}">
+                                <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
+                                <input type="hidden" name="sales_view" id="monthly-sales-view-input" value="{{ $salesView }}">
+                                <input type="hidden" name="sales_period" id="monthly-sales-period" value="{{ $salesPeriod }}">
+                                <div class="monthly-sales-view-toggle" role="group" aria-label="Pilih periode penjualan">
+                                    <button type="button" class="btn btn-sm monthly-sales-view-btn sales-period-btn {{ $salesPeriod === 'monthly' ? 'active' : '' }}" data-period="monthly">Bulanan</button>
+                                    <button type="button" class="btn btn-sm monthly-sales-view-btn sales-period-btn {{ $salesPeriod === 'annual' ? 'active' : '' }}" data-period="annual">Tahunan</button>
+                                </div>
+                                <div id="monthly-sales-year-wrap" class="{{ $salesPeriod === 'annual' ? 'd-none' : '' }}">
+                                    <select name="sales_year" id="monthly-sales-year" class="form-control form-control-sm font-weight-bold monthly-sales-year-select" aria-label="Tahun Penjualan Bulanan">
+                                        @for($i = date('Y'); $i >= 2023; $i--)
+                                            <option value="{{ $i }}" {{ $salesYear == $i ? 'selected' : '' }}>Tahun {{ $i }}</option>
+                                        @endfor
+                                    </select>
+                                </div>
+                                <div id="annual-sales-cutoff-wrap" class="{{ $salesPeriod === 'annual' ? '' : 'd-none' }}">
+                                    <select name="sales_annual_cutoff" id="annual-sales-cutoff" class="form-control form-control-sm font-weight-bold monthly-sales-year-select" aria-label="Batas bulan perbandingan tahunan">
+                                        <option value="full" {{ $annualCutoff === 'full' ? 'selected' : '' }}>Full</option>
+                                        @foreach($annualMonthLabels as $monthNumber => $monthLabel)
+                                            <option value="{{ $monthNumber }}" {{ (string) $annualCutoff === (string) $monthNumber ? 'selected' : '' }}>{{ $monthLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </form>
+                            <div class="monthly-sales-view-toggle" role="group" aria-label="Pilih tampilan penjualan bulanan">
+                                <button type="button" class="btn btn-sm monthly-sales-view-btn {{ $salesView === 'table' ? 'active' : '' }}" id="monthly-sales-table-btn" aria-pressed="{{ $salesView === 'table' ? 'true' : 'false' }}">Tabel</button>
+                                <button type="button" class="btn btn-sm monthly-sales-view-btn {{ $salesView === 'chart' ? 'active' : '' }}" id="monthly-sales-chart-btn" aria-pressed="{{ $salesView === 'chart' ? 'true' : 'false' }}">Grafik</button>
+                            </div>
+                            <button type="button" class="btn btn-sm export-action-btn sales-reload-btn" id="sales-card-reload-btn" title="Muat ulang card Penjualan" aria-label="Muat ulang card Penjualan">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            </button>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-sales-copy-btn" title="Copy heatmap penjualan sebagai gambar" style="gap:6px;">
                                 <i data-feather="copy" style="width:14px;height:14px"></i> Copy
                             </button>
@@ -223,7 +384,168 @@
                     </div>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-scroll-heatmap" id="heatmap-sales-wrap">
+                    <div class="table-scroll-heatmap {{ $salesView === 'chart' ? 'd-none' : '' }}" id="heatmap-sales-wrap">
+                        @if($salesPeriod === 'annual')
+                            @php
+                                $annualYears = range(2024, (int) date('Y'));
+                                $annualYearTotals = array_fill_keys($annualYears, 0);
+                                $annualGrandTotal = 0;
+                                $annualCurrentYear = (int) date('Y');
+                                $annualPreviousYear = $annualCurrentYear - 1;
+                                $calculateAnnualYtd = function (array $values, int $targetYear) {
+                                    $base = (int) ($values[$targetYear - 1] ?? 0);
+                                    return $base > 0
+                                        ? (((int) ($values[$targetYear] ?? 0) - $base) / $base) * 100
+                                        : null;
+                                };
+                                $calculatePeriodGrowth = function (int $current, int $base) {
+                                    return $base > 0
+                                        ? (($current - $base) / $base) * 100
+                                        : null;
+                                };
+                                $annualClusterDumaiValues = array_fill_keys($annualYears, 0);
+                                $annualClusterRohilValues = array_fill_keys($annualYears, 0);
+                                $annualClusterDumaiComparison = ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
+                                $annualClusterRohilComparison = ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
+                                $annualGrandComparison = ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
+                                $annualClusterDumaiCurrentYtd = [$annualPreviousYear => 0, $annualCurrentYear => 0];
+                                $annualClusterRohilCurrentYtd = [$annualPreviousYear => 0, $annualCurrentYear => 0];
+                                $annualGrandCurrentYtd = [$annualPreviousYear => 0, $annualCurrentYear => 0];
+                                foreach ($annualYears as $year) {
+                                    foreach ($clusterDumai as $tap) {
+                                        $annualClusterDumaiValues[$year] += (int) ($annualSales[$tap][$year] ?? 0);
+                                    }
+                                    foreach ($clusterRohil as $tap) {
+                                        $annualClusterRohilValues[$year] += (int) ($annualSales[$tap][$year] ?? 0);
+                                    }
+                                }
+                                foreach ($annualPeriodComparisons as $tap => $comparison) {
+                                    foreach (array_keys($annualGrandComparison) as $metric) {
+                                        $value = (int) ($comparison[$metric] ?? 0);
+                                        $annualGrandComparison[$metric] += $value;
+                                        if (in_array($tap, $clusterDumai)) $annualClusterDumaiComparison[$metric] += $value;
+                                        if (in_array($tap, $clusterRohil)) $annualClusterRohilComparison[$metric] += $value;
+                                    }
+                                }
+                                foreach ($annualCurrentYtdSales as $tap => $yearValues) {
+                                    foreach ([$annualPreviousYear, $annualCurrentYear] as $year) {
+                                        $value = (int) ($yearValues[$year] ?? 0);
+                                        $annualGrandCurrentYtd[$year] += $value;
+                                        if (in_array($tap, $clusterDumai)) $annualClusterDumaiCurrentYtd[$year] += $value;
+                                        if (in_array($tap, $clusterRohil)) $annualClusterRohilCurrentYtd[$year] += $value;
+                                    }
+                                }
+                            @endphp
+                            <table class="table table-bordered text-center mb-0 annual-sales-table" style="font-size:13px; border-bottom:0">
+                                <thead class="bg-light">
+                                    <tr class="text-secondary">
+                                        <th class="text-left font-weight-bold border-0 sticky-tap-col">NAMA TAP</th>
+                                        @foreach($annualYears as $year)
+                                            <th class="border-light">{{ $year }}</th>
+                                        @endforeach
+                                        <th class="border-light">TOTAL</th>
+                                        <th class="border-light">% YTD {{ $annualPreviousYear }}</th>
+                                        <th class="border-light">% YTD {{ $annualCurrentYear }}</th>
+                                        <th class="border-light">YoY {{ $annualCurrentYear }}</th>
+                                        <th class="border-light">MoM {{ $annualCurrentYear }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($annualSales as $tap => $yearValues)
+                                        @php
+                                            $tapAnnualTotal = 0;
+                                            $tapPreviousYtd = $calculateAnnualYtd($yearValues, $annualPreviousYear);
+                                            $tapCurrentYtd = $calculateAnnualYtd($annualCutoff === 'full' ? ($annualCurrentYtdSales[$tap] ?? []) : $yearValues, $annualCurrentYear);
+                                            $tapComparison = $annualPeriodComparisons[$tap] ?? ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
+                                            $tapYoy = $calculatePeriodGrowth($tapComparison['current_month'], $tapComparison['previous_year_month']);
+                                            $tapMom = $annualComparisonMonth > 1
+                                                ? $calculatePeriodGrowth($tapComparison['current_month'], $tapComparison['previous_month'])
+                                                : null;
+                                        @endphp
+                                        <tr>
+                                            <td class="text-left font-weight-bold bg-white text-dark sticky-tap-col">{{ $tap }}</td>
+                                            @foreach($annualYears as $year)
+                                                @php
+                                                    $annualValue = (int) ($yearValues[$year] ?? 0);
+                                                    $tapAnnualTotal += $annualValue;
+                                                    $annualYearTotals[$year] += $annualValue;
+                                                    $annualGrandTotal += $annualValue;
+                                                @endphp
+                                                <td class="border-light">{{ $annualValue > 0 ? number_format($annualValue) : '-' }}</td>
+                                            @endforeach
+                                            <td class="border-light bg-light font-weight-bold">{{ number_format($tapAnnualTotal) }}</td>
+                                            <td class="border-light font-weight-bold {{ is_null($tapPreviousYtd) ? 'text-muted' : ($tapPreviousYtd >= 0 ? 'text-success' : 'text-danger') }}">
+                                                {{ is_null($tapPreviousYtd) ? '-' : (($tapPreviousYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($tapPreviousYtd), 1).'%') }}
+                                            </td>
+                                            <td class="border-light font-weight-bold {{ is_null($tapCurrentYtd) ? 'text-muted' : ($tapCurrentYtd >= 0 ? 'text-success' : 'text-danger') }}">
+                                                {{ is_null($tapCurrentYtd) ? '-' : (($tapCurrentYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($tapCurrentYtd), 1).'%') }}
+                                            </td>
+                                            <td class="border-light font-weight-bold {{ is_null($tapYoy) ? 'text-muted' : ($tapYoy >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($tapYoy) ? '-' : (($tapYoy >= 0 ? '▲ ' : '▼ ').number_format(abs($tapYoy), 1).'%') }}</td>
+                                            <td class="border-light font-weight-bold {{ is_null($tapMom) ? 'text-muted' : ($tapMom >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($tapMom) ? '-' : (($tapMom >= 0 ? '▲ ' : '▼ ').number_format(abs($tapMom), 1).'%') }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="font-weight-bold">
+                                    @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
+                                    @php
+                                        $clusterDumaiTotal = array_sum($annualClusterDumaiValues);
+                                        $clusterDumaiPreviousYtd = $calculateAnnualYtd($annualClusterDumaiValues, $annualPreviousYear);
+                                        $clusterDumaiCurrentYtd = $calculateAnnualYtd($annualCutoff === 'full' ? $annualClusterDumaiCurrentYtd : $annualClusterDumaiValues, $annualCurrentYear);
+                                        $clusterDumaiYoy = $calculatePeriodGrowth($annualClusterDumaiComparison['current_month'], $annualClusterDumaiComparison['previous_year_month']);
+                                        $clusterDumaiMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualClusterDumaiComparison['current_month'], $annualClusterDumaiComparison['previous_month']) : null;
+                                    @endphp
+                                    <tr style="background:#f8fafc;color:#374151;border-top:2px solid #d1d5db">
+                                        <td class="text-left sticky-tap-col" style="background:#f8fafc !important"><span class="badge badge-light border mr-2">CLUSTER</span>Dumai Bengkalis</td>
+                                        @foreach($annualYears as $year)
+                                            <td>{{ number_format($annualClusterDumaiValues[$year]) }}</td>
+                                        @endforeach
+                                        <td>{{ number_format($clusterDumaiTotal) }}</td>
+                                        <td class="{{ is_null($clusterDumaiPreviousYtd) ? 'text-muted' : ($clusterDumaiPreviousYtd >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterDumaiPreviousYtd) ? '-' : (($clusterDumaiPreviousYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterDumaiPreviousYtd), 1).'%') }}</td>
+                                        <td class="{{ is_null($clusterDumaiCurrentYtd) ? 'text-muted' : ($clusterDumaiCurrentYtd >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterDumaiCurrentYtd) ? '-' : (($clusterDumaiCurrentYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterDumaiCurrentYtd), 1).'%') }}</td>
+                                        <td class="{{ is_null($clusterDumaiYoy) ? 'text-muted' : ($clusterDumaiYoy >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterDumaiYoy) ? '-' : (($clusterDumaiYoy >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterDumaiYoy), 1).'%') }}</td>
+                                        <td class="{{ is_null($clusterDumaiMom) ? 'text-muted' : ($clusterDumaiMom >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterDumaiMom) ? '-' : (($clusterDumaiMom >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterDumaiMom), 1).'%') }}</td>
+                                    </tr>
+                                    @endif
+                                    @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
+                                    @php
+                                        $clusterRohilTotal = array_sum($annualClusterRohilValues);
+                                        $clusterRohilPreviousYtd = $calculateAnnualYtd($annualClusterRohilValues, $annualPreviousYear);
+                                        $clusterRohilCurrentYtd = $calculateAnnualYtd($annualCutoff === 'full' ? $annualClusterRohilCurrentYtd : $annualClusterRohilValues, $annualCurrentYear);
+                                        $clusterRohilYoy = $calculatePeriodGrowth($annualClusterRohilComparison['current_month'], $annualClusterRohilComparison['previous_year_month']);
+                                        $clusterRohilMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualClusterRohilComparison['current_month'], $annualClusterRohilComparison['previous_month']) : null;
+                                    @endphp
+                                    <tr style="background:#f8fafc;color:#374151">
+                                        <td class="text-left sticky-tap-col" style="background:#f8fafc !important"><span class="badge badge-light border mr-2">CLUSTER</span>Rokan Hilir</td>
+                                        @foreach($annualYears as $year)
+                                            <td>{{ number_format($annualClusterRohilValues[$year]) }}</td>
+                                        @endforeach
+                                        <td>{{ number_format($clusterRohilTotal) }}</td>
+                                        <td class="{{ is_null($clusterRohilPreviousYtd) ? 'text-muted' : ($clusterRohilPreviousYtd >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterRohilPreviousYtd) ? '-' : (($clusterRohilPreviousYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterRohilPreviousYtd), 1).'%') }}</td>
+                                        <td class="{{ is_null($clusterRohilCurrentYtd) ? 'text-muted' : ($clusterRohilCurrentYtd >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterRohilCurrentYtd) ? '-' : (($clusterRohilCurrentYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterRohilCurrentYtd), 1).'%') }}</td>
+                                        <td class="{{ is_null($clusterRohilYoy) ? 'text-muted' : ($clusterRohilYoy >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterRohilYoy) ? '-' : (($clusterRohilYoy >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterRohilYoy), 1).'%') }}</td>
+                                        <td class="{{ is_null($clusterRohilMom) ? 'text-muted' : ($clusterRohilMom >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterRohilMom) ? '-' : (($clusterRohilMom >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterRohilMom), 1).'%') }}</td>
+                                    </tr>
+                                    @endif
+                                    @php
+                                        $annualGrandPreviousYtd = $calculateAnnualYtd($annualYearTotals, $annualPreviousYear);
+                                        $annualGrandCurrentYtdGrowth = $calculateAnnualYtd($annualCutoff === 'full' ? $annualGrandCurrentYtd : $annualYearTotals, $annualCurrentYear);
+                                        $annualGrandYoy = $calculatePeriodGrowth($annualGrandComparison['current_month'], $annualGrandComparison['previous_year_month']);
+                                        $annualGrandMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualGrandComparison['current_month'], $annualGrandComparison['previous_month']) : null;
+                                    @endphp
+                                    <tr style="background:#e3f2fd;color:#0d47a1;border-top:2px solid #90caf9">
+                                        <td class="text-left sticky-tap-col" style="background:#e3f2fd !important">GRAND TOTAL</td>
+                                        @foreach($annualYears as $year)
+                                            <td>{{ number_format($annualYearTotals[$year]) }}</td>
+                                        @endforeach
+                                        <td>{{ number_format($annualGrandTotal) }}</td>
+                                        <td class="{{ is_null($annualGrandPreviousYtd) ? 'text-muted' : ($annualGrandPreviousYtd >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($annualGrandPreviousYtd) ? '-' : (($annualGrandPreviousYtd >= 0 ? '▲ ' : '▼ ').number_format(abs($annualGrandPreviousYtd), 1).'%') }}</td>
+                                        <td class="{{ is_null($annualGrandCurrentYtdGrowth) ? 'text-muted' : ($annualGrandCurrentYtdGrowth >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($annualGrandCurrentYtdGrowth) ? '-' : (($annualGrandCurrentYtdGrowth >= 0 ? '▲ ' : '▼ ').number_format(abs($annualGrandCurrentYtdGrowth), 1).'%') }}</td>
+                                        <td class="{{ is_null($annualGrandYoy) ? 'text-muted' : ($annualGrandYoy >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($annualGrandYoy) ? '-' : (($annualGrandYoy >= 0 ? '▲ ' : '▼ ').number_format(abs($annualGrandYoy), 1).'%') }}</td>
+                                        <td class="{{ is_null($annualGrandMom) ? 'text-muted' : ($annualGrandMom >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($annualGrandMom) ? '-' : (($annualGrandMom >= 0 ? '▲ ' : '▼ ').number_format(abs($annualGrandMom), 1).'%') }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        @else
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
                                 <tr class="text-secondary">
@@ -253,7 +575,7 @@
                                                 $color = $opacity > 0.5 ? '#fff' : '#444';
 
                                                 // MoM Logic Sales
-                                                $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                                $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                                 $prevVal = ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
                                                 
                                                 if($isCurrentMonth) {
@@ -398,7 +720,7 @@
                                                 $prevTotalDumai += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($matrixSales[$tap][$i-1] ?? 0);
                                             }
 
-                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                             if($isCurrentMonth) {
                                                 $pct = $momCluster['dumai_bengkalis']->mom ?? 0;
                                             } else {
@@ -492,7 +814,7 @@
                                                 $prevTotalRohil += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($matrixSales[$tap][$i-1] ?? 0);
                                             }
 
-                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                             if($isCurrentMonth) {
                                                 $pct = $momCluster['rokan_hilir']->mom ?? 0;
                                             } else {
@@ -586,7 +908,7 @@
                                                 $prevTotalGT += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
                                             }
 
-                                            $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
+                                            $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                             if($isCurrentMonth) {
                                                 $pct = $mom; // Global Sales MoM
                                             } else {
@@ -662,7 +984,22 @@
                                 @endif
                             </tfoot>
                         </table>
+                        @endif
                     </div>
+                    <div id="monthly-sales-chart-wrap" class="{{ $salesView === 'table' ? 'd-none' : '' }}" aria-hidden="{{ $salesView === 'chart' ? 'false' : 'true' }}">
+                        <canvas id="monthly-sales-chart"></canvas>
+                    </div>
+                    @php
+                        $monthlySalesChartPayload = [
+                            'monthly' => $matrixSales,
+                            'annual' => $annualSales,
+                            'period' => $salesPeriod,
+                            'year' => $salesYear,
+                            'view' => $salesView,
+                            'cutoff' => $annualCutoff,
+                        ];
+                    @endphp
+                    <script type="application/json" id="monthly-sales-chart-data">@json($monthlySalesChartPayload)</script>
                 </div>
             </div>
 
@@ -1122,7 +1459,7 @@
             {{-- ================= ACTIVITY & MoM DAILY ================= --}}
             <div class="row mb-4">
                 <div class="col-md-5">
-                    <div class="card enterprise-shadow">
+                    <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">🗓️ Feed Aktivitas TAP</h6>
                             <small class="text-muted">Pantau input masuk/keluar harian terakhir</small>
@@ -1163,7 +1500,7 @@
                 </div>
 
                 <div class="col-md-7">
-                    <div class="card enterprise-shadow">
+                    <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">📉 Komparasi Sales (Day-to-day MoM)</h6>
                             <small class="text-muted">Adu laju pencapaian bulan berjalan vs bulan lalu</small>
@@ -1178,14 +1515,34 @@
             </div>
 
             {{-- ================= MoM PER TAP ================= --}}
+            @php
+                $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
+                $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
+            @endphp
             <div class="card enterprise-shadow mb-4" id="mom-cluster-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
                     <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
                         <div>
                             <h6 class="font-weight-bold text-dark mb-0">📊 MoM Sales Tap</h6>
-                            <small class="text-muted">Bulan ini (MTD) vs Bulan lalu (partial M-1)</small>
+                            <small class="text-muted">
+                                1–{{ $momCurrentLabel }} vs 1–{{ $momPreviousLabel }}
+                            </small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
+                            <form method="GET" action="{{ url('home') }}#mom-cluster-card"
+                                class="d-flex align-items-center mb-0">
+                                <input type="hidden" name="year" value="{{ $selectedYear }}">
+                                <input type="hidden" name="sales_year" value="{{ $salesYear }}">
+                                <input type="hidden" name="sales_view" value="{{ $salesView }}">
+                                <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
+                                <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
+                                <input type="hidden" name="mode" value="{{ $mode }}">
+                                <label for="mom_date" class="mb-0 mr-2 small font-weight-bold text-muted">Tanggal MoM</label>
+                                <input type="date" name="mom_date" id="mom_date"
+                                    class="form-control form-control-sm"
+                                    value="{{ $momSelectedDate->toDateString() }}"
+                                    max="{{ $currentDate->toDateString() }}">
+                            </form>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="mom-copy-btn" title="Copy sebagai gambar" style="gap:6px;">
                                 <i data-feather="copy" style="width:14px;height:14px"></i> Copy
                             </button>
@@ -1198,11 +1555,18 @@
                 </div>
                 <div class="table-responsive" id="mom-cluster-table-wrap">
                     <table class="table table-hover mb-0">
+                        <colgroup>
+                            <col class="mom-location-col">
+                            <col class="mom-number-col">
+                            <col class="mom-number-col">
+                            <col class="mom-number-col">
+                            <col class="mom-growth-col">
+                        </colgroup>
                         <thead class="bg-light text-secondary">
                             <tr>
                                 <th class="border-0">LOKASI (TAP / SF)</th>
-                                <th class="text-right border-0">ACH MTD</th>
-                                <th class="text-right border-0">M-1 PARTIAL</th>
+                                <th class="text-right border-0">MTD ({{ $momCurrentLabel }})</th>
+                                <th class="text-right border-0">M-1 ({{ $momPreviousLabel }})</th>
                                 <!-- <th class="text-right border-0">M-2 PARTIAL</th> -->
                                 <th class="text-right border-0">M-1 FULL</th>
                                 <th class="text-right border-0">GROWTH (M-1)</th>
@@ -1366,12 +1730,19 @@
             if (!table) return [];
 
             const rows = [];
-            table.querySelectorAll('tbody > tr:not(.sf-row), tfoot > tr').forEach(tr => {
-                const cells = Array.from(tr.children);
-                if (cells.length < 7) return;
+            const mainBodyRows = Array.from(table.tBodies?.[0]?.rows || [])
+                .filter(tr => !tr.classList.contains('sf-row'));
+            const mainFootRows = Array.from(table.tFoot?.rows || []);
+
+            [...mainBodyRows, ...mainFootRows].forEach(tr => {
+                // Penting: pakai tr.cells dari row utama saja, jangan querySelectorAll,
+                // supaya baris nested Performance Petugas/SF tidak ikut ke-export.
+                const cells = Array.from(tr.cells || []);
+                if (cells.length < 5) return;
                 const firstText = getMomCellText(cells[0]).replace(/^CLUSTER\s+/i, '');
+                const growthText = getMomCellText(cells[4]);
                 rows.push({
-                    type: tr.closest('tfoot')
+                    type: tr.parentElement?.tagName === 'TFOOT'
                         ? (firstText.toUpperCase().includes('GRAND TOTAL') ? 'grand' : 'cluster')
                         : 'tap',
                     cells: [
@@ -1379,12 +1750,9 @@
                         getMomCellText(cells[1]),
                         getMomCellText(cells[2]),
                         getMomCellText(cells[3]),
-                        getMomCellText(cells[4]),
-                        getMomCellText(cells[5]),
-                        getMomCellText(cells[6])
+                        growthText
                     ],
-                    growth1Down: getMomCellText(cells[5]).includes('▼'),
-                    growth2Down: getMomCellText(cells[6]).includes('▼')
+                    growth1Down: growthText.includes('▼') || /^-/.test(growthText)
                 });
             });
             return rows;
@@ -1460,14 +1828,15 @@
             const heading = getCardExportHeading(
                 'mom-cluster-card',
                 '📊 MoM Sales Tap',
-                'Bulan ini (MTD) vs Bulan lalu (partial M-1)'
+                @json("1–{$momCurrentLabel} vs 1–{$momPreviousLabel}")
             );
 
-            const pixelRatio = 1.5;
-            const width = 2048;
+            // Render dibuat mengikuti tampilan card asli, bukan versi export yang beda layout.
+            const pixelRatio = 2;
+            const width = 1120;
             const titleHeight = 118;
-            const headHeight = 80;
-            const rowHeight = 82;
+            const headHeight = 62;
+            const rowHeight = 62;
             const height = titleHeight + headHeight + (rows.length * rowHeight);
             const canvas = document.createElement('canvas');
             canvas.width = Math.ceil(width * pixelRatio);
@@ -1476,7 +1845,7 @@
             if (!ctx) return null;
             ctx.scale(pixelRatio, pixelRatio);
 
-            const cols = [530, 210, 250, 250, 240, 280, 288];
+            const cols = [350, 160, 220, 230, 160];
             const lefts = cols.reduce((acc, col, i) => {
                 acc.push(i === 0 ? 0 : acc[i - 1] + cols[i - 1]);
                 return acc;
@@ -1485,29 +1854,53 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
 
-            drawText(ctx, heading.title, 42, 42, {
-                font: '700 24px Arial, sans-serif',
-                color: '#343a40'
+            // Header card seperti UI.
+            drawText(ctx, heading.title, 28, 38, {
+                font: '700 15px Arial, sans-serif',
+                color: '#2f3437'
             });
-            drawText(ctx, heading.subtitle, 42, 76, {
-                font: '400 24px Arial, sans-serif',
+            drawText(ctx, heading.subtitle, 28, 62, {
+                font: '400 16px Arial, sans-serif',
                 color: '#7b858e'
             });
 
-            ctx.strokeStyle = '#e9ecef';
-            ctx.lineWidth = 2;
+            function drawPill(text, x, y, w) {
+                roundRect(ctx, x, y, w, 44, 18);
+                ctx.fillStyle = '#f5f6f8';
+                ctx.fill();
+                ctx.strokeStyle = '#eef0f2';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                drawText(ctx, text, x + (w / 2), y + 22, {
+                    font: '700 13px Arial, sans-serif',
+                    color: '#111827',
+                    align: 'center'
+                });
+            }
+            drawPill('Copy', width - 210, 28, 92);
+            drawPill('PNG', width - 105, 28, 92);
+
+            ctx.strokeStyle = '#edf0f2';
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.moveTo(0, titleHeight);
             ctx.lineTo(width, titleHeight);
             ctx.stroke();
 
+            // Header tabel.
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headHeight);
-            const headers = ['LOKASI (TAP / SF)', 'ACH MTD', 'M-1 PARTIAL', 'M-2 PARTIAL', 'M-1 FULL', 'GROWTH (M-1)', 'GROWTH (M-2)'];
+            const headers = [
+                'LOKASI (TAP / SF)',
+                @json("MTD ({$momCurrentLabel})"),
+                @json("M-1 ({$momPreviousLabel})"),
+                'M-1 FULL',
+                'GROWTH (M-1)'
+            ];
             headers.forEach((header, index) => {
-                const x = index === 0 ? lefts[index] + 28 : lefts[index] + cols[index] - 24;
-                drawText(ctx, header, x, titleHeight + 40, {
-                    font: '700 24px Arial, sans-serif',
+                const x = index === 0 ? lefts[index] + 18 : lefts[index] + cols[index] - 18;
+                drawText(ctx, header, x, titleHeight + 32, {
+                    font: '700 16px Arial, sans-serif',
                     color: '#55554c',
                     align: index === 0 ? 'left' : 'right'
                 });
@@ -1516,80 +1909,77 @@
             rows.forEach((row, rowIndex) => {
                 const y = titleHeight + headHeight + (rowIndex * rowHeight);
                 const centerY = y + (rowHeight / 2);
+                const isGrand = row.type === 'grand';
+                const isCluster = row.type === 'cluster';
 
-                if (row.type === 'grand') {
-                    ctx.fillStyle = '#e3f2fd';
-                    ctx.fillRect(0, y, width, rowHeight);
-                } else if (row.type === 'cluster') {
-                    ctx.fillStyle = rowIndex % 2 === 0 ? '#f8f9fa' : '#ffffff';
-                    ctx.fillRect(0, y, width, rowHeight);
-                }
+                ctx.fillStyle = isGrand ? '#e3f2fd' : (isCluster ? '#f8f9fa' : '#ffffff');
+                ctx.fillRect(0, y, width, rowHeight);
 
-                ctx.strokeStyle = row.type === 'cluster' && rowIndex > 0 ? '#dedede' : '#e9ecef';
-                ctx.lineWidth = row.type === 'cluster' ? 2 : 1.5;
+                ctx.strokeStyle = isCluster || isGrand ? '#dfe3e7' : '#edf0f2';
+                ctx.lineWidth = isCluster || isGrand ? 1.6 : 1;
                 ctx.beginPath();
                 ctx.moveTo(0, y);
                 ctx.lineTo(width, y);
                 ctx.stroke();
 
                 if (row.type === 'tap') {
-                    roundRect(ctx, 28, centerY - 17, 44, 34, 6);
+                    roundRect(ctx, 18, centerY - 12, 32, 24, 4);
                     ctx.fillStyle = '#ffffff';
                     ctx.fill();
-                    ctx.strokeStyle = '#dde2e7';
+                    ctx.strokeStyle = '#dfe4ea';
                     ctx.stroke();
-                    drawText(ctx, '+', 50, centerY, {
-                        font: '400 20px Arial, sans-serif',
+                    drawText(ctx, '+', 34, centerY, {
+                        font: '400 14px Arial, sans-serif',
                         color: '#343a40',
                         align: 'center'
                     });
-                    drawWrappedText(ctx, row.cells[0], 92, centerY, cols[0] - 120, 27, {
-                        font: '700 24px Arial, sans-serif',
-                        color: '#343a40',
-                        maxLines: 2
+                    drawText(ctx, row.cells[0], 68, centerY, {
+                        font: '700 16px Arial, sans-serif',
+                        color: '#2f3437',
+                        maxWidth: cols[0] - 78
                     });
                 } else if (row.type === 'cluster') {
-                    roundRect(ctx, 28, centerY - 22, 120, 44, 22);
-                    ctx.fillStyle = rowIndex % 2 === 0 ? '#7467d4' : '#ffffff';
+                    const purple = rowIndex % 2 === 0;
+                    roundRect(ctx, 18, centerY - 15, 90, 30, 14);
+                    ctx.fillStyle = purple ? '#7467d4' : '#ffffff';
                     ctx.fill();
-                    ctx.strokeStyle = rowIndex % 2 === 0 ? '#7467d4' : '#dde2e7';
+                    ctx.strokeStyle = purple ? '#7467d4' : '#dfe4ea';
                     ctx.stroke();
-                    drawText(ctx, 'CLUSTER', 88, centerY, {
-                        font: '400 20px Arial, sans-serif',
-                        color: rowIndex % 2 === 0 ? '#ffffff' : '#343a40',
+                    drawText(ctx, 'CLUSTER', 63, centerY, {
+                        font: '400 14px Arial, sans-serif',
+                        color: purple ? '#ffffff' : '#55554c',
                         align: 'center'
                     });
-                    drawWrappedText(ctx, row.cells[0], 168, centerY, cols[0] - 190, 27, {
-                        font: '700 24px Arial, sans-serif',
-                        color: '#343a40',
-                        maxLines: 2
+                    drawText(ctx, row.cells[0], 118, centerY, {
+                        font: '700 16px Arial, sans-serif',
+                        color: '#2f3437',
+                        maxWidth: cols[0] - 126
                     });
                 } else {
-                    drawWrappedText(ctx, row.cells[0], 28, centerY, cols[0] - 48, 28, {
-                        font: '700 24px Arial, sans-serif',
+                    drawText(ctx, row.cells[0], 18, centerY, {
+                        font: '700 16px Arial, sans-serif',
                         color: '#1657b7',
-                        maxLines: 2
+                        maxWidth: cols[0] - 36
                     });
                 }
 
                 for (let i = 1; i < row.cells.length; i++) {
-                    let color = '#7b858e';
-                    let font = '400 24px Arial, sans-serif';
-                    if (i === 1 || row.type !== 'tap') {
-                        color = row.type === 'grand' ? '#1657b7' : '#343a40';
-                        font = '700 24px Arial, sans-serif';
+                    let color = '#8a8f98';
+                    let font = '400 16px Arial, sans-serif';
+                    if (i === 1 || isCluster || isGrand) {
+                        color = isGrand ? '#1657b7' : '#2f3437';
+                        font = '700 16px Arial, sans-serif';
                     }
-                    if (i >= 5) {
-                        const down = i === 5 ? row.growth1Down : row.growth2Down;
-                        color = down ? '#ff5b66' : '#32cd43';
-                        font = '700 24px Arial, sans-serif';
+                    if (i === 4) {
+                        color = row.growth1Down ? '#e75757' : '#32a852';
+                        font = '700 16px Arial, sans-serif';
                     }
 
-                    drawText(ctx, row.cells[i], lefts[i] + cols[i] - 24, centerY, {
+                    drawText(ctx, row.cells[i], lefts[i] + cols[i] - 18, centerY, {
                         font,
                         color,
                         align: 'right',
-                        maxWidth: cols[i] - 32
+                        maxWidth: cols[i] - 28
                     });
                 }
             });
@@ -1820,7 +2210,209 @@
             return canvas;
         }
 
-        async function copyCanvasExport(renderFn, statusId) {
+        async function renderActiveSalesChartToCanvas() {
+            const source = document.getElementById('monthly-sales-chart');
+            if (!source || !monthlySalesChart) return null;
+
+            const heading = getCardExportHeading('heatmap-sales-card', 'Penjualan', '');
+            const titleHeight = 150;
+            const canvas = document.createElement('canvas');
+            canvas.width = source.width;
+            canvas.height = source.height + titleHeight;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawText(ctx, heading.title, 42, 46, {
+                font: '700 30px Arial, sans-serif',
+                color: '#343a40'
+            });
+            drawText(ctx, heading.subtitle, 42, 91, {
+                font: '400 24px Arial, sans-serif',
+                color: '#7b858e'
+            });
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, titleHeight - 1);
+            ctx.lineTo(canvas.width, titleHeight - 1);
+            ctx.stroke();
+            ctx.drawImage(source, 0, titleHeight);
+            return canvas;
+        }
+
+        async function renderAnnualSalesTableToCanvas() {
+            const table = document.querySelector('#heatmap-sales-wrap .annual-sales-table');
+            if (!table) return null;
+
+            const headers = Array.from(table.querySelectorAll('thead th')).map(getMomCellText);
+            const rows = Array.from(table.querySelectorAll('tbody > tr, tfoot > tr')).map(row => ({
+                element: row,
+                cells: Array.from(row.children).map((cell, index) => {
+                    const text = getMomCellText(cell);
+                    return index === 0 ? text.replace(/^CLUSTER\s*/i, 'CLUSTER ') : text;
+                })
+            }));
+            if (!headers.length || !rows.length) return null;
+
+            const heading = getCardExportHeading('heatmap-sales-card', 'Penjualan Tahunan', '');
+            const pixelRatio = 1.5;
+            const firstColumn = 310;
+            const otherColumn = 178;
+            const columns = headers.map((_, index) => index === 0 ? firstColumn : otherColumn);
+            const width = columns.reduce((total, value) => total + value, 0);
+            const titleHeight = 112;
+            const headerHeight = 68;
+            const rowHeight = 62;
+            const height = titleHeight + headerHeight + (rows.length * rowHeight);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(width * pixelRatio);
+            canvas.height = Math.ceil(height * pixelRatio);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+            ctx.scale(pixelRatio, pixelRatio);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'Open Sans', Arial, sans-serif", color: '#343a40' });
+            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'Open Sans', Arial, sans-serif", color: '#7b858e' });
+
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(0, titleHeight, width, headerHeight);
+            let x = 0;
+            headers.forEach((header, index) => {
+                drawText(ctx, header, index === 0 ? 18 : x + columns[index] / 2, titleHeight + headerHeight / 2, {
+                    font: "700 17px 'Open Sans', Arial, sans-serif",
+                    color: '#55554c',
+                    align: index === 0 ? 'left' : 'center',
+                    maxWidth: columns[index] - 20
+                });
+                x += columns[index];
+            });
+
+            rows.forEach((row, rowIndex) => {
+                const y = titleHeight + headerHeight + (rowIndex * rowHeight);
+                const firstText = row.cells[0]?.toUpperCase() || '';
+                const isGrand = firstText.includes('GRAND TOTAL');
+                const isCluster = firstText.includes('CLUSTER');
+                ctx.fillStyle = isGrand ? '#e3f2fd' : (isCluster ? '#f8fafc' : '#ffffff');
+                ctx.fillRect(0, y, width, rowHeight);
+                ctx.strokeStyle = isGrand || isCluster ? '#d1d5db' : '#e9ecef';
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+
+                let left = 0;
+                row.cells.forEach((cell, index) => {
+                    const isGrowth = /YTD|YoY|MoM/i.test(headers[index] || '');
+                    const isDown = cell.includes('▼');
+                    const isUp = cell.includes('▲');
+                    const color = isGrowth
+                        ? (isDown ? '#ff5b66' : (isUp ? '#32a852' : '#8a8f98'))
+                        : (isGrand ? '#1657b7' : '#343a40');
+                    if (index === 0 && isCluster) {
+                        roundRect(ctx, 16, y + (rowHeight - 32) / 2, 88, 32, 16);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fill();
+                        ctx.strokeStyle = '#d1d5db';
+                        ctx.stroke();
+                        drawText(ctx, 'CLUSTER', 60, y + rowHeight / 2, {
+                            font: "600 12px 'Open Sans', Arial, sans-serif",
+                            color: '#4b5563',
+                            align: 'center'
+                        });
+                        drawText(ctx, cell.replace(/^CLUSTER\s*/i, ''), 118, y + rowHeight / 2, {
+                            font: "700 16px 'Open Sans', Arial, sans-serif",
+                            color: '#343a40',
+                            maxWidth: columns[index] - 130
+                        });
+                        left += columns[index];
+                        return;
+                    }
+                    drawText(ctx, cell, index === 0 ? 18 : left + columns[index] - 16, y + rowHeight / 2, {
+                        font: (isGrand || isCluster || index === 0 || isGrowth || headers[index] === 'TOTAL')
+                            ? "700 16px 'Open Sans', Arial, sans-serif"
+                            : "400 16px 'Open Sans', Arial, sans-serif",
+                        color,
+                        align: index === 0 ? 'left' : 'right',
+                        maxWidth: columns[index] - 24
+                    });
+                    left += columns[index];
+                });
+            });
+
+            return canvas;
+        }
+
+        async function renderCurrentSalesCardToCanvas() {
+            const payload = getMonthlySalesPayload();
+            if (getCurrentSalesView() === 'chart') return renderActiveSalesChartToCanvas();
+            if (payload.period === 'annual') return renderAnnualSalesTableToCanvas();
+            return renderHeatmapToCanvas(heatmapSalesConfig);
+        }
+
+        function getCurrentSalesView() {
+            const chartWrap = document.getElementById('monthly-sales-chart-wrap');
+            return chartWrap && !chartWrap.classList.contains('d-none') ? 'chart' : 'table';
+        }
+
+        function buildExportFileName(filePrefix) {
+            const ts = new Date();
+            const yyyy = ts.getFullYear();
+            const mm = String(ts.getMonth() + 1).padStart(2, '0');
+            const dd = String(ts.getDate()).padStart(2, '0');
+            return `${filePrefix}-${yyyy}${mm}${dd}.png`;
+        }
+
+        async function writePngBlobToClipboard(blob) {
+            if (!navigator.clipboard || !window.ClipboardItem) return false;
+            if (window.isSecureContext === false) return false;
+
+            const clipboardType = blob.type || 'image/png';
+            const payloads = [
+                { [clipboardType]: blob },
+                { 'image/png': blob },
+                { 'image/png': Promise.resolve(blob) }
+            ];
+
+            for (const payload of payloads) {
+                try {
+                    if (window.ClipboardItem.supports && !window.ClipboardItem.supports('image/png')) {
+                        return false;
+                    }
+                    await navigator.clipboard.write([new ClipboardItem(payload)]);
+                    return true;
+                } catch (error) {
+                    console.warn('Clipboard image write attempt failed', error);
+                }
+            }
+
+            return false;
+        }
+
+        async function shareOrDownloadPngBlob(blob, filePrefix, statusSetter) {
+            const filename = buildExportFileName(filePrefix);
+            const file = new File([blob], filename, { type: 'image/png' });
+
+            if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: filename });
+                statusSetter('Gambar siap dibagikan.', false);
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = URL.createObjectURL(blob);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(link.href), 30000);
+            statusSetter('Clipboard tidak didukung browser ini. PNG otomatis didownload.', true);
+        }
+
+        async function copyCanvasExport(renderFn, statusId, filePrefix = 'heatmap') {
             try {
                 setExportStatus(statusId, 'Membuat gambar...', false);
                 const canvas = await renderFn();
@@ -1828,16 +2420,15 @@
                 const blob = await canvasToPngBlob(canvas);
                 if (!blob) throw new Error('png-failed');
 
-                if (navigator.clipboard && window.ClipboardItem) {
-                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                if (await writePngBlobToClipboard(blob)) {
                     setExportStatus(statusId, 'Tersalin. Tinggal paste di chat.', false);
                     return;
                 }
 
-                setExportStatus(statusId, 'Clipboard tidak didukung. Pakai tombol PNG.', true);
+                await shareOrDownloadPngBlob(blob, filePrefix, (text, isError) => setExportStatus(statusId, text, isError));
             } catch (e) {
-                console.error('Canvas copy failed', e);
-                setExportStatus(statusId, 'Gagal copy gambar. Coba download PNG.', true);
+                console.error('Canvas copy/share failed', e);
+                setExportStatus(statusId, 'Gagal copy gambar. Pakai tombol PNG.', true);
             }
         }
 
@@ -1848,14 +2439,13 @@
                 if (!canvas) throw new Error('capture-failed');
                 const blob = await canvasToPngBlob(canvas);
                 if (!blob) throw new Error('png-failed');
-                const ts = new Date();
-                const yyyy = ts.getFullYear();
-                const mm = String(ts.getMonth() + 1).padStart(2, '0');
-                const dd = String(ts.getDate()).padStart(2, '0');
                 const link = document.createElement('a');
-                link.download = `${filePrefix}-${yyyy}${mm}${dd}.png`;
+                link.download = buildExportFileName(filePrefix);
                 link.href = URL.createObjectURL(blob);
+                document.body.appendChild(link);
                 link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(link.href), 30000);
                 setExportStatus(statusId, 'PNG siap didownload.', false);
             } catch (e) {
                 console.error('Canvas download failed', e);
@@ -1872,18 +2462,15 @@
                 const blob = await canvasToPngBlob(canvas);
                 if (!blob) throw new Error('png-failed');
 
-                if (navigator.clipboard && window.ClipboardItem) {
-                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                if (await writePngBlobToClipboard(blob)) {
                     setMomExportStatus('Tersalin. Tinggal paste di chat.', false);
                     return;
                 }
 
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-                setMomExportStatus('Clipboard tidak didukung. Gambar dibuka di tab baru.', true);
+                await shareOrDownloadPngBlob(blob, 'rapor-mom', setMomExportStatus);
             } catch (e) {
-                console.error('MoM copy failed', e);
-                setMomExportStatus('Gagal copy gambar. Coba download PNG.', true);
+                console.error('MoM copy/share failed', e);
+                setMomExportStatus('Gagal copy gambar. Pakai tombol PNG.', true);
             }
         }
 
@@ -1894,15 +2481,14 @@
                 if (!canvas) throw new Error('capture-failed');
 
                 const link = document.createElement('a');
-                const ts = new Date();
-                const yyyy = ts.getFullYear();
-                const mm = String(ts.getMonth() + 1).padStart(2, '0');
-                const dd = String(ts.getDate()).padStart(2, '0');
-                link.download = `rapor-mom-${yyyy}${mm}${dd}.png`;
+                link.download = buildExportFileName('rapor-mom');
                 const blob = await canvasToPngBlob(canvas);
                 if (!blob) throw new Error('png-failed');
                 link.href = URL.createObjectURL(blob);
+                document.body.appendChild(link);
                 link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(link.href), 30000);
                 setMomExportStatus('PNG siap didownload.', false);
             } catch (e) {
                 console.error('MoM download failed', e);
@@ -1910,13 +2496,323 @@
             }
         }
 
-        document.getElementById('mom-copy-btn')?.addEventListener('click', copyMomClusterAsImage);
-        document.getElementById('mom-download-btn')?.addEventListener('click', downloadMomClusterAsPng);
+        function toggleMomSfDetail(button) {
+            const target = document.getElementById(button.dataset.target);
+            if (!target) return;
+            const willOpen = target.classList.contains('d-none');
+            target.classList.toggle('d-none', !willOpen);
+            button.innerText = willOpen ? '-' : '+';
+            button.classList.toggle('bg-secondary', willOpen);
+            button.classList.toggle('text-white', willOpen);
+        }
+
+        async function loadMomDateWithoutRefresh(input) {
+            const form = input.form;
+            const currentCard = document.getElementById('mom-cluster-card');
+            if (!form || !currentCard) return;
+
+            const expandedTargets = Array.from(currentCard.querySelectorAll('.toggle-sf'))
+                .map(button => button.dataset.target)
+                .filter(targetId => !document.getElementById(targetId)?.classList.contains('d-none'));
+            const scrollPosition = { x: window.scrollX, y: window.scrollY };
+            const requestUrl = new URL(form.action, window.location.href);
+            requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+
+            input.disabled = true;
+            currentCard.classList.add('opacity-75');
+
+            try {
+                const response = await fetch(requestUrl.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const html = await response.text();
+                const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+                const nextCard = nextDocument.getElementById('mom-cluster-card');
+                if (!nextCard) throw new Error('MoM card tidak ditemukan');
+
+                currentCard.replaceWith(nextCard);
+                expandedTargets.forEach(targetId => {
+                    const target = document.getElementById(targetId);
+                    const button = nextCard.querySelector(`.toggle-sf[data-target="${targetId}"]`);
+                    if (!target || !button) return;
+                    target.classList.remove('d-none');
+                    button.innerText = '-';
+                    button.classList.add('bg-secondary', 'text-white');
+                });
+
+                if (window.feather) feather.replace();
+                window.history.replaceState({}, '', requestUrl.toString());
+                requestAnimationFrame(() => window.scrollTo(scrollPosition.x, scrollPosition.y));
+            } catch (error) {
+                console.error('Gagal memperbarui MoM', error);
+                currentCard.classList.remove('opacity-75');
+                input.disabled = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Data MoM gagal diperbarui',
+                    text: 'Silakan coba pilih tanggal kembali.'
+                });
+            }
+        }
+
+        document.addEventListener('change', function(event) {
+            if (event.target.id === 'mom_date') loadMomDateWithoutRefresh(event.target);
+        });
+
+        document.addEventListener('click', function(event) {
+            const sfButton = event.target.closest('.toggle-sf');
+            if (sfButton) {
+                toggleMomSfDetail(sfButton);
+                return;
+            }
+            if (event.target.closest('#mom-copy-btn')) copyMomClusterAsImage();
+            if (event.target.closest('#mom-download-btn')) downloadMomClusterAsPng();
+        });
+
+        // Tabel dan grafik memakai sumber data tahunan yang sama agar angkanya selalu konsisten.
+        const monthlySalesLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        const monthlySalesColors = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF5A8A', '#9C755F', '#17A2B8'];
+        let monthlySalesChart = null;
+
+        function getMonthlySalesPayload() {
+            const dataElement = document.getElementById('monthly-sales-chart-data');
+            if (!dataElement) return { monthly: {}, annual: {}, period: 'monthly', year: new Date().getFullYear(), view: 'table' };
+            try {
+                return JSON.parse(dataElement.textContent);
+            } catch (error) {
+                return { monthly: {}, annual: {}, period: 'monthly', year: new Date().getFullYear(), view: 'table' };
+            }
+        }
+
+        function compactSalesQty(value) {
+            const qty = Number(value || 0);
+            if (qty >= 1000000) return `${Math.round(qty / 1000).toLocaleString('id-ID')}k`;
+            if (qty >= 1000) return `${Math.round(qty / 1000).toLocaleString('id-ID')}k`;
+            return qty.toLocaleString('id-ID');
+        }
+
+        const annualBarValuePlugin = {
+            id: 'annualBarValuePlugin',
+            afterDatasetsDraw(chart) {
+                if (getMonthlySalesPayload().period !== 'annual') return;
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.fillStyle = '#4b5563';
+                ctx.font = '700 9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                chart.data.datasets.forEach((dataset, datasetIndex) => {
+                    const meta = chart.getDatasetMeta(datasetIndex);
+                    meta.data.forEach((bar, index) => {
+                        const value = Number(dataset.data[index] || 0);
+                        if (value > 0) ctx.fillText(compactSalesQty(value), bar.x, bar.y - 4);
+                    });
+                });
+                ctx.restore();
+            }
+        };
+
+        function buildMonthlySalesChart() {
+            if (monthlySalesChart) return monthlySalesChart;
+
+            const canvas = document.getElementById('monthly-sales-chart');
+            if (!canvas || typeof Chart === 'undefined') return null;
+
+            const payload = getMonthlySalesPayload();
+            const monthlySalesMatrix = payload.monthly || {};
+            const annualSalesMatrix = payload.annual || {};
+            const monthlySalesPeriod = payload.period || 'monthly';
+            const tapNames = Object.keys(monthlySalesMatrix);
+            let labels;
+            let datasets;
+            let chartType = 'line';
+
+            if (monthlySalesPeriod === 'annual') {
+                labels = Array.from(new Set(
+                    Object.values(annualSalesMatrix).flatMap(yearValues => Object.keys(yearValues || {}))
+                ))
+                    .map(Number)
+                    .filter(year => year >= 2024 && year <= Number(payload.year))
+                    .sort((a, b) => a - b)
+                    .map(String);
+                if (!labels.length) labels = [String(Math.max(2024, Number(payload.year)))];
+                datasets = tapNames.map((tap, index) => ({
+                    type: 'bar',
+                    label: tap,
+                    data: labels.map(year => Number(annualSalesMatrix[tap]?.[year] || 0)),
+                    borderColor: monthlySalesColors[index % monthlySalesColors.length],
+                    backgroundColor: `${monthlySalesColors[index % monthlySalesColors.length]}CC`,
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    order: 2
+                }));
+                chartType = 'bar';
+            } else {
+                const lastDataMonth = Math.max(1, ...tapNames.flatMap(tap =>
+                    monthlySalesLabels.map((_, index) => Number(monthlySalesMatrix[tap]?.[index + 1] || 0) > 0 ? index + 1 : 0)
+                ));
+                labels = monthlySalesLabels.slice(0, lastDataMonth);
+                datasets = tapNames.map((tap, index) => ({
+                    label: tap,
+                    data: labels.map((_, monthIndex) => Number(monthlySalesMatrix[tap]?.[monthIndex + 1] || 0)),
+                    borderColor: monthlySalesColors[index % monthlySalesColors.length],
+                    backgroundColor: monthlySalesColors[index % monthlySalesColors.length],
+                    borderWidth: 2.25,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    tension: 0.28,
+                    fill: false
+                }));
+            }
+
+            monthlySalesChart = new Chart(canvas, {
+                type: chartType,
+                data: { labels, datasets },
+                plugins: [annualBarValuePlugin],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { usePointStyle: true, boxWidth: 8, padding: 18, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: { label: context => ` ${context.dataset.label}: ${nf(context.parsed.y)}` }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { weight: '600' } } },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#eef1f5' },
+                            ticks: { callback: value => nf(value) }
+                        }
+                    }
+                }
+            });
+
+            return monthlySalesChart;
+        }
+
+        function setMonthlySalesView(view) {
+            const showChart = view === 'chart';
+            const tableWrap = document.getElementById('heatmap-sales-wrap');
+            const chartWrap = document.getElementById('monthly-sales-chart-wrap');
+            const tableButton = document.getElementById('monthly-sales-table-btn');
+            const chartButton = document.getElementById('monthly-sales-chart-btn');
+            const viewInput = document.getElementById('monthly-sales-view-input');
+            const periodSelect = document.getElementById('monthly-sales-period');
+            if (!tableWrap || !chartWrap || !tableButton || !chartButton) return;
+
+            tableWrap.classList.toggle('d-none', showChart);
+            chartWrap.classList.toggle('d-none', !showChart);
+            chartWrap.setAttribute('aria-hidden', showChart ? 'false' : 'true');
+            tableButton.classList.toggle('active', !showChart);
+            chartButton.classList.toggle('active', showChart);
+            tableButton.setAttribute('aria-pressed', showChart ? 'false' : 'true');
+            chartButton.setAttribute('aria-pressed', showChart ? 'true' : 'false');
+            if (viewInput) viewInput.value = showChart ? 'chart' : 'table';
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('sales_view', showChart ? 'chart' : 'table');
+            window.history.replaceState({}, '', `${currentUrl.pathname}?${currentUrl.searchParams.toString()}${currentUrl.hash}`);
+
+            if (showChart) {
+                const chart = buildMonthlySalesChart();
+                window.requestAnimationFrame(() => chart?.resize());
+            }
+        }
+
+        async function reloadMonthlySalesCard(form) {
+            const currentCard = document.getElementById('heatmap-sales-card');
+            if (!form || !currentCard || currentCard.dataset.loading === 'true') return;
+
+            const requestUrl = new URL(form.action, window.location.href);
+            requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+            currentCard.dataset.loading = 'true';
+            currentCard.style.opacity = '.62';
+            currentCard.style.pointerEvents = 'none';
+
+            try {
+                const response = await fetch(requestUrl.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const html = await response.text();
+                const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+                const nextCard = nextDocument.getElementById('heatmap-sales-card');
+                if (!nextCard) throw new Error('Card Penjualan tidak ditemukan');
+
+                monthlySalesChart?.destroy();
+                monthlySalesChart = null;
+                currentCard.replaceWith(nextCard);
+                const payload = getMonthlySalesPayload();
+                setMonthlySalesView(payload.view);
+                if (window.feather?.replace) window.feather.replace();
+                window.history.replaceState({}, '', `${requestUrl.pathname}?${requestUrl.searchParams.toString()}#heatmap-sales-card`);
+            } catch (error) {
+                currentCard.dataset.loading = 'false';
+                currentCard.style.opacity = '';
+                currentCard.style.pointerEvents = '';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Card penjualan gagal dimuat ulang',
+                    text: 'Silakan coba kembali.'
+                });
+            }
+        }
+
+        document.addEventListener('submit', event => {
+            if (event.target.id !== 'monthly-sales-filter-form') return;
+            event.preventDefault();
+            reloadMonthlySalesCard(event.target);
+        });
+
+        document.addEventListener('change', event => {
+            if (!['monthly-sales-year', 'annual-sales-cutoff'].includes(event.target.id)) return;
+            reloadMonthlySalesCard(event.target.form);
+        });
+
+        document.addEventListener('click', event => {
+            const periodButton = event.target.closest('.sales-period-btn');
+            if (periodButton) {
+                const form = periodButton.closest('form');
+                const periodInput = form?.querySelector('#monthly-sales-period');
+                const viewInput = form?.querySelector('#monthly-sales-view-input');
+                if (periodInput) periodInput.value = periodButton.dataset.period;
+                if (viewInput) viewInput.value = 'chart';
+                reloadMonthlySalesCard(form);
+                return;
+            }
+
+            if (event.target.closest('#sales-card-reload-btn')) {
+                reloadMonthlySalesCard(document.getElementById('monthly-sales-filter-form'));
+                return;
+            }
+            if (event.target.closest('#monthly-sales-table-btn')) {
+                setMonthlySalesView('table');
+                return;
+            }
+            if (event.target.closest('#monthly-sales-chart-btn')) setMonthlySalesView('chart');
+        });
+
+        setMonthlySalesView(getMonthlySalesPayload().view);
+
+        window.addEventListener('load', () => {
+            if (getMonthlySalesPayload().view !== 'chart') return;
+            window.requestAnimationFrame(() => {
+                document.getElementById('heatmap-sales-card')?.scrollIntoView({ block: 'start' });
+            });
+        });
 
         const heatmapSalesConfig = {
             cardId: 'heatmap-sales-card',
             wrapId: 'heatmap-sales-wrap',
-            title: '🗺️ Heatmap Penjualan Bulanan (Tahun {{ $selectedYear }})',
+            title: '🗺️ Heatmap Penjualan Bulanan (Tahun {{ $salesYear }})',
             subtitle: 'Kerapatan transaksi per TAP. Warna makin gelap = performa makin tinggi.',
             accent: '#4285F4',
             grandBg: '#e3f2fd',
@@ -1933,14 +2829,28 @@
             grandColor: '#1b5e20'
         };
 
-        document.getElementById('heatmap-sales-copy-btn')?.addEventListener('click', () => {
-            copyCanvasExport(() => renderHeatmapToCanvas(heatmapSalesConfig), 'heatmap-sales-status');
-        });
-        document.getElementById('heatmap-sales-download-btn')?.addEventListener('click', () => {
-            downloadCanvasExport(() => renderHeatmapToCanvas(heatmapSalesConfig), 'heatmap-sales-status', 'heatmap-penjualan');
+        document.addEventListener('click', event => {
+            if (event.target.closest('#heatmap-sales-copy-btn')) {
+                const payload = getMonthlySalesPayload();
+                const activeView = getCurrentSalesView();
+                copyCanvasExport(
+                    renderCurrentSalesCardToCanvas,
+                    'heatmap-sales-status',
+                    `penjualan-${payload.period}-${activeView}`
+                );
+            }
+            if (event.target.closest('#heatmap-sales-download-btn')) {
+                const payload = getMonthlySalesPayload();
+                const activeView = getCurrentSalesView();
+                downloadCanvasExport(
+                    renderCurrentSalesCardToCanvas,
+                    'heatmap-sales-status',
+                    `penjualan-${payload.period}-${activeView}`
+                );
+            }
         });
         document.getElementById('heatmap-inject-copy-btn')?.addEventListener('click', () => {
-            copyCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status');
+            copyCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
         });
         document.getElementById('heatmap-inject-download-btn')?.addEventListener('click', () => {
             downloadCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
@@ -2111,7 +3021,7 @@
         });
     
         // ================= INTERACTIVE TOGGLES ================= 
-        document.querySelectorAll('.toggle-sf, .toggle-validity').forEach(btn => {
+        document.querySelectorAll('.toggle-validity').forEach(btn => {
             btn.addEventListener('click', function() {
                 const target = document.getElementById(this.dataset.target);
                 if (target.classList.contains('d-none')) {

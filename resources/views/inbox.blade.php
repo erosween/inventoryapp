@@ -72,7 +72,7 @@
 
                         <!-- Modal Area (Outside Table) -->
                         @foreach ($data as $row)
-                            <div class="modal fade" id="addRowModal{{ $row->idkeluar }}" role="dialog"
+                            <div class="modal fade inbox-approval-modal" id="addRowModal{{ $row->idkeluar }}" role="dialog"
                                 aria-hidden="true">
                                 <div class="modal-dialog" role="document">
                                     <div class="modal-content">
@@ -123,6 +123,27 @@
         {{-- content --}}
     </div>
     {{-- main panel --}}
+    <style>
+        .inbox-approval-modal { z-index: 2000; }
+        .inbox-approval-modal + .modal-backdrop,
+        body.modal-open .modal-backdrop { z-index: 1990; }
+        .inbox-approval-modal .modal-dialog {
+            margin-top: 100px;
+            margin-bottom: 24px;
+        }
+        .inbox-approval-modal .modal-content {
+            max-height: calc(100vh - 124px);
+            overflow: hidden;
+            border: 0;
+            border-radius: 12px;
+        }
+        .inbox-approval-modal .modal-header { flex: 0 0 auto; }
+        .inbox-approval-modal .modal-body { overflow-y: auto; }
+        @media (max-width: 575.98px) {
+            .inbox-approval-modal .modal-dialog { margin: 86px 12px 16px; }
+            .inbox-approval-modal .modal-content { max-height: calc(100vh - 102px); }
+        }
+    </style>
 @endsection
 @push('scripts')
     <script>

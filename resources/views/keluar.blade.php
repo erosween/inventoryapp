@@ -54,7 +54,7 @@
                                         <th>Penerima</th>
                                         <th>SN</th>
                                         <th>Keterangan</th>
-                                        <th width="110">Status</th>
+                                        <th width="210">Status</th>
                                     </tr>
                                 </thead>
                             </table>
@@ -198,6 +198,57 @@
                 'href',
                 '/exporttap?daterange=' + encodeURIComponent($daterange.val())
             );
+
+            $('#keluar-table').on('submit', '.cancel-transfer-form', function(event) {
+                event.preventDefault();
+                const form = this;
+                const escapeAlertText = value => $('<div>').text(value).html();
+                const denom = escapeAlertText(form.dataset.denom || '-');
+                const qty = escapeAlertText(form.dataset.qty || '0');
+                const penerima = escapeAlertText(form.dataset.penerima || '-');
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Batalkan pengiriman?',
+                    html: `
+                        <div class="text-left mx-auto" style="max-width:310px">
+                            <div class="text-muted mb-3">Data pending ini akan langsung dihapus.</div>
+                            <div class="p-3 rounded" style="background:#f8f9fc;border:1px solid #edf0f5">
+                                <div class="d-flex justify-content-between mb-2"><span class="text-muted">Denom</span><strong>${denom}</strong></div>
+                                <div class="d-flex justify-content-between mb-2"><span class="text-muted">Quantity</span><strong>${qty}</strong></div>
+                                <div class="d-flex justify-content-between"><span class="text-muted">Penerima</span><strong>${penerima}</strong></div>
+                            </div>
+                        </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-times-circle mr-1"></i> Ya, batalkan',
+                    cancelButtonText: 'Kembali',
+                    confirmButtonColor: '#ef5350',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true,
+                    focusCancel: true
+                }).then(result => {
+                    if (!result.isConfirmed) return;
+                    Swal.fire({
+                        title: 'Membatalkan pengiriman...',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+                    form.submit();
+                });
+            });
+
+            @if(session('success'))
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Pengiriman dibatalkan',
+                    text: @json(session('success')),
+                    confirmButtonText: 'Oke',
+                    confirmButtonColor: '#1e88e5',
+                    timer: 3500,
+                    timerProgressBar: true
+                });
+            @endif
 
         });
     </script>

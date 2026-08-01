@@ -129,6 +129,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('/keluar', [KeluarController::class, 'index'])->name('keluar.index');
 	Route::get('/keluar/data', [KeluarController::class, 'data'])->name('keluar.data');
 	Route::get('/keluar/summary', [KeluarController::class, 'summary'])->name('keluar.summary');
+	Route::post('/keluar/{idkeluar}/cancel', [KeluarController::class, 'cancel'])->name('keluar.cancel');
 	Route::get('/exporttap', [KeluarController::class, 'exportexcel']);
 
 	//form keluar tap

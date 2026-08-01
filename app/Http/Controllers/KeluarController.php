@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\KeluarExport;
+use App\Helpers\AuditLogger;
 
 class KeluarController extends Controller
 {
@@ -56,13 +57,49 @@ class KeluarController extends Controller
             ->of($query)
             ->editColumn('qty', fn($r) => number_format($r->qty))
             ->addColumn('status_label', function ($r) {
-                return $r->status == 0
-                    ? '<span class="badge badge-success">Approved</span>'
-                    : '<span class="badge badge-warning">Wait for Approval</span>';
+                if ($r->status == 0) {
+                    return '<span class="badge badge-success">Approved</span>';
+                }
+
+                $status = '<span class="badge badge-warning">Wait for Approval</span>';
+                if (session('idtap') === 'SBP_DUMAI' || session('idtap') === $r->pengirim) {
+                    $status .= '<form action="'.route('keluar.cancel', $r->idkeluar).'" method="POST" class="d-inline ml-2 cancel-transfer-form"'
+                        .' data-denom="'.e($r->denom).'" data-qty="'.e(number_format($r->qty)).'" data-penerima="'.e($r->penerima).'">'
+                        .csrf_field().
+                        '<button type="submit" class="btn btn-link btn-sm text-danger font-weight-bold p-0" title="Batalkan pengiriman">Cancel</button>'
+                        .'</form>';
+                }
+
+                return $status;
             })
             ->rawColumns(['status_label'])
             ->make(true);
 
+    }
+
+    public function cancel($idkeluar)
+    {
+        DB::transaction(function () use ($idkeluar) {
+            $transfer = DB::table('keluar')
+                ->where('idkeluar', $idkeluar)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $transfer) {
+                abort(404, 'Data pengiriman tidak ditemukan.');
+            }
+            if ((int) $transfer->status !== 1) {
+                return abort(422, 'Pengiriman yang sudah diterima tidak dapat dibatalkan.');
+            }
+            if (session('idtap') !== 'SBP_DUMAI' && session('idtap') !== $transfer->pengirim) {
+                abort(403, 'Hanya TAP pengirim yang dapat membatalkan pengiriman.');
+            }
+
+            AuditLogger::log('CANCEL', 'Stok Keluar TAP', $idkeluar, (array) $transfer);
+            DB::table('keluar')->where('idkeluar', $idkeluar)->delete();
+        });
+
+        return redirect()->route('keluar.index')->with('success', 'Pengiriman dibatalkan. Silakan input kembali data yang benar.');
     }
 
     /* ===============================
