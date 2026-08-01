@@ -134,6 +134,27 @@ class StockController extends Controller
             ->orderBy('idtap')
             ->get();
 
+        $activeDenomIds = $denoms
+            ->filter(fn ($denom) => (int) $data->sum($denom->iddenom) > 0)
+            ->pluck('iddenom')
+            ->all();
+        foreach ($groups as $voucherType => $validityGroups) {
+            foreach ($validityGroups as $groupName => $items) {
+                $items = array_values(array_filter(
+                    $items,
+                    fn ($denom) => in_array($denom->iddenom, $activeDenomIds, true)
+                ));
+                if ($items === []) {
+                    unset($groups[$voucherType][$groupName]);
+                } else {
+                    $groups[$voucherType][$groupName] = $items;
+                }
+            }
+        }
+        $data = $data
+            ->filter(fn ($row) => (int) $row->grand_total > 0)
+            ->values();
+
         return view('stock', compact('data', 'groups'));
     }
 }

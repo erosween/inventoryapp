@@ -2,6 +2,19 @@
 
 @php
     use Illuminate\Support\Str;
+
+    $validitySummaries = [];
+    foreach ($groups as $voucherType => $validityGroups) {
+        $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER';
+        foreach ($validityGroups as $groupName => $items) {
+            if (Str::contains(Str::upper($groupName), 'HARI')) {
+                $validitySummaries[] = [
+                    'label' => "TOTAL {$voucherLabel} {$groupName}",
+                    'items' => $items,
+                ];
+            }
+        }
+    }
 @endphp
 
 @section('content')
@@ -57,11 +70,18 @@
                                                 </th>
                                             @endif
                                         @endforeach
-                                        <th rowspan="3" class="th-main sticky-total">GRAND<br>TOTAL</th>
+                                        <th rowspan="3" class="th-main">GRAND<br>TOTAL</th>
+                                        @foreach ($validitySummaries as $summary)
+                                            <th rowspan="3" class="th-main validity-summary-header"
+                                                data-export-title="{{ $summary['label'] }}">
+                                                {{ $summary['label'] }}
+                                            </th>
+                                        @endforeach
                                     </tr>
 
                                     <tr class="group-header">
-                                        @foreach ($groups as $validityGroups)
+                                        @foreach ($groups as $voucherType => $validityGroups)
+                                            @php $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER'; @endphp
                                             @foreach ($validityGroups as $group => $items)
                                                 <th colspan="{{ count($items) + 1 }}"
                                                     class="th-group th-{{ Str::slug($group) }}">
@@ -73,12 +93,16 @@
 
                                     {{-- SUB HEADER --}}
                                     <tr class="sub-header">
-                                        @foreach ($groups as $validityGroups)
+                                        @foreach ($groups as $voucherType => $validityGroups)
+                                            @php $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER'; @endphp
                                             @foreach ($validityGroups as $group => $items)
                                                 @foreach ($items as $d)
                                                     <th class="th-sub text-center">{{ $d->denom }}</th>
                                                 @endforeach
-                                                <th class="th-validity-total">TOTAL<br>{{ $group }}</th>
+                                                <th class="th-validity-total"
+                                                    data-export-title="TOTAL {{ $voucherLabel }} {{ $group }}">
+                                                    TOTAL<br>{{ $group }}
+                                                </th>
                                             @endforeach
                                         @endforeach
                                     </tr>
@@ -109,9 +133,14 @@
                                                 @endforeach
                                             @endforeach
                                             {{-- TOTAL PER SF --}}
-                                            <td class="text-right sticky-total-col">
+                                            <td class="text-right">
                                                 {{ number_format($row->grand_total ?? 0) }}
                                             </td>
+                                            @foreach ($validitySummaries as $summary)
+                                                <td class="text-right validity-summary-value">
+                                                    {{ number_format(collect($summary['items'])->sum(fn ($d) => $row->{$d->iddenom} ?? 0)) }}
+                                                </td>
+                                            @endforeach
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -136,9 +165,14 @@
                                         @endforeach
 
                                         {{-- TOTAL GRAND --}}
-                                        <th class="text-right sticky-total-footer">
+                                        <th class="text-right">
                                             {{ number_format($data->sum('grand_total')) }}
                                         </th>
+                                        @foreach ($validitySummaries as $summary)
+                                            <th class="text-right validity-summary-footer">
+                                                {{ number_format(collect($summary['items'])->sum(fn ($d) => $data->sum($d->iddenom))) }}
+                                            </th>
+                                        @endforeach
                                     </tr>
                                 </tfoot>
 
@@ -156,6 +190,14 @@
 
 @push('scripts')
     <script>
+        const stockExportOptions = {
+            format: {
+                header: function(data, column, node) {
+                    return node?.dataset.exportTitle || $('<div>').html(data).text().replace(/\s+/g, ' ').trim();
+                }
+            }
+        };
+
         $('#stock').DataTable({
             ordering: false,
             pageLength: 10,
@@ -164,12 +206,14 @@
             buttons: [{
                     extend: 'excelHtml5',
                     title: 'Stock_SF',
-                    footer: true
+                    footer: true,
+                    exportOptions: stockExportOptions
                 },
                 {
                     extend: 'csvHtml5',
                     title: 'Stock_SF',
-                    footer: true
+                    footer: true,
+                    exportOptions: stockExportOptions
                 },
                 {
                     extend: 'print',
