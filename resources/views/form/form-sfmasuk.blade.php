@@ -222,10 +222,18 @@
 
                 if ($('#input_mode').val() === 'bulk') {
                     let valid = true;
+                    const requested = {};
                     $('#bulk-rows tr').each(function() {
                         const denom = $(this).find('.bulk-denom').val();
                         const qty = parseInt($(this).find('.bulk-qty').val()) || 0;
-                        if (!denom || qty < 1 || qty > (parseInt(tapStockData[denom]) || 0)) valid = false;
+                        if (!denom || qty < 1) {
+                            valid = false;
+                            return;
+                        }
+                        requested[denom] = (requested[denom] || 0) + qty;
+                    });
+                    Object.entries(requested).forEach(([denom, qty]) => {
+                        if (qty > (parseInt(tapStockData[denom]) || 0)) valid = false;
                     });
                     if (!valid) {
                         e.preventDefault();

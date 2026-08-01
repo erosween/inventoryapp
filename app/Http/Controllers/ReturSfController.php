@@ -134,7 +134,7 @@ class ReturSfController extends Controller
             'idsf' => 'required|exists:idsf,idsf',
             'ketvf' => 'required|in:OK,RUSAK,MATI',
             'items' => 'required|array|min:1',
-            'items.*.iddenom' => 'required|distinct|exists:denom,iddenom',
+            'items.*.iddenom' => 'required|exists:denom,iddenom',
             'items.*.qty' => 'required|integer|min:1',
             'items.*.sn' => 'required|string|max:255',
             'items.*.tambahket' => 'required|string|max:500',
@@ -151,16 +151,20 @@ class ReturSfController extends Controller
         );
 
         DB::transaction(function () use ($validated) {
-            foreach ($validated['items'] as $item) {
+            $requestedByDenom = collect($validated['items'])
+                ->groupBy('iddenom')
+                ->map(fn ($items) => $items->sum('qty'));
+
+            foreach ($requestedByDenom as $iddenom => $requestedQty) {
                 $stockSf = DB::table('stockawalsf')
                     ->where('idsf', $validated['idsf'])
-                    ->where('iddenom', $item['iddenom'])
+                    ->where('iddenom', $iddenom)
                     ->lockForUpdate()
                     ->value('stock') ?? 0;
 
-                if ($stockSf < $item['qty']) {
+                if ($stockSf < $requestedQty) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'items' => "Stok petugas untuk {$item['iddenom']} tidak mencukupi. Tersedia: {$stockSf}.",
+                        'items' => "Total qty {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stockSf}.",
                     ]);
                 }
             }

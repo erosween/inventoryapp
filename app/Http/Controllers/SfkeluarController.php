@@ -148,7 +148,7 @@ use App\Helpers\AuditLogger;
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
         'items' => 'required|array|min:1',
-        'items.*.iddenom' => 'required|distinct|exists:denom,iddenom',
+        'items.*.iddenom' => 'required|exists:denom,iddenom',
         'items.*.qty' => 'required|integer|min:1',
         'items.*.tambahanket' => 'nullable|string|max:255',
     ]);
@@ -164,16 +164,20 @@ use App\Helpers\AuditLogger;
     );
 
     DB::transaction(function () use ($validated) {
-        foreach ($validated['items'] as $item) {
+        $requestedByDenom = collect($validated['items'])
+            ->groupBy('iddenom')
+            ->map(fn ($items) => $items->sum('qty'));
+
+        foreach ($requestedByDenom as $iddenom => $requestedQty) {
             $stockSf = DB::table('stockawalsf')
                 ->where('idsf', $validated['idsf'])
-                ->where('iddenom', $item['iddenom'])
+                ->where('iddenom', $iddenom)
                 ->lockForUpdate()
                 ->value('stock') ?? 0;
 
-            if ($stockSf < $item['qty']) {
+            if ($stockSf < $requestedQty) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'items' => "Stok petugas untuk {$item['iddenom']} tidak mencukupi. Tersedia: {$stockSf}.",
+                    'items' => "Total qty {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stockSf}.",
                 ]);
             }
         }

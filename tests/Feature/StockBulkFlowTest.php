@@ -11,6 +11,27 @@ class StockBulkFlowTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_bulk_stock_input_pages_render(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+        }
+
+        foreach ([
+            '/form/formkeluartap',
+            '/form/form-sfmasuk',
+            '/form/form-sfkeluar',
+            '/form/form-retursf',
+        ] as $path) {
+            $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->get($path)
+                ->assertOk()
+                ->assertSee('Daftar Denom');
+        }
+    }
+
     public function test_bulk_sf_keluar_decrements_each_denom_once(): void
     {
         [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
@@ -68,6 +89,74 @@ class StockBulkFlowTest extends TestCase
                     ->value('stock')
             );
         }
+    }
+
+    public function test_same_denom_can_be_repeated_and_uses_combined_quantity(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        $stock = DB::table('stockawalsf as st')
+            ->join('idsf as s', 's.idsf', '=', 'st.idsf')
+            ->where('st.stock', '>=', 2)
+            ->select('st.idsf', 'st.iddenom', 'st.stock', 's.idtap')
+            ->first();
+
+        if (! $admin || ! $stock) {
+            $this->markTestSkipped('Fixture denom berulang tidak tersedia.');
+        }
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->post('/sf-keluar', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $stock->idtap,
+                'idsf' => $stock->idsf,
+                'items' => [
+                    ['iddenom' => $stock->iddenom, 'qty' => 1],
+                    ['iddenom' => $stock->iddenom, 'qty' => 1],
+                ],
+            ])->assertRedirect('sf-keluar');
+
+        $this->assertSame(
+            (int) $stock->stock - 2,
+            (int) DB::table('stockawalsf')
+                ->where('idsf', $stock->idsf)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock')
+        );
+    }
+
+    public function test_repeated_denom_cannot_exceed_combined_available_stock(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        $stock = DB::table('stockawalsf as st')
+            ->join('idsf as s', 's.idsf', '=', 'st.idsf')
+            ->where('st.stock', '>', 0)
+            ->select('st.idsf', 'st.iddenom', 'st.stock', 's.idtap')
+            ->first();
+
+        if (! $admin || ! $stock) {
+            $this->markTestSkipped('Fixture denom berulang tidak tersedia.');
+        }
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $stock->idtap,
+                'idsf' => $stock->idsf,
+                'items' => [
+                    ['iddenom' => $stock->iddenom, 'qty' => (int) $stock->stock],
+                    ['iddenom' => $stock->iddenom, 'qty' => 1],
+                ],
+            ])->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('items');
+
+        $this->assertSame(
+            (int) $stock->stock,
+            (int) DB::table('stockawalsf')
+                ->where('idsf', $stock->idsf)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock')
+        );
     }
 
     public function test_bulk_sf_masuk_preserves_total_stock(): void

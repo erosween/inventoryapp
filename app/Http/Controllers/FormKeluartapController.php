@@ -74,7 +74,7 @@ public function proseskeluartapform(Request $request)
         'penerima' => 'required|different:pengirim|exists:kodetap,idtap',
         'tambahket' => 'nullable|string|max:500',
         'items' => 'required|array|min:1',
-        'items.*.iddenom' => 'required|distinct|exists:denom,iddenom',
+        'items.*.iddenom' => 'required|exists:denom,iddenom',
         'items.*.qty' => 'required|integer|min:1',
         'items.*.sn' => 'required|string|max:255',
     ]);
@@ -85,16 +85,20 @@ public function proseskeluartapform(Request $request)
     }
 
     DB::transaction(function () use ($validated) {
-        foreach ($validated['items'] as $item) {
+        $requestedByDenom = collect($validated['items'])
+            ->groupBy('iddenom')
+            ->map(fn ($items) => $items->sum('qty'));
+
+        foreach ($requestedByDenom as $iddenom => $requestedQty) {
             $stock = DB::table('stockawaltap')
                 ->where('idtap', $validated['pengirim'])
-                ->where('iddenom', $item['iddenom'])
+                ->where('iddenom', $iddenom)
                 ->lockForUpdate()
                 ->value('stock') ?? 0;
 
-            if ($stock < $item['qty']) {
+            if ($stock < $requestedQty) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'items' => "Stok {$item['iddenom']} tidak mencukupi. Tersedia: {$stock}.",
+                    'items' => "Total qty {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stock}.",
                 ]);
             }
         }
