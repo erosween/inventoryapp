@@ -32,6 +32,7 @@ use App\Http\Controllers\NocanadminController;
 use App\Http\Controllers\searchController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockAdjustmentController;
+use App\Http\Controllers\StockJourneyController;
 use App\Http\Controllers\MonitaDumaiController;
 use App\Http\Controllers\Api\SalesChartController;
 use App\Http\Controllers\DenomController;
@@ -108,6 +109,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('/stock', [StockController::class, 'index']);
 	Route::get('/stocktap', [StockTapController::class, 'index']);
 	Route::get('/stocksf', [StockSfController::class, 'index']);
+	Route::get('/stock-journey', [StockJourneyController::class, 'index'])->name('stock-journey.index');
 
 	//injectvf segel
 	Route::get('/injectvf', [InjectController::class, 'index']);
@@ -204,8 +206,8 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('/sf-keluar/data', [SfkeluarController::class, 'data'])
 		->name('sf-keluar.data');
 	Route::get('/exportsfkeluar', [SfkeluarController::class, 'exportexcel']);
-	Route::get('sf-keluar/edit/{id}', [SfkeluarController::class, 'editSfKeluar']);
-	Route::post('sf-keluar/update/{id}', [SfkeluarController::class, 'updateSfKeluar']);
+	Route::get('sf-keluar/edit/{id}', [SfkeluarController::class, 'editSfKeluar'])->name('sf-keluar.edit');
+	Route::post('sf-keluar/update/{id}', [SfkeluarController::class, 'updateSfKeluar'])->name('sf-keluar.update');
 	Route::post('sf-keluar/bulk-delete', [SfkeluarController::class, 'bulkDelete'])->name('sf-keluar.bulk-delete');
 	Route::post('sf-keluar/{idkeluar}', [SfkeluarController::class, 'delete']);
 	Route::post('sf-keluar', [SfkeluarController::class, 'keluarsfproses']);
@@ -232,6 +234,9 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	// sisa stock daily
 	Route::get('/sisastock', [sisaStockController::class, 'index'])->name('sisastock.index');
 	Route::match(['get', 'post'], '/sisastock/data', [sisaStockController::class, 'data'])->name('sisastock.data');
+	Route::get('/sisastock/export/{format}', [sisaStockController::class, 'export'])
+		->whereIn('format', ['xlsx', 'csv'])
+		->name('sisastock.export');
 
 	//HOME NOCAN
 	Route::get('/homenocan', [HomenocanController::class, 'index']);

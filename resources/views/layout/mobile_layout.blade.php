@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- PWA Setup -->
     <link rel="manifest" href="/manifest.json">
@@ -28,10 +28,10 @@
 
     <style>
         :root {
-            --primary: #ec2028;
-            --primary-dark: #b70d18;
-            --primary-light: #ff5a62;
-            --accent: #f59e0b;
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --primary-light: #7c73ee;
+            --accent: #8b83f1;
             --success: #10b981;
             --info: #2563eb;
             --ink: #111827;
@@ -44,7 +44,7 @@
             --shadow-premium: 0 18px 45px rgba(15, 23, 42, 0.08);
             --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
             --radius-xl: 24px;
-            --hero-surface: linear-gradient(145deg, #111827 0%, #293241 48%, #ec2028 100%);
+            --hero-surface: linear-gradient(145deg, #292468 0%, #4338a4 48%, #6259d8 100%);
         }
 
         * {
@@ -52,7 +52,7 @@
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background:
                 linear-gradient(180deg, #f8fafc 0%, #e8eef6 100%);
             color: var(--text-main);
@@ -70,7 +70,7 @@
             padding-bottom: 116px;
             position: relative;
             background:
-                radial-gradient(circle at 20% 0%, rgba(236, 32, 40, 0.08), transparent 32%),
+                radial-gradient(circle at 20% 0%, rgba(79, 70, 229, 0.1), transparent 32%),
                 linear-gradient(180deg, #f7fafc 0%, var(--bg-body) 100%);
             box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 30px 80px rgba(15, 23, 42, 0.12);
             overflow-x: hidden;

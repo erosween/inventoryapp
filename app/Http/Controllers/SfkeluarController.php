@@ -12,6 +12,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\KeluarSFExport;
 use Yajra\DataTables\Facades\DataTables;
 use App\Helpers\AuditLogger;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
     class SfkeluarController extends Controller
 {
@@ -63,10 +65,10 @@ use App\Helpers\AuditLogger;
         ->editColumn('qty', fn ($r) => number_format($r->qty))
         ->addColumn('action', function ($row) {
             $btnEdit = '
-                <a href="'.url('sf-keluar/edit/'.$row->idkeluar).'" 
-                   class="btn btn-link btn-primary p-1" 
-                   title="Edit">
-                    <i class="fa fa-edit fa-lg"></i>
+                <a href="'.route('sf-keluar.edit', $row->idkeluar).'"
+                   class="btn btn-link text-primary p-0 action-edit-icon"
+                   title="Edit" aria-label="Edit">
+                    <i class="fas fa-edit fa-lg" aria-hidden="true"></i>
                 </a>';
 
             if (!auth()->user()->hasClusterAdminAccess()) {
@@ -353,6 +355,10 @@ public function editSfKeluar($id)
         return redirect('sf-keluar')->with('error', 'Data tidak ditemukan');
     }
 
+    if (!auth()->user()->hasClusterAdminAccess() && $edit->idtap !== $idtap) {
+        abort(403, 'Transaksi ini bukan milik TAP Anda.');
+    }
+
     $denom = DB::table('denom')->get();
     $data  = DB::table('kodetap')
         ->when($idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
@@ -360,7 +366,9 @@ public function editSfKeluar($id)
         })
         ->get();
 
-    return view('form/form-edit-sfkeluar', compact('edit', 'data', 'idtap', 'denom'));
+    $selectedSf = DB::table('idsf')->where('idsf', $edit->idsf)->first();
+
+    return view('form/form-edit-sfkeluar', compact('edit', 'data', 'idtap', 'denom', 'selectedSf'));
 }
 
 /* =========================
@@ -368,14 +376,30 @@ public function editSfKeluar($id)
 ========================= */
 public function updateSfKeluar(Request $request, $id)
 {
-    DB::transaction(function () use ($request, $id) {
+    $allowedTapRule = auth()->user()->hasClusterAdminAccess()
+        ? Rule::exists('kodetap', 'idtap')
+        : Rule::in([session('idtap')]);
+
+    $validated = $request->validate([
+        'tgl' => 'required|date|before_or_equal:today',
+        'idtap' => ['required', $allowedTapRule],
+        'idsf' => [
+            'required',
+            Rule::exists('idsf', 'idsf')->where(fn ($query) => $query->where('idtap', $request->idtap)),
+        ],
+        'iddenom' => 'required|exists:denom,iddenom',
+        'qty' => 'required|integer|min:1',
+        'tambahanket' => 'nullable|string|max:255',
+    ]);
+
+    DB::transaction(function () use ($validated, $id) {
         
-        $newIdtap      = $request->idtap;
-        $newIdsf       = $request->idsf;
-        $newIddenom    = $request->iddenom;
-        $newQty        = $request->qty;
-        $newTgl        = $request->tgl;
-        $newKet        = $request->tambahanket;
+        $newIdtap      = $validated['idtap'];
+        $newIdsf       = $validated['idsf'];
+        $newIddenom    = $validated['iddenom'];
+        $newQty        = (int) $validated['qty'];
+        $newTgl        = $validated['tgl'];
+        $newKet        = $validated['tambahanket'] ?? null;
 
         // 1. Lock Data Lama
         $old = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
@@ -394,8 +418,10 @@ public function updateSfKeluar(Request $request, $id)
             ->lockForUpdate()
             ->value('stock');
 
-        if ($currentStock < $newQty) {
-            throw new \Exception('Stok SF tidak mencukupi untuk update ini');
+        if ((int) $currentStock < $newQty) {
+            throw ValidationException::withMessages([
+                'qty' => 'Quantity melebihi stok SF yang tersedia.',
+            ]);
         }
 
         DB::table('stockawalsf')
@@ -416,7 +442,7 @@ public function updateSfKeluar(Request $request, $id)
                 ]);
 
             // 📝 LOG
-            AuditLogger::log('UPDATE', 'Stok Keluar SF', $id, (array)$old, $request->all());
+            AuditLogger::log('UPDATE', 'Stok Keluar SF', $id, (array)$old, $validated);
     });
 
     return redirect('sf-keluar')->with('success', 'Data Berhasil Diupdate!');

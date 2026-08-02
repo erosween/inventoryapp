@@ -1,7 +1,7 @@
 @extends('layout.layout')
 
 @section('content')
-    <div class="main-panel">
+    <div class="main-panel form-premium-page">
         <div class="content">
             <div class="page-inner">
 
@@ -32,7 +32,8 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" id="date" name="tgl" class="form-control"
-                                                    value="{{ date('Y-m-d', strtotime($edit->tgl)) }}" required>
+                                                    value="{{ old('tgl', date('Y-m-d', strtotime($edit->tgl))) }}"
+                                                    max="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 
@@ -59,7 +60,7 @@
                                                 <label>Sales Force</label>
                                                 <select name="idsf" id="idsf" class="form-control select2" required>
                                                     <option value="{{ $edit->idsf }}" selected>
-                                                        {{ $edit->idsf }}
+                                                        {{ $selectedSf->namasf ?? $edit->idsf }}
                                                     </option>
                                                 </select>
                                             </div>
@@ -86,7 +87,8 @@
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
                                                 <input type="number" name="qty" id="qty" class="form-control"
-                                                    value="{{ $edit->qty }}" min="1" required>
+                                                    value="{{ old('qty', $edit->qty) }}" min="1" required>
+                                                @error('qty')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                                             </div>
                                         </div>
 

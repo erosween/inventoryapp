@@ -2275,15 +2275,15 @@
 
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
-            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'Open Sans', Arial, sans-serif", color: '#343a40' });
-            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'Open Sans', Arial, sans-serif", color: '#7b858e' });
+            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'Inter', Arial, sans-serif", color: '#343a40' });
+            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'Inter', Arial, sans-serif", color: '#7b858e' });
 
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headerHeight);
             let x = 0;
             headers.forEach((header, index) => {
                 drawText(ctx, header, index === 0 ? 18 : x + columns[index] / 2, titleHeight + headerHeight / 2, {
-                    font: "700 17px 'Open Sans', Arial, sans-serif",
+                    font: "700 17px 'Inter', Arial, sans-serif",
                     color: '#55554c',
                     align: index === 0 ? 'left' : 'center',
                     maxWidth: columns[index] - 20
@@ -2319,12 +2319,12 @@
                         ctx.strokeStyle = '#d1d5db';
                         ctx.stroke();
                         drawText(ctx, 'CLUSTER', 60, y + rowHeight / 2, {
-                            font: "600 12px 'Open Sans', Arial, sans-serif",
+                            font: "600 12px 'Inter', Arial, sans-serif",
                             color: '#4b5563',
                             align: 'center'
                         });
                         drawText(ctx, cell.replace(/^CLUSTER\s*/i, ''), 118, y + rowHeight / 2, {
-                            font: "700 16px 'Open Sans', Arial, sans-serif",
+                            font: "700 16px 'Inter', Arial, sans-serif",
                             color: '#343a40',
                             maxWidth: columns[index] - 130
                         });
@@ -2333,8 +2333,8 @@
                     }
                     drawText(ctx, cell, index === 0 ? 18 : left + columns[index] - 16, y + rowHeight / 2, {
                         font: (isGrand || isCluster || index === 0 || isGrowth || headers[index] === 'TOTAL')
-                            ? "700 16px 'Open Sans', Arial, sans-serif"
-                            : "400 16px 'Open Sans', Arial, sans-serif",
+                            ? "700 16px 'Inter', Arial, sans-serif"
+                            : "400 16px 'Inter', Arial, sans-serif",
                         color,
                         align: index === 0 ? 'left' : 'right',
                         maxWidth: columns[index] - 24

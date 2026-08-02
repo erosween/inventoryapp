@@ -19,6 +19,8 @@ class AsmenAccess
 
         $allowedRoutes = [
             'home',
+            'sisastock.index',
+            'sisastock.data',
             'logout',
         ];
 
@@ -27,6 +29,8 @@ class AsmenAccess
             'stock',
             'stocktap',
             'stocksf',
+            'sisastock',
+            'sisastock/data',
             'chart/sales',
             'logout',
         ];

@@ -15,7 +15,7 @@
     <script>
         WebFont.load({
             google: {
-                "families": ["Open+Sans:300,400,600,700"]
+                "families": ["Inter:400,500,600,700"]
             },
             custom: {
                 "families": ["Flaticon", "Font Awesome 5 Solid", "Font Awesome 5 Regular", "Font Awesome 5 Brands"],
@@ -36,6 +36,8 @@
     <!-- CSS Files -->
     <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="/assets/css/azzara.min.css">
+    @include('layout.premium-theme')
+    @include('layout.form-premium-styles')
 </head>
 
 <body>

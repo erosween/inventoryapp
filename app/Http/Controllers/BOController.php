@@ -66,8 +66,8 @@ class BOController extends Controller
             ->editColumn('qty', fn($r) => number_format($r->qty))
             ->addColumn('action', function ($row) {
                 $btnEdit = '
-                    <a href="'.url('bo/edit/'.$row->idkeluar).'" class="btn btn-link text-primary p-0 mr-2" title="Edit">
-                        <i class="fas fa-edit fa-lg"></i>
+                    <a href="'.url('bo/edit/'.$row->idkeluar).'" class="btn btn-link text-primary p-0 action-edit-icon" title="Edit" aria-label="Edit">
+                        <i class="fas fa-edit fa-lg" aria-hidden="true"></i>
                     </a>
                 ';
 

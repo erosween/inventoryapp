@@ -8,6 +8,8 @@ class StocktapController extends Controller
 {
     public function index()
     {
+        return redirect()->route('sisastock.index', ['mode' => 'tap']);
+
         $user = auth()->user();
         $isAllTap = strtoupper($user->idtap) === 'SBP_DUMAI';
 

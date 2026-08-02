@@ -1,7 +1,7 @@
 @extends('layout.layout')
 
 @section('content')
-    <div class="main-panel">
+    <div class="main-panel form-premium-page">
         <div class="content">
             <div class="page-inner">
 

@@ -61,7 +61,7 @@
                                         <th>TAP</th>
                                         <th>SF</th>
                                         <th>Keterangan</th>
-                                        <th width="90">Action</th>
+                                        <th width="130">Action</th>
                                     </tr>
                                 </thead>
                             </table>

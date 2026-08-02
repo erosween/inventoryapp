@@ -22,7 +22,7 @@
         <div class="content">
             <div class="page-inner">
 
-                <div class="card premium-card">
+                <div class="card premium-card stock-card">
 
                     {{-- TAB --}}
                     <div class="card-header bg-white border-bottom py-3">
@@ -50,7 +50,8 @@
                     <div class="card-body px-0 py-0">
 
                         {{-- ⬇️ SCROLL CSS BIASA --}}
-                        <div class="table-scroll">
+                        <div class="stock-table-toolbar" aria-label="Aksi dan pencarian tabel"></div>
+                        <div class="table-scroll stock-freeze stock-freeze--two">
 
                             <table id="stock" class="table table-indigo table-hover w-100 mb-0">
 
@@ -65,7 +66,7 @@
                                             @if ($voucherColspan)
                                                 <th colspan="{{ $voucherColspan }}"
                                                     class="th-voucher {{ $voucherType === 'VOUCHER by.U' ? 'th-voucher-byu' : 'th-voucher-fisik' }}">
-                                                    {{ $voucherType }}
+                                                    <span class="voucher-label">{{ $voucherType }}</span>
                                                 </th>
                                             @endif
                                         @endforeach
@@ -84,7 +85,7 @@
                                             @foreach ($validityGroups as $groupName => $items)
                                                 <th colspan="{{ count($items) + 1 }}"
                                                     class="th-group th-{{ Str::slug($groupName) }}">
-                                                    {{ $groupName }}
+                                                    <span class="validity-label">{{ $groupName }}</span>
                                                 </th>
                                             @endforeach
                                         @endforeach
@@ -168,6 +169,7 @@
 
                             </table>
                         </div>
+                        <div class="stock-table-footer" aria-label="Informasi dan navigasi tabel"></div>
 
                     </div>
                 </div>
@@ -187,10 +189,12 @@
             }
         };
 
-        $('#stock').DataTable({
+        const stockTable = $('#stock').DataTable({
             ordering: false,
             pageLength: 10,
             autoWidth: false,
+            deferRender: true,
+            searchDelay: 250,
             dom: '<"top"Bf>rt<"bottom"lip><"clear">',
             buttons: [{
                     extend: 'excelHtml5',
@@ -210,6 +214,9 @@
                 }
             ]
         });
+        const $stockWrapper = $('#stock_wrapper');
+        $('.stock-table-toolbar').append($stockWrapper.children('.top'));
+        $('.stock-table-footer').append($stockWrapper.children('.bottom'));
     </script>
 
     <style>
@@ -538,4 +545,5 @@
         .sticky-total-footer { position: sticky !important; right: 0; z-index: 39; background: #0f172a; color: #ffffff; font-weight: 700; box-shadow: -2px 0 6px rgba(0, 0, 0, 0.25); }
         #stock tbody tr:hover td.sticky-total-col { background-color: #f1f5f9; }
     </style>
+    @include('layout.stock-freeze-styles')
 @endpush

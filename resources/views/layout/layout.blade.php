@@ -4,6 +4,8 @@
         \Illuminate\Support\Str::lower(auth()->user()->username),
         'asmen_'
     );
+    $showDashboardMenu = auth()->check()
+        && ($isAsmen || auth()->user()->hasClusterAdminAccess());
 @endphp
 
 <!DOCTYPE html>
@@ -215,36 +217,34 @@
 =============================== */
         .dt-overlay {
             position: fixed;
-            inset: 0;
-            background: rgba(248, 250, 252, .75);
-            backdrop-filter: blur(6px);
+            top: 76px;
+            right: 24px;
+            background: transparent;
             z-index: 2000;
-            /* Ditingkatkan agar di atas segalanya */
             display: flex;
-            align-items: center;
-            justify-content: center;
+            pointer-events: none;
         }
 
         .dt-loader-card {
             background: #fff;
-            padding: 30px 36px;
-            border-radius: 20px;
-            box-shadow:
-                0 30px 60px rgba(79, 70, 229, .25),
-                inset 0 0 0 1px rgba(99, 102, 241, .08);
-            text-align: center;
-            min-width: 260px;
-            animation: dtPop .3s ease;
+            padding: 11px 15px;
+            border: 1px solid rgba(79, 70, 229, .12);
+            border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(30, 41, 59, .14);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: dtPop .18s ease;
         }
 
         /* SPINNER RING */
         .dt-spinner {
             position: relative;
             /* 🔥 WAJIB */
-            width: 52px;
-            height: 52px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            border: 4px solid rgba(99, 102, 241, .15);
+            border: 2px solid rgba(99, 102, 241, .15);
             border-top-color: #6366f1;
             animation: dtSpin .9s linear infinite;
             margin: auto;
@@ -254,18 +254,18 @@
         .dt-spinner::after {
             content: '';
             position: absolute;
-            inset: -6px;
+            inset: -3px;
             border-radius: 50%;
-            box-shadow: 0 0 18px rgba(99, 102, 241, .35);
+            box-shadow: 0 0 10px rgba(99, 102, 241, .24);
         }
 
         /* TEXT */
         .dt-text {
-            margin-top: 18px;
-            font-size: 14px;
+            margin-top: 0;
+            font-size: 12px;
             font-weight: 700;
             color: #4f46e5;
-            letter-spacing: .4px;
+            letter-spacing: .01em;
         }
 
         /* ANIMATIONS */
@@ -291,13 +291,27 @@
         .dataTables_processing {
             display: none !important;
         }
+
+        @keyframes inventoryBellRing {
+            0%, 46%, 100% { transform: rotate(0); }
+            8%, 20%, 32% { transform: rotate(13deg); }
+            14%, 26%, 38% { transform: rotate(-13deg); }
+        }
+        .notification-bell-active {
+            color:#4f46e5 !important;
+            transform-origin:50% 10%;
+            animation:inventoryBellRing 1.8s ease-in-out infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .notification-bell-active { animation:none; }
+        }
     </style>
     <!-- Fonts and icons -->
     <script src="/assets/js/plugin/webfont/webfont.min.js"></script>
     <script>
         WebFont.load({
             google: {
-                "families": ["Open+Sans:300,400,600,700"]
+                "families": ["Inter:400,500,600,700"]
             },
             custom: {
                 "families": ["Flaticon", "Font Awesome 5 Solid", "Font Awesome 5 Regular", "Font Awesome 5 Brands"],
@@ -312,6 +326,8 @@
     <!-- CSS Files -->
     <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="/assets/css/azzara.min.css">
+    @include('layout.premium-theme')
+    @include('layout.form-premium-styles')
 
 </head>
 
@@ -378,12 +394,14 @@
                     </div>
                     <ul class="nav">
                         @if (session('idtap') == 'SB DUMAI' || session('idtap') == 'SB SIDEMPUAN')
-                            <li class="nav-item {{ request()->is('homenocan') ? 'active' : '' }}">
-                                <a href="{{ url('homenocan') }}">
-                                    <i class="fas fa-home"></i>
-                                    <p>DASHBOARD</p>
-                                </a>
-                            </li>
+                            @if ($showDashboardMenu)
+                                <li class="nav-item {{ request()->is('homenocan') ? 'active' : '' }}">
+                                    <a href="{{ url('homenocan') }}">
+                                        <i class="fas fa-home"></i>
+                                        <p>DASHBOARD</p>
+                                    </a>
+                                </li>
+                            @endif
                             <li class="nav-item {{ request()->is('nocanadmin') ? 'active' : '' }}">
                                 <a href="{{ url('nocanadmin') }}">
                                     <i class="fas fa-book" aria-hidden="true"></i>
@@ -397,16 +415,18 @@
                                 </a>
                             </li>
                         @else
-                            <li class="nav-item {{ request()->is('home') ? 'active' : '' }}">
-                                <a href="{{ url('home') }}">
-                                    <i class="fas fa-home"></i>
-                                    <p>DASHBOARD</p>
-                                </a>
-                            </li>
+                            @if ($showDashboardMenu)
+                                <li class="nav-item {{ request()->is('home') ? 'active' : '' }}">
+                                    <a href="{{ url('home') }}">
+                                        <i class="fas fa-home"></i>
+                                        <p>DASHBOARD</p>
+                                    </a>
+                                </li>
+                            @endif
                             @if (!$isAsmen && !in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
                                 <li class="nav-item {{ request()->is('inbox') ? 'active' : '' }}">
                                     <a href="{{ url('inbox') }}" style="position: relative; display: inline-block;">
-                                        <i class="fa fa-bell"></i>
+                                        <i class="fa fa-bell {{ (int) $notif > 0 ? 'notification-bell-active' : '' }}"></i>
                                         <p style="margin-bottom: 0;">KOTAK MASUK
                                             <span class="notification" style="
                                             display: inline-block;
@@ -426,17 +446,17 @@
                                     </a>
                                 </li>
                             @endif
-                            <li class="nav-item {{ request()->is('stock') ? 'active' : '' }}">
-                                <a href="{{ url('stock') }}">
+                            <li class="nav-item {{ request()->is('stock', 'stocktap', 'stocksf', 'sisastock') ? 'active' : '' }}">
+                                <a href="{{ route('sisastock.index') }}">
                                     <i class="fas fa-book"></i>
                                     <p>STOCK GUDANG</p>
                                 </a>
                             </li>
                             @if (!$isAsmen)
-                            <li class="nav-item {{ request()->is('sisastock') ? 'active' : '' }}">
-                                <a href="{{ url('sisastock') }}">
-                                    <i class="fas fa-history"></i>
-                                    <p>CEK STOK DAILY</p>
+                            <li class="nav-item {{ request()->is('stock-journey*') ? 'active' : '' }}">
+                                <a href="{{ route('stock-journey.index') }}">
+                                    <i class="fas fa-route"></i>
+                                    <p>STOCK MOVEMENT</p>
                                 </a>
                             </li>
 
@@ -621,13 +641,15 @@
         <script>
             (function () {
 
-                const SEARCH_DELAY = 1200; // ms
-
                 // Jalan SETIAP DataTable selesai init
                 $(document).on('init.dt', function (e, settings) {
 
+                    // Tabel client-side sudah mencari dari memori dan tidak perlu debounce global.
+                    if (!settings.oFeatures || !settings.oFeatures.bServerSide) return;
+
                     const api = new $.fn.dataTable.Api(settings);
                     const tableId = settings.nTable.id;
+                    const SEARCH_DELAY = 450;
 
                     if (!tableId) return;
 
@@ -655,22 +677,36 @@
         <script>
             (function () {
 
-                let loaderTimer = null;
-                const SPINNER_DELAY = 250; // biar typing gak nyala
+                const pendingTables = new Map();
+                const SPINNER_DELAY = 650;
+
+                function syncLoader() {
+                    const hasSlowRequest = Array.from(pendingTables.values()).some(request => request.visible);
+                    $('#global-dt-loader').toggleClass('d-none', !hasSlowRequest);
+                }
+
+                function finishRequest(settings) {
+                    const request = pendingTables.get(settings);
+                    if (!request) return;
+                    clearTimeout(request.timer);
+                    pendingTables.delete(settings);
+                    syncLoader();
+                }
 
                 $(document)
                     .on('preXhr.dt', function (e, settings) {
-
-                        // 🔒 HANYA serverSide
                         if (!settings.oFeatures || !settings.oFeatures.bServerSide) return;
 
-                        loaderTimer = setTimeout(() => {
-                            $('#global-dt-loader').removeClass('d-none');
+                        finishRequest(settings);
+                        const request = { visible: false, timer: null };
+                        request.timer = setTimeout(() => {
+                            request.visible = true;
+                            syncLoader();
                         }, SPINNER_DELAY);
+                        pendingTables.set(settings, request);
                     })
-                    .on('xhr.dt', function () {
-                        clearTimeout(loaderTimer);
-                        $('#global-dt-loader').addClass('d-none');
+                    .on('xhr.dt error.dt draw.dt', function (e, settings) {
+                        finishRequest(settings);
                     });
 
             })();
@@ -722,7 +758,7 @@
         <div id="global-dt-loader" class="dt-overlay d-none">
             <div class="dt-loader-card">
                 <div class="dt-spinner"></div>
-                <div class="dt-text">Loading data, Please wait...</div>
+                <div class="dt-text">Memuat data...</div>
             </div>
         </div>
         @stack('modals')

@@ -4,58 +4,141 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class StockVisibilityTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_stock_pages_only_expose_positive_rows_and_denoms_for_current_scope(): void
+    public function test_unified_stock_page_exposes_non_zero_rows_and_active_denoms_for_each_mode(): void
     {
         $admin = User::where('username', 'admin_super')->first();
         if (! $admin) {
             $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
         }
 
-        foreach (['/stock', '/stocktap', '/stocksf'] as $path) {
-            $response = $this->actingAs($admin)
-                ->withSession(['idtap' => 'SBP_DUMAI'])
-                ->get($path)
-                ->assertOk();
+        $page = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/sisastock')
+            ->assertOk()
+            ->assertSee('Stock Gudang')
+            ->assertSee('REGULER')
+            ->assertSee('BYU')
+            ->assertSee('SA');
 
-            $data = $response->viewData('data');
-            $groups = $response->viewData('groups');
-            $expectedSummaryColumns = collect($groups)
-                ->flatMap(fn ($validityGroups) => collect($validityGroups)->keys())
-                ->filter(fn ($groupName) => str_contains(strtoupper($groupName), 'HARI'))
-                ->count();
+        $this->assertSame(
+            ['REGULER', 'BYU', 'SA'],
+            array_keys($page->viewData('groups'))
+        );
 
-            $this->assertSame(
-                $expectedSummaryColumns,
-                substr_count($response->getContent(), 'class="th-main validity-summary-header"'),
-                "Jumlah kolom ringkasan validity salah di {$path}."
-            );
+        $groups = $page->viewData('groups');
+        $pageContent = $page->getContent();
+        $this->assertStringContainsString('"category":"REGULER"', $pageContent);
+        $this->assertStringContainsString('"category":"BYU"', $pageContent);
+        foreach ($groups as $category => $validityGroups) {
+            foreach ($validityGroups as $validity => $denoms) {
+                $this->assertNotSame('VOICE', strtoupper((string) $validity));
 
-            foreach ($data as $row) {
-                $this->assertGreaterThan(0, (int) $row->grand_total, "Baris stok nol masih tampil di {$path}.");
-            }
+                foreach ($denoms as $denom) {
+                    $injectCategory = strtoupper((string) $denom->kategori_inject);
+                    $this->assertNotSame('ROAMAX', $injectCategory);
 
-            foreach ($groups as $voucherType => $validityGroups) {
-                $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER';
-                foreach ($validityGroups as $groupName => $denoms) {
-                    $response->assertSee(
-                        'data-export-title="TOTAL '.$voucherLabel.' '.$groupName.'"',
-                        false
-                    );
-                    foreach ($denoms as $denom) {
-                        $this->assertGreaterThan(
-                            0,
-                            (int) $data->sum($denom->iddenom),
-                            "Denom nol {$denom->iddenom} masih tampil di {$path}."
+                    if ($category === 'BYU') {
+                        $this->assertSame('BYU', $injectCategory, "Denom {$denom->iddenom} salah masuk header BYU.");
+                    } elseif ($category === 'SA') {
+                        $this->assertSame('SA', $injectCategory, "Denom {$denom->iddenom} salah masuk header SA.");
+                    } else {
+                        $this->assertNotContains(
+                            $injectCategory,
+                            ['BYU', 'SA', 'ROAMAX'],
+                            "Denom {$denom->iddenom} salah masuk header REGULER."
                         );
                     }
                 }
             }
         }
+
+        $hiddenDenomIds = DB::table('denom')
+            ->where(function ($query) {
+                $query->whereRaw('UPPER(COALESCE(group_name, ?)) = ?', ['', 'VOICE'])
+                    ->orWhereRaw('UPPER(COALESCE(kategori_inject, ?)) = ?', ['', 'ROAMAX']);
+            })
+            ->pluck('iddenom')
+            ->all();
+
+        foreach (['all', 'tap', 'sf'] as $mode) {
+            $response = $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->postJson('/sisastock/data', [
+                    'mode' => $mode,
+                    'date' => now()->toDateString(),
+                    'draw' => 1,
+                    'start' => 0,
+                    'length' => -1,
+                ])
+                ->assertOk()
+                ->assertJsonPath('mode', $mode)
+                ->assertJsonStructure(['data', 'recordsTotal', 'recordsFiltered', 'active_denoms']);
+
+            $this->assertSame(
+                [],
+                array_values(array_intersect($hiddenDenomIds, $response->json('active_denoms'))),
+                "RoaMAX/VOICE masih aktif pada mode {$mode}."
+            );
+
+            foreach ($response->json('data') as $row) {
+                $this->assertNotSame(
+                    0,
+                    (int) $row['grand_total'],
+                    "Baris stok nol masih tampil pada mode {$mode}."
+                );
+                foreach ($hiddenDenomIds as $hiddenDenomId) {
+                    $this->assertArrayNotHasKey(
+                        $hiddenDenomId,
+                        $row,
+                        "Kolom {$hiddenDenomId} masih terkirim pada mode {$mode}."
+                    );
+                }
+
+                foreach (['REGULER', 'BYU'] as $summaryCategory) {
+                    foreach ($groups[$summaryCategory] ?? [] as $validity => $denoms) {
+                        $summaryField = 'summary_' . md5($summaryCategory . '|' . $validity);
+                        $expectedTotal = collect($denoms)->sum(
+                            fn ($denom) => (int) ($row[$denom->iddenom] ?? 0)
+                        );
+                        $this->assertArrayHasKey($summaryField, $row);
+                        $this->assertSame(
+                            $expectedTotal,
+                            (int) $row[$summaryField],
+                            "Ringkasan {$summaryCategory} {$validity} salah pada mode {$mode}."
+                        );
+                    }
+                }
+            }
+        }
+
+        $allSfRows = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->postJson('/sisastock/data', [
+                'mode' => 'sf',
+                'date' => now()->toDateString(),
+                'draw' => 1,
+                'start' => 0,
+                'length' => -1,
+            ])
+            ->assertOk()
+            ->json('data');
+
+        $csv = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/sisastock/export/csv?mode=sf&date=' . now()->toDateString())
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+        $csvContent = file_get_contents($csv->baseResponse->getFile()->getPathname());
+        $csvLines = preg_split('/\r\n|\r|\n/', trim($csvContent));
+        $this->assertCount(count($allSfRows) + 1, $csvLines, 'CSV tidak memuat seluruh petugas SF.');
+        $this->assertGreaterThan(25, count($allSfRows), 'Fixture harus membuktikan export lebih dari satu halaman.');
     }
 }

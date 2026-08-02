@@ -102,8 +102,8 @@
                                     <i class="fas fa-hourglass-half me-1"></i> PROSES VALIDASI
                                 </span>
                             @else
-                                <a href="{{ route('mobile.edit', [$item->id_outlet, $item->tgl]) }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-800" style="font-size: 0.6rem; padding: 5px 12px;" onclick="event.stopPropagation();">
-                                    <i class="fas fa-edit me-1"></i> EDIT
+                                <a href="{{ route('mobile.edit', [$item->id_outlet, $item->tgl]) }}" class="btn btn-link text-primary p-0 action-edit-icon" title="Edit" aria-label="Edit" onclick="event.stopPropagation();">
+                                    <i class="fas fa-edit fa-lg" aria-hidden="true"></i>
                                 </a>
                             @endif
                         </div>

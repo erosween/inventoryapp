@@ -1,14 +1,20 @@
 @extends('layout.layoutcuan')
 
 @section('content')
-    <div class="main-panel">
+    <div class="main-panel form-premium-page">
         <div class="content">
             <div class="page-inner">
+                <div class="page-header">
+                    <h4 class="page-title">Input Order NOCAN</h4>
+                </div>
                 <div class="row">
                     <div class="col-xl-7 col-lg-8 col-md-11">
                         <div class="card">
                             <div class="card-header">
-                                <div class="card-title">Form Order</div>
+                                <div>
+                                    <strong>Detail Pemesanan</strong>
+                                    <div class="text-muted small">Lengkapi data nomor, outlet, dan pembeli.</div>
+                                </div>
                                 @if ($errors->has('error'))
                                     <div class="alert alert-danger ml-auto">
                                         {{ $errors->first('error') }}
@@ -75,10 +81,11 @@
                                         <option value="SOLD">SOLD</option>
                                     </select>
 
-                                    <button type="submit" class="btn btn-primary">SUBMIT</button>
-                                    <a href="{{ url('nocan') }}" class="btn btn-danger">Back</a>
-
                                 </form>
+                            </div>
+                            <div class="card-footer">
+                                <a href="{{ url('nocan') }}" class="btn btn-light">Kembali</a>
+                                <button type="submit" class="btn btn-primary" form="myForm">Simpan Data</button>
                             </div>
                             {{-- card body --}}
                         </div>

@@ -2,12 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $mode = in_array($request->query('mode'), ['all', 'tap', 'sf'], true)
+            ? $request->query('mode')
+            : 'all';
+
+        return redirect()->route('sisastock.index', ['mode' => $mode]);
+
         $user = auth()->user();
         $isAllTap = $user->idtap === 'SBP_DUMAI';
 

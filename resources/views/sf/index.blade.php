@@ -71,8 +71,9 @@
                                                         <div class="form-button-action">
                                                             <button type="button" data-toggle="modal"
                                                                 data-target="#editModal{{ $sf->idsf }}"
-                                                                class="btn btn-link btn-primary btn-lg" data-original-title="Edit SF">
-                                                                <i class="fa fa-edit"></i>
+                                                                class="btn btn-link text-primary p-0 action-edit-icon"
+                                                                title="Edit" aria-label="Edit">
+                                                                <i class="fas fa-edit fa-lg" aria-hidden="true"></i>
                                                             </button>
 
                                                         </div>
