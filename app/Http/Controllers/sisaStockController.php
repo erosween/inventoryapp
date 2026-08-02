@@ -300,6 +300,7 @@ class sisaStockController extends Controller
                 }
             }
             $row['grand_total'] = $grand_total;
+            $row['grand_total_end'] = $grand_total;
             if ($grand_total != 0) {
                 $finalData[] = $row;
             }
@@ -388,6 +389,9 @@ class sisaStockController extends Controller
                 $columns[] = 'summary_' . md5($category . '|' . $validity);
             }
         }
+
+        $headings[] = 'GRAND TOTAL';
+        $columns[] = 'grand_total_end';
 
         $rows = collect($records)->values()->map(function (array $record, int $index) use ($mode, $columns) {
             $row = [$index + 1, $record['idtap'] ?? ''];

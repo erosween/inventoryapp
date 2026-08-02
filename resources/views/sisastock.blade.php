@@ -95,6 +95,7 @@
                                                 <span class="stock-leaf-denom">TOTAL</span>
                                             </th>
                                         @endforeach
+                                        <th class="th-main sticky-total" data-export-title="GRAND TOTAL">GRAND<br>TOTAL</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -122,6 +123,7 @@
                                             @endphp
                                             <th class="text-end daily-validity-summary-footer summary-{{ Str::slug($summary['category']) }} {{ $startsSummaryCategory ? 'summary-category-start' : '' }}">0</th>
                                         @endforeach
+                                        <th class="text-end sticky-total-footer">0</th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -262,6 +264,15 @@
                         className: 'text-end font-weight-bold daily-validity-summary-cell summary-{{ Str::slug($summary['category']) }} {{ $startsSummaryCategory ? 'summary-category-start' : '' }}'
                     },
                     @endforeach
+                    {
+                        data: 'grand_total_end',
+                        name: 'grand_total_end',
+                        render: function(data) {
+                            const value = parseInt(data, 10) || 0;
+                            return $.fn.dataTable.render.number(',', '.', 0).display(value);
+                        },
+                        className: 'text-end font-weight-bold sticky-total-col'
+                    }
                 ],
                 footerCallback: function (row, data, start, end, display) {
                     var api = this.api();
@@ -317,6 +328,16 @@
                             $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $summaryColumn }})
                         );
                     @endforeach
+
+                    var grand_total_end_all = api
+                        .column("grand_total_end:name", { page: 'current' })
+                        .data()
+                        .reduce(function(a, b) {
+                            return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
+                        }, 0);
+                    $(api.column("grand_total_end:name").footer()).html(
+                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_end_all)
+                    );
 
                 },
                 drawCallback: function(settings) {

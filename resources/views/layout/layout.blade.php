@@ -4,8 +4,7 @@
         \Illuminate\Support\Str::lower(auth()->user()->username),
         'asmen_'
     );
-    $showDashboardMenu = auth()->check()
-        && ($isAsmen || auth()->user()->hasClusterAdminAccess());
+    $showDashboardMenu = auth()->check();
 @endphp
 
 <!DOCTYPE html>

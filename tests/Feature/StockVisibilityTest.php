@@ -93,6 +93,11 @@ class StockVisibilityTest extends TestCase
                     (int) $row['grand_total'],
                     "Baris stok nol masih tampil pada mode {$mode}."
                 );
+                $this->assertSame(
+                    (int) $row['grand_total'],
+                    (int) $row['grand_total_end'],
+                    "Grand Total paling kanan berbeda pada mode {$mode}."
+                );
                 foreach ($hiddenDenomIds as $hiddenDenomId) {
                     $this->assertArrayNotHasKey(
                         $hiddenDenomId,
