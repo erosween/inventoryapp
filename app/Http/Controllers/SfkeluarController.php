@@ -146,7 +146,7 @@ use Illuminate\Validation\ValidationException;
     }
 
     $validated = $request->validate([
-        'tgl' => 'required|date',
+        'tgl' => 'required|date|before_or_equal:today',
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
         'items' => 'required|array|min:1',
@@ -177,9 +177,17 @@ use Illuminate\Validation\ValidationException;
                 ->lockForUpdate()
                 ->value('stock') ?? 0;
 
-            if ($stockSf < $requestedQty) {
+            $historicalStock = $this->sfStockAtDate(
+                $validated['idsf'],
+                $iddenom,
+                $validated['tgl'],
+                (int) $stockSf
+            );
+
+            $availableStock = min((int) $stockSf, $historicalStock);
+            if ($availableStock < $requestedQty) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'items' => "Total qty {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stockSf}.",
+                    'items' => "Total qty {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia pada tanggal {$validated['tgl']}: {$historicalStock}, stok saat ini: {$stockSf}.",
                 ]);
             }
         }
@@ -418,9 +426,18 @@ public function updateSfKeluar(Request $request, $id)
             ->lockForUpdate()
             ->value('stock');
 
-        if ((int) $currentStock < $newQty) {
+        $historicalStock = $this->sfStockAtDate(
+            $newIdsf,
+            $newIddenom,
+            $newTgl,
+            (int) $currentStock,
+            (int) $old->idkeluar
+        );
+
+        $availableStock = min((int) $currentStock, $historicalStock);
+        if ($availableStock < $newQty) {
             throw ValidationException::withMessages([
-                'qty' => 'Quantity melebihi stok SF yang tersedia.',
+                'qty' => "Quantity tidak mencukupi. Tersedia pada tanggal {$newTgl}: {$historicalStock}, stok saat ini: " . (int) $currentStock . '.',
             ]);
         }
 
@@ -447,6 +464,66 @@ public function updateSfKeluar(Request $request, $id)
 
     return redirect('sf-keluar')->with('success', 'Data Berhasil Diupdate!');
 }
+
+    /**
+     * Saldo SF pada akhir tanggal transaksi. Saldo materialized saat ini
+     * dikembalikan ke masa lalu dengan membalik seluruh pergerakan setelah
+     * tanggal tersebut, sehingga transaksi backdate tidak dapat memakai stok
+     * yang baru diterima pada tanggal berikutnya.
+     */
+    private function sfStockAtDate(
+        string $idsf,
+        string $iddenom,
+        string $date,
+        int $currentStock,
+        ?int $excludedKeluarId = null
+    ): int {
+        $futureIn = (int) DB::table('masuksf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->whereDate('tgl', '>', $date)
+            ->sum('qty');
+
+        $futureIn += (int) DB::table('masuk')
+            ->where('pengirim', 'DO')
+            ->where('penerima', $idsf)
+            ->where('iddenom', $iddenom)
+            ->whereDate('tgl', '>', $date)
+            ->sum('qty');
+
+        $futureOut = (int) DB::table('retursf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->whereDate('tgl', '>', $date)
+            ->sum('qty');
+
+        $futureOut += (int) DB::table('keluar')
+            ->where('pengirim', $idsf)
+            ->where('iddenom', $iddenom)
+            ->where('status', 0)
+            ->whereDate('tgl', '>', $date)
+            ->sum('qty');
+
+        $futureKeluar = DB::table('keluarsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->whereDate('tgl', '>', $date);
+        if ($excludedKeluarId !== null) {
+            $futureKeluar->where('idkeluar', '!=', $excludedKeluarId);
+        }
+        $futureOut += (int) $futureKeluar->sum('qty');
+
+        $adjustmentDelta = (int) DB::table('logs')
+            ->where('action', 'STOCK ADJUSTMENT')
+            ->where('module', 'Stok Petugas')
+            ->whereRaw("SUBSTRING_INDEX(record_id, ':', 1) = ?", [$idsf])
+            ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.iddenom')), JSON_UNQUOTE(JSON_EXTRACT(old_values, '$.iddenom'))) = ?", [$iddenom])
+            ->whereDate('created_at', '>', $date)
+            ->selectRaw("COALESCE(SUM(CAST(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(new_values, '$.stock')), '0') AS SIGNED) - CAST(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(old_values, '$.stock')), '0') AS SIGNED)), 0) AS delta")
+            ->value('delta');
+
+        return $currentStock - $futureIn + $futureOut - $adjustmentDelta;
+    }
 
 
     /* =========================

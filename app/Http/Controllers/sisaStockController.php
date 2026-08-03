@@ -19,7 +19,7 @@ class sisaStockController extends Controller
             : 'all';
         $date = $request->input('date', date('Y-m-d'));
         try {
-            $date = Carbon::parse($date)->startOfDay()->min(now()->startOfDay())->toDateString();
+            $date = Carbon::parse($date)->toDateString();
         } catch (\Throwable $e) {
             $date = date('Y-m-d');
         }
@@ -41,10 +41,7 @@ class sisaStockController extends Controller
         if ($targetDateInput) {
             try {
                 // Prioritaskan format Y-m-d dari input type="date"
-                $targetDate = Carbon::parse($targetDateInput)
-                    ->startOfDay()
-                    ->min(now()->startOfDay())
-                    ->toDateString();
+                $targetDate = Carbon::parse($targetDateInput)->toDateString();
             } catch (\Exception $e) {
                 $targetDate = date('Y-m-d');
             }

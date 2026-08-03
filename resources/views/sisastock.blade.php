@@ -48,7 +48,7 @@
                                 </div>
                                 @unless($isCurrentStockPage)
                                 <div class="input-group daily-date-filter">
-                                    <input type="date" id="target_date" class="form-control border-0 bg-transparent font-weight-bold shadow-none" value="{{ $date }}" max="{{ date('Y-m-d') }}">
+                                    <input type="date" id="target_date" class="form-control border-0 bg-transparent font-weight-bold shadow-none" value="{{ $date }}">
                                 </div>
                                 @endunless
                             </div>

@@ -286,7 +286,7 @@ class StockJourneyController extends Controller
     private function safeDate(?string $value, Carbon $fallback): Carbon
     {
         try {
-            return Carbon::parse($value ?: $fallback)->startOfDay()->min(now()->startOfDay());
+            return Carbon::parse($value ?: $fallback)->startOfDay();
         } catch (\Throwable $e) {
             return $fallback->copy()->startOfDay();
         }

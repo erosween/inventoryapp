@@ -146,4 +146,48 @@ class StockVisibilityTest extends TestCase
         $this->assertCount(count($allSfRows) + 1, $csvLines, 'CSV tidak memuat seluruh petugas SF.');
         $this->assertGreaterThan(25, count($allSfRows), 'Fixture harus membuktikan export lebih dari satu halaman.');
     }
+
+    public function test_stock_date_filter_is_open_and_is_not_clamped_to_today(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+        }
+
+        $futureDate = now()->addYear()->toDateString();
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/sisastock?mode=all&date=' . $futureDate)
+            ->assertOk()
+            ->assertViewHas('date', $futureDate);
+
+        $this->assertStringContainsString('value="' . $futureDate . '"', $response->getContent());
+        $this->assertStringNotContainsString('max="' . now()->toDateString() . '"', $response->getContent());
+    }
+
+    public function test_stock_movement_end_date_is_open_and_is_not_clamped_to_today(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+        }
+
+        $endDate = now()->addYear()->toDateString();
+        $startDate = now()->addYear()->subDays(13)->toDateString();
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/stock-journey?start_date=' . $startDate . '&end_date=' . $endDate)
+            ->assertOk()
+            ->assertViewHas('startDate', $startDate)
+            ->assertViewHas('endDate', $endDate);
+
+        $this->assertMatchesRegularExpression(
+            '/id="end_date"[^>]*value="' . preg_quote($endDate, '/') . '"[^>]*>/',
+            $response->getContent()
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/id="end_date"[^>]*max=/',
+            $response->getContent()
+        );
+    }
 }

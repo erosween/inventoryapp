@@ -156,6 +156,59 @@ class StockBulkFlowTest extends TestCase
         }
     }
 
+    public function test_backdated_sf_keluar_cannot_use_stock_received_on_a_later_date(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+        $stock = $stocks->first();
+        $receivedDate = now()->toDateString();
+        $saleDate = now()->subDay()->toDateString();
+        $qty = 6;
+
+        DB::table('masuksf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('keluarsf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('retursf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('masuk')->where('pengirim', 'DO')->where('penerima', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('keluar')->where('pengirim', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+
+        DB::table('stockawalsf')
+            ->where('idsf', $sales->idsf)
+            ->where('iddenom', $stock->iddenom)
+            ->update(['stock' => $qty]);
+        DB::table('masuksf')->insert([
+            'idtap' => $sales->idtap,
+            'idsf' => $sales->idsf,
+            'iddenom' => $stock->iddenom,
+            'qty' => $qty,
+            'sn' => 'UJI-HISTORICAL-STOCK',
+            'tgl' => $receivedDate,
+        ]);
+
+        $beforeCount = DB::table('keluarsf')->count();
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => $saleDate,
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'items' => [[
+                    'iddenom' => $stock->iddenom,
+                    'qty' => $qty,
+                    'tambahanket' => 'Uji saldo historis',
+                ]],
+            ])
+            ->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('items');
+
+        $this->assertSame($beforeCount, DB::table('keluarsf')->count());
+        $this->assertSame(
+            $qty,
+            (int) DB::table('stockawalsf')
+                ->where('idsf', $sales->idsf)
+                ->where('iddenom', $stock->iddenom)
+                ->value('stock')
+        );
+    }
+
     public function test_same_denom_can_be_repeated_and_uses_combined_quantity(): void
     {
         $admin = User::where('username', 'admin_super')->first();
