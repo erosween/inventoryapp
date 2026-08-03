@@ -23,12 +23,77 @@ class StockBulkFlowTest extends TestCase
             '/form/form-sfmasuk',
             '/form/form-sfkeluar',
             '/form/form-retursf',
+            '/form/forminject',
         ] as $path) {
             $this->actingAs($admin)
                 ->withSession(['idtap' => 'SBP_DUMAI'])
                 ->get($path)
                 ->assertOk()
                 ->assertSee('Daftar Denom');
+        }
+    }
+
+    public function test_bulk_inject_pv_converts_segel_into_multiple_denoms_atomically(): void
+    {
+        [$admin, $tap, $sourceStock, $destinations] = $this->injectPvFixture();
+        $beforeDestinations = $destinations->pluck('stock', 'iddenom');
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->post('/form/forminject', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $tap,
+                'items' => $destinations->values()->map(fn ($stock, $index) => [
+                    'iddenom' => $stock->iddenom,
+                    'qty' => $index + 1,
+                    'sn' => 'UJI-INJECT-' . ($index + 1),
+                ])->all(),
+            ])->assertRedirect('injectvf');
+
+        $totalQty = 3;
+        $this->assertSame(
+            $sourceStock - $totalQty,
+            (int) DB::table('stockawaltap')->where('idtap', $tap)->where('iddenom', 'SEGEL')->value('stock')
+        );
+        foreach ($destinations->values() as $index => $stock) {
+            $this->assertSame(
+                (int) $beforeDestinations[$stock->iddenom] + $index + 1,
+                (int) DB::table('stockawaltap')->where('idtap', $tap)->where('iddenom', $stock->iddenom)->value('stock')
+            );
+            $this->assertDatabaseHas('injectvf', [
+                'idtap' => $tap,
+                'iddenom' => $stock->iddenom,
+                'qty' => $index + 1,
+                'kategori' => 'SEGEL',
+            ]);
+        }
+    }
+
+    public function test_failed_bulk_inject_pv_does_not_change_any_stock(): void
+    {
+        [$admin, $tap, $sourceStock, $destinations] = $this->injectPvFixture();
+        $beforeDestinations = $destinations->pluck('stock', 'iddenom');
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/forminject')
+            ->post('/form/forminject', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $tap,
+                'items' => [
+                    ['iddenom' => $destinations[0]->iddenom, 'qty' => 1, 'sn' => 'UJI-GAGAL-1'],
+                    ['iddenom' => $destinations[1]->iddenom, 'qty' => $sourceStock, 'sn' => 'UJI-GAGAL-2'],
+                ],
+            ])->assertRedirect('/form/forminject')
+            ->assertSessionHasErrors('items');
+
+        $this->assertSame(
+            $sourceStock,
+            (int) DB::table('stockawaltap')->where('idtap', $tap)->where('iddenom', 'SEGEL')->value('stock')
+        );
+        foreach ($destinations as $stock) {
+            $this->assertSame(
+                (int) $beforeDestinations[$stock->iddenom],
+                (int) DB::table('stockawaltap')->where('idtap', $tap)->where('iddenom', $stock->iddenom)->value('stock')
+            );
         }
     }
 
@@ -348,5 +413,38 @@ class StockBulkFlowTest extends TestCase
             ->get(['iddenom', 'stock']);
 
         return [$admin, $sales, $stocks];
+    }
+
+    private function injectPvFixture(): array
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        $allowedDenoms = DB::table('denom')
+            ->where('kategori_inject', 'SEGEL')
+            ->where('iddenom', '!=', 'SEGEL')
+            ->pluck('iddenom');
+        $source = DB::table('stockawaltap')
+            ->where('iddenom', 'SEGEL')
+            ->where('stock', '>=', 3)
+            ->whereExists(function ($query) use ($allowedDenoms) {
+                $query->selectRaw('1')
+                    ->from('stockawaltap as destination')
+                    ->whereColumn('destination.idtap', 'stockawaltap.idtap')
+                    ->whereIn('destination.iddenom', $allowedDenoms);
+            })
+            ->first(['idtap', 'stock']);
+        $destinations = $source
+            ? DB::table('stockawaltap')
+                ->where('idtap', $source->idtap)
+                ->whereIn('iddenom', $allowedDenoms)
+                ->orderBy('iddenom')
+                ->limit(2)
+                ->get(['iddenom', 'stock'])
+            : collect();
+
+        if (! $admin || ! $source || $destinations->count() < 2) {
+            $this->markTestSkipped('Fixture Inject PV bulk tidak tersedia.');
+        }
+
+        return [$admin, $source->idtap, (int) $source->stock, $destinations];
     }
 }

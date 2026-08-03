@@ -35,7 +35,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    value="{{ date('Y-m-d') }}" required>
+                                                    value="{{ old('tgl', date('Y-m-d')) }}" required>
                                             </div>
                                         </div>
 
@@ -46,51 +46,46 @@
                                                 <select name="idtap" class="form-control select2" required>
                                                     <option></option>
                                                     @foreach ($data as $row)
-                                                        <option value="{{ $row->idtap }}">{{ $row->idtap }}</option>
+                                                        <option value="{{ $row->idtap }}" {{ old('idtap') === $row->idtap ? 'selected' : '' }}>{{ $row->idtap }}</option>
                                                     @endforeach
                                                 </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Denom --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Denom Inject</label>
-                                                <select name="iddenom" class="form-control select2" required>
-                                                    <option></option>
-                                                    @foreach ($denom as $d)
-                                                        <option value="{{ $d->iddenom }}">{{ $d->denom }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Qty --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Quantity</label>
-                                                <input type="number" name="qty" id="qty" class="form-control"
-                                                    min="1" required>
                                             </div>
                                         </div>
 
                                         {{-- Stok TAP --}}
-                                        <div class="col-md-6">
+                                        <div class="col-md-12">
                                             <div class="form-group mb-1">
                                                 <label>Stok Segel TAP</label>
                                                 <input type="text" id="stok_segel_info" class="form-control mb-1" readonly>
                                                 <div class="text-danger small d-none" id="stok_warning" style="font-weight: 600;">
-                                                    <i class="fas fa-exclamation-triangle mr-1"></i> Quantity melebihi stok TAP
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                    <span>Total quantity melebihi stok TAP</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {{-- SN --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>SN</label>
-                                                <input type="text" name="sn" class="form-control"
-                                                    placeholder="SN Awal - SN Akhir" required>
+                                        <div class="col-md-12" id="bulk-entry">
+                                            <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                                                <div>
+                                                    <strong>Daftar Denom</strong>
+                                                    <div class="text-muted small">Total quantity: <strong id="bulk-total-qty">0</strong></div>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-row">
+                                                    <i class="fas fa-plus mr-1"></i> Tambah Denom
+                                                </button>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-bordered">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Denom Inject</th>
+                                                            <th width="130">Qty</th>
+                                                            <th>SN</th>
+                                                            <th width="50"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="bulk-rows"></tbody>
+                                                </table>
                                             </div>
                                         </div>
 
@@ -120,8 +115,14 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-
             let currentSegelStock = 0;
+            let stockLoaded = false;
+            let bulkIndex = 0;
+            const bulkDenoms = @json($denom->map(fn ($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
+
+            function escapeHtml(value) {
+                return $('<div>').text(value ?? '').html();
+            }
 
             $('.select2').each(function() {
                 $(this).select2({
@@ -138,60 +139,127 @@
                 }, 50);
             });
 
+            function addBulkRow(item = {}) {
+                const index = bulkIndex++;
+                const options = bulkDenoms.map(denom => {
+                    const selected = String(item.iddenom || '') === String(denom.id) ? ' selected' : '';
+                    return `<option value="${escapeHtml(denom.id)}"${selected}>${escapeHtml(denom.name)}</option>`;
+                }).join('');
+                const row = $(`
+                    <tr>
+                        <td>
+                            <select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required>
+                                <option value="">Pilih / cari denom</option>${options}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-qty"
+                                min="1" value="${escapeHtml(item.qty || '')}" required>
+                        </td>
+                        <td>
+                            <input type="text" name="items[${index}][sn]" class="form-control form-control-sm"
+                                value="${escapeHtml(item.sn || '')}" placeholder="SN Awal - SN Akhir" required>
+                        </td>
+                        <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row" aria-label="Hapus denom">×</button></td>
+                    </tr>
+                `);
+                $('#bulk-rows').append(row);
+                row.find('.bulk-denom').select2({
+                    placeholder: 'Pilih / cari denom',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownParent: $('#bulk-entry')
+                });
+                validateBulkQty();
+            }
+
+            function bulkTotalQty() {
+                let total = 0;
+                $('.bulk-qty').each(function() {
+                    total += parseInt($(this).val(), 10) || 0;
+                });
+                return total;
+            }
+
+            function validateBulkQty() {
+                const total = bulkTotalQty();
+                const invalid = !stockLoaded || currentSegelStock <= 0 || total > currentSegelStock;
+                $('#bulk-total-qty').text(total.toLocaleString('id-ID'));
+                $('.bulk-qty').toggleClass('is-invalid', stockLoaded && total > currentSegelStock);
+                $('#stok_warning').toggleClass('d-none', !invalid);
+                $('#stok_warning span').text(
+                    !stockLoaded ? 'Pilih TAP untuk memuat stok Segel' :
+                    currentSegelStock <= 0 ? 'Stok Segel TAP habis' :
+                    `Total quantity (${total.toLocaleString('id-ID')}) melebihi stok tersedia (${currentSegelStock.toLocaleString('id-ID')})`
+                );
+                $('#submitBtn').prop('disabled', invalid || !$('#bulk-rows tr').length);
+                return !invalid;
+            }
+
             function loadSegelStock() {
                 const idtap = $('select[name="idtap"]').val();
-                if (!idtap) return;
+                stockLoaded = false;
+                currentSegelStock = 0;
+                if (!idtap) {
+                    $('#stok_segel_info').val('Pilih TAP terlebih dahulu');
+                    validateBulkQty();
+                    return;
+                }
 
                 $('#stok_segel_info').val('Loading...');
+                validateBulkQty();
 
                 $.post('{{ route('ajax.get-stock-segel-tap') }}', {
                         idtap
                     })
                     .done(res => {
                         currentSegelStock = parseInt(res.stock) || 0;
-
-                        if (currentSegelStock <= 0) {
-                            $('#stok_segel_info').val('Stok segel habis');
-                            $('#stok_warning').removeClass('d-none');
-                            $('#submitBtn').prop('disabled', true);
-                        } else {
-                            $('#stok_segel_info').val(currentSegelStock + ' pcs');
-                            $('#stok_warning').addClass('d-none');
-                            $('#submitBtn').prop('disabled', false);
-                        }
+                        stockLoaded = true;
+                        $('#stok_segel_info').val(currentSegelStock > 0
+                            ? currentSegelStock.toLocaleString('id-ID') + ' pcs'
+                            : 'Stok segel habis');
+                        validateBulkQty();
+                    })
+                    .fail(() => {
+                        $('#stok_segel_info').val('Gagal memuat stok');
+                        validateBulkQty();
                     });
             }
 
             $('select[name="idtap"]').on('change', loadSegelStock);
+            $('#add-bulk-row').on('click', () => addBulkRow());
+            $('#bulk-rows').on('input change', '.bulk-qty', validateBulkQty)
+                .on('click', '.remove-bulk-row', function() {
+                    if ($('#bulk-rows tr').length > 1) {
+                        $(this).closest('tr').remove();
+                        validateBulkQty();
+                    }
+                });
 
-            $('#qty').on('input', function() {
-                const qty = parseInt($(this).val()) || 0;
+            const oldItems = @json(old('items', []));
+            if (oldItems.length) {
+                oldItems.forEach(addBulkRow);
+            } else {
+                addBulkRow();
+            }
+            const oldTap = @json(old('idtap'));
+            if (oldTap) {
+                $('select[name="idtap"]').val(oldTap).trigger('change');
+            } else {
+                validateBulkQty();
+            }
 
-                if (qty > currentSegelStock || currentSegelStock <= 0) {
-                    $(this).addClass('is-invalid');
-                    $('#stok_warning').removeClass('d-none');
-                    $('#submitBtn').prop('disabled', true);
-                } else {
-                    $(this).removeClass('is-invalid');
-                    $('#stok_warning').addClass('d-none');
-                    $('#submitBtn').prop('disabled', false);
-                }
-            });
-
-            // 🔒 BLOCK submit if qty > stock
-            $('#formInject').on('submit', function(e) {
-                const qty = parseInt($('#qty').val()) || 0;
-                if (qty > currentSegelStock || currentSegelStock <= 0) {
-                    e.preventDefault();
+            $('#formInject').on('submit', function(event) {
+                if (!validateBulkQty()) {
+                    event.preventDefault();
                     Swal.fire({
                         icon: 'error',
                         title: 'Stok Tidak Cukup',
-                        text: 'Quantity (' + qty + ') melebihi stok segel (' + currentSegelStock + ')'
+                        text: 'Total quantity seluruh denom tidak boleh melebihi stok Segel TAP.'
                     });
                     return false;
                 }
             });
-
         });
     </script>
     <script>
