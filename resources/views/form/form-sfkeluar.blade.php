@@ -298,7 +298,9 @@
                                             <div class="form-group mb-1">
                                                 <label for="date"><i class="far fa-calendar-alt"></i>Tanggal Transaksi</label>
                                                 <input type="date" id="date" name="tgl" class="form-control"
-                                                    value="{{ date('Y-m-d') }}" required>
+                                                    value="{{ date('Y-m-d') }}"
+                                                    min="{{ now()->startOfMonth()->toDateString() }}"
+                                                    max="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 
@@ -615,17 +617,5 @@
 
         });
 
-        // Tanggal maksimal hari ini dan minimal sebulan yang lalu
-        document.addEventListener("DOMContentLoaded", function() {
-            const inputDate = document.getElementById('date');
-            const today = new Date();
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(today.getMonth() - 1);
-
-            // Mengatur tanggal maksimal hingga hari ini
-            inputDate.max = today.toISOString().split('T')[0];
-            // Mengatur tanggal minimal ke satu bulan yang lalu
-            inputDate.min = monthAgo.toISOString().split('T')[0];
-        });
     </script>
 @endpush

@@ -146,7 +146,7 @@ use Illuminate\Validation\ValidationException;
     }
 
     $validated = $request->validate([
-        'tgl' => 'required|date|before_or_equal:today',
+        'tgl' => 'required|date|after_or_equal:' . now()->startOfMonth()->toDateString() . '|before_or_equal:today',
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
         'items' => 'required|array|min:1',
@@ -389,7 +389,7 @@ public function updateSfKeluar(Request $request, $id)
         : Rule::in([session('idtap')]);
 
     $validated = $request->validate([
-        'tgl' => 'required|date|before_or_equal:today',
+        'tgl' => 'required|date|after_or_equal:' . now()->startOfMonth()->toDateString() . '|before_or_equal:today',
         'idtap' => ['required', $allowedTapRule],
         'idsf' => [
             'required',

@@ -209,6 +209,42 @@ class StockBulkFlowTest extends TestCase
         );
     }
 
+    public function test_sf_keluar_date_is_limited_to_current_month(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+        $stock = $stocks->first();
+        $previousMonth = now()->startOfMonth()->subDay()->toDateString();
+
+        $page = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/form/form-sfkeluar')
+            ->assertOk();
+        $this->assertStringContainsString(
+            'min="' . now()->startOfMonth()->toDateString() . '"',
+            $page->getContent()
+        );
+        $this->assertStringContainsString(
+            'max="' . now()->toDateString() . '"',
+            $page->getContent()
+        );
+
+        $beforeCount = DB::table('keluarsf')->count();
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => $previousMonth,
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'items' => [[
+                    'iddenom' => $stock->iddenom,
+                    'qty' => 1,
+                ]],
+            ])
+            ->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('tgl');
+
+        $this->assertSame($beforeCount, DB::table('keluarsf')->count());
+    }
+
     public function test_same_denom_can_be_repeated_and_uses_combined_quantity(): void
     {
         $admin = User::where('username', 'admin_super')->first();
