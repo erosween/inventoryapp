@@ -2528,6 +2528,9 @@
             trx_cvm: 11
         };
         let markers = [];
+        let outletMarkers = new Map();
+        let selectedOutletMarker = null;
+        let pendingOutletFocus = null;
         let userLocationMarker = null;
         let history = JSON.parse(localStorage.getItem('monita_history') || '[]');
         let selectedIndex = -1;
@@ -3703,6 +3706,7 @@
 
                 const outlet = data[0];
                 saveToHistory(outlet.id_outlet, outlet.nama_outlet);
+                focusOutletOnMap(outlet.id_outlet);
 
                 resultDiv.innerHTML = `
                     <div class="outlet-profile-card">
@@ -3926,12 +3930,51 @@
                     `<b>${outlet.nama_outlet}</b><br>${outlet.id_outlet} • ${outlet.tap}<br><button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>`
                 );
                 markers.push(marker);
+                outletMarkers.set(String(outlet.id_outlet), marker);
                 bounds.push([lat, lon]);
             });
 
             if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
             addFullscreenControl();
             showUserLocation();
+
+            if (pendingOutletFocus) {
+                focusOutletOnMap(pendingOutletFocus);
+            }
+        }
+
+        function focusOutletOnMap(id) {
+            const outletId = String(id);
+            const marker = outletMarkers.get(outletId);
+
+            if (!map || !marker) {
+                pendingOutletFocus = outletId;
+                return;
+            }
+
+            if (selectedOutletMarker && selectedOutletMarker !== marker) {
+                selectedOutletMarker.setStyle({
+                    radius: 5,
+                    color: '#b40000',
+                    weight: 1,
+                    fillColor: '#e30613',
+                    fillOpacity: 0.75
+                });
+            }
+
+            marker.setStyle({
+                radius: 10,
+                color: '#fff',
+                weight: 3,
+                fillColor: '#0d6efd',
+                fillOpacity: 1
+            });
+            marker.bringToFront();
+            map.setView(marker.getLatLng(), 17, { animate: true });
+            marker.openPopup();
+
+            selectedOutletMarker = marker;
+            pendingOutletFocus = null;
         }
 
         function showUserLocation() {
