@@ -2431,6 +2431,7 @@
                     <thead>
                         <tr>
                             <th>Parameter</th>
+                            <th>FM-1</th>
                             <th>M-1</th>
                             <th>MTD</th>
                             <th>MoM</th>
@@ -3756,6 +3757,7 @@
 
             const parameters = [{
                     name: "TRX DIGIPOS",
+                    fm1: outlet.fm1_digipos,
                     m1: outlet.m1_digipos,
                     mtd: outlet.m_digipos,
                     mom: outlet.mom_digipos,
@@ -3763,6 +3765,7 @@
                 },
                 {
                     name: "SUPER SERU",
+                    fm1: outlet.fm1_super,
                     m1: outlet.m1_super,
                     mtd: outlet.m_super,
                     mom: outlet.mom_super,
@@ -3770,6 +3773,7 @@
                 },
                 {
                     name: "HOT PROMO",
+                    fm1: outlet.fm1_hot,
                     m1: outlet.m1_hot,
                     mtd: outlet.m_hot,
                     mom: outlet.mom_hot,
@@ -3777,6 +3781,7 @@
                 },
                 {
                     name: "COMSAK",
+                    fm1: outlet.fm1_comsak,
                     m1: outlet.m1_comsak,
                     mtd: outlet.m_comsak,
                     mom: outlet.mom_comsak,
@@ -3784,6 +3789,7 @@
                 },
                 {
                     name: "ST SA",
+                    fm1: outlet.fm1_stsa,
                     m1: outlet.m1_stsa,
                     mtd: outlet.m_stsa,
                     mom: outlet.mom_stsa,
@@ -3791,6 +3797,7 @@
                 },
                 {
                     name: "ST PV",
+                    fm1: outlet.fm1_stpv,
                     m1: outlet.m1_stpv,
                     mtd: outlet.m_stpv,
                     mom: outlet.mom_stpv,
@@ -3799,6 +3806,7 @@
                 },
                 {
                     name: "SO SA",
+                    fm1: outlet.fm1_sosa,
                     m1: outlet.m1_sosa,
                     mtd: outlet.m_sosa,
                     mom: outlet.mom_sosa,
@@ -3806,6 +3814,7 @@
                 },
                 {
                     name: "SO PV",
+                    fm1: outlet.fm1_sopv,
                     m1: outlet.m1_sopv,
                     mtd: outlet.m_sopv,
                     mom: outlet.mom_sopv,
@@ -3835,6 +3844,7 @@
                             ${param.name}
                             ${param.showDetail ? ` <button class="btn-detail" onclick="showPerformanceDetail('${outlet.id_outlet}', '${outlet.nama_outlet}')"><i class="fas fa-chart-line"></i> Detail</button>` : ''}
                         </td>
+                        <td>${Number(param.fm1 || 0).toLocaleString()}</td>
                         <td>${Number(param.m1 || 0).toLocaleString()}</td>
                         <td>${Number(param.mtd || 0).toLocaleString()}</td>
                         <td><div class="mom-indicator ${momClass}">${icon} ${param.mom || "0.0%"}</div></td>
