@@ -629,6 +629,22 @@ class MonitaDumaiController extends Controller
         return response()->json($data);
     }
 
+    public function outlets()
+    {
+        $data = DB::table('appsdumais')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->where('latitude', '!=', '')
+            ->where('longitude', '!=', '')
+            ->where('sf', '!=', 'UNMAPPING')
+            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [0, 3])
+            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [100, 102.5])
+            ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
+            ->get();
+
+        return response()->json($data);
+    }
+
     public function nearby(Request $request)
     {
         $lat = $request->input('latitude');

@@ -63,6 +63,7 @@ Route::post('/monitadumai/leader-login', [MonitaDumaiController::class, 'leaderL
 Route::get('/monitadumai/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('monita.leader.logout');
 Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
 Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
+Route::get('/monitadumai/outlets', [MonitaDumaiController::class, 'outlets']);
 Route::get('/monitadumai/nearby', [MonitaDumaiController::class, 'nearby']);
 Route::get('/monitadumai/performance', [MonitaDumaiController::class, 'performance']);
 

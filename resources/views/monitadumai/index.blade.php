@@ -1585,12 +1585,55 @@
         /* MAP */
         #map {
             width: 100%;
-            height: 250px;
+            height: 420px;
             border-radius: 18px;
             margin-bottom: 20px;
             border: 2px solid #d10000;
             box-shadow: 0 8px 20px rgba(220, 0, 0, 0.1);
             z-index: 1;
+        }
+
+        #map:fullscreen {
+            height: 100vh;
+            border: 0;
+            border-radius: 0;
+            margin: 0;
+        }
+
+        .map-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 4px 8px 12px;
+        }
+
+        .map-heading h3 {
+            font-size: 18px;
+            color: #202b3c;
+        }
+
+        .map-count {
+            padding: 6px 11px;
+            border-radius: 999px;
+            background: #fff0f0;
+            color: #d10000;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .map-fullscreen-button {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border: 0;
+            border-radius: 8px;
+            background: #fff;
+            color: #202b3c;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
         }
 
         .empty-state {
@@ -2386,18 +2429,6 @@
                 <ul id="suggestions" class="suggestions-box" style="display:none;"></ul>
                 <div id="history" class="history-box"></div>
             </div>
-            <div class="action-wrapper">
-                <select id="scan-radius" class="radius-select">
-                    <option value="0.3">300 m</option>
-                    <option value="0.5">500 m</option>
-                    <option value="1">1 km</option>
-                    <option value="2">2 km</option>
-                    <option value="5">5 km</option>
-                </select>
-                <button class="btn-scan" onclick="scanNearby()">
-                    <i class="fas fa-location-crosshairs"></i> <span>Nearest</span>
-                </button>
-            </div>
         </div>
 
         <!-- Skeleton (Hidden by Default) -->
@@ -2411,14 +2442,18 @@
             <div class="skeleton skeleton-card"></div>
         </div>
 
-        <div id="map" style="display:none;"></div>
+        <div class="map-heading">
+            <h3><i class="fas fa-map-marked-alt"></i> Semua Outlet</h3>
+            <span class="map-count" id="map-outlet-count">Memuat...</span>
+        </div>
+        <div id="map"></div>
         <div class="stats-container" id="stats-container" style="display:none;"></div>
         <div id="result" class="result-container"></div>
 
         <!-- Empty State -->
         <div id="empty-state" class="empty-state">
             <img src="/static/images/shinchan.gif" alt="Shinchan Dance" class="empty-img">
-            <p style="margin-top:15px; color:#aaa; font-size:13px;">Silakan cari outlet atau pakai scan lokasi</p>
+            <p style="margin-top:15px; color:#aaa; font-size:13px;">Silakan cari outlet untuk melihat rinciannya</p>
         </div>
 
         <!-- Rincian Parameter Card -->
@@ -2493,6 +2528,7 @@
             trx_cvm: 11
         };
         let markers = [];
+        let userLocationMarker = null;
         let history = JSON.parse(localStorage.getItem('monita_history') || '[]');
         let selectedIndex = -1;
         const leaderAreas = @json($showLeaderDashboard ? $areas : []);
@@ -3564,6 +3600,7 @@
             bindFbShareToggles();
             bindLeaderMapZoom();
             bindActiveTableViewToggles();
+            loadAllOutlets();
         });
 
         function handleKeyUp(e) {
@@ -3640,7 +3677,6 @@
             const statsContainer = document.getElementById('stats-container');
             const detailTable = document.getElementById('detail-table');
             const emptyState = document.getElementById('empty-state');
-            const mapContainer = document.getElementById('map');
             const skeleton = document.getElementById('skeleton-loader');
 
             if (!keyword) return;
@@ -3650,7 +3686,6 @@
             statsContainer.style.display = 'none';
             detailTable.style.display = 'none';
             emptyState.style.display = 'none';
-            mapContainer.style.display = 'none';
             skeleton.style.display = 'block';
 
             try {
@@ -3854,126 +3889,96 @@
             });
         }
 
-        async function scanNearby() {
-            const resultDiv = document.getElementById('result');
-            const mapContainer = document.getElementById('map');
-            const emptyState = document.getElementById('empty-state');
-            const statsContainer = document.getElementById('stats-container');
-            const detailTable = document.getElementById('detail-table');
+        async function loadAllOutlets() {
+            const countEl = document.getElementById('map-outlet-count');
 
-            if (!navigator.geolocation) return alert("Browser GPS tidak aktif!");
+            try {
+                const response = await fetch('/monitadumai/outlets');
+                if (!response.ok) throw new Error('Gagal memuat outlet');
 
-            resultDiv.innerHTML =
-                '<div class="card" style="text-align:center;"><i class="fas fa-circle-notch fa-spin"></i> Getting GPS...</div>';
-            emptyState.style.display = 'none';
-            statsContainer.style.display = 'none';
-            detailTable.style.display = 'none';
-            mapContainer.style.display = 'none';
+                const outlets = await response.json();
+                initMap(outlets);
+                countEl.textContent = `${outlets.length.toLocaleString()} outlet`;
+            } catch (error) {
+                countEl.textContent = 'Gagal memuat';
+            }
+        }
 
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const {
-                    latitude: lat,
-                    longitude: lon
-                } = pos.coords;
-                const radiusSelect = document.getElementById('scan-radius');
-                const radiusValue = radiusSelect.value;
-                const radiusLabel = radiusSelect.options[radiusSelect.selectedIndex].text;
+        function initMap(outlets) {
+            const renderer = L.canvas({ padding: 0.5 });
+            map = L.map('map', { renderer }).setView([1.75, 101.05], 8);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-                resultDiv.innerHTML =
-                    `<div class="card" style="text-align:center;"><i class="fas fa-satellite-dish fa-spin"></i> Scanning ${radiusLabel}...</div>`;
+            const bounds = [];
+            outlets.forEach(outlet => {
+                const lat = Number(outlet.latitude);
+                const lon = Number(outlet.longitude);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
-                try {
-                    const response = await fetch(
-                        `/monitadumai/nearby?latitude=${lat}&longitude=${lon}&radius=${radiusValue}`);
-                    const data = await response.json();
+                const marker = L.circleMarker([lat, lon], {
+                    renderer,
+                    radius: 5,
+                    color: '#b40000',
+                    weight: 1,
+                    fillColor: '#e30613',
+                    fillOpacity: 0.75
+                }).addTo(map).bindPopup(
+                    `<b>${outlet.nama_outlet}</b><br>${outlet.id_outlet} • ${outlet.tap}<br><button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>`
+                );
+                markers.push(marker);
+                bounds.push([lat, lon]);
+            });
 
-                    if (data.length === 0) {
-                        resultDiv.innerHTML =
-                            `<div class="card" style="text-align:center; color:#d10000; font-weight:bold;">Tidak ada outlet dalam radius ${radiusLabel}.</div>`;
-                        emptyState.style.display = 'block';
-                        return;
-                    }
+            if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+            addFullscreenControl();
+            showUserLocation();
+        }
 
-                    mapContainer.style.display = 'block';
-                    setTimeout(() => initMap(lat, lon, data), 100);
+        function showUserLocation() {
+            if (!navigator.geolocation) return;
 
-                    resultDiv.innerHTML =
-                        `<h3 style="margin:20px 0 12px 10px; font-size:18px;"><i class="fas fa-map-marked-alt"></i> Outlet Nearby: (${data.length} Found)</h3>`;
-                    data.forEach(outlet => {
-                        const dist = parseFloat(outlet.distance);
-                        let distColor = '#27ae60';
-                        if (dist < 0.05) distColor = '#2ecc71';
-                        else if (dist > 0.15) distColor = '#f39c12';
+            navigator.geolocation.getCurrentPosition((position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
 
-                        const item = document.createElement('div');
-                        item.className = 'nearby-item';
-                        item.innerHTML = `
-                            <div class="nearby-info">
-                                <h4>${outlet.nama_outlet}</h4>
-                                <p>${outlet.id_outlet} • <b>${outlet.sf}</b> • ${outlet.tap}</p>
-                                <p style="font-size: 11px; margin-top: 5px; color: #d10000; font-weight:bold;">
-                                    SA: ${Number(outlet.m_stsa).toLocaleString()} | PV: ${Number(outlet.m_stpv).toLocaleString()} | CVM TRX: ${Number(outlet.m_cvm).toLocaleString()}
-                                </p>
-                            </div>
-                            <div class="distance-tag" style="background:${distColor}15; color:${distColor}; border:1px solid ${distColor}30;">
-                                ${dist.toFixed(2)} km
-                            </div>
-                        `;
-                        item.onclick = () => {
-                            document.getElementById('keyword').value = outlet.id_outlet;
-                            searchOutlet();
-                        };
-                        resultDiv.appendChild(item);
-                    });
-                } catch (e) {
-                    resultDiv.innerHTML = '<div class="card">Server Error.</div>';
-                }
-            }, (err) => {
-                let msg = "GPS Error: " + err.message;
-                if (err.code === 1) { // PERMISSION_DENIED
-                    msg = `
-                        <div style="text-align:center; padding:10px;">
-                            <i class="fas fa-location-dot" style="font-size:30px; color:#d10000; margin-bottom:10px;"></i>
-                            <h4 style="color:#d10000;">Akses Lokasi Ditolak</h4>
-                            <p style="font-size:13px; color:#666; margin-top:5px;">
-                                Sepertinya izin lokasi diblokir oleh Telegram/Browser.<br><br>
-                                <b>Cara Mengatasi:</b><br>
-                                1. Klik ikon (i) atau gembok di pojok browser.<br>
-                                2. Cari "Location" dan pilih "Allow/Izinkan".<br>
-                                3. Jika di App Telegram: Settings HP -> Apps -> Telegram -> Permissions -> Allow Location.
-                            </p>
-                            <button onclick="scanNearby()" style="margin-top:15px; background:#d10000; color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">Coba Lagi</button>
-                        </div>
-                    `;
-                }
-                resultDiv.innerHTML = `<div class="card">${msg}</div>`;
+                userLocationMarker = L.circleMarker([lat, lon], {
+                    radius: 10,
+                    color: '#fff',
+                    weight: 3,
+                    fillColor: '#0d6efd',
+                    fillOpacity: 1
+                }).addTo(map).bindPopup('<b>Posisi kamu</b>');
             });
         }
 
-        function initMap(lat, lon, outlets) {
-            if (!map) {
-                map = L.map('map').setView([lat, lon], 17);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            } else {
-                map.setView([lat, lon], 17);
-                markers.forEach(m => map.removeLayer(m));
-                markers = [];
-                map.invalidateSize();
-            }
-            L.circleMarker([lat, lon], {
-                color: '#0d6efd',
-                radius: 10,
-                weight: 3,
-                fillOpacity: 0.8
-            }).addTo(map).bindPopup("Kamu");
-            outlets.forEach(o => {
-                if (o.latitude && o.longitude) {
-                    const m = L.marker([o.latitude, o.longitude]).addTo(map).bindPopup(
-                        `<b>${o.nama_outlet}</b><br><button onclick="selectFromMap('${o.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Pilih Outlet</button>`
-                    );
-                    markers.push(m);
+        function addFullscreenControl() {
+            const FullscreenControl = L.Control.extend({
+                options: { position: 'topright' },
+                onAdd() {
+                    const button = L.DomUtil.create('button', 'map-fullscreen-button');
+                    button.type = 'button';
+                    button.title = 'Tampilkan peta layar penuh';
+                    button.setAttribute('aria-label', 'Tampilkan peta layar penuh');
+                    button.innerHTML = '<i class="fas fa-expand"></i>';
+                    L.DomEvent.disableClickPropagation(button);
+                    L.DomEvent.on(button, 'click', toggleMapFullscreen);
+                    return button;
                 }
             });
+
+            map.addControl(new FullscreenControl());
+            document.addEventListener('fullscreenchange', () => {
+                setTimeout(() => map.invalidateSize(), 100);
+            });
+        }
+
+        function toggleMapFullscreen() {
+            const mapElement = document.getElementById('map');
+            if (!document.fullscreenElement) {
+                mapElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
         }
 
         function selectFromMap(id) {
