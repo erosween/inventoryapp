@@ -298,7 +298,9 @@ class sisaStockController extends Controller
             }
             $row['grand_total'] = $grand_total;
             $row['grand_total_end'] = $grand_total;
-            if ($grand_total != 0) {
+            // Mode SF doubles as the roster view. Keep newly-created SF accounts
+            // visible even before they receive their first stock allocation.
+            if ($mode === 'sf' || $grand_total != 0) {
                 $finalData[] = $row;
             }
         }

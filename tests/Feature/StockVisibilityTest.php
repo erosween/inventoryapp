@@ -88,11 +88,13 @@ class StockVisibilityTest extends TestCase
             );
 
             foreach ($response->json('data') as $row) {
-                $this->assertNotSame(
-                    0,
-                    (int) $row['grand_total'],
-                    "Baris stok nol masih tampil pada mode {$mode}."
-                );
+                if ($mode !== 'sf') {
+                    $this->assertNotSame(
+                        0,
+                        (int) $row['grand_total'],
+                        "Baris stok nol masih tampil pada mode {$mode}."
+                    );
+                }
                 $this->assertSame(
                     (int) $row['grand_total'],
                     (int) $row['grand_total_end'],
@@ -145,6 +147,44 @@ class StockVisibilityTest extends TestCase
         $csvLines = preg_split('/\r\n|\r|\n/', trim($csvContent));
         $this->assertCount(count($allSfRows) + 1, $csvLines, 'CSV tidak memuat seluruh petugas SF.');
         $this->assertGreaterThan(25, count($allSfRows), 'Fixture harus membuktikan export lebih dari satu halaman.');
+    }
+
+    public function test_new_sf_with_zero_stock_remains_visible_in_sf_mode(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+        }
+
+        $tap = DB::table('kodetap')->value('idtap');
+        if (! $tap) {
+            $this->markTestSkipped('Data TAP belum tersedia.');
+        }
+
+        $idsf = 'TEST_ZERO_' . strtoupper(substr(md5((string) microtime(true)), 0, 8));
+        DB::table('idsf')->insert([
+            'idsf' => $idsf,
+            'idtap' => $tap,
+            'namasf' => 'DS TEST STOK NOL',
+            'login_code' => 'TST000',
+            'password' => bcrypt('123'),
+        ]);
+
+        $rows = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->postJson('/sisastock/data', [
+                'mode' => 'sf',
+                'date' => now()->toDateString(),
+                'draw' => 1,
+                'start' => 0,
+                'length' => -1,
+            ])
+            ->assertOk()
+            ->json('data');
+
+        $newSf = collect($rows)->firstWhere('idsf', $idsf);
+        $this->assertNotNull($newSf, 'SF baru dengan stok nol tidak tampil di Stock Gudang.');
+        $this->assertSame(0, (int) $newSf['grand_total']);
     }
 
     public function test_stock_date_filter_is_open_and_is_not_clamped_to_today(): void
