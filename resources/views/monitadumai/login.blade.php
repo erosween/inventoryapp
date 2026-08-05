@@ -328,10 +328,6 @@
                     <i class="fas fa-right-to-bracket"></i>
                     Buka Dashboard
                 </button>
-                <a href="{{ url('/monitadumai') }}" class="back-link">
-                    <i class="fas fa-magnifying-glass"></i>
-                    Kembali ke Monita
-                </a>
             </form>
         </section>
     </main>

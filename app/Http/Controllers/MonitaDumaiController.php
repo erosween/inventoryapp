@@ -10,7 +10,12 @@ class MonitaDumaiController extends Controller
     public function index()
     {
         $showLeaderDashboard = session()->has('monita_leader_auth');
-        $dashboard = $showLeaderDashboard ? $this->buildLeaderDashboard() : null;
+
+        if (!$showLeaderDashboard) {
+            return view('monitadumai.login');
+        }
+
+        $dashboard = $this->buildLeaderDashboard();
 
         return view('monitadumai.index', compact('dashboard', 'showLeaderDashboard'));
     }
