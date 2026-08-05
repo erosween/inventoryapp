@@ -1593,11 +1593,54 @@
             z-index: 1;
         }
 
-        #map:fullscreen {
+        body.map-fullscreen-open {
+            overflow: hidden;
+        }
+
+        #map.map-fullscreen-active {
+            position: fixed !important;
+            inset: 0;
+            width: 100vw;
             height: 100vh;
+            height: 100dvh;
             border: 0;
             border-radius: 0;
             margin: 0;
+            z-index: 99999;
+        }
+
+        .outlet-marker-icon {
+            background: transparent;
+            border: 0;
+        }
+
+        .outlet-marker-pin {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            display: grid;
+            place-items: center;
+            border: 2px solid #fff;
+            border-radius: 50% 50% 50% 8px;
+            background: #e30613;
+            color: #fff;
+            font-size: 13px;
+            box-shadow: 0 2px 7px rgba(0, 0, 0, 0.35);
+            transform: rotate(-45deg);
+        }
+
+        .outlet-marker-pin i {
+            transform: rotate(45deg);
+        }
+
+        .outlet-marker-selected .outlet-marker-pin {
+            width: 38px;
+            height: 38px;
+            background: #ffc107;
+            color: #4b3900;
+            font-size: 16px;
+            border-width: 3px;
+            box-shadow: 0 3px 12px rgba(255, 193, 7, 0.65);
         }
 
         .map-heading {
@@ -3706,7 +3749,7 @@
 
                 const outlet = data[0];
                 saveToHistory(outlet.id_outlet, outlet.nama_outlet);
-                focusOutletOnMap(outlet.id_outlet);
+                focusOutletOnMap(outlet);
 
                 resultDiv.innerHTML = `
                     <div class="outlet-profile-card">
@@ -3909,29 +3952,13 @@
         }
 
         function initMap(outlets) {
-            const renderer = L.canvas({ padding: 0.5 });
-            map = L.map('map', { renderer }).setView([1.75, 101.05], 8);
+            map = L.map('map').setView([1.75, 101.05], 8);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
             const bounds = [];
             outlets.forEach(outlet => {
-                const lat = Number(outlet.latitude);
-                const lon = Number(outlet.longitude);
-                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-                const marker = L.circleMarker([lat, lon], {
-                    renderer,
-                    radius: 5,
-                    color: '#b40000',
-                    weight: 1,
-                    fillColor: '#e30613',
-                    fillOpacity: 0.75
-                }).addTo(map).bindPopup(
-                    `<b>${outlet.nama_outlet}</b><br>${outlet.id_outlet} • ${outlet.tap}<br><button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>`
-                );
-                markers.push(marker);
-                outletMarkers.set(String(outlet.id_outlet), marker);
-                bounds.push([lat, lon]);
+                const marker = addOutletMarker(outlet);
+                if (marker) bounds.push(marker.getLatLng());
             });
 
             if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
@@ -3943,33 +3970,62 @@
             }
         }
 
-        function focusOutletOnMap(id) {
-            const outletId = String(id);
-            const marker = outletMarkers.get(outletId);
+        function createOutletIcon(selected = false) {
+            return L.divIcon({
+                className: selected ? 'outlet-marker-icon outlet-marker-selected' : 'outlet-marker-icon',
+                html: '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>',
+                iconSize: selected ? [38, 42] : [30, 34],
+                iconAnchor: selected ? [19, 40] : [15, 32],
+                popupAnchor: selected ? [0, -38] : [0, -30]
+            });
+        }
 
-            if (!map || !marker) {
-                pendingOutletFocus = outletId;
+        function addOutletMarker(outlet) {
+            const outletId = String(outlet.id_outlet);
+            if (outletMarkers.has(outletId)) return outletMarkers.get(outletId);
+
+            const lat = Number(outlet.latitude);
+            const lon = Number(outlet.longitude);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon) || !lat || !lon) return null;
+
+            const marker = L.marker([lat, lon], {
+                icon: createOutletIcon()
+            }).addTo(map).bindPopup(
+                `<b>${outlet.nama_outlet}</b><br>${outlet.id_outlet} • ${outlet.tap}<br><button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>`
+            );
+
+            markers.push(marker);
+            outletMarkers.set(outletId, marker);
+            return marker;
+        }
+
+        function focusOutletOnMap(outlet) {
+            const outletId = String(typeof outlet === 'object' ? outlet.id_outlet : outlet);
+            let marker = outletMarkers.get(outletId);
+
+            if (!map) {
+                pendingOutletFocus = outlet;
+                return;
+            }
+
+            if (!marker && typeof outlet === 'object') {
+                marker = addOutletMarker(outlet);
+                if (marker) {
+                    document.getElementById('map-outlet-count').textContent = `${markers.length.toLocaleString()} outlet`;
+                }
+            }
+
+            if (!marker) {
                 return;
             }
 
             if (selectedOutletMarker && selectedOutletMarker !== marker) {
-                selectedOutletMarker.setStyle({
-                    radius: 5,
-                    color: '#b40000',
-                    weight: 1,
-                    fillColor: '#e30613',
-                    fillOpacity: 0.75
-                });
+                selectedOutletMarker.setIcon(createOutletIcon());
+                selectedOutletMarker.setZIndexOffset(0);
             }
 
-            marker.setStyle({
-                radius: 10,
-                color: '#fff',
-                weight: 3,
-                fillColor: '#0d6efd',
-                fillOpacity: 1
-            });
-            marker.bringToFront();
+            marker.setIcon(createOutletIcon(true));
+            marker.setZIndexOffset(1000);
             map.setView(marker.getLatLng(), 17, { animate: true });
             marker.openPopup();
 
@@ -4010,18 +4066,29 @@
             });
 
             map.addControl(new FullscreenControl());
-            document.addEventListener('fullscreenchange', () => {
-                setTimeout(() => map.invalidateSize(), 100);
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && document.getElementById('map').classList.contains('map-fullscreen-active')) {
+                    toggleMapFullscreen();
+                }
             });
         }
 
         function toggleMapFullscreen() {
             const mapElement = document.getElementById('map');
-            if (!document.fullscreenElement) {
-                mapElement.requestFullscreen();
-            } else {
-                document.exitFullscreen();
+            const isFullscreen = mapElement.classList.toggle('map-fullscreen-active');
+            document.body.classList.toggle('map-fullscreen-open', isFullscreen);
+
+            const icon = mapElement.querySelector('.map-fullscreen-button i');
+            if (icon) icon.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+
+            const button = mapElement.querySelector('.map-fullscreen-button');
+            if (button) {
+                const label = isFullscreen ? 'Tutup layar penuh' : 'Tampilkan peta layar penuh';
+                button.title = label;
+                button.setAttribute('aria-label', label);
             }
+
+            setTimeout(() => map.invalidateSize(), 100);
         }
 
         function selectFromMap(id) {
