@@ -186,8 +186,12 @@ use Illuminate\Validation\ValidationException;
 
             $availableStock = min((int) $stockSf, $historicalStock);
             if ($availableStock < $requestedQty) {
+                $denomName = DB::table('denom')
+                    ->where('iddenom', $iddenom)
+                    ->value('denom') ?? $iddenom;
+
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'items' => "Total qty {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia pada tanggal {$validated['tgl']}: {$historicalStock}, stok saat ini: {$stockSf}.",
+                    'items' => "Total qty {$denomName} tidak mencukupi. Diminta: {$requestedQty}, tersedia pada tanggal {$validated['tgl']}: {$historicalStock}, stok saat ini: {$stockSf}.",
                 ]);
             }
         }
