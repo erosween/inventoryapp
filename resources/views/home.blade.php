@@ -1758,6 +1758,23 @@
             return rows;
         }
 
+        function getMomExportHeaders() {
+            const table = document.querySelector('#mom-cluster-table-wrap > table');
+            const headerCells = Array.from(table?.tHead?.rows?.[0]?.cells || []);
+
+            if (headerCells.length < 5) {
+                return [
+                    'LOKASI (TAP / SF)',
+                    @json("MTD ({$momCurrentLabel})"),
+                    @json("M-1 ({$momPreviousLabel})"),
+                    'M-1 FULL',
+                    'GROWTH (M-1)'
+                ];
+            }
+
+            return headerCells.slice(0, 5).map(cell => getMomCellText(cell));
+        }
+
         function roundRect(ctx, x, y, width, height, radius) {
             const r = Math.min(radius, width / 2, height / 2);
             ctx.beginPath();
@@ -1825,6 +1842,7 @@
         async function renderMomClusterCardToCanvas() {
             const rows = getMomExportRows();
             if (!rows.length) return null;
+            const headers = getMomExportHeaders();
             const heading = getCardExportHeading(
                 'mom-cluster-card',
                 '📊 MoM Sales Tap',
@@ -1890,13 +1908,6 @@
             // Header tabel.
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headHeight);
-            const headers = [
-                'LOKASI (TAP / SF)',
-                @json("MTD ({$momCurrentLabel})"),
-                @json("M-1 ({$momPreviousLabel})"),
-                'M-1 FULL',
-                'GROWTH (M-1)'
-            ];
             headers.forEach((header, index) => {
                 const x = index === 0 ? lefts[index] + 18 : lefts[index] + cols[index] - 18;
                 drawText(ctx, header, x, titleHeight + 32, {

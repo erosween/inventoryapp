@@ -9,6 +9,11 @@
                         {{ session('status') }}
                     </div>
                 @endif
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
                 <div class="card">
                     <div class="card-header">
                         <div class="d-flex">
@@ -70,7 +75,12 @@
                                             </h5>
                                         </div>
                                         <div class="modal-body">
-                                            <form action="nocanadmin/{{ $row->id }}" method="post">
+                                            @php
+                                                $division = (string) $row->outlet === '1'
+                                                    ? 'karyawan'
+                                                    : ((string) $row->outlet === '123' ? 'ds' : 'outlet');
+                                            @endphp
+                                            <form action="nocanadmin/{{ $row->id }}" method="post" class="nocan-edit-form">
                                                 @csrf
                                                 <label for="">NOMOR :</label>
                                                 <input type="number" name="nomor" value="{{ $row->nomor }}"
@@ -85,17 +95,29 @@
                                                 <input type="text" name="penjual" value="{{ $row->booked }}"
                                                     class="form-control mb-1" required>
 
-                                                <label for="">OUTLET :</label>
-                                                <input type="number" name="outlet" value="{{ $row->outlet }}"
-                                                    class="form-control mb-1">
+                                                <label for="division-{{ $row->id }}">DIVISI :</label>
+                                                <select name="divisi" id="division-{{ $row->id }}"
+                                                    class="form-control mb-1 division-select" required>
+                                                    <option value="outlet" {{ $division === 'outlet' ? 'selected' : '' }}>Outlet</option>
+                                                    <option value="karyawan" {{ $division === 'karyawan' ? 'selected' : '' }}>Karyawan</option>
+                                                    <option value="ds" {{ $division === 'ds' ? 'selected' : '' }}>DS</option>
+                                                </select>
+
+                                                <label for="outlet-{{ $row->id }}">ID OUTLET :</label>
+                                                <input type="number" name="outlet" id="outlet-{{ $row->id }}"
+                                                    value="{{ $row->outlet }}" class="form-control mb-1 outlet-input"
+                                                    min="1" required>
+                                                <small class="form-text text-muted mb-2 outlet-help">
+                                                    Karyawan otomatis 1, DS otomatis 123.
+                                                </small>
 
                                                 <label for="">STATUS
                                                     :</label>
                                                 <select class="form-control mb-2" name="status" required>
                                                     <option value="">--PILIH--</option>
-                                                    <option value="PAID">PAID</option>
-                                                    <option value="SOLD">SOLD</option>
-                                                    <option value="BOOKING">BOOKING</option>
+                                                    <option value="PAID" {{ strtoupper($row->status) === 'PAID' ? 'selected' : '' }}>PAID</option>
+                                                    <option value="SOLD" {{ strtoupper($row->status) === 'SOLD' ? 'selected' : '' }}>SOLD</option>
+                                                    <option value="BOOKING" {{ strtoupper($row->status) === 'BOOKING' ? 'selected' : '' }}>BOOKING</option>
                                                 </select>
 
                                                 <label for="">UPDATE TANGGAL (JIKA BAYAR) :</label>
@@ -202,6 +224,66 @@
         <script src="assets/js/ready.min.js"></script>
 
         <script>
+            function syncNocanDivision(form, resetOutlet) {
+                const division = form.querySelector('.division-select');
+                const outlet = form.querySelector('.outlet-input');
+                const help = form.querySelector('.outlet-help');
+                if (!division || !outlet) return;
+
+                if (division.value === 'karyawan') {
+                    outlet.value = '1';
+                    outlet.readOnly = true;
+                    help.textContent = 'ID otomatis 1 untuk Karyawan.';
+                } else if (division.value === 'ds') {
+                    outlet.value = '123';
+                    outlet.readOnly = true;
+                    help.textContent = 'ID otomatis 123 untuk DS.';
+                } else {
+                    if (resetOutlet && ['1', '123'].includes(outlet.value)) outlet.value = '';
+                    outlet.readOnly = false;
+                    help.textContent = 'Masukkan ID outlet. ID 1 dan 123 tidak dapat digunakan.';
+                }
+            }
+
+            function warnReservedOutlet(outlet) {
+                const message = outlet === '1'
+                    ? 'ID 1 khusus untuk divisi Karyawan.'
+                    : 'ID 123 khusus untuk divisi DS.';
+
+                if (typeof swal === 'function') {
+                    swal('ID Outlet tidak valid', message, 'warning');
+                } else {
+                    alert(message);
+                }
+            }
+
+            document.querySelectorAll('.nocan-edit-form').forEach(function(form) {
+                syncNocanDivision(form, false);
+
+                form.querySelector('.division-select')?.addEventListener('change', function() {
+                    syncNocanDivision(form, true);
+                });
+
+                form.querySelector('.outlet-input')?.addEventListener('change', function() {
+                    const division = form.querySelector('.division-select')?.value;
+                    if (division !== 'outlet' || !['1', '123'].includes(this.value.trim())) return;
+
+                    const reservedOutlet = this.value.trim();
+                    this.value = '';
+                    warnReservedOutlet(reservedOutlet);
+                    this.focus();
+                });
+
+                form.addEventListener('submit', function(event) {
+                    const division = form.querySelector('.division-select')?.value;
+                    const outlet = form.querySelector('.outlet-input')?.value.trim();
+                    if (division !== 'outlet' || !['1', '123'].includes(outlet)) return;
+
+                    event.preventDefault();
+                    warnReservedOutlet(outlet);
+                });
+            });
+
             // Add Row
             $("#add-row").DataTable({
                 pageLength: 10,
