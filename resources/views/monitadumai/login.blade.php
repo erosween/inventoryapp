@@ -300,15 +300,15 @@
                     <strong>Leader</strong>
                 </div>
                 <div class="metric">
-                    <small>Search</small>
-                    <strong>Public</strong>
+                    <small>Menu</small>
+                    <strong>2 Modul</strong>
                 </div>
             </div>
         </section>
 
         <section class="login-panel">
             <h2>Login Monita</h2>
-            <p>Masukkan kode akses khusus leader untuk membuka analisa wilayah. Pencarian outlet tetap bisa dipakai tanpa login.</p>
+            <p>Masukkan kode akses khusus leader untuk membuka Dashboard Leader dan Peta Outlet.</p>
 
             @if(session('error'))
                 <div class="alert error">{{ session('error') }}</div>
@@ -330,7 +330,7 @@
                 </button>
                 <a href="{{ url('/monitadumai') }}" class="back-link">
                     <i class="fas fa-magnifying-glass"></i>
-                    Kembali ke Search Outlet
+                    Kembali ke Monita
                 </a>
             </form>
         </section>

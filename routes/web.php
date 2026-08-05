@@ -57,9 +57,9 @@ Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan.jual');
 Route::get('/search', [searchController::class, 'search'])->name('search');
 
 //monita dumai
-Route::get('/monitadumai', [MonitaDumaiController::class, 'index']);
-Route::get('/monitadumai/leader-login', [MonitaDumaiController::class, 'showLeaderLogin'])->name('monita.leader.login');
-Route::post('/monitadumai/leader-login', [MonitaDumaiController::class, 'leaderLogin'])->name('monita.leader.login.post');
+Route::get('/monitadumai', [MonitaDumaiController::class, 'index'])->name('monita.index');
+Route::post('/monitadumai', [MonitaDumaiController::class, 'leaderLogin'])->name('monita.leader.login.post');
+Route::get('/monitadumai/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
 Route::get('/monitadumai/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('monita.leader.logout');
 Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
 Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);

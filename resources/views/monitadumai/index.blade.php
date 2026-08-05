@@ -1172,6 +1172,76 @@
             white-space: nowrap;
         }
 
+        .leader-inline-login {
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) auto;
+            gap: 8px;
+            min-width: 360px;
+        }
+
+        .leader-inline-login input {
+            min-width: 0;
+            padding: 11px 13px;
+            border: 1px solid #dfe3e8;
+            border-radius: 12px;
+            outline: none;
+            font-size: 13px;
+        }
+
+        .leader-inline-login input:focus {
+            border-color: #d10000;
+            box-shadow: 0 0 0 3px rgba(209, 0, 0, 0.09);
+        }
+
+        .leader-inline-login .leader-login-btn {
+            border: 0;
+            cursor: pointer;
+        }
+
+        .leader-login-feedback {
+            grid-column: 1 / -1;
+            color: #d10000;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .dashboard-menu {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+            padding: 7px;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(31, 45, 61, 0.08);
+        }
+
+        .dashboard-menu-button {
+            padding: 12px 16px;
+            border: 0;
+            border-radius: 12px;
+            background: transparent;
+            color: #657180;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .dashboard-menu-button.active {
+            background: linear-gradient(135deg, #d10000, #f43f3f);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(209, 0, 0, 0.22);
+        }
+
+        .dashboard-panel {
+            display: none;
+        }
+
+        .dashboard-panel.active {
+            display: block;
+        }
+
         /* SEARCH BOX */
         .search-box {
             display: flex;
@@ -1665,7 +1735,8 @@
             font-weight: 800;
         }
 
-        .map-fullscreen-button {
+        .map-fullscreen-button,
+        .map-locate-button {
             width: 36px;
             height: 36px;
             display: grid;
@@ -1677,6 +1748,61 @@
             font-size: 16px;
             cursor: pointer;
             box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+        }
+
+        .map-locate-button {
+            color: #0d6efd;
+        }
+
+        .outlet-distance {
+            margin-top: 7px;
+            padding: 6px 8px;
+            border-radius: 7px;
+            background: #eef5ff;
+            color: #0d6efd;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .outlet-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .outlet-metric {
+            padding: 6px 4px;
+            border-radius: 7px;
+            background: #f6f7f9;
+            color: #202b3c;
+            text-align: center;
+        }
+
+        .outlet-metric small {
+            display: block;
+            margin-bottom: 2px;
+            color: #78808c;
+            font-size: 9px;
+            font-weight: 800;
+        }
+
+        .outlet-metric strong {
+            font-size: 13px;
+        }
+
+        .outlet-navigation-link {
+            display: block;
+            margin-top: 6px;
+            padding: 7px 12px;
+            border-radius: 6px;
+            background: #28a745;
+            color: #fff !important;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            text-decoration: none;
         }
 
         .empty-state {
@@ -1898,6 +2024,13 @@
 
             .leader-login-btn {
                 grid-column: 1 / -1;
+                width: 100%;
+            }
+
+            .leader-inline-login {
+                grid-column: 1 / -1;
+                grid-template-columns: 1fr;
+                min-width: 0;
                 width: 100%;
             }
 
@@ -2173,6 +2306,16 @@
         @endphp
 
         @if ($showLeaderDashboard)
+            <nav class="dashboard-menu" aria-label="Menu dashboard Monita">
+                <button type="button" class="dashboard-menu-button active" data-dashboard-tab="leader">
+                    <i class="fas fa-chart-line"></i> Dashboard Leader
+                </button>
+                <button type="button" class="dashboard-menu-button" data-dashboard-tab="outlet">
+                    <i class="fas fa-map-location-dot"></i> Peta Outlet
+                </button>
+            </nav>
+
+            <div class="dashboard-panel active" id="dashboard-panel-leader">
             <section class="leader-dashboard">
                 <div class="leader-top">
                     <div class="leader-intro">
@@ -2447,21 +2590,9 @@
                     </div>
                 </div>
             </section>
-        @else
-            <section class="leader-lock">
-                <div class="leader-lock-icon">
-                    <i class="fas fa-lock"></i>
-                </div>
-                <div>
-                    <h2>Dashboard leader terkunci</h2>
-                    <p>Search outlet tetap aktif untuk Telegram. Analisa wilayah, peta performa, dan call to action
-                        hanya tampil setelah login internal.</p>
-                </div>
-                <a href="{{ route('monita.leader.login') }}" class="leader-login-btn">
-                    <i class="fas fa-right-to-bracket"></i> Login Dashboard
-                </a>
-            </section>
-        @endif
+            </div>
+
+            <div class="dashboard-panel" id="dashboard-panel-outlet">
 
         <h2 class="search-panel-title">Cari dan bedah outlet</h2>
         <!-- Search Box -->
@@ -2520,6 +2651,31 @@
                 </table>
             </div>
         </div>
+            </div>
+        @else
+            <section class="leader-lock">
+                <div class="leader-lock-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div>
+                    <h2>Dashboard Monita terkunci</h2>
+                    <p>Dashboard leader dan data outlet hanya dapat diakses setelah login internal.</p>
+                </div>
+                <form class="leader-inline-login" action="{{ route('monita.leader.login.post') }}" method="POST">
+                    @csrf
+                    <input type="password" name="access_code" aria-label="Kode akses dashboard"
+                        placeholder="Masukkan kode akses" autocomplete="current-password" required>
+                    <button type="submit" class="leader-login-btn">
+                        <i class="fas fa-right-to-bracket"></i> Login Dashboard
+                    </button>
+                    @if (session('error'))
+                        <div class="leader-login-feedback">{{ session('error') }}</div>
+                    @elseif ($errors->has('access_code'))
+                        <div class="leader-login-feedback">{{ $errors->first('access_code') }}</div>
+                    @endif
+                </form>
+            </section>
+        @endif
     </main>
 
     <div class="fab" id="fab-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
@@ -2575,6 +2731,7 @@
         let selectedOutletMarker = null;
         let pendingOutletFocus = null;
         let userLocationMarker = null;
+        let userLocationLatLng = null;
         let history = JSON.parse(localStorage.getItem('monita_history') || '[]');
         let selectedIndex = -1;
         const leaderAreas = @json($showLeaderDashboard ? $areas : []);
@@ -3639,6 +3796,34 @@
             });
         }
 
+        function bindDashboardMenu() {
+            const buttons = document.querySelectorAll('[data-dashboard-tab]');
+            if (!buttons.length) return;
+
+            buttons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const tab = button.dataset.dashboardTab;
+
+                    buttons.forEach((item) => {
+                        const active = item === button;
+                        item.classList.toggle('active', active);
+                        item.setAttribute('aria-selected', active ? 'true' : 'false');
+                    });
+
+                    document.querySelectorAll('.dashboard-panel').forEach((panel) => {
+                        panel.classList.toggle('active', panel.id === `dashboard-panel-${tab}`);
+                    });
+
+                    if (tab === 'outlet') {
+                        if (!map) loadAllOutlets();
+                        else setTimeout(() => map.invalidateSize(), 100);
+                    } else if (leaderMap) {
+                        setTimeout(() => leaderMap.invalidateSize(), 100);
+                    }
+                });
+            });
+        }
+
         window.addEventListener('load', () => {
             bindLeaderThresholds();
             initLeaderMap();
@@ -3646,7 +3831,7 @@
             bindFbShareToggles();
             bindLeaderMapZoom();
             bindActiveTableViewToggles();
-            loadAllOutlets();
+            bindDashboardMenu();
         });
 
         function handleKeyUp(e) {
@@ -3990,13 +4175,45 @@
 
             const marker = L.marker([lat, lon], {
                 icon: createOutletIcon()
-            }).addTo(map).bindPopup(
-                `<b>${outlet.nama_outlet}</b><br>${outlet.id_outlet} • ${outlet.tap}<br><button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>`
-            );
+            }).addTo(map);
+
+            marker.outletData = outlet;
+            marker.bindPopup(() => buildOutletPopup(outlet, marker.getLatLng()));
 
             markers.push(marker);
             outletMarkers.set(outletId, marker);
             return marker;
+        }
+
+        function buildOutletPopup(outlet, outletLatLng) {
+            const destination = `${outletLatLng.lat},${outletLatLng.lng}`;
+            const cvm = Number(outlet.m_cvm || 0).toLocaleString('id-ID');
+            const sa = Number(outlet.m_stsa || 0).toLocaleString('id-ID');
+            const pv = Number(outlet.m_stpv || 0).toLocaleString('id-ID');
+            let distanceHtml = '<div class="outlet-distance"><i class="fas fa-location-crosshairs"></i> Aktifkan lokasi untuk melihat jarak</div>';
+
+            if (userLocationLatLng) {
+                const distanceMeters = userLocationLatLng.distanceTo(outletLatLng);
+                const distanceLabel = distanceMeters < 1000
+                    ? `${Math.round(distanceMeters)} m`
+                    : `${(distanceMeters / 1000).toFixed(2)} km`;
+                distanceHtml = `<div class="outlet-distance"><i class="fas fa-route"></i> Jarak dari kamu: ${distanceLabel}</div>`;
+            }
+
+            return `
+                <b>${outlet.nama_outlet}</b><br>
+                ${outlet.id_outlet} • ${outlet.tap}
+                <div class="outlet-metrics">
+                    <div class="outlet-metric"><small>CVM TRX</small><strong>${cvm}</strong></div>
+                    <div class="outlet-metric"><small>ST SA</small><strong>${sa}</strong></div>
+                    <div class="outlet-metric"><small>ST PV</small><strong>${pv}</strong></div>
+                </div>
+                ${distanceHtml}
+                <a class="outlet-navigation-link" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-diamond-turn-right"></i> Go to Outlet
+                </a>
+                <button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>
+            `;
         }
 
         function focusOutletOnMap(outlet) {
@@ -4033,20 +4250,57 @@
             pendingOutletFocus = null;
         }
 
-        function showUserLocation() {
-            if (!navigator.geolocation) return;
+        function showUserLocation(focusAfter = false) {
+            if (!navigator.geolocation) {
+                if (focusAfter) alert('GPS tidak tersedia di browser ini.');
+                return;
+            }
+
+            const locateIcon = document.querySelector('.map-locate-button i');
+            if (focusAfter && locateIcon) locateIcon.className = 'fas fa-circle-notch fa-spin';
 
             navigator.geolocation.getCurrentPosition((position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
+                userLocationLatLng = L.latLng(lat, lon);
 
-                userLocationMarker = L.circleMarker([lat, lon], {
-                    radius: 10,
-                    color: '#fff',
-                    weight: 3,
-                    fillColor: '#0d6efd',
-                    fillOpacity: 1
-                }).addTo(map).bindPopup('<b>Posisi kamu</b>');
+                if (userLocationMarker) {
+                    userLocationMarker.setLatLng(userLocationLatLng);
+                } else {
+                    userLocationMarker = L.circleMarker(userLocationLatLng, {
+                        radius: 10,
+                        color: '#fff',
+                        weight: 3,
+                        fillColor: '#0d6efd',
+                        fillOpacity: 1
+                    }).addTo(map);
+                }
+
+                userLocationMarker.bindPopup(
+                    `<b><i class="fas fa-location-dot"></i> Posisi kamu</b><br><small>Akurasi ±${Math.round(position.coords.accuracy)} meter</small>`
+                );
+
+                if (selectedOutletMarker?.outletData) {
+                    selectedOutletMarker.setPopupContent(
+                        buildOutletPopup(selectedOutletMarker.outletData, selectedOutletMarker.getLatLng())
+                    );
+                }
+
+                if (focusAfter) {
+                    map.setView(userLocationLatLng, 17, { animate: true });
+                    userLocationMarker.openPopup();
+                }
+
+                if (locateIcon) locateIcon.className = 'fas fa-location-crosshairs';
+            }, (error) => {
+                if (locateIcon) locateIcon.className = 'fas fa-location-crosshairs';
+                if (focusAfter) {
+                    alert(`Lokasi tidak dapat diakses: ${error.message}`);
+                }
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 30000
             });
         }
 
@@ -4065,7 +4319,22 @@
                 }
             });
 
+            const LocateControl = L.Control.extend({
+                options: { position: 'topright' },
+                onAdd() {
+                    const button = L.DomUtil.create('button', 'map-locate-button');
+                    button.type = 'button';
+                    button.title = 'Tampilkan posisi saya';
+                    button.setAttribute('aria-label', 'Tampilkan posisi saya');
+                    button.innerHTML = '<i class="fas fa-location-crosshairs"></i>';
+                    L.DomEvent.disableClickPropagation(button);
+                    L.DomEvent.on(button, 'click', () => showUserLocation(true));
+                    return button;
+                }
+            });
+
             map.addControl(new FullscreenControl());
+            map.addControl(new LocateControl());
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape' && document.getElementById('map').classList.contains('map-fullscreen-active')) {
                     toggleMapFullscreen();

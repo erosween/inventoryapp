@@ -17,11 +17,7 @@ class MonitaDumaiController extends Controller
 
     public function showLeaderLogin()
     {
-        if (session()->has('monita_leader_auth')) {
-            return redirect('/monitadumai');
-        }
-
-        return view('monitadumai.login');
+        return redirect('/monitadumai');
     }
 
     public function leaderLogin(Request $request)
@@ -595,6 +591,10 @@ class MonitaDumaiController extends Controller
 
     public function search(Request $request)
     {
+        if (!$request->session()->has('monita_leader_auth')) {
+            return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
+        }
+
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
             ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
@@ -618,6 +618,10 @@ class MonitaDumaiController extends Controller
 
     public function suggest(Request $request)
     {
+        if (!$request->session()->has('monita_leader_auth')) {
+            return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
+        }
+
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
             ->where('nama_outlet', 'like', '%' . $keyword . '%')
@@ -629,9 +633,13 @@ class MonitaDumaiController extends Controller
         return response()->json($data);
     }
 
-    public function outlets()
+    public function outlets(Request $request)
     {
-        $data = DB::table('appsdumais')
+        if (!$request->session()->has('monita_leader_auth')) {
+            return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
+        }
+
+        $outlets = DB::table('appsdumais')
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->where('latitude', '!=', '')
@@ -639,14 +647,40 @@ class MonitaDumaiController extends Controller
             ->where('sf', '!=', 'UNMAPPING')
             ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [0, 3])
             ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [100, 102.5])
-            ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
+            ->select(
+                'id_outlet',
+                'nama_outlet',
+                'sf',
+                'tap',
+                'latitude',
+                'longitude',
+                'm_cvm'
+            )
             ->get();
+
+        $performanceByOutlet = DB::table('outlet_performance')
+            ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+            ->select('id_outlet', 'total_sp_m', 'total_m')
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->id_outlet);
+
+        $data = $outlets->map(function ($outlet) use ($performanceByOutlet) {
+            $performance = $performanceByOutlet->get((string) $outlet->id_outlet);
+            $outlet->m_stsa = $performance->total_sp_m ?? 0;
+            $outlet->m_stpv = $performance->total_m ?? 0;
+
+            return $outlet;
+        });
 
         return response()->json($data);
     }
 
     public function nearby(Request $request)
     {
+        if (!$request->session()->has('monita_leader_auth')) {
+            return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
+        }
+
         $lat = $request->input('latitude');
         $long = $request->input('longitude');
         $radius = $request->input('radius', 0.3);
@@ -692,6 +726,10 @@ class MonitaDumaiController extends Controller
 
     public function performance(Request $request)
     {
+        if (!$request->session()->has('monita_leader_auth')) {
+            return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
+        }
+
         $id_outlet = $request->input('id_outlet');
         $data = DB::table('outlet_performance')
             ->where('id_outlet', $id_outlet)
