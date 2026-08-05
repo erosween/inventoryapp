@@ -12,8 +12,27 @@ class HomenocanController extends Controller
 {
     public function index(Request $request)
     {
+        $availableYears = DB::table('nocan')
+            ->where('cluster', 'DUMAI BENGKALIS')
+            ->whereNotNull('tanggal')
+            ->selectRaw('YEAR(tanggal) as year')
+            ->distinct()
+            ->orderByDesc('year')
+            ->pluck('year')
+            ->map(fn ($year) => (int) $year)
+            ->values();
 
-        $year = $request->input('tahun', date('Y'));
+        $requestedYear = (int) $request->input('tahun');
+        $year = $availableYears->contains($requestedYear)
+            ? $requestedYear
+            : ($availableYears->first() ?? (int) date('Y'));
+
+        $salesTypes = ['all', 'karyawan', 'outlet', 'ds'];
+        $salesType = strtolower((string) $request->input('jenis_jualan', 'all'));
+        if (!in_array($salesType, $salesTypes, true)) {
+            $salesType = 'all';
+        }
+
         $idtap = session('idtap');
 
             // Inisialisasi array bulan dari Juni hingga Desember
@@ -22,16 +41,39 @@ class HomenocanController extends Controller
             ];
 
             // Ambil data dari tabel nocan
-            $salesData = DB::table('nocan')
+            $salesQuery = DB::table('nocan')
                         ->select(DB::raw('tap, MONTH(tanggal) as month, SUM(CASE WHEN status = "PAID" THEN 1 ELSE 0 END) as total_sales'))
                         ->where('cluster', 'dumai bengkalis')
-                        // ->where('outlet' , "!=" ,1)
                         ->whereYear('tanggal', $year)
-                        ->where('tanggal', '>=', Carbon::create(6, 1)) // Mulai dari Juni 2024
+                        ->where('tanggal', '>=', Carbon::create(2024, 6, 1));
+
+            if ($salesType === 'karyawan') {
+                $salesQuery->where('outlet', 1);
+            } elseif ($salesType === 'ds') {
+                $salesQuery->where('outlet', 123);
+            } elseif ($salesType === 'outlet') {
+                $salesQuery
+                    ->whereNotNull('outlet')
+                    ->whereNotIn('outlet', [0, 1, 123]);
+            }
+
+            $salesData = $salesQuery
                         ->groupBy('tap', 'month')
                         ->get();
 
+                $allTaps = DB::table('nocan')
+                    ->where('cluster', 'DUMAI BENGKALIS')
+                    ->whereNotNull('tap')
+                    ->where('tap', '!=', '')
+                    ->distinct()
+                    ->orderBy('tap')
+                    ->pluck('tap');
+
                 $result = [];
+                foreach ($allTaps as $tap) {
+                    $result[$tap] = array_fill_keys(array_keys($months), 0);
+                }
+
                 $totalFooter = array_fill_keys(array_keys($months), 0); // Inisialisasi total footer per bulan
                 
                 foreach ($salesData as $data) {
@@ -196,7 +238,7 @@ class HomenocanController extends Controller
                 ->where('cluster', 'DUMAI BENGKALIS')
                 ->count('nomor');
                 
-            return view('/homenocan', ['months' => array_keys($months), 'result' => $result, 'totalFooter' => $totalFooter, 'grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid','grandTotalSold', 'grandTotalNomor','grandTotalKaryawan','grandTotalKaryawan','grandTotalDS',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan'));
+            return view('/homenocan', ['months' => array_keys($months), 'result' => $result, 'totalFooter' => $totalFooter, 'grandTotals' => (object) $grandTotals, 'datas' => $datas, 'sold' => $sold, 'booking' => $booking, 'ready' => $ready, 'paid' => $paid], compact('idtap','datadetail', 'data', 'grandTotalBooking','grandTotalPaid','grandTotalSold', 'grandTotalNomor','grandTotalKaryawan','grandTotalKaryawan','grandTotalDS',  'dataSF', 'grandTotalBookingsf', 'grandTotalSoldsf', 'grandTotalPaidsf','grandTotalPenjualan', 'availableYears', 'year', 'salesType'));
         } 
     
 

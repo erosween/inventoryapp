@@ -130,21 +130,29 @@
                                         <h4 class="card-title">PENJUALAN BULANAN</h4>
                                     </div>
                                     <div class="d-flex align-items-center">
-                                        <form action="#" method="GET">
-                                            <label for="tahun" class="mt-2">Filter Tahun:</label>
-                                            <select name="tahun" id="tahun" class="form-control">
-                                                <option value="">--Pilih Tahun--</option>
-                                                <?php
-                                                $selectedYear = request('tahun'); // Mendapatkan tahun yang dipilih
-                                                $years = [2024, 2025]; // Daftar tahun yang tersedia
-                                                ?>
-                                                @foreach ($years as $year)
-                                                    <option value="{{ $year }}"
-                                                        {{ $selectedYear == $year ? 'selected' : '' }}>{{ $year }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <button type="submit" class="btn btn-primary mt-2">Filter</button>
+                                        <form action="{{ url('/homenocan') }}" method="GET" class="d-flex flex-wrap align-items-end" style="gap: 12px;">
+                                            <div>
+                                                <label for="tahun" class="mb-1">Tahun:</label>
+                                                <select name="tahun" id="tahun" class="form-control" onchange="this.form.submit()">
+                                                    @foreach ($availableYears as $availableYear)
+                                                        <option value="{{ $availableYear }}" {{ $year === $availableYear ? 'selected' : '' }}>
+                                                            {{ $availableYear }}
+                                                        </option>
+                                                    @endforeach
+                                                    @if ($availableYears->isEmpty())
+                                                        <option value="{{ $year }}" selected>{{ $year }}</option>
+                                                    @endif
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label for="jenis_jualan" class="mb-1">Jualan:</label>
+                                                <select name="jenis_jualan" id="jenis_jualan" class="form-control" onchange="this.form.submit()">
+                                                    <option value="all" {{ $salesType === 'all' ? 'selected' : '' }}>ALL</option>
+                                                    <option value="karyawan" {{ $salesType === 'karyawan' ? 'selected' : '' }}>Karyawan</option>
+                                                    <option value="outlet" {{ $salesType === 'outlet' ? 'selected' : '' }}>Outlet</option>
+                                                    <option value="ds" {{ $salesType === 'ds' ? 'selected' : '' }}>DS</option>
+                                                </select>
+                                            </div>
                                         </form>
                                     </div>
 
