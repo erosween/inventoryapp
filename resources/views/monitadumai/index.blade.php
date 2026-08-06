@@ -1679,6 +1679,174 @@
             z-index: 99999;
         }
 
+        .map-outlet-detail-panel {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            bottom: 18px;
+            width: min(560px, calc(100vw - 36px));
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(209, 0, 0, 0.12);
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 18px 55px rgba(18, 28, 45, 0.28);
+            z-index: 1200;
+        }
+
+        .map-outlet-detail-panel.is-open { display: flex; }
+
+        .map-detail-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 18px 20px;
+            border-bottom: 1px solid #edf0f3;
+            background: linear-gradient(135deg, #fff 0%, #fff6f6 100%);
+        }
+
+        .map-detail-header h3 {
+            margin: 0 0 4px;
+            color: #202b3c;
+            font-size: 18px;
+            line-height: 1.25;
+        }
+
+        .map-detail-header p {
+            margin: 0;
+            color: #7a8492;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .map-detail-close {
+            flex: 0 0 36px;
+            width: 36px;
+            height: 36px;
+            border: 0;
+            border-radius: 10px;
+            background: #fff;
+            color: #d10000;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(18, 28, 45, 0.1);
+        }
+
+        .map-detail-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 16px;
+            overscroll-behavior: contain;
+        }
+
+        .map-detail-profile {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .map-detail-profile-item {
+            min-width: 0;
+            padding: 10px;
+            border-radius: 11px;
+            background: #f7f8fa;
+        }
+
+        .map-detail-profile-item small {
+            display: block;
+            margin-bottom: 3px;
+            color: #8a929e;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .map-detail-profile-item strong {
+            display: block;
+            overflow: hidden;
+            color: #263244;
+            font-size: 12px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .map-detail-table-title {
+            margin: 2px 0 10px;
+            color: #d10000;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .map-detail-table-wrap {
+            overflow-x: auto;
+            border: 1px solid #edf0f3;
+            border-radius: 12px;
+        }
+
+        .map-detail-table {
+            width: 100%;
+            min-width: 520px;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        .map-detail-table th,
+        .map-detail-table td {
+            padding: 11px 9px;
+            border-bottom: 1px solid #f0f2f4;
+            font-size: 11px;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .map-detail-table th {
+            background: #f8f9fa;
+            color: #7b8490;
+            font-size: 9px;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+        }
+
+        .map-detail-table th:first-child,
+        .map-detail-table td:first-child {
+            color: #d10000;
+            font-weight: 800;
+            text-align: left;
+        }
+
+        .map-detail-table tbody tr:last-child td { border-bottom: 0; }
+
+        .map-detail-loading,
+        .map-detail-error {
+            padding: 50px 20px;
+            color: #7a8492;
+            text-align: center;
+        }
+
+        .map-detail-error { color: #d10000; }
+
+        @media (max-width: 767px) {
+            .map-outlet-detail-panel {
+                top: auto;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                max-height: 64dvh;
+                border-right: 0;
+                border-bottom: 0;
+                border-left: 0;
+                border-radius: 20px 20px 0 0;
+            }
+
+            .map-detail-header { padding: 14px 16px; }
+            .map-detail-body { padding: 12px; }
+        }
+
         .outlet-marker-icon {
             background: transparent;
             border: 0;
@@ -4212,8 +4380,141 @@
                 <a class="outlet-navigation-link" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-diamond-turn-right"></i> Go to Outlet
                 </a>
-                <button onclick="selectFromMap('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>
+                <button onclick="openMapOutletDetail('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>
             `;
+        }
+
+        function escapeMapDetailHtml(value) {
+            return String(value ?? '-')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function ensureMapOutletDetailPanel() {
+            let panel = document.getElementById('map-outlet-detail-panel');
+            if (panel) return panel;
+
+            panel = document.createElement('aside');
+            panel.id = 'map-outlet-detail-panel';
+            panel.className = 'map-outlet-detail-panel';
+            panel.setAttribute('aria-live', 'polite');
+            panel.innerHTML =
+                '<div class="map-detail-header">' +
+                    '<div><h3 id="map-detail-title">Detail Outlet</h3>' +
+                    '<p id="map-detail-subtitle">Rincian parameter outlet</p></div>' +
+                    '<button type="button" class="map-detail-close" onclick="closeMapOutletDetail()" aria-label="Tutup detail outlet">' +
+                        '<i class="fas fa-times"></i>' +
+                    '</button>' +
+                '</div>' +
+                '<div class="map-detail-body" id="map-detail-body"></div>';
+            map.getContainer().appendChild(panel);
+            L.DomEvent.disableClickPropagation(panel);
+            L.DomEvent.disableScrollPropagation(panel);
+            return panel;
+        }
+
+        function closeMapOutletDetail() {
+            document.getElementById('map-outlet-detail-panel')?.classList.remove('is-open');
+        }
+
+        function mapDetailDate(dateStr) {
+            if (!dateStr || dateStr === '-') return '-';
+            const date = new Date(dateStr);
+            if (Number.isNaN(date.getTime())) return escapeMapDetailHtml(dateStr);
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            return date.getDate() + '-' + months[date.getMonth()];
+        }
+
+        function mapDetailMom(value) {
+            const raw = String(value ?? '0').replace('%', '');
+            const numeric = Number.parseFloat(raw) || 0;
+            const cssClass = numeric > 0 ? 'mom-positive' : (numeric < 0 ? 'mom-negative' : 'mom-neutral');
+            const icon = numeric > 0 ? '↑' : (numeric < 0 ? '↓' : '−');
+            const label = String(value ?? '0').includes('%') ? value : String(value ?? 0) + '%';
+            return '<span class="mom-indicator ' + cssClass + '" style="padding:3px 6px; font-size:9px;">' +
+                icon + ' ' + escapeMapDetailHtml(label) + '</span>';
+        }
+
+        function renderMapOutletDetail(outlet) {
+            const parameters = [
+                ['TRX DIGIPOS', outlet.fm1_digipos, outlet.m1_digipos, outlet.m_digipos, outlet.mom_digipos, outlet.tgl_pack],
+                ['SUPER SERU', outlet.fm1_super, outlet.m1_super, outlet.m_super, outlet.mom_super, outlet.tgl_pack],
+                ['HOT PROMO', outlet.fm1_hot, outlet.m1_hot, outlet.m_hot, outlet.mom_hot, outlet.tgl_pack],
+                ['COMSAK', outlet.fm1_comsak, outlet.m1_comsak, outlet.m_comsak, outlet.mom_comsak, outlet.tgl_pack],
+                ['ST SA', outlet.fm1_stsa, outlet.m1_stsa, outlet.m_stsa, outlet.mom_stsa, outlet.tgl_sa],
+                ['ST PV', outlet.fm1_stpv, outlet.m1_stpv, outlet.m_stpv, outlet.mom_stpv, outlet.tgl_pv],
+                ['SO SA', outlet.fm1_sosa, outlet.m1_sosa, outlet.m_sosa, outlet.mom_sosa, outlet.tgl_sa],
+                ['SO PV', outlet.fm1_sopv, outlet.m1_sopv, outlet.m_sopv, outlet.mom_sopv, outlet.tgl_pv]
+            ];
+            const number = value => Number(value || 0).toLocaleString('id-ID');
+            const rows = parameters.map(parameter =>
+                '<tr>' +
+                    '<td>' + escapeMapDetailHtml(parameter[0]) + '</td>' +
+                    '<td>' + number(parameter[1]) + '</td>' +
+                    '<td>' + number(parameter[2]) + '</td>' +
+                    '<td>' + number(parameter[3]) + '</td>' +
+                    '<td>' + mapDetailMom(parameter[4]) + '</td>' +
+                    '<td>' + mapDetailDate(parameter[5]) + '</td>' +
+                '</tr>'
+            ).join('');
+            const outletId = escapeMapDetailHtml(outlet.id_outlet);
+            const outletSf = escapeMapDetailHtml(outlet.sf);
+            const outletTap = escapeMapDetailHtml(outlet.tap);
+
+            document.getElementById('map-detail-title').textContent = outlet.nama_outlet || 'Detail Outlet';
+            document.getElementById('map-detail-subtitle').textContent =
+                (outlet.id_outlet || '-') + ' • ' + (outlet.tap || '-');
+            document.getElementById('map-detail-body').innerHTML =
+                '<div class="map-detail-profile">' +
+                    '<div class="map-detail-profile-item"><small>ID Outlet</small><strong title="' + outletId + '">' + outletId + '</strong></div>' +
+                    '<div class="map-detail-profile-item"><small>Sales Force</small><strong title="' + outletSf + '">' + outletSf + '</strong></div>' +
+                    '<div class="map-detail-profile-item"><small>TAP</small><strong title="' + outletTap + '">' + outletTap + '</strong></div>' +
+                '</div>' +
+                '<div class="map-detail-table-title">Rincian Parameter</div>' +
+                '<div class="map-detail-table-wrap">' +
+                    '<table class="map-detail-table">' +
+                        '<thead><tr><th>Parameter</th><th>FM-1</th><th>M-1</th><th>MTD</th><th>MoM</th><th>Update</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody>' +
+                    '</table>' +
+                '</div>';
+        }
+
+        async function openMapOutletDetail(id) {
+            const mapElement = document.getElementById('map');
+            if (!mapElement.classList.contains('map-fullscreen-active')) {
+                selectFromMap(id);
+                return;
+            }
+
+            const panel = ensureMapOutletDetailPanel();
+            panel.classList.add('is-open');
+            document.getElementById('map-detail-title').textContent = 'Memuat detail outlet...';
+            document.getElementById('map-detail-subtitle').textContent = id;
+            document.getElementById('map-detail-body').innerHTML =
+                '<div class="map-detail-loading">' +
+                    '<i class="fas fa-circle-notch fa-spin" style="font-size:24px; color:#d10000;"></i>' +
+                    '<p style="margin-top:10px;">Mengambil rincian parameter...</p>' +
+                '</div>';
+            map.closePopup();
+
+            try {
+                const response = await fetch('/monitadumai/search?keyword=' + encodeURIComponent(id));
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+                if (!Array.isArray(data) || !data.length) throw new Error('Outlet tidak ditemukan');
+
+                renderMapOutletDetail(data[0]);
+                const horizontalShift = window.innerWidth > 767 ? panel.offsetWidth / 2 : 0;
+                const verticalShift = window.innerWidth <= 767 ? panel.offsetHeight / 3 : 0;
+                map.panBy([horizontalShift, verticalShift], { animate: true });
+            } catch (error) {
+                document.getElementById('map-detail-title').textContent = 'Detail Outlet';
+                document.getElementById('map-detail-body').innerHTML =
+                    '<div class="map-detail-error">Rincian outlet gagal dimuat. Silakan coba lagi.</div>';
+            }
         }
 
         function focusOutletOnMap(outlet) {
@@ -4337,6 +4638,11 @@
             map.addControl(new LocateControl());
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape' && document.getElementById('map').classList.contains('map-fullscreen-active')) {
+                    const detailPanel = document.getElementById('map-outlet-detail-panel');
+                    if (detailPanel?.classList.contains('is-open')) {
+                        closeMapOutletDetail();
+                        return;
+                    }
                     toggleMapFullscreen();
                 }
             });
@@ -4346,6 +4652,7 @@
             const mapElement = document.getElementById('map');
             const isFullscreen = mapElement.classList.toggle('map-fullscreen-active');
             document.body.classList.toggle('map-fullscreen-open', isFullscreen);
+            if (!isFullscreen) closeMapOutletDetail();
 
             const icon = mapElement.querySelector('.map-fullscreen-button i');
             if (icon) icon.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
