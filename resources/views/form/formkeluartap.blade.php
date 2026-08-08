@@ -276,10 +276,7 @@
             selects.each(function() {
                 const select = $(this);
                 const selectedValue = select.val();
-
-                if (select.data('select2')) {
-                    select.select2('destroy');
-                }
+                const alreadyInitialized = select.hasClass('select2-hidden-accessible');
 
                 select.empty().append(new Option('Pilih / cari denom', ''));
                 bulkDenoms.forEach(denom => {
@@ -294,7 +291,11 @@
                 });
 
                 select.prop('disabled', !senderSelected);
-                initBulkDenomSelect(select);
+                if (alreadyInitialized) {
+                    select.trigger('change.select2');
+                } else {
+                    initBulkDenomSelect(select);
+                }
 
                 if (!select.val()) {
                     select.closest('tr').find('.bulk-stock').text('-');
