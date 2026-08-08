@@ -335,6 +335,9 @@
             $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
         });
         $('#input_mode').trigger('change');
+        if ($('select[name="pengirim"]').val()) {
+            $('select[name="pengirim"]').trigger('change');
+        }
     </script>
 
     <script>
