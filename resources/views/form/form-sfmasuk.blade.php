@@ -274,7 +274,7 @@
                     placeholder: 'Pilih / cari denom',
                     allowClear: true,
                     width: '100%',
-                    dropdownParent: $('#bulk-entry')
+                    dropdownParent: $(document.body)
                 });
             }
             $('#input_mode').on('change', function() {

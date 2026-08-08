@@ -178,9 +178,16 @@
             
             tapStockData = {}; // Clear cache
             $('#stok_tap_info').val('');
+            $('#add-bulk-row').prop('disabled', true);
             $('select[name="iddenom"], .bulk-denom').prop('disabled', true).val(null).trigger('change');
+            if ($('#input_mode').val() === 'bulk') {
+                $('#bulk-rows').empty();
+            }
 
-            if (!idtap) return;
+            if (!idtap) {
+                if ($('#input_mode').val() === 'bulk') addBulkRow();
+                return;
+            }
 
             // Bulk load TAP sender stock
             $.post('{{ route('ajax.get-all-stock-tap-keluar') }}', {
@@ -190,11 +197,21 @@
                 tapStockData = res || {};
                 const bulk = $('#input_mode').val() === 'bulk';
                 $('select[name="iddenom"]').prop('disabled', bulk);
-                refreshBulkDenomOptions();
+                if (bulk) {
+                    addBulkRow();
+                    $('#add-bulk-row').prop('disabled', false);
+                } else {
+                    refreshBulkDenomOptions();
+                }
                 loadTapStock();
             }).fail(() => {
                 tapStockData = {};
-                refreshBulkDenomOptions();
+                if ($('#input_mode').val() === 'bulk') {
+                    addBulkRow();
+                    $('.bulk-denom').prop('disabled', true).trigger('change.select2');
+                } else {
+                    refreshBulkDenomOptions();
+                }
                 Swal.fire({
                     icon: 'error',
                     title: 'Denom gagal dimuat',
@@ -265,7 +282,7 @@
                 placeholder: 'Pilih / cari denom',
                 allowClear: true,
                 width: '100%',
-                dropdownParent: $('#bulk-entry')
+                dropdownParent: $(document.body)
             });
         }
 
