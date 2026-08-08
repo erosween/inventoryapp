@@ -187,12 +187,19 @@
                 idtap: idtap,
                 _token: '{{ csrf_token() }}'
             }).done(res => {
-                tapStockData = res;
+                tapStockData = res || {};
                 const bulk = $('#input_mode').val() === 'bulk';
                 $('select[name="iddenom"]').prop('disabled', bulk);
-                $('.bulk-denom').prop('disabled', !bulk);
-                // Trigger refresh on denom to update display
+                refreshBulkDenomOptions();
                 loadTapStock();
+            }).fail(() => {
+                tapStockData = {};
+                refreshBulkDenomOptions();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Denom gagal dimuat',
+                    text: 'Data stok TAP pengirim tidak dapat diambil. Silakan pilih pengirim kembali.'
+                });
             });
         });
 
@@ -253,25 +260,61 @@
         const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
         let bulkIndex = 0;
 
+        function initBulkDenomSelect(select) {
+            select.select2({
+                placeholder: 'Pilih / cari denom',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#bulk-entry')
+            });
+        }
+
+        function refreshBulkDenomOptions(target) {
+            const selects = target ? $(target) : $('.bulk-denom');
+            const senderSelected = Boolean($('select[name="pengirim"]').val());
+
+            selects.each(function() {
+                const select = $(this);
+                const selectedValue = select.val();
+
+                if (select.data('select2')) {
+                    select.select2('destroy');
+                }
+
+                select.empty().append(new Option('Pilih / cari denom', ''));
+                bulkDenoms.forEach(denom => {
+                    const stock = parseInt(tapStockData[denom.id]) || 0;
+                    if (stock <= 0) return;
+                    select.append(new Option(
+                        denom.name,
+                        denom.id,
+                        false,
+                        denom.id === selectedValue
+                    ));
+                });
+
+                select.prop('disabled', !senderSelected);
+                initBulkDenomSelect(select);
+
+                if (!select.val()) {
+                    select.closest('tr').find('.bulk-stock').text('-');
+                }
+            });
+        }
+
         function addBulkRow() {
             const index = bulkIndex++;
-            const options = bulkDenoms.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
             const disabled = $('select[name="pengirim"]').val() ? '' : 'disabled';
             const row = $(`
                 <tr>
-                    <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${options}</select></td>
+                    <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option></select></td>
                     <td class="bulk-stock text-right align-middle">-</td>
                     <td><input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-qty" min="1" required></td>
                     <td><input type="text" name="items[${index}][sn]" class="form-control form-control-sm" required></td>
                     <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row">×</button></td>
                 </tr>`);
             $('#bulk-rows').append(row);
-            row.find('.bulk-denom').select2({
-                placeholder: 'Pilih / cari denom',
-                allowClear: true,
-                width: '100%',
-                dropdownParent: $('#bulk-entry')
-            });
+            refreshBulkDenomOptions(row.find('.bulk-denom'));
         }
 
         $('#input_mode').on('change', function() {
