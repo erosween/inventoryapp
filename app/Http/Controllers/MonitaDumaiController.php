@@ -33,7 +33,7 @@ class MonitaDumaiController extends Controller
             'access_code.required' => 'Kode akses wajib diisi.',
         ]);
 
-        $expectedCode = (string) env('MSP123', 'msp123');
+        $expectedCode = (string) env('MONITA_ACCESS_KEY', 'msp123');
 
         if (!hash_equals($expectedCode, (string) $request->input('access_code'))) {
             return back()
@@ -130,6 +130,7 @@ class MonitaDumaiController extends Controller
         $hotOutletCount = collect($outletPoints)->where('status', 'hot')->count();
         $coldOutletCount = collect($outletPoints)->where('status', 'cold')->count();
         $unmappedOutletCount = collect($outletPoints)->where('status', 'unmapped')->count();
+        $pvMonitoring = $this->buildPvMonitoring();
 
         return [
             'summary' => [
@@ -158,6 +159,114 @@ class MonitaDumaiController extends Controller
             'coveragePoints' => $coveragePoints,
             'competitionPoints' => $competitionPoints,
             'monitoringUpdateDate' => $monitoringUpdateDate,
+            'pvMonitoring' => $pvMonitoring,
+        ];
+    }
+
+    private function buildPvMonitoring(): array
+    {
+        $now = now();
+        $mtdStart = $now->copy()->startOfMonth();
+        $mtdEnd = $now->copy()->endOfDay();
+        $m1Start = $now->copy()->subMonthNoOverflow()->startOfMonth();
+        $m1End = $m1Start->copy()->addDays(min($now->day, $m1Start->daysInMonth) - 1)->endOfDay();
+
+        $rows = DB::table('keluarsf as k')
+            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->join('idsf as s', 's.idsf', '=', 'k.idsf')
+            ->whereBetween('k.tgl', [$m1Start->toDateTimeString(), $mtdEnd->toDateTimeString()])
+            ->whereIn(DB::raw("UPPER(COALESCE(d.kategori_inject, 'SEGEL'))"), ['SEGEL', 'BYU'])
+            ->whereNotNull('d.group_name')
+            ->select('k.idtap', 'k.idsf', 's.namasf', 'd.group_name')
+            ->selectRaw("CASE WHEN UPPER(COALESCE(d.kategori_inject, 'SEGEL')) = 'BYU' THEN 'byu' ELSE 'reguler' END as category")
+            ->selectRaw('SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) as m1', [$m1Start, $m1End])
+            ->selectRaw('SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) as mtd', [$mtdStart, $mtdEnd])
+            ->groupBy('k.idtap', 'k.idsf', 's.namasf', 'd.group_name', 'category')
+            ->get();
+
+        $validities = $rows->pluck('group_name')->unique()->sortBy(function ($validity) {
+            preg_match('/\d+/', (string) $validity, $match);
+            return (int) ($match[0] ?? 9999);
+        })->values();
+
+        $sfDistrictMap = DB::table('appsdumais')
+            ->whereNotNull('sf')->whereNotNull('kecamatan')
+            ->where('sf', '!=', '')->where('kecamatan', '!=', '')
+            ->select('tap', 'sf', 'kecamatan', DB::raw('COUNT(*) as total'))
+            ->groupBy('tap', 'sf', 'kecamatan')
+            ->get()
+            ->groupBy(fn ($item) => strtoupper(trim($item->tap)) . '|' . strtoupper(trim($item->sf)))
+            ->map(fn ($items) => $items->sortByDesc('total')->first()->kecamatan);
+
+        $makeValues = function ($items) use ($validities) {
+            $values = [];
+            foreach (['all', 'reguler', 'byu'] as $category) {
+                foreach ($validities as $validity) {
+                    $matching = $items->where('group_name', $validity);
+                    if ($category !== 'all') $matching = $matching->where('category', $category);
+                    $m1 = (int) $matching->sum('m1');
+                    $mtd = (int) $matching->sum('mtd');
+                    $values[$category][$validity] = [
+                        'm1' => $m1,
+                        'mtd' => $mtd,
+                        'mom' => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0),
+                    ];
+                }
+                $totalM1 = collect($values[$category])->sum('m1');
+                $totalMtd = collect($values[$category])->sum('mtd');
+                $values[$category]['grand_total'] = [
+                    'm1' => $totalM1,
+                    'mtd' => $totalMtd,
+                    'mom' => $totalM1 > 0 ? round((($totalMtd - $totalM1) / $totalM1) * 100, 1) : ($totalMtd > 0 ? 100 : 0),
+                ];
+            }
+            return $values;
+        };
+
+        $sfRows = $rows->groupBy(fn ($row) => $row->idtap . '|' . $row->idsf)->map(function ($items) use ($makeValues, $sfDistrictMap) {
+            $first = $items->first();
+            $mapKey = strtoupper(trim($first->idtap)) . '|' . strtoupper(trim($first->namasf));
+            return [
+                'dimension' => 'sf', 'name' => $first->namasf, 'tap' => $first->idtap,
+                'district' => $sfDistrictMap->get($mapKey, 'Belum termapping'),
+                'values' => $makeValues($items),
+            ];
+        })->sortBy(fn ($row) => $row['tap'] . '|' . $row['name'])->values();
+
+        $districtRows = $sfRows->groupBy(fn ($row) => $row['tap'] . '|' . $row['district'])->map(function ($items) use ($validities) {
+            $values = [];
+            foreach (['all', 'reguler', 'byu'] as $category) {
+                foreach ($validities as $validity) {
+                    $m1 = $items->sum(fn ($row) => $row['values'][$category][$validity]['m1']);
+                    $mtd = $items->sum(fn ($row) => $row['values'][$category][$validity]['mtd']);
+                    $values[$category][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0)];
+                }
+                $totalM1 = collect($values[$category])->sum('m1');
+                $totalMtd = collect($values[$category])->sum('mtd');
+                $values[$category]['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $totalM1 > 0 ? round((($totalMtd - $totalM1) / $totalM1) * 100, 1) : ($totalMtd > 0 ? 100 : 0)];
+            }
+            return ['dimension' => 'kecamatan', 'name' => $items->first()['district'], 'tap' => $items->first()['tap'], 'values' => $values];
+        })->sortBy(fn ($row) => $row['tap'] . '|' . $row['name'])->values();
+
+        $tapRows = $sfRows->groupBy('tap')->map(function ($items, $tap) use ($validities) {
+            $values = [];
+            foreach (['all', 'reguler', 'byu'] as $category) {
+                foreach ($validities as $validity) {
+                    $m1 = $items->sum(fn ($row) => $row['values'][$category][$validity]['m1']);
+                    $mtd = $items->sum(fn ($row) => $row['values'][$category][$validity]['mtd']);
+                    $values[$category][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0)];
+                }
+                $totalM1 = collect($values[$category])->sum('m1');
+                $totalMtd = collect($values[$category])->sum('mtd');
+                $values[$category]['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $totalM1 > 0 ? round((($totalMtd - $totalM1) / $totalM1) * 100, 1) : ($totalMtd > 0 ? 100 : 0)];
+            }
+            return ['dimension' => 'tap', 'name' => $tap, 'tap' => $tap, 'values' => $values];
+        })->sortBy('name')->values();
+
+        return [
+            'validities' => $validities->all(),
+            'rows' => $sfRows->concat($districtRows)->concat($tapRows)->values()->all(),
+            'period' => ['m1' => $m1Start->format('d M') . '–' . $m1End->format('d M Y'), 'mtd' => $mtdStart->format('d M') . '–' . $mtdEnd->format('d M Y')],
         ];
     }
 

@@ -286,8 +286,8 @@
             </div>
 
             <div class="hero-copy">
-                <h1>Command center outlet Dumai, Rohil, Bengkalis.</h1>
-                <p>Dashboard internal untuk membaca performa wilayah, menemukan outlet prioritas, dan menyusun call to action leader tanpa bercampur dengan sistem inventory.</p>
+                <h1>One view for every territory performance.</h1>
+                <p>Command center Monita untuk membaca tren NGRS, PV, SA, dan Digipos Package dari level Sales Force hingga Cluster.</p>
             </div>
 
             <div class="metric-row">
@@ -300,15 +300,15 @@
                     <strong>Leader</strong>
                 </div>
                 <div class="metric">
-                    <small>Menu</small>
-                    <strong>2 Modul</strong>
+                    <small>Workspace</small>
+                    <strong>5 Modul</strong>
                 </div>
             </div>
         </section>
 
         <section class="login-panel">
             <h2>Login Monita</h2>
-            <p>Masukkan kode akses khusus leader untuk membuka Dashboard Leader dan Peta Outlet.</p>
+            <p>Masukkan kode akses leader untuk membuka seluruh workspace performance Monita.</p>
 
             @if(session('error'))
                 <div class="alert error">{{ session('error') }}</div>

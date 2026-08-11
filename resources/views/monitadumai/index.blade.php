@@ -2436,12 +2436,173 @@
             background: #a80000;
             transform: scale(1.05);
         }
+
+        /* MONITA ENTERPRISE SHELL */
+        :root {
+            --monita-red: #0f766e;
+            --monita-ink: #101828;
+            --monita-muted: #667085;
+            --monita-line: #e4e7ec;
+            --monita-surface: #ffffff;
+            --sidebar-width: 252px;
+        }
+
+        body { background: #f4f6f8; }
+        .app-shell { min-height: 100vh; }
+        .enterprise-sidebar {
+            position: fixed; inset: 0 auto 0 0; z-index: 1500;
+            width: var(--sidebar-width); padding: 24px 16px;
+            background: #102a33; color: #fff;
+            display: flex; flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,.08);
+        }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 26px; }
+        .sidebar-logo {
+            width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center;
+            background: var(--monita-red); box-shadow: 0 9px 24px rgba(215,25,32,.3);
+        }
+        .sidebar-brand strong { display: block; font-size: 17px; letter-spacing: -.3px; }
+        .sidebar-brand small { display: block; margin-top: 3px; color: #98a2b3; font-size: 10px; letter-spacing: 1.2px; }
+        .sidebar-label { padding: 0 12px 9px; color: #667085; font-size: 10px; font-weight: 800; letter-spacing: 1.25px; }
+        .sidebar-nav { display: grid; gap: 5px; }
+        .sidebar-link {
+            width: 100%; min-height: 46px; padding: 0 13px; border: 0; border-radius: 11px;
+            display: flex; align-items: center; gap: 12px; cursor: pointer;
+            background: transparent; color: #98a2b3; font-size: 13px; font-weight: 700; text-align: left;
+        }
+        .sidebar-link i { width: 20px; text-align: center; font-size: 15px; }
+        .sidebar-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+        .sidebar-link.active { background: var(--monita-red); color: #fff; box-shadow: 0 8px 20px rgba(215,25,32,.22); }
+        .sidebar-foot { margin-top: auto; padding: 14px 8px 2px; border-top: 1px solid rgba(255,255,255,.09); }
+        .sidebar-user { display: flex; align-items: center; gap: 10px; }
+        .sidebar-avatar { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #344054; }
+        .sidebar-user strong { display: block; font-size: 12px; }
+        .sidebar-user small { color: #667085; font-size: 10px; }
+        .app-main { min-height: 100vh; margin-left: var(--sidebar-width); }
+        .header {
+            position: sticky; top: 0; z-index: 1000; min-height: 72px; padding: 0 28px;
+            justify-content: space-between; background: rgba(255,255,255,.94); color: var(--monita-ink);
+            border-bottom: 1px solid var(--monita-line); box-shadow: none; backdrop-filter: blur(14px);
+        }
+        .header-copy h1 { text-align: left; font-size: 17px; letter-spacing: -.35px; }
+        .header-copy p { margin-top: 4px; color: var(--monita-muted); font-size: 11px; }
+        .header-actions { display: flex; align-items: center; gap: 10px; }
+        .header-status { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid var(--monita-line); border-radius: 10px; color: #475467; font-size: 11px; font-weight: 700; background: #fff; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #12b76a; box-shadow: 0 0 0 3px #d1fadf; }
+        .mobile-menu { display: none; width: 38px; height: 38px; border: 1px solid var(--monita-line); border-radius: 10px; background: #fff; }
+        .container { max-width: 1600px; margin: 0 auto; padding: 26px 28px 90px; }
+        .dashboard-menu { grid-template-columns: repeat(2, max-content); justify-content: start; box-shadow: none; border: 1px solid var(--monita-line); width: max-content; }
+        .dashboard-menu-button.active { background: #101828; box-shadow: none; }
+
+        .module-page { display: grid; gap: 18px; }
+        .module-hero {
+            display: flex; justify-content: space-between; gap: 20px; align-items: flex-end;
+            padding: 26px; border: 1px solid var(--monita-line); border-radius: 18px; background: #fff;
+        }
+        .module-kicker { color: var(--monita-red); font-size: 10px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
+        .module-hero h2 { margin-top: 8px; color: var(--monita-ink); font-size: 26px; letter-spacing: -.7px; }
+        .module-hero p { max-width: 670px; margin-top: 9px; color: var(--monita-muted); font-size: 13px; line-height: 1.65; }
+        .coming-badge { white-space: nowrap; padding: 9px 12px; border-radius: 9px; background: #fff4f4; color: var(--monita-red); font-size: 11px; font-weight: 800; }
+        .analytics-toolbar { display: grid; grid-template-columns: 1.2fr repeat(3, 1fr); gap: 12px; padding: 16px; border: 1px solid var(--monita-line); border-radius: 16px; background: #fff; }
+        .filter-field label { display: block; margin-bottom: 7px; color: #667085; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; }
+        .filter-field select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; color: #344054; font: inherit; font-size: 12px; font-weight: 700; }
+        .module-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .metric-card { padding: 18px; border: 1px solid var(--monita-line); border-radius: 15px; background: #fff; }
+        .metric-card small { color: #667085; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; }
+        .metric-card strong { display: block; margin-top: 12px; color: #101828; font-size: 25px; letter-spacing: -.6px; }
+        .metric-card span { display: block; margin-top: 7px; color: #98a2b3; font-size: 10px; }
+        .placeholder-chart { min-height: 290px; padding: 20px; border: 1px solid var(--monita-line); border-radius: 16px; background: #fff; }
+        .placeholder-chart-head { display: flex; justify-content: space-between; align-items: center; }
+        .placeholder-chart h3 { font-size: 14px; color: #101828; }
+        .period-pills { display: flex; gap: 5px; }
+        .period-pills span { padding: 6px 9px; border-radius: 7px; background: #f2f4f7; color: #667085; font-size: 9px; font-weight: 800; }
+        .period-pills span.active { background: #101828; color: #fff; }
+        .chart-empty { min-height: 210px; display: grid; place-items: center; text-align: center; color: #98a2b3; }
+        .chart-empty i { display: block; margin-bottom: 12px; color: #d0d5dd; font-size: 28px; }
+        .chart-empty strong { display: block; color: #667085; font-size: 12px; }
+        .chart-empty p { margin-top: 6px; font-size: 10px; }
+        .pv-monitor-card { border: 1px solid var(--monita-line); border-radius: 16px; background: #fff; overflow: hidden; }
+        .pv-monitor-toolbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--monita-line); }
+        .pv-tabs { display: flex; gap: 5px; padding: 4px; border-radius: 10px; background: #f2f4f7; }
+        .pv-tab { min-height: 34px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: #667085; font-size: 10px; font-weight: 800; cursor: pointer; }
+        .pv-tab.active { background: #fff; color: #101828; box-shadow: 0 1px 4px rgba(16,24,40,.12); }
+        .pv-category-tab.active { background: #101828; color: #fff; }
+        .pv-period-note { color: #98a2b3; font-size: 10px; text-align: right; line-height: 1.6; }
+        .pv-table-scroll { max-height: 620px; overflow: auto; }
+        .pv-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 10px; }
+        .pv-table th, .pv-table td { height: 42px; padding: 8px 10px; border-right: 1px solid #eaecf0; border-bottom: 1px solid #eaecf0; text-align: right; white-space: nowrap; }
+        .pv-table thead th { position: sticky; top: 0; z-index: 5; background: #174653; color: #fff; font-weight: 800; text-align: center; }
+        .pv-table thead tr:nth-child(2) th { top: 42px; background: #e6f0f1; color: #31515a; font-size: 9px; }
+        .pv-table .pv-identity { position: sticky; left: 0; z-index: 4; width: 220px; min-width: 220px; max-width: 220px; background: #fff; text-align: left; }
+        .pv-table .pv-tap { position: sticky; left: 220px; z-index: 4; width: 125px; min-width: 125px; max-width: 125px; background: #fff; text-align: left; }
+        .pv-table .pv-metric-col { width: 76px; min-width: 76px; max-width: 76px; }
+        .pv-table thead .pv-identity, .pv-table thead .pv-tap { z-index: 8; background: #174653; }
+        .pv-table .pv-grand-group { background: #0f766e; }
+        .pv-table thead tr:nth-child(2) .pv-grand-col { background: #d8eeeb; color: #0f5f59; }
+        .pv-table thead tr:first-child .pv-identity,
+        .pv-table thead tr:first-child .pv-tap { border-bottom-color: transparent; }
+        .pv-table thead tr:nth-child(2) .pv-header-spacer { background: #174653; border-top: 0; }
+        .pv-table tbody .pv-grand-col { background: #f0fdfa; font-weight: 800; }
+        .pv-table .pv-contribution-group { background: #6d5bd0; }
+        .pv-table thead tr:nth-child(2) .pv-contribution-col { background: #eeeafd; color: #5143a6; }
+        .pv-table tbody .pv-contribution-col { background: #faf9ff; color: #5143a6; font-weight: 800; }
+        .pv-table tbody tr:hover td { background: #f9fafb; }
+        .pv-table tbody tr:hover .pv-identity, .pv-table tbody tr:hover .pv-tap { background: #f9fafb; }
+        .pv-name { display: block; overflow: hidden; text-overflow: ellipsis; color: #101828; font-size: 11px; font-weight: 800; }
+        .pv-sub { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; color: #98a2b3; font-size: 8px; }
+        .pv-mom { display: inline-block; min-width: 51px; padding: 4px 6px; border-radius: 6px; text-align: center; font-weight: 800; }
+        .pv-mom.up { background: #ecfdf3; color: #027a48; }
+        .pv-mom.down { background: #fef3f2; color: #b42318; }
+        .pv-mom.flat { background: #f2f4f7; color: #667085; }
+        .pv-empty-row td { padding: 42px; color: #98a2b3; text-align: center; }
+        .pv-sort { width: 100%; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .pv-sort.left { justify-content: flex-start; }
+        .pv-sort i { opacity: .45; font-size: 8px; }
+        .pv-sort.active i { opacity: 1; color: #5eead4; }
+
+        @media (max-width: 960px) {
+            .enterprise-sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+            .app-shell.sidebar-open .enterprise-sidebar { transform: translateX(0); }
+            .app-main { margin-left: 0; }
+            .mobile-menu { display: grid; place-items: center; }
+            .header { padding: 0 18px; }
+            .header-copy { flex: 1; margin-left: 12px; }
+            .container { padding: 18px 16px 80px; }
+            .analytics-toolbar, .module-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 620px) {
+            .header-status { display: none; }
+            .analytics-toolbar, .module-grid { grid-template-columns: 1fr; }
+            .module-hero { align-items: flex-start; flex-direction: column; }
+            .dashboard-menu { width: 100%; grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
 </head>
 
 <body>
+    <div class="app-shell" id="app-shell">
+    <aside class="enterprise-sidebar" aria-label="Navigasi utama Monita">
+        <div class="sidebar-brand">
+            <div class="sidebar-logo"><i class="fas fa-chart-line"></i></div>
+            <div><strong>MONITA</strong><small>PERFORMANCE HUB</small></div>
+        </div>
+        <div class="sidebar-label">WORKSPACE</div>
+        <nav class="sidebar-nav">
+            <button type="button" class="sidebar-link active" data-dashboard-tab="leader"><i class="fas fa-table-cells-large"></i><span>Dashboard</span></button>
+            <button type="button" class="sidebar-link" data-dashboard-tab="ngrs"><i class="fas fa-tower-broadcast"></i><span>NGRS</span></button>
+            <button type="button" class="sidebar-link" data-dashboard-tab="pv"><i class="fas fa-bolt"></i><span>PV</span></button>
+            <button type="button" class="sidebar-link" data-dashboard-tab="sa"><i class="fas fa-sim-card"></i><span>SA</span></button>
+            <button type="button" class="sidebar-link" data-dashboard-tab="digipos"><i class="fas fa-box-open"></i><span>DIGIPOS PACKAGE</span></button>
+        </nav>
+        <div class="sidebar-foot">
+            <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>Monita Leader</strong><small>Secure access</small></div></div>
+        </div>
+    </aside>
+    <div class="app-main">
     <header class="header">
-        <h1>Monita Dumai (Monitoring Outlet Aktif)</h1>
+        <button class="mobile-menu" type="button" aria-label="Buka menu" onclick="document.getElementById('app-shell').classList.toggle('sidebar-open')"><i class="fas fa-bars"></i></button>
+        <div class="header-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div>
+        <div class="header-actions"><div class="header-status"><span class="status-dot"></span> Data terhubung</div><a href="{{ route('monita.leader.logout') }}" class="header-status" title="Logout"><i class="fas fa-arrow-right-from-bracket"></i></a></div>
     </header>
 
     <main class="container">
@@ -2453,6 +2614,7 @@
             $leaderActions = $dashboard['leaderActions'] ?? [];
             $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
             $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
+            $pvMonitoring = $dashboard['pvMonitoring'] ?? ['validities' => [], 'rows' => [], 'period' => []];
             $coverageGroupKeys = ['dumai_bengkalis', 'rokan_hilir'];
             $coverageMetrics = [
                 ['key' => 'cvm', 'title' => 'CVM', 'color' => '#0f9d58'],
@@ -2474,10 +2636,8 @@
         @endphp
 
         @if ($showLeaderDashboard)
-            <nav class="dashboard-menu" aria-label="Menu dashboard Monita">
-                <button type="button" class="dashboard-menu-button active" data-dashboard-tab="leader">
-                    <i class="fas fa-chart-line"></i> Dashboard Leader
-                </button>
+            <nav class="dashboard-menu" aria-label="Tampilan dashboard Monita">
+                <button type="button" class="dashboard-menu-button active" data-dashboard-tab="leader"><i class="fas fa-chart-line"></i> Executive View</button>
                 <button type="button" class="dashboard-menu-button" data-dashboard-tab="outlet">
                     <i class="fas fa-map-location-dot"></i> Peta Outlet
                 </button>
@@ -2820,6 +2980,101 @@
             </div>
         </div>
             </div>
+
+            <div class="dashboard-panel" id="dashboard-panel-pv">
+                <section class="module-page">
+                    <div class="module-hero">
+                        <div><div class="module-kicker">PV Monitoring</div><h2>Physical Voucher Performance</h2><p>Perbandingan distribusi voucher dari tabel keluar SF berdasarkan validity, dengan pencapaian MTD terhadap periode setara bulan sebelumnya.</p></div>
+                        <div class="coming-badge"><i class="fas fa-circle-check"></i> Live dari keluarsf</div>
+                    </div>
+                    <div class="pv-monitor-card">
+                        <div class="pv-monitor-toolbar">
+                            <div class="pv-tabs" aria-label="Level monitoring PV">
+                                <button type="button" class="pv-tab active" data-pv-dimension="sf">SF</button>
+                                <button type="button" class="pv-tab" data-pv-dimension="kecamatan">KECAMATAN</button>
+                                <button type="button" class="pv-tab" data-pv-dimension="tap">TAP</button>
+                            </div>
+                            <div class="pv-tabs" aria-label="Kategori voucher">
+                                <button type="button" class="pv-tab pv-category-tab active" data-pv-category="all">ALL</button>
+                                <button type="button" class="pv-tab pv-category-tab" data-pv-category="reguler">REGULER</button>
+                                <button type="button" class="pv-tab pv-category-tab" data-pv-category="byu">by.U</button>
+                            </div>
+                            <div class="pv-period-note">M-1: {{ $pvMonitoring['period']['m1'] ?? '-' }}<br>MTD: {{ $pvMonitoring['period']['mtd'] ?? '-' }}</div>
+                        </div>
+                        <div class="pv-table-scroll">
+                            <table class="pv-table">
+                                <colgroup><col style="width:220px"><col style="width:125px">@foreach($pvMonitoring['validities'] as $validity)<col span="3" style="width:76px">@endforeach<col span="3" style="width:82px"><col span="{{ count($pvMonitoring['validities']) }}" style="width:88px"></colgroup>
+                                <thead>
+                                    <tr><th class="pv-identity"><button class="pv-sort left" type="button" data-pv-sort="name"><span id="pv-dimension-heading">Nama SF</span><i class="fas fa-sort"></i></button></th><th class="pv-tap"><button class="pv-sort left" type="button" data-pv-sort="tap">TAP<i class="fas fa-sort"></i></button></th>
+                                        @foreach($pvMonitoring['validities'] as $validity)<th colspan="3">VALIDITY {{ strtoupper(str_replace(' HARI', 'D', $validity)) }}</th>@endforeach
+                                        <th colspan="3" class="pv-grand-group">GRAND TOTAL</th>
+                                        <th colspan="{{ count($pvMonitoring['validities']) }}" class="pv-contribution-group">KONTRIBUSI TERHADAP TOTAL MTD</th>
+                                    </tr>
+                                    <tr><th class="pv-identity pv-header-spacer" aria-hidden="true"></th><th class="pv-tap pv-header-spacer" aria-hidden="true"></th>@foreach($pvMonitoring['validities'] as $validity)<th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>@endforeach
+                                        <th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>
+                                        @foreach($pvMonitoring['validities'] as $validity)<th class="pv-contribution-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="contribution">{{ strtoupper(str_replace(' HARI', 'D', $validity)) }}<i class="fas fa-sort"></i></button></th>@endforeach
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($pvMonitoring['rows'] as $rowIndex => $row)
+                                        <tr data-pv-row data-dimension="{{ $row['dimension'] }}" data-row-index="{{ $rowIndex }}" @if($row['dimension'] !== 'sf') hidden @endif>
+                                            <td class="pv-identity"><span class="pv-name">{{ $row['name'] }}</span>@if(!empty($row['district']))<span class="pv-sub">{{ $row['district'] }}</span>@endif</td>
+                                            <td class="pv-tap">{{ $row['dimension'] === 'tap' ? 'TOTAL TAP' : $row['tap'] }}</td>
+                                            @foreach($pvMonitoring['validities'] as $validity)
+                                                @php($metric = $row['values']['all'][$validity])
+                                                <td data-pv-metric="m1" data-validity="{{ $validity }}">{{ $fmt($metric['m1']) }}</td>
+                                                <td data-pv-metric="mtd" data-validity="{{ $validity }}">{{ $fmt($metric['mtd']) }}</td>
+                                                <td data-pv-metric="mom" data-validity="{{ $validity }}"><span class="pv-mom {{ $metric['mom'] > 0 ? 'up' : ($metric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($metric['mom'], 1, ',', '.') }}%</span></td>
+                                            @endforeach
+                                            @php($grandMetric = $row['values']['all']['grand_total'])
+                                            <td class="pv-grand-col" data-pv-metric="m1" data-validity="grand_total">{{ $fmt($grandMetric['m1']) }}</td>
+                                            <td class="pv-grand-col" data-pv-metric="mtd" data-validity="grand_total">{{ $fmt($grandMetric['mtd']) }}</td>
+                                            <td class="pv-grand-col" data-pv-metric="mom" data-validity="grand_total"><span class="pv-mom {{ $grandMetric['mom'] > 0 ? 'up' : ($grandMetric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($grandMetric['mom'], 1, ',', '.') }}%</span></td>
+                                            @foreach($pvMonitoring['validities'] as $validity)
+                                                @php($contribution = $grandMetric['mtd'] > 0 ? ($row['values']['all'][$validity]['mtd'] / $grandMetric['mtd']) * 100 : 0)
+                                                <td class="pv-contribution-col" data-pv-metric="contribution" data-validity="{{ $validity }}">{{ number_format($contribution, 1, ',', '.') }}%</td>
+                                            @endforeach
+                                        </tr>
+                                    @empty
+                                        <tr class="pv-empty-row"><td colspan="{{ 5 + count($pvMonitoring['validities']) * 4 }}">Belum ada data PV pada periode ini.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            @foreach([
+                'ngrs' => ['NGRS', 'Network Growth & Revenue Score', 'fa-tower-broadcast'],
+                'sa' => ['SA', 'Starterpack Activation', 'fa-sim-card'],
+                'digipos' => ['DIGIPOS PACKAGE', 'Digital Package Performance', 'fa-box-open'],
+            ] as $moduleKey => $module)
+                <div class="dashboard-panel" id="dashboard-panel-{{ $moduleKey }}">
+                    <section class="module-page">
+                        <div class="module-hero">
+                            <div><div class="module-kicker">Performance module</div><h2>{{ $module[0] }}</h2><p>{{ $module[1] }} untuk membaca tren, pencapaian, dan area prioritas secara daily, bulanan, hingga tahunan dari level Sales Force sampai Cluster.</p></div>
+                            <div class="coming-badge"><i class="fas fa-database"></i> Database siap dihubungkan</div>
+                        </div>
+                        <div class="analytics-toolbar">
+                            <div class="filter-field"><label>Level Analisis</label><select><option>Cluster</option><option>City</option><option>Kecamatan</option><option>TAP</option><option>Sales Force</option></select></div>
+                            <div class="filter-field"><label>Wilayah</label><select><option>Semua Wilayah</option></select></div>
+                            <div class="filter-field"><label>Periode</label><select><option>Daily</option><option selected>Bulanan</option><option>Tahunan</option></select></div>
+                            <div class="filter-field"><label>Tanggal Data</label><select><option>Periode terbaru</option></select></div>
+                        </div>
+                        <div class="module-grid">
+                            <div class="metric-card"><small>Total Performance</small><strong>—</strong><span>Menunggu sumber data {{ $module[0] }}</span></div>
+                            <div class="metric-card"><small>Achievement</small><strong>—%</strong><span>Actual dibanding target</span></div>
+                            <div class="metric-card"><small>Growth MoM</small><strong>—%</strong><span>Perubahan dari bulan lalu</span></div>
+                            <div class="metric-card"><small>Best Territory</small><strong>—</strong><span>Wilayah dengan performa terbaik</span></div>
+                        </div>
+                        <div class="placeholder-chart">
+                            <div class="placeholder-chart-head"><h3>Tren Performa {{ $module[0] }}</h3><div class="period-pills"><span>Daily</span><span class="active">Monthly</span><span>Yearly</span></div></div>
+                            <div class="chart-empty"><div><i class="fas {{ $module[2] }}"></i><strong>Area visualisasi sudah disiapkan</strong><p>Grafik akan otomatis aktif setelah database {{ $module[0] }} terhubung.</p></div></div>
+                        </div>
+                    </section>
+                </div>
+            @endforeach
         @else
             <section class="leader-lock">
                 <div class="leader-lock-icon">
@@ -2845,6 +3100,8 @@
             </section>
         @endif
     </main>
+    </div>
+    </div>
 
     <div class="fab" id="fab-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
         <i class="fas fa-arrow-up"></i>
@@ -2906,6 +3163,7 @@
         const leaderOutletPoints = @json($showLeaderDashboard ? $dashboard['outletPoints'] ?? [] : []);
         const leaderCoveragePoints = @json($showLeaderDashboard ? $dashboard['coveragePoints'] ?? [] : []);
         const leaderCompetitionPoints = @json($showLeaderDashboard ? $dashboard['competitionPoints'] ?? [] : []);
+        const pvMonitoringRows = @json($showLeaderDashboard ? $pvMonitoring['rows'] ?? [] : []);
         const leaderCompetitionBoundaryUrl = '/static/geo/monita-kecamatan-boundaries.geojson';
 
         function initLeaderMap() {
@@ -3973,7 +4231,11 @@
                     const tab = button.dataset.dashboardTab;
 
                     buttons.forEach((item) => {
-                        const active = item === button;
+                        const itemTab = item.dataset.dashboardTab;
+                        const isSidebar = item.classList.contains('sidebar-link');
+                        const active = isSidebar
+                            ? (itemTab === tab || (itemTab === 'leader' && tab === 'outlet'))
+                            : itemTab === tab;
                         item.classList.toggle('active', active);
                         item.setAttribute('aria-selected', active ? 'true' : 'false');
                     });
@@ -3988,8 +4250,105 @@
                     } else if (leaderMap) {
                         setTimeout(() => leaderMap.invalidateSize(), 100);
                     }
+
+                    document.getElementById('app-shell')?.classList.remove('sidebar-open');
                 });
             });
+        }
+
+        function bindPvMonitoring() {
+            let activeDimension = 'sf';
+            let activeCategory = 'all';
+            let sortState = { key: 'name', direction: 'asc', validity: null, metric: null };
+
+            const sortVisibleRows = () => {
+                const tbody = document.querySelector('.pv-table tbody');
+                if (!tbody) return;
+                const rows = Array.from(tbody.querySelectorAll(`[data-pv-row][data-dimension="${activeDimension}"]`));
+                rows.sort((a, b) => {
+                    const left = pvMonitoringRows[Number(a.dataset.rowIndex)];
+                    const right = pvMonitoringRows[Number(b.dataset.rowIndex)];
+                    let leftValue;
+                    let rightValue;
+                    if (sortState.key === 'metric') {
+                        if (sortState.metric === 'contribution') {
+                            const leftTotal = Number(left?.values?.[activeCategory]?.grand_total?.mtd ?? 0);
+                            const rightTotal = Number(right?.values?.[activeCategory]?.grand_total?.mtd ?? 0);
+                            leftValue = leftTotal > 0 ? Number(left?.values?.[activeCategory]?.[sortState.validity]?.mtd ?? 0) / leftTotal : 0;
+                            rightValue = rightTotal > 0 ? Number(right?.values?.[activeCategory]?.[sortState.validity]?.mtd ?? 0) / rightTotal : 0;
+                        } else {
+                            leftValue = Number(left?.values?.[activeCategory]?.[sortState.validity]?.[sortState.metric] ?? 0);
+                            rightValue = Number(right?.values?.[activeCategory]?.[sortState.validity]?.[sortState.metric] ?? 0);
+                        }
+                    } else {
+                        leftValue = String(left?.[sortState.key] ?? '').toLocaleLowerCase('id-ID');
+                        rightValue = String(right?.[sortState.key] ?? '').toLocaleLowerCase('id-ID');
+                    }
+                    const comparison = typeof leftValue === 'number'
+                        ? leftValue - rightValue
+                        : leftValue.localeCompare(rightValue, 'id-ID', { numeric: true });
+                    return sortState.direction === 'asc' ? comparison : -comparison;
+                });
+                rows.forEach((row) => tbody.appendChild(row));
+            };
+
+            const render = () => {
+                document.querySelectorAll('[data-pv-row]').forEach((row) => {
+                    row.hidden = row.dataset.dimension !== activeDimension;
+                    if (row.hidden) return;
+                    const source = pvMonitoringRows[Number(row.dataset.rowIndex)];
+                    if (!source) return;
+
+                    row.querySelectorAll('[data-pv-metric]').forEach((cell) => {
+                        const metric = cell.dataset.pvMetric;
+                        const validity = cell.dataset.validity;
+                        let value = source.values?.[activeCategory]?.[validity]?.[metric] ?? 0;
+                        if (metric === 'contribution') {
+                            const totalMtd = Number(source.values?.[activeCategory]?.grand_total?.mtd ?? 0);
+                            const validityMtd = Number(source.values?.[activeCategory]?.[validity]?.mtd ?? 0);
+                            value = totalMtd > 0 ? (validityMtd / totalMtd) * 100 : 0;
+                            cell.textContent = `${Number(value).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
+                        } else if (metric === 'mom') {
+                            const state = value > 0 ? 'up' : (value < 0 ? 'down' : 'flat');
+                            cell.innerHTML = `<span class="pv-mom ${state}">${Number(value).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</span>`;
+                        } else {
+                            cell.textContent = Number(value).toLocaleString('id-ID');
+                        }
+                    });
+                });
+                const heading = document.getElementById('pv-dimension-heading');
+                if (heading) heading.textContent = activeDimension === 'sf' ? 'Nama SF' : (activeDimension === 'kecamatan' ? 'Kecamatan' : 'TAP');
+                sortVisibleRows();
+            };
+
+            document.querySelectorAll('[data-pv-dimension]').forEach((button) => button.addEventListener('click', () => {
+                activeDimension = button.dataset.pvDimension;
+                document.querySelectorAll('[data-pv-dimension]').forEach((item) => item.classList.toggle('active', item === button));
+                render();
+            }));
+            document.querySelectorAll('[data-pv-category]').forEach((button) => button.addEventListener('click', () => {
+                activeCategory = button.dataset.pvCategory;
+                document.querySelectorAll('[data-pv-category]').forEach((item) => item.classList.toggle('active', item === button));
+                render();
+            }));
+            document.querySelectorAll('[data-pv-sort]').forEach((button) => button.addEventListener('click', () => {
+                const key = button.dataset.pvSort;
+                const isSame = sortState.key === key && sortState.validity === (button.dataset.validity || null) && sortState.metric === (button.dataset.metric || null);
+                sortState = {
+                    key,
+                    validity: button.dataset.validity || null,
+                    metric: button.dataset.metric || null,
+                    direction: isSame && sortState.direction === 'asc' ? 'desc' : 'asc'
+                };
+                document.querySelectorAll('[data-pv-sort]').forEach((item) => {
+                    const icon = item.querySelector('i');
+                    item.classList.toggle('active', item === button);
+                    if (icon) icon.className = item === button
+                        ? `fas fa-sort-${sortState.direction === 'asc' ? 'up' : 'down'}`
+                        : 'fas fa-sort';
+                });
+                sortVisibleRows();
+            }));
         }
 
         window.addEventListener('load', () => {
@@ -4000,6 +4359,7 @@
             bindLeaderMapZoom();
             bindActiveTableViewToggles();
             bindDashboardMenu();
+            bindPvMonitoring();
         });
 
         function handleKeyUp(e) {
