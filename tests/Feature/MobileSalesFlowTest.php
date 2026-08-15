@@ -249,6 +249,15 @@ class MobileSalesFlowTest extends TestCase
 
     private function createMobileSchema(): void
     {
+        Schema::create('idempotency_keys', function ($table) {
+            $table->id();
+            $table->uuid('key')->unique();
+            $table->string('action');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('request_hash', 64);
+            $table->timestamps();
+        });
+
         Schema::create('idsf', function ($table) {
             $table->string('idsf')->primary();
             $table->string('namasf');

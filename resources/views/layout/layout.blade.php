@@ -859,6 +859,7 @@
         })();
     </script>
 
+    @include('partials.idempotency')
 </body>
 
 </html>

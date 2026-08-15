@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class StockBulkFlowTest extends TestCase
@@ -508,6 +509,45 @@ class StockBulkFlowTest extends TestCase
                     ->value('stock') ?? 0)
             );
         }
+    }
+
+    public function test_same_retur_sf_token_only_moves_stock_once(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+        $stock = $stocks->first();
+        $key = (string) Str::uuid();
+        $sn = 'IDEMPOTENCY-'.Str::random(10);
+        $payload = [
+            '_idempotency_key' => $key,
+            'tgl' => now()->toDateString(),
+            'idtap' => $sales->idtap,
+            'idsf' => $sales->idsf,
+            'ketvf' => 'OK',
+            'items' => [[
+                'iddenom' => $stock->iddenom,
+                'qty' => 1,
+                'sn' => $sn,
+                'tambahket' => 'Uji idempotency retur SF',
+            ]],
+        ];
+        $beforeSf = (int) $stock->stock;
+        $beforeTap = (int) (DB::table('stockawaltap')
+            ->where('idtap', $sales->idtap)
+            ->where('iddenom', $stock->iddenom)
+            ->value('stock') ?? 0);
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->post('/retursf', $payload)
+            ->assertRedirect('retursf');
+
+        $this->post('/retursf', $payload)
+            ->assertSessionHas('info', 'Transaksi ini sudah diproses sebelumnya. Stok tidak diubah lagi.');
+
+        $this->assertSame(1, DB::table('retursf')->where('sn', $sn)->count());
+        $this->assertSame($beforeSf - 1, (int) DB::table('stockawalsf')
+            ->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->value('stock'));
+        $this->assertSame($beforeTap + 1, (int) DB::table('stockawaltap')
+            ->where('idtap', $sales->idtap)->where('iddenom', $stock->iddenom)->value('stock'));
     }
 
     private function bulkFixture(string $table, string $targetColumn): array
