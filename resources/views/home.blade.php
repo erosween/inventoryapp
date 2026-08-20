@@ -151,6 +151,11 @@
         border-radius: 10px !important;
         border-color: #e5e7eb !important;
     }
+    .monthly-product-select {
+        width: 126px !important;
+        min-width: 126px !important;
+        flex: 0 0 126px;
+    }
     .sales-reload-btn {
         min-width: 42px !important;
         padding-left: 12px !important;
@@ -346,6 +351,12 @@
                                 <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
                                 <input type="hidden" name="sales_view" id="monthly-sales-view-input" value="{{ $salesView }}">
                                 <input type="hidden" name="sales_period" id="monthly-sales-period" value="{{ $salesPeriod }}">
+                                <input type="hidden" name="inject_product" value="{{ $injectProductFilter }}">
+                                <select name="sales_product" id="monthly-sales-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk penjualan">
+                                    <option value="all" {{ $salesProductFilter === 'all' ? 'selected' : '' }}>ALL</option>
+                                    <option value="reg" {{ $salesProductFilter === 'reg' ? 'selected' : '' }}>REGULER</option>
+                                    <option value="byu" {{ $salesProductFilter === 'byu' ? 'selected' : '' }}>By.U</option>
+                                </select>
                                 <div class="monthly-sales-view-toggle" role="group" aria-label="Pilih periode penjualan">
                                     <button type="button" class="btn btn-sm monthly-sales-view-btn sales-period-btn {{ $salesPeriod === 'monthly' ? 'active' : '' }}" data-period="monthly">Bulanan</button>
                                     <button type="button" class="btn btn-sm monthly-sales-view-btn sales-period-btn {{ $salesPeriod === 'annual' ? 'active' : '' }}" data-period="annual">Tahunan</button>
@@ -408,9 +419,10 @@
                                 $annualClusterDumaiComparison = ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
                                 $annualClusterRohilComparison = ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
                                 $annualGrandComparison = ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
-                                $annualClusterDumaiCurrentYtd = [$annualPreviousYear => 0, $annualCurrentYear => 0];
-                                $annualClusterRohilCurrentYtd = [$annualPreviousYear => 0, $annualCurrentYear => 0];
-                                $annualGrandCurrentYtd = [$annualPreviousYear => 0, $annualCurrentYear => 0];
+                                $annualYtdYears = [$annualCurrentYear - 2, $annualPreviousYear, $annualCurrentYear];
+                                $annualClusterDumaiCurrentYtd = array_fill_keys($annualYtdYears, 0);
+                                $annualClusterRohilCurrentYtd = array_fill_keys($annualYtdYears, 0);
+                                $annualGrandCurrentYtd = array_fill_keys($annualYtdYears, 0);
                                 foreach ($annualYears as $year) {
                                     foreach ($clusterDumai as $tap) {
                                         $annualClusterDumaiValues[$year] += (int) ($annualSales[$tap][$year] ?? 0);
@@ -428,7 +440,7 @@
                                     }
                                 }
                                 foreach ($annualCurrentYtdSales as $tap => $yearValues) {
-                                    foreach ([$annualPreviousYear, $annualCurrentYear] as $year) {
+                                    foreach ($annualYtdYears as $year) {
                                         $value = (int) ($yearValues[$year] ?? 0);
                                         $annualGrandCurrentYtd[$year] += $value;
                                         if (in_array($tap, $clusterDumai)) $annualClusterDumaiCurrentYtd[$year] += $value;
@@ -454,8 +466,8 @@
                                     @foreach($annualSales as $tap => $yearValues)
                                         @php
                                             $tapAnnualTotal = 0;
-                                            $tapPreviousYtd = $calculateAnnualYtd($yearValues, $annualPreviousYear);
-                                            $tapCurrentYtd = $calculateAnnualYtd($annualCutoff === 'full' ? ($annualCurrentYtdSales[$tap] ?? []) : $yearValues, $annualCurrentYear);
+                                            $tapPreviousYtd = $calculateAnnualYtd($annualCurrentYtdSales[$tap] ?? [], $annualPreviousYear);
+                                            $tapCurrentYtd = $calculateAnnualYtd($annualCurrentYtdSales[$tap] ?? [], $annualCurrentYear);
                                             $tapComparison = $annualPeriodComparisons[$tap] ?? ['current_month' => 0, 'previous_year_month' => 0, 'previous_month' => 0];
                                             $tapYoy = $calculatePeriodGrowth($tapComparison['current_month'], $tapComparison['previous_year_month']);
                                             $tapMom = $annualComparisonMonth > 1
@@ -489,8 +501,8 @@
                                     @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
                                     @php
                                         $clusterDumaiTotal = array_sum($annualClusterDumaiValues);
-                                        $clusterDumaiPreviousYtd = $calculateAnnualYtd($annualClusterDumaiValues, $annualPreviousYear);
-                                        $clusterDumaiCurrentYtd = $calculateAnnualYtd($annualCutoff === 'full' ? $annualClusterDumaiCurrentYtd : $annualClusterDumaiValues, $annualCurrentYear);
+                                        $clusterDumaiPreviousYtd = $calculateAnnualYtd($annualClusterDumaiCurrentYtd, $annualPreviousYear);
+                                        $clusterDumaiCurrentYtd = $calculateAnnualYtd($annualClusterDumaiCurrentYtd, $annualCurrentYear);
                                         $clusterDumaiYoy = $calculatePeriodGrowth($annualClusterDumaiComparison['current_month'], $annualClusterDumaiComparison['previous_year_month']);
                                         $clusterDumaiMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualClusterDumaiComparison['current_month'], $annualClusterDumaiComparison['previous_month']) : null;
                                     @endphp
@@ -509,8 +521,8 @@
                                     @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
                                     @php
                                         $clusterRohilTotal = array_sum($annualClusterRohilValues);
-                                        $clusterRohilPreviousYtd = $calculateAnnualYtd($annualClusterRohilValues, $annualPreviousYear);
-                                        $clusterRohilCurrentYtd = $calculateAnnualYtd($annualCutoff === 'full' ? $annualClusterRohilCurrentYtd : $annualClusterRohilValues, $annualCurrentYear);
+                                        $clusterRohilPreviousYtd = $calculateAnnualYtd($annualClusterRohilCurrentYtd, $annualPreviousYear);
+                                        $clusterRohilCurrentYtd = $calculateAnnualYtd($annualClusterRohilCurrentYtd, $annualCurrentYear);
                                         $clusterRohilYoy = $calculatePeriodGrowth($annualClusterRohilComparison['current_month'], $annualClusterRohilComparison['previous_year_month']);
                                         $clusterRohilMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualClusterRohilComparison['current_month'], $annualClusterRohilComparison['previous_month']) : null;
                                     @endphp
@@ -527,8 +539,8 @@
                                     </tr>
                                     @endif
                                     @php
-                                        $annualGrandPreviousYtd = $calculateAnnualYtd($annualYearTotals, $annualPreviousYear);
-                                        $annualGrandCurrentYtdGrowth = $calculateAnnualYtd($annualCutoff === 'full' ? $annualGrandCurrentYtd : $annualYearTotals, $annualCurrentYear);
+                                        $annualGrandPreviousYtd = $calculateAnnualYtd($annualGrandCurrentYtd, $annualPreviousYear);
+                                        $annualGrandCurrentYtdGrowth = $calculateAnnualYtd($annualGrandCurrentYtd, $annualCurrentYear);
                                         $annualGrandYoy = $calculatePeriodGrowth($annualGrandComparison['current_month'], $annualGrandComparison['previous_year_month']);
                                         $annualGrandMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualGrandComparison['current_month'], $annualGrandComparison['previous_month']) : null;
                                     @endphp
@@ -579,7 +591,7 @@
                                                 $prevVal = ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
                                                 
                                                 if($isCurrentMonth) {
-                                                    $momData = $momTap->firstWhere('idtap', $tap);
+                                                    $momData = $momTapSales->firstWhere('idtap', $tap);
                                                     $pct = $momData ? $momData->mom : 0;
                                                     $hasPrev = $momData && $momData->prev_partial_qty > 0;
                                                 } else {
@@ -722,7 +734,7 @@
 
                                             $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                             if($isCurrentMonth) {
-                                                $pct = $momCluster['dumai_bengkalis']->mom ?? 0;
+                                                $pct = $momClusterSales['dumai_bengkalis'] ?? 0;
                                             } else {
                                                 $pct = $prevTotalDumai > 0 ? (($totalDumai - $prevTotalDumai) / $prevTotalDumai) * 100 : 0;
                                             }
@@ -816,7 +828,7 @@
 
                                             $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                             if($isCurrentMonth) {
-                                                $pct = $momCluster['rokan_hilir']->mom ?? 0;
+                                                $pct = $momClusterSales['rokan_hilir'] ?? 0;
                                             } else {
                                                 $pct = $prevTotalRohil > 0 ? (($totalRohil - $prevTotalRohil) / $prevTotalRohil) * 100 : 0;
                                             }
@@ -1008,10 +1020,25 @@
                 <div class="card-header bg-white border-0 pt-4 pb-3">
                     <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
                         <div>
-                            <h6 class="font-weight-bold text-dark mb-0">🪄Inject PV Bulanan (Tahun {{ $selectedYear }})</h6>
-                            <small class="text-muted">Inject PV per TAP</small>
+                            <h6 class="font-weight-bold text-dark mb-0">🪄Inject Bulanan (Tahun {{ $selectedYear }})</h6>
+                            <small class="text-muted">Inject per TAP</small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
+                            <form method="GET" action="{{ url('home') }}#heatmap-inject-card" class="mb-0" id="monthly-inject-filter-form">
+                                <input type="hidden" name="year" value="{{ $selectedYear }}">
+                                <input type="hidden" name="mode" value="{{ $mode }}">
+                                <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
+                                <input type="hidden" name="sales_year" value="{{ $salesYear }}">
+                                <input type="hidden" name="sales_view" value="{{ $salesView }}">
+                                <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
+                                <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
+                                <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
+                                <select name="inject_product" id="monthly-inject-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk inject">
+                                    <option value="all" {{ $injectProductFilter === 'all' ? 'selected' : '' }}>ALL</option>
+                                    <option value="reg" {{ $injectProductFilter === 'reg' ? 'selected' : '' }}>REGULER</option>
+                                    <option value="byu" {{ $injectProductFilter === 'byu' ? 'selected' : '' }}>By.U</option>
+                                </select>
+                            </form>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-copy-btn" title="Copy heatmap inject sebagai gambar" style="gap:6px;">
                                 <i data-feather="copy" style="width:14px;height:14px"></i> Copy
                             </button>
@@ -2777,14 +2804,62 @@
             }
         }
 
+        async function reloadMonthlyInjectCard(form) {
+            const currentCard = document.getElementById('heatmap-inject-card');
+            if (!form || !currentCard || currentCard.dataset.loading === 'true') return;
+
+            const requestUrl = new URL(form.action, window.location.href);
+            requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+            const currentTableWrap = currentCard.querySelector('#heatmap-inject-wrap');
+            const horizontalScroll = currentTableWrap?.scrollLeft || 0;
+            currentCard.dataset.loading = 'true';
+            currentCard.style.opacity = '.62';
+            currentCard.style.pointerEvents = 'none';
+
+            try {
+                const response = await fetch(requestUrl.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const html = await response.text();
+                const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+                const nextCard = nextDocument.getElementById('heatmap-inject-card');
+                if (!nextCard) throw new Error('Card Inject tidak ditemukan');
+
+                currentCard.replaceWith(nextCard);
+                const nextTableWrap = nextCard.querySelector('#heatmap-inject-wrap');
+                if (nextTableWrap) nextTableWrap.scrollLeft = horizontalScroll;
+                if (window.feather?.replace) window.feather.replace();
+                window.history.replaceState({}, '', `${requestUrl.pathname}?${requestUrl.searchParams.toString()}#heatmap-inject-card`);
+            } catch (error) {
+                currentCard.dataset.loading = 'false';
+                currentCard.style.opacity = '';
+                currentCard.style.pointerEvents = '';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Card inject gagal dimuat ulang',
+                    text: 'Silakan coba kembali.'
+                });
+            }
+        }
+
         document.addEventListener('submit', event => {
-            if (event.target.id !== 'monthly-sales-filter-form') return;
-            event.preventDefault();
-            reloadMonthlySalesCard(event.target);
+            if (event.target.id === 'monthly-sales-filter-form') {
+                event.preventDefault();
+                reloadMonthlySalesCard(event.target);
+            } else if (event.target.id === 'monthly-inject-filter-form') {
+                event.preventDefault();
+                reloadMonthlyInjectCard(event.target);
+            }
         });
 
         document.addEventListener('change', event => {
-            if (!['monthly-sales-year', 'annual-sales-cutoff'].includes(event.target.id)) return;
+            if (event.target.id === 'monthly-inject-product') {
+                reloadMonthlyInjectCard(event.target.form);
+                return;
+            }
+            if (!['monthly-sales-year', 'annual-sales-cutoff', 'monthly-sales-product'].includes(event.target.id)) return;
             reloadMonthlySalesCard(event.target.form);
         });
 

@@ -234,7 +234,7 @@ class HomeMomDateFilterTest extends TestCase
         }
     }
 
-    public function test_annual_full_uses_last_completed_month_for_current_ytd_yoy_and_mom(): void
+    public function test_annual_full_uses_lowest_latest_tap_date_for_current_ytd_yoy_and_mom(): void
     {
         $admin = User::where('username', 'admin_super')->first();
         if (! $admin) {
@@ -247,9 +247,20 @@ class HomeMomDateFilterTest extends TestCase
             ->assertOk();
 
         $comparisonMonth = $response->viewData('annualComparisonMonth');
+        $comparisonDate = $response->viewData('annualComparisonDate');
         $this->assertGreaterThanOrEqual(1, $comparisonMonth);
         $this->assertLessThanOrEqual(12, $comparisonMonth);
         $this->assertNotEmpty($response->viewData('annualPeriodComparisons'));
+
+        $expectedCutoff = DB::table('keluarsf')
+            ->selectRaw('idtap, MAX(tgl) AS last_input')
+            ->whereYear('tgl', (int) date('Y'))
+            ->whereMonth('tgl', $comparisonMonth)
+            ->groupBy('idtap')
+            ->pluck('last_input')
+            ->filter()
+            ->min();
+        $this->assertSame(Carbon::parse($expectedCutoff)->toDateString(), $comparisonDate->toDateString());
 
         $currentYear = (int) date('Y');
         $annualSales = $response->viewData('annualSales');
@@ -269,10 +280,103 @@ class HomeMomDateFilterTest extends TestCase
             $expectedYtd = DB::table('keluarsf')
                 ->where('idtap', $tap)
                 ->whereYear('tgl', $year)
-                ->whereMonth('tgl', '<=', $comparisonMonth)
+                ->where(function ($query) use ($comparisonMonth, $comparisonDate) {
+                    $query->whereMonth('tgl', '<', $comparisonMonth)
+                        ->orWhere(function ($monthQuery) use ($comparisonMonth, $comparisonDate) {
+                            $monthQuery->whereMonth('tgl', $comparisonMonth)
+                                ->whereDay('tgl', '<=', $comparisonDate->day);
+                        });
+                })
                 ->sum('qty');
             $this->assertSame((int) $expectedYtd, (int) ($currentYtdSales[$tap][$year] ?? 0));
         }
+
+        $comparison = $response->viewData('annualPeriodComparisons')[$tap];
+        $currentStart = $comparisonDate->copy()->startOfMonth();
+        $previousStart = $currentStart->copy()->subMonthNoOverflow()->startOfMonth();
+        $previousEnd = $previousStart->copy()->day(min($comparisonDate->day, $previousStart->daysInMonth))->endOfDay();
+        $expectedCurrent = DB::table('keluarsf')->where('idtap', $tap)
+            ->whereBetween('tgl', [$currentStart, $comparisonDate])->sum('qty');
+        $expectedPrevious = DB::table('keluarsf')->where('idtap', $tap)
+            ->whereBetween('tgl', [$previousStart, $previousEnd])->sum('qty');
+        $this->assertSame((int) $expectedCurrent, $comparison['current_month']);
+        $this->assertSame((int) $expectedPrevious, $comparison['previous_month']);
+    }
+
+    public function test_monthly_sales_can_filter_by_byu_products(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+
+        $year = 2026;
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get("/home?sales_year={$year}&sales_product=byu")
+            ->assertOk();
+
+        $this->assertSame('byu', $response->viewData('salesProductFilter'));
+        $response->assertSee('id="monthly-sales-product"', false);
+        $response->assertSee('value="byu" selected', false);
+
+        foreach ($response->viewData('matrixSales') as $tap => $months) {
+            foreach (range(1, 12) as $month) {
+                $expected = DB::table('keluarsf')
+                    ->join('denom', 'keluarsf.iddenom', '=', 'denom.iddenom')
+                    ->where('keluarsf.idtap', $tap)
+                    ->whereYear('keluarsf.tgl', $year)
+                    ->whereMonth('keluarsf.tgl', $month)
+                    ->whereRaw("UPPER(COALESCE(denom.kategori_inject, '')) = 'BYU'")
+                    ->sum('keluarsf.qty');
+                $this->assertSame((int) $expected, (int) ($months[$month] ?? 0));
+            }
+        }
+    }
+
+    public function test_monthly_inject_can_filter_regular_products(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+
+        $year = 2026;
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get("/home?year={$year}&inject_product=reg")
+            ->assertOk();
+
+        $this->assertSame('reg', $response->viewData('injectProductFilter'));
+        $response->assertSee('id="monthly-inject-product"', false);
+
+        foreach ($response->viewData('matrixInject') as $tap => $months) {
+            foreach (range(1, 12) as $month) {
+                $expected = DB::table('injectvf')
+                    ->join('denom', 'injectvf.iddenom', '=', 'denom.iddenom')
+                    ->where('injectvf.idtap', $tap)
+                    ->whereYear('injectvf.tgl', $year)
+                    ->whereMonth('injectvf.tgl', $month)
+                    ->whereRaw("UPPER(COALESCE(denom.kategori_inject, '')) NOT IN ('BYU', 'SA')")
+                    ->sum('injectvf.qty');
+                $this->assertSame((int) $expected, (int) ($months[$month] ?? 0));
+            }
+        }
+    }
+
+    public function test_product_filter_only_exposes_all_regular_and_byu_with_stable_headers(): void
+    {
+        $response = $this->getDashboard('2026-08-04');
+
+        $response->assertSee('>ALL</option>', false);
+        $response->assertSee('>REGULER</option>', false);
+        $response->assertSee('>By.U</option>', false);
+        $response->assertDontSee('value="pv"', false);
+        $response->assertSee('Transaksi bulanan per TAP');
+        $response->assertSee('Inject per TAP');
+        $response->assertDontSee('· kategori');
+        $response->assertSee('monthly-product-select', false);
+        $response->assertSee('id="monthly-inject-filter-form"', false);
+        $response->assertSee('reloadMonthlyInjectCard', false);
+        $response->assertSee('currentCard.replaceWith(nextCard)', false);
+        $response->assertSee('nextTableWrap.scrollLeft = horizontalScroll', false);
+        $response->assertDontSee('id="monthly-inject-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk inject" onchange=', false);
     }
 
     private function getDashboard(string $momDate)

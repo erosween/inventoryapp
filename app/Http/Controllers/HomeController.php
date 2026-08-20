@@ -285,6 +285,61 @@ class HomeController extends Controller
         }
         $salesView = $request->query('sales_view') === 'chart' ? 'chart' : 'table';
         $salesPeriod = $request->query('sales_period') === 'annual' ? 'annual' : 'monthly';
+        $productFilterOptions = ['all', 'reg', 'byu'];
+        $salesProductFilter = strtolower((string) $request->query('sales_product', 'all'));
+        $injectProductFilter = strtolower((string) $request->query('inject_product', 'all'));
+        if (!in_array($salesProductFilter, $productFilterOptions, true)) $salesProductFilter = 'all';
+        if (!in_array($injectProductFilter, $productFilterOptions, true)) $injectProductFilter = 'all';
+
+        $applyProductFilter = function ($query, string $table, string $filter) {
+            if ($filter === 'all') return;
+
+            $query->whereExists(function ($denomQuery) use ($table, $filter) {
+                $denomQuery->selectRaw('1')
+                    ->from('denom as product_denom')
+                    ->whereColumn('product_denom.iddenom', $table.'.iddenom');
+
+                if ($filter === 'byu') {
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'BYU'");
+                } else { // REGULER = seluruh produk selain By.U dan SA, termasuk VOICE dan RoaMAX.
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) NOT IN ('BYU', 'SA')");
+                }
+            });
+        };
+
+        $qMomTapSales = DB::table('keluarsf')
+            ->selectRaw('idtap,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty', [
+                $momStartThisMonth, $momSelectedDate,
+                $momStartPrevMonth, $momEndPrevMonthPartial,
+            ])
+            ->groupBy('idtap');
+        $applyFilter($qMomTapSales);
+        $applyProductFilter($qMomTapSales, 'keluarsf', $salesProductFilter);
+        $momTapSales = $qMomTapSales->get()->map(function ($row) {
+            $row->mom = $row->prev_partial_qty > 0
+                ? (($row->curr_qty - $row->prev_partial_qty) / $row->prev_partial_qty) * 100
+                : 0;
+            return $row;
+        });
+
+        $momClusterSales = [];
+        foreach ($clusterMap as $key => $taps) {
+            $clusterSalesQuery = DB::table('keluarsf')
+                ->selectRaw('SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty', [
+                    $momStartThisMonth, $momSelectedDate,
+                    $momStartPrevMonth, $momEndPrevMonthPartial,
+                ])
+                ->whereIn('idtap', $taps);
+            $applyFilter($clusterSalesQuery);
+            $applyProductFilter($clusterSalesQuery, 'keluarsf', $salesProductFilter);
+            $clusterSales = $clusterSalesQuery->first();
+            $momClusterSales[$key] = (int) $clusterSales->prev_qty > 0
+                ? (((int) $clusterSales->curr_qty - (int) $clusterSales->prev_qty) / (int) $clusterSales->prev_qty) * 100
+                : 0;
+        }
         $annualCutoff = $request->query('sales_annual_cutoff', 'full');
         if ($annualCutoff !== 'full' && (! ctype_digit((string) $annualCutoff) || (int) $annualCutoff < 1 || (int) $annualCutoff > 12)) {
             $annualCutoff = 'full';
@@ -298,6 +353,7 @@ class HomeController extends Controller
             ->whereYear('tgl', $salesYear)
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
         $applyFilter($qMatrixData);
+        $applyProductFilter($qMatrixData, 'keluarsf', $salesProductFilter);
         $matrixSalesData = $qMatrixData->get();
 
         $matrixSales = [];
@@ -317,6 +373,7 @@ class HomeController extends Controller
             $annualSalesData->whereMonth('tgl', '<=', (int) $annualCutoff);
         }
         $applyFilter($annualSalesData);
+        $applyProductFilter($annualSalesData, 'keluarsf', $salesProductFilter);
 
         $annualSales = [];
         foreach ($tapList as $tap) {
@@ -326,37 +383,45 @@ class HomeController extends Controller
             $annualSales[$row->idtap][(int) $row->tahun] = (int) $row->total;
         }
 
-        $latestAnnualDateQuery = DB::table('keluarsf')
-            ->whereYear('tgl', (int) date('Y'));
-        $applyFilter($latestAnnualDateQuery);
-        $latestAnnualDateValue = $latestAnnualDateQuery->max('tgl');
-        $lastClosedCalendarMonth = Carbon::today()->startOfMonth()->subMonth();
-        $latestAnnualDate = $latestAnnualDateValue ? Carbon::parse($latestAnnualDateValue) : null;
-        if ($latestAnnualDate && $latestAnnualDate->isSameDay($latestAnnualDate->copy()->endOfMonth())) {
-            $lastClosedDataMonth = $latestAnnualDate->copy()->endOfMonth();
-        } elseif ($latestAnnualDate) {
-            $lastClosedDataMonth = $latestAnnualDate->copy()->startOfMonth()->subMonth()->endOfMonth();
-        } else {
-            $lastClosedDataMonth = $lastClosedCalendarMonth->copy()->endOfMonth();
-        }
-        $annualComparisonDate = $lastClosedDataMonth->lessThan($lastClosedCalendarMonth)
-            ? $lastClosedDataMonth
-            : $lastClosedCalendarMonth->copy()->endOfMonth();
+        /*
+         * Fair cutoff: ambil tanggal input terakhir masing-masing TAP, lalu pilih
+         * yang paling rendah. Contoh 7 TAP tanggal 18 dan 1 TAP tanggal 17 => 17.
+         */
+        $annualComparisonYear = (int) date('Y');
         $annualComparisonMonth = $annualCutoff === 'full'
-            ? (int) $annualComparisonDate->month
+            ? (int) $currentDate->month
             : (int) $annualCutoff;
+        $annualTapLatestDates = DB::table('keluarsf')
+            ->selectRaw('idtap, MAX(tgl) AS last_input')
+            ->whereYear('tgl', $annualComparisonYear)
+            ->whereMonth('tgl', $annualComparisonMonth)
+            ->groupBy('idtap');
+        $applyFilter($annualTapLatestDates);
+        $applyProductFilter($annualTapLatestDates, 'keluarsf', $salesProductFilter);
+        $annualLowestLatestDate = $annualTapLatestDates->pluck('last_input')->filter()->min();
+        $annualComparisonDate = $annualLowestLatestDate
+            ? Carbon::parse($annualLowestLatestDate)->endOfDay()
+            : Carbon::create($annualComparisonYear, $annualComparisonMonth, 1)->endOfMonth()->endOfDay();
+        $annualComparisonDay = (int) $annualComparisonDate->day;
 
-        /* Full memakai total tahun penuh, tetapi YTD tahun berjalan harus fair sampai bulan closing terakhir. */
+        /* YTD setiap tahun memakai bulan dan hari cutoff yang sama. */
         $annualCurrentYtdSales = [];
         foreach ($tapList as $tap) {
             $annualCurrentYtdSales[$tap] = [];
         }
         $annualCurrentYtdQuery = DB::table('keluarsf')
             ->selectRaw('idtap, YEAR(tgl) as tahun, SUM(qty) as total')
-            ->whereBetween(DB::raw('YEAR(tgl)'), [(int) date('Y') - 1, (int) date('Y')])
-            ->whereMonth('tgl', '<=', $annualComparisonMonth)
+            ->whereBetween(DB::raw('YEAR(tgl)'), [2024, $annualComparisonYear])
+            ->where(function ($query) use ($annualComparisonMonth, $annualComparisonDay) {
+                $query->whereMonth('tgl', '<', $annualComparisonMonth)
+                    ->orWhere(function ($monthQuery) use ($annualComparisonMonth, $annualComparisonDay) {
+                        $monthQuery->whereMonth('tgl', $annualComparisonMonth)
+                            ->whereDay('tgl', '<=', $annualComparisonDay);
+                    });
+            })
             ->groupBy('idtap', DB::raw('YEAR(tgl)'));
         $applyFilter($annualCurrentYtdQuery);
+        $applyProductFilter($annualCurrentYtdQuery, 'keluarsf', $salesProductFilter);
         foreach ($annualCurrentYtdQuery->get() as $row) {
             $annualCurrentYtdSales[$row->idtap][(int) $row->tahun] = (int) $row->total;
         }
@@ -364,22 +429,30 @@ class HomeController extends Controller
         $annualPeriodComparisons = [];
         if ($annualComparisonMonth >= 1) {
             $comparisonMonth = $annualComparisonMonth;
-            $comparisonYear = (int) date('Y');
+            $comparisonYear = $annualComparisonYear;
             $previousComparisonDate = Carbon::create($comparisonYear, $comparisonMonth, 1)->subMonth();
+            $currentPeriodStart = Carbon::create($comparisonYear, $comparisonMonth, 1)->startOfDay();
+            $currentPeriodEnd = $annualComparisonDate->copy();
+            $previousYearStart = $currentPeriodStart->copy()->subYear();
+            $previousYearEnd = $previousYearStart->copy()
+                ->day(min($annualComparisonDay, $previousYearStart->daysInMonth))
+                ->endOfDay();
+            $previousMonthStart = $previousComparisonDate->copy()->startOfMonth();
+            $previousMonthEnd = $previousMonthStart->copy()
+                ->day(min($annualComparisonDay, $previousMonthStart->daysInMonth))
+                ->endOfDay();
             $comparisonQuery = DB::table('keluarsf')
                 ->selectRaw('idtap,
-                    SUM(CASE WHEN YEAR(tgl) = ? AND MONTH(tgl) = ? THEN qty ELSE 0 END) AS current_month,
-                    SUM(CASE WHEN YEAR(tgl) = ? AND MONTH(tgl) = ? THEN qty ELSE 0 END) AS previous_year_month,
-                    SUM(CASE WHEN YEAR(tgl) = ? AND MONTH(tgl) = ? THEN qty ELSE 0 END) AS previous_month', [
-                    $comparisonYear,
-                    $comparisonMonth,
-                    $comparisonYear - 1,
-                    $comparisonMonth,
-                    (int) $previousComparisonDate->year,
-                    (int) $previousComparisonDate->month,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS current_month,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_year_month,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_month', [
+                    $currentPeriodStart, $currentPeriodEnd,
+                    $previousYearStart, $previousYearEnd,
+                    $previousMonthStart, $previousMonthEnd,
                 ])
                 ->groupBy('idtap');
             $applyFilter($comparisonQuery);
+            $applyProductFilter($comparisonQuery, 'keluarsf', $salesProductFilter);
             foreach ($comparisonQuery->get() as $row) {
                 $annualPeriodComparisons[$row->idtap] = [
                     'current_month' => (int) $row->current_month,
@@ -396,6 +469,7 @@ class HomeController extends Controller
             ->whereMonth('tgl', 12)
             ->groupBy('idtap');
         $applyFilter($prevDecSalesData);
+        $applyProductFilter($prevDecSalesData, 'keluarsf', $salesProductFilter);
         $prevDecSales = $prevDecSalesData->pluck('total', 'idtap');
 
         $prevDecInjectData = DB::table('injectvf')
@@ -404,6 +478,7 @@ class HomeController extends Controller
             ->whereMonth('tgl', 12)
             ->groupBy('idtap');
         $applyFilter($prevDecInjectData);
+        $applyProductFilter($prevDecInjectData, 'injectvf', $injectProductFilter);
         $prevDecInject = $prevDecInjectData->pluck('total', 'idtap');
 
         /* ================= NEW: MoM INJECT PER TAP (FAIR CUTOFF) ================= */
@@ -421,6 +496,7 @@ class HomeController extends Controller
             ->groupBy('idtap')
             ->orderBy('idtap');
         $applyFilter($qMomTapInject);
+        $applyProductFilter($qMomTapInject, 'injectvf', $injectProductFilter);
         $momTapInject = $qMomTapInject->get()
             ->mapWithKeys(function ($r) {
                 $mom = $r->prev_partial_qty > 0
@@ -435,6 +511,7 @@ class HomeController extends Controller
             ->whereYear('tgl', $selectedYear)
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
         $applyFilter($qMatrixInjectData);
+        $applyProductFilter($qMatrixInjectData, 'injectvf', $injectProductFilter);
         $matrixInjectData = $qMatrixInjectData->get();
 
         $matrixInject = [];
@@ -451,6 +528,7 @@ class HomeController extends Controller
             ->whereYear('tgl', $salesYear)
             ->groupBy('idsf', DB::raw('MONTH(tgl)'));
         $applyFilter($qMatrixSalesSfData, 'idtap');
+        $applyProductFilter($qMatrixSalesSfData, 'keluarsf', $salesProductFilter);
         $matrixSalesSfResults = $qMatrixSalesSfData->get();
 
         $matrixSalesSf = [];
@@ -461,7 +539,7 @@ class HomeController extends Controller
         /* ================= NEW: VALIDITY MATRIX FOR HEATMAP EXPANSION ================= */
         $validityGroups = ['SEGEL', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE'];
 
-        $fetchValidityMatrix = function ($table, $year, $applyFilter) use ($validityGroups) {
+        $fetchValidityMatrix = function ($table, $year, $applyFilter, $applyProductFilter, $productFilter) use ($validityGroups) {
             $data = DB::table($table)
                 ->join('denom', $table . '.iddenom', '=', 'denom.iddenom')
                 ->selectRaw('idtap, denom.group_name, MONTH(tgl) as bulan, SUM(qty) as total')
@@ -469,6 +547,7 @@ class HomeController extends Controller
                 ->whereIn('denom.group_name', $validityGroups)
                 ->groupBy('idtap', 'denom.group_name', DB::raw('MONTH(tgl)'));
             $applyFilter($data, $table . '.idtap');
+            $applyProductFilter($data, $table, $productFilter);
             $rows = $data->get();
 
             $matrix = [];
@@ -478,8 +557,8 @@ class HomeController extends Controller
             return $matrix;
         };
 
-        $validityMatrixSales = $fetchValidityMatrix('keluarsf', $salesYear, $applyFilter);
-        $validityMatrixInject = $fetchValidityMatrix('injectvf', $selectedYear, $applyFilter);
+        $validityMatrixSales = $fetchValidityMatrix('keluarsf', $salesYear, $applyFilter, $applyProductFilter, $salesProductFilter);
+        $validityMatrixInject = $fetchValidityMatrix('injectvf', $selectedYear, $applyFilter, $applyProductFilter, $injectProductFilter);
 
         /* ================= NEW: DOUGHNUT CHART VALIDITY ================= */
         // PIE SALES
@@ -506,17 +585,25 @@ class HomeController extends Controller
         /* ================= NEW: MoM INJECT SUMMARY (CLUSTER & GT) ================= */
         $momClusterInject = [];
         foreach ($clusterMap as $key => $taps) {
-            $curr = DB::table('injectvf')->whereIn('idtap', $taps)->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth])->sum('qty');
-            $prev = DB::table('injectvf')->whereIn('idtap', $taps)->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial])->sum('qty');
+            $currQuery = DB::table('injectvf')->whereIn('idtap', $taps)->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth]);
+            $prevQuery = DB::table('injectvf')->whereIn('idtap', $taps)->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
+            $applyFilter($currQuery);
+            $applyFilter($prevQuery);
+            $applyProductFilter($currQuery, 'injectvf', $injectProductFilter);
+            $applyProductFilter($prevQuery, 'injectvf', $injectProductFilter);
+            $curr = $currQuery->sum('qty');
+            $prev = $prevQuery->sum('qty');
             $momClusterInject[$key] = $prev > 0 ? (($curr - $prev) / $prev) * 100 : 0;
         }
 
         $currGTInject = DB::table('injectvf')->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth]);
         $applyFilter($currGTInject);
+        $applyProductFilter($currGTInject, 'injectvf', $injectProductFilter);
         $currGTInjectVal = $currGTInject->sum('qty');
 
         $prevGTInject = DB::table('injectvf')->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
         $applyFilter($prevGTInject);
+        $applyProductFilter($prevGTInject, 'injectvf', $injectProductFilter);
         $prevGTInjectVal = $prevGTInject->sum('qty');
         $momGTInject = $prevGTInjectVal > 0 ? (($currGTInjectVal - $prevGTInjectVal) / $prevGTInjectVal) * 100 : 0;
 
@@ -527,9 +614,14 @@ class HomeController extends Controller
             'salesYear',
             'salesView',
             'salesPeriod',
+            'salesProductFilter',
+            'injectProductFilter',
+            'momTapSales',
+            'momClusterSales',
             'annualSales',
             'annualCurrentYtdSales',
             'annualComparisonMonth',
+            'annualComparisonDate',
             'annualCutoff',
             'annualPeriodComparisons',
             'matrixSales',
