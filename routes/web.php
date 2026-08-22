@@ -172,6 +172,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('vrusak', [VrusakController::class, 'index'])->name('vrusak.index');
 	Route::get('vrusak/data', [VrusakController::class, 'data'])->name('vrusak.data');
 	Route::get('form/form-vrusak', [VrusakController::class, 'vrusak']);
+	Route::post('vrusak/stock-tap', [VrusakController::class, 'stockTap'])->name('vrusak.stock-tap');
 	Route::post('vrusak', [VrusakController::class, 'vrusakproses']);
 	Route::post('vrusak/{idrusak}', [VrusakController::class, 'delete']);
 	Route::get('vrusak/edit/{id}', [VrusakController::class, 'edit'])->name('vrusak.edit');

@@ -11,6 +11,8 @@ use App\Exports\RusakExport;
 use Carbon\Carbon;
 use App\Helpers\AuditLogger;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class VrusakController extends Controller
 {
@@ -104,54 +106,110 @@ class VrusakController extends Controller
         return view('form.form-vrusak', compact('tap', 'denom', 'idtap'));
     }
 
+    public function stockTap(Request $request)
+    {
+        $validated = $request->validate([
+            'idtap' => ['required', 'string', Rule::exists('kodetap', 'idtap')],
+        ]);
+
+        if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) {
+            abort(403, 'TAP tidak sesuai dengan akses pengguna.');
+        }
+
+        return response()->json(
+            DB::table('stockawaltap')
+                ->where('idtap', $validated['idtap'])
+                ->pluck('stock', 'iddenom')
+                ->map(fn ($stock) => (int) $stock)
+        );
+    }
+
     /* ===============================
        SIMPAN
     =============================== */
     public function vrusakproses(Request $request)
-{
-    DB::transaction(function () use ($request) {
-
-        /* ===============================
-           VALIDASI STOK TAP
-        =============================== */
-        $stok = DB::table('stockawaltap')
-            ->where('idtap', $request->pengirim)
-            ->where('iddenom', $request->iddenom)
-            ->lockForUpdate()
-            ->value('stock');
-
-        if ($stok < $request->qty) {
-            abort(400, 'Stok TAP tidak mencukupi');
+    {
+        // Tetap menerima payload form lama agar endpoint tidak berubah secara mendadak.
+        if (!is_array($request->input('items'))) {
+            $request->merge(['items' => [[
+                'iddenom' => $request->iddenom,
+                'qty' => $request->qty,
+                'sn' => $request->sn,
+                'ketvf' => $request->ketvf,
+                'tambahanket' => $request->tambahanket,
+            ]]]);
         }
 
-        /* ===============================
-           INSERT DATA RUSAK
-        =============================== */
-        $newId = DB::table('returvfrusak')->insertGetId([
-            'idtap'   => $request->pengirim,
-            'tgl'     => $request->tgl,
-            'iddenom' => $request->iddenom,
-            'qty'     => $request->qty,
-            'sn'      => $request->sn,
-            'ketvf'   => $request->ketvf,
-            'ketlain' => $request->tambahanket,
+        $validated = $request->validate([
+            'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . now()->subMonth()->toDateString()],
+            'pengirim' => ['required', 'string', Rule::exists('kodetap', 'idtap')],
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.iddenom' => ['required', 'string', Rule::exists('denom', 'iddenom')],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.sn' => ['required', 'string', 'max:255'],
+            'items.*.ketvf' => ['required', Rule::in(['RUSAK', 'MATI'])],
+            'items.*.tambahanket' => ['required', 'string', 'max:500'],
+        ], [
+            'tgl.after_or_equal' => 'Tanggal maksimal satu bulan ke belakang.',
+            'tgl.before_or_equal' => 'Tanggal tidak boleh melewati hari ini.',
+            'items.*.tambahanket.required' => 'Keterangan tambahan wajib diisi pada setiap baris.',
         ]);
 
-        // 📝 LOG
-        AuditLogger::log('INSERT', 'Voucher Rusak', $newId, null, $request->all());
+        if (session('idtap') !== 'SBP_DUMAI' && $validated['pengirim'] !== session('idtap')) {
+            abort(403, 'TAP pengirim tidak sesuai dengan akses pengguna.');
+        }
 
-        /* ===============================
-           KURANGI STOK TAP
-        =============================== */
-        DB::table('stockawaltap')
-            ->where('idtap', $request->pengirim)
-            ->where('iddenom', $request->iddenom)
-            ->decrement('stock', $request->qty);
-    });
+        // Urutan tetap mencegah deadlock saat beberapa transaksi massal berjalan bersamaan.
+        usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
-    return redirect('vrusak')
-        ->with('success', 'Voucher rusak berhasil disimpan & stok terupdate');
-}
+        DB::transaction(function () use ($validated) {
+            $requestedByDenom = collect($validated['items'])
+                ->groupBy('iddenom')
+                ->map(fn ($items) => $items->sum('qty'));
+
+            foreach ($requestedByDenom as $iddenom => $requestedQty) {
+                $stock = DB::table('stockawaltap')
+                    ->where('idtap', $validated['pengirim'])
+                    ->where('iddenom', $iddenom)
+                    ->lockForUpdate()
+                    ->value('stock') ?? 0;
+
+                if ($stock < $requestedQty) {
+                    throw ValidationException::withMessages([
+                        'items' => "Stok {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stock}.",
+                    ]);
+                }
+            }
+
+            foreach ($validated['items'] as $item) {
+                $newId = DB::table('returvfrusak')->insertGetId([
+                    'idtap' => $validated['pengirim'],
+                    'tgl' => $validated['tgl'],
+                    'iddenom' => $item['iddenom'],
+                    'qty' => $item['qty'],
+                    'sn' => $item['sn'],
+                    'ketvf' => $item['ketvf'],
+                    'ketlain' => $item['tambahanket'],
+                ]);
+
+                DB::table('stockawaltap')
+                    ->where('idtap', $validated['pengirim'])
+                    ->where('iddenom', $item['iddenom'])
+                    ->decrement('stock', $item['qty']);
+
+                AuditLogger::log('INSERT', 'Voucher Rusak', $newId, null, [
+                    'tgl' => $validated['tgl'],
+                    'pengirim' => $validated['pengirim'],
+                    ...$item,
+                ]);
+            }
+        });
+
+        return redirect('vrusak')->with(
+            'success',
+            count($validated['items']) . ' data voucher rusak berhasil disimpan dan stok TAP dikurangi.'
+        );
+    }
 
     /* ===============================
        EDIT

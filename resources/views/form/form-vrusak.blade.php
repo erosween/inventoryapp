@@ -11,6 +11,15 @@
                         {{ $errors->first('error') }}
                     </div>
                 @endif
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <ul class="mb-0 pl-3">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 {{-- Page Header --}}
                 <div class="page-header">
@@ -58,57 +67,31 @@
                                             </div>
                                         </div>
 
-                                        {{-- Denom --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Denom</label>
-                                                <select name="iddenom" class="form-control select2" required>
-                                                    <option></option>
-                                                    @foreach ($denom as $row)
-                                                        <option value="{{ $row->iddenom }}">
-                                                            {{ $row->denom }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Quantity --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Quantity</label>
-                                                <input type="number" name="qty" class="form-control" min="1"
-                                                    required>
-                                            </div>
-                                        </div>
-
-                                        {{-- SN --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>SN Awal - SN Akhir</label>
-                                                <input type="text" name="sn" class="form-control"
-                                                    placeholder="SN Awal - SN Akhir" required>
-                                            </div>
-                                        </div>
-
-                                        {{-- Status VF --}}
-                                        <div class="col-md-6">
-                                            <div class="form-group mb-1">
-                                                <label>Status Voucher</label>
-                                                <select name="ketvf" class="form-control select2" required>
-                                                    <option></option>
-                                                    <option value="RUSAK">RUSAK</option>
-                                                    <option value="MATI">MATI</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {{-- Keterangan --}}
                                         <div class="col-md-12">
-                                            <div class="form-group mb-1">
-                                                <label>Keterangan Tambahan</label>
-                                                <input type="text" name="tambahanket" class="form-control"
-                                                    placeholder="Opsional" required>
+                                            <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                                                <div>
+                                                    <strong>Daftar Voucher Rusak</strong>
+                                                    <div class="text-muted small">Setiap baris akan mengurangi stok TAP sesuai denom.</div>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-row">
+                                                    <i class="fas fa-plus mr-1"></i> Tambah Baris
+                                                </button>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-bordered">
+                                                    <thead>
+                                                        <tr>
+                                                            <th style="min-width:170px">Denom</th>
+                                                            <th width="115">Stok Ready</th>
+                                                            <th width="105">Qty</th>
+                                                            <th style="min-width:180px">SN Awal - SN Akhir</th>
+                                                            <th style="min-width:130px">Status</th>
+                                                            <th style="min-width:200px">Keterangan Tambahan</th>
+                                                            <th width="50"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="bulk-rows"></tbody>
+                                                </table>
                                             </div>
                                         </div>
 
@@ -156,6 +139,86 @@
                     document.querySelector('.select2-search__field')?.focus();
                 }, 50);
             });
+
+            const denoms = @json($denom->map(fn ($row) => ['id' => $row->iddenom, 'name' => $row->denom])->values());
+            let rowIndex = 0;
+            let tapStocks = {};
+
+            function availableDenomOptions() {
+                return denoms
+                    .filter(denom => Number(tapStocks[denom.id] || 0) > 0)
+                    .map(denom => `<option value="${denom.id}">${denom.name}</option>`)
+                    .join('');
+            }
+
+            function refreshDenomOptions(stockLoaded = false) {
+                const hasTap = Boolean($('select[name="pengirim"]').val());
+                const options = availableDenomOptions();
+
+                $('#bulk-rows select[name$="[iddenom]"]').each(function() {
+                    const select = $(this);
+                    const previous = select.val();
+                    select.empty().append('<option value="">Pilih / cari denom</option>').append(options);
+                    if (previous && Number(tapStocks[previous] || 0) > 0) {
+                        select.val(previous);
+                    }
+                    select.prop('disabled', !hasTap || !stockLoaded).trigger('change.select2').trigger('change');
+                });
+            }
+
+            function addRow(values = {}) {
+                const index = rowIndex++;
+                const denomOptions = availableDenomOptions();
+                const denomDisabled = Object.keys(tapStocks).length ? '' : 'disabled';
+                const row = $(`
+                    <tr>
+                        <td><select name="items[${index}][iddenom]" class="form-control form-control-sm row-select" required ${denomDisabled}><option value="">Pilih / cari denom</option>${denomOptions}</select></td>
+                        <td class="stock-ready text-right align-middle font-weight-bold">-</td>
+                        <td><input type="number" name="items[${index}][qty]" class="form-control form-control-sm" min="1" required></td>
+                        <td><input type="text" name="items[${index}][sn]" class="form-control form-control-sm" maxlength="255" required></td>
+                        <td><select name="items[${index}][ketvf]" class="form-control form-control-sm row-select" required><option value="">Pilih status</option><option value="RUSAK">RUSAK</option><option value="MATI">MATI</option></select></td>
+                        <td><input type="text" name="items[${index}][tambahanket]" class="form-control form-control-sm" maxlength="500" required></td>
+                        <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row" aria-label="Hapus baris">&times;</button></td>
+                    </tr>
+                `);
+                $('#bulk-rows').append(row);
+                row.find('.row-select').select2({
+                    width: '100%',
+                    dropdownParent: $(document.body)
+                });
+            }
+
+            $('#add-bulk-row').on('click', () => addRow());
+            $('#bulk-rows').on('click', '.remove-bulk-row', function() {
+                if ($('#bulk-rows tr').length > 1) {
+                    $(this).closest('tr').remove();
+                }
+            }).on('change', 'select[name$="[iddenom]"]', function() {
+                const stock = Number(tapStocks[$(this).val()] || 0);
+                $(this).closest('tr').find('.stock-ready').text(stock.toLocaleString('id-ID'));
+            });
+
+            $('select[name="pengirim"]').on('change', function() {
+                const idtap = $(this).val();
+                tapStocks = {};
+                $('.stock-ready').text('-');
+                refreshDenomOptions();
+                if (!idtap) return;
+
+                $.ajax({
+                    url: @json(route('vrusak.stock-tap')),
+                    method: 'POST',
+                    data: { idtap: idtap, _token: @json(csrf_token()) },
+                    success: function(stocks) {
+                        tapStocks = stocks || {};
+                        refreshDenomOptions(true);
+                    },
+                    error: function() {
+                        Swal.fire('Gagal', 'Stok TAP tidak dapat dimuat. Silakan coba kembali.', 'error');
+                    }
+                });
+            });
+            addRow();
 
             /* ================= ANTI DOUBLE SUBMIT ================= */
             let submitting = false;
