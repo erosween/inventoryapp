@@ -72,7 +72,7 @@ class VoucherRusakBulkTest extends TestCase
         $stock = $stocks->first();
         $sn = 'UJI-RUSAK-GAGAL-' . Str::random(8);
 
-        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+        $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->from('/form/form-vrusak')
             ->post('/vrusak', [
                 'tgl' => now()->toDateString(),
@@ -96,6 +96,19 @@ class VoucherRusakBulkTest extends TestCase
             ])
             ->assertRedirect('/form/form-vrusak')
             ->assertSessionHasErrors('items');
+
+        $denomName = DB::table('denom')->where('iddenom', $stock->iddenom)->value('denom');
+        $this->assertStringContainsString(
+            "Stok denom {$denomName} ({$stock->iddenom}) tidak mencukupi",
+            $response->getSession()->get('errors')->first('items')
+        );
+
+        $this->get('/form/form-vrusak')
+            ->assertOk()
+            ->assertSee($sn . '-1')
+            ->assertSee($sn . '-2')
+            ->assertSee($stock->iddenom)
+            ->assertSee('Uji rollback');
 
         $this->assertSame(
             (int) $stock->stock,

@@ -48,7 +48,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" id="date" name="tgl" class="form-control"
-                                                    value="{{ date('Y-m-d') }}" required>
+                                                    value="{{ old('tgl', date('Y-m-d')) }}" required>
                                             </div>
                                         </div>
 
@@ -59,7 +59,7 @@
                                                 <select name="pengirim" class="form-control select2" required>
                                                     <option></option>
                                                     @foreach ($tap as $row)
-                                                        <option value="{{ $row->idtap }}">
+                                                        <option value="{{ $row->idtap }}" @selected(old('pengirim') === $row->idtap)>
                                                             {{ $row->idtap }}
                                                         </option>
                                                     @endforeach
@@ -143,6 +143,7 @@
             const denoms = @json($denom->map(fn ($row) => ['id' => $row->iddenom, 'name' => $row->denom])->values());
             let rowIndex = 0;
             let tapStocks = {};
+            const submittedItems = @json(array_values(old('items', [])));
 
             function availableDenomOptions() {
                 return denoms
@@ -186,6 +187,11 @@
                     width: '100%',
                     dropdownParent: $(document.body)
                 });
+                row.find('select[name$="[iddenom]"]').val(values.iddenom || '').trigger('change');
+                row.find('input[name$="[qty]"]').val(values.qty || '');
+                row.find('input[name$="[sn]"]').val(values.sn || '');
+                row.find('select[name$="[ketvf]"]').val(values.ketvf || '').trigger('change');
+                row.find('input[name$="[tambahanket]"]').val(values.tambahanket || '');
             }
 
             $('#add-bulk-row').on('click', () => addRow());
@@ -212,13 +218,22 @@
                     success: function(stocks) {
                         tapStocks = stocks || {};
                         refreshDenomOptions(true);
+                        if (submittedItems.length) {
+                            $('#bulk-rows').empty();
+                            submittedItems.forEach(item => addRow(item));
+                            submittedItems.length = 0;
+                        }
                     },
                     error: function() {
                         Swal.fire('Gagal', 'Stok TAP tidak dapat dimuat. Silakan coba kembali.', 'error');
                     }
                 });
             });
-            addRow();
+            if (submittedItems.length && $('select[name="pengirim"]').val()) {
+                $('select[name="pengirim"]').trigger('change');
+            } else {
+                addRow();
+            }
 
             /* ================= ANTI DOUBLE SUBMIT ================= */
             let submitting = false;

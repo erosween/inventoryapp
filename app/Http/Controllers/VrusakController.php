@@ -175,8 +175,9 @@ class VrusakController extends Controller
                     ->value('stock') ?? 0;
 
                 if ($stock < $requestedQty) {
+                    $denomName = DB::table('denom')->where('iddenom', $iddenom)->value('denom') ?? $iddenom;
                     throw ValidationException::withMessages([
-                        'items' => "Stok {$iddenom} tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stock}.",
+                        'items' => "Stok denom {$denomName} ({$iddenom}) tidak mencukupi. Diminta: {$requestedQty}, tersedia: {$stock}.",
                     ]);
                 }
             }
