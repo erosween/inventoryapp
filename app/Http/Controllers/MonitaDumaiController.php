@@ -165,108 +165,196 @@ class MonitaDumaiController extends Controller
 
     private function buildPvMonitoring(): array
     {
-        $now = now();
-        $mtdStart = $now->copy()->startOfMonth();
-        $mtdEnd = $now->copy()->endOfDay();
-        $m1Start = $now->copy()->subMonthNoOverflow()->startOfMonth();
-        $m1End = $m1Start->copy()->addDays(min($now->day, $m1Start->daysInMonth) - 1)->endOfDay();
+        $validityColumns = collect([
+            ['label' => '1D', 'm1' => '1d_m1', 'mtd' => '1d_m'],
+            ['label' => '2D', 'm1' => '2d_m1', 'mtd' => '2d_m'],
+            ['label' => '3D', 'm1' => '3d_m1', 'mtd' => '3d_m'],
+            ['label' => '5D', 'm1' => '5d_m1', 'mtd' => '5d_m'],
+            ['label' => '7D', 'm1' => '7d_m1', 'mtd' => '7d_m'],
+            ['label' => '28D', 'm1' => '28d_m1', 'mtd' => '28d_m'],
+            ['label' => '30D', 'm1' => '30d_m1', 'mtd' => '30d_m'],
+        ]);
+        $validities = $validityColumns->pluck('label')->values();
+        $selectColumns = $validityColumns
+            ->flatMap(fn ($column) => [
+                "COALESCE(op.`{$column['m1']}`, 0) as `{$column['m1']}`",
+                "COALESCE(op.`{$column['mtd']}`, 0) as `{$column['mtd']}`",
+            ])
+            ->push('COALESCE(op.total_m1, 0) as total_m1')
+            ->push('COALESCE(op.total_m, 0) as total_m')
+            ->implode(', ');
 
-        $rows = DB::table('keluarsf as k')
-            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
-            ->join('idsf as s', 's.idsf', '=', 'k.idsf')
-            ->whereBetween('k.tgl', [$m1Start->toDateTimeString(), $mtdEnd->toDateTimeString()])
-            ->whereIn(DB::raw("UPPER(COALESCE(d.kategori_inject, 'SEGEL'))"), ['SEGEL', 'BYU'])
-            ->whereNotNull('d.group_name')
-            ->select('k.idtap', 'k.idsf', 's.namasf', 'd.group_name')
-            ->selectRaw("CASE WHEN UPPER(COALESCE(d.kategori_inject, 'SEGEL')) = 'BYU' THEN 'byu' ELSE 'reguler' END as category")
-            ->selectRaw('SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) as m1', [$m1Start, $m1End])
-            ->selectRaw('SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) as mtd', [$mtdStart, $mtdEnd])
-            ->groupBy('k.idtap', 'k.idsf', 's.namasf', 'd.group_name', 'category')
+        $rows = DB::table('outlet_performance as op')
+            ->join('appsdumais as a', 'a.id_outlet', '=', 'op.id_outlet')
+            ->whereNotNull('a.sf')
+            ->where('a.sf', '!=', '')
+            ->where('a.sf', '!=', 'UNMAPPING')
+            ->select('a.id_outlet', 'a.tap', 'a.sf as namasf', 'a.kecamatan')
+            ->selectRaw($selectColumns)
             ->get();
 
-        $validities = $rows->pluck('group_name')->unique()->sortBy(function ($validity) {
-            preg_match('/\d+/', (string) $validity, $match);
-            return (int) ($match[0] ?? 9999);
-        })->values();
+        $latestUpdate = DB::table('outlet_performance')
+            ->whereNotNull('tgl_update')
+            ->where('tgl_update', '!=', '')
+            ->max('tgl_update');
+        $latestUpdateText = null;
+        if ($latestUpdate) {
+            try {
+                $latestUpdateText = \Carbon\Carbon::parse($latestUpdate)->format('d M Y');
+            } catch (\Throwable $e) {
+                $latestUpdateText = (string) $latestUpdate;
+            }
+        }
 
-        $sfDistrictMap = DB::table('appsdumais')
-            ->whereNotNull('sf')->whereNotNull('kecamatan')
-            ->where('sf', '!=', '')->where('kecamatan', '!=', '')
-            ->select('tap', 'sf', 'kecamatan', DB::raw('COUNT(*) as total'))
-            ->groupBy('tap', 'sf', 'kecamatan')
-            ->get()
-            ->groupBy(fn ($item) => strtoupper(trim($item->tap)) . '|' . strtoupper(trim($item->sf)))
-            ->map(fn ($items) => $items->sortByDesc('total')->first()->kecamatan);
+        $calculateMom = fn ($mtd, $m1) => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0);
+        $clusterGroups = collect([
+            'dumai_bengkalis' => [
+                'label' => 'Dumai Bengkalis',
+                'order' => 1,
+                'taps' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+            ],
+            'rokan_hilir' => [
+                'label' => 'Rokan Hilir',
+                'order' => 2,
+                'taps' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            ],
+        ]);
+        $tapClusterMap = $clusterGroups
+            ->flatMap(fn ($group) => collect($group['taps'])->mapWithKeys(fn ($tap, $tapIndex) => [
+                $tap => ['label' => $group['label'], 'order' => $group['order'], 'tap_order' => $tapIndex + 1],
+            ]));
+        $clusterForTap = fn ($tap) => $tapClusterMap->get(strtoupper(trim((string) $tap)), [
+            'label' => 'Cluster Lain',
+            'order' => 99,
+            'tap_order' => 999,
+        ]);
 
-        $makeValues = function ($items) use ($validities) {
+        $makeValues = function ($items) use ($validityColumns, $calculateMom) {
             $values = [];
-            foreach (['all', 'reguler', 'byu'] as $category) {
-                foreach ($validities as $validity) {
-                    $matching = $items->where('group_name', $validity);
-                    if ($category !== 'all') $matching = $matching->where('category', $category);
-                    $m1 = (int) $matching->sum('m1');
-                    $mtd = (int) $matching->sum('mtd');
-                    $values[$category][$validity] = [
-                        'm1' => $m1,
-                        'mtd' => $mtd,
-                        'mom' => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0),
-                    ];
-                }
-                $totalM1 = collect($values[$category])->sum('m1');
-                $totalMtd = collect($values[$category])->sum('mtd');
-                $values[$category]['grand_total'] = [
-                    'm1' => $totalM1,
-                    'mtd' => $totalMtd,
-                    'mom' => $totalM1 > 0 ? round((($totalMtd - $totalM1) / $totalM1) * 100, 1) : ($totalMtd > 0 ? 100 : 0),
+            foreach ($validityColumns as $column) {
+                $m1 = (int) $items->sum($column['m1']);
+                $mtd = (int) $items->sum($column['mtd']);
+                $values['all'][$column['label']] = [
+                    'm1' => $m1,
+                    'mtd' => $mtd,
+                    'mom' => $calculateMom($mtd, $m1),
                 ];
             }
+            $totalM1 = (int) $items->sum('total_m1');
+            $totalMtd = (int) $items->sum('total_m');
+            $values['all']['grand_total'] = [
+                'm1' => $totalM1,
+                'mtd' => $totalMtd,
+                'mom' => $calculateMom($totalMtd, $totalM1),
+            ];
+
             return $values;
         };
 
-        $sfRows = $rows->groupBy(fn ($row) => $row->idtap . '|' . $row->idsf)->map(function ($items) use ($makeValues, $sfDistrictMap) {
+        $sfRows = $rows->groupBy(fn ($row) => strtoupper(trim((string) $row->tap)) . '|' . strtoupper(trim((string) $row->namasf)))->map(function ($items) use ($makeValues, $clusterForTap) {
             $first = $items->first();
-            $mapKey = strtoupper(trim($first->idtap)) . '|' . strtoupper(trim($first->namasf));
+            $district = $items
+                ->whereNotNull('kecamatan')
+                ->where('kecamatan', '!=', '')
+                ->countBy('kecamatan')
+                ->sortDesc()
+                ->keys()
+                ->first();
+            $cluster = $clusterForTap($first->tap);
+
             return [
-                'dimension' => 'sf', 'name' => $first->namasf, 'tap' => $first->idtap,
-                'district' => $sfDistrictMap->get($mapKey, 'Belum termapping'),
+                'dimension' => 'sf',
+                'row_type' => 'detail',
+                'name' => $first->namasf ?: 'SF BELUM ADA',
+                'tap' => $first->tap ?: 'TAP BELUM ADA',
+                'district' => $district ?: 'Belum termapping',
+                'cluster' => $cluster['label'],
+                'cluster_order' => $cluster['order'],
+                'tap_order' => $cluster['tap_order'],
                 'values' => $makeValues($items),
             ];
-        })->sortBy(fn ($row) => $row['tap'] . '|' . $row['name'])->values();
+        })->sortBy(fn ($row) => sprintf('%02d|%03d|%s', $row['cluster_order'], $row['tap_order'], $row['name']))->values();
 
-        $districtRows = $sfRows->groupBy(fn ($row) => $row['tap'] . '|' . $row['district'])->map(function ($items) use ($validities) {
+        $sumValues = function ($items) use ($validities, $calculateMom) {
             $values = [];
-            foreach (['all', 'reguler', 'byu'] as $category) {
-                foreach ($validities as $validity) {
-                    $m1 = $items->sum(fn ($row) => $row['values'][$category][$validity]['m1']);
-                    $mtd = $items->sum(fn ($row) => $row['values'][$category][$validity]['mtd']);
-                    $values[$category][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0)];
-                }
-                $totalM1 = collect($values[$category])->sum('m1');
-                $totalMtd = collect($values[$category])->sum('mtd');
-                $values[$category]['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $totalM1 > 0 ? round((($totalMtd - $totalM1) / $totalM1) * 100, 1) : ($totalMtd > 0 ? 100 : 0)];
+            foreach ($validities as $validity) {
+                $m1 = (int) $items->sum(fn ($row) => $row['values']['all'][$validity]['m1']);
+                $mtd = (int) $items->sum(fn ($row) => $row['values']['all'][$validity]['mtd']);
+                $values['all'][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $calculateMom($mtd, $m1)];
             }
-            return ['dimension' => 'kecamatan', 'name' => $items->first()['district'], 'tap' => $items->first()['tap'], 'values' => $values];
-        })->sortBy(fn ($row) => $row['tap'] . '|' . $row['name'])->values();
 
-        $tapRows = $sfRows->groupBy('tap')->map(function ($items, $tap) use ($validities) {
-            $values = [];
-            foreach (['all', 'reguler', 'byu'] as $category) {
-                foreach ($validities as $validity) {
-                    $m1 = $items->sum(fn ($row) => $row['values'][$category][$validity]['m1']);
-                    $mtd = $items->sum(fn ($row) => $row['values'][$category][$validity]['mtd']);
-                    $values[$category][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $m1 > 0 ? round((($mtd - $m1) / $m1) * 100, 1) : ($mtd > 0 ? 100 : 0)];
-                }
-                $totalM1 = collect($values[$category])->sum('m1');
-                $totalMtd = collect($values[$category])->sum('mtd');
-                $values[$category]['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $totalM1 > 0 ? round((($totalMtd - $totalM1) / $totalM1) * 100, 1) : ($totalMtd > 0 ? 100 : 0)];
-            }
-            return ['dimension' => 'tap', 'name' => $tap, 'tap' => $tap, 'values' => $values];
-        })->sortBy('name')->values();
+            $totalM1 = (int) $items->sum(fn ($row) => $row['values']['all']['grand_total']['m1']);
+            $totalMtd = (int) $items->sum(fn ($row) => $row['values']['all']['grand_total']['mtd']);
+            $values['all']['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $calculateMom($totalMtd, $totalM1)];
+
+            return $values;
+        };
+
+        $districtRows = $sfRows->groupBy(fn ($row) => $row['tap'] . '|' . $row['district'])->map(function ($items) use ($sumValues) {
+            $first = $items->first();
+
+            return [
+                'dimension' => 'kecamatan',
+                'row_type' => 'detail',
+                'name' => $first['district'],
+                'tap' => $first['tap'],
+                'cluster' => $first['cluster'],
+                'cluster_order' => $first['cluster_order'],
+                'tap_order' => $first['tap_order'],
+                'values' => $sumValues($items),
+            ];
+        })->sortBy(fn ($row) => sprintf('%02d|%03d|%s', $row['cluster_order'], $row['tap_order'], $row['name']))->values();
+
+        $tapRows = $sfRows->groupBy('tap')->map(function ($items, $tap) use ($sumValues) {
+            $first = $items->first();
+
+            return [
+                'dimension' => 'tap',
+                'row_type' => 'group',
+                'name' => $tap,
+                'tap' => $tap,
+                'cluster' => $first['cluster'],
+                'cluster_order' => $first['cluster_order'],
+                'tap_order' => $first['tap_order'],
+                'values' => $sumValues($items),
+            ];
+        })->sortBy(fn ($row) => sprintf('%02d|%03d|%s', $row['cluster_order'], $row['tap_order'], $row['name']))->values();
+
+        $sfByTap = $sfRows->groupBy('tap');
+        $tapDisplayRows = collect();
+        $tapRows->each(function ($tapRow) use ($sfByTap, $tapDisplayRows) {
+            $tapDisplayRows->push($tapRow);
+            $sfByTap->get($tapRow['tap'], collect())
+                ->sortBy('name')
+                ->each(function ($sfRow) use ($tapDisplayRows, $tapRow) {
+                    $tapDisplayRows->push(array_merge($sfRow, [
+                        'dimension' => 'tap',
+                        'row_type' => 'child',
+                        'parent_tap' => $tapRow['tap'],
+                        'district' => null,
+                    ]));
+                });
+        });
+
+        $clusterSummary = $clusterGroups->map(function ($group) use ($sfRows, $sumValues) {
+            $tapSet = collect($group['taps'])->map(fn ($tap) => strtoupper($tap))->flip();
+            $items = $sfRows
+                ->filter(fn ($row) => $tapSet->has(strtoupper((string) $row['tap'])))
+                ->values();
+
+            return [
+                'label' => $group['label'],
+                'sf_count' => $items->count(),
+                'tap_count' => $items->pluck('tap')->unique()->count(),
+                'values' => $sumValues($items),
+            ];
+        })->values()->all();
 
         return [
             'validities' => $validities->all(),
-            'rows' => $sfRows->concat($districtRows)->concat($tapRows)->values()->all(),
-            'period' => ['m1' => $m1Start->format('d M') . '–' . $m1End->format('d M Y'), 'mtd' => $mtdStart->format('d M') . '–' . $mtdEnd->format('d M Y')],
+            'rows' => $tapDisplayRows->concat($districtRows)->values()->all(),
+            'clusterSummary' => $clusterSummary,
+            'period' => ['m1' => 'Outlet performance M-1', 'mtd' => $latestUpdateText ? 'Update ' . $latestUpdateText : 'Outlet performance MTD'],
         ];
     }
 

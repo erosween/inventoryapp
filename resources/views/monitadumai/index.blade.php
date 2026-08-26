@@ -9,9 +9,12 @@
         rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('static/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/@fontsource-variable/geist@5.2.8/index.css">
 
     <!-- Leaflet Maps CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -21,7 +24,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: "Geist Variable", Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         body {
@@ -1214,6 +1217,10 @@
             border-radius: 16px;
             background: #fff;
             box-shadow: 0 5px 18px rgba(31, 45, 61, 0.08);
+        }
+
+        .dashboard-menu[hidden] {
+            display: none;
         }
 
         .dashboard-menu-button {
@@ -2521,44 +2528,382 @@
         .chart-empty i { display: block; margin-bottom: 12px; color: #d0d5dd; font-size: 28px; }
         .chart-empty strong { display: block; color: #667085; font-size: 12px; }
         .chart-empty p { margin-top: 6px; font-size: 10px; }
-        .pv-monitor-card { border: 1px solid var(--monita-line); border-radius: 16px; background: #fff; overflow: hidden; }
-        .pv-monitor-toolbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--monita-line); }
-        .pv-tabs { display: flex; gap: 5px; padding: 4px; border-radius: 10px; background: #f2f4f7; }
-        .pv-tab { min-height: 34px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: #667085; font-size: 10px; font-weight: 800; cursor: pointer; }
-        .pv-tab.active { background: #fff; color: #101828; box-shadow: 0 1px 4px rgba(16,24,40,.12); }
+        .pv-monitor-card {
+            border: 1px solid #d9dee8;
+            border-radius: 16px;
+            background: #fff;
+            overflow: hidden;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, .08);
+        }
+        .pv-monitor-toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #e6eaf1;
+            background: linear-gradient(180deg, #fff, #f8fafc);
+        }
+        .pv-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 11px;
+            background: #f1f5f9;
+        }
+        .pv-tab {
+            min-height: 32px;
+            padding: 0 14px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 850;
+            cursor: pointer;
+        }
+        .pv-tab.active {
+            background: #0f172a;
+            color: #fff;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, .18);
+        }
         .pv-category-tab.active { background: #101828; color: #fff; }
-        .pv-period-note { color: #98a2b3; font-size: 10px; text-align: right; line-height: 1.6; }
-        .pv-table-scroll { max-height: 620px; overflow: auto; }
-        .pv-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 10px; }
-        .pv-table th, .pv-table td { height: 42px; padding: 8px 10px; border-right: 1px solid #eaecf0; border-bottom: 1px solid #eaecf0; text-align: right; white-space: nowrap; }
-        .pv-table thead th { position: sticky; top: 0; z-index: 5; background: #174653; color: #fff; font-weight: 800; text-align: center; }
-        .pv-table thead tr:nth-child(2) th { top: 42px; background: #e6f0f1; color: #31515a; font-size: 9px; }
-        .pv-table .pv-identity { position: sticky; left: 0; z-index: 4; width: 220px; min-width: 220px; max-width: 220px; background: #fff; text-align: left; }
-        .pv-table .pv-tap { position: sticky; left: 220px; z-index: 4; width: 125px; min-width: 125px; max-width: 125px; background: #fff; text-align: left; }
-        .pv-table .pv-metric-col { width: 76px; min-width: 76px; max-width: 76px; }
-        .pv-table thead .pv-identity, .pv-table thead .pv-tap { z-index: 8; background: #174653; }
-        .pv-table .pv-grand-group { background: #0f766e; }
-        .pv-table thead tr:nth-child(2) .pv-grand-col { background: #d8eeeb; color: #0f5f59; }
-        .pv-table thead tr:first-child .pv-identity,
-        .pv-table thead tr:first-child .pv-tap { border-bottom-color: transparent; }
-        .pv-table thead tr:nth-child(2) .pv-header-spacer { background: #174653; border-top: 0; }
-        .pv-table tbody .pv-grand-col { background: #f0fdfa; font-weight: 800; }
-        .pv-table .pv-contribution-group { background: #6d5bd0; }
-        .pv-table thead tr:nth-child(2) .pv-contribution-col { background: #eeeafd; color: #5143a6; }
-        .pv-table tbody .pv-contribution-col { background: #faf9ff; color: #5143a6; font-weight: 800; }
-        .pv-table tbody tr:hover td { background: #f9fafb; }
-        .pv-table tbody tr:hover .pv-identity, .pv-table tbody tr:hover .pv-tap { background: #f9fafb; }
-        .pv-name { display: block; overflow: hidden; text-overflow: ellipsis; color: #101828; font-size: 11px; font-weight: 800; }
-        .pv-sub { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; color: #98a2b3; font-size: 8px; }
-        .pv-mom { display: inline-block; min-width: 51px; padding: 4px 6px; border-radius: 6px; text-align: center; font-weight: 800; }
-        .pv-mom.up { background: #ecfdf3; color: #027a48; }
-        .pv-mom.down { background: #fef3f2; color: #b42318; }
-        .pv-mom.flat { background: #f2f4f7; color: #667085; }
+        .pv-period-note {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            text-align: right;
+            line-height: 1.55;
+        }
+        .pv-table-scroll {
+            max-height: 640px;
+            overflow: auto;
+            background: #f8fafc;
+            scrollbar-color: #94a3b8 #e2e8f0;
+            scrollbar-width: thin;
+        }
+        .pv-table-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        .pv-table-scroll::-webkit-scrollbar-track { background: #e2e8f0; }
+        .pv-table-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 999px; border: 2px solid #e2e8f0; }
+        .pv-table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            color: #334155;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+        .pv-table th,
+        .pv-table td {
+            height: 36px;
+            padding: 6px 9px;
+            border-right: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: right;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .pv-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            height: 34px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .02em;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .pv-table thead tr:nth-child(2) th {
+            top: 34px;
+            height: 32px;
+            background: #fff;
+            color: #64748b;
+            font-size: 9px;
+        }
+        .pv-table .pv-identity {
+            position: sticky;
+            left: 0;
+            z-index: 4;
+            width: 240px;
+            min-width: 240px;
+            max-width: 240px;
+            background: #fff;
+            text-align: left;
+            box-shadow: 8px 0 16px rgba(15, 23, 42, .06);
+        }
+        .pv-table .pv-metric-col { width: 68px; min-width: 68px; max-width: 68px; }
+        .pv-table thead .pv-identity {
+            z-index: 8;
+            background: #f8fafc;
+        }
+        .pv-table .pv-grand-group { background: #eef2ff; color: #3730a3; }
+        .pv-table .pv-contribution-group { background: #f5f3ff; color: #5b21b6; }
+        .pv-table thead tr:nth-child(2) .pv-grand-col { background: #f5f7ff; color: #4338ca; }
+        .pv-table thead tr:nth-child(2) .pv-contribution-col { background: #faf5ff; color: #6d28d9; }
+        .pv-table thead tr:first-child .pv-identity { border-bottom-color: transparent; }
+        .pv-table thead tr:nth-child(2) .pv-header-spacer { background: #f8fafc; border-top: 0; }
+        .pv-table tbody td {
+            background: #fff;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 650;
+        }
+        .pv-table tbody .pv-grand-col {
+            background: #f8fafc;
+            color: #0f172a;
+            font-weight: 850;
+        }
+        .pv-table tbody .pv-contribution-col {
+            background: #fcfbff;
+            color: #5b21b6;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .pv-table tbody tr:hover td { background: #f8fafc; }
+        .pv-table tbody tr:hover .pv-identity { background: #f8fafc; }
+        .pv-name {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #0f172a;
+            font-size: 11px;
+            font-weight: 850;
+            line-height: 1.25;
+        }
+        .pv-sub {
+            display: block;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #94a3b8;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .pv-mom {
+            display: inline-flex;
+            min-width: 48px;
+            height: 24px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 7px;
+            border-radius: 7px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 850;
+        }
+        .pv-mom.up { background: #dcfce7; color: #047857; }
+        .pv-mom.down { background: #fee2e2; color: #b91c1c; }
+        .pv-mom.flat { background: #f1f5f9; color: #64748b; }
         .pv-empty-row td { padding: 42px; color: #98a2b3; text-align: center; }
-        .pv-sort { width: 100%; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .pv-sort {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
         .pv-sort.left { justify-content: flex-start; }
-        .pv-sort i { opacity: .45; font-size: 8px; }
-        .pv-sort.active i { opacity: 1; color: #5eead4; }
+        .pv-sort i { opacity: .42; font-size: 8px; }
+        .pv-sort.active i { opacity: 1; color: #0f172a; }
+        .pv-table tbody tr.pv-group-row td {
+            height: 40px;
+            background: #f1f5f9;
+            color: #0f172a;
+            font-weight: 900;
+            box-shadow: inset 0 1px 0 #cbd5e1;
+        }
+        .pv-table tbody tr.pv-group-row .pv-identity {
+            background: #e8eef7 !important;
+            color: #0f172a;
+            border-left: 4px solid #0f172a;
+        }
+        .pv-table tbody tr.pv-group-row .pv-name {
+            color: #0f172a;
+            font-size: 12px;
+            letter-spacing: .02em;
+        }
+        .pv-table tbody tr.pv-group-row .pv-sub {
+            color: #64748b;
+        }
+        .pv-table tbody tr.pv-child-row .pv-name {
+            position: relative;
+            padding-left: 17px;
+            color: #1e293b;
+            font-weight: 800;
+        }
+        .pv-table tbody tr.pv-child-row .pv-name::before {
+            content: "";
+            position: absolute;
+            left: 3px;
+            top: 50%;
+            width: 7px;
+            height: 1px;
+            background: #94a3b8;
+        }
+        .pv-cluster-footer td {
+            height: 40px;
+            background: #0f172a;
+            color: #fff;
+            font-weight: 900;
+            border-color: rgba(255, 255, 255, .12);
+        }
+        .pv-cluster-footer .pv-identity {
+            background: #0b1220 !important;
+            box-shadow: 8px 0 16px rgba(15, 23, 42, .16);
+        }
+        .pv-cluster-footer .pv-name {
+            color: #fff;
+            font-size: 10px;
+        }
+        .pv-cluster-footer .pv-sub {
+            color: #cbd5e1;
+        }
+        .pv-cluster-footer .pv-grand-col,
+        .pv-cluster-footer .pv-contribution-col {
+            background: #111827;
+            color: #fff;
+        }
+
+        /* CLEAN MONITA THEME — neutral, compact, and content-first */
+        :root {
+            --monita-red: #18181b;
+            --monita-ink: #18181b;
+            --monita-muted: #71717a;
+            --monita-line: #e4e4e7;
+            --monita-soft: #f4f4f5;
+            --monita-surface: #ffffff;
+            --sidebar-width: 236px;
+        }
+
+        body { background: #fafafa; color: var(--monita-ink); }
+        .enterprise-sidebar {
+            padding: 18px 12px;
+            background: #fff;
+            color: var(--monita-ink);
+            border-right: 1px solid var(--monita-line);
+        }
+        .sidebar-brand { padding: 0 8px 22px; }
+        .sidebar-logo {
+            width: 36px; height: 36px; border-radius: 9px;
+            background: #18181b; color: #fff; box-shadow: none;
+        }
+        .sidebar-brand strong { font-size: 15px; }
+        .sidebar-brand small, .sidebar-user small { color: #a1a1aa; }
+        .sidebar-label { color: #a1a1aa; font-size: 9px; }
+        .sidebar-nav { gap: 3px; }
+        .sidebar-link {
+            min-height: 40px; border-radius: 8px; color: #52525b;
+            font-size: 12px; font-weight: 600;
+        }
+        .sidebar-link:hover { background: #f4f4f5; color: #18181b; }
+        .sidebar-link.active {
+            background: #f4f4f5; color: #18181b; box-shadow: none;
+        }
+        .sidebar-link.active i { color: #18181b; }
+        .sidebar-foot { border-top-color: var(--monita-line); }
+        .sidebar-avatar { background: #f4f4f5; color: #3f3f46; border-radius: 8px; }
+
+        .header {
+            min-height: 64px; padding: 0 24px; background: rgba(255,255,255,.88);
+            border-bottom-color: var(--monita-line); backdrop-filter: blur(12px);
+        }
+        .header-copy h1 { font-size: 15px; font-weight: 650; letter-spacing: -.2px; }
+        .header-copy p { color: #a1a1aa; font-size: 10px; }
+        .header-status, .mobile-menu {
+            min-height: 34px; border-radius: 8px; border-color: var(--monita-line);
+            color: #52525b; box-shadow: none;
+        }
+        .container { max-width: 1540px; padding: 24px 28px 80px; }
+        .dashboard-menu {
+            padding: 3px; border-radius: 9px; background: #f4f4f5;
+            border: 0; box-shadow: none;
+        }
+        .dashboard-menu-button { min-height: 36px; border-radius: 7px; font-size: 11px; }
+        .dashboard-menu-button.active {
+            background: #fff; color: #18181b;
+            box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px rgba(24,24,27,.04);
+        }
+
+        .leader-dashboard {
+            margin-top: 18px; margin-bottom: 18px; padding: 0;
+            background: transparent; color: var(--monita-ink);
+            border-radius: 0; box-shadow: none; overflow: visible;
+        }
+        .leader-dashboard::before { display: none; }
+        .leader-intro {
+            padding: 22px; background: #fff; border: 1px solid var(--monita-line);
+            border-radius: 14px;
+        }
+        .leader-eyebrow { color: #71717a; font-size: 9px; letter-spacing: 1px; margin-bottom: 8px; }
+        .leader-title { max-width: 860px; font-size: clamp(22px, 2vw, 28px); letter-spacing: -.7px; }
+        .leader-subtitle { color: #71717a; font-size: 12px; line-height: 1.65; }
+        .leader-top-actions { margin-top: 14px; margin-bottom: 20px; }
+        .leader-pill, .leader-logout {
+            min-height: 32px; padding: 0 10px; border-radius: 7px; font-size: 10px;
+        }
+        .leader-pill { color: #52525b; background: #fafafa; border: 1px solid var(--monita-line); }
+        .leader-logout { color: #52525b; background: #fff; border: 1px solid var(--monita-line); }
+        .leader-kpis { gap: 12px; }
+        .leader-kpi, .coverage-kpi {
+            padding: 16px; background: #fafafa; border: 1px solid var(--monita-line);
+            border-radius: 12px; backdrop-filter: none;
+        }
+        .leader-kpi small, .coverage-kpi small, .coverage-region-sub,
+        .coverage-label, .coverage-meta { color: #71717a; }
+        .coverage-region-title, .coverage-number { color: #18181b; }
+        .coverage-gauge-card {
+            border-radius: 10px; background: #fff; border-color: var(--monita-line);
+        }
+        .coverage-gauge-value { fill: #18181b; stroke: #fff; }
+
+        .territory-panel, .leader-section, .insight-box, .module-hero,
+        .analytics-toolbar, .metric-card, .placeholder-chart, .pv-monitor-card {
+            border: 1px solid var(--monita-line); border-radius: 14px;
+            background: #fff; box-shadow: none;
+        }
+        .territory-panel { margin-top: 16px; padding: 14px; }
+        .leader-grid { gap: 14px; margin-top: 14px; }
+        .leader-section { border-radius: 14px; }
+        .insight-strip { gap: 10px; margin-top: 14px; }
+        .insight-box { border-radius: 12px; box-shadow: none; }
+        .territory-chip, .map-toggle, .threshold-field, .map-legend-item {
+            background: #fafafa; border: 1px solid var(--monita-line); border-radius: 8px;
+        }
+        .map-toggle.active, .fb-share-btn.active {
+            background: #18181b; border-color: #18181b; color: #fff; box-shadow: none;
+        }
+        .map-zoom-btn { border: 1px solid var(--monita-line); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        #leader-map, #map { border-radius: 11px; border-color: var(--monita-line); }
+        .input-wrapper input, .radius-select {
+            border: 1px solid #d4d4d8; border-radius: 9px; box-shadow: none;
+        }
+        .input-wrapper input:focus, .radius-select:focus, .radius-select:hover {
+            border-color: #a1a1aa; box-shadow: 0 0 0 3px rgba(24,24,27,.08); transform: none;
+        }
+        .btn-search, .btn-scan, .btn-detail { border-radius: 8px; box-shadow: none; }
+        .module-page { gap: 14px; }
+        .module-hero { padding: 22px; }
+        .module-hero h2 { font-size: 24px; }
+        .coming-badge { background: #f4f4f5; color: #52525b; }
+        .filter-field select { border-radius: 8px; }
+        .pv-table thead th, .pv-table thead .pv-identity,
+        .pv-table thead tr:nth-child(2) .pv-header-spacer { background: #f8fafc; }
+        .pv-table thead tr:nth-child(2) th { background: #fff; }
+        .pv-table .pv-grand-group { background: #eef2ff; color: #3730a3; }
 
         @media (max-width: 960px) {
             .enterprise-sidebar { transform: translateX(-100%); transition: transform .25s ease; }
@@ -2636,7 +2981,7 @@
         @endphp
 
         @if ($showLeaderDashboard)
-            <nav class="dashboard-menu" aria-label="Tampilan dashboard Monita">
+            <nav class="dashboard-menu" id="dashboard-submenu" aria-label="Tampilan dashboard Monita">
                 <button type="button" class="dashboard-menu-button active" data-dashboard-tab="leader"><i class="fas fa-chart-line"></i> Executive View</button>
                 <button type="button" class="dashboard-menu-button" data-dashboard-tab="outlet">
                     <i class="fas fa-map-location-dot"></i> Peta Outlet
@@ -2655,12 +3000,6 @@
                             dan
                             pengambilan keputusan leader secara terukur.
                         </p>
-                        <div class="leader-top-actions">
-                            <div class="leader-pill"><i class="fas fa-shield-halved"></i> Akses Monita aktif</div>
-                            <a href="{{ route('monita.leader.logout') }}" class="leader-logout"><i
-                                    class="fas fa-arrow-right-from-bracket"></i> Logout</a>
-                        </div>
-
                         <div class="leader-kpis">
                             @foreach ($clusterCoverage as $groupIndex => $group)
                                 <div class="leader-kpi coverage-kpi">
@@ -2954,7 +3293,6 @@
 
         <!-- Empty State -->
         <div id="empty-state" class="empty-state">
-            <img src="/static/images/shinchan.gif" alt="Shinchan Dance" class="empty-img">
             <p style="margin-top:15px; color:#aaa; font-size:13px;">Silakan cari outlet untuk melihat rinciannya</p>
         </div>
 
@@ -2984,42 +3322,41 @@
             <div class="dashboard-panel" id="dashboard-panel-pv">
                 <section class="module-page">
                     <div class="module-hero">
-                        <div><div class="module-kicker">PV Monitoring</div><h2>Physical Voucher Performance</h2><p>Perbandingan distribusi voucher dari tabel keluar SF berdasarkan validity, dengan pencapaian MTD terhadap periode setara bulan sebelumnya.</p></div>
-                        <div class="coming-badge"><i class="fas fa-circle-check"></i> Live dari keluarsf</div>
+                        <div><div class="module-kicker">PV Monitoring</div><h2>Physical Voucher Performance</h2><p>Perbandingan performansi voucher dari outlet_performance berdasarkan validity, dengan pencapaian MTD terhadap periode M-1.</p></div>
+                        <div class="coming-badge"><i class="fas fa-circle-check"></i> Live dari outlet_performance</div>
                     </div>
                     <div class="pv-monitor-card">
                         <div class="pv-monitor-toolbar">
                             <div class="pv-tabs" aria-label="Level monitoring PV">
-                                <button type="button" class="pv-tab active" data-pv-dimension="sf">SF</button>
+                                <button type="button" class="pv-tab active" data-pv-dimension="tap">TAP</button>
                                 <button type="button" class="pv-tab" data-pv-dimension="kecamatan">KECAMATAN</button>
-                                <button type="button" class="pv-tab" data-pv-dimension="tap">TAP</button>
-                            </div>
-                            <div class="pv-tabs" aria-label="Kategori voucher">
-                                <button type="button" class="pv-tab pv-category-tab active" data-pv-category="all">ALL</button>
-                                <button type="button" class="pv-tab pv-category-tab" data-pv-category="reguler">REGULER</button>
-                                <button type="button" class="pv-tab pv-category-tab" data-pv-category="byu">by.U</button>
                             </div>
                             <div class="pv-period-note">M-1: {{ $pvMonitoring['period']['m1'] ?? '-' }}<br>MTD: {{ $pvMonitoring['period']['mtd'] ?? '-' }}</div>
                         </div>
                         <div class="pv-table-scroll">
                             <table class="pv-table">
-                                <colgroup><col style="width:220px"><col style="width:125px">@foreach($pvMonitoring['validities'] as $validity)<col span="3" style="width:76px">@endforeach<col span="3" style="width:82px"><col span="{{ count($pvMonitoring['validities']) }}" style="width:88px"></colgroup>
+                                <colgroup><col style="width:240px">@foreach($pvMonitoring['validities'] as $validity)<col span="3" style="width:68px">@endforeach<col span="3" style="width:74px"><col span="{{ count($pvMonitoring['validities']) }}" style="width:72px"></colgroup>
                                 <thead>
-                                    <tr><th class="pv-identity"><button class="pv-sort left" type="button" data-pv-sort="name"><span id="pv-dimension-heading">Nama SF</span><i class="fas fa-sort"></i></button></th><th class="pv-tap"><button class="pv-sort left" type="button" data-pv-sort="tap">TAP<i class="fas fa-sort"></i></button></th>
+                                    <tr><th class="pv-identity"><button class="pv-sort left" type="button" data-pv-sort="name"><span id="pv-dimension-heading">TAP / Nama SF</span><i class="fas fa-sort"></i></button></th>
                                         @foreach($pvMonitoring['validities'] as $validity)<th colspan="3">VALIDITY {{ strtoupper(str_replace(' HARI', 'D', $validity)) }}</th>@endforeach
                                         <th colspan="3" class="pv-grand-group">GRAND TOTAL</th>
                                         <th colspan="{{ count($pvMonitoring['validities']) }}" class="pv-contribution-group">KONTRIBUSI TERHADAP TOTAL MTD</th>
                                     </tr>
-                                    <tr><th class="pv-identity pv-header-spacer" aria-hidden="true"></th><th class="pv-tap pv-header-spacer" aria-hidden="true"></th>@foreach($pvMonitoring['validities'] as $validity)<th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>@endforeach
+                                    <tr><th class="pv-identity pv-header-spacer" aria-hidden="true"></th>@foreach($pvMonitoring['validities'] as $validity)<th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>@endforeach
                                         <th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>
                                         @foreach($pvMonitoring['validities'] as $validity)<th class="pv-contribution-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="contribution">{{ strtoupper(str_replace(' HARI', 'D', $validity)) }}<i class="fas fa-sort"></i></button></th>@endforeach
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($pvMonitoring['rows'] as $rowIndex => $row)
-                                        <tr data-pv-row data-dimension="{{ $row['dimension'] }}" data-row-index="{{ $rowIndex }}" @if($row['dimension'] !== 'sf') hidden @endif>
-                                            <td class="pv-identity"><span class="pv-name">{{ $row['name'] }}</span>@if(!empty($row['district']))<span class="pv-sub">{{ $row['district'] }}</span>@endif</td>
-                                            <td class="pv-tap">{{ $row['dimension'] === 'tap' ? 'TOTAL TAP' : $row['tap'] }}</td>
+                                        @php($isPvGroup = ($row['row_type'] ?? 'detail') === 'group')
+                                        <tr class="{{ $isPvGroup ? 'pv-group-row' : (($row['dimension'] ?? '') === 'tap' ? 'pv-child-row' : '') }}" data-pv-row data-dimension="{{ $row['dimension'] }}" data-row-index="{{ $rowIndex }}" data-row-type="{{ $row['row_type'] ?? 'detail' }}" data-parent-tap="{{ $row['parent_tap'] ?? $row['tap'] ?? '' }}" data-cluster-order="{{ $row['cluster_order'] ?? 99 }}" @if($row['dimension'] !== 'tap') hidden @endif>
+                                            <td class="pv-identity">
+                                                <span class="pv-name">{{ $row['name'] }}</span>
+                                                @if($isPvGroup)
+                                                    <span class="pv-sub">Total TAP</span>
+                                                @endif
+                                            </td>
                                             @foreach($pvMonitoring['validities'] as $validity)
                                                 @php($metric = $row['values']['all'][$validity])
                                                 <td data-pv-metric="m1" data-validity="{{ $validity }}">{{ $fmt($metric['m1']) }}</td>
@@ -3036,9 +3373,35 @@
                                             @endforeach
                                         </tr>
                                     @empty
-                                        <tr class="pv-empty-row"><td colspan="{{ 5 + count($pvMonitoring['validities']) * 4 }}">Belum ada data PV pada periode ini.</td></tr>
+                                        <tr class="pv-empty-row"><td colspan="{{ 4 + count($pvMonitoring['validities']) * 4 }}">Belum ada data PV pada periode ini.</td></tr>
                                     @endforelse
                                 </tbody>
+                                @if(!empty($pvMonitoring['clusterSummary']))
+                                    <tfoot class="pv-cluster-footer">
+                                    @foreach($pvMonitoring['clusterSummary'] as $cluster)
+                                        @php($clusterGrand = $cluster['values']['all']['grand_total'] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                        <tr>
+                                            <td class="pv-identity">
+                                                <span class="pv-name">CLUSTER {{ strtoupper($cluster['label']) }}</span>
+                                            </td>
+                                            @foreach($pvMonitoring['validities'] as $validity)
+                                                @php($clusterMetric = $cluster['values']['all'][$validity] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                                <td>{{ $fmt($clusterMetric['m1'] ?? 0) }}</td>
+                                                <td>{{ $fmt($clusterMetric['mtd'] ?? 0) }}</td>
+                                                <td><span class="pv-mom {{ ($clusterMetric['mom'] ?? 0) > 0 ? 'up' : (($clusterMetric['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterMetric['mom'] ?? 0, 1, ',', '.') }}%</span></td>
+                                            @endforeach
+                                            <td class="pv-grand-col">{{ $fmt($clusterGrand['m1'] ?? 0) }}</td>
+                                            <td class="pv-grand-col">{{ $fmt($clusterGrand['mtd'] ?? 0) }}</td>
+                                            <td class="pv-grand-col"><span class="pv-mom {{ ($clusterGrand['mom'] ?? 0) > 0 ? 'up' : (($clusterGrand['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterGrand['mom'] ?? 0, 1, ',', '.') }}%</span></td>
+                                            @foreach($pvMonitoring['validities'] as $validity)
+                                                @php($clusterMetric = $cluster['values']['all'][$validity] ?? ['mtd' => 0])
+                                                @php($clusterContribution = ($clusterGrand['mtd'] ?? 0) > 0 ? (($clusterMetric['mtd'] ?? 0) / ($clusterGrand['mtd'] ?? 1)) * 100 : 0)
+                                                <td class="pv-contribution-col">{{ number_format($clusterContribution, 1, ',', '.') }}%</td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                    </tfoot>
+                                @endif
                             </table>
                         </div>
                     </div>
@@ -3129,6 +3492,7 @@
 
     <!-- Leaflet Maps JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
     <script>
         let map;
@@ -3152,6 +3516,7 @@
             trx_cvm: 11
         };
         let markers = [];
+        let outletClusterLayer = null;
         let outletMarkers = new Map();
         let selectedOutletMarker = null;
         let pendingOutletFocus = null;
@@ -4244,6 +4609,11 @@
                         panel.classList.toggle('active', panel.id === `dashboard-panel-${tab}`);
                     });
 
+                    const dashboardSubmenu = document.getElementById('dashboard-submenu');
+                    if (dashboardSubmenu) {
+                        dashboardSubmenu.hidden = !(tab === 'leader' || tab === 'outlet');
+                    }
+
                     if (tab === 'outlet') {
                         if (!map) loadAllOutlets();
                         else setTimeout(() => map.invalidateSize(), 100);
@@ -4257,39 +4627,77 @@
         }
 
         function bindPvMonitoring() {
-            let activeDimension = 'sf';
+            let activeDimension = 'tap';
             let activeCategory = 'all';
             let sortState = { key: 'name', direction: 'asc', validity: null, metric: null };
+
+            const rowSource = (row) => pvMonitoringRows[Number(row.dataset.rowIndex)] || {};
+            const compareSources = (left, right) => {
+                let leftValue;
+                let rightValue;
+                if (sortState.key === 'metric') {
+                    if (sortState.metric === 'contribution') {
+                        const leftTotal = Number(left?.values?.[activeCategory]?.grand_total?.mtd ?? 0);
+                        const rightTotal = Number(right?.values?.[activeCategory]?.grand_total?.mtd ?? 0);
+                        leftValue = leftTotal > 0 ? Number(left?.values?.[activeCategory]?.[sortState.validity]?.mtd ?? 0) / leftTotal : 0;
+                        rightValue = rightTotal > 0 ? Number(right?.values?.[activeCategory]?.[sortState.validity]?.mtd ?? 0) / rightTotal : 0;
+                    } else {
+                        leftValue = Number(left?.values?.[activeCategory]?.[sortState.validity]?.[sortState.metric] ?? 0);
+                        rightValue = Number(right?.values?.[activeCategory]?.[sortState.validity]?.[sortState.metric] ?? 0);
+                    }
+                } else {
+                    leftValue = String(left?.[sortState.key] ?? '').toLocaleLowerCase('id-ID');
+                    rightValue = String(right?.[sortState.key] ?? '').toLocaleLowerCase('id-ID');
+                }
+
+                const comparison = typeof leftValue === 'number'
+                    ? leftValue - rightValue
+                    : leftValue.localeCompare(rightValue, 'id-ID', { numeric: true });
+
+                return sortState.direction === 'asc' ? comparison : -comparison;
+            };
+
+            const sortRows = (rows) => rows.sort((a, b) => {
+                const comparison = compareSources(rowSource(a), rowSource(b));
+                if (comparison !== 0) return comparison;
+
+                return String(rowSource(a)?.name ?? '').localeCompare(String(rowSource(b)?.name ?? ''), 'id-ID', { numeric: true });
+            });
 
             const sortVisibleRows = () => {
                 const tbody = document.querySelector('.pv-table tbody');
                 if (!tbody) return;
                 const rows = Array.from(tbody.querySelectorAll(`[data-pv-row][data-dimension="${activeDimension}"]`));
-                rows.sort((a, b) => {
-                    const left = pvMonitoringRows[Number(a.dataset.rowIndex)];
-                    const right = pvMonitoringRows[Number(b.dataset.rowIndex)];
-                    let leftValue;
-                    let rightValue;
-                    if (sortState.key === 'metric') {
-                        if (sortState.metric === 'contribution') {
-                            const leftTotal = Number(left?.values?.[activeCategory]?.grand_total?.mtd ?? 0);
-                            const rightTotal = Number(right?.values?.[activeCategory]?.grand_total?.mtd ?? 0);
-                            leftValue = leftTotal > 0 ? Number(left?.values?.[activeCategory]?.[sortState.validity]?.mtd ?? 0) / leftTotal : 0;
-                            rightValue = rightTotal > 0 ? Number(right?.values?.[activeCategory]?.[sortState.validity]?.mtd ?? 0) / rightTotal : 0;
-                        } else {
-                            leftValue = Number(left?.values?.[activeCategory]?.[sortState.validity]?.[sortState.metric] ?? 0);
-                            rightValue = Number(right?.values?.[activeCategory]?.[sortState.validity]?.[sortState.metric] ?? 0);
-                        }
-                    } else {
-                        leftValue = String(left?.[sortState.key] ?? '').toLocaleLowerCase('id-ID');
-                        rightValue = String(right?.[sortState.key] ?? '').toLocaleLowerCase('id-ID');
-                    }
-                    const comparison = typeof leftValue === 'number'
-                        ? leftValue - rightValue
-                        : leftValue.localeCompare(rightValue, 'id-ID', { numeric: true });
-                    return sortState.direction === 'asc' ? comparison : -comparison;
-                });
-                rows.forEach((row) => tbody.appendChild(row));
+
+                if (activeDimension === 'tap') {
+                    const groupRows = rows.filter((row) => row.dataset.rowType === 'group');
+                    const childrenByTap = new Map();
+                    rows.filter((row) => row.dataset.rowType !== 'group').forEach((row) => {
+                        const parentTap = row.dataset.parentTap || rowSource(row)?.tap || '';
+                        if (!childrenByTap.has(parentTap)) childrenByTap.set(parentTap, []);
+                        childrenByTap.get(parentTap).push(row);
+                    });
+
+                    groupRows
+                        .sort((a, b) => {
+                            const left = rowSource(a);
+                            const right = rowSource(b);
+                            const clusterDiff = Number(left?.cluster_order ?? 99) - Number(right?.cluster_order ?? 99);
+                            if (clusterDiff !== 0) return clusterDiff;
+                            const tapOrderDiff = Number(left?.tap_order ?? 999) - Number(right?.tap_order ?? 999);
+                            if (tapOrderDiff !== 0) return tapOrderDiff;
+
+                            return String(left?.name ?? '').localeCompare(String(right?.name ?? ''), 'id-ID', { numeric: true });
+                        })
+                        .forEach((groupRow) => {
+                            tbody.appendChild(groupRow);
+                            sortRows(childrenByTap.get(rowSource(groupRow)?.tap || '') || []).forEach((row) => tbody.appendChild(row));
+                        });
+
+                    return;
+                }
+
+                sortRows(rows).forEach((row) => tbody.appendChild(row));
             };
 
             const render = () => {
@@ -4317,18 +4725,13 @@
                     });
                 });
                 const heading = document.getElementById('pv-dimension-heading');
-                if (heading) heading.textContent = activeDimension === 'sf' ? 'Nama SF' : (activeDimension === 'kecamatan' ? 'Kecamatan' : 'TAP');
+                if (heading) heading.textContent = activeDimension === 'tap' ? 'TAP / Nama SF' : 'Kecamatan';
                 sortVisibleRows();
             };
 
             document.querySelectorAll('[data-pv-dimension]').forEach((button) => button.addEventListener('click', () => {
                 activeDimension = button.dataset.pvDimension;
                 document.querySelectorAll('[data-pv-dimension]').forEach((item) => item.classList.toggle('active', item === button));
-                render();
-            }));
-            document.querySelectorAll('[data-pv-category]').forEach((button) => button.addEventListener('click', () => {
-                activeCategory = button.dataset.pvCategory;
-                document.querySelectorAll('[data-pv-category]').forEach((item) => item.classList.toggle('active', item === button));
                 render();
             }));
             document.querySelectorAll('[data-pv-sort]').forEach((button) => button.addEventListener('click', () => {
@@ -4349,6 +4752,7 @@
                 });
                 sortVisibleRows();
             }));
+            render();
         }
 
         window.addEventListener('load', () => {
@@ -4668,19 +5072,36 @@
             map = L.map('map').setView([1.75, 101.05], 8);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+            outletClusterLayer = L.markerClusterGroup({
+                chunkedLoading: true,
+                chunkInterval: 120,
+                chunkDelay: 30,
+                disableClusteringAtZoom: 16,
+                maxClusterRadius: 55,
+                removeOutsideVisibleBounds: true,
+                showCoverageOnHover: false,
+                spiderfyOnMaxZoom: true,
+                chunkProgress: (processed, total) => {
+                    if (processed === total && pendingOutletFocus) {
+                        focusOutletOnMap(pendingOutletFocus);
+                    }
+                }
+            }).addTo(map);
+
             const bounds = [];
             outlets.forEach(outlet => {
-                const marker = addOutletMarker(outlet);
+                const marker = addOutletMarker(outlet, false);
                 if (marker) bounds.push(marker.getLatLng());
             });
+
+            // Tambahkan sekaligus agar plugin dapat membagi pekerjaan rendering
+            // ke beberapa frame dan UI tidak membeku saat ribuan outlet dimuat.
+            outletClusterLayer.addLayers(markers);
 
             if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
             addFullscreenControl();
             showUserLocation();
 
-            if (pendingOutletFocus) {
-                focusOutletOnMap(pendingOutletFocus);
-            }
         }
 
         function createOutletIcon(selected = false) {
@@ -4693,7 +5114,7 @@
             });
         }
 
-        function addOutletMarker(outlet) {
+        function addOutletMarker(outlet, addToCluster = true) {
             const outletId = String(outlet.id_outlet);
             if (outletMarkers.has(outletId)) return outletMarkers.get(outletId);
 
@@ -4703,13 +5124,14 @@
 
             const marker = L.marker([lat, lon], {
                 icon: createOutletIcon()
-            }).addTo(map);
+            });
 
             marker.outletData = outlet;
             marker.bindPopup(() => buildOutletPopup(outlet, marker.getLatLng()));
 
             markers.push(marker);
             outletMarkers.set(outletId, marker);
+            if (addToCluster && outletClusterLayer) outletClusterLayer.addLayer(marker);
             return marker;
         }
 
@@ -4904,8 +5326,16 @@
 
             marker.setIcon(createOutletIcon(true));
             marker.setZIndexOffset(1000);
-            map.setView(marker.getLatLng(), 17, { animate: true });
-            marker.openPopup();
+
+            if (outletClusterLayer) {
+                outletClusterLayer.zoomToShowLayer(marker, () => {
+                    map.setView(marker.getLatLng(), 17, { animate: true });
+                    marker.openPopup();
+                });
+            } else {
+                map.setView(marker.getLatLng(), 17, { animate: true });
+                marker.openPopup();
+            }
 
             selectedOutletMarker = marker;
             pendingOutletFocus = null;
