@@ -33,7 +33,6 @@
                                                 <label>Tanggal</label>
                                                 <input type="date" id="date" name="tgl" class="form-control"
                                                     value="{{ old('tgl', date('Y-m-d', strtotime($edit->tgl))) }}"
-                                                    min="{{ now()->startOfMonth()->toDateString() }}"
                                                     max="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>

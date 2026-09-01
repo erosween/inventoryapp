@@ -141,7 +141,7 @@ class VrusakController extends Controller
         }
 
         $validated = $request->validate([
-            'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . now()->subMonth()->toDateString()],
+            'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'pengirim' => ['required', 'string', Rule::exists('kodetap', 'idtap')],
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.iddenom' => ['required', 'string', Rule::exists('denom', 'iddenom')],
@@ -150,7 +150,6 @@ class VrusakController extends Controller
             'items.*.ketvf' => ['required', Rule::in(['RUSAK', 'MATI'])],
             'items.*.tambahanket' => ['required', 'string', 'max:500'],
         ], [
-            'tgl.after_or_equal' => 'Tanggal maksimal satu bulan ke belakang.',
             'tgl.before_or_equal' => 'Tanggal tidak boleh melewati hari ini.',
             'items.*.tambahanket.required' => 'Keterangan tambahan wajib diisi pada setiap baris.',
         ]);

@@ -59,7 +59,7 @@ class FormInjectbyuController extends Controller
         ];
         Validator::make($payload, [
             'idtap' => ['required', 'string', 'exists:kodetap,idtap'],
-            'tgl' => ['required', 'date', 'before_or_equal:today', 'after_or_equal:' . now()->subMonth()->toDateString()],
+            'tgl' => ['required', 'date', 'before_or_equal:today'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.iddenom' => ['required', 'string'],
             'items.*.qty' => ['required', 'integer', 'min:1'],

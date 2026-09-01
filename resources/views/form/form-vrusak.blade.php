@@ -48,7 +48,8 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" id="date" name="tgl" class="form-control"
-                                                    value="{{ old('tgl', date('Y-m-d')) }}" required>
+                                                    value="{{ old('tgl', date('Y-m-d')) }}"
+                                                    max="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>
 

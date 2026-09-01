@@ -298,8 +298,7 @@
                                             <div class="form-group mb-1">
                                                 <label for="date"><i class="far fa-calendar-alt"></i>Tanggal Transaksi</label>
                                                 <input type="date" id="date" name="tgl" class="form-control"
-                                                    value="{{ date('Y-m-d') }}"
-                                                    min="{{ now()->startOfMonth()->toDateString() }}"
+                                                    value="{{ old('tgl', date('Y-m-d')) }}"
                                                     max="{{ date('Y-m-d') }}" required>
                                             </div>
                                         </div>

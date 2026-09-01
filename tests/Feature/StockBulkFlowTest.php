@@ -42,7 +42,7 @@ class StockBulkFlowTest extends TestCase
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->post('/form/forminject', [
-                'tgl' => now()->toDateString(),
+                'tgl' => now()->subMonths(2)->toDateString(),
                 'idtap' => $tap,
                 'items' => $destinations->values()->map(fn ($stock, $index) => [
                     'iddenom' => $stock->iddenom,
@@ -78,7 +78,7 @@ class StockBulkFlowTest extends TestCase
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->from('/form/forminject')
             ->post('/form/forminject', [
-                'tgl' => now()->toDateString(),
+                'tgl' => now()->subMonths(2)->toDateString(),
                 'idtap' => $tap,
                 'items' => [
                     ['iddenom' => $destinations[0]->iddenom, 'qty' => 1, 'sn' => 'UJI-GAGAL-1'],
@@ -106,7 +106,7 @@ class StockBulkFlowTest extends TestCase
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->post('/form/forminjectbyu', [
-                'tgl' => now()->toDateString(),
+                'tgl' => now()->subMonths(2)->toDateString(),
                 'idtap' => $tap,
                 'items' => $destinations->values()->map(fn ($stock, $index) => [
                     'iddenom' => $stock->iddenom,
@@ -245,7 +245,7 @@ class StockBulkFlowTest extends TestCase
         );
     }
 
-    public function test_sf_keluar_date_is_limited_to_current_month(): void
+    public function test_sf_keluar_accepts_a_date_before_the_current_month(): void
     {
         [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
         $stock = $stocks->first();
@@ -254,14 +254,16 @@ class StockBulkFlowTest extends TestCase
         $page = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->get('/form/form-sfkeluar')
             ->assertOk();
-        $this->assertStringContainsString(
-            'min="' . now()->startOfMonth()->toDateString() . '"',
-            $page->getContent()
-        );
-        $this->assertStringContainsString(
-            'max="' . now()->toDateString() . '"',
-            $page->getContent()
-        );
+        $this->assertMatchesRegularExpression('/<input[^>]+id="date"[^>]*>/', $page->getContent());
+        preg_match('/<input[^>]+id="date"[^>]*>/', $page->getContent(), $dateInput);
+        $this->assertStringNotContainsString(' min=', $dateInput[0]);
+        $this->assertStringContainsString('max="' . now()->toDateString() . '"', $dateInput[0]);
+
+        DB::table('masuksf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('keluarsf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('retursf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('masuk')->where('pengirim', 'DO')->where('penerima', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
+        DB::table('keluar')->where('pengirim', $sales->idsf)->where('iddenom', $stock->iddenom)->delete();
 
         $beforeCount = DB::table('keluarsf')->count();
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
@@ -274,11 +276,15 @@ class StockBulkFlowTest extends TestCase
                     'iddenom' => $stock->iddenom,
                     'qty' => 1,
                 ]],
-            ])
-            ->assertRedirect('/form/form-sfkeluar')
-            ->assertSessionHasErrors('tgl');
+            ])->assertRedirect('sf-keluar')->assertSessionHasNoErrors();
 
-        $this->assertSame($beforeCount, DB::table('keluarsf')->count());
+        $this->assertSame($beforeCount + 1, DB::table('keluarsf')->count());
+        $this->assertDatabaseHas('keluarsf', [
+            'idsf' => $sales->idsf,
+            'iddenom' => $stock->iddenom,
+            'tgl' => $previousMonth,
+            'qty' => 1,
+        ]);
     }
 
     public function test_same_denom_can_be_repeated_and_uses_combined_quantity(): void

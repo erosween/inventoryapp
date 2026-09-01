@@ -42,7 +42,7 @@ class VoucherRusakBulkTest extends TestCase
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->post('/vrusak', [
-                'tgl' => now()->toDateString(),
+                'tgl' => now()->subMonths(2)->toDateString(),
                 'pengirim' => $tap,
                 'items' => $items,
             ])
