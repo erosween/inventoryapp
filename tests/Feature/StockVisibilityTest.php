@@ -11,6 +11,43 @@ class StockVisibilityTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_admin_cluster_receives_cluster_footers_for_all_and_tap_only(): void
+    {
+        $admin = User::where('username', 'admin_cluster')->first();
+        if (! $admin) $this->markTestSkipped('Akun admin_cluster belum dimigrasikan.');
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])->get('/sisastock')
+            ->assertOk()
+            ->assertSee('DUMAI BENGKALIS')
+            ->assertSee('ROKAN HILIR')
+            ->assertDontSee('TOTAL CLUSTER DUMAI')
+            ->assertDontSee('TOTAL CLUSTER ROHIL');
+
+        foreach (['all', 'tap'] as $mode) {
+            $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+                ->postJson('/sisastock/data', [
+                    'mode' => $mode, 'date' => now()->toDateString(),
+                    'draw' => 1, 'start' => 0, 'length' => -1,
+                ])->assertOk();
+            $rows = collect($response->json('data'));
+            foreach ([
+                'CLUSTER DUMAI' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
+                'CLUSTER ROHIL' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            ] as $cluster => $taps) {
+                $this->assertSame(
+                    (int) $rows->whereIn('idtap', $taps)->sum('grand_total'),
+                    (int) $response->json("cluster_totals.{$cluster}.grand_total")
+                );
+            }
+        }
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->postJson('/sisastock/data', [
+                'mode' => 'sf', 'date' => now()->toDateString(),
+                'draw' => 1, 'start' => 0, 'length' => 25,
+            ])->assertOk()->assertJsonPath('cluster_totals', []);
+    }
+
     public function test_unified_stock_page_exposes_non_zero_rows_and_active_denoms_for_each_mode(): void
     {
         $admin = User::where('username', 'admin_super')->first();

@@ -317,10 +317,41 @@ class sisaStockController extends Controller
             ->pluck('iddenom')
             ->values();
 
+        $clusterTotals = [];
+        if (auth()->user()?->username === 'admin_cluster' && in_array($mode, ['all', 'tap'], true)) {
+            $clusterTapMap = [
+                'CLUSTER DUMAI' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
+                'CLUSTER ROHIL' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            ];
+
+            foreach ($clusterTapMap as $clusterName => $clusterTaps) {
+                $clusterRows = collect($finalData)->whereIn('idtap', $clusterTaps);
+                if ($clusterRows->isEmpty()) continue;
+
+                $totals = [];
+                foreach ($denoms as $denom) {
+                    $totals[$denom->iddenom] = (int) $clusterRows->sum($denom->iddenom);
+                }
+                foreach ($denomGroups as $category => $validityGroups) {
+                    foreach ($validityGroups as $groupName => $validityDenoms) {
+                        $key = md5($category . '|' . $groupName);
+                        $totals['validity_' . $key] = (int) $clusterRows->sum('validity_' . $key);
+                        if (in_array(strtoupper((string) $category), ['REGULER', 'BYU'], true)) {
+                            $totals['summary_' . $key] = (int) $clusterRows->sum('summary_' . $key);
+                        }
+                    }
+                }
+                $totals['grand_total'] = (int) $clusterRows->sum('grand_total');
+                $totals['grand_total_end'] = (int) $clusterRows->sum('grand_total_end');
+                $clusterTotals[$clusterName] = $totals;
+            }
+        }
+
         return datatables()->of(collect($finalData))
             ->with([
                 'mode' => $mode,
                 'active_denoms' => $activeDenoms,
+                'cluster_totals' => $clusterTotals,
             ])
             ->make(true);
     }

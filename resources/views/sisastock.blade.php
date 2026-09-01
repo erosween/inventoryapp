@@ -3,6 +3,7 @@
 @php
     use Illuminate\Support\Str;
     $isCurrentStockPage = $isCurrentStockPage ?? false;
+    $showClusterFooters = auth()->user()?->username === 'admin_cluster';
     $initialMode = $initialMode ?? 'all';
     $dailyGroupMap = collect($groups)->flatMap(function ($validityGroups, $category) {
         return collect($validityGroups)->map(function ($items, $validity) use ($category) {
@@ -125,6 +126,32 @@
                                         @endforeach
                                         <th class="text-end sticky-total-footer">0</th>
                                     </tr>
+                                    @if ($showClusterFooters)
+                                        @foreach (['CLUSTER DUMAI' => 'DUMAI BENGKALIS', 'CLUSTER ROHIL' => 'ROKAN HILIR'] as $clusterName => $clusterLabel)
+                                            <tr class="cluster-total-row" data-cluster="{{ $clusterName }}">
+                                                <th class="sticky-footer-left sticky-no"></th>
+                                                <th class="sticky-footer-left sticky-tap cluster-total-label">{{ $clusterLabel }}</th>
+                                                <th class="sticky-footer-left sticky-sf daily-sf-column"></th>
+                                                @foreach ($groups as $category => $validityGroups)
+                                                    @foreach ($validityGroups as $groupName => $items)
+                                                        @foreach ($items as $d)
+                                                            <th class="text-end" data-total-column="{{ $d->iddenom }}">0</th>
+                                                        @endforeach
+                                                        <th class="text-end validity-total-footer" data-total-column="validity_{{ md5($category . '|' . $groupName) }}">0</th>
+                                                    @endforeach
+                                                @endforeach
+                                                <th class="text-end grand-total-footer" data-total-column="grand_total">0</th>
+                                                @foreach ($dailySummaryMap as $summaryIndex => $summary)
+                                                    @php
+                                                        $previousSummary = $summaryIndex > 0 ? $dailySummaryMap[$summaryIndex - 1] : null;
+                                                        $startsSummaryCategory = ! $previousSummary || $previousSummary['category'] !== $summary['category'];
+                                                    @endphp
+                                                    <th class="text-end daily-validity-summary-footer summary-{{ Str::slug($summary['category']) }} {{ $startsSummaryCategory ? 'summary-category-start' : '' }}" data-total-column="summary_{{ $summary['key'] }}">0</th>
+                                                @endforeach
+                                                <th class="text-end sticky-total-footer" data-total-column="grand_total_end">0</th>
+                                            </tr>
+                                        @endforeach
+                                    @endif
                                 </tfoot>
                             </table>
                         </div>
@@ -189,6 +216,21 @@
                 });
 
                 api.columns.adjust();
+            }
+
+            function applyClusterTotals(payload) {
+                const show = ['all', 'tap'].includes(payload?.mode);
+                const totalsByCluster = payload?.cluster_totals || {};
+                $('.cluster-total-row').each(function() {
+                    const $row = $(this);
+                    const totals = totalsByCluster[$row.data('cluster')];
+                    $row.toggle(show && !!totals);
+                    if (!show || !totals) return;
+                    $row.find('[data-total-column]').each(function() {
+                        const value = parseInt(totals[$(this).data('total-column')], 10) || 0;
+                        $(this).html($.fn.dataTable.render.number(',', '.', 0).display(value));
+                    });
+                });
             }
 
             let table = $('#sisastock').DataTable({
@@ -342,6 +384,7 @@
                 },
                 drawCallback: function(settings) {
                     applyActiveColumns(this.api(), settings.json?.active_denoms || [], settings.json?.mode || stockMode);
+                    applyClusterTotals(settings.json || {});
                 },
                 pageLength: 25,
                 autoWidth: false,
@@ -462,6 +505,19 @@
             background:#e9e1c2 !important;
             color:#292a35 !important;
             font-weight:800;
+        }
+
+        #sisastock tfoot .cluster-total-row th {
+            position: static !important;
+            background: #eef0ff !important;
+            color: #3730a3 !important;
+            font-weight: 800;
+            border-top: 2px solid #6366f1 !important;
+        }
+        #sisastock tfoot .cluster-total-row .cluster-total-label {
+            background: #312e81 !important;
+            color: #fff !important;
+            text-align: center;
         }
 
         /* ================= FREEZE COLUMN ================= */
