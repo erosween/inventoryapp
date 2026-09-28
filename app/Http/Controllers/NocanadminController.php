@@ -11,16 +11,17 @@ class NocanadminController extends Controller
 
     public function index(Request $request)
     {
-
         $idtap = session('idtap');
+        return view('nocanadmin', compact('idtap'));
+    }
 
-        // Simpan nilai filter ke dalam session
-        $data = DB::table('nocan')
-            ->select("*")
-            ->where('status', '!=', 'ready')
-            ->get();
+    public function data()
+    {
+        $query = DB::table('nocan')
+            ->select(['id', 'tanggal', 'tap', 'nomor', 'booked', 'harga', 'status', 'outlet'])
+            ->where('status', '!=', 'ready');
 
-        return view('nocanadmin', compact('data', 'idtap'));
+        return datatables()->query($query)->make(true);
     }
 
     public function edit(Request $request, $id)

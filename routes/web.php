@@ -242,9 +242,10 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 
 	//HOME NOCAN
 	Route::get('/homenocan', [HomenocanController::class, 'index']);
-	Route::get('/nocanadmin', [NocanadminController::class, 'index']);
-	Route::post('/nocanadmin/{id}', [NocanadminController::class, 'edit']);
-	Route::post('/reset/{id}', [NocanadminController::class, 'reset']);
+	Route::get('/nocanadmin', [NocanadminController::class, 'index'])->name('nocanadmin.index');
+	Route::get('/nocanadmin/data', [NocanadminController::class, 'data'])->name('nocanadmin.data');
+	Route::post('/nocanadmin/{id}', [NocanadminController::class, 'edit'])->name('nocanadmin.edit');
+	Route::post('/reset/{id}', [NocanadminController::class, 'reset'])->name('nocanadmin.reset');
 	Route::get('/exportnocan', [HomenocanController::class, 'exportexcel']);
 
 	// mobile approval
