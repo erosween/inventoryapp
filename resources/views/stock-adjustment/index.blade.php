@@ -114,7 +114,7 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <button type="submit" class="btn btn-danger btn-block" onclick="return confirm('Yakin ingin mengubah saldo stok ini?')">
+                                    <button type="submit" class="btn btn-danger btn-block" id="stock-adjustment-submit">
                                         Simpan Perubahan
                                     </button>
                                 </div>
@@ -131,6 +131,24 @@
 
 @push('scripts')
 <script>
+    $('#stock-adjustment-submit').on('click', function (event) {
+        event.preventDefault();
+        const form = this.form;
+
+        Swal.fire({
+            title: 'Yakin mengubah saldo stok?',
+            text: 'Perubahan ini akan dicatat pada Audit Trail.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, simpan perubahan',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) form.submit();
+        });
+    });
+
     const tapTargets = @json($taps->map(fn ($tap) => ['id' => $tap, 'label' => $tap])->values());
     const salesTargets = @json($sales->map(fn ($sf) => [
         'id' => $sf->idsf,
