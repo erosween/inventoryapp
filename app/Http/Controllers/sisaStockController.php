@@ -14,7 +14,7 @@ class sisaStockController extends Controller
     public function index(Request $request)
     {
         $idtap = session('idtap');
-        $initialMode = in_array($request->query('mode'), ['all', 'tap', 'sf'], true)
+        $initialMode = in_array($request->query('mode'), ['all', 'exc_asmen', 'tap', 'sf'], true)
             ? $request->query('mode')
             : 'all';
         $date = $request->input('date', date('Y-m-d'));
@@ -33,7 +33,7 @@ class sisaStockController extends Controller
     public function data(Request $request)
     {
         $idtap = session('idtap');
-        $mode = in_array($request->input('mode'), ['all', 'tap', 'sf'], true)
+        $mode = in_array($request->input('mode'), ['all', 'exc_asmen', 'tap', 'sf'], true)
             ? $request->input('mode')
             : 'all';
         $targetDateInput = $request->input('date');
@@ -61,6 +61,10 @@ class sisaStockController extends Controller
         $sf = DB::table('stockawalsf as sf')
             ->join('idsf', 'sf.idsf', '=', 'idsf.idsf')
             ->select('idsf.idtap', 'idsf.idsf', 'idsf.namasf', 'sf.iddenom', 'sf.stock');
+
+        if ($mode === 'exc_asmen') {
+            $sf->whereRaw('UPPER(TRIM(idsf.namasf)) NOT LIKE ?', ['ASMAN%']);
+        }
 
         $applyFilter = function ($q, $col = 'idtap') use ($idtap) {
             if ($idtap === 'CLUSTER_DUMAI') {
@@ -296,6 +300,12 @@ class sisaStockController extends Controller
                     }
                 }
             }
+            $row['grand_total_pv'] = collect($denoms)
+                ->filter(fn ($denom) => strtoupper((string) $denom->group_name) !== 'SA')
+                ->sum(fn ($denom) => (int) ($row[$denom->iddenom] ?? 0));
+            $row['grand_total_sa'] = collect($denoms)
+                ->filter(fn ($denom) => strtoupper((string) $denom->group_name) === 'SA')
+                ->sum(fn ($denom) => (int) ($row[$denom->iddenom] ?? 0));
             $row['grand_total'] = $grand_total;
             $row['grand_total_end'] = $grand_total;
             // Mode SF doubles as the roster view. Keep newly-created SF accounts
@@ -318,7 +328,8 @@ class sisaStockController extends Controller
             ->values();
 
         $clusterTotals = [];
-        if (auth()->user()?->username === 'admin_cluster' && in_array($mode, ['all', 'tap'], true)) {
+        if (in_array(auth()->user()?->username, ['admin_cluster', 'admin_super'], true)
+            && in_array($mode, ['all', 'exc_asmen', 'tap', 'sf'], true)) {
             $clusterTapMap = [
                 'CLUSTER DUMAI' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
                 'CLUSTER ROHIL' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
@@ -342,6 +353,8 @@ class sisaStockController extends Controller
                     }
                 }
                 $totals['grand_total'] = (int) $clusterRows->sum('grand_total');
+                $totals['grand_total_pv'] = (int) $clusterRows->sum('grand_total_pv');
+                $totals['grand_total_sa'] = (int) $clusterRows->sum('grand_total_sa');
                 $totals['grand_total_end'] = (int) $clusterRows->sum('grand_total_end');
                 $clusterTotals[$clusterName] = $totals;
             }
@@ -360,7 +373,7 @@ class sisaStockController extends Controller
     {
         abort_unless(in_array($format, ['xlsx', 'csv'], true), 404);
 
-        $mode = in_array($request->query('mode'), ['all', 'tap', 'sf'], true)
+        $mode = in_array($request->query('mode'), ['all', 'exc_asmen', 'tap', 'sf'], true)
             ? $request->query('mode')
             : 'all';
         $date = $request->query('date', date('Y-m-d'));

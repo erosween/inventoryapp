@@ -3,7 +3,7 @@
 @php
     use Illuminate\Support\Str;
     $isCurrentStockPage = $isCurrentStockPage ?? false;
-    $showClusterFooters = auth()->user()?->username === 'admin_cluster';
+    $showClusterFooters = in_array(auth()->user()?->username, ['admin_cluster', 'admin_super'], true);
     $initialMode = $initialMode ?? 'all';
     $dailyGroupMap = collect($groups)->flatMap(function ($validityGroups, $category) {
         return collect($validityGroups)->map(function ($items, $validity) use ($category) {
@@ -44,6 +44,7 @@
                             <div class="col-md-8 col-sm-12 d-flex flex-wrap align-items-center justify-content-md-end justify-content-start mt-3 mt-md-0">
                                 <div class="daily-mode-toggle mr-2" role="group" aria-label="Perspektif stok">
                                     <button type="button" class="{{ $initialMode === 'all' ? 'active' : '' }}" data-mode="all">All</button>
+                                    <button type="button" class="{{ $initialMode === 'exc_asmen' ? 'active' : '' }}" data-mode="exc_asmen">All Exc Asman</button>
                                     <button type="button" class="{{ $initialMode === 'tap' ? 'active' : '' }}" data-mode="tap">TAP</button>
                                     <button type="button" class="{{ $initialMode === 'sf' ? 'active' : '' }}" data-mode="sf">SF</button>
                                 </div>
@@ -83,7 +84,6 @@
                                                 </th>
                                             @endforeach
                                         @endforeach
-                                        <th class="th-main grand-total-header" data-export-title="GRAND TOTAL">GRAND<br>TOTAL</th>
                                         @foreach ($dailySummaryMap as $summaryIndex => $summary)
                                             @php
                                                 $previousSummary = $summaryIndex > 0 ? $dailySummaryMap[$summaryIndex - 1] : null;
@@ -96,7 +96,8 @@
                                                 <span class="stock-leaf-denom">TOTAL</span>
                                             </th>
                                         @endforeach
-                                        <th class="th-main sticky-total" data-export-title="GRAND TOTAL">GRAND<br>TOTAL</th>
+                                        <th class="th-main grand-total-header daily-all-total-column sticky-grand-pv" data-export-title="GRAND TOTAL PV">GRAND TOTAL<br>PV</th>
+                                        <th class="th-main grand-total-header daily-all-total-column sticky-grand-sa" data-export-title="GRAND TOTAL SA">GRAND TOTAL<br>SA</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -116,7 +117,6 @@
                                                 <th class="text-end validity-total-footer">0</th>
                                             @endforeach
                                         @endforeach
-                                        <th class="text-end grand-total-footer">0</th>
                                         @foreach ($dailySummaryMap as $summaryIndex => $summary)
                                             @php
                                                 $previousSummary = $summaryIndex > 0 ? $dailySummaryMap[$summaryIndex - 1] : null;
@@ -124,7 +124,8 @@
                                             @endphp
                                             <th class="text-end daily-validity-summary-footer summary-{{ Str::slug($summary['category']) }} {{ $startsSummaryCategory ? 'summary-category-start' : '' }}">0</th>
                                         @endforeach
-                                        <th class="text-end sticky-total-footer">0</th>
+                                        <th class="text-end grand-total-footer daily-all-total-column sticky-grand-pv">0</th>
+                                        <th class="text-end grand-total-sa-footer daily-all-total-column sticky-grand-sa">0</th>
                                     </tr>
                                     @if ($showClusterFooters)
                                         @foreach (['CLUSTER DUMAI' => 'DUMAI BENGKALIS', 'CLUSTER ROHIL' => 'ROKAN HILIR'] as $clusterName => $clusterLabel)
@@ -140,7 +141,6 @@
                                                         <th class="text-end validity-total-footer" data-total-column="validity_{{ md5($category . '|' . $groupName) }}">0</th>
                                                     @endforeach
                                                 @endforeach
-                                                <th class="text-end grand-total-footer" data-total-column="grand_total">0</th>
                                                 @foreach ($dailySummaryMap as $summaryIndex => $summary)
                                                     @php
                                                         $previousSummary = $summaryIndex > 0 ? $dailySummaryMap[$summaryIndex - 1] : null;
@@ -148,7 +148,8 @@
                                                     @endphp
                                                     <th class="text-end daily-validity-summary-footer summary-{{ Str::slug($summary['category']) }} {{ $startsSummaryCategory ? 'summary-category-start' : '' }}" data-total-column="summary_{{ $summary['key'] }}">0</th>
                                                 @endforeach
-                                                <th class="text-end sticky-total-footer" data-total-column="grand_total_end">0</th>
+                                                <th class="text-end grand-total-footer daily-all-total-column sticky-grand-pv" data-total-column="grand_total_pv">0</th>
+                                                <th class="text-end grand-total-sa-footer daily-all-total-column sticky-grand-sa" data-total-column="grand_total_sa">0</th>
                                             </tr>
                                         @endforeach
                                     @endif
@@ -209,23 +210,31 @@
                     columnIndex++;
                 });
 
-                columnIndex++; // Grand Total
                 dailySummaries.forEach(function(summary) {
                     api.column(columnIndex).visible(summary.denoms.some(denom => active.has(denom)), false);
                     columnIndex++;
                 });
 
+                // Grand Total PV + SA selalu menjadi dua kolom terakhir dan
+                // selalu tampil pada All, All Exc Asman, TAP, maupun SF.
+                api.column(columnIndex).visible(true, false);
+                api.column(columnIndex + 1).visible(true, false);
+
                 api.columns.adjust();
+                $('.daily-all-total-column').show();
             }
 
             function applyClusterTotals(payload) {
-                const show = ['all', 'tap'].includes(payload?.mode);
+                const payloadMode = payload?.mode;
+                const show = payloadMode === stockMode
+                    && ['all', 'exc_asmen', 'tap', 'sf'].includes(payloadMode);
                 const totalsByCluster = payload?.cluster_totals || {};
                 $('.cluster-total-row').each(function() {
                     const $row = $(this);
                     const totals = totalsByCluster[$row.data('cluster')];
                     $row.toggle(show && !!totals);
                     if (!show || !totals) return;
+                    $row.removeClass('is-loading').removeAttr('aria-busy');
                     $row.find('[data-total-column]').each(function() {
                         const value = parseInt(totals[$(this).data('total-column')], 10) || 0;
                         $(this).html($.fn.dataTable.render.number(',', '.', 0).display(value));
@@ -233,7 +242,27 @@
                 });
             }
 
-            let table = $('#sisastock').DataTable({
+            function prepareClusterTotalsForReload() {
+                $('.cluster-total-row')
+                    .hide()
+                    .addClass('is-loading')
+                    .attr('aria-busy', 'true')
+                    .find('[data-total-column]')
+                    .text('');
+            }
+
+            const $stockTable = $('#sisastock');
+            $stockTable.on('preXhr.dt', function() {
+                prepareClusterTotalsForReload();
+                $('.daily-mode-toggle button').prop('disabled', true);
+            });
+            $stockTable.on('xhr.dt', function(event, settings, payload) {
+                if (!payload) {
+                    $('.daily-mode-toggle button').prop('disabled', false);
+                }
+            });
+
+            let table = $stockTable.DataTable({
                 processing: true,
                 serverSide: true,
                 ordering: false,
@@ -282,15 +311,6 @@
                             },
                         @endforeach
                     @endforeach
-                    {
-                        data: 'grand_total',
-                        name: 'grand_total',
-                        render: function(data, type) {
-                            const value = parseInt(data, 10) || 0;
-                            return $.fn.dataTable.render.number(',', '.', 0).display(value);
-                        },
-                        className: 'text-end font-weight-bold grand-total-cell'
-                    },
                     @foreach ($dailySummaryMap as $summaryIndex => $summary)
                     @php
                         $previousSummary = $summaryIndex > 0 ? $dailySummaryMap[$summaryIndex - 1] : null;
@@ -307,14 +327,25 @@
                     },
                     @endforeach
                     {
-                        data: 'grand_total_end',
-                        name: 'grand_total_end',
-                        render: function(data) {
+                        data: 'grand_total_pv',
+                        name: 'grand_total_pv',
+                        render: function(data, type) {
                             const value = parseInt(data, 10) || 0;
                             return $.fn.dataTable.render.number(',', '.', 0).display(value);
                         },
-                        className: 'text-end font-weight-bold sticky-total-col'
-                    }
+                        className: 'text-end font-weight-bold grand-total-cell daily-all-total-column sticky-grand-pv',
+                        width: '132px'
+                    },
+                    {
+                        data: 'grand_total_sa',
+                        name: 'grand_total_sa',
+                        render: function(data, type) {
+                            const value = parseInt(data, 10) || 0;
+                            return $.fn.dataTable.render.number(',', '.', 0).display(value);
+                        },
+                        className: 'text-end font-weight-bold grand-total-cell daily-all-total-column sticky-grand-sa',
+                        width: '132px'
+                    },
                 ],
                 footerCallback: function (row, data, start, end, display) {
                     var api = this.api();
@@ -347,15 +378,21 @@
                         @endforeach
                     @endforeach
 
-                    var grand_total_all = api
-                        .column("grand_total:name", { page: 'current' })
+                    var grand_total_pv_all = api
+                        .column("grand_total_pv:name", { page: 'current' })
                         .data()
                         .reduce(function (a, b) {
                             return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
                         }, 0);
                     
-                    $(api.column("grand_total:name").footer()).html(
-                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_all)
+                    $(api.column("grand_total_pv:name").footer()).html(
+                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_pv_all)
+                    );
+
+                    var grand_total_sa_all = api.column("grand_total_sa:name", { page: 'current' }).data()
+                        .reduce(function (a, b) { return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0); }, 0);
+                    $(api.column("grand_total_sa:name").footer()).html(
+                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_sa_all)
                     );
 
                     @foreach ($dailySummaryMap as $summary)
@@ -371,20 +408,13 @@
                         );
                     @endforeach
 
-                    var grand_total_end_all = api
-                        .column("grand_total_end:name", { page: 'current' })
-                        .data()
-                        .reduce(function(a, b) {
-                            return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
-                        }, 0);
-                    $(api.column("grand_total_end:name").footer()).html(
-                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_end_all)
-                    );
-
                 },
                 drawCallback: function(settings) {
                     applyActiveColumns(this.api(), settings.json?.active_denoms || [], settings.json?.mode || stockMode);
                     applyClusterTotals(settings.json || {});
+                    if (settings.json?.mode === stockMode) {
+                        $('.daily-mode-toggle button').prop('disabled', false);
+                    }
                 },
                 pageLength: 25,
                 autoWidth: false,
@@ -444,6 +474,7 @@
                 stockMode = nextMode;
                 $('.daily-mode-toggle button').removeClass('active');
                 $(this).addClass('active');
+                prepareClusterTotalsForReload();
                 syncStockUrl();
                 table.ajax.reload();
             });
@@ -459,6 +490,7 @@
         .daily-mode-toggle { display:flex; gap:4px; padding:4px; border:1px solid #e3e6ef; border-radius:10px; background:#f7f8fc; }
         .daily-mode-toggle button { min-width:48px; padding:8px 11px; border:0; border-radius:7px; background:transparent; color:#697386; font-size:11px; font-weight:700; cursor:pointer; }
         .daily-mode-toggle button.active { background:#4f46e5; color:#fff; box-shadow:0 5px 12px rgba(79,70,229,.22); }
+        .daily-mode-toggle button:disabled { cursor:wait; opacity:.65; }
 
         /* TABLE */
         #sisastock {
@@ -508,11 +540,13 @@
         }
 
         #sisastock tfoot .cluster-total-row th {
-            position: static !important;
             background: #eef0ff !important;
             color: #3730a3 !important;
             font-weight: 800;
             border-top: 2px solid #6366f1 !important;
+        }
+        #sisastock tfoot .cluster-total-row th:not(.sticky-no):not(.sticky-tap):not(.sticky-grand-pv):not(.sticky-grand-sa) {
+            position: static !important;
         }
         #sisastock tfoot .cluster-total-row .cluster-total-label {
             background: #312e81 !important;
@@ -653,6 +687,41 @@
         .sticky-total { position: sticky; right: 0; z-index: 9; background: #ca8a04 !important; color: #fff !important; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
         .sticky-total-col { position: sticky; right: 0; z-index: 8; background: #fff; font-weight: bold; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
         .sticky-total-footer { position: sticky; right: 0; z-index: 29; background: #0f172a; color: #ffffff; font-weight: 700; box-shadow: -2px 0 6px rgba(0, 0, 0, 0.25); }
+        #sisastock .sticky-grand-pv,
+        #sisastock .sticky-grand-sa {
+            box-sizing: border-box !important;
+            width: 132px !important;
+            min-width: 132px !important;
+            max-width: 132px !important;
+        }
+        .sticky-grand-pv { position: sticky !important; right: 132px; z-index: 28; background: #eef2ff !important; box-shadow: none; border-left: 2px solid #d9def2 !important; }
+        .sticky-grand-sa { position: sticky !important; right: 0; z-index: 29; background: #eef2ff !important; box-shadow: none; border-left: 1px solid #d9def2 !important; }
+        #sisastock tfoot .cluster-total-row th.sticky-no {
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 92 !important;
+        }
+        #sisastock tfoot .cluster-total-row th.sticky-tap {
+            position: sticky !important;
+            left: var(--freeze-no-width) !important;
+            z-index: 91 !important;
+        }
+        #sisastock tfoot .cluster-total-row th.sticky-grand-pv {
+            position: sticky !important;
+            right: 132px !important;
+            z-index: 94 !important;
+            background: #eef0ff !important;
+            color: #3730a3 !important;
+        }
+        #sisastock tfoot .cluster-total-row th.sticky-grand-sa {
+            position: sticky !important;
+            right: 0 !important;
+            z-index: 95 !important;
+            background: #eef0ff !important;
+            color: #3730a3 !important;
+        }
+        #sisastock thead .sticky-grand-pv, #sisastock thead .sticky-grand-sa { background: #4f46c5 !important; color: #fff !important; }
+        #sisastock tfoot .sticky-grand-pv, #sisastock tfoot .sticky-grand-sa { background: #0f172a !important; color: #fff !important; }
         #sisastock tbody tr:hover td.sticky-total-col { background-color: #f1f5f9; }
 
     </style>
