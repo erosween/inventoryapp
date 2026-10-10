@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SF Mobile - Inventory MSP</title>
+    <title>SURYA - Sales Unified Reporting &amp; Yield Application</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Google Fonts -->
@@ -11,7 +11,7 @@
     
     <!-- PWA Setup -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#5B37E5">
+    <meta name="theme-color" content="#b40012">
     <link rel="apple-touch-icon" href="/assets/img/pwa-192.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,10 +28,10 @@
 
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-dark: #3730a3;
-            --primary-light: #7c73ee;
-            --accent: #8b83f1;
+            --primary: #c1121f;
+            --primary-dark: #78000b;
+            --primary-light: #ef233c;
+            --accent: #ff6b35;
             --success: #10b981;
             --info: #2563eb;
             --ink: #111827;
@@ -44,7 +44,7 @@
             --shadow-premium: 0 18px 45px rgba(15, 23, 42, 0.08);
             --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
             --radius-xl: 24px;
-            --hero-surface: linear-gradient(145deg, #292468 0%, #4338a4 48%, #6259d8 100%);
+            --hero-surface: linear-gradient(145deg, #210006 0%, #8f0010 48%, #e32636 100%);
         }
 
         * {
@@ -433,7 +433,7 @@
             <!-- Premium Header Light for Non-Dashboard Pages -->
             <header class="premium-header reveal px-4 pt-4">
                 <div class="header-info">
-                    <p class="mb-0 text-muted small fw-bold">MSP Connect</p>
+                    <p class="mb-0 text-muted small fw-bold">SURYA</p>
                     <h1 class="mb-0" style="color: var(--text-main);">@yield('title', 'Halaman')</h1>
                 </div>
                 <div class="avatar-wrapper">
