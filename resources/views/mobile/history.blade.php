@@ -313,6 +313,9 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            <div class="px-4 pb-2">
+                <a href="#" id="share-receipt-wa" class="btn btn-success rounded-pill w-100 fw-bold"><i class="fab fa-whatsapp me-2"></i>Kirim e-Bon ke WhatsApp</a>
+            </div>
             <div class="modal-body p-4 pt-2">
                 <div id="detail-items-container">
                     <!-- Loaded via AJAX -->
@@ -350,6 +353,7 @@
             const tgl = $(this).data('tgl');
             const namaOutlet = $(this).data('nama-outlet');
             const tglFormatted = $(this).find('.small.text-muted').text().trim();
+            $('#share-receipt-wa').data({ idOutlet: idOutlet, tgl: tgl, outlet: namaOutlet, date: tglFormatted });
 
             $('#detail-outlet-name').text(namaOutlet);
             $('#detail-date').text(tglFormatted);
@@ -387,10 +391,18 @@
                         `;
                     });
                     $('#detail-items-container').html(html);
+                    $('#share-receipt-wa').data('receipt', res.items.map(item => `${item.produk}: ${item.qty} PCS`).join('\n'));
                 } else {
                     $('#detail-items-container').html('<div class="alert alert-danger">Gagal mengambil data.</div>');
                 }
             });
+        });
+
+        $('#share-receipt-wa').on('click', function(e) {
+            e.preventDefault();
+            const data = $(this).data();
+            const text = `e-Bon SURYA\nOutlet: ${data.outlet}\nTanggal: ${data.date}\n\n${data.receipt || ''}`;
+            window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
         });
     });
 </script>
