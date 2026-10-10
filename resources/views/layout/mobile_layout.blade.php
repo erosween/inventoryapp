@@ -524,6 +524,9 @@
                         </div>
                         <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: 0.7rem;"></i>
                     </a>
+                    <a href="{{ route('mobile.consignment') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-sim-card"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Konsinyasi SA</div><div class="small text-muted">Catat nomor perdana</div></div></a>
+                    <a href="{{ route('mobile.survey') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan harga</div></div></a>
+                    <a href="{{ route('mobile.network') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-signal"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Kondisi Network</div><div class="small text-muted">Laporkan kondisi sinyal</div></div></a>
                     <a href="{{ route('mobile.logout') }}" class="d-flex align-items-center py-3 text-decoration-none" style="color: #ef4444;">
                         <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3">
                             <i class="fas fa-power-off"></i>
