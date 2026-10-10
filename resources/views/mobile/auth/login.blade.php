@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Login SF - Inventory MSP</title>
+    <title>Login SF - SURYA</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -381,10 +381,10 @@
         <section class="login-hero">
             <div class="brand-row">
                 <div class="brand-lockup">
-                    <img src="/assets/img/MSP5.png" class="brand-logo" alt="MSP">
+                    <img src="/assets/img/surya-logo.png" class="brand-logo" alt="SURYA">
                     <div>
-                        <div class="brand-name">MSP Connect</div>
-                        <div class="brand-sub">Field Sales Console</div>
+                        <div class="brand-name">SURYA</div>
+                        <div class="brand-sub">Sales Unified Reporting &amp; Yield Application</div>
                     </div>
                 </div>
                 <div class="secure-pill">

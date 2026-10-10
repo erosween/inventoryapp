@@ -10,7 +10,7 @@
 <div class="px-4 pt-4 pb-5 mobile-home-hero" style="margin: 0 -16px; position: relative;">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="d-flex align-items-center min-w-0">
-            <img src="/assets/img/MSP5.png" alt="Avatar" class="me-3" style="width: 46px; height: 46px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.55); box-shadow: 0 12px 28px rgba(0,0,0,0.18); background: #fff;">
+            <img src="/assets/img/surya-logo.png" alt="SURYA" class="me-3" style="width: 46px; height: 46px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.55); box-shadow: 0 12px 28px rgba(0,0,0,0.18); background: #fff; object-fit: cover;">
             <div class="min-w-0">
                 <p class="text-white-50 mb-1 fw-800" style="font-size: 0.66rem; letter-spacing: .08em;">SURYA · SALES REPORTING</p>
                 <h6 class="text-white fw-900 mb-0 text-truncate" style="font-size: 1rem;">{{ session('mobile_sf_name') }}</h6>

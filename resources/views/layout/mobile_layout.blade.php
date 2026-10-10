@@ -437,7 +437,7 @@
                     <h1 class="mb-0" style="color: var(--text-main);">@yield('title', 'Halaman')</h1>
                 </div>
                 <div class="avatar-wrapper">
-                    <img src="/assets/img/MSP5.png" class="user-avatar" alt="Logo" style="width: 44px; height: 44px; border-radius: 12px; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    <img src="/assets/img/surya-logo.png" class="user-avatar" alt="SURYA" style="width: 44px; height: 44px; border-radius: 12px; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); object-fit: cover;">
                 </div>
             </header>
         @endif
