@@ -272,6 +272,10 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
         Route::get('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'create'])->name('visit');
         Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
+        Route::get('/consignment', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'consignment'])->name('surya.consignment');
+        Route::get('/survey', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'survey'])->name('surya.survey');
+        Route::get('/network', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'network'])->name('surya.network');
+        Route::post('/surya/{type}', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'store'])->name('surya.store');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
         Route::get('/history/details', [\App\Http\Controllers\MobileSalesController::class, 'getVisitDetails'])->name('history.details');
