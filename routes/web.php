@@ -269,6 +269,8 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
     Route::middleware([\App\Http\Middleware\MobileSFAccess::class])->group(function () {
         Route::get('/', [\App\Http\Controllers\MobileSalesController::class, 'index'])->name('index');
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
+        Route::get('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'create'])->name('visit');
+        Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
         Route::get('/history/details', [\App\Http\Controllers\MobileSalesController::class, 'getVisitDetails'])->name('history.details');

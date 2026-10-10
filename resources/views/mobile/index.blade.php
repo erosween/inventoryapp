@@ -71,10 +71,10 @@
             <i class="fas fa-clock-rotate-left"></i>
             <span>History</span>
         </a>
-        <button type="button" class="quick-action" data-bs-toggle="modal" data-bs-target="#searchOutletModal">
-            <i class="fas fa-store"></i>
-            <span>Outlet</span>
-        </button>
+        <a href="{{ route('mobile.visit') }}" class="quick-action">
+            <i class="fas fa-camera-retro"></i>
+            <span>Visit PJP</span>
+        </a>
     </div>
 
     <!-- PJP Section Header -->
