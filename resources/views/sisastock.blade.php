@@ -270,10 +270,7 @@
                 searchDelay: 250,
                 ajax: {
                     url: "{{ route('sisastock.data') }}",
-                    type: "POST",
-                    headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                    },
+                    type: "GET",
                     data: function(d) {
                         d.date = @json($isCurrentStockPage ? date('Y-m-d') : null) || $('#target_date').val();
                         d.mode = stockMode;
