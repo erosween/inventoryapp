@@ -24,9 +24,9 @@
                 <div class="small fw-bold text-muted" style="font-size: 0.6rem;">PRODUK TERSEDIA</div>
             </div>
             <div class="col-6">
-                <div class="text-muted fw-bold mb-1" style="font-size: 0.65rem;"><i class="fas fa-wallet me-1 text-success"></i> TOTAL NILAI</div>
-                <h4 class="fw-800 mb-0 text-success" style="font-size: 1.1rem;">Rp {{ number_format($total_value, 0, ',', '.') }}</h4>
-                <div class="small fw-bold text-muted" style="font-size: 0.6rem;">ESTIMASI NILAI STOK</div>
+                <div class="text-muted fw-bold mb-1" style="font-size: 0.65rem;"><i class="fas fa-cubes me-1 text-success"></i> TOTAL STOK</div>
+                <h4 class="fw-800 mb-0 text-success" style="font-size: 1.1rem;">{{ number_format($stocks->sum('stock')) }}</h4>
+                <div class="small fw-bold text-muted" style="font-size: 0.6rem;">PCS TERSEDIA</div>
             </div>
         </div>
     </div>
@@ -55,13 +55,13 @@
         <div class="stock-item glass-card mb-2 p-0 border-0 overflow-hidden shadow-sm" style="background: white; border-radius: 20px;" data-name="{{ strtolower($item->denom ?? '') }}">
             <div class="d-flex align-items-stretch">
                 <!-- Status Strip -->
-                <div style="width: 5px; background: {{ $item->stock > 10 ? '#10b981' : ($item->stock > 0 ? '#f59e0b' : '#ef4444') }};"></div>
+                <div style="width: 5px; background: {{ $item->stock > 10 ? '#10b981' : '#f59e0b' }};"></div>
                 
                 <div class="p-3 w-100">
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center">
                             <div class="p-2 rounded-3 me-3 d-flex align-items-center justify-content-center" 
-                                 style="width: 40px; height: 40px; background: {{ $item->stock > 10 ? 'rgba(16,185,129,0.1)' : ($item->stock > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)') }}; color: {{ $item->stock > 10 ? '#10b981' : ($item->stock > 0 ? '#f59e0b' : '#ef4444') }};">
+                                 style="width: 40px; height: 40px; background: {{ $item->stock > 10 ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)' }}; color: {{ $item->stock > 10 ? '#10b981' : '#f59e0b' }};">
                                 <i class="fas fa-box" style="font-size: 0.85rem;"></i>
                             </div>
                             <div>
@@ -69,20 +69,15 @@
                                 <div class="d-flex align-items-center mt-1 gap-2">
                                     @if($item->stock > 10)
                                         <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">READY</span>
-                                    @elseif($item->stock > 0)
-                                        <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">LOW</span>
                                     @else
-                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">EMPTY</span>
-                                    @endif
-                                    @if($item->harga_jual > 0)
-                                        <span class="text-muted fw-bold" style="font-size: 0.55rem;">Rp {{ number_format($item->harga_jual, 0, ',', '.') }}</span>
+                                        <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">LOW</span>
                                     @endif
                                 </div>
                             </div>
                         </div>
                         
                         <div class="text-end">
-                            <div class="fw-800 {{ $item->stock > 0 ? 'text-dark' : 'text-danger' }}" style="font-size: 1.2rem;">{{ number_format($item->stock) }}</div>
+                            <div class="fw-800 text-dark" style="font-size: 1.2rem;">{{ number_format($item->stock) }}</div>
                             <div class="text-muted fw-bold" style="font-size: 0.5rem;">PCS</div>
                         </div>
                     </div>
@@ -113,8 +108,9 @@
         });
         // Hide group headers if all items hidden
         document.querySelectorAll('.stock-group').forEach(function(group) {
-            const visibleItems = group.querySelectorAll('.stock-item[style=""], .stock-item:not([style])');
-            group.style.display = visibleItems.length > 0 ? '' : 'none';
+            const hasVisibleItem = Array.from(group.querySelectorAll('.stock-item'))
+                .some(item => item.style.display !== 'none');
+            group.style.display = hasVisibleItem ? '' : 'none';
         });
     });
 </script>

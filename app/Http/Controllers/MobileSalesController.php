@@ -37,7 +37,7 @@ class MobileSalesController extends Controller
         $latest = MobilePenjualan::where('idsf', $idsf)
             ->where('status', '!=', 'draft_wa')
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select('mobile_penjualan.*', 'denom.denom', DB::raw('COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0) as harga_jual'))
+            ->select('mobile_penjualan.*', 'denom.denom')
             ->orderBy('mobile_penjualan.created_at', 'desc')
             ->limit(5)
             ->get();
@@ -53,20 +53,6 @@ class MobileSalesController extends Controller
             ->whereYear('tgl', date('Y'))
             ->where('status', '!=', 'draft_wa')
             ->sum('qty');
-
-        // Calculate Setoran (Revenue)
-        $today_setoran = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
-            ->whereDate('mobile_penjualan.tgl', date('Y-m-d'))
-            ->where('mobile_penjualan.status', '!=', 'draft_wa')
-            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->sum(DB::raw('mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)'));
-
-        $month_setoran = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
-            ->whereMonth('mobile_penjualan.tgl', date('m'))
-            ->whereYear('mobile_penjualan.tgl', date('Y'))
-            ->where('mobile_penjualan.status', '!=', 'draft_wa')
-            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->sum(DB::raw('mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)'));
 
         // PJP List Logic
         $days = [
@@ -123,7 +109,7 @@ class MobileSalesController extends Controller
             ->whereIn('id_outlet', $non_pjp_visited_ids)
             ->get();
 
-        return view('mobile.index', compact('latest', 'today_sales', 'month_sales', 'today_setoran', 'month_setoran', 'pjp_list', 'non_pjp_list', 'today_name', 'activeVisit'));
+        return view('mobile.index', compact('latest', 'today_sales', 'month_sales', 'pjp_list', 'non_pjp_list', 'today_name', 'activeVisit'));
     }
 
     public function form(Request $request)
@@ -167,11 +153,12 @@ class MobileSalesController extends Controller
         }
         
         $denoms = DB::table('denom')
-            ->leftJoin('stockawalsf', function($join) use ($idsf) {
+            ->join('stockawalsf', function($join) use ($idsf) {
                 $join->on('denom.iddenom', '=', 'stockawalsf.iddenom')
                      ->where('stockawalsf.idsf', '=', $idsf);
             })
-            ->select('denom.*', DB::raw('COALESCE(stockawalsf.stock, 0) as stock_qty'))
+            ->where('stockawalsf.stock', '>', 0)
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', DB::raw('stockawalsf.stock as stock_qty'))
             ->get()
             ->sortByDesc(fn($item) => strtoupper((string) $item->group_name) === 'SA' ? 1 : 0);
 
@@ -246,14 +233,6 @@ class MobileSalesController extends Controller
                     ->get(['iddenom', 'denom', 'harga_jual'])
                     ->keyBy('iddenom');
 
-                $unpricedProduct = $products->first(function ($product) use ($denoms) {
-                    return ! isset($denoms[$product['iddenom']]) || (int) $denoms[$product['iddenom']]->harga_jual <= 0;
-                });
-                if ($unpricedProduct) {
-                    $denomName = $denoms[$unpricedProduct['iddenom']]->denom ?? $unpricedProduct['iddenom'];
-                    throw new \Exception("Harga jual {$denomName} belum diatur oleh admin. Transaksi belum dapat dibuat.");
-                }
-
                 $totalQty = $products->sum('qty');
                 $totalAmount = $products->sum(function ($product) use ($denoms) {
                     return $product['qty'] * (int) ($denoms[$product['iddenom']]->harga_jual ?? 0);
@@ -296,7 +275,9 @@ class MobileSalesController extends Controller
                         'idsf' => $idsf,
                         'iddenom' => $iddenom,
                         'qty' => $qty,
-                        'unit_price' => (int) $denoms[$iddenom]->harga_jual,
+                        'unit_price' => (int) $denoms[$iddenom]->harga_jual > 0
+                            ? (int) $denoms[$iddenom]->harga_jual
+                            : null,
                         'keterangan' => $request->keterangan,
                         'status' => 'draft_wa',
                         'latitude' => $request->latitude,
@@ -323,14 +304,12 @@ class MobileSalesController extends Controller
         
         $query = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
             ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
-            ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(
                 'mobile_penjualan.id_outlet', 
                 'mobile_penjualan.tgl', 
                 'appsdumais.nama_outlet',
                 DB::raw('count(*) as item_count'), 
-                DB::raw('sum(mobile_penjualan.qty) as total_qty'), 
-                DB::raw('sum(CASE WHEN mobile_penjualan.status = "rejected" THEN 0 ELSE mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0) END) as total_setoran'),
+                DB::raw('sum(mobile_penjualan.qty) as total_qty'),
                 DB::raw('max(mobile_penjualan.id) as last_id'),
                 DB::raw('max(mobile_penjualan.receipt_id) as receipt_id'),
                 DB::raw('SUM(CASE WHEN mobile_penjualan.status = "approved" THEN 1 ELSE 0 END) as approved_count'),
@@ -406,7 +385,6 @@ class MobileSalesController extends Controller
             ->select(
                 'mobile_penjualan.*',
                 'denom.denom',
-                DB::raw('COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0) as harga_jual'),
                 'appsdumais.nama_outlet'
             )
             ->get();
@@ -427,17 +405,17 @@ class MobileSalesController extends Controller
 
         $outletName = $sales->first()->nama_outlet ?? 'Unknown';
         $totalQty = $sales->sum('qty');
-        $grandTotal = $sales->sum(function($s) { return $s->qty * ($s->harga_jual ?? 0); });
 
         $denoms = DB::table('denom')
-            ->leftJoin('stockawalsf', function($join) use ($idsf) {
+            ->join('stockawalsf', function($join) use ($idsf) {
                 $join->on('denom.iddenom', '=', 'stockawalsf.iddenom')
                      ->where('stockawalsf.idsf', '=', $idsf);
             })
-            ->select('denom.*', DB::raw('COALESCE(stockawalsf.stock, 0) as stock_qty'))
+            ->where('stockawalsf.stock', '>', 0)
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', DB::raw('stockawalsf.stock as stock_qty'))
             ->get();
         
-        return view('mobile.edit', compact('sales', 'id_outlet', 'tgl', 'denoms', 'idtap', 'outletName', 'totalQty', 'grandTotal'));
+        return view('mobile.edit', compact('sales', 'id_outlet', 'tgl', 'denoms', 'idtap', 'outletName', 'totalQty'));
     }
 
     public function update(Request $request, $id_outlet, $tgl)
@@ -523,17 +501,14 @@ class MobileSalesController extends Controller
 
         $stocks = DB::table('stockawalsf')
             ->where('stockawalsf.idsf', $idsf)
+            ->where('stockawalsf.stock', '>', 0)
             ->leftJoin('denom', 'stockawalsf.iddenom', '=', 'denom.iddenom')
-            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'denom.harga_jual', 'stockawalsf.stock')
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'stockawalsf.stock')
             ->orderBy('denom.group_name')
             ->orderBy('denom.denom')
             ->get();
 
-        $total_value = $stocks->sum(function($item) {
-            return $item->stock * ($item->harga_jual ?? 0);
-        });
-
-        return view('mobile.stock', compact('stocks', 'total_value'));
+        return view('mobile.stock', compact('stocks'));
     }
 
     public function getVisitDetails(Request $request)
@@ -548,8 +523,7 @@ class MobileSalesController extends Controller
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(
                 'mobile_penjualan.*',
-                'denom.denom',
-                DB::raw('COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0) as harga_jual')
+                'denom.denom'
             )
             ->get();
 
@@ -563,8 +537,6 @@ class MobileSalesController extends Controller
                 return [
                     'produk' => $s->denom,
                     'qty' => $s->qty,
-                    'harga' => $s->harga_jual ?? 0,
-                    'total' => $s->qty * ($s->harga_jual ?? 0),
                     'status' => $s->status,
                 ];
             })
@@ -589,7 +561,6 @@ class MobileSalesController extends Controller
                 'm.qty',
                 'm.status',
                 'd.denom',
-                DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as harga_jual'),
             ]);
 
         return view('mobile.receipt', compact('receipt', 'outlet', 'items'));
@@ -618,7 +589,7 @@ class MobileSalesController extends Controller
             ], 422);
         }
 
-        $pricedItems = DB::table('mobile_penjualan as m')
+        $items = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
             ->where('m.receipt_id', $receipt->id)
             ->get([
@@ -627,16 +598,12 @@ class MobileSalesController extends Controller
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price'),
                 'd.denom',
             ]);
-        $unpricedItem = $pricedItems->first(fn ($item) => (int) $item->unit_price <= 0);
-        if ($unpricedItem) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Harga jual ' . $unpricedItem->denom . ' belum diatur admin. e-Bon belum dapat dikirim.',
-            ], 422);
-        }
+        DB::transaction(function () use ($receipt, $items, $whatsapp) {
+            foreach ($items as $item) {
+                if ((int) $item->unit_price <= 0) {
+                    continue;
+                }
 
-        DB::transaction(function () use ($receipt, $pricedItems, $whatsapp) {
-            foreach ($pricedItems as $item) {
                 MobilePenjualan::query()
                     ->whereKey($item->id)
                     ->whereNull('unit_price')
@@ -645,8 +612,8 @@ class MobileSalesController extends Controller
 
             $receipt->update([
                 'owner_whatsapp' => $whatsapp,
-                'total_qty' => $pricedItems->sum(fn ($item) => (int) $item->qty),
-                'total_amount' => $pricedItems->sum(fn ($item) => (int) $item->qty * (int) $item->unit_price),
+                'total_qty' => $items->sum(fn ($item) => (int) $item->qty),
+                'total_amount' => $items->sum(fn ($item) => (int) $item->qty * max(0, (int) $item->unit_price)),
                 'whatsapp_opened_at' => now(),
             ]);
         });
@@ -665,10 +632,6 @@ class MobileSalesController extends Controller
         if (! $receipt->owner_whatsapp || ! $receipt->whatsapp_opened_at) {
             return back()->with('error', 'Buka WhatsApp dan kirim e-Bon ke owner terlebih dahulu.');
         }
-        if ((int) $receipt->total_amount <= 0) {
-            return back()->with('error', 'Nilai e-Bon belum valid. Pastikan seluruh harga jual sudah diatur lalu buka WhatsApp ulang.');
-        }
-
         DB::transaction(function () use ($receipt) {
             $lockedReceipt = MobileSalesReceipt::query()->lockForUpdate()->findOrFail($receipt->id);
 
@@ -723,7 +686,7 @@ class MobileSalesController extends Controller
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
             ->where('m.receipt_id', $receipt->id)
             ->orderBy('m.id')
-            ->get(['d.denom', 'm.qty', DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as harga_jual')]);
+            ->get(['d.denom', 'm.qty']);
 
         $lines = [
             '*e-BON SURYA*',
@@ -736,14 +699,11 @@ class MobileSalesController extends Controller
         ];
 
         foreach ($items as $index => $item) {
-            $subtotal = (int) $item->qty * (int) $item->harga_jual;
-            $lines[] = ($index + 1) . '. ' . $item->denom;
-            $lines[] = '   ' . number_format($item->qty, 0, ',', '.') . ' x Rp ' . number_format($item->harga_jual, 0, ',', '.') . ' = Rp ' . number_format($subtotal, 0, ',', '.');
+            $lines[] = ($index + 1) . '. ' . $item->denom . ' — ' . number_format($item->qty, 0, ',', '.') . ' pcs';
         }
 
         $lines[] = '';
         $lines[] = '*Total ' . number_format($receipt->total_qty, 0, ',', '.') . ' pcs*';
-        $lines[] = '*GRAND TOTAL: Rp ' . number_format($receipt->total_amount, 0, ',', '.') . '*';
         $lines[] = '';
         $lines[] = 'Terima kasih telah berbelanja.';
 

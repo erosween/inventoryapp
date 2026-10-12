@@ -57,16 +57,31 @@ class MobileSalesFlowTest extends TestCase
     public function test_stock_page_uses_fresh_response_headers_and_single_stock_header(): void
     {
         DB::table('denom')->insert([
-            'iddenom' => 'D001',
-            'denom' => '5GB/3hari',
-            'group_name' => '3 HARI',
-            'harga_jual' => 15000,
+            [
+                'iddenom' => 'D001',
+                'denom' => '5GB/3hari',
+                'group_name' => '3 HARI',
+                'harga_jual' => 15000,
+            ],
+            [
+                'iddenom' => 'D002',
+                'denom' => 'Produk Stok Kosong',
+                'group_name' => '3 HARI',
+                'harga_jual' => 25000,
+            ],
         ]);
 
         DB::table('stockawalsf')->insert([
-            'idsf' => 'SF001',
-            'iddenom' => 'D001',
-            'stock' => 12,
+            [
+                'idsf' => 'SF001',
+                'iddenom' => 'D001',
+                'stock' => 12,
+            ],
+            [
+                'idsf' => 'SF001',
+                'iddenom' => 'D002',
+                'stock' => 0,
+            ],
         ]);
 
         $response = $this->withSession([
@@ -77,6 +92,8 @@ class MobileSalesFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Stok Saya')
             ->assertSee('5GB/3hari')
+            ->assertDontSee('Produk Stok Kosong')
+            ->assertDontSee('Rp ')
             ->assertDontSee('MSP Connect');
 
         $cacheControl = $response->headers->get('Cache-Control');
@@ -105,6 +122,24 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('validateStock', $form);
         $this->assertStringContainsString('Stok tidak cukup', $form);
         $this->assertStringContainsString('stock-warning', $form);
+    }
+
+    public function test_mobile_sales_views_hide_currency_and_use_the_optimized_logo(): void
+    {
+        foreach (['index', 'form', 'edit', 'stock', 'history', 'receipt', 'surya-form'] as $view) {
+            $contents = file_get_contents(resource_path("views/mobile/{$view}.blade.php"));
+
+            $this->assertStringNotContainsString('Rp ', $contents, "Currency leaked into mobile view {$view}.");
+        }
+
+        $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
+        $login = file_get_contents(resource_path('views/mobile/auth/login.blade.php'));
+        $logo = public_path('assets/img/surya-logo-mobile.webp');
+
+        $this->assertStringContainsString('surya-logo-mobile.webp', $layout);
+        $this->assertStringContainsString('surya-logo-mobile.webp', $login);
+        $this->assertFileExists($logo);
+        $this->assertLessThan(10_000, filesize($logo));
     }
 
     public function test_prefilled_outlet_on_sales_form_is_locked_and_shows_outlet_name(): void
@@ -287,7 +322,7 @@ class MobileSalesFlowTest extends TestCase
             ->assertSessionHas('error');
     }
 
-    public function test_sales_receipt_is_rejected_when_product_price_is_not_configured(): void
+    public function test_stocked_product_can_be_sold_without_a_client_visible_price(): void
     {
         DB::table('denom')->insert([
             'iddenom' => 'D-ZERO',
@@ -315,23 +350,37 @@ class MobileSalesFlowTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->withSession([
+        $response = $this->withSession([
             'mobile_sf_id' => 'SF001',
             'mobile_sf_name' => 'Sales Test',
             'idtap' => 'TAP001',
-        ])->from(route('mobile.form', ['id_outlet' => 'OUTLET-ZERO']))
-            ->post(route('mobile.store'), [
+        ])->post(route('mobile.store'), [
                 'id_outlet' => 'OUTLET-ZERO',
                 'products' => [[
                     'iddenom' => 'D-ZERO',
                     'qty' => 1,
                 ]],
-            ])
-            ->assertRedirect(route('mobile.form', ['id_outlet' => 'OUTLET-ZERO']))
-            ->assertSessionHas('error', 'Harga jual Produk Tanpa Harga belum diatur oleh admin. Transaksi belum dapat dibuat.');
+            ]);
 
-        $this->assertDatabaseCount('mobile_sales_receipts', 0);
-        $this->assertDatabaseCount('mobile_penjualan', 0);
+        $receipt = \App\Models\MobileSalesReceipt::query()->firstOrFail();
+
+        $response->assertRedirect(route('mobile.receipt.show', $receipt));
+        $this->assertDatabaseHas('mobile_penjualan', [
+            'receipt_id' => $receipt->id,
+            'iddenom' => 'D-ZERO',
+            'qty' => 1,
+            'unit_price' => null,
+            'status' => 'draft_wa',
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ])->get(route('mobile.receipt.show', $receipt))
+            ->assertOk()
+            ->assertSee('Produk Tanpa Harga')
+            ->assertDontSee('Rp ');
     }
 
     public function test_completed_visit_photos_cannot_be_opened_again_and_menu_is_not_clickable(): void

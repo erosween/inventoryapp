@@ -6,9 +6,6 @@
 @php
     $outletName = $sales->first()->nama_outlet ?? $id_outlet;
     $totalQty = $sales->sum('qty');
-    $grandTotal = $sales->sum(function($sale) {
-        return $sale->qty * ($sale->harga_jual ?? 0);
-    });
 @endphp
 
 <div class="reveal">
@@ -79,11 +76,6 @@
                                         <input type="hidden" name="products[{{ $index }}][iddenom]" value="{{ $sale->iddenom }}" class="iddenom-input">
                                         <i class="fas fa-search text-muted" style="font-size: 0.7rem;"></i>
                                     </div>
-                                    @if($sale->harga_jual > 0)
-                                        <div class="price-label mt-1">
-                                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp {{ number_format($sale->harga_jual, 0, ',', '.') }}/pcs</span>
-                                        </div>
-                                    @endif
                                 </div>
                             </div>
 
@@ -93,7 +85,7 @@
                                 </div>
                                 <div class="col-8">
                                     <div class="input-group input-group-sm">
-                                        <input type="number" name="products[{{ $index }}][qty]" class="form-control form-control-sm border-0 bg-light rounded-start-3 px-3 py-2 fw-bold text-dark edit-qty" value="{{ $sale->qty }}" min="1" required style="font-size: 0.9rem;" data-harga="{{ $sale->harga_jual ?? 0 }}">
+                                        <input type="number" name="products[{{ $index }}][qty]" class="form-control form-control-sm border-0 bg-light rounded-start-3 px-3 py-2 fw-bold text-dark edit-qty" value="{{ $sale->qty }}" min="1" required style="font-size: 0.9rem;">
                                         <span class="input-group-text border-0 bg-light text-muted fw-bold rounded-end-3" style="font-size: 0.65rem;">PCS</span>
                                     </div>
                                 </div>
@@ -119,20 +111,15 @@
             <div class="d-flex align-items-stretch">
                 <div style="width: 6px; background: var(--primary); opacity: 0.8;"></div>
                 <div class="p-4 w-100">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="fw-800 mb-1 text-dark" style="font-size: 0.75rem; letter-spacing: 1px;">RINGKASAN UPDATE</h6>
-                            <div class="text-muted fw-bold" style="font-size: 0.65rem;"><span id="edit-total-items">{{ $sales->count() }}</span> item • <span id="edit-total-pcs">{{ number_format($totalQty) }}</span> pcs</div>
-                        </div>
-                        <div class="text-end">
-                            <h4 class="fw-800 text-success mb-0" id="edit-total-setoran" style="font-size: 1.25rem;">Rp {{ number_format($grandTotal, 0, ',', '.') }}</h4>
-                        </div>
+                    <div>
+                        <h6 class="fw-800 mb-1 text-dark" style="font-size: 0.75rem; letter-spacing: 1px;">RINGKASAN UPDATE</h6>
+                        <div class="text-muted fw-bold" style="font-size: 0.65rem;"><span id="edit-total-items">{{ $sales->count() }}</span> item • <span id="edit-total-pcs">{{ number_format($totalQty) }}</span> pcs</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="sticky-bottom pb-4 pt-2 px-1" style="background: linear-gradient(to top, var(--bg-body) 70%, transparent); z-index: 10;">
+        <div class="sticky-bottom pb-4 pt-2 px-1" style="background: var(--bg-body); z-index: 10;">
             <div class="d-flex gap-2">
                 <a href="{{ route('mobile.history') }}" class="btn btn-light rounded-pill fw-800 py-3 px-4" style="border: 1px solid #e2e8f0; font-size: 0.85rem;">
                     Batal
@@ -169,17 +156,13 @@
                         <button type="button" class="list-group-item list-group-item-action border-0 py-3 px-0 d-flex align-items-center select-product-btn" 
                                 data-iddenom="{{ $d->iddenom }}" 
                                 data-denom="{{ $d->denom }}"
-                                data-harga="{{ $d->harga_jual }}"
                                 data-stock="{{ $d->stock_qty }}">
                             <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3 text-primary">
                                 <i class="fas fa-box"></i>
                             </div>
                             <div class="flex-grow-1">
                                 <div class="fw-800 text-dark" style="font-size: 0.85rem; line-height: 1.2;">{{ $d->denom }}</div>
-                                <div class="d-flex justify-content-between mt-1">
-                                    <span class="small text-muted fw-bold" style="font-size: 0.65rem;">Stok: {{ number_format($d->stock_qty) }}</span>
-                                    <span class="small text-success fw-bold" style="font-size: 0.65rem;">Rp {{ number_format($d->harga_jual, 0, ',', '.') }}</span>
-                                </div>
+                                <div class="small text-muted fw-bold mt-1" style="font-size: 0.65rem;">Stok: {{ number_format($d->stock_qty) }}</div>
                             </div>
                         </button>
                     @endforeach
@@ -195,27 +178,20 @@
 <script>
     let productIndex = {{ $sales->count() }};
     let activeTrigger = null;
-
-    function formatRupiah(value) {
-        return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
-    }
+    const stockMap = {!! json_encode($denoms->pluck('stock_qty', 'iddenom')) !!};
 
     function recalcEditSummary() {
-        let total = 0;
         let totalPcs = 0;
         let itemCount = 0;
 
         $('.product-item').each(function() {
             const qty = parseInt($(this).find('.edit-qty').val()) || 0;
-            const harga = parseInt($(this).find('.edit-qty').data('harga')) || 0;
-            total += qty * harga;
             totalPcs += qty;
             itemCount++;
         });
 
         $('#edit-total-items').text(itemCount);
         $('#edit-total-pcs').text(totalPcs.toLocaleString('id-ID'));
-        $('#edit-total-setoran').text(formatRupiah(total));
     }
 
     // Open Picker
@@ -238,20 +214,9 @@
     $(document).on('click', '.select-product-btn', function() {
         const iddenom = $(this).data('iddenom');
         const denom = $(this).data('denom');
-        const harga = $(this).data('harga');
 
         activeTrigger.find('.product-placeholder').text(denom);
         activeTrigger.find('.iddenom-input').val(iddenom);
-        
-        let qtyInput = activeTrigger.closest('.p-4').find('.edit-qty');
-        qtyInput.data('harga', harga);
-
-        let priceLabel = activeTrigger.find('.price-label');
-        if (priceLabel.length === 0) {
-            activeTrigger.append(`<div class="price-label mt-1"><span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp ${harga.toLocaleString('id-ID')}/pcs</span></div>`);
-        } else {
-            priceLabel.html(`<span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp ${harga.toLocaleString('id-ID')}/pcs</span>`);
-        }
 
         $('#productPickerModal').modal('hide');
         recalcEditSummary();
@@ -288,7 +253,7 @@
                             </div>
                             <div class="col-8">
                                 <div class="input-group input-group-sm">
-                                    <input type="number" name="products[${productIndex}][qty]" class="form-control form-control-sm border-0 bg-light rounded-start-3 px-3 py-2 fw-bold text-dark edit-qty" value="1" min="1" required style="font-size: 0.9rem;" data-harga="0">
+                                    <input type="number" name="products[${productIndex}][qty]" class="form-control form-control-sm border-0 bg-light rounded-start-3 px-3 py-2 fw-bold text-dark edit-qty" value="1" min="1" required style="font-size: 0.9rem;">
                                     <span class="input-group-text border-0 bg-light text-muted fw-bold rounded-end-3" style="font-size: 0.65rem;">PCS</span>
                                 </div>
                             </div>
@@ -308,5 +273,25 @@
     });
 
     $(document).on('input', '.edit-qty', recalcEditSummary);
+
+    $('#edit-sales-form').on('submit', function(event) {
+        const requested = {};
+        $('.product-item').each(function() {
+            const id = $(this).find('.iddenom-input').val();
+            const qty = parseInt($(this).find('.edit-qty').val()) || 0;
+            if (id) requested[id] = (requested[id] || 0) + qty;
+        });
+
+        const invalid = Object.entries(requested).find(([id, qty]) => qty > Number(stockMap[id] || 0));
+        if (invalid) {
+            event.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Stok Tidak Cukup',
+                text: `Total qty ${invalid[1]} melebihi stok tersedia ${Number(stockMap[invalid[0]] || 0)}.`,
+                confirmButtonColor: 'var(--primary)'
+            });
+        }
+    });
 </script>
 @endpush

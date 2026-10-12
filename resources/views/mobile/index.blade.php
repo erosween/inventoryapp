@@ -10,7 +10,7 @@
 <div class="px-4 pt-4 pb-5 mobile-home-hero" style="margin: 0 -16px; position: relative;">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="d-flex align-items-center min-w-0">
-            <img src="/assets/img/surya-logo.png" alt="SURYA" class="me-3" style="width: 46px; height: 46px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.55); box-shadow: 0 12px 28px rgba(0,0,0,0.18); background: #fff; object-fit: cover;">
+            <img src="/assets/img/surya-logo-mobile.webp" alt="SURYA" class="me-3" width="40" height="40" loading="eager" decoding="async" style="width: 40px; height: 40px; border-radius: 13px; border: 1px solid rgba(255,255,255,0.55); background: #fff; object-fit: cover;">
             <div class="min-w-0">
                 <p class="text-white-50 mb-1 fw-800" style="font-size: 0.66rem; letter-spacing: .08em;">SURYA · SALES REPORTING</p>
                 <h6 class="text-white fw-900 mb-0 text-truncate" style="font-size: 1rem;">{{ session('mobile_sf_name') }}</h6>
@@ -41,20 +41,10 @@
             <strong>{{ number_format($today_sales) }}</strong>
             <small>PCS terjual</small>
         </div>
-        <div class="mobile-kpi-card accent-green">
-            <span>Setoran Hari Ini</span>
-            <strong>Rp {{ number_format($today_setoran, 0, ',', '.') }}</strong>
-            <small>Estimasi</small>
-        </div>
         <div class="mobile-kpi-card">
             <span>Sales Bulan Ini</span>
             <strong>{{ number_format($month_sales) }}</strong>
             <small>PCS terjual</small>
-        </div>
-        <div class="mobile-kpi-card">
-            <span>Setoran Bulan Ini</span>
-            <strong>Rp {{ number_format($month_setoran, 0, ',', '.') }}</strong>
-            <small>Estimasi</small>
         </div>
     </div>
 
@@ -253,11 +243,7 @@
                                 </div>
                                 <div class="text-end">
                                     <div class="fw-800 text-primary" style="font-size: 0.9rem;">{{ number_format($item->qty) }} pcs</div>
-                                    @if($item->harga_jual > 0)
-                                        <div class="text-success fw-bold" style="font-size: 0.6rem;">Rp {{ number_format($item->qty * $item->harga_jual, 0, ',', '.') }}</div>
-                                    @else
-                                        <div class="text-muted" style="font-size: 0.65rem;">{{ $item->created_at->diffForHumans() }}</div>
-                                    @endif
+                                    <div class="text-muted" style="font-size: 0.65rem;">{{ $item->created_at->diffForHumans() }}</div>
                                 </div>
                             </div>
                         @empty
@@ -312,7 +298,7 @@
         min-height: 98px;
         border-radius: 24px;
         padding: 12px 15px;
-        background: rgba(255, 255, 255, 0.97);
+        background: #fff;
         border: 1px solid rgba(226, 232, 240, 0.9);
         box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
         display: flex;
@@ -352,7 +338,7 @@
         padding: 14px 16px;
         border: 1px solid #fed7aa;
         border-radius: 20px;
-        background: linear-gradient(135deg, #fff7ed, #fffbeb);
+        background: #fff7ed;
         color: #9a3412;
         box-shadow: 0 12px 24px rgba(245, 158, 11, 0.10);
     }
@@ -393,7 +379,7 @@
 <!-- Modal Cari Outlet -->
 <div class="modal fade" id="searchOutletModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered mx-auto" style="max-width: 440px;">
-        <div class="modal-content border-0" style="border-radius: 30px; overflow: hidden; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px);">
+        <div class="modal-content border-0" style="border-radius: 30px; overflow: hidden; background: #fff;">
             <div class="modal-header border-0 p-4 pb-2">
                 <h5 class="fw-800 mb-0">Cari Outlet</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

@@ -51,10 +51,7 @@
             margin: 0;
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             color: var(--ink);
-            background:
-                radial-gradient(circle at 18% 7%, rgba(236, 32, 40, 0.18), transparent 30%),
-                radial-gradient(circle at 88% 22%, rgba(37, 99, 235, 0.12), transparent 28%),
-                linear-gradient(180deg, #f8fafc 0%, #e9eff6 100%);
+            background: #e9eff6;
             display: flex;
             justify-content: center;
             align-items: stretch;
@@ -136,9 +133,9 @@
         }
 
         .brand-logo {
-            width: 48px;
-            height: 48px;
-            border-radius: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 13px;
             background: #fff;
             border: 1px solid rgba(255, 255, 255, 0.55);
             box-shadow: 0 14px 26px rgba(0, 0, 0, 0.18);
@@ -220,7 +217,7 @@
             z-index: 2;
             margin: -70px 18px 24px;
             padding: 22px;
-            background: rgba(255, 255, 255, 0.96);
+            background: #fff;
             border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 28px;
             box-shadow: 0 22px 55px rgba(15, 23, 42, 0.12);
@@ -423,7 +420,7 @@
         <section class="login-hero">
             <div class="brand-row">
                 <div class="brand-lockup">
-                    <img src="/assets/img/surya-logo.png" class="brand-logo" alt="SURYA">
+                    <img src="/assets/img/surya-logo-mobile.webp" class="brand-logo" alt="SURYA" width="40" height="40" loading="eager" decoding="async">
                     <div>
                         <div class="brand-name">SURYA</div>
                         <div class="brand-sub">Sales Unified Reporting &amp; Yield Application</div>

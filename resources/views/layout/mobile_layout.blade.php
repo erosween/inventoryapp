@@ -62,8 +62,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background:
-                linear-gradient(180deg, #f8fafc 0%, #e8eef6 100%);
+            background: #e8eef6;
             color: var(--text-main);
             margin: 0;
             padding: 0;
@@ -81,9 +80,7 @@
             padding-top: var(--mobile-safe-top);
             padding-bottom: 116px;
             position: relative;
-            background:
-                radial-gradient(circle at 20% 0%, rgba(79, 70, 229, 0.1), transparent 32%),
-                linear-gradient(180deg, #f7fafc 0%, var(--bg-body) 100%);
+            background: var(--bg-body);
             box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 30px 80px rgba(15, 23, 42, 0.12);
             overflow-x: hidden;
         }
@@ -113,7 +110,7 @@
         }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.96) !important;
+            background: #fff !important;
             border: 1px solid rgba(226, 232, 240, 0.9) !important;
             border-radius: var(--radius-xl) !important;
             margin-bottom: 16px;
@@ -319,9 +316,7 @@
             transform: translateX(-50%);
             width: calc(100% - 24px);
             max-width: 456px;
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(22px);
-            -webkit-backdrop-filter: blur(22px);
+            background: #fff;
             border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 26px;
             padding: 8px;
@@ -376,7 +371,7 @@
 
         .nav-item.active {
             color: var(--primary);
-            background: linear-gradient(180deg, rgba(236, 32, 40, 0.12), rgba(236, 32, 40, 0.06));
+            background: #fff1f2;
         }
         
         .nav-item.active i {
@@ -400,7 +395,7 @@
         .activity-item,
         .history-row,
         .stock-item {
-            background: rgba(255, 255, 255, 0.96);
+            background: #fff;
             border: 1px solid rgba(226, 232, 240, 0.85);
             border-radius: 20px;
             padding: 14px;
@@ -468,7 +463,7 @@
                     <h1 class="mb-0" style="color: var(--text-main);">@yield('title', 'Halaman')</h1>
                 </div>
                 <div class="avatar-wrapper">
-                    <img src="/assets/img/surya-logo.png" class="user-avatar" alt="SURYA" style="width: 44px; height: 44px; border-radius: 12px; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); object-fit: cover;">
+                    <img src="/assets/img/surya-logo-mobile.webp" class="user-avatar" alt="SURYA" width="40" height="40" loading="eager" decoding="async" style="width: 40px; height: 40px; border-radius: 12px; border: 2px solid white; object-fit: cover;">
                 </div>
             </header>
         @endif
@@ -547,7 +542,7 @@
                         <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: 0.7rem;"></i>
                     </a>
                     <a href="{{ route('mobile.surya.consignment') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-sim-card"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Konsinyasi SA</div><div class="small text-muted">Catat nomor perdana</div></div></a>
-                    <a href="{{ route('mobile.surya.survey') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan harga</div></div></a>
+                    <a href="{{ route('mobile.surya.survey') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan ketersediaan</div></div></a>
                     <a href="{{ route('mobile.surya.network') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-signal"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Kondisi Network</div><div class="small text-muted">Laporkan kondisi sinyal</div></div></a>
                     <button type="button" data-pwa-install hidden class="d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" style="color: var(--text-main);">
                         <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-download"></i></div>

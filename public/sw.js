@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'inventory-msp-pwa-';
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -7,6 +7,7 @@ const PRECACHE_ASSETS = [
   OFFLINE_URL,
   '/manifest.json',
   '/manifest-admin.json',
+  '/assets/img/surya-logo-mobile.webp',
   '/assets/pwa/surya/icon-180.png',
   '/assets/pwa/surya/icon-192.png',
   '/assets/pwa/surya/icon-512.png',

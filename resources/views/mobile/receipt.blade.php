@@ -33,20 +33,18 @@
 
         <div class="receipt-items">
             @foreach($items as $item)
-                @php($subtotal = (int) $item->qty * (int) $item->harga_jual)
                 <div class="receipt-item">
                     <div class="flex-grow-1 pe-2">
                         <strong>{{ $item->denom }}</strong>
-                        <small>{{ number_format($item->qty, 0, ',', '.') }} pcs × Rp {{ number_format($item->harga_jual, 0, ',', '.') }}</small>
+                        <small>Jumlah produk</small>
                     </div>
-                    <strong>Rp {{ number_format($subtotal, 0, ',', '.') }}</strong>
+                    <strong>{{ number_format($item->qty, 0, ',', '.') }} pcs</strong>
                 </div>
             @endforeach
         </div>
 
         <div class="receipt-total-row">
             <div><span>Total Produk</span><strong>{{ number_format($receipt->total_qty, 0, ',', '.') }} pcs</strong></div>
-            <div class="grand-total"><span>Grand Total</span><strong>Rp {{ number_format($receipt->total_amount, 0, ',', '.') }}</strong></div>
         </div>
     </section>
 
@@ -145,7 +143,7 @@
     .receipt-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 0; border-bottom: 1px dashed #e2e8f0; }
     .receipt-item strong { font-size: .82rem; }
     .receipt-item small { display: block; margin-top: 4px; color: #64748b; font-size: .68rem; font-weight: 700; }
-    .receipt-total-row { display: grid; grid-template-columns: 1fr 1.35fr; gap: 12px; padding: 20px 24px 24px; }
+    .receipt-total-row { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 20px 24px 24px; }
     .receipt-total-row > div { padding: 14px; border-radius: 16px; background: #f8fafc; }
     .receipt-total-row .grand-total { background: #eaf8f1; color: #138a57; }
     .receipt-total-row strong { font-size: .9rem; }
