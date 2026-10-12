@@ -3,12 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\SuryaVisit;
+use App\Services\OptimizedImageStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SuryaVisitController extends Controller
 {
+    public function __construct(private readonly OptimizedImageStorage $imageStorage)
+    {
+    }
+
     public function menu(Request $request)
     {
         if ($redirect = $this->redirectToActiveVisitWhenDifferent($request->input('id_outlet'))) {
@@ -45,7 +50,7 @@ class SuryaVisitController extends Controller
 
         $sfName = session('mobile_sf_name');
         $outlets = DB::table('appsdumais')
-            ->where('sf', 'LIKE', '%' . $sfName . '%')
+            ->where('sf', 'LIKE', '%'.$sfName.'%')
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet', 'latitude', 'longitude']);
 
@@ -59,8 +64,8 @@ class SuryaVisitController extends Controller
             'latitude' => ['required', 'numeric'],
             'longitude' => ['required', 'numeric'],
             'accuracy' => ['nullable', 'numeric'],
-            'photo_front' => ['required', 'image', 'mimes:jpeg,jpg', 'max:5120'],
-            'photo_inside' => ['required', 'image', 'mimes:jpeg,jpg', 'max:5120'],
+            'photo_front' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
+            'photo_inside' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -96,8 +101,8 @@ class SuryaVisitController extends Controller
         $insidePath = null;
 
         try {
-            $frontPath = $request->file('photo_front')->store('surya-visits/front', 'public');
-            $insidePath = $request->file('photo_inside')->store('surya-visits/inside', 'public');
+            $frontPath = $this->imageStorage->store($request->file('photo_front'), 'surya-visits/front')['path'];
+            $insidePath = $this->imageStorage->store($request->file('photo_inside'), 'surya-visits/inside')['path'];
 
             SuryaVisit::create([
                 'visited_at' => now(),
@@ -116,7 +121,9 @@ class SuryaVisitController extends Controller
                 'notes' => $request->notes,
             ]);
         } catch (\Throwable $exception) {
-            Storage::disk('public')->delete(array_filter([$frontPath, $insidePath]));
+            foreach (array_filter([$frontPath, $insidePath]) as $path) {
+                Storage::disk('public')->delete([$path, OptimizedImageStorage::thumbnailPathFor($path)]);
+            }
             throw $exception;
         }
 
@@ -135,6 +142,7 @@ class SuryaVisitController extends Controller
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
         $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
         return 2 * $earthRadius * asin(min(1, sqrt($a)));
     }
 

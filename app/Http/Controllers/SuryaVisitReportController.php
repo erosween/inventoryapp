@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\SuryaVisit;
+use App\Services\OptimizedImageStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class SuryaVisitReportController extends Controller
 {
@@ -49,6 +51,19 @@ class SuryaVisitReportController extends Controller
             ->orderByDesc('v.visited_at')
             ->paginate(25)
             ->withQueryString();
+
+        $disk = Storage::disk('public');
+        $visits->getCollection()->each(function ($visit) use ($disk) {
+            $frontPath = $visit->photo_front_path ?? $visit->photo_path;
+
+            foreach (['front' => $frontPath, 'inside' => $visit->photo_inside_path] as $type => $path) {
+                $thumbnailPath = $path ? OptimizedImageStorage::thumbnailPathFor($path) : null;
+                $visit->{$type.'_photo_url'} = $path ? $disk->url($path) : null;
+                $visit->{$type.'_thumbnail_url'} = $thumbnailPath && $disk->exists($thumbnailPath)
+                    ? $disk->url($thumbnailPath)
+                    : $visit->{$type.'_photo_url'};
+            }
+        });
 
         return view('surya.visits-report', compact('visits', 'dateFrom', 'dateTo'));
     }

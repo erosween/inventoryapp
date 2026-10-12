@@ -37,7 +37,7 @@
                     <small class="text-muted">Ambil seluruh bagian depan dan papan nama outlet.</small>
                 </div>
             </div>
-            <input type="file" name="photo_front" id="visit-photo-front" class="d-none visit-photo-input" accept="image/jpeg" required>
+            <input type="file" name="photo_front" id="visit-photo-front" class="d-none visit-photo-input" accept="image/jpeg,image/webp" required>
             <div class="camera-stage rounded-4 overflow-hidden bg-dark mb-3 d-none"><video class="visit-camera" autoplay playsinline muted></video></div>
             <canvas class="visit-canvas d-none"></canvas>
             <img class="visit-preview rounded-4 mb-3 d-none" alt="Foto outlet tampak depan">
@@ -54,7 +54,7 @@
                     <small class="text-muted">Ambil kondisi bagian dalam, display, dan branding outlet.</small>
                 </div>
             </div>
-            <input type="file" name="photo_inside" id="visit-photo-inside" class="d-none visit-photo-input" accept="image/jpeg" required>
+            <input type="file" name="photo_inside" id="visit-photo-inside" class="d-none visit-photo-input" accept="image/jpeg,image/webp" required>
             <div class="camera-stage rounded-4 overflow-hidden bg-dark mb-3 d-none"><video class="visit-camera" autoplay playsinline muted></video></div>
             <canvas class="visit-canvas d-none"></canvas>
             <img class="visit-preview rounded-4 mb-3 d-none" alt="Foto outlet tampak dalam">
@@ -195,19 +195,39 @@ $('.capture-photo').on('click', async function() {
         return;
     }
 
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const maxEdge = 1600;
+    const scale = Math.min(1, maxEdge / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(function(blob) {
-        const file = new File([blob], 'visit-' + kind + '-' + Date.now() + '.jpg', {type:'image/jpeg'});
+    const usePhotoBlob = function(blob) {
+        if (!blob) {
+            card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').html('<i class="fas fa-circle-exclamation me-1"></i>Foto gagal dikompresi. Silakan buka kamera kembali.');
+            return;
+        }
+
+        const isWebp = blob.type === 'image/webp';
+        const file = new File([blob], 'visit-' + kind + '-' + Date.now() + (isWebp ? '.webp' : '.jpg'), {type: isWebp ? 'image/webp' : 'image/jpeg'});
         const transfer = new DataTransfer(); transfer.items.add(file);
         card.find('.visit-photo-input').get(0).files = transfer.files;
         card.find('.visit-preview').attr('src', URL.createObjectURL(blob)).removeClass('d-none');
         card.find('.camera-stage, .capture-photo').addClass('d-none');
-        card.find('.open-camera').removeClass('d-none').html('<i class="fas fa-rotate me-2"></i>Ambil Ulang Foto');
-        card.find('.visit-photo-status').removeClass('text-muted text-danger').addClass('text-success fw-bold').html('<i class="fas fa-check-circle me-1"></i> Foto ' + label + ' sudah diambil dari kamera');
+        card.find('.open-camera').addClass('d-none').prop('disabled', true);
+        card.find('.visit-photo-status').removeClass('text-muted text-danger').addClass('text-success fw-bold').html('<i class="fas fa-check-circle me-1"></i> Foto ' + label + ' sudah diambil dan dikompresi');
         stopVisitCamera();
         activePhotoCard = null;
-    }, 'image/jpeg', .86);
+    };
+
+    canvas.toBlob(function(blob) {
+        if (blob && blob.type === 'image/webp') {
+            usePhotoBlob(blob);
+            return;
+        }
+
+        // Browser lama yang belum bisa membuat WebP tetap mengirim JPEG kecil;
+        // server akan menormalisasikannya menjadi WebP.
+        canvas.toBlob(usePhotoBlob, 'image/jpeg', .78);
+    }, 'image/webp', .76);
 });
 
 $('#visit-form').on('submit', function(event) {
