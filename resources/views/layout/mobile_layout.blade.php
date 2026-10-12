@@ -73,9 +73,12 @@
         }
 
         .mobile-container {
+            --mobile-safe-top: env(safe-area-inset-top, 0px);
             max-width: 480px;
             margin: 0 auto;
             min-height: 100vh;
+            min-height: 100dvh;
+            padding-top: var(--mobile-safe-top);
             padding-bottom: 116px;
             position: relative;
             background:
@@ -83,6 +86,25 @@
                 linear-gradient(180deg, #f7fafc 0%, var(--bg-body) 100%);
             box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 30px 80px rgba(15, 23, 42, 0.12);
             overflow-x: hidden;
+        }
+
+        /*
+         * iOS standalone mode renders black-translucent status bars above the
+         * web view. Keep that unsafe area as an opaque app chrome boundary so
+         * header content never sits underneath (and gets blurred by) iOS.
+         */
+        .mobile-container::before {
+            content: "";
+            position: fixed;
+            z-index: 1045;
+            top: 0;
+            left: 50%;
+            width: min(100%, 480px);
+            height: var(--mobile-safe-top);
+            transform: translateX(-50%);
+            pointer-events: none;
+            background: #f8fafc;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
         }
 
         .main-content {
