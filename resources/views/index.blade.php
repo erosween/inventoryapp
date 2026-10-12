@@ -4,7 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <title>INVENTORY MSP – Secure Login</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="manifest" href="/manifest-admin.json">
+    <meta name="application-name" content="Inventory MSP">
+    <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1e1b4b" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Inventory MSP">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-TileColor" content="#4f46e5">
+    <meta name="msapplication-TileImage" content="/assets/pwa/inventory/icon-144.png">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/inventory/icon-180.png">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#4f46e5">
     <link rel="icon" href="assets/img/MSP5.png" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -170,6 +183,19 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .install-btn {
+            width: 100%;
+            min-height: 44px;
+            margin-top: 12px;
+            border: 1px solid rgba(79, 70, 229, .22);
+            border-radius: 14px;
+            color: #4338ca;
+            background: #eef2ff;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
         }
 
         .login-btn i {
@@ -384,6 +410,9 @@
                         <span class="btn-text">LOG IN NOW</span>
                         <i class="fas fa-arrow-right"></i>
                     </button>
+                    <button type="button" class="install-btn" data-pwa-install hidden>
+                        <i class="fas fa-download"></i> INSTALL APLIKASI
+                    </button>
                     <div style="margin-top:14px; text-align:center; font-size:12px; color:#6b7280;">
                         <i class="fas fa-lock"></i> Secure Access • Encrypted Session
                     </div>
@@ -416,6 +445,8 @@
             return false;
         }
     </script>
+
+    @include('partials.pwa-installer')
 
 
 </body>

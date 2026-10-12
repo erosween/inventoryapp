@@ -1,28 +1,50 @@
 {
   "id": "/mobile",
-  "name": "MSP Sales Mobile",
-  "short_name": "MSP Mobile",
-  "description": "Aplikasi mobile MSP untuk aktivitas penjualan.",
-  "start_url": "/mobile/login",
-  "scope": "/mobile/",
+  "name": "SURYA — Sales Unified Reporting & Yield Application",
+  "short_name": "SURYA",
+  "description": "Aplikasi visit PJP, penjualan, stok, dan reporting Sales Force.",
+  "lang": "id-ID",
+  "dir": "ltr",
+  "start_url": "/mobile",
+  "scope": "/mobile",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui", "browser"],
-  "background_color": "#F4F7F9",
-  "theme_color": "#5B37E5",
-  "orientation": "portrait",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#f3f7fb",
+  "theme_color": "#b40012",
+  "orientation": "any",
   "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
+    { "src": "/assets/pwa/surya/icon-72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/surya/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/pwa/surya/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
     {
-      "src": "/assets/img/surya-logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "name": "Beranda SURYA",
+      "short_name": "Beranda",
+      "url": "/mobile",
+      "icons": [{ "src": "/assets/pwa/surya/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "src": "/assets/img/surya-logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "name": "Stok Sales Force",
+      "short_name": "Stok",
+      "url": "/mobile/stock",
+      "icons": [{ "src": "/assets/pwa/surya/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Riwayat Penjualan",
+      "short_name": "Riwayat",
+      "url": "/mobile/history",
+      "icons": [{ "src": "/assets/pwa/surya/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

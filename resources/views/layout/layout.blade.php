@@ -22,6 +22,20 @@
     <meta content='width=device-width, initial-scale=1.0, shrink-to-fit=no' name='viewport' />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
 
+    <link rel="manifest" href="/manifest-admin.json">
+    <meta name="application-name" content="Inventory MSP">
+    <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1e1b4b" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Inventory MSP">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-TileColor" content="#4f46e5">
+    <meta name="msapplication-TileImage" content="/assets/pwa/inventory/icon-144.png">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/inventory/icon-180.png">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#4f46e5">
+
     <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon" />
     <!-- SELECT2 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
@@ -363,6 +377,11 @@
             <!-- Navbar Header -->
             <nav class="navbar navbar-header navbar-expand-lg">
                 <div class="container-fluid justify-content-end px-3">
+                    <button type="button" class="btn btn-sm btn-new-window mr-2" data-pwa-install hidden
+                        title="Install Inventory MSP di perangkat ini">
+                        <i class="fas fa-download mr-1"></i>
+                        <span class="d-none d-md-inline">Install Aplikasi</span>
+                    </button>
                     <button type="button" class="btn btn-sm btn-new-window" id="open-new-window"
                         title="Buka halaman ini di window kedua">
                         <i class="fas fa-external-link-alt mr-1"></i>
@@ -861,6 +880,7 @@
         })();
     </script>
 
+    @include('partials.pwa-installer')
     @include('partials.idempotency')
 </body>
 

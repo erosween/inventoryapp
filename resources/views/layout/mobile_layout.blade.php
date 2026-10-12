@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SURYA - Sales Unified Reporting &amp; Yield Application</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
@@ -11,11 +11,20 @@
     
     <!-- PWA Setup -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#b40012">
-    <link rel="apple-touch-icon" href="/assets/img/pwa-192.png">
+    <meta name="application-name" content="SURYA">
+    <meta name="theme-color" content="#b40012" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#250006" media="(prefers-color-scheme: dark)">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/surya/icon-180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#b40012">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SURYA">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-TileColor" content="#b40012">
+    <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
+    <meta name="msapplication-config" content="none">
+    <meta name="format-detection" content="telephone=no">
     
     <!-- Bootstrap 5 CSS (using CDN for modern look) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -494,15 +503,6 @@
             });
         @endif
     </script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker registered', reg))
-                    .catch(err => console.log('Service Worker registration failed', err));
-            });
-        }
-    </script>
     @stack('modals')
 
     <!-- Settings Bottom Sheet -->
@@ -527,6 +527,11 @@
                     <a href="{{ route('mobile.surya.consignment') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-sim-card"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Konsinyasi SA</div><div class="small text-muted">Catat nomor perdana</div></div></a>
                     <a href="{{ route('mobile.surya.survey') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan harga</div></div></a>
                     <a href="{{ route('mobile.surya.network') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-signal"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Kondisi Network</div><div class="small text-muted">Laporkan kondisi sinyal</div></div></a>
+                    <button type="button" data-pwa-install hidden class="d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" style="color: var(--text-main);">
+                        <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-download"></i></div>
+                        <div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Install Aplikasi</div><div class="small text-muted">Pasang SURYA di perangkat ini</div></div>
+                        <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: .7rem;"></i>
+                    </button>
                     <a href="{{ route('mobile.logout') }}" class="d-flex align-items-center py-3 text-decoration-none" style="color: #ef4444;">
                         <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3">
                             <i class="fas fa-power-off"></i>
@@ -599,6 +604,7 @@
             });
         });
     </script>
+    @include('partials.pwa-installer')
     @include('partials.idempotency')
 </body>
 </html>

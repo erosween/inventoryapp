@@ -1,82 +1,107 @@
-const CACHE_NAME = 'msp-sales-mobile-pwa-v1';
-const CORE_ASSETS = [
-  '/offline.html',
+const CACHE_PREFIX = 'inventory-msp-pwa-';
+const CACHE_VERSION = 'v3';
+const STATIC_CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
+const OFFLINE_URL = '/offline.html';
+
+const PRECACHE_ASSETS = [
+  OFFLINE_URL,
   '/manifest.json',
-  '/assets/img/MSP5.png',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdn.jsdelivr.net/npm/sweetalert2@11',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap'
+  '/manifest-admin.json',
+  '/assets/pwa/surya/icon-180.png',
+  '/assets/pwa/surya/icon-192.png',
+  '/assets/pwa/surya/icon-512.png',
+  '/assets/pwa/surya/icon-maskable-192.png',
+  '/assets/pwa/surya/icon-maskable-512.png',
+  '/assets/pwa/inventory/icon-180.png',
+  '/assets/pwa/inventory/icon-192.png',
+  '/assets/pwa/inventory/icon-512.png',
+  '/assets/pwa/inventory/icon-maskable-192.png',
+  '/assets/pwa/inventory/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => Promise.allSettled(
-      CORE_ASSETS.map(url => cache.add(url))
-    ))
+    caches.open(STATIC_CACHE)
+      .then(cache => cache.addAll(PRECACHE_ASSETS))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => Promise.all(
-      cacheNames
-        .filter(cacheName => cacheName !== CACHE_NAME)
-        .map(cacheName => caches.delete(cacheName))
-    ))
+    caches.keys()
+      .then(cacheNames => Promise.all(
+        cacheNames
+          .filter(cacheName => (
+            (cacheName.startsWith(CACHE_PREFIX) || cacheName === 'msp-sales-mobile-pwa-v1') &&
+            cacheName !== STATIC_CACHE
+          ))
+          .map(cacheName => caches.delete(cacheName))
+      ))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') {
-    return;
+async function networkFirst(request) {
+  try {
+    return await fetch(request, { cache: 'no-store' });
+  } catch (error) {
+    return (await caches.match(OFFLINE_URL)) || Response.error();
   }
+}
 
-  const requestUrl = new URL(event.request.url);
-  const isMobilePage =
-    requestUrl.origin === self.location.origin &&
-    requestUrl.pathname.startsWith('/mobile');
-
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request, isMobilePage ? { cache: 'no-store' } : undefined)
-        .catch(() => caches.match('/offline.html'))
-    );
-    return;
-  }
-
-  const isLocalStatic =
-    requestUrl.origin === self.location.origin &&
-    (
-      requestUrl.pathname.startsWith('/assets/') ||
-      requestUrl.pathname.startsWith('/build/') ||
-      requestUrl.pathname === '/manifest.json' ||
-      requestUrl.pathname === '/offline.html'
-    );
-
-  const isCdnStatic = requestUrl.origin !== self.location.origin;
-
-  if (!isLocalStatic && !isCdnStatic) {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      const networkFetch = fetch(event.request)
-        .then(response => {
-          if (response && response.status < 500) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
-          }
-
-          return response;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || networkFetch;
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  const cachedResponse = await cache.match(request);
+  const networkResponse = fetch(request)
+    .then(response => {
+      if (response && (response.ok || response.type === 'opaque')) {
+        cache.put(request, response.clone());
+      }
+      return response;
     })
+    .catch(() => null);
+
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  return (await networkResponse) || Response.error();
+}
+
+self.addEventListener('fetch', event => {
+  const { request } = event;
+
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  const requestUrl = new URL(request.url);
+
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  const isLocalStatic = requestUrl.origin === self.location.origin && (
+    requestUrl.pathname.startsWith('/assets/') ||
+    requestUrl.pathname.startsWith('/build/') ||
+    requestUrl.pathname === '/manifest.json' ||
+    requestUrl.pathname === '/manifest-admin.json' ||
+    requestUrl.pathname === OFFLINE_URL ||
+    requestUrl.pathname === '/favicon.ico'
   );
+
+  const isTrustedExternalAsset = requestUrl.origin !== self.location.origin &&
+    ['font', 'image', 'script', 'style'].includes(request.destination);
+
+  if (isLocalStatic || isTrustedExternalAsset) {
+    event.respondWith(staleWhileRevalidate(request));
+  }
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

@@ -3,8 +3,22 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Login SF - SURYA</title>
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="application-name" content="SURYA">
+    <meta name="theme-color" content="#b40012" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#250006" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SURYA">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="msapplication-TileColor" content="#b40012">
+    <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/surya/icon-180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#b40012">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -334,6 +348,18 @@
             transform: scale(0.98);
         }
 
+        .install-btn {
+            width: 100%;
+            min-height: 48px;
+            margin-top: 14px;
+            border: 1px solid #fecaca;
+            border-radius: 18px;
+            color: #b91c1c;
+            background: #fff7f7;
+            font-size: 0.8rem;
+            font-weight: 900;
+        }
+
         .presence-link {
             min-height: 46px;
             margin-top: 14px;
@@ -459,6 +485,9 @@
                 <button type="submit" class="login-btn">
                     Masuk <i class="fas fa-arrow-right ms-2"></i>
                 </button>
+                <button type="button" class="install-btn" data-pwa-install hidden>
+                    <i class="fas fa-download me-2"></i> Install Aplikasi SURYA
+                </button>
             </form>
         </section>
 
@@ -478,6 +507,7 @@
             icon.className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
         });
     </script>
+    @include('partials.pwa-installer')
 </body>
 
 </html>
