@@ -8,6 +8,24 @@ use Illuminate\Support\Facades\DB;
 
 class SuryaVisitReportController extends Controller
 {
+    public function approve(SuryaVisit $visit)
+    {
+        abort_unless($visit->gps_status === 'pending_admin', 422, 'Visit ini tidak menunggu persetujuan.');
+
+        DB::transaction(function () use ($visit) {
+            $visit->update(['gps_status' => 'approved']);
+
+            DB::table('appsdumais')
+                ->where('id_outlet', $visit->id_outlet)
+                ->update([
+                    'latitude' => $visit->latitude,
+                    'longitude' => $visit->longitude,
+                ]);
+        });
+
+        return back()->with('success', 'Visit disetujui dan koordinat outlet diperbarui ke lokasi foto terbaru.');
+    }
+
     public function index(Request $request)
     {
         $idtap = session('idtap');

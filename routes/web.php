@@ -251,6 +251,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	// mobile approval
 	Route::get('/mobile-approval', [\App\Http\Controllers\MobileApprovalController::class, 'index'])->name('admin.mobile-approval.index');
 	Route::get('/surya/visits', [\App\Http\Controllers\SuryaVisitReportController::class, 'index'])->name('surya.visits.report');
+	Route::post('/surya/visits/{visit}/approve', [\App\Http\Controllers\SuryaVisitReportController::class, 'approve'])->name('surya.visits.approve');
 	Route::get('/surya/field-reports', [\App\Http\Controllers\SuryaFieldReportController::class, 'index'])->name('surya.field-reports');
 	Route::get('/mobile-approval/data', [\App\Http\Controllers\MobileApprovalController::class, 'data'])->name('admin.mobile-approval.data');
 	Route::get('/mobile-approval/stats', [\App\Http\Controllers\MobileApprovalController::class, 'getStats'])->name('admin.mobile-approval.stats');
@@ -272,12 +273,16 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/', [\App\Http\Controllers\MobileSalesController::class, 'index'])->name('index');
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
         Route::get('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'create'])->name('visit');
+        Route::get('/visit-menu', [\App\Http\Controllers\SuryaVisitController::class, 'menu'])->name('visit.menu');
         Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
         Route::get('/consignment', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'consignment'])->name('surya.consignment');
         Route::get('/survey', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'survey'])->name('surya.survey');
         Route::get('/network', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'network'])->name('surya.network');
         Route::post('/surya/{type}', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'store'])->name('surya.store');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
+        Route::get('/receipt/{receipt}', [\App\Http\Controllers\MobileSalesController::class, 'showReceipt'])->name('receipt.show');
+        Route::post('/receipt/{receipt}/whatsapp', [\App\Http\Controllers\MobileSalesController::class, 'prepareReceiptWhatsapp'])->name('receipt.whatsapp');
+        Route::post('/receipt/{receipt}/confirm', [\App\Http\Controllers\MobileSalesController::class, 'confirmReceiptWhatsapp'])->name('receipt.confirm');
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
         Route::get('/history/details', [\App\Http\Controllers\MobileSalesController::class, 'getVisitDetails'])->name('history.details');
         Route::get('/search-outlet', [\App\Http\Controllers\MobileSalesController::class, 'searchOutlet'])->name('search-outlet');

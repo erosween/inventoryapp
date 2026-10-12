@@ -5,11 +5,44 @@ namespace App\Http\Controllers;
 use App\Models\SuryaVisit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class SuryaVisitController extends Controller
 {
+    public function menu(Request $request)
+    {
+        if ($redirect = $this->redirectToActiveVisitWhenDifferent($request->input('id_outlet'))) {
+            return $redirect;
+        }
+
+        $outlet = $request->filled('id_outlet')
+            ? DB::table('appsdumais')->where('id_outlet', $request->id_outlet)->first(['id_outlet', 'nama_outlet'])
+            : null;
+
+        $visit = $outlet ? SuryaVisit::query()
+            ->where('idsf', session('mobile_sf_id'))
+            ->where('id_outlet', $outlet->id_outlet)
+            ->whereDate('visited_at', now()->toDateString())
+            ->latest('visited_at')
+            ->first() : null;
+        $photoDone = $visit
+            && filled($visit->photo_front_path)
+            && filled($visit->photo_inside_path);
+        $canSell = $photoDone && in_array($visit->gps_status, ['valid', 'approved'], true);
+
+        return view('mobile.visit-menu', compact('outlet', 'visit', 'photoDone', 'canSell'));
+    }
+
     public function create(Request $request)
     {
+        if ($redirect = $this->redirectToActiveVisitWhenDifferent($request->input('id_outlet'))) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->redirectWhenPhotosAlreadyCompleted($request->input('id_outlet'))) {
+            return $redirect;
+        }
+
         $sfName = session('mobile_sf_name');
         $outlets = DB::table('appsdumais')
             ->where('sf', 'LIKE', '%' . $sfName . '%')
@@ -26,39 +59,74 @@ class SuryaVisitController extends Controller
             'latitude' => ['required', 'numeric'],
             'longitude' => ['required', 'numeric'],
             'accuracy' => ['nullable', 'numeric'],
-            'photo' => ['required', 'image', 'max:5120'],
+            'photo_front' => ['required', 'image', 'mimes:jpeg,jpg', 'max:5120'],
+            'photo_inside' => ['required', 'image', 'mimes:jpeg,jpg', 'max:5120'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        if ($redirect = $this->redirectToActiveVisitWhenDifferent($request->input('id_outlet'))) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->redirectWhenPhotosAlreadyCompleted($request->input('id_outlet'))) {
+            return $redirect;
+        }
+
         $outlet = DB::table('appsdumais')->where('id_outlet', $request->id_outlet)->first();
         abort_unless($outlet, 404, 'Outlet tidak ditemukan.');
-        abort_if($outlet->latitude === null || $outlet->longitude === null, 422, 'Koordinat outlet belum tersedia.');
 
-        $distance = $this->distanceInMeters(
-            (float) $request->latitude,
-            (float) $request->longitude,
-            (float) $outlet->latitude,
-            (float) $outlet->longitude
-        );
-        $radius = 100;
-        abort_if($distance > $radius, 422, 'Anda berada ' . number_format($distance, 0) . ' meter dari outlet. Maksimal radius ' . $radius . ' meter.');
+        $currentLatitude = (float) $request->latitude;
+        $currentLongitude = (float) $request->longitude;
+        $distance = null;
 
-        $path = $request->file('photo')->store('surya-visits', 'public');
-        SuryaVisit::create([
-            'visited_at' => now(),
-            'id_outlet' => $outlet->id_outlet,
-            'idtap' => session('idtap'),
-            'idsf' => session('mobile_sf_id'),
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
-            'accuracy' => $request->accuracy,
-            'distance_meters' => $distance,
-            'photo_path' => $path,
-            'gps_status' => 'valid',
-            'notes' => $request->notes,
-        ]);
+        if ($outlet->latitude !== null && $outlet->longitude !== null) {
+            $distance = $this->distanceInMeters(
+                $currentLatitude,
+                $currentLongitude,
+                (float) $outlet->latitude,
+                (float) $outlet->longitude
+            );
+        }
 
-        return redirect()->route('mobile.index')->with('success', 'Visit outlet berhasil dicatat.');
+        $gpsStatus = $distance !== null && $distance <= 10
+            ? 'valid'
+            : 'pending_admin';
+
+        $frontPath = null;
+        $insidePath = null;
+
+        try {
+            $frontPath = $request->file('photo_front')->store('surya-visits/front', 'public');
+            $insidePath = $request->file('photo_inside')->store('surya-visits/inside', 'public');
+
+            SuryaVisit::create([
+                'visited_at' => now(),
+                'id_outlet' => $outlet->id_outlet,
+                'idtap' => session('idtap'),
+                'idsf' => session('mobile_sf_id'),
+                'latitude' => $currentLatitude,
+                'longitude' => $currentLongitude,
+                'accuracy' => $request->accuracy,
+                'distance_meters' => $distance,
+                // Tetap isi kolom lama agar data kompatibel dengan fitur sebelumnya.
+                'photo_path' => $frontPath,
+                'photo_front_path' => $frontPath,
+                'photo_inside_path' => $insidePath,
+                'gps_status' => $gpsStatus,
+                'notes' => $request->notes,
+            ]);
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete(array_filter([$frontPath, $insidePath]));
+            throw $exception;
+        }
+
+        $message = $gpsStatus === 'valid'
+            ? 'Visit berhasil dicatat. Lokasi sesuai dengan koordinat outlet.'
+            : 'Visit berhasil dicatat. Lokasi berbeda dan menunggu persetujuan admin sebelum penjualan dapat diinput.';
+
+        return redirect()
+            ->route('mobile.visit.menu', ['id_outlet' => $outlet->id_outlet])
+            ->with('success', $message);
     }
 
     private function distanceInMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
@@ -68,5 +136,49 @@ class SuryaVisitController extends Controller
         $dLon = deg2rad($lon2 - $lon1);
         $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
         return 2 * $earthRadius * asin(min(1, sqrt($a)));
+    }
+
+    private function redirectToActiveVisitWhenDifferent(?string $requestedOutlet)
+    {
+        $idsf = (string) session('mobile_sf_id');
+        if ($idsf === '') {
+            return null;
+        }
+
+        $activeVisit = SuryaVisit::query()
+            ->inProgressForSalesForce($idsf)
+            ->latest('visited_at')
+            ->first();
+
+        if (! $activeVisit || strtoupper((string) $requestedOutlet) === strtoupper($activeVisit->id_outlet)) {
+            return null;
+        }
+
+        return redirect()
+            ->route('mobile.visit.menu', ['id_outlet' => $activeVisit->id_outlet])
+            ->with('error', 'Masih ada visit yang sedang berlangsung. Selesaikan input penjualannya sebelum membuka outlet lain.');
+    }
+
+    private function redirectWhenPhotosAlreadyCompleted(?string $requestedOutlet)
+    {
+        if (! $requestedOutlet) {
+            return null;
+        }
+
+        $photoDone = SuryaVisit::query()
+            ->where('idsf', session('mobile_sf_id'))
+            ->where('id_outlet', $requestedOutlet)
+            ->whereDate('visited_at', now()->toDateString())
+            ->whereNotNull('photo_front_path')
+            ->whereNotNull('photo_inside_path')
+            ->exists();
+
+        if (! $photoDone) {
+            return null;
+        }
+
+        return redirect()
+            ->route('mobile.visit.menu', ['id_outlet' => $requestedOutlet])
+            ->with('error', 'Dua foto visit sudah tersimpan dan tidak dapat diambil ulang. Lanjutkan proses penjualan outlet ini.');
     }
 }

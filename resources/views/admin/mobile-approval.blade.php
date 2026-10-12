@@ -306,7 +306,11 @@
 
                     html += `<tr class="animate__animated animate__fadeIn">
                         <td>${checkbox}</td>
-                        <td><small class="text-muted d-block">${item.tgl}</small>${item.outlet}</td>
+                        <td>
+                            <small class="text-muted d-block">${item.tgl}</small>${item.outlet}
+                            ${item.receipt_number ? `<small class="d-block text-indigo fw-bold">${item.receipt_number}</small>` : ''}
+                            ${item.owner_whatsapp ? `<small class="d-block text-success"><i class="fab fa-whatsapp me-1"></i>+${item.owner_whatsapp}</small>` : ''}
+                        </td>
                         <td><span class="fw-bold">${item.produk}</span></td>
                         <td class="text-end fw-bold">${item.qty}</td>
                         <td class="text-end text-indigo fw-bold">${item.total}</td>

@@ -23,7 +23,7 @@ class MobileApprovalController extends Controller
         // 2. Total Pending Amount
         $pendingAmountQuery = MobilePenjualan::where('mobile_penjualan.status', 'pending')
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total'));
+            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $pendingAmountQuery->where('mobile_penjualan.idtap', $idtap);
         $total_pending_amount = $pendingAmountQuery->first()->total ?? 0;
 
@@ -31,7 +31,7 @@ class MobileApprovalController extends Controller
         $approvedTodayQuery = MobilePenjualan::where('mobile_penjualan.status', 'approved')
             ->whereDate('mobile_penjualan.updated_at', $today)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total'));
+            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $approvedTodayQuery->where('mobile_penjualan.idtap', $idtap);
         $today_approved_amount = $approvedTodayQuery->first()->total ?? 0;
 
@@ -40,7 +40,7 @@ class MobileApprovalController extends Controller
             ->whereDate('mobile_penjualan.updated_at', $today)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->join('idsf', 'mobile_penjualan.idsf', '=', 'idsf.idsf')
-            ->select('idsf.namasf', DB::raw('SUM(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total'))
+            ->select('idsf.namasf', DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'))
             ->groupBy('idsf.namasf')
             ->orderBy('total', 'desc')
             ->limit(1);
@@ -76,7 +76,7 @@ class MobileApprovalController extends Controller
         // 2. Pending Amount
         $pendingAmountQuery = MobilePenjualan::where('mobile_penjualan.status', 'pending')
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total'));
+            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $pendingAmountQuery->where('mobile_penjualan.idtap', $idtap);
         if ($idsf) $pendingAmountQuery->where('mobile_penjualan.idsf', $idsf);
         $pending_amount = $pendingAmountQuery->first()->total ?? 0;
@@ -85,7 +85,7 @@ class MobileApprovalController extends Controller
         $approvedTodayQuery = MobilePenjualan::where('mobile_penjualan.status', 'approved')
             ->whereDate('mobile_penjualan.updated_at', $today)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(denom.harga_jual, 0)) as total'));
+            ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $approvedTodayQuery->where('mobile_penjualan.idtap', $idtap);
         if ($idsf) $approvedTodayQuery->where('mobile_penjualan.idsf', $idsf);
         $approved_amount = $approvedTodayQuery->first()->total ?? 0;
@@ -109,6 +109,7 @@ class MobileApprovalController extends Controller
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
             ->join('idsf as s', 'm.idsf', '=', 's.idsf')
             ->leftJoin('appsdumais as o', 'm.id_outlet', '=', 'o.id_outlet')
+            ->leftJoin('mobile_sales_receipts as r', 'm.receipt_id', '=', 'r.id')
             ->select(
                 'm.id',
                 'm.tgl',
@@ -116,8 +117,11 @@ class MobileApprovalController extends Controller
                 'o.nama_outlet',
                 'd.denom',
                 'm.qty',
-                'd.harga_jual',
-                DB::raw('(m.qty * COALESCE(d.harga_jual, 0)) as total_setoran')
+                DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as harga_jual'),
+                'r.receipt_number',
+                'r.owner_whatsapp',
+                'r.whatsapp_shared_at',
+                DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_setoran')
             )
             ->where('m.idsf', $idsf);
 
@@ -149,6 +153,9 @@ class MobileApprovalController extends Controller
                     'tgl' => date('d/m/Y', strtotime($item->tgl)),
                     'status' => $item->status,
                     'outlet' => $item->nama_outlet ?? '-',
+                    'receipt_number' => $item->receipt_number,
+                    'owner_whatsapp' => $item->owner_whatsapp,
+                    'whatsapp_shared_at' => $item->whatsapp_shared_at ? date('d/m/Y H:i', strtotime($item->whatsapp_shared_at)) : null,
                     'produk' => $item->denom,
                     'qty' => number_format($item->qty),
                     'total' => 'Rp ' . number_format($item->total_setoran, 0, ',', '.')
@@ -174,7 +181,7 @@ class MobileApprovalController extends Controller
                 DB::raw("CASE WHEN d.kategori_inject = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
                 DB::raw('COUNT(m.id) as trans_count'),
                 DB::raw('SUM(m.qty) as total_qty'),
-                DB::raw('SUM(m.qty * COALESCE(d.harga_jual, 0)) as total_rupiah')
+                DB::raw('SUM(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_rupiah')
             )
             ->groupBy('m.idsf', 's.namasf', 'm.idtap', 'm.status', 'jenis_paket');
 
@@ -234,38 +241,36 @@ class MobileApprovalController extends Controller
                 
                 if (!$sale) throw new \Exception('Data tidak ditemukan');
                 if ($sale->status !== 'pending') throw new \Exception('Data sudah diproses');
+                if (session('idtap') !== 'SBP_DUMAI' && $sale->idtap !== session('idtap')) {
+                    throw new \Exception('Transaksi ini bukan milik TAP Anda.');
+                }
 
                 $denom = DB::table('denom')->where('iddenom', $sale->iddenom)->first();
-                $isVirtual = ($denom->group_name ?? '') === 'SA' || str_starts_with($sale->iddenom, 'SA_');
+                // Potong stok SF untuk semua produk, termasuk SA.
+                $stockSf = DB::table('stockawalsf')
+                    ->where('idsf', $sale->idsf)
+                    ->where('iddenom', $sale->iddenom)
+                    ->lockForUpdate()
+                    ->first();
 
-                if (!$isVirtual) {
-                    // Potong Stok SF
-                    $stockSf = DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
-                        ->where('iddenom', $sale->iddenom)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (!$stockSf || $stockSf->stock < $sale->qty) {
-                        $denomName = $denom->denom ?? $sale->iddenom;
-                        throw new \Exception("Stok SF untuk {$denomName} tidak mencukupi. Sisa: " . ($stockSf->stock ?? 0));
-                    }
-
-                    DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
-                        ->where('iddenom', $sale->iddenom)
-                        ->decrement('stock', $sale->qty);
-                        
-                    // Insert to keluarsf for historical consistency
-                    DB::table('keluarsf')->insert([
-                        'idtap' => $sale->idtap,
-                        'idsf' => $sale->idsf,
-                        'iddenom' => $sale->iddenom,
-                        'qty' => $sale->qty,
-                        'tgl' => $sale->tgl,
-                        'tambahanket' => 'Mobile Approval ID: ' . $sale->id
-                    ]);
+                if (!$stockSf || $stockSf->stock < $sale->qty) {
+                    $denomName = $denom->denom ?? $sale->iddenom;
+                    throw new \Exception("Stok SF untuk {$denomName} tidak mencukupi. Sisa: " . ($stockSf->stock ?? 0));
                 }
+
+                DB::table('stockawalsf')
+                    ->where('idsf', $sale->idsf)
+                    ->where('iddenom', $sale->iddenom)
+                    ->decrement('stock', $sale->qty);
+
+                DB::table('keluarsf')->insert([
+                    'idtap' => $sale->idtap,
+                    'idsf' => $sale->idsf,
+                    'iddenom' => $sale->iddenom,
+                    'qty' => $sale->qty,
+                    'tgl' => $sale->tgl,
+                    'tambahanket' => 'Mobile Approval ID: ' . $sale->id
+                ]);
 
                 DB::table('mobile_penjualan')->where('id', $id)->update([
                     'status' => 'approved',
@@ -316,12 +321,16 @@ class MobileApprovalController extends Controller
         $ids = $request->ids;
         if (!$ids || !is_array($ids)) return response()->json(['success' => false, 'message' => 'Pilih data terlebih dahulu']);
 
-        DB::table('mobile_penjualan')->whereIn('id', $ids)->where('status', 'pending')->update([
+        $query = DB::table('mobile_penjualan')->whereIn('id', $ids)->where('status', 'pending');
+        if (session('idtap') !== 'SBP_DUMAI') {
+            $query->where('idtap', session('idtap'));
+        }
+        $updated = $query->update([
             'status' => 'rejected',
             'updated_at' => now()
         ]);
 
-        return response()->json(['success' => true, 'message' => count($ids) . ' data berhasil ditolak.']);
+        return response()->json(['success' => true, 'message' => $updated . ' data berhasil ditolak.']);
     }
 
     public function reject(Request $request)
@@ -329,10 +338,18 @@ class MobileApprovalController extends Controller
         $id = $request->id;
         
         try {
-            DB::table('mobile_penjualan')->where('id', $id)->update([
+            $query = DB::table('mobile_penjualan')->where('id', $id)->where('status', 'pending');
+            if (session('idtap') !== 'SBP_DUMAI') {
+                $query->where('idtap', session('idtap'));
+            }
+            $updated = $query->update([
                 'status' => 'rejected',
                 'updated_at' => now()
             ]);
+
+            if ($updated === 0) {
+                throw new \Exception('Data tidak ditemukan, sudah diproses, atau bukan milik TAP Anda.');
+            }
             
             return response()->json(['success' => true, 'message' => 'Penjualan berhasil ditolak.']);
         } catch (\Exception $e) {

@@ -81,6 +81,7 @@
                             <h4 class="fw-800 text-success mb-0" id="total-setoran" style="font-size: 1.3rem;">Rp 0</h4>
                         </div>
                     </div>
+                    <div id="setoran-detail" class="mt-3 pt-3 border-top"></div>
                 </div>
             </div>
         </div>
@@ -122,12 +123,10 @@
                         @php
                             // Separate special items to ensure they are at the TOP
                             $specialItems = $denoms->filter(function($d) {
-                                $n = strtoupper($d->denom);
-                                return (str_contains($n, 'SA SIMPATI 3GB') || str_contains($n, 'SA BYU 3GB'));
+                                return strtoupper((string) $d->group_name) === 'SA';
                             });
                             $otherItems = $denoms->reject(function($d) {
-                                $n = strtoupper($d->denom);
-                                return (str_contains($n, 'SA SIMPATI 3GB') || str_contains($n, 'SA BYU 3GB'));
+                                return strtoupper((string) $d->group_name) === 'SA';
                             });
                         @endphp
 
@@ -319,25 +318,57 @@
             const harga = priceMap[id] || 0;
             let label = row.find('.price-label');
             if (harga > 0) {
-                if (label.length === 0) row.find('.product-trigger').after(`<div class="price-label mt-1"><span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp ${harga.toLocaleString('id-ID')}/pcs</span></div>`);
+                if (label.length === 0) row.find('.product-trigger').after(`<div class="price-label mt-2 d-flex justify-content-between align-items-center"><span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.6rem;">Rp ${harga.toLocaleString('id-ID')}/pcs</span><strong class="row-subtotal text-success" style="font-size:.72rem;">Rp 0</strong></div>`);
                 else label.find('span').text(`Rp ${harga.toLocaleString('id-ID')}/pcs`);
-            } else label.remove();
+            } else {
+                if (label.length === 0) row.find('.product-trigger').after('<div class="price-label mt-2"><span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size: 0.6rem;">Harga belum diatur admin</span></div>');
+                else label.html('<span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size: 0.6rem;">Harga belum diatur admin</span>');
+            }
         }
 
         function recalcTotal() {
             let setoran = 0, pcs = 0, items = 0;
+            const details = [];
             $('.iddenom-input').each(function() {
-                const id = $(this).val(), qty = parseInt($(this).closest('.p-4').find('.qty-input').val()) || 0;
-                if (id && qty > 0) { items++; pcs += qty; setoran += qty * (priceMap[id] || 0); }
+                const row = $(this).closest('.p-4');
+                const id = $(this).val(), qty = parseInt(row.find('.qty-input').val()) || 0;
+                const harga = priceMap[id] || 0;
+                const subtotal = qty * harga;
+                row.find('.row-subtotal').text('Rp ' + subtotal.toLocaleString('id-ID'));
+                if (id && qty > 0) {
+                    items++;
+                    pcs += qty;
+                    setoran += subtotal;
+                    details.push({ name: row.find('.product-placeholder').text(), qty, harga, subtotal });
+                }
             });
-            if (items > 0) { $('#setoran-summary').slideDown(200); $('#total-items').text(items); $('#total-pcs').text(pcs.toLocaleString('id-ID')); $('#total-setoran').text('Rp ' + setoran.toLocaleString('id-ID')); }
+            if (items > 0) {
+                $('#setoran-summary').slideDown(200);
+                $('#total-items').text(items);
+                $('#total-pcs').text(pcs.toLocaleString('id-ID'));
+                $('#total-setoran').text('Rp ' + setoran.toLocaleString('id-ID'));
+                const detailHtml = details.map(item => `
+                    <div class="d-flex justify-content-between gap-2 mb-2 small">
+                        <div><strong>${escapeHtml(item.name)}</strong><div class="text-muted">${item.qty.toLocaleString('id-ID')} pcs × Rp ${item.harga.toLocaleString('id-ID')}</div></div>
+                        <strong class="text-success text-nowrap">Rp ${item.subtotal.toLocaleString('id-ID')}</strong>
+                    </div>`).join('');
+                $('#setoran-detail').html(detailHtml);
+            }
             else $('#setoran-summary').slideUp(200);
+        }
+
+        function escapeHtml(value) {
+            return $('<div>').text(value).html();
         }
 
         function validateStock(row) {
             const id = row.find('.iddenom-input').val(), qty = parseInt(row.find('.qty-input').val()) || 0, stock = parseInt(row.find('.stock-info').text()) || 0;
             const warning = row.find('.stock-warning');
-            if (id && !id.startsWith('SA') && !id.startsWith('SEGEL') && qty > stock) {
+            if (id && (priceMap[id] || 0) <= 0) {
+                warning.text('⚠️ Harga jual belum diatur admin. Produk belum dapat dijual.').removeClass('d-none');
+                return false;
+            }
+            if (id && qty > stock) {
                 warning.text(`⚠️ Stok tidak cukup (Sisa: ${stock})`).removeClass('d-none');
                 return false;
             }
@@ -355,7 +386,7 @@
                 const stock = parseInt($(this).data('stock')) || 0;
                 
                 if (val === '') {
-                    if (stock > 0 || name.includes('sa simpati 3gb') || name.includes('sa byu 3gb')) { 
+                    if (stock > 0) {
                         $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); 
                         matches++; 
                     }

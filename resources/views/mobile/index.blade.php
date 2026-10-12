@@ -28,13 +28,13 @@
             <div class="text-white fw-900" style="font-size: 2.15rem; line-height: 1;">{{ round($progress) }}%</div>
             <div class="text-white-50 fw-bold mt-1" style="font-size: 0.72rem;">{{ $pjp_list->where('is_visited', true)->count() }} dari {{ $pjp_list->count() }} outlet PJP selesai</div>
         </div>
-        <a href="{{ route('mobile.form') }}" class="hero-action" aria-label="Input penjualan">
+        <a href="{{ $activeVisit ? route('mobile.visit.menu', ['id_outlet' => $activeVisit->id_outlet]) : route('mobile.form') }}" class="hero-action" aria-label="{{ $activeVisit ? 'Lanjutkan visit' : 'Input penjualan' }}">
             <i class="fas fa-plus"></i>
         </a>
     </div>
 </div>
 
-<div class="reveal position-relative" style="margin-top: -48px; z-index: 10;">
+<div class="reveal position-relative" style="margin-top: -62px; z-index: 10;">
     <div class="mobile-kpi-grid mb-3">
         <div class="mobile-kpi-card accent-red">
             <span>Sales Hari Ini</span>
@@ -58,24 +58,17 @@
         </div>
     </div>
 
-    <div class="quick-action-row mb-4">
-        <a href="{{ route('mobile.form') }}" class="quick-action">
-            <i class="fas fa-cart-plus"></i>
-            <span>Input</span>
+    @if($activeVisit)
+        <a href="{{ route('mobile.visit.menu', ['id_outlet' => $activeVisit->id_outlet]) }}" class="active-visit-banner d-flex align-items-center gap-3 mb-3 text-decoration-none">
+            <span class="active-visit-icon"><i class="fas fa-location-dot"></i></span>
+            <span class="flex-grow-1 min-w-0">
+                <small class="d-block fw-900 text-uppercase">Sedang Berlangsung</small>
+                <strong class="d-block text-truncate">{{ $activeVisit->outlet_name }}</strong>
+                <span class="d-block">ID: {{ $activeVisit->id_outlet }} · Selesaikan input penjualan</span>
+            </span>
+            <i class="fas fa-chevron-right"></i>
         </a>
-        <a href="{{ route('mobile.stock') }}" class="quick-action">
-            <i class="fas fa-boxes-stacked"></i>
-            <span>Stok</span>
-        </a>
-        <a href="{{ route('mobile.history') }}" class="quick-action">
-            <i class="fas fa-clock-rotate-left"></i>
-            <span>History</span>
-        </a>
-        <a href="{{ route('mobile.visit') }}" class="quick-action">
-            <i class="fas fa-camera-retro"></i>
-            <span>Visit PJP</span>
-        </a>
-    </div>
+    @endif
 
     <!-- PJP Section Header -->
     <div class="d-flex justify-content-between align-items-end mb-3">
@@ -84,11 +77,17 @@
             <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">{{ date('d M Y') }}</p>
         </div>
         <div class="d-flex align-items-center">
-            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-bold me-3" 
-                    style="font-size: 0.65rem;"
-                    data-bs-toggle="modal" data-bs-target="#searchOutletModal">
-                <i class="fas fa-plus me-1"></i> TAMBAH
-            </button>
+            @if($activeVisit)
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 fw-bold me-3" style="font-size: 0.65rem;" disabled>
+                    <i class="fas fa-lock me-1"></i> TERKUNCI
+                </button>
+            @else
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-bold me-3"
+                        style="font-size: 0.65rem;"
+                        data-bs-toggle="modal" data-bs-target="#searchOutletModal">
+                    <i class="fas fa-plus me-1"></i> TAMBAH
+                </button>
+            @endif
             <div class="text-end">
                 <span class="text-primary fw-800" style="font-size: 0.9rem;">{{ round($progress) }}%</span>
             </div>
@@ -103,24 +102,28 @@
 
     <div class="pjp-list mb-4">
         @forelse($pjp_list as $pjp)
+            @php($isActiveOutlet = $activeVisit && strtoupper($activeVisit->id_outlet) === strtoupper($pjp->id_outlet))
             <div class="glass-card mb-2 p-0 border-0 overflow-hidden reveal shadow-sm" style="background: white; border-radius: 24px;">
                 <div class="d-flex align-items-stretch">
                     <!-- Vertical Status Strip -->
-                    <div style="width: 5px; background: {{ $pjp->is_visited ? '#10b981' : '#e2e8f0' }}; transition: all 0.4s;"></div>
+                    <div style="width: 5px; background: {{ $pjp->is_visited ? '#10b981' : ($isActiveOutlet ? '#f59e0b' : '#e2e8f0') }}; transition: all 0.4s;"></div>
                     
                     <div class="p-3 w-100">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center" data-lat="{{ $pjp->latitude }}" data-lng="{{ $pjp->longitude }}">
                                 <div class="p-2 rounded-4 me-3 d-flex align-items-center justify-content-center"
-                                     style="width: 40px; height: 40px; background: {{ $pjp->is_visited ? 'rgba(236,32,40,0.10)' : '#f8fafc' }}; color: {{ $pjp->is_visited ? 'var(--primary)' : 'var(--text-muted)' }};">
+                                     style="width: 40px; height: 40px; background: {{ $pjp->is_visited ? 'rgba(236,32,40,0.10)' : ($isActiveOutlet ? 'rgba(245,158,11,0.12)' : '#f8fafc') }}; color: {{ $pjp->is_visited ? 'var(--primary)' : ($isActiveOutlet ? '#d97706' : 'var(--text-muted)') }};">
                                     <i class="fas fa-store" style="font-size: 0.9rem;"></i>
                                 </div>
                                 <div>
                                     <h6 class="fw-800 mb-0 text-dark" style="font-size: 0.85rem;">{{ $pjp->nama_outlet }}</h6>
                                     <div class="d-flex align-items-center mt-1">
                                         <span class="text-muted fw-bold" style="font-size: 0.6rem;">ID: {{ $pjp->id_outlet }}</span>
+                                        <span class="distance-label ms-2 text-muted fw-bold" style="font-size: 0.58rem;">Mengukur jarak...</span>
                                         @if($pjp->is_visited)
                                             <span class="ms-2 badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">VERIFIED</span>
+                                        @elseif($isActiveOutlet)
+                                            <span class="ms-2 badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">SEDANG BERLANGSUNG</span>
                                         @endif
                                     </div>
                                 </div>
@@ -131,8 +134,18 @@
                                     <i class="fas fa-check-circle fs-4 mb-1"></i>
                                     <div class="fw-800" style="font-size: 0.5rem;">DONE</div>
                                 </div>
+                            @elseif($isActiveOutlet)
+                                <a href="{{ route('mobile.visit.menu', ['id_outlet' => $pjp->id_outlet]) }}" class="btn btn-sm rounded-pill px-3 fw-800"
+                                   style="font-size: 0.62rem; background: #fff7ed; color: #d97706; border: 1px solid #fed7aa;">
+                                    LANJUTKAN <i class="fas fa-chevron-right ms-1" style="font-size: 0.5rem;"></i>
+                                </a>
+                            @elseif($activeVisit)
+                                <button type="button" class="btn btn-sm rounded-pill px-3 fw-800" disabled
+                                        style="font-size: 0.62rem; background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; opacity: 1;">
+                                    <i class="fas fa-lock me-1"></i> TERKUNCI
+                                </button>
                             @else
-                                <a href="{{ route('mobile.form', ['id_outlet' => $pjp->id_outlet]) }}" class="btn btn-sm rounded-pill px-4 fw-800" 
+                                <a href="#" data-outlet="{{ $pjp->id_outlet }}" class="open-visit-menu btn btn-sm rounded-pill px-4 fw-800"
                                    style="font-size: 0.65rem; background: #f8fafc; color: var(--primary); border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
                                     VISIT <i class="fas fa-chevron-right ms-1" style="font-size: 0.5rem;"></i>
                                 </a>
@@ -148,6 +161,33 @@
             </div>
         @endforelse
     </div>
+
+    <script>
+    document.querySelectorAll('.open-visit-menu').forEach(function(button) {
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            const target = this;
+            const go = function(distance) {
+                let url = '{{ route('mobile.visit.menu') }}?id_outlet=' + encodeURIComponent(target.dataset.outlet);
+                if (distance !== null) url += '&distance=' + Math.round(distance);
+                window.location.href = url;
+            };
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    const card = target.closest('.glass-card'), point = card ? card.querySelector('[data-lat][data-lng]') : null;
+                    go(point && point.dataset.lat && point.dataset.lng ? distanceMeters(pos.coords.latitude, pos.coords.longitude, parseFloat(point.dataset.lat), parseFloat(point.dataset.lng)) : null);
+                }, function() { go(null); }, {enableHighAccuracy:true, timeout:10000, maximumAge:0});
+            } else go(null);
+        });
+    });
+    </script>
+
+    <script>
+    function distanceMeters(a,b,c,d){const r=6371000,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180,z=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return 2*r*Math.asin(Math.min(1,Math.sqrt(z)));}
+    if (navigator.geolocation) navigator.geolocation.getCurrentPosition(function(pos){
+        document.querySelectorAll('[data-lat][data-lng]').forEach(function(card){const lat=parseFloat(card.dataset.lat),lng=parseFloat(card.dataset.lng);if(!lat||!lng)return;const dist=Math.round(distanceMeters(pos.coords.latitude,pos.coords.longitude,lat,lng));const el=card.querySelector('.distance-label');if(el){el.textContent=dist.toLocaleString('id-ID')+' m dari posisi';el.classList.remove('text-muted','text-danger','text-success');el.classList.add(dist>10?'text-danger':'text-success');}});
+    }, function(){document.querySelectorAll('.distance-label').forEach(e=>e.textContent='GPS tidak aktif');},{enableHighAccuracy:true,timeout:10000,maximumAge:0});
+    </script>
 
     <!-- Non-PJP Section -->
     @if(isset($non_pjp_list) && $non_pjp_list->count() > 0)
@@ -232,7 +272,7 @@
 @push('styles')
 <style>
     .mobile-home-hero {
-        min-height: 292px;
+        min-height: 258px;
     }
 
     .hero-command {
@@ -269,9 +309,9 @@
     }
 
     .mobile-kpi-card {
-        min-height: 118px;
+        min-height: 98px;
         border-radius: 24px;
-        padding: 15px;
+        padding: 12px 15px;
         background: rgba(255, 255, 255, 0.97);
         border: 1px solid rgba(226, 232, 240, 0.9);
         box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
@@ -305,40 +345,47 @@
         color: #059669;
     }
 
-    .quick-action-row {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 9px;
+    .distance-label.text-danger { color: #dc2626 !important; }
+    .distance-label.text-success { color: #059669 !important; }
+
+    .active-visit-banner {
+        padding: 14px 16px;
+        border: 1px solid #fed7aa;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #fff7ed, #fffbeb);
+        color: #9a3412;
+        box-shadow: 0 12px 24px rgba(245, 158, 11, 0.10);
     }
 
-    .quick-action {
-        min-height: 78px;
-        border: 0;
-        border-radius: 22px;
-        background: #fff;
+    .active-visit-banner small {
+        color: #d97706;
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+    }
+
+    .active-visit-banner strong {
         color: #111827;
-        text-decoration: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.07);
-        font-weight: 900;
-        font-size: 0.68rem;
+        font-size: 0.88rem;
     }
 
-    .quick-action i {
-        width: 34px;
-        height: 34px;
-        border-radius: 13px;
+    .active-visit-banner span span {
+        color: #78716c;
+        font-size: 0.62rem;
+        font-weight: 700;
+    }
+
+    .active-visit-icon {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        border-radius: 14px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(236, 32, 40, 0.1);
-        color: var(--primary);
-        font-size: 0.95rem;
+        background: #f59e0b;
+        color: #fff;
     }
+
 </style>
 @endpush
 

@@ -69,6 +69,7 @@
                      style="background: white; border-radius: 24px;"
                      data-id-outlet="{{ $item->id_outlet }}"
                      data-tgl="{{ $item->tgl }}"
+                     data-receipt-url="{{ $item->draft_count > 0 && $item->receipt_id ? route('mobile.receipt.show', $item->receipt_id) : '' }}"
                      data-nama-outlet="{{ $item->nama_outlet ?? 'ID: '.$item->id_outlet }}">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div class="d-flex align-items-center">
@@ -83,7 +84,11 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            @if($item->pending_count == 0)
+                            @if($item->draft_count > 0)
+                                <a href="{{ route('mobile.receipt.show', $item->receipt_id) }}" class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-800 text-decoration-none" style="font-size: 0.6rem;" onclick="event.stopPropagation();">
+                                    <i class="fab fa-whatsapp me-1"></i> KIRIM E-BON
+                                </a>
+                            @elseif($item->pending_count == 0)
                                 @if($item->rejected_count > 0 && $item->approved_count == 0)
                                     <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
                                         <i class="fas fa-times-circle me-1"></i> DITOLAK
@@ -100,6 +105,10 @@
                             @elseif($item->approved_count > 0 || $item->rejected_count > 0)
                                 <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
                                     <i class="fas fa-hourglass-half me-1"></i> PROSES VALIDASI
+                                </span>
+                            @elseif($item->receipt_id)
+                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
+                                    <i class="fas fa-hourglass-half me-1"></i> MENUNGGU VALIDASI
                                 </span>
                             @else
                                 <a href="{{ route('mobile.edit', [$item->id_outlet, $item->tgl]) }}" class="btn btn-link text-primary p-0 action-edit-icon" title="Edit" aria-label="Edit" onclick="event.stopPropagation();">
@@ -349,6 +358,11 @@
 
         // Detail Modal Logic
         $('.history-card').on('click', function() {
+            const receiptUrl = $(this).data('receipt-url');
+            if (receiptUrl) {
+                window.location.href = receiptUrl;
+                return;
+            }
             const idOutlet = $(this).data('id-outlet');
             const tgl = $(this).data('tgl');
             const namaOutlet = $(this).data('nama-outlet');

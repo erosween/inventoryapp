@@ -576,6 +576,8 @@
                                                     <span class="sub-item text-warning fw-bold">Approval Sales Mobile</span>
                                                 </a>
                                             </li>
+                                            <li class="nav-item {{ request()->is('surya/visits') ? 'active' : '' }}"><a href="{{ route('surya.visits.report') }}"><span class="sub-item text-danger fw-bold">Approval Visit SURYA</span></a></li>
+                                            <li class="nav-item {{ request()->is('surya/field-reports') ? 'active' : '' }}"><a href="{{ route('surya.field-reports') }}"><span class="sub-item">Reporting SURYA</span></a></li>
                                         </ul>
                                     </div>
                                 </li>

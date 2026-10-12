@@ -12,15 +12,22 @@ class MobilePenjualan extends Model
     protected $table = 'mobile_penjualan';
 
     protected $fillable = [
+        'receipt_id',
         'tgl',
         'id_outlet',
         'idtap',
         'idsf',
         'iddenom',
         'qty',
+        'unit_price',
         'latitude',
         'longitude',
         'keterangan',
         'status',
     ];
+
+    public function receipt()
+    {
+        return $this->belongsTo(MobileSalesReceipt::class, 'receipt_id');
+    }
 }

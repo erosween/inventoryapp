@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class SuryaVisit extends Model
 {
@@ -10,7 +12,8 @@ class SuryaVisit extends Model
 
     protected $fillable = [
         'visited_at', 'id_outlet', 'idtap', 'idsf', 'latitude', 'longitude',
-        'accuracy', 'distance_meters', 'photo_path', 'gps_status', 'notes',
+        'accuracy', 'distance_meters', 'photo_path', 'photo_front_path',
+        'photo_inside_path', 'gps_status', 'notes',
     ];
 
     protected $casts = [
@@ -20,4 +23,23 @@ class SuryaVisit extends Model
         'accuracy' => 'float',
         'distance_meters' => 'float',
     ];
+
+    public function scopeInProgressForSalesForce(Builder $query, string $idsf, ?string $date = null): Builder
+    {
+        $visitDate = $date ?? now()->toDateString();
+
+        return $query
+            ->where('idsf', $idsf)
+            ->whereDate('visited_at', $visitDate)
+            ->whereNotNull('photo_front_path')
+            ->whereNotNull('photo_inside_path')
+            ->whereNotExists(function ($sales) use ($idsf, $visitDate) {
+                $sales->select(DB::raw(1))
+                    ->from('mobile_penjualan')
+                    ->whereColumn('mobile_penjualan.id_outlet', 'surya_visits.id_outlet')
+                    ->where('mobile_penjualan.idsf', $idsf)
+                    ->where('mobile_penjualan.status', '!=', 'draft_wa')
+                    ->whereDate('mobile_penjualan.tgl', $visitDate);
+            });
+    }
 }
