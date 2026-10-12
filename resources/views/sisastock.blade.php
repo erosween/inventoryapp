@@ -270,6 +270,9 @@
                 searchDelay: 250,
                 ajax: {
                     url: "{{ route('sisastock.data') }}",
+                    // Data endpoint juga mendukung GET; gunakan GET agar reload
+                    // tabel tidak gagal hanya karena token CSRF/session POST
+                    // kedaluwarsa pada halaman server yang lama terbuka.
                     type: "GET",
                     data: function(d) {
                         d.date = @json($isCurrentStockPage ? date('Y-m-d') : null) || $('#target_date').val();

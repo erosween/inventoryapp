@@ -131,6 +131,8 @@ class MonitaDumaiController extends Controller
         $coldOutletCount = collect($outletPoints)->where('status', 'cold')->count();
         $unmappedOutletCount = collect($outletPoints)->where('status', 'unmapped')->count();
         $pvMonitoring = $this->buildPvMonitoring();
+        $saMonitoring = $this->buildSaMonitoring();
+        $cvmMonitoring = $this->buildCvmMonitoring();
 
         return [
             'summary' => [
@@ -160,29 +162,139 @@ class MonitaDumaiController extends Controller
             'competitionPoints' => $competitionPoints,
             'monitoringUpdateDate' => $monitoringUpdateDate,
             'pvMonitoring' => $pvMonitoring,
+            'saMonitoring' => $saMonitoring,
+            'cvmMonitoring' => $cvmMonitoring,
         ];
     }
 
     private function buildPvMonitoring(): array
     {
-        $validityColumns = collect([
-            ['label' => '1D', 'm1' => '1d_m1', 'mtd' => '1d_m'],
-            ['label' => '2D', 'm1' => '2d_m1', 'mtd' => '2d_m'],
-            ['label' => '3D', 'm1' => '3d_m1', 'mtd' => '3d_m'],
-            ['label' => '5D', 'm1' => '5d_m1', 'mtd' => '5d_m'],
-            ['label' => '7D', 'm1' => '7d_m1', 'mtd' => '7d_m'],
-            ['label' => '28D', 'm1' => '28d_m1', 'mtd' => '28d_m'],
-            ['label' => '30D', 'm1' => '30d_m1', 'mtd' => '30d_m'],
+        return $this->buildPerformanceMonitoring([
+            'segments' => [
+                ['key' => 'reg_1d', 'label' => 'REG 1D', 'short_label' => '1D', 'category' => 'reg', 'm1' => 'pvreg_1d_m1', 'mtd' => 'pvreg_1d_m'],
+                ['key' => 'reg_2d', 'label' => 'REG 2D', 'short_label' => '2D', 'category' => 'reg', 'm1' => 'pvreg_2d_m1', 'mtd' => 'pvreg_2d_m'],
+                ['key' => 'reg_3d', 'label' => 'REG 3D', 'short_label' => '3D', 'category' => 'reg', 'm1' => 'pvreg_3d_m1', 'mtd' => 'pvreg_3d_m'],
+                ['key' => 'reg_5d', 'label' => 'REG 5D', 'short_label' => '5D', 'category' => 'reg', 'm1' => 'pvreg_5d_m1', 'mtd' => 'pvreg_5d_m'],
+                ['key' => 'reg_7d', 'label' => 'REG 7D', 'short_label' => '7D', 'category' => 'reg', 'm1' => 'pvreg_7d_m1', 'mtd' => 'pvreg_7d_m'],
+                ['key' => 'reg_28d', 'label' => 'REG 28D', 'short_label' => '28D', 'category' => 'reg', 'm1' => 'pvreg_28d_m1', 'mtd' => 'pvreg_28d_m'],
+                ['key' => 'reg_30d', 'label' => 'REG 30D', 'short_label' => '30D', 'category' => 'reg', 'm1' => 'pvreg_30d_m1', 'mtd' => 'pvreg_30d_m'],
+                ['key' => 'byu_1d', 'label' => 'BYU 1D', 'short_label' => '1D', 'category' => 'byu', 'm1' => 'pvbyu_1d_m1', 'mtd' => 'pvbyu_1d_m'],
+                ['key' => 'byu_2d', 'label' => 'BYU 2D', 'short_label' => '2D', 'category' => 'byu', 'm1' => 'pvbyu_2d_m1', 'mtd' => 'pvbyu_2d_m'],
+                ['key' => 'byu_3d', 'label' => 'BYU 3D', 'short_label' => '3D', 'category' => 'byu', 'm1' => 'pvbyu_3d_m1', 'mtd' => 'pvbyu_3d_m'],
+                ['key' => 'byu_5d', 'label' => 'BYU 5D', 'short_label' => '5D', 'category' => 'byu', 'm1' => 'pvbyu_5d_m1', 'mtd' => 'pvbyu_5d_m'],
+                ['key' => 'byu_7d', 'label' => 'BYU 7D', 'short_label' => '7D', 'category' => 'byu', 'm1' => 'pvbyu_7d_m1', 'mtd' => 'pvbyu_7d_m'],
+                ['key' => 'byu_14d', 'label' => 'BYU 14D', 'short_label' => '14D', 'category' => 'byu', 'm1' => 'pvbyu_14d_m1', 'mtd' => 'pvbyu_14d_m'],
+                ['key' => 'byu_30d', 'label' => 'BYU 30D', 'short_label' => '30D', 'category' => 'byu', 'm1' => 'pvbyu_30d_m1', 'mtd' => 'pvbyu_30d_m'],
+            ],
+            'categories' => [
+                ['key' => 'all', 'label' => 'ALL'],
+                ['key' => 'reg', 'label' => 'REG'],
+                ['key' => 'byu', 'label' => 'BYU'],
+            ],
+            'total_columns' => [
+                'reg' => ['m1' => 'total_pvreg_m1', 'mtd' => 'total_pvreg_m'],
+                'byu' => ['m1' => 'total_pvbyu_m1', 'mtd' => 'total_pvbyu_m'],
+            ],
         ]);
-        $validities = $validityColumns->pluck('label')->values();
-        $selectColumns = $validityColumns
-            ->flatMap(fn ($column) => [
-                "COALESCE(op.`{$column['m1']}`, 0) as `{$column['m1']}`",
-                "COALESCE(op.`{$column['mtd']}`, 0) as `{$column['mtd']}`",
+    }
+
+    private function buildSaMonitoring(): array
+    {
+        return $this->buildPerformanceMonitoring([
+            'segments' => [
+                ['key' => 'sa', 'label' => 'SA', 'short_label' => 'SA', 'category' => 'sa', 'm1' => 'sp_simpati_m1', 'mtd' => 'sp_simpati_m'],
+                ['key' => 'byu', 'label' => 'BYU', 'short_label' => 'BYU', 'category' => 'byu', 'm1' => 'sp_byu_m1', 'mtd' => 'sp_byu_m'],
+            ],
+            'categories' => [
+                ['key' => 'all', 'label' => 'ALL'],
+            ],
+            'total_columns' => [
+                'all' => ['m1' => 'total_sp_m1', 'mtd' => 'total_sp_m'],
+                'sa' => ['m1' => 'sp_simpati_m1', 'mtd' => 'sp_simpati_m'],
+                'byu' => ['m1' => 'sp_byu_m1', 'mtd' => 'sp_byu_m'],
+            ],
+        ]);
+    }
+
+    private function buildCvmMonitoring(): array
+    {
+        return $this->buildPerformanceMonitoring([
+            'segments' => [
+                ['key' => 'cvm', 'label' => 'CVM', 'short_label' => 'CVM', 'category' => 'cvm', 'm1' => 'cvm_m1', 'mtd' => 'cvm_m'],
+                ['key' => 'comsak', 'label' => 'COMSAK', 'short_label' => 'COMSAK', 'category' => 'comsak', 'm1' => 'comsak_m1', 'mtd' => 'comsak_m'],
+                ['key' => 'insak', 'label' => 'INSAK', 'short_label' => 'INSAK', 'category' => 'insak', 'm1' => 'insak_m1', 'mtd' => 'insak_m'],
+                ['key' => 'super_seru', 'label' => 'SUPER SERU', 'short_label' => 'SUPER SERU', 'category' => 'super_seru', 'm1' => 'ss_m1', 'mtd' => 'ss_m'],
+                ['key' => 'hot_promo', 'label' => 'HOT PROMO', 'short_label' => 'HOT PROMO', 'category' => 'hot_promo', 'm1' => 'hot_promo_m1', 'mtd' => 'hot_promo_m'],
+            ],
+            'categories' => [
+                ['key' => 'all', 'label' => 'ALL'],
+            ],
+        ]);
+    }
+
+    private function buildPerformanceMonitoring(array $config): array
+    {
+        $tableColumns = collect(DB::getSchemaBuilder()->getColumnListing('outlet_performance'))->flip();
+        $segments = collect($config['segments'] ?? [])
+            ->filter(fn ($column) => $tableColumns->has($column['m1']) && $tableColumns->has($column['mtd']))
+            ->map(fn ($column) => array_merge($column, [
+                'm1_alias' => $column['key'] . '_m1',
+                'mtd_alias' => $column['key'] . '_mtd',
+            ]))
+            ->values();
+        $validities = $segments->pluck('key')->values();
+        $validityHeaders = $segments
+            ->mapWithKeys(fn ($column) => [
+                $column['key'] => [
+                    'label' => $column['label'],
+                    'short_label' => $column['short_label'],
+                    'category' => $column['category'],
+                ],
             ])
-            ->push('COALESCE(op.total_m1, 0) as total_m1')
-            ->push('COALESCE(op.total_m, 0) as total_m')
+            ->all();
+        $categories = collect($config['categories'] ?? [])
+            ->map(function ($category) use ($segments) {
+                $validities = $category['validities'] ?? (
+                    $category['key'] === 'all'
+                        ? $segments->pluck('key')->values()->all()
+                        : $segments->where('category', $category['key'])->pluck('key')->values()->all()
+                );
+
+                return array_merge($category, ['validities' => $validities]);
+            })
+            ->filter(fn ($category) => !empty($category['validities']))
+            ->values();
+        $totalColumns = collect($config['total_columns'] ?? [])
+            ->filter(fn ($columns) => $tableColumns->has($columns['m1']) && $tableColumns->has($columns['mtd']))
+            ->map(fn ($columns, $key) => [
+                'key' => $key,
+                'm1' => $columns['m1'],
+                'mtd' => $columns['mtd'],
+                'm1_alias' => $key . '_total_m1',
+                'mtd_alias' => $key . '_total_mtd',
+            ]);
+        $selectColumns = $segments
+            ->flatMap(fn ($column) => [
+                "COALESCE(op.`{$column['m1']}`, 0) as `{$column['m1_alias']}`",
+                "COALESCE(op.`{$column['mtd']}`, 0) as `{$column['mtd_alias']}`",
+            ])
+            ->concat($totalColumns->flatMap(fn ($column) => [
+                "COALESCE(op.`{$column['m1']}`, 0) as `{$column['m1_alias']}`",
+                "COALESCE(op.`{$column['mtd']}`, 0) as `{$column['mtd_alias']}`",
+            ]))
             ->implode(', ');
+
+        if ($segments->isEmpty() || $categories->isEmpty() || $selectColumns === '') {
+            return [
+                'categories' => [],
+                'categoryValidities' => [],
+                'validityHeaders' => [],
+                'validities' => [],
+                'rows' => [],
+                'clusterSummary' => [],
+                'period' => ['m1' => 'Outlet performance M-1', 'mtd' => 'Outlet performance MTD'],
+            ];
+        }
 
         $rows = DB::table('outlet_performance as op')
             ->join('appsdumais as a', 'a.id_outlet', '=', 'op.id_outlet')
@@ -229,24 +341,61 @@ class MonitaDumaiController extends Controller
             'tap_order' => 999,
         ]);
 
-        $makeValues = function ($items) use ($validityColumns, $calculateMom) {
+        $makeValues = function ($items) use ($segments, $categories, $totalColumns, $calculateMom) {
             $values = [];
-            foreach ($validityColumns as $column) {
-                $m1 = (int) $items->sum($column['m1']);
-                $mtd = (int) $items->sum($column['mtd']);
-                $values['all'][$column['label']] = [
-                    'm1' => $m1,
-                    'mtd' => $mtd,
-                    'mom' => $calculateMom($mtd, $m1),
+            foreach ($categories as $category) {
+                foreach ($segments as $column) {
+                    $values[$category['key']][$column['key']] = ['m1' => 0, 'mtd' => 0, 'mom' => 0];
+                }
+            }
+
+            foreach ($segments as $column) {
+                $m1 = (int) $items->sum($column['m1_alias']);
+                $mtd = (int) $items->sum($column['mtd_alias']);
+                $categoryKeys = collect(['all', $column['category']])
+                    ->unique()
+                    ->filter(fn ($categoryKey) => $categories->contains('key', $categoryKey));
+
+                foreach ($categoryKeys as $categoryKey) {
+                    $values[$categoryKey][$column['key']] = [
+                        'm1' => $m1,
+                        'mtd' => $mtd,
+                        'mom' => $calculateMom($mtd, $m1),
+                    ];
+                }
+            }
+
+            $categoryTotal = function (string $categoryKey, string $period) use ($items, $values, $categories, $totalColumns) {
+                $totalColumn = $totalColumns->firstWhere('key', $categoryKey);
+                if ($totalColumn) {
+                    return (int) $items->sum($period === 'm1' ? $totalColumn['m1_alias'] : $totalColumn['mtd_alias']);
+                }
+
+                $category = $categories->firstWhere('key', $categoryKey);
+                return (int) collect($category['validities'] ?? [])->sum(fn ($validity) => $values[$categoryKey][$validity][$period] ?? 0);
+            };
+
+            foreach ($categories as $category) {
+                if ($category['key'] === 'all' && !$totalColumns->has('all')) {
+                    $sourceCategories = collect($segments)->pluck('category')->unique()->values();
+                    if ($sourceCategories->every(fn ($categoryKey) => $categories->contains('key', $categoryKey))) {
+                        $totalM1 = (int) $sourceCategories->sum(fn ($categoryKey) => $categoryTotal($categoryKey, 'm1'));
+                        $totalMtd = (int) $sourceCategories->sum(fn ($categoryKey) => $categoryTotal($categoryKey, 'mtd'));
+                    } else {
+                        $totalM1 = $categoryTotal($category['key'], 'm1');
+                        $totalMtd = $categoryTotal($category['key'], 'mtd');
+                    }
+                } else {
+                    $totalM1 = $categoryTotal($category['key'], 'm1');
+                    $totalMtd = $categoryTotal($category['key'], 'mtd');
+                }
+
+                $values[$category['key']]['grand_total'] = [
+                    'm1' => $totalM1,
+                    'mtd' => $totalMtd,
+                    'mom' => $calculateMom($totalMtd, $totalM1),
                 ];
             }
-            $totalM1 = (int) $items->sum('total_m1');
-            $totalMtd = (int) $items->sum('total_m');
-            $values['all']['grand_total'] = [
-                'm1' => $totalM1,
-                'mtd' => $totalMtd,
-                'mom' => $calculateMom($totalMtd, $totalM1),
-            ];
 
             return $values;
         };
@@ -275,17 +424,20 @@ class MonitaDumaiController extends Controller
             ];
         })->sortBy(fn ($row) => sprintf('%02d|%03d|%s', $row['cluster_order'], $row['tap_order'], $row['name']))->values();
 
-        $sumValues = function ($items) use ($validities, $calculateMom) {
+        $sumValues = function ($items) use ($validities, $categories, $calculateMom) {
             $values = [];
-            foreach ($validities as $validity) {
-                $m1 = (int) $items->sum(fn ($row) => $row['values']['all'][$validity]['m1']);
-                $mtd = (int) $items->sum(fn ($row) => $row['values']['all'][$validity]['mtd']);
-                $values['all'][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $calculateMom($mtd, $m1)];
-            }
 
-            $totalM1 = (int) $items->sum(fn ($row) => $row['values']['all']['grand_total']['m1']);
-            $totalMtd = (int) $items->sum(fn ($row) => $row['values']['all']['grand_total']['mtd']);
-            $values['all']['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $calculateMom($totalMtd, $totalM1)];
+            foreach ($categories as $category) {
+                foreach ($validities as $validity) {
+                    $m1 = (int) $items->sum(fn ($row) => $row['values'][$category['key']][$validity]['m1'] ?? 0);
+                    $mtd = (int) $items->sum(fn ($row) => $row['values'][$category['key']][$validity]['mtd'] ?? 0);
+                    $values[$category['key']][$validity] = ['m1' => $m1, 'mtd' => $mtd, 'mom' => $calculateMom($mtd, $m1)];
+                }
+
+                $totalM1 = (int) $items->sum(fn ($row) => $row['values'][$category['key']]['grand_total']['m1'] ?? 0);
+                $totalMtd = (int) $items->sum(fn ($row) => $row['values'][$category['key']]['grand_total']['mtd'] ?? 0);
+                $values[$category['key']]['grand_total'] = ['m1' => $totalM1, 'mtd' => $totalMtd, 'mom' => $calculateMom($totalMtd, $totalM1)];
+            }
 
             return $values;
         };
@@ -351,8 +503,16 @@ class MonitaDumaiController extends Controller
         })->values()->all();
 
         return [
+            'categories' => $categories
+                ->map(fn ($category) => ['key' => $category['key'], 'label' => $category['label']])
+                ->values()
+                ->all(),
+            'categoryValidities' => $categories
+                ->mapWithKeys(fn ($category) => [$category['key'] => $category['validities']])
+                ->all(),
+            'validityHeaders' => $validityHeaders,
             'validities' => $validities->all(),
-            'rows' => $tapDisplayRows->concat($districtRows)->values()->all(),
+            'rows' => $tapDisplayRows->concat($districtRows)->concat($sfRows)->values()->all(),
             'clusterSummary' => $clusterSummary,
             'period' => ['m1' => 'Outlet performance M-1', 'mtd' => $latestUpdateText ? 'Update ' . $latestUpdateText : 'Outlet performance MTD'],
         ];
@@ -387,10 +547,23 @@ class MonitaDumaiController extends Controller
             ['key' => 'isat', 'label' => 'ISAT', 'mtd' => 'isat_mtd', 'mom' => 'isat_mom', 'color' => '#f5c400'],
             ['key' => 'xl', 'label' => 'XL', 'mtd' => 'xl_mtd', 'mom' => 'xl_mom', 'color' => '#0057ff'],
             ['key' => 'tri', 'label' => '3', 'mtd' => '3_mtd', 'mom' => '3_mom', 'color' => '#111827'],
+            ['key' => 'axis', 'label' => 'AXIS', 'mtd' => 'axis_mtd', 'mom' => 'axis_mom', 'color' => '#6f2c91'],
             ['key' => 'sfren', 'label' => 'SFREN', 'mtd' => 'sfren_mtd', 'mom' => 'sfren_mom', 'color' => '#ff4b8b'],
             ['key' => 'istri', 'label' => 'ISAT+3', 'mtd' => 'istri_mtd', 'mom' => 'istri_mom', 'color' => '#f97316'],
             ['key' => 'xlsf', 'label' => 'XL+SF', 'mtd' => 'xlsf_mtd', 'mom' => 'xlsf_mom', 'color' => '#00a7e1'],
         ];
+        $competitionColumns = collect(DB::getSchemaBuilder()->getColumnListing('peta_kompetisi'))->flip();
+        $operators = collect($operators)
+            ->filter(fn ($operator) => $competitionColumns->has($operator['mtd']))
+            ->map(fn ($operator) => array_merge($operator, [
+                'mom' => $competitionColumns->has($operator['mom']) ? $operator['mom'] : null,
+            ]))
+            ->values()
+            ->all();
+
+        if (empty($operators)) {
+            return [];
+        }
 
         $competitionRows = DB::table('peta_kompetisi')
             ->orderBy('cluster')
@@ -427,7 +600,7 @@ class MonitaDumaiController extends Controller
                         'label' => $operator['label'],
                         'color' => $operator['color'],
                         'share' => $this->parsePercentValue($row->{$operator['mtd']} ?? 0),
-                        'mom' => $this->parsePercentValue($row->{$operator['mom']} ?? 0),
+                        'mom' => $this->parsePercentValue($operator['mom'] ? ($row->{$operator['mom']} ?? 0) : 0),
                     ];
                 })->values();
 
@@ -481,6 +654,77 @@ class MonitaDumaiController extends Controller
         return $number;
     }
 
+    private function calculateMomPercentage($current, $previous): float
+    {
+        $current = (float) ($current ?? 0);
+        $previous = (float) ($previous ?? 0);
+
+        if ($previous <= 0) {
+            return $current > 0 ? 100.0 : 0.0;
+        }
+
+        return (($current - $previous) / $previous) * 100;
+    }
+
+    private function formatMomPercentage($current, $previous): string
+    {
+        return number_format($this->calculateMomPercentage($current, $previous), 1, '.', '') . '%';
+    }
+
+    private function decorateOutletDetailPerformance($row)
+    {
+        if (!$row) {
+            return $row;
+        }
+
+        foreach (['digipos', 'cvm', 'comsak', 'hot', 'insak', 'digital', 'voice', 'renewal', 'super', 'hyper', 'sosa', 'sopv'] as $module) {
+            $mtd = 'm_' . $module;
+            $m1 = 'm1_' . $module;
+            $mom = 'mom_' . $module;
+
+            if (property_exists($row, $mtd) && property_exists($row, $m1)) {
+                $row->{$mom} = $this->formatMomPercentage($row->{$mtd}, $row->{$m1});
+            }
+        }
+
+        $row->mom_stsa = $this->formatMomPercentage($row->m_stsa ?? 0, $row->m1_stsa ?? 0);
+        $row->mom_stpv = $this->formatMomPercentage($row->m_stpv ?? 0, $row->m1_stpv ?? 0);
+
+        return $row;
+    }
+
+    private function decoratePvPerformance($row)
+    {
+        if (!$row) {
+            return $row;
+        }
+
+        $validityColumns = [
+            '1d' => 'pvreg_1d',
+            '2d' => 'pvreg_2d',
+            '3d' => 'pvreg_3d',
+            '5d' => 'pvreg_5d',
+            '7d' => 'pvreg_7d',
+            '28d' => 'pvreg_28d',
+            '30d' => 'pvreg_30d',
+        ];
+
+        foreach ($validityColumns as $label => $prefix) {
+            $m1 = (int) ($row->{$prefix . '_m1'} ?? 0);
+            $mtd = (int) ($row->{$prefix . '_m'} ?? 0);
+
+            $row->{$label . '_m1'} = $m1;
+            $row->{$label . '_m'} = $mtd;
+            $row->{$label . '_mom'} = $this->formatMomPercentage($mtd, $m1);
+        }
+
+        $row->total_m1 = (int) ($row->total_pvreg_m1 ?? 0);
+        $row->total_m = (int) ($row->total_pvreg_m ?? 0);
+        $row->total_mom = $this->formatMomPercentage($row->total_m, $row->total_m1);
+
+        return $row;
+    }
+
     private function normalizeDistrictName(string $name): string
     {
         return preg_replace('/[^A-Z0-9]/', '', strtoupper($name)) ?: '';
@@ -513,7 +757,8 @@ class MonitaDumaiController extends Controller
             ? collect()
             : DB::table('outlet_performance')
                 ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
-                ->select('id_outlet', 'total_sp_m', 'total_sp_m1', 'total_m', 'total_m1')
+                ->select('id_outlet', 'total_sp_m', 'total_sp_m1')
+                ->selectRaw('COALESCE(total_pvreg_m, 0) as total_m, COALESCE(total_pvreg_m1, 0) as total_m1')
                 ->get()
                 ->keyBy('id_outlet');
 
@@ -563,7 +808,8 @@ class MonitaDumaiController extends Controller
             ? collect()
             : DB::table('outlet_performance')
                 ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
-                ->select('id_outlet', 'total_sp_m', 'total_m')
+                ->select('id_outlet', 'total_sp_m')
+                ->selectRaw('COALESCE(total_pvreg_m, 0) as total_m')
                 ->get()
                 ->keyBy('id_outlet');
 
@@ -620,8 +866,8 @@ class MonitaDumaiController extends Controller
                 ->selectRaw('
                     SUM(COALESCE(total_sp_m, 0)) as st_sa,
                     SUM(COALESCE(total_sp_m1, 0)) as st_sa_m1,
-                    SUM(COALESCE(total_m, 0)) as st_pv,
-                    SUM(COALESCE(total_m1, 0)) as st_pv_m1
+                    SUM(COALESCE(total_pvreg_m, 0)) as st_pv,
+                    SUM(COALESCE(total_pvreg_m1, 0)) as st_pv_m1
                 ')
                 ->first();
 
@@ -633,7 +879,7 @@ class MonitaDumaiController extends Controller
             ? collect()
             : DB::table('outlet_performance')
                 ->whereIn('id_outlet', $outletIds)
-                ->whereRaw('COALESCE(total_sp_m, 0) + COALESCE(total_m, 0) > 0')
+                ->whereRaw('COALESCE(total_sp_m, 0) + COALESCE(total_pvreg_m, 0) > 0')
                 ->pluck('id_outlet');
 
         $productiveOutlets = $appProductiveIds
@@ -717,7 +963,8 @@ class MonitaDumaiController extends Controller
             ? collect()
             : DB::table('outlet_performance')
                 ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
-                ->select('id_outlet', 'total_sp_m', 'total_sp_m1', 'total_m', 'total_m1')
+                ->select('id_outlet', 'total_sp_m', 'total_sp_m1')
+                ->selectRaw('COALESCE(total_pvreg_m, 0) as total_m, COALESCE(total_pvreg_m1, 0) as total_m1')
                 ->get()
                 ->keyBy('id_outlet');
 
@@ -802,18 +1049,19 @@ class MonitaDumaiController extends Controller
             ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
             ->select(
                 'appsdumais.*',
-                'outlet_performance.sp_simpati_fm1 as fm1_stsa',
+                'outlet_performance.total_sp_fm1 as fm1_stsa',
+                'outlet_performance.total_sp_m1 as m1_stsa',
                 'outlet_performance.total_sp_m as m_stsa',
                 'outlet_performance.tgl_update as tgl_sa',
-                'outlet_performance.total_fm1 as fm1_stpv',
-                'outlet_performance.total_m as m_stpv',
-                'outlet_performance.total_m1 as m1_stpv',
-                'outlet_performance.total_mom as mom_stpv',
+                'outlet_performance.total_pvreg_fm1 as fm1_stpv',
+                'outlet_performance.total_pvreg_m1 as m1_stpv',
+                'outlet_performance.total_pvreg_m as m_stpv',
                 'outlet_performance.tgl_update as tgl_pv'
             )
             ->where('appsdumais.id_outlet', $keyword)
             ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%')
-            ->get();
+            ->get()
+            ->map(fn ($row) => $this->decorateOutletDetailPerformance($row));
 
         return response()->json($data);
     }
@@ -862,7 +1110,8 @@ class MonitaDumaiController extends Controller
 
         $performanceByOutlet = DB::table('outlet_performance')
             ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
-            ->select('id_outlet', 'total_sp_m', 'total_m')
+            ->select('id_outlet', 'total_sp_m')
+            ->selectRaw('COALESCE(total_pvreg_m, 0) as total_m')
             ->get()
             ->keyBy(fn ($row) => (string) $row->id_outlet);
 
@@ -904,13 +1153,13 @@ class MonitaDumaiController extends Controller
             ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
             ->select(
                 'appsdumais.*',
-                'outlet_performance.sp_simpati_fm1 as fm1_stsa',
+                'outlet_performance.total_sp_fm1 as fm1_stsa',
+                'outlet_performance.total_sp_m1 as m1_stsa',
                 'outlet_performance.total_sp_m as m_stsa',
                 'outlet_performance.tgl_update as tgl_sa',
-                'outlet_performance.total_fm1 as fm1_stpv',
-                'outlet_performance.total_m as m_stpv',
-                'outlet_performance.total_m1 as m1_stpv',
-                'outlet_performance.total_mom as mom_stpv',
+                'outlet_performance.total_pvreg_fm1 as fm1_stpv',
+                'outlet_performance.total_pvreg_m1 as m1_stpv',
+                'outlet_performance.total_pvreg_m as m_stpv',
                 'outlet_performance.tgl_update as tgl_pv'
             )
             ->selectRaw(
@@ -921,7 +1170,8 @@ class MonitaDumaiController extends Controller
             ->having('distance', '<=', $radius)
             ->orderBy('distance')
             ->limit(50)
-            ->get();
+            ->get()
+            ->map(fn ($row) => $this->decorateOutletDetailPerformance($row));
 
         return response()->json($data);
     }
@@ -937,6 +1187,6 @@ class MonitaDumaiController extends Controller
             ->where('id_outlet', $id_outlet)
             ->first();
 
-        return response()->json($data);
+        return response()->json($this->decoratePvPerformance($data));
     }
 }

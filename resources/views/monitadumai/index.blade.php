@@ -2544,6 +2544,13 @@
             border-bottom: 1px solid #e6eaf1;
             background: linear-gradient(180deg, #fff, #f8fafc);
         }
+        .pv-monitor-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
         .pv-tabs {
             display: flex;
             gap: 4px;
@@ -2567,6 +2574,9 @@
             background: #0f172a;
             color: #fff;
             box-shadow: 0 8px 18px rgba(15, 23, 42, .18);
+        }
+        .pv-category-tabs {
+            background: #fff;
         }
         .pv-category-tab.active { background: #101828; color: #fff; }
         .pv-period-note {
@@ -2935,6 +2945,7 @@
         <nav class="sidebar-nav">
             <button type="button" class="sidebar-link active" data-dashboard-tab="leader"><i class="fas fa-table-cells-large"></i><span>Dashboard</span></button>
             <button type="button" class="sidebar-link" data-dashboard-tab="ngrs"><i class="fas fa-tower-broadcast"></i><span>NGRS</span></button>
+            <button type="button" class="sidebar-link" data-dashboard-tab="cvm"><i class="fas fa-chart-simple"></i><span>CVM</span></button>
             <button type="button" class="sidebar-link" data-dashboard-tab="pv"><i class="fas fa-bolt"></i><span>PV</span></button>
             <button type="button" class="sidebar-link" data-dashboard-tab="sa"><i class="fas fa-sim-card"></i><span>SA</span></button>
             <button type="button" class="sidebar-link" data-dashboard-tab="digipos"><i class="fas fa-box-open"></i><span>DIGIPOS PACKAGE</span></button>
@@ -2959,7 +2970,50 @@
             $leaderActions = $dashboard['leaderActions'] ?? [];
             $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
             $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
-            $pvMonitoring = $dashboard['pvMonitoring'] ?? ['validities' => [], 'rows' => [], 'period' => []];
+            $emptyMonitoring = [
+                'categories' => [],
+                'categoryValidities' => [],
+                'validityHeaders' => [],
+                'validities' => [],
+                'rows' => [],
+                'clusterSummary' => [],
+                'period' => [],
+            ];
+            $performanceModules = [
+                'cvm' => [
+                    'kicker' => 'CVM Monitoring',
+                    'title' => 'CVM Performance',
+                    'description' => 'Perbandingan performansi CVM, COMSAK, INSAK, SUPER SERU, dan HOT PROMO dari outlet_performance.',
+                    'monitoring' => $dashboard['cvmMonitoring'] ?? $emptyMonitoring,
+                    'empty' => 'Belum ada data CVM pada periode ini.',
+                    'default_dimension' => 'sf',
+                    'show_dimension_tabs' => false,
+                    'show_category_tabs' => false,
+                    'show_contribution' => false,
+                ],
+                'pv' => [
+                    'kicker' => 'PV Monitoring',
+                    'title' => 'Physical Voucher Performance',
+                    'description' => 'Perbandingan performansi voucher dari outlet_performance berdasarkan validity, dengan pencapaian MTD terhadap periode M-1.',
+                    'monitoring' => $dashboard['pvMonitoring'] ?? $emptyMonitoring,
+                    'empty' => 'Belum ada data PV pada periode ini.',
+                    'default_dimension' => 'tap',
+                    'show_dimension_tabs' => true,
+                    'show_category_tabs' => true,
+                    'show_contribution' => true,
+                ],
+                'sa' => [
+                    'kicker' => 'SA Monitoring',
+                    'title' => 'Starterpack Performance',
+                    'description' => 'Perbandingan performansi perdana SA dan BYU dari outlet_performance berdasarkan pencapaian MTD terhadap periode M-1.',
+                    'monitoring' => $dashboard['saMonitoring'] ?? $emptyMonitoring,
+                    'empty' => 'Belum ada data SA pada periode ini.',
+                    'default_dimension' => 'tap',
+                    'show_dimension_tabs' => true,
+                    'show_category_tabs' => false,
+                    'show_contribution' => false,
+                ],
+            ];
             $coverageGroupKeys = ['dumai_bengkalis', 'rokan_hilir'];
             $coverageMetrics = [
                 ['key' => 'cvm', 'title' => 'CVM', 'color' => '#0f9d58'],
@@ -3319,85 +3373,138 @@
         </div>
             </div>
 
-            <div class="dashboard-panel" id="dashboard-panel-pv">
+            @foreach($performanceModules as $monitoringKey => $module)
+                @php
+                    $monitoring = $module['monitoring'] ?? $emptyMonitoring;
+                    $monitoringValidities = $monitoring['validities'] ?? [];
+                    $monitoringValidityHeaders = $monitoring['validityHeaders'] ?? [];
+                    $monitoringCategories = $monitoring['categories'] ?? [];
+                    $defaultCategory = $monitoringCategories[0]['key'] ?? 'all';
+                    $defaultDimension = $module['default_dimension'] ?? 'tap';
+                    $showDimensionTabs = $module['show_dimension_tabs'] ?? true;
+                    $showCategoryTabs = ($module['show_category_tabs'] ?? true) && count($monitoringCategories) > 1;
+                    $showContribution = $module['show_contribution'] ?? true;
+                    $monitoringColspan = 1 + (count($monitoringValidities) * 3) + 3 + ($showContribution ? count($monitoringValidities) : 0);
+                @endphp
+            <div class="dashboard-panel" id="dashboard-panel-{{ $monitoringKey }}">
                 <section class="module-page">
                     <div class="module-hero">
-                        <div><div class="module-kicker">PV Monitoring</div><h2>Physical Voucher Performance</h2><p>Perbandingan performansi voucher dari outlet_performance berdasarkan validity, dengan pencapaian MTD terhadap periode M-1.</p></div>
+                        <div><div class="module-kicker">{{ $module['kicker'] }}</div><h2>{{ $module['title'] }}</h2><p>{{ $module['description'] }}</p></div>
                         <div class="coming-badge"><i class="fas fa-circle-check"></i> Live dari outlet_performance</div>
                     </div>
-                    <div class="pv-monitor-card">
+                    <div class="pv-monitor-card" data-monitoring-key="{{ $monitoringKey }}" data-default-dimension="{{ $defaultDimension }}">
                         <div class="pv-monitor-toolbar">
-                            <div class="pv-tabs" aria-label="Level monitoring PV">
-                                <button type="button" class="pv-tab active" data-pv-dimension="tap">TAP</button>
-                                <button type="button" class="pv-tab" data-pv-dimension="kecamatan">KECAMATAN</button>
+                            <div class="pv-monitor-actions">
+                                @if($showDimensionTabs)
+                                    <div class="pv-tabs" aria-label="Level monitoring {{ strtoupper($monitoringKey) }}">
+                                        <button type="button" class="pv-tab {{ $defaultDimension === 'tap' ? 'active' : '' }}" data-pv-dimension="tap">TAP</button>
+                                        <button type="button" class="pv-tab {{ $defaultDimension === 'kecamatan' ? 'active' : '' }}" data-pv-dimension="kecamatan">KECAMATAN</button>
+                                    </div>
+                                @endif
+                                @if($showCategoryTabs)
+                                    <div class="pv-tabs pv-category-tabs" aria-label="Kategori {{ strtoupper($monitoringKey) }}">
+                                        @foreach($monitoringCategories as $category)
+                                            <button type="button" class="pv-tab pv-category-tab {{ $loop->first ? 'active' : '' }}" data-pv-category="{{ $category['key'] }}">{{ $category['label'] }}</button>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
-                            <div class="pv-period-note">M-1: {{ $pvMonitoring['period']['m1'] ?? '-' }}<br>MTD: {{ $pvMonitoring['period']['mtd'] ?? '-' }}</div>
+                            <div class="pv-period-note">M-1: {{ $monitoring['period']['m1'] ?? '-' }}<br>MTD: {{ $monitoring['period']['mtd'] ?? '-' }}</div>
                         </div>
                         <div class="pv-table-scroll">
                             <table class="pv-table">
-                                <colgroup><col style="width:240px">@foreach($pvMonitoring['validities'] as $validity)<col span="3" style="width:68px">@endforeach<col span="3" style="width:74px"><col span="{{ count($pvMonitoring['validities']) }}" style="width:72px"></colgroup>
+                                <colgroup>
+                                    <col style="width:240px">
+                                    @foreach($monitoringValidities as $validity)
+                                        <col data-pv-validity-col="{{ $validity }}" style="width:68px">
+                                        <col data-pv-validity-col="{{ $validity }}" style="width:68px">
+                                        <col data-pv-validity-col="{{ $validity }}" style="width:68px">
+                                    @endforeach
+                                    <col style="width:74px">
+                                    <col style="width:74px">
+                                    <col style="width:74px">
+                                    @if($showContribution)
+                                        @foreach($monitoringValidities as $validity)
+                                            <col data-pv-contribution-col="{{ $validity }}" style="width:72px">
+                                        @endforeach
+                                    @endif
+                                </colgroup>
                                 <thead>
-                                    <tr><th class="pv-identity"><button class="pv-sort left" type="button" data-pv-sort="name"><span id="pv-dimension-heading">TAP / Nama SF</span><i class="fas fa-sort"></i></button></th>
-                                        @foreach($pvMonitoring['validities'] as $validity)<th colspan="3">VALIDITY {{ strtoupper(str_replace(' HARI', 'D', $validity)) }}</th>@endforeach
+                                    <tr><th class="pv-identity"><button class="pv-sort left" type="button" data-pv-sort="name"><span data-pv-dimension-heading>TAP / Nama SF</span><i class="fas fa-sort"></i></button></th>
+                                        @foreach($monitoringValidities as $validity)
+                                            @php($header = $monitoringValidityHeaders[$validity] ?? ['label' => $validity, 'short_label' => $validity])
+                                            <th colspan="3" data-pv-validity-group="{{ $validity }}" data-label="{{ $header['label'] }}" data-short-label="{{ $header['short_label'] }}">VALIDITY {{ $header['label'] }}</th>
+                                        @endforeach
                                         <th colspan="3" class="pv-grand-group">GRAND TOTAL</th>
-                                        <th colspan="{{ count($pvMonitoring['validities']) }}" class="pv-contribution-group">KONTRIBUSI TERHADAP TOTAL MTD</th>
+                                        @if($showContribution)
+                                            <th colspan="{{ count($monitoringValidities) }}" class="pv-contribution-group" data-pv-contribution-group>KONTRIBUSI TERHADAP TOTAL MTD</th>
+                                        @endif
                                     </tr>
-                                    <tr><th class="pv-identity pv-header-spacer" aria-hidden="true"></th>@foreach($pvMonitoring['validities'] as $validity)<th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>@endforeach
+                                    <tr><th class="pv-identity pv-header-spacer" aria-hidden="true"></th>@foreach($monitoringValidities as $validity)<th class="pv-metric-col" data-pv-validity-cell="{{ $validity }}"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col" data-pv-validity-cell="{{ $validity }}"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col" data-pv-validity-cell="{{ $validity }}"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>@endforeach
                                         <th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>
-                                        @foreach($pvMonitoring['validities'] as $validity)<th class="pv-contribution-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="contribution">{{ strtoupper(str_replace(' HARI', 'D', $validity)) }}<i class="fas fa-sort"></i></button></th>@endforeach
+                                        @if($showContribution)
+                                            @foreach($monitoringValidities as $validity)
+                                                @php($header = $monitoringValidityHeaders[$validity] ?? ['label' => $validity, 'short_label' => $validity])
+                                                <th class="pv-contribution-col" data-pv-contribution-header="{{ $validity }}"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="contribution">{{ $header['label'] }}<i class="fas fa-sort"></i></button></th>
+                                            @endforeach
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($pvMonitoring['rows'] as $rowIndex => $row)
+                                    @forelse($monitoring['rows'] as $rowIndex => $row)
                                         @php($isPvGroup = ($row['row_type'] ?? 'detail') === 'group')
-                                        <tr class="{{ $isPvGroup ? 'pv-group-row' : (($row['dimension'] ?? '') === 'tap' ? 'pv-child-row' : '') }}" data-pv-row data-dimension="{{ $row['dimension'] }}" data-row-index="{{ $rowIndex }}" data-row-type="{{ $row['row_type'] ?? 'detail' }}" data-parent-tap="{{ $row['parent_tap'] ?? $row['tap'] ?? '' }}" data-cluster-order="{{ $row['cluster_order'] ?? 99 }}" @if($row['dimension'] !== 'tap') hidden @endif>
+                                        <tr class="{{ $isPvGroup ? 'pv-group-row' : (($row['dimension'] ?? '') === 'tap' ? 'pv-child-row' : '') }}" data-pv-row data-dimension="{{ $row['dimension'] }}" data-row-index="{{ $rowIndex }}" data-row-type="{{ $row['row_type'] ?? 'detail' }}" data-parent-tap="{{ $row['parent_tap'] ?? $row['tap'] ?? '' }}" data-cluster-order="{{ $row['cluster_order'] ?? 99 }}" @if($row['dimension'] !== $defaultDimension) hidden @endif>
                                             <td class="pv-identity">
                                                 <span class="pv-name">{{ $row['name'] }}</span>
                                                 @if($isPvGroup)
                                                     <span class="pv-sub">Total TAP</span>
                                                 @endif
                                             </td>
-                                            @foreach($pvMonitoring['validities'] as $validity)
-                                                @php($metric = $row['values']['all'][$validity])
-                                                <td data-pv-metric="m1" data-validity="{{ $validity }}">{{ $fmt($metric['m1']) }}</td>
-                                                <td data-pv-metric="mtd" data-validity="{{ $validity }}">{{ $fmt($metric['mtd']) }}</td>
-                                                <td data-pv-metric="mom" data-validity="{{ $validity }}"><span class="pv-mom {{ $metric['mom'] > 0 ? 'up' : ($metric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($metric['mom'], 1, ',', '.') }}%</span></td>
+                                            @foreach($monitoringValidities as $validity)
+                                                @php($metric = $row['values'][$defaultCategory][$validity] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                                <td data-pv-metric="m1" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($metric['m1']) }}</td>
+                                                <td data-pv-metric="mtd" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($metric['mtd']) }}</td>
+                                                <td data-pv-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ $metric['mom'] > 0 ? 'up' : ($metric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($metric['mom'], 1, ',', '.') }}%</span></td>
                                             @endforeach
-                                            @php($grandMetric = $row['values']['all']['grand_total'])
+                                            @php($grandMetric = $row['values'][$defaultCategory]['grand_total'] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
                                             <td class="pv-grand-col" data-pv-metric="m1" data-validity="grand_total">{{ $fmt($grandMetric['m1']) }}</td>
                                             <td class="pv-grand-col" data-pv-metric="mtd" data-validity="grand_total">{{ $fmt($grandMetric['mtd']) }}</td>
                                             <td class="pv-grand-col" data-pv-metric="mom" data-validity="grand_total"><span class="pv-mom {{ $grandMetric['mom'] > 0 ? 'up' : ($grandMetric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($grandMetric['mom'], 1, ',', '.') }}%</span></td>
-                                            @foreach($pvMonitoring['validities'] as $validity)
-                                                @php($contribution = $grandMetric['mtd'] > 0 ? ($row['values']['all'][$validity]['mtd'] / $grandMetric['mtd']) * 100 : 0)
-                                                <td class="pv-contribution-col" data-pv-metric="contribution" data-validity="{{ $validity }}">{{ number_format($contribution, 1, ',', '.') }}%</td>
-                                            @endforeach
+                                            @if($showContribution)
+                                                @foreach($monitoringValidities as $validity)
+                                                    @php($contribution = $grandMetric['mtd'] > 0 ? (($row['values'][$defaultCategory][$validity]['mtd'] ?? 0) / $grandMetric['mtd']) * 100 : 0)
+                                                    <td class="pv-contribution-col" data-pv-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($contribution, 1, ',', '.') }}%</td>
+                                                @endforeach
+                                            @endif
                                         </tr>
                                     @empty
-                                        <tr class="pv-empty-row"><td colspan="{{ 4 + count($pvMonitoring['validities']) * 4 }}">Belum ada data PV pada periode ini.</td></tr>
+                                        <tr class="pv-empty-row"><td colspan="{{ $monitoringColspan }}">{{ $module['empty'] }}</td></tr>
                                     @endforelse
                                 </tbody>
-                                @if(!empty($pvMonitoring['clusterSummary']))
+                                @if(!empty($monitoring['clusterSummary']))
                                     <tfoot class="pv-cluster-footer">
-                                    @foreach($pvMonitoring['clusterSummary'] as $cluster)
-                                        @php($clusterGrand = $cluster['values']['all']['grand_total'] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
-                                        <tr>
+                                    @foreach($monitoring['clusterSummary'] as $clusterIndex => $cluster)
+                                        @php($clusterGrand = $cluster['values'][$defaultCategory]['grand_total'] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                        <tr data-pv-cluster-row data-cluster-index="{{ $clusterIndex }}">
                                             <td class="pv-identity">
                                                 <span class="pv-name">CLUSTER {{ strtoupper($cluster['label']) }}</span>
                                             </td>
-                                            @foreach($pvMonitoring['validities'] as $validity)
-                                                @php($clusterMetric = $cluster['values']['all'][$validity] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
-                                                <td>{{ $fmt($clusterMetric['m1'] ?? 0) }}</td>
-                                                <td>{{ $fmt($clusterMetric['mtd'] ?? 0) }}</td>
-                                                <td><span class="pv-mom {{ ($clusterMetric['mom'] ?? 0) > 0 ? 'up' : (($clusterMetric['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterMetric['mom'] ?? 0, 1, ',', '.') }}%</span></td>
+                                            @foreach($monitoringValidities as $validity)
+                                                @php($clusterMetric = $cluster['values'][$defaultCategory][$validity] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                                <td data-pv-footer-metric="m1" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($clusterMetric['m1'] ?? 0) }}</td>
+                                                <td data-pv-footer-metric="mtd" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($clusterMetric['mtd'] ?? 0) }}</td>
+                                                <td data-pv-footer-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ ($clusterMetric['mom'] ?? 0) > 0 ? 'up' : (($clusterMetric['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterMetric['mom'] ?? 0, 1, ',', '.') }}%</span></td>
                                             @endforeach
-                                            <td class="pv-grand-col">{{ $fmt($clusterGrand['m1'] ?? 0) }}</td>
-                                            <td class="pv-grand-col">{{ $fmt($clusterGrand['mtd'] ?? 0) }}</td>
-                                            <td class="pv-grand-col"><span class="pv-mom {{ ($clusterGrand['mom'] ?? 0) > 0 ? 'up' : (($clusterGrand['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterGrand['mom'] ?? 0, 1, ',', '.') }}%</span></td>
-                                            @foreach($pvMonitoring['validities'] as $validity)
-                                                @php($clusterMetric = $cluster['values']['all'][$validity] ?? ['mtd' => 0])
-                                                @php($clusterContribution = ($clusterGrand['mtd'] ?? 0) > 0 ? (($clusterMetric['mtd'] ?? 0) / ($clusterGrand['mtd'] ?? 1)) * 100 : 0)
-                                                <td class="pv-contribution-col">{{ number_format($clusterContribution, 1, ',', '.') }}%</td>
-                                            @endforeach
+                                            <td class="pv-grand-col" data-pv-footer-metric="m1" data-validity="grand_total">{{ $fmt($clusterGrand['m1'] ?? 0) }}</td>
+                                            <td class="pv-grand-col" data-pv-footer-metric="mtd" data-validity="grand_total">{{ $fmt($clusterGrand['mtd'] ?? 0) }}</td>
+                                            <td class="pv-grand-col" data-pv-footer-metric="mom" data-validity="grand_total"><span class="pv-mom {{ ($clusterGrand['mom'] ?? 0) > 0 ? 'up' : (($clusterGrand['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterGrand['mom'] ?? 0, 1, ',', '.') }}%</span></td>
+                                            @if($showContribution)
+                                                @foreach($monitoringValidities as $validity)
+                                                    @php($clusterMetric = $cluster['values'][$defaultCategory][$validity] ?? ['mtd' => 0])
+                                                    @php($clusterContribution = ($clusterGrand['mtd'] ?? 0) > 0 ? (($clusterMetric['mtd'] ?? 0) / ($clusterGrand['mtd'] ?? 1)) * 100 : 0)
+                                                    <td class="pv-contribution-col" data-pv-footer-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($clusterContribution, 1, ',', '.') }}%</td>
+                                                @endforeach
+                                            @endif
                                         </tr>
                                     @endforeach
                                     </tfoot>
@@ -3407,10 +3514,10 @@
                     </div>
                 </section>
             </div>
+            @endforeach
 
             @foreach([
                 'ngrs' => ['NGRS', 'Network Growth & Revenue Score', 'fa-tower-broadcast'],
-                'sa' => ['SA', 'Starterpack Activation', 'fa-sim-card'],
                 'digipos' => ['DIGIPOS PACKAGE', 'Digital Package Performance', 'fa-box-open'],
             ] as $moduleKey => $module)
                 <div class="dashboard-panel" id="dashboard-panel-{{ $moduleKey }}">
@@ -3528,7 +3635,7 @@
         const leaderOutletPoints = @json($showLeaderDashboard ? $dashboard['outletPoints'] ?? [] : []);
         const leaderCoveragePoints = @json($showLeaderDashboard ? $dashboard['coveragePoints'] ?? [] : []);
         const leaderCompetitionPoints = @json($showLeaderDashboard ? $dashboard['competitionPoints'] ?? [] : []);
-        const pvMonitoringRows = @json($showLeaderDashboard ? $pvMonitoring['rows'] ?? [] : []);
+        const performanceMonitorings = @json($showLeaderDashboard ? collect($performanceModules)->mapWithKeys(fn ($module, $key) => [$key => $module['monitoring'] ?? $emptyMonitoring])->all() : []);
         const leaderCompetitionBoundaryUrl = '/static/geo/monita-kecamatan-boundaries.geojson';
 
         function initLeaderMap() {
@@ -4626,12 +4733,82 @@
             });
         }
 
-        function bindPvMonitoring() {
-            let activeDimension = 'tap';
-            let activeCategory = 'all';
+        function bindPerformanceMonitoringTables() {
+            document.querySelectorAll('[data-monitoring-key]').forEach((root) => bindPerformanceMonitoring(root));
+        }
+
+        function bindPerformanceMonitoring(root) {
+            const monitoringKey = root.dataset.monitoringKey;
+            const monitoring = performanceMonitorings[monitoringKey] || {};
+            const rowsData = monitoring.rows || [];
+            const clusterSummaryData = monitoring.clusterSummary || [];
+            const categoryValidities = monitoring.categoryValidities || {};
+            const validityHeaders = monitoring.validityHeaders || {};
+            const categories = monitoring.categories || [];
+            const fallbackCategory = categories[0]?.key || Object.keys(categoryValidities)[0] || 'all';
+            let activeDimension = root.dataset.defaultDimension || 'tap';
+            let activeCategory = root.querySelector('[data-pv-category].active')?.dataset.pvCategory || fallbackCategory;
             let sortState = { key: 'name', direction: 'asc', validity: null, metric: null };
 
-            const rowSource = (row) => pvMonitoringRows[Number(row.dataset.rowIndex)] || {};
+            const scoped = (selector) => root.querySelectorAll(selector);
+            const rowSource = (row) => rowsData[Number(row.dataset.rowIndex)] || {};
+            const dimensionLabels = {
+                tap: 'TAP / Nama SF',
+                kecamatan: 'Kecamatan',
+                sf: 'Nama SF',
+            };
+            const visibleValiditySet = () => new Set(categoryValidities[activeCategory] || categoryValidities[fallbackCategory] || []);
+            const formatNumber = (value) => Number(value || 0).toLocaleString('id-ID');
+            const formatPercent = (value) => `${Number(value || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
+            const momMarkup = (value) => {
+                const state = value > 0 ? 'up' : (value < 0 ? 'down' : 'flat');
+                return `<span class="pv-mom ${state}">${formatPercent(value)}</span>`;
+            };
+            const resetSortIconState = () => {
+                scoped('[data-pv-sort]').forEach((item) => {
+                    const icon = item.querySelector('i');
+                    item.classList.remove('active');
+                    if (icon) icon.className = 'fas fa-sort';
+                });
+            };
+            const ensureVisibleSort = () => {
+                const visibleValidities = visibleValiditySet();
+                if (sortState.validity && sortState.validity !== 'grand_total' && !visibleValidities.has(sortState.validity)) {
+                    sortState = { key: 'name', direction: 'asc', validity: null, metric: null };
+                    resetSortIconState();
+                }
+            };
+            const updateColumnVisibility = () => {
+                const visibleValidities = visibleValiditySet();
+                scoped('[data-pv-validity-col]').forEach((column) => {
+                    column.style.display = visibleValidities.has(column.dataset.pvValidityCol) ? '' : 'none';
+                });
+                scoped('[data-pv-contribution-col]').forEach((column) => {
+                    column.style.display = visibleValidities.has(column.dataset.pvContributionCol) ? '' : 'none';
+                });
+                scoped('[data-pv-validity-group]').forEach((cell) => {
+                    const validity = cell.dataset.pvValidityGroup;
+                    const visible = visibleValidities.has(validity);
+                    cell.hidden = !visible;
+                    if (visible) {
+                        const header = validityHeaders[validity] || {};
+                        const label = activeCategory === 'all' ? (header.label || validity) : (header.short_label || header.label || validity);
+                        cell.textContent = `VALIDITY ${label}`;
+                    }
+                });
+                scoped('[data-pv-validity-cell]').forEach((cell) => {
+                    cell.hidden = !visibleValidities.has(cell.dataset.pvValidityCell);
+                });
+                scoped('[data-pv-contribution-header], [data-pv-contribution-cell]').forEach((cell) => {
+                    const validity = cell.dataset.pvContributionHeader || cell.dataset.pvContributionCell;
+                    cell.hidden = !visibleValidities.has(validity);
+                });
+                const contributionGroup = root.querySelector('[data-pv-contribution-group]');
+                if (contributionGroup) {
+                    contributionGroup.colSpan = Math.max(visibleValidities.size, 1);
+                    contributionGroup.hidden = visibleValidities.size === 0;
+                }
+            };
             const compareSources = (left, right) => {
                 let leftValue;
                 let rightValue;
@@ -4665,7 +4842,7 @@
             });
 
             const sortVisibleRows = () => {
-                const tbody = document.querySelector('.pv-table tbody');
+                const tbody = root.querySelector('.pv-table tbody');
                 if (!tbody) return;
                 const rows = Array.from(tbody.querySelectorAll(`[data-pv-row][data-dimension="${activeDimension}"]`));
 
@@ -4701,10 +4878,12 @@
             };
 
             const render = () => {
-                document.querySelectorAll('[data-pv-row]').forEach((row) => {
+                ensureVisibleSort();
+                updateColumnVisibility();
+                scoped('[data-pv-row]').forEach((row) => {
                     row.hidden = row.dataset.dimension !== activeDimension;
                     if (row.hidden) return;
-                    const source = pvMonitoringRows[Number(row.dataset.rowIndex)];
+                    const source = rowsData[Number(row.dataset.rowIndex)];
                     if (!source) return;
 
                     row.querySelectorAll('[data-pv-metric]').forEach((cell) => {
@@ -4715,26 +4894,48 @@
                             const totalMtd = Number(source.values?.[activeCategory]?.grand_total?.mtd ?? 0);
                             const validityMtd = Number(source.values?.[activeCategory]?.[validity]?.mtd ?? 0);
                             value = totalMtd > 0 ? (validityMtd / totalMtd) * 100 : 0;
-                            cell.textContent = `${Number(value).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
+                            cell.textContent = formatPercent(value);
                         } else if (metric === 'mom') {
-                            const state = value > 0 ? 'up' : (value < 0 ? 'down' : 'flat');
-                            cell.innerHTML = `<span class="pv-mom ${state}">${Number(value).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</span>`;
+                            cell.innerHTML = momMarkup(value);
                         } else {
-                            cell.textContent = Number(value).toLocaleString('id-ID');
+                            cell.textContent = formatNumber(value);
                         }
                     });
                 });
-                const heading = document.getElementById('pv-dimension-heading');
-                if (heading) heading.textContent = activeDimension === 'tap' ? 'TAP / Nama SF' : 'Kecamatan';
+                scoped('[data-pv-cluster-row]').forEach((row) => {
+                    const summary = clusterSummaryData[Number(row.dataset.clusterIndex)] || {};
+                    row.querySelectorAll('[data-pv-footer-metric]').forEach((cell) => {
+                        const metric = cell.dataset.pvFooterMetric;
+                        const validity = cell.dataset.validity;
+                        let value = summary.values?.[activeCategory]?.[validity]?.[metric] ?? 0;
+                        if (metric === 'contribution') {
+                            const totalMtd = Number(summary.values?.[activeCategory]?.grand_total?.mtd ?? 0);
+                            const validityMtd = Number(summary.values?.[activeCategory]?.[validity]?.mtd ?? 0);
+                            value = totalMtd > 0 ? (validityMtd / totalMtd) * 100 : 0;
+                            cell.textContent = formatPercent(value);
+                        } else if (metric === 'mom') {
+                            cell.innerHTML = momMarkup(value);
+                        } else {
+                            cell.textContent = formatNumber(value);
+                        }
+                    });
+                });
+                const heading = root.querySelector('[data-pv-dimension-heading]');
+                if (heading) heading.textContent = dimensionLabels[activeDimension] || 'Nama';
                 sortVisibleRows();
             };
 
-            document.querySelectorAll('[data-pv-dimension]').forEach((button) => button.addEventListener('click', () => {
+            scoped('[data-pv-dimension]').forEach((button) => button.addEventListener('click', () => {
                 activeDimension = button.dataset.pvDimension;
-                document.querySelectorAll('[data-pv-dimension]').forEach((item) => item.classList.toggle('active', item === button));
+                scoped('[data-pv-dimension]').forEach((item) => item.classList.toggle('active', item === button));
                 render();
             }));
-            document.querySelectorAll('[data-pv-sort]').forEach((button) => button.addEventListener('click', () => {
+            scoped('[data-pv-category]').forEach((button) => button.addEventListener('click', () => {
+                activeCategory = button.dataset.pvCategory || fallbackCategory;
+                scoped('[data-pv-category]').forEach((item) => item.classList.toggle('active', item === button));
+                render();
+            }));
+            scoped('[data-pv-sort]').forEach((button) => button.addEventListener('click', () => {
                 const key = button.dataset.pvSort;
                 const isSame = sortState.key === key && sortState.validity === (button.dataset.validity || null) && sortState.metric === (button.dataset.metric || null);
                 sortState = {
@@ -4743,7 +4944,7 @@
                     metric: button.dataset.metric || null,
                     direction: isSame && sortState.direction === 'asc' ? 'desc' : 'asc'
                 };
-                document.querySelectorAll('[data-pv-sort]').forEach((item) => {
+                scoped('[data-pv-sort]').forEach((item) => {
                     const icon = item.querySelector('i');
                     item.classList.toggle('active', item === button);
                     if (icon) icon.className = item === button
@@ -4763,7 +4964,7 @@
             bindLeaderMapZoom();
             bindActiveTableViewToggles();
             bindDashboardMenu();
-            bindPvMonitoring();
+            bindPerformanceMonitoringTables();
         });
 
         function handleKeyUp(e) {
