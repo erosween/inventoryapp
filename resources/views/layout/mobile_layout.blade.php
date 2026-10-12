@@ -20,7 +20,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SURYA">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="msapplication-TileColor" content="#b40012">
     <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
     <meta name="msapplication-config" content="none">
