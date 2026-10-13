@@ -270,11 +270,12 @@
                 searchDelay: 250,
                 ajax: {
                     url: "{{ route('sisastock.data') }}",
-                    // Data endpoint juga mendukung GET; gunakan GET agar reload
-                    // tabel tidak gagal hanya karena token CSRF/session POST
-                    // kedaluwarsa pada halaman server yang lama terbuka.
-                    type: "GET",
+                    // DataTables mengirim metadata untuk puluhan kolom. Payload
+                    // ini harus berada di request body; GET membuat URL melewati
+                    // batas Nginx dan ditolak dengan HTTP 414.
+                    type: "POST",
                     data: function(d) {
+                        d._token = document.querySelector('meta[name="csrf-token"]').content;
                         d.date = @json($isCurrentStockPage ? date('Y-m-d') : null) || $('#target_date').val();
                         d.mode = stockMode;
                     }

@@ -11,7 +11,7 @@ class StockVisibilityTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_admin_cluster_receives_cluster_footers_for_all_and_tap_only(): void
+    public function test_admin_cluster_receives_cluster_footers_for_every_stock_mode(): void
     {
         $admin = User::where('username', 'admin_cluster')->first();
         if (! $admin) $this->markTestSkipped('Akun admin_cluster belum dimigrasikan.');
@@ -23,7 +23,7 @@ class StockVisibilityTest extends TestCase
             ->assertDontSee('TOTAL CLUSTER DUMAI')
             ->assertDontSee('TOTAL CLUSTER ROHIL');
 
-        foreach (['all', 'tap'] as $mode) {
+        foreach (['all', 'exc_asmen', 'tap', 'sf'] as $mode) {
             $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
                 ->postJson('/sisastock/data', [
                     'mode' => $mode, 'date' => now()->toDateString(),
@@ -41,11 +41,22 @@ class StockVisibilityTest extends TestCase
             }
         }
 
-        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
-            ->postJson('/sisastock/data', [
-                'mode' => 'sf', 'date' => now()->toDateString(),
-                'draw' => 1, 'start' => 0, 'length' => 25,
-            ])->assertOk()->assertJsonPath('cluster_totals', []);
+    }
+
+    public function test_stock_datatable_uses_post_so_wide_column_payload_does_not_overflow_the_url(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) $this->markTestSkipped('Akun admin_super belum dimigrasikan.');
+
+        $content = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/sisastock')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('type: "POST"', $content);
+        $this->assertStringContainsString('d._token = document.querySelector', $content);
+        $this->assertStringNotContainsString('type: "GET"', $content);
     }
 
     public function test_unified_stock_page_exposes_non_zero_rows_and_active_denoms_for_each_mode(): void
@@ -104,7 +115,7 @@ class StockVisibilityTest extends TestCase
             ->pluck('iddenom')
             ->all();
 
-        foreach (['all', 'tap', 'sf'] as $mode) {
+        foreach (['all', 'exc_asmen', 'tap', 'sf'] as $mode) {
             $response = $this->actingAs($admin)
                 ->withSession(['idtap' => 'SBP_DUMAI'])
                 ->postJson('/sisastock/data', [
