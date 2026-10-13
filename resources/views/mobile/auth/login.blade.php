@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SURYA">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-TileColor" content="#b40012">
     <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/surya/icon-180.png">
@@ -66,7 +66,7 @@
             max-width: 480px;
             min-height: 100vh;
             min-height: 100svh;
-            padding-top: var(--login-safe-top);
+            padding-top: calc(var(--login-safe-top) + 8px);
             background: var(--surface);
             position: relative;
             overflow-x: hidden;
@@ -82,11 +82,12 @@
             top: 0;
             left: 50%;
             width: min(100%, 480px);
-            height: var(--login-safe-top);
+            height: calc(var(--login-safe-top) + 9px);
             transform: translateX(-50%);
             pointer-events: none;
-            background: #f8fafc;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+            background: #111827;
+            border: 0;
+            box-shadow: none;
         }
 
         .login-hero {

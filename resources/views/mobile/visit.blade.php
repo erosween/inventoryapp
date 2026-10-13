@@ -38,11 +38,18 @@
                 </div>
             </div>
             <input type="file" name="photo_front" id="visit-photo-front" class="d-none visit-photo-input" accept="image/jpeg,image/webp" required>
-            <div class="camera-stage rounded-4 overflow-hidden bg-dark mb-3 d-none"><video class="visit-camera" autoplay playsinline muted></video></div>
+            <div class="camera-stage position-relative rounded-4 overflow-hidden bg-dark mb-3 d-none">
+                <video class="visit-camera" autoplay playsinline muted></video>
+                <button type="button" class="switch-camera btn btn-light btn-sm rounded-pill" aria-label="Ganti kamera depan atau belakang">
+                    <i class="fas fa-camera-rotate me-1"></i><span>Ganti Kamera</span>
+                </button>
+            </div>
             <canvas class="visit-canvas d-none"></canvas>
             <img class="visit-preview rounded-4 mb-3 d-none" alt="Foto outlet tampak depan">
-            <button type="button" class="open-camera btn btn-outline-danger w-100 rounded-pill py-3 fw-bold mb-2"><i class="fas fa-camera me-2"></i>Buka Kamera Depan</button>
-            <button type="button" class="capture-photo btn btn-danger w-100 rounded-pill py-3 fw-bold mb-2 d-none"><i class="fas fa-circle-dot me-2"></i>Ambil Foto Depan</button>
+            <div class="visit-camera-actions mb-2">
+                <button type="button" class="open-camera camera-action btn btn-outline-danger rounded-pill fw-bold"><i class="fas fa-camera me-2"></i>Buka Kamera</button>
+                <button type="button" class="capture-photo camera-action btn btn-danger rounded-pill fw-bold d-none"><i class="fas fa-circle-dot me-2"></i>Ambil Foto</button>
+            </div>
             <div class="visit-photo-status small text-muted"><i class="fas fa-circle me-1"></i> Foto tampak depan belum diambil</div>
         </div>
 
@@ -55,11 +62,18 @@
                 </div>
             </div>
             <input type="file" name="photo_inside" id="visit-photo-inside" class="d-none visit-photo-input" accept="image/jpeg,image/webp" required>
-            <div class="camera-stage rounded-4 overflow-hidden bg-dark mb-3 d-none"><video class="visit-camera" autoplay playsinline muted></video></div>
+            <div class="camera-stage position-relative rounded-4 overflow-hidden bg-dark mb-3 d-none">
+                <video class="visit-camera" autoplay playsinline muted></video>
+                <button type="button" class="switch-camera btn btn-light btn-sm rounded-pill" aria-label="Ganti kamera depan atau belakang">
+                    <i class="fas fa-camera-rotate me-1"></i><span>Ganti Kamera</span>
+                </button>
+            </div>
             <canvas class="visit-canvas d-none"></canvas>
             <img class="visit-preview rounded-4 mb-3 d-none" alt="Foto outlet tampak dalam">
-            <button type="button" class="open-camera btn btn-outline-danger w-100 rounded-pill py-3 fw-bold mb-2"><i class="fas fa-camera me-2"></i>Buka Kamera Dalam</button>
-            <button type="button" class="capture-photo btn btn-danger w-100 rounded-pill py-3 fw-bold mb-2 d-none"><i class="fas fa-circle-dot me-2"></i>Ambil Foto Dalam</button>
+            <div class="visit-camera-actions mb-2">
+                <button type="button" class="open-camera camera-action btn btn-outline-danger rounded-pill fw-bold"><i class="fas fa-camera me-2"></i>Buka Kamera</button>
+                <button type="button" class="capture-photo camera-action btn btn-danger rounded-pill fw-bold d-none"><i class="fas fa-circle-dot me-2"></i>Ambil Foto</button>
+            </div>
             <div class="visit-photo-status small text-muted"><i class="fas fa-circle me-1"></i> Foto tampak dalam belum diambil</div>
         </div>
 
@@ -113,6 +127,36 @@
         object-fit: cover;
         display: block;
     }
+
+    .visit-camera-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .camera-action {
+        width: auto !important;
+        min-height: 40px;
+        padding: 8px 16px !important;
+        font-size: 0.78rem;
+    }
+
+    .switch-camera {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        z-index: 2;
+        min-height: 36px;
+        padding: 7px 12px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.24);
+    }
+
+    .visit-camera.is-front-camera {
+        transform: scaleX(-1);
+    }
 </style>
 @endpush
 
@@ -144,6 +188,7 @@ refreshVisitLocation().catch(function() {});
 let visitCameraStream = null;
 let activePhotoCard = null;
 let visitSubmitting = false;
+let visitFacingMode = 'environment';
 
 function stopVisitCamera() {
     if (visitCameraStream) {
@@ -152,22 +197,65 @@ function stopVisitCamera() {
     }
 }
 
+async function startVisitCamera(card, facingMode) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Kamera tidak didukung perangkat ini.');
+    }
+
+    stopVisitCamera();
+    visitCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: {ideal: facingMode},
+            width: {ideal: 1920},
+            height: {ideal: 1080}
+        },
+        audio: false
+    });
+
+    visitFacingMode = facingMode;
+    activePhotoCard = card;
+    const video = card.find('.visit-camera').get(0);
+    video.srcObject = visitCameraStream;
+    video.classList.toggle('is-front-camera', facingMode === 'user');
+    card.find('.camera-stage, .capture-photo').removeClass('d-none');
+    card.find('.visit-preview').addClass('d-none');
+    card.find('.switch-camera span').text(facingMode === 'user' ? 'Pakai Kamera Belakang' : 'Pakai Kamera Depan');
+}
+
 $('.open-camera').on('click', async function() {
     const card = $(this).closest('.visit-photo-card');
 
     try {
         stopVisitCamera();
         $('.camera-stage, .capture-photo').addClass('d-none');
-        $('.open-camera').removeClass('d-none');
+        $('.open-camera:not(:disabled)').removeClass('d-none');
 
-        visitCameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
-        activePhotoCard = card;
-        card.find('.visit-camera').get(0).srcObject = visitCameraStream;
-        card.find('.camera-stage, .capture-photo').removeClass('d-none');
-        card.find('.visit-preview').addClass('d-none');
+        await startVisitCamera(card, 'environment');
         $(this).addClass('d-none');
     } catch (error) {
         card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').html('<i class="fas fa-circle-exclamation me-1"></i>Kamera wajib diizinkan untuk mengambil foto visit');
+    }
+});
+
+$('.switch-camera').on('click', async function() {
+    const card = $(this).closest('.visit-photo-card');
+    const previousFacingMode = visitFacingMode;
+    const nextFacingMode = visitFacingMode === 'environment' ? 'user' : 'environment';
+    const button = $(this);
+
+    button.prop('disabled', true).find('span').text('Mengganti...');
+    try {
+        await startVisitCamera(card, nextFacingMode);
+    } catch (error) {
+        try {
+            await startVisitCamera(card, previousFacingMode);
+        } catch (restoreError) {
+            card.find('.camera-stage, .capture-photo').addClass('d-none');
+            card.find('.open-camera:not(:disabled)').removeClass('d-none');
+        }
+        card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').html('<i class="fas fa-circle-exclamation me-1"></i>Kamera lain tidak tersedia di perangkat ini');
+    } finally {
+        button.prop('disabled', false);
     }
 });
 
@@ -199,7 +287,12 @@ $('.capture-photo').on('click', async function() {
     const scale = Math.min(1, maxEdge / Math.max(video.videoWidth, video.videoHeight));
     canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
     canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext('2d');
+    if (visitFacingMode === 'user') {
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const usePhotoBlob = function(blob) {
         if (!blob) {
             card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').html('<i class="fas fa-circle-exclamation me-1"></i>Foto gagal dikompresi. Silakan buka kamera kembali.');

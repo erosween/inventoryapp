@@ -74,21 +74,18 @@ class PwaSupportTest extends TestCase
         $this->assertStringNotContainsString("requestUrl.pathname.startsWith('/mobile')", $serviceWorker);
     }
 
-    public function test_mobile_pages_use_opaque_ios_status_bar_boundaries(): void
+    public function test_mobile_pages_use_solid_ios_status_bar_boundaries(): void
     {
         $mobileLogin = file_get_contents($this->projectPath('resources/views/mobile/auth/login.blade.php'));
         $mobileLayout = file_get_contents($this->projectPath('resources/views/layout/mobile_layout.blade.php'));
 
         foreach ([$mobileLogin, $mobileLayout] as $view) {
             $this->assertStringContainsString(
-                'apple-mobile-web-app-status-bar-style" content="default',
-                $view
-            );
-            $this->assertStringNotContainsString(
                 'apple-mobile-web-app-status-bar-style" content="black-translucent',
                 $view
             );
             $this->assertStringContainsString('safe-area-inset-top', $view);
+            $this->assertStringNotContainsString('background: #f8fafc;\n            border-bottom', $view);
         }
     }
 }

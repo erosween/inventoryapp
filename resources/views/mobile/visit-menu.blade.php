@@ -20,7 +20,15 @@
         <div class="alert alert-danger rounded-4 small"><i class="fas fa-location-dot me-2"></i>Lokasi tidak sesuai outlet ({{ number_format((float) request('distance'), 0) }} m). Foto visit akan menunggu konfirmasi admin.</div>
     @endif
     @if($photoDone && $visit->gps_status === 'pending_admin')
-        <div class="alert alert-warning rounded-4 small"><i class="fas fa-hourglass-half me-2"></i>Visit sedang berlangsung dan menunggu persetujuan admin. Outlet lain tetap terkunci.</div>
+        <div class="alert alert-warning rounded-4 small" id="visit-approval-alert">
+            <div class="d-flex align-items-start gap-2">
+                <i class="fas fa-hourglass-half mt-1"></i>
+                <span id="visit-approval-message">Visit sedang berlangsung dan menunggu persetujuan admin. Outlet lain tetap terkunci.</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-warning rounded-pill fw-bold mt-3" id="refresh-visit-status" data-status-url="{{ route('mobile.visit.status', ['id_outlet' => $outlet->id_outlet]) }}">
+                <i class="fas fa-rotate me-1"></i> Refresh Status
+            </button>
+        </div>
     @elseif($canSell)
         <div class="alert alert-info rounded-4 small"><i class="fas fa-circle-info me-2"></i>Visit sedang berlangsung. Selesaikan input penjualan untuk membuka outlet berikutnya.</div>
     @endif
@@ -40,3 +48,57 @@
     @endif
 </div>
 @endsection
+
+@if($photoDone && $visit->gps_status === 'pending_admin')
+@push('scripts')
+<script>
+document.getElementById('refresh-visit-status')?.addEventListener('click', async function () {
+    const button = this;
+    const message = document.getElementById('visit-approval-message');
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-rotate fa-spin me-1"></i> Mengecek...';
+
+    try {
+        const response = await fetch(button.dataset.statusUrl, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+        });
+        if (!response.ok) throw new Error('Status visit tidak dapat dimuat.');
+
+        const result = await response.json();
+        if (result.can_sell) {
+            button.innerHTML = '<i class="fas fa-check me-1"></i> Disetujui';
+            message.textContent = result.message;
+            window.location.reload();
+            return;
+        }
+
+        message.textContent = result.message;
+        Swal.fire({
+            icon: 'info',
+            title: 'Masih Menunggu',
+            text: result.message,
+            timer: 1800,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top'
+        });
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal Mengecek',
+            text: error.message,
+            confirmButtonColor: 'var(--primary)'
+        });
+    } finally {
+        if (!button.innerHTML.includes('Disetujui')) {
+            button.disabled = false;
+            button.innerHTML = original;
+        }
+    }
+});
+</script>
+@endpush
+@endif

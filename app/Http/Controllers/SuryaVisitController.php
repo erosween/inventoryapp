@@ -57,6 +57,32 @@ class SuryaVisitController extends Controller
         return view('mobile.visit', compact('outlets'));
     }
 
+    public function status(Request $request)
+    {
+        $request->validate(['id_outlet' => ['required', 'string']]);
+
+        $visit = SuryaVisit::query()
+            ->where('idsf', session('mobile_sf_id'))
+            ->where('id_outlet', $request->id_outlet)
+            ->whereDate('visited_at', now()->toDateString())
+            ->latest('visited_at')
+            ->first();
+
+        abort_unless($visit, 404, 'Visit tidak ditemukan.');
+
+        $photoDone = filled($visit->photo_front_path) && filled($visit->photo_inside_path);
+        $canSell = $photoDone && in_array($visit->gps_status, ['valid', 'approved'], true);
+
+        return response()->json([
+            'gps_status' => $visit->gps_status,
+            'photo_done' => $photoDone,
+            'can_sell' => $canSell,
+            'message' => $canSell
+                ? 'Visit sudah disetujui. Input penjualan telah dibuka.'
+                : 'Belum ada persetujuan admin. Silakan cek kembali beberapa saat lagi.',
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
     public function store(Request $request)
     {
         $request->validate([

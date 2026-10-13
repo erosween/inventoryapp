@@ -57,14 +57,28 @@ class SuryaVisitReportController extends Controller
             $frontPath = $visit->photo_front_path ?? $visit->photo_path;
 
             foreach (['front' => $frontPath, 'inside' => $visit->photo_inside_path] as $type => $path) {
+                if (! $path || ! $disk->exists($path)) {
+                    $visit->{$type.'_photo_url'} = null;
+                    $visit->{$type.'_thumbnail_url'} = null;
+
+                    continue;
+                }
+
                 $thumbnailPath = $path ? OptimizedImageStorage::thumbnailPathFor($path) : null;
-                $visit->{$type.'_photo_url'} = $path ? $disk->url($path) : null;
+                // Keep media URLs relative to the active host. The production
+                // APP_URL can differ from the domain opened by the admin.
+                $visit->{$type.'_photo_url'} = $this->publicStorageUrl($path);
                 $visit->{$type.'_thumbnail_url'} = $thumbnailPath && $disk->exists($thumbnailPath)
-                    ? $disk->url($thumbnailPath)
+                    ? $this->publicStorageUrl($thumbnailPath)
                     : $visit->{$type.'_photo_url'};
             }
         });
 
         return view('surya.visits-report', compact('visits', 'dateFrom', 'dateTo'));
+    }
+
+    private function publicStorageUrl(string $path): string
+    {
+        return '/storage/'.ltrim($path, '/');
     }
 }

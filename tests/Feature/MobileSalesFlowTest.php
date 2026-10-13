@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
+use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class MobileSalesFlowTest extends TestCase
@@ -441,6 +443,122 @@ class MobileSalesFlowTest extends TestCase
             ->assertOk()
             ->assertSee(route('mobile.visit.menu', ['id_outlet' => 'OUTLET-BARU']), false)
             ->assertSee('aria-label="Kembali"', false);
+    }
+
+    public function test_visit_camera_buttons_are_compact_consistent_and_switchable(): void
+    {
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-KAMERA',
+            'nama_outlet' => 'Outlet Kamera',
+            'sf' => 'Sales Test',
+        ]);
+
+        $response = $this->withSession([
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ])->get(route('mobile.visit', ['id_outlet' => 'OUTLET-KAMERA']))
+            ->assertOk()
+            ->assertSee('Ganti Kamera')
+            ->assertSee('camera-action', false)
+            ->assertDontSee('Buka Kamera Depan')
+            ->assertDontSee('Buka Kamera Dalam');
+
+        $this->assertSame(2, substr_count($response->getContent(), '>Buka Kamera</button>'));
+    }
+
+    public function test_pending_visit_status_can_be_refreshed_until_sales_is_unlocked(): void
+    {
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-STATUS',
+            'nama_outlet' => 'Outlet Status',
+            'sf' => 'Sales Test',
+        ]);
+
+        $visitId = DB::table('surya_visits')->insertGetId([
+            'visited_at' => now(),
+            'id_outlet' => 'OUTLET-STATUS',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'latitude' => 1.23456789,
+            'longitude' => 101.98765432,
+            'photo_path' => 'surya-visits/front/status.webp',
+            'photo_front_path' => 'surya-visits/front/status.webp',
+            'photo_inside_path' => 'surya-visits/inside/status.webp',
+            'gps_status' => 'pending_admin',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $session = [
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ];
+
+        $this->withSession($session)
+            ->get(route('mobile.visit.menu', ['id_outlet' => 'OUTLET-STATUS']))
+            ->assertOk()
+            ->assertSee('Refresh Status');
+
+        $pendingResponse = $this->withSession($session)
+            ->getJson(route('mobile.visit.status', ['id_outlet' => 'OUTLET-STATUS']))
+            ->assertOk()
+            ->assertJson(['gps_status' => 'pending_admin', 'photo_done' => true, 'can_sell' => false]);
+        $this->assertStringContainsString('no-store', $pendingResponse->headers->get('Cache-Control'));
+
+        DB::table('surya_visits')->where('id', $visitId)->update(['gps_status' => 'approved']);
+
+        $this->withSession($session)
+            ->getJson(route('mobile.visit.status', ['id_outlet' => 'OUTLET-STATUS']))
+            ->assertOk()
+            ->assertJson(['gps_status' => 'approved', 'photo_done' => true, 'can_sell' => true]);
+    }
+
+    public function test_admin_visit_photos_use_relative_urls_and_zoom_viewer(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('surya-visits/front/photo.webp', 'front');
+        Storage::disk('public')->put('surya-visits/front/thumbnails/photo.webp', 'thumb-front');
+        Storage::disk('public')->put('surya-visits/inside/photo.webp', 'inside');
+        Storage::disk('public')->put('surya-visits/inside/thumbnails/photo.webp', 'thumb-inside');
+
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-FOTO',
+            'nama_outlet' => 'Outlet Foto',
+            'sf' => 'Sales Test',
+        ]);
+        DB::table('idsf')->insert([
+            'idsf' => 'SF001',
+            'namasf' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(),
+            'id_outlet' => 'OUTLET-FOTO',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'latitude' => 1.23456789,
+            'longitude' => 101.98765432,
+            'photo_path' => 'surya-visits/front/photo.webp',
+            'photo_front_path' => 'surya-visits/front/photo.webp',
+            'photo_inside_path' => 'surya-visits/inside/photo.webp',
+            'gps_status' => 'valid',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $view = app(\App\Http\Controllers\SuryaVisitReportController::class)
+            ->index(Request::create('/surya/visits', 'GET'));
+        $visit = $view->getData()['visits']->first();
+
+        $this->assertSame('/storage/surya-visits/front/photo.webp', $visit->front_photo_url);
+        $this->assertSame('/storage/surya-visits/front/thumbnails/photo.webp', $visit->front_thumbnail_url);
+
+        $source = file_get_contents(resource_path('views/surya/visits-report.blade.php'));
+        $this->assertStringContainsString('visit-photo-viewer', $source);
+        $this->assertStringContainsString('data-photo-zoom-in', $source);
+        $this->assertStringContainsString('image.removeAttribute(\'src\')', $source);
     }
 
     public function test_dashboard_marks_active_outlet_and_locks_other_outlets(): void

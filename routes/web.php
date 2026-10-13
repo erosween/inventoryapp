@@ -274,6 +274,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
         Route::get('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'create'])->name('visit');
         Route::get('/visit-menu', [\App\Http\Controllers\SuryaVisitController::class, 'menu'])->name('visit.menu');
+        Route::get('/visit-status', [\App\Http\Controllers\SuryaVisitController::class, 'status'])->name('visit.status');
         Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
         Route::get('/consignment', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'consignment'])->name('surya.consignment');
         Route::get('/survey', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'survey'])->name('surya.survey');

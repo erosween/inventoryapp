@@ -20,7 +20,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SURYA">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-TileColor" content="#b40012">
     <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
     <meta name="msapplication-config" content="none">
@@ -77,7 +77,7 @@
             margin: 0 auto;
             min-height: 100vh;
             min-height: 100dvh;
-            padding-top: var(--mobile-safe-top);
+            padding-top: calc(var(--mobile-safe-top) + 8px);
             padding-bottom: 116px;
             position: relative;
             background: var(--bg-body);
@@ -85,11 +85,8 @@
             overflow-x: hidden;
         }
 
-        /*
-         * iOS standalone mode renders black-translucent status bars above the
-         * web view. Keep that unsafe area as an opaque app chrome boundary so
-         * header content never sits underneath (and gets blurred by) iOS.
-         */
+        /* Keep iOS/PWA chrome fully opaque so scrolled content never bleeds
+         * through the status bar as a white/blurred gradient. */
         .mobile-container::before {
             content: "";
             position: fixed;
@@ -97,11 +94,12 @@
             top: 0;
             left: 50%;
             width: min(100%, 480px);
-            height: var(--mobile-safe-top);
+            height: calc(var(--mobile-safe-top) + 9px);
             transform: translateX(-50%);
             pointer-events: none;
-            background: #f8fafc;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+            background: #78000b;
+            border: 0;
+            box-shadow: none;
         }
 
         .main-content {
