@@ -92,7 +92,7 @@
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content card-round border-0 shadow-lg">
             <div class="modal-header bg-indigo py-3">
-                <h5 class="modal-title text-white fw-bold"><i class="fas fa-search me-2"></i> Tinjauan Detail Setoran</h5>
+                <h5 class="modal-title text-white fw-bold"><i class="fas fa-layer-group me-2"></i> Rekap Setoran per Denom</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: white; opacity: 1;">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -107,7 +107,7 @@
                         </div>
                         <div class="col-md-5 text-end">
                             <h2 class="fw-900 text-indigo mb-0" id="modal-total-amount">Rp 0</h2>
-                            <span class="badge badge-indigo" id="modal-item-count">0 Item</span>
+                            <span class="badge badge-indigo" id="modal-item-count">0 Denom</span>
                             <div id="modal-status-badge" class="mt-2"></div>
                         </div>
                     </div>
@@ -125,8 +125,8 @@
                                             <label class="custom-control-label" for="check-all-items"></label>
                                         </div>
                                     </th>
-                                    <th>Outlet</th>
-                                    <th>Produk</th>
+                                    <th>Denom</th>
+                                    <th class="text-center">Transaksi</th>
                                     <th class="text-end">Qty</th>
                                     <th class="text-end">Total</th>
                                     <th class="text-center" style="width: 90px">AKSI</th>
@@ -156,7 +156,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-white py-3 d-none" id="modal-footer-actions">
-                <div class="me-auto small text-muted fw-bold ps-3" id="selected-count-label">0 item dipilih</div>
+                <div class="me-auto small text-muted fw-bold ps-3" id="selected-count-label">0 denom dipilih</div>
                 <button type="button" class="btn btn-outline-danger btn-round px-4 fw-bold me-2" id="modal-reject-btn">TOLAK TERPILIH</button>
                 <button type="button" class="btn btn-success btn-round px-5 fw-bold" id="modal-approve-btn">APPROVE TERPILIH</button>
             </div>
@@ -184,6 +184,19 @@
     .modal.show .modal-dialog {
         transform: translate(0, 0);
     }
+    #reviewModal .modal-dialog {
+        max-height: calc(100vh - 32px);
+        margin: 16px auto;
+    }
+    #reviewModal .modal-content {
+        max-height: calc(100vh - 32px);
+        display: flex;
+        flex-direction: column;
+    }
+    #reviewModal .modal-body {
+        min-height: 0;
+        overflow-y: auto;
+    }
 
     .card-round { border-radius: 15px !important; overflow: hidden; }
     .sticky-top { top: 0; z-index: 10; }
@@ -207,6 +220,7 @@
         var currentModalIdtap = '';
         var currentModalJenis = '';
         var currentModalTotal = 0;
+        var escapeHtml = function(value) { return $('<div>').text(value == null ? '' : String(value)).html(); };
 
         var table = $('#approval-table').DataTable({
             processing: true,
@@ -275,7 +289,7 @@
             }, function(res) {
                 $('#modal-sf-name').text(res.sf_name.toUpperCase());
                 $('#modal-total-amount').text(res.total_amount);
-                $('#modal-item-count').text(res.count + ' Item');
+                $('#modal-item-count').text(res.count + ' Denom · ' + res.transaction_count + ' Transaksi');
                 
                 var badgeClass = res.status == 'pending' ? 'badge-warning' : (res.status == 'approved' ? 'badge-success' : 'badge-danger');
                 $('#modal-status-badge').html(`<span class="badge ${badgeClass} fw-bold px-3 py-2 animate__animated animate__fadeIn">${res.status.toUpperCase()}</span>`);
@@ -289,29 +303,29 @@
                 $('#selisih-wrapper').addClass('d-none');
 
                 var html = '';
-                res.items.forEach(function(item) {
+                res.items.forEach(function(item, index) {
+                    var idList = (item.ids || []).join(',');
                     var actionBtns = res.status == 'pending' ? `
                         <div class="d-flex gap-1 justify-content-center">
-                            <button type="button" class="btn btn-icon btn-round btn-success btn-xs item-approve-btn" data-id="${item.id}" title="Approve"><i class="fas fa-check"></i></button>
-                            <button type="button" class="btn btn-icon btn-round btn-danger btn-xs item-reject-btn" data-id="${item.id}" title="Tolak"><i class="fas fa-times"></i></button>
+                            <button type="button" class="btn btn-icon btn-round btn-success btn-xs item-approve-btn" data-ids="${idList}" title="Approve semua transaksi denom ini"><i class="fas fa-check"></i></button>
+                            <button type="button" class="btn btn-icon btn-round btn-danger btn-xs item-reject-btn" data-ids="${idList}" title="Tolak semua transaksi denom ini"><i class="fas fa-times"></i></button>
                         </div>
                     ` : '-';
 
                     var checkbox = res.status == 'pending' ? `
                         <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input item-checkbox" id="check-${item.id}" data-id="${item.id}">
-                            <label class="custom-control-label" for="check-${item.id}"></label>
+                            <input type="checkbox" class="custom-control-input item-checkbox" id="check-denom-${index}" data-ids="${idList}">
+                            <label class="custom-control-label" for="check-denom-${index}"></label>
                         </div>
                     ` : '-';
 
                     html += `<tr class="animate__animated animate__fadeIn">
                         <td>${checkbox}</td>
                         <td>
-                            <small class="text-muted d-block">${item.tgl}</small>${item.outlet}
-                            ${item.receipt_number ? `<small class="d-block text-indigo fw-bold">${item.receipt_number}</small>` : ''}
-                            ${item.owner_whatsapp ? `<small class="d-block text-success"><i class="fab fa-whatsapp me-1"></i>+${item.owner_whatsapp}</small>` : ''}
+                            <span class="fw-bold">${escapeHtml(item.produk)}</span>
+                            <small class="text-muted d-block">${escapeHtml(item.date_label)}</small>
                         </td>
-                        <td><span class="fw-bold">${item.produk}</span></td>
+                        <td class="text-center"><span class="badge badge-light">${item.transaction_count}</span></td>
                         <td class="text-end fw-bold">${item.qty}</td>
                         <td class="text-end text-indigo fw-bold">${item.total}</td>
                         <td class="text-center">${actionBtns}</td>
@@ -335,8 +349,20 @@
 
         function updateSelectedCount() {
             var count = $('.item-checkbox:checked').length;
-            $('#selected-count-label').text(count + ' item dipilih');
+            $('#selected-count-label').text(count + ' denom dipilih');
             $('#modal-approve-btn, #modal-reject-btn').prop('disabled', count === 0);
+        }
+
+        function parseIds(value) {
+            return String(value || '').split(',').map(Number).filter(Number.isInteger);
+        }
+
+        function selectedTransactionIds() {
+            var ids = [];
+            $('.item-checkbox:checked').each(function() {
+                ids = ids.concat(parseIds($(this).attr('data-ids')));
+            });
+            return [...new Set(ids)];
         }
 
         // Calculation Helper
@@ -354,18 +380,22 @@
 
         // Individual Item Actions
         $(document).on('click', '.item-approve-btn', function() {
-            var id = $(this).data('id');
+            var button = $(this);
+            var ids = parseIds(button.attr('data-ids'));
             Swal.fire({
-                title: 'Setujui item ini?',
+                title: 'Setujui total denom ini?',
+                text: ids.length + ' transaksi akan disahkan tanpa memotong stok dua kali.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, Approve'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    $.post("{{ route('admin.mobile-approval.bulk-approve') }}", { ids: [id] }, function(r) {
+                    $.post("{{ route('admin.mobile-approval.bulk-approve') }}", { ids: ids }, function(r) {
                         if (r.success) {
-                            $(`.item-approve-btn[data-id="${id}"]`).closest('tr').fadeOut();
+                            button.closest('tr').fadeOut();
                             table.ajax.reload(null, false);
+                        } else {
+                            Swal.fire('Gagal', r.message || 'Transaksi tidak dapat disetujui.', 'error');
                         }
                     });
                 }
@@ -373,19 +403,23 @@
         });
 
         $(document).on('click', '.item-reject-btn', function() {
-            var id = $(this).data('id');
+            var button = $(this);
+            var ids = parseIds(button.attr('data-ids'));
             Swal.fire({
-                title: 'Tolak item ini?',
+                title: 'Tolak total denom ini?',
+                text: ids.length + ' transaksi akan ditolak dan stok reservasi dikembalikan.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#dc3545',
                 confirmButtonText: 'Ya, Tolak'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    $.post("{{ route('admin.mobile-approval.bulk-reject') }}", { ids: [id] }, function(r) {
+                    $.post("{{ route('admin.mobile-approval.bulk-reject') }}", { ids: ids }, function(r) {
                         if (r.success) {
-                            $(`.item-reject-btn[data-id="${id}"]`).closest('tr').fadeOut();
+                            button.closest('tr').fadeOut();
                             table.ajax.reload(null, false);
+                        } else {
+                            Swal.fire('Gagal', r.message || 'Transaksi tidak dapat ditolak.', 'error');
                         }
                     });
                 }
@@ -394,10 +428,10 @@
 
         // Bulk Approve
         $('#modal-approve-btn').on('click', function() {
-            var ids = $('.item-checkbox:checked').map(function() { return $(this).data('id'); }).get();
+            var ids = selectedTransactionIds();
             Swal.fire({
-                title: 'Setujui ' + ids.length + ' item terpilih?',
-                text: 'Stok akan terpotong untuk semua item yang disetujui.',
+                title: 'Setujui ' + ids.length + ' transaksi?',
+                text: 'Stok sudah direservasi saat transaksi masuk; approval akan mengesahkan setoran.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
@@ -408,6 +442,8 @@
                         if (r.success) {
                             $('#reviewModal').modal('hide');
                             Swal.fire('Berhasil!', r.message, 'success').then(() => { table.ajax.reload(); });
+                        } else {
+                            Swal.fire('Gagal', r.message || 'Transaksi tidak dapat disetujui.', 'error');
                         }
                     });
                 }
@@ -416,9 +452,10 @@
 
         // Bulk Reject
         $('#modal-reject-btn').on('click', function() {
-            var ids = $('.item-checkbox:checked').map(function() { return $(this).data('id'); }).get();
+            var ids = selectedTransactionIds();
             Swal.fire({
-                title: 'Tolak ' + ids.length + ' item terpilih?',
+                title: 'Tolak ' + ids.length + ' transaksi?',
+                text: 'Stok yang sudah direservasi akan dikembalikan ke SF.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#dc3545',
@@ -429,6 +466,8 @@
                         if (r.success) {
                             $('#reviewModal').modal('hide');
                             Swal.fire('Ditolak!', r.message, 'info').then(() => { table.ajax.reload(); });
+                        } else {
+                            Swal.fire('Gagal', r.message || 'Transaksi tidak dapat ditolak.', 'error');
                         }
                     });
                 }

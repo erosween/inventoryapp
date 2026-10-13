@@ -25,7 +25,11 @@
                                 <input type="hidden" name="id_outlet" id="id_outlet" value="{{ strtoupper($pre_id_outlet) }}">
                                 <input type="text" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" value="{{ strtoupper($pre_id_outlet) }}" disabled>
                             @else
-                                <input type="text" name="id_outlet" id="id_outlet" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" placeholder="Search or scan..." required>
+                                <input type="hidden" name="id_outlet" id="id_outlet" required>
+                                <div class="position-relative">
+                                    <input type="search" id="outlet-search-inline" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark" placeholder="Cari ID / nama outlet..." autocomplete="off">
+                                    <div id="outlet-inline-results" class="outlet-inline-results d-none"></div>
+                                </div>
                             @endif
                         </div>
                     </div>
@@ -35,7 +39,7 @@
                             <label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Nama Outlet</label>
                         </div>
                         <div class="col-8">
-                            <div class="bg-light rounded-3 px-3 py-2 fw-bold text-dark" style="font-size: 0.85rem; min-height: 35px;">
+                            <div id="selected-outlet-name" class="bg-light rounded-3 px-3 py-2 fw-bold text-dark" style="font-size: 0.85rem; min-height: 35px;">
                                 {{ $selected_outlet->nama_outlet ?? 'Outlet belum ditemukan' }}
                             </div>
                         </div>
@@ -88,6 +92,38 @@
         </div>
     </form>
 </div>
+
+@push('styles')
+<style>
+    .outlet-inline-results {
+        position: absolute;
+        z-index: 1050;
+        top: calc(100% + 6px);
+        right: 0;
+        left: 0;
+        max-height: 230px;
+        overflow-y: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 16px 34px rgba(15, 23, 42, .16);
+    }
+    .outlet-inline-option {
+        width: 100%;
+        padding: 10px 12px;
+        border: 0;
+        border-bottom: 1px solid #f1f5f9;
+        background: #fff;
+        color: #111827;
+        text-align: left;
+    }
+    .outlet-inline-option:last-child { border-bottom: 0; }
+    .outlet-inline-option strong,
+    .outlet-inline-option small { display: block; }
+    .outlet-inline-option strong { font-size: .72rem; }
+    .outlet-inline-option small { color: #64748b; font-size: .6rem; font-weight: 700; }
+</style>
+@endpush
 
 @push('modals')
 <div class="modal fade" id="productPickerModal" tabindex="-1" aria-hidden="true" style="z-index: 9999;">
@@ -214,6 +250,57 @@
         });
         let activeRow = null;
         const stockMap = {!! json_encode($denoms->pluck('stock_qty', 'iddenom')) !!};
+        let outletSearchTimer = null;
+
+        function selectOutlet(outlet) {
+            $('#id_outlet').val(String(outlet.id_outlet || '').toUpperCase());
+            $('#outlet-search-inline').val(String(outlet.id_outlet || '').toUpperCase());
+            $('#selected-outlet-name').text(outlet.nama_outlet || 'Outlet belum ditemukan');
+            $('#outlet-inline-results').addClass('d-none').empty();
+            saveFormState();
+        }
+
+        function loadOutletOptions(query) {
+            clearTimeout(outletSearchTimer);
+            const value = String(query || '').trim();
+            if (value.length < 2) {
+                $('#outlet-inline-results').addClass('d-none').empty();
+                return;
+            }
+
+            outletSearchTimer = setTimeout(function() {
+                $.get("{{ route('mobile.search-outlet') }}", { q: value })
+                    .done(function(outlets) {
+                        const html = outlets.map(outlet => `
+                            <button type="button" class="outlet-inline-option" data-id="${escapeHtml(outlet.id_outlet)}" data-name="${escapeHtml(outlet.nama_outlet)}">
+                                <strong>${escapeHtml(outlet.nama_outlet)}</strong>
+                                <small>ID: ${escapeHtml(outlet.id_outlet)}</small>
+                            </button>`).join('');
+                        $('#outlet-inline-results')
+                            .html(html || '<div class="p-3 text-center text-muted fw-bold" style="font-size:.65rem">Outlet SF tidak ditemukan</div>')
+                            .removeClass('d-none');
+                    })
+                    .fail(function() {
+                        $('#outlet-inline-results').html('<div class="p-3 text-center text-danger fw-bold" style="font-size:.65rem">Gagal memuat outlet</div>').removeClass('d-none');
+                    });
+            }, 220);
+        }
+
+        $('#outlet-search-inline').on('input', function() {
+            $('#id_outlet').val('');
+            $('#selected-outlet-name').text('Pilih outlet dari hasil pencarian');
+            loadOutletOptions($(this).val());
+        });
+
+        $(document).on('click', '.outlet-inline-option', function() {
+            selectOutlet({ id_outlet: $(this).data('id'), nama_outlet: $(this).data('name') });
+        });
+
+        $(document).on('click', function(event) {
+            if (! $(event.target).closest('#outlet-search-inline, #outlet-inline-results').length) {
+                $('#outlet-inline-results').addClass('d-none');
+            }
+        });
 
         // GPS
         if (navigator.geolocation) {
@@ -247,7 +334,12 @@
                 const data = JSON.parse(saved);
                 const currentOutlet = $('#id_outlet').val();
                 if (currentOutlet && data.id_outlet && currentOutlet !== data.id_outlet) return;
-                if (!currentOutlet && data.id_outlet) $('#id_outlet').val(data.id_outlet);
+                if (!currentOutlet && data.id_outlet) {
+                    $.get("{{ route('mobile.search-outlet') }}", { q: data.id_outlet }).done(function(outlets) {
+                        const match = outlets.find(outlet => String(outlet.id_outlet).toUpperCase() === String(data.id_outlet).toUpperCase());
+                        if (match) selectOutlet(match);
+                    });
+                }
                 $('#keterangan').val(data.keterangan || '');
                 if (data.products && data.products.length > 0) {
                     $('#product-container').empty();
@@ -377,6 +469,11 @@
         $(document).on('click', '.remove-row', function() { $(this).closest('.glass-card').fadeOut(200, function() { $(this).remove(); recalcTotal(); saveFormState(); }); });
         
         $('#sales-form').submit(function(e) {
+            if (!$('#id_outlet').val()) {
+                e.preventDefault();
+                Swal.fire({ icon: 'warning', title: 'Pilih Outlet', text: 'Cari lalu pilih outlet yang terdaftar untuk Sales Force ini.', confirmButtonColor: 'var(--primary)' });
+                return;
+            }
             const requested = {};
             $('.iddenom-input').each(function() {
                 const id = $(this).val();

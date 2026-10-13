@@ -30,9 +30,14 @@ class AuditLogger
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        } catch (\Exception $e) {
-            // Kita log ke file kalau database-nya error biar nggak nge-block proses utama
-            \Log::error("Audit Log Error: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            // Audit bersifat pendukung: kegagalan tabel/file log tidak boleh
+            // membatalkan transaksi bisnis utama seperti approve atau reject.
+            try {
+                \Log::error("Audit Log Error: " . $e->getMessage());
+            } catch (\Throwable $loggingError) {
+                // Abaikan fallback logging yang juga gagal (mis. storage read-only).
+            }
         }
     }
 }

@@ -108,19 +108,14 @@ class MobileApprovalController extends Controller
         $query = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
             ->join('idsf as s', 'm.idsf', '=', 's.idsf')
-            ->leftJoin('appsdumais as o', 'm.id_outlet', '=', 'o.id_outlet')
-            ->leftJoin('mobile_sales_receipts as r', 'm.receipt_id', '=', 'r.id')
             ->select(
                 'm.id',
                 'm.tgl',
                 'm.status',
-                'o.nama_outlet',
+                'm.iddenom',
                 'd.denom',
                 'm.qty',
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as harga_jual'),
-                'r.receipt_number',
-                'r.owner_whatsapp',
-                'r.whatsapp_shared_at',
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_setoran')
             )
             ->where('m.idsf', $idsf);
@@ -130,37 +125,44 @@ class MobileApprovalController extends Controller
         if ($status) $query->where('m.status', $status);
         
         if ($jenis == 'SA') {
-            $query->where('d.kategori_inject', 'SA');
+            $query->where(function ($categoryQuery) {
+                $categoryQuery->whereRaw("UPPER(COALESCE(d.kategori_inject, '')) = 'SA'")
+                    ->orWhereRaw("UPPER(COALESCE(d.group_name, '')) = 'SA'");
+            });
         } elseif ($jenis == 'VOUCHER FISIK') {
-            $query->where(function($q) {
-                $q->where('d.kategori_inject', '!=', 'SA')->orWhereNull('d.kategori_inject');
+            $query->where(function ($categoryQuery) {
+                $categoryQuery->whereRaw("UPPER(COALESCE(d.kategori_inject, '')) <> 'SA'")
+                    ->whereRaw("UPPER(COALESCE(d.group_name, '')) <> 'SA'");
             });
         }
 
-        $items = $query->get();
-        $total_amount = $items->sum('total_setoran');
+        $sales = $query->orderBy('d.denom')->orderBy('m.tgl')->get();
+        $total_amount = $sales->sum('total_setoran');
+        $items = $sales->groupBy('iddenom')->map(function ($denomSales) {
+            $firstDate = $denomSales->min('tgl');
+            $lastDate = $denomSales->max('tgl');
+
+            return [
+                'ids' => $denomSales->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
+                'produk' => $denomSales->first()->denom,
+                'transaction_count' => $denomSales->count(),
+                'date_label' => $firstDate === $lastDate
+                    ? date('d/m/Y', strtotime($firstDate))
+                    : date('d/m/Y', strtotime($firstDate)).' - '.date('d/m/Y', strtotime($lastDate)),
+                'qty' => number_format($denomSales->sum('qty')),
+                'total' => 'Rp '.number_format($denomSales->sum('total_setoran'), 0, ',', '.'),
+            ];
+        })->values();
 
         return response()->json([
             'sf_name' => DB::table('idsf')->where('idsf', $idsf)->value('namasf'),
             'total_amount' => 'Rp ' . number_format($total_amount, 0, ',', '.'),
             'count' => $items->count(),
+            'transaction_count' => $sales->count(),
             'status' => $status,
             'idtap' => $idtap_filter,
             'jenis' => $jenis,
-            'items' => $items->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'tgl' => date('d/m/Y', strtotime($item->tgl)),
-                    'status' => $item->status,
-                    'outlet' => $item->nama_outlet ?? '-',
-                    'receipt_number' => $item->receipt_number,
-                    'owner_whatsapp' => $item->owner_whatsapp,
-                    'whatsapp_shared_at' => $item->whatsapp_shared_at ? date('d/m/Y H:i', strtotime($item->whatsapp_shared_at)) : null,
-                    'produk' => $item->denom,
-                    'qty' => number_format($item->qty),
-                    'total' => 'Rp ' . number_format($item->total_setoran, 0, ',', '.')
-                ];
-            })
+            'items' => $items,
         ]);
     }
 
@@ -178,7 +180,7 @@ class MobileApprovalController extends Controller
                 's.namasf',
                 'm.idtap',
                 'm.status',
-                DB::raw("CASE WHEN d.kategori_inject = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
+                DB::raw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
                 DB::raw('COUNT(m.id) as trans_count'),
                 DB::raw('SUM(m.qty) as total_qty'),
                 DB::raw('SUM(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_rupiah')
@@ -223,7 +225,7 @@ class MobileApprovalController extends Controller
                             data-status="'.$row->status.'"
                             data-idtap="'.$row->idtap.'"
                             data-jenis="'.$row->jenis_paket.'">
-                        Tinjau Detail <i class="fas fa-chevron-right ms-1"></i>
+                        Lihat Rekap <i class="fas fa-chevron-right ms-1"></i>
                     </button>
                 ';
             })
@@ -245,23 +247,27 @@ class MobileApprovalController extends Controller
                     throw new \Exception('Transaksi ini bukan milik TAP Anda.');
                 }
 
-                $denom = DB::table('denom')->where('iddenom', $sale->iddenom)->first();
-                // Potong stok SF untuk semua produk, termasuk SA.
-                $stockSf = DB::table('stockawalsf')
-                    ->where('idsf', $sale->idsf)
-                    ->where('iddenom', $sale->iddenom)
-                    ->lockForUpdate()
-                    ->first();
+                // Transaksi baru sudah mereservasi stok saat e-Bon dikonfirmasi.
+                // Pending lama (sebelum fitur reservasi) tetap dipotong di sini
+                // agar deployment tidak mengubah perilaku data yang sudah ada.
+                if (! $sale->stock_reserved_at) {
+                    $denom = DB::table('denom')->where('iddenom', $sale->iddenom)->first();
+                    $stockSf = DB::table('stockawalsf')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $sale->iddenom)
+                        ->lockForUpdate()
+                        ->first();
 
-                if (!$stockSf || $stockSf->stock < $sale->qty) {
-                    $denomName = $denom->denom ?? $sale->iddenom;
-                    throw new \Exception("Stok SF untuk {$denomName} tidak mencukupi. Sisa: " . ($stockSf->stock ?? 0));
+                    if (! $stockSf || (int) $stockSf->stock < (int) $sale->qty) {
+                        $denomName = $denom->denom ?? $sale->iddenom;
+                        throw new \Exception("Stok SF untuk {$denomName} tidak mencukupi. Sisa: " . ($stockSf->stock ?? 0));
+                    }
+
+                    DB::table('stockawalsf')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $sale->iddenom)
+                        ->decrement('stock', (int) $sale->qty);
                 }
-
-                DB::table('stockawalsf')
-                    ->where('idsf', $sale->idsf)
-                    ->where('iddenom', $sale->iddenom)
-                    ->decrement('stock', $sale->qty);
 
                 DB::table('keluarsf')->insert([
                     'idtap' => $sale->idtap,
@@ -274,6 +280,7 @@ class MobileApprovalController extends Controller
 
                 DB::table('mobile_penjualan')->where('id', $id)->update([
                     'status' => 'approved',
+                    'stock_reserved_at' => $sale->stock_reserved_at ?: now(),
                     'updated_at' => now()
                 ]);
 
@@ -310,7 +317,7 @@ class MobileApprovalController extends Controller
         }
 
         return response()->json([
-            'success' => true, 
+            'success' => $results['success'] > 0,
             'message' => "Selesai! {$results['success']} Berhasil, {$results['failed']} Gagal.",
             'details' => $results
         ]);
@@ -321,16 +328,22 @@ class MobileApprovalController extends Controller
         $ids = $request->ids;
         if (!$ids || !is_array($ids)) return response()->json(['success' => false, 'message' => 'Pilih data terlebih dahulu']);
 
-        $query = DB::table('mobile_penjualan')->whereIn('id', $ids)->where('status', 'pending');
-        if (session('idtap') !== 'SBP_DUMAI') {
-            $query->where('idtap', session('idtap'));
+        $results = ['success' => 0, 'failed' => 0, 'errors' => []];
+        foreach (array_values(array_unique($ids)) as $id) {
+            try {
+                $this->rejectSale((int) $id);
+                $results['success']++;
+            } catch (\Throwable $e) {
+                $results['failed']++;
+                $results['errors'][] = "ID {$id}: {$e->getMessage()}";
+            }
         }
-        $updated = $query->update([
-            'status' => 'rejected',
-            'updated_at' => now()
-        ]);
 
-        return response()->json(['success' => true, 'message' => $updated . ' data berhasil ditolak.']);
+        return response()->json([
+            'success' => $results['success'] > 0,
+            'message' => "{$results['success']} transaksi ditolak; stok reservasi dikembalikan. {$results['failed']} gagal.",
+            'details' => $results,
+        ]);
     }
 
     public function reject(Request $request)
@@ -338,22 +351,54 @@ class MobileApprovalController extends Controller
         $id = $request->id;
         
         try {
-            $query = DB::table('mobile_penjualan')->where('id', $id)->where('status', 'pending');
-            if (session('idtap') !== 'SBP_DUMAI') {
-                $query->where('idtap', session('idtap'));
-            }
-            $updated = $query->update([
-                'status' => 'rejected',
-                'updated_at' => now()
-            ]);
-
-            if ($updated === 0) {
-                throw new \Exception('Data tidak ditemukan, sudah diproses, atau bukan milik TAP Anda.');
-            }
+            $this->rejectSale((int) $id);
             
-            return response()->json(['success' => true, 'message' => 'Penjualan berhasil ditolak.']);
+            return response()->json(['success' => true, 'message' => 'Penjualan ditolak dan stok reservasi dikembalikan.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
+    }
+
+    private function rejectSale(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $sale = DB::table('mobile_penjualan')->where('id', $id)->lockForUpdate()->first();
+
+            if (! $sale || $sale->status !== 'pending') {
+                throw new \RuntimeException('Data tidak ditemukan atau sudah diproses.');
+            }
+            if (session('idtap') !== 'SBP_DUMAI' && $sale->idtap !== session('idtap')) {
+                throw new \RuntimeException('Transaksi ini bukan milik TAP Anda.');
+            }
+
+            if ($sale->stock_reserved_at) {
+                $stock = DB::table('stockawalsf')
+                    ->where('idsf', $sale->idsf)
+                    ->where('iddenom', $sale->iddenom)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($stock) {
+                    DB::table('stockawalsf')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $sale->iddenom)
+                        ->increment('stock', (int) $sale->qty);
+                } else {
+                    DB::table('stockawalsf')->insert([
+                        'idsf' => $sale->idsf,
+                        'iddenom' => $sale->iddenom,
+                        'stock' => (int) $sale->qty,
+                    ]);
+                }
+            }
+
+            DB::table('mobile_penjualan')->where('id', $id)->update([
+                'status' => 'rejected',
+                'stock_reserved_at' => null,
+                'updated_at' => now(),
+            ]);
+
+            AuditLogger::log('REJECT', 'Mobile Sales', $id, (array) $sale);
+        });
     }
 }

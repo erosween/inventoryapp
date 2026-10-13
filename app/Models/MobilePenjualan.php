@@ -24,6 +24,11 @@ class MobilePenjualan extends Model
         'longitude',
         'keterangan',
         'status',
+        'stock_reserved_at',
+    ];
+
+    protected $casts = [
+        'stock_reserved_at' => 'datetime',
     ];
 
     public function receipt()

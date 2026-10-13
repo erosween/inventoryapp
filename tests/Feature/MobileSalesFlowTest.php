@@ -139,6 +139,19 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('validateStock', $form);
         $this->assertStringContainsString('Stok tidak cukup', $form);
         $this->assertStringContainsString('stock-warning', $form);
+        $this->assertStringContainsString('outlet-search-inline', $form);
+        $this->assertStringContainsString("route('mobile.search-outlet')", $form);
+        $this->assertStringContainsString('Pilih outlet dari hasil pencarian', $form);
+    }
+
+    public function test_mobile_modals_and_toasts_respect_the_device_safe_area(): void
+    {
+        $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
+
+        $this->assertStringContainsString('--mobile-safe-top: env(safe-area-inset-top, 0px);', $layout);
+        $this->assertStringContainsString('.modal .modal-dialog:not(.modal-dialog-centered)', $layout);
+        $this->assertStringContainsString('position: relative !important;', $layout);
+        $this->assertStringContainsString('.swal2-container.swal2-top', $layout);
     }
 
     public function test_mobile_sales_views_hide_currency_and_use_the_optimized_logo(): void
@@ -299,6 +312,13 @@ class MobileSalesFlowTest extends TestCase
             'receipt_id' => $receipt->id,
             'status' => 'pending',
         ]);
+        $this->assertNotNull(
+            DB::table('mobile_penjualan')->where('receipt_id', $receipt->id)->value('stock_reserved_at')
+        );
+        $this->assertSame(17, (int) DB::table('stockawalsf')
+            ->where('idsf', 'SF001')
+            ->where('iddenom', 'D001')
+            ->value('stock'));
         $this->assertFalse(
             \App\Models\SuryaVisit::query()
                 ->inProgressForSalesForce('SF001', '2026-04-29')
@@ -889,6 +909,70 @@ class MobileSalesFlowTest extends TestCase
         ]);
     }
 
+    public function test_admin_setoran_is_grouped_by_denom_and_reserved_stock_is_not_deducted_twice(): void
+    {
+        DB::table('idsf')->insert([
+            'idsf' => 'SF001', 'namasf' => 'Sales Test', 'idtap' => 'TAP001',
+        ]);
+        DB::table('denom')->insert([
+            'iddenom' => 'D001', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'harga_jual' => 0,
+        ]);
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 70,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            [
+                'id' => 101, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+                'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 20, 'status' => 'pending',
+                'stock_reserved_at' => now(),
+            ],
+            [
+                'id' => 102, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001',
+                'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 10, 'status' => 'pending',
+                'stock_reserved_at' => now(),
+            ],
+        ]);
+        session(['idtap' => 'TAP001']);
+        $controller = app(\App\Http\Controllers\MobileApprovalController::class);
+
+        $detail = $controller->getSfDetails(new Request([
+            'idsf' => 'SF001', 'status' => 'pending', 'idtap' => 'TAP001', 'jenis' => 'VOUCHER FISIK',
+        ]))->getData(true);
+
+        $this->assertSame(1, $detail['count']);
+        $this->assertSame(2, $detail['transaction_count']);
+        $this->assertSame([101, 102], $detail['items'][0]['ids']);
+        $this->assertSame('30', $detail['items'][0]['qty']);
+        $this->assertArrayNotHasKey('outlet', $detail['items'][0]);
+
+        $approval = $controller->bulkApprove(new Request(['ids' => [101, 102]]))->getData(true);
+        $this->assertTrue($approval['success'], json_encode($approval));
+        $this->assertSame(70, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
+        $this->assertSame(30, (int) DB::table('keluarsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->sum('qty'));
+        $this->assertSame(2, DB::table('mobile_penjualan')->where('status', 'approved')->count());
+    }
+
+    public function test_rejecting_pending_sale_returns_reserved_stock_to_sales_force(): void
+    {
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 7,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'id' => 201, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+            'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 3, 'status' => 'pending',
+            'stock_reserved_at' => now(),
+        ]);
+        session(['idtap' => 'TAP001']);
+
+        $result = app(\App\Http\Controllers\MobileApprovalController::class)
+            ->bulkReject(new Request(['ids' => [201]]))
+            ->getData(true);
+
+        $this->assertTrue($result['success'], json_encode($result));
+        $this->assertSame(10, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
+        $this->assertDatabaseHas('mobile_penjualan', ['id' => 201, 'status' => 'rejected', 'stock_reserved_at' => null]);
+    }
+
     public function test_mobile_sales_update_removes_items_deleted_from_edit_form_and_updates_notes(): void
     {
         DB::table('mobile_penjualan')->insert([
@@ -1007,6 +1091,7 @@ class MobileSalesFlowTest extends TestCase
             $table->decimal('longitude', 11, 8)->nullable();
             $table->text('keterangan')->nullable();
             $table->string('status', 20)->default('pending');
+            $table->timestamp('stock_reserved_at')->nullable();
             $table->timestamps();
         });
 
@@ -1048,9 +1133,11 @@ class MobileSalesFlowTest extends TestCase
         Schema::create('keluarsf', function ($table) {
             $table->id();
             $table->date('tgl');
+            $table->string('idtap')->nullable();
             $table->string('idsf');
             $table->string('iddenom');
             $table->integer('qty')->default(0);
+            $table->text('tambahanket')->nullable();
         });
 
         Schema::create('keluar', function ($table) {

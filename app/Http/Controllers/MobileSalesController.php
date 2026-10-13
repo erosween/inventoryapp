@@ -167,6 +167,12 @@ SQL;
                 ->where('id_outlet', strtoupper($pre_id_outlet))
                 ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $namasf))])
                 ->first(['id_outlet', 'nama_outlet']);
+
+            if (! $selected_outlet) {
+                return redirect()
+                    ->route('mobile.index')
+                    ->with('error', 'Outlet tidak terdaftar untuk Sales Force yang sedang login.');
+            }
         }
         
         $denoms = DB::table('denom')
@@ -737,26 +743,60 @@ SQL;
         if (! $receipt->owner_whatsapp || ! $receipt->whatsapp_opened_at) {
             return back()->with('error', 'Buka WhatsApp dan kirim e-Bon ke owner terlebih dahulu.');
         }
-        DB::transaction(function () use ($receipt) {
-            $lockedReceipt = MobileSalesReceipt::query()->lockForUpdate()->findOrFail($receipt->id);
+        try {
+            DB::transaction(function () use ($receipt) {
+                $lockedReceipt = MobileSalesReceipt::query()->lockForUpdate()->findOrFail($receipt->id);
 
-            if ($lockedReceipt->whatsapp_shared_at) {
-                return;
-            }
+                if ($lockedReceipt->whatsapp_shared_at) {
+                    return;
+                }
 
-            $lockedReceipt->update(['whatsapp_shared_at' => now()]);
-            MobilePenjualan::query()
-                ->where('receipt_id', $lockedReceipt->id)
-                ->where('status', 'draft_wa')
-                ->update([
-                    'status' => 'pending',
-                    'updated_at' => now(),
-                ]);
-        });
+                $sales = MobilePenjualan::query()
+                    ->where('receipt_id', $lockedReceipt->id)
+                    ->where('status', 'draft_wa')
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($sales->isEmpty()) {
+                    throw new \RuntimeException('Item penjualan tidak ditemukan atau sudah diproses.');
+                }
+
+                foreach ($sales as $sale) {
+                    $stock = DB::table('stockawalsf')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $sale->iddenom)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $stock || (int) $stock->stock < (int) $sale->qty) {
+                        $denomName = DB::table('denom')->where('iddenom', $sale->iddenom)->value('denom') ?: $sale->iddenom;
+                        throw new \RuntimeException(
+                            "Stok {$denomName} tidak cukup. Sisa " . number_format((int) ($stock->stock ?? 0)) .
+                            ', dibutuhkan ' . number_format((int) $sale->qty) . '.'
+                        );
+                    }
+
+                    DB::table('stockawalsf')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $sale->iddenom)
+                        ->decrement('stock', (int) $sale->qty);
+
+                    $sale->update([
+                        'status' => 'pending',
+                        'stock_reserved_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                $lockedReceipt->update(['whatsapp_shared_at' => now()]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return redirect()
             ->route('mobile.history')
-            ->with('success', 'e-Bon dikonfirmasi terkirim. Transaksi sudah masuk ke admin ' . $receipt->idtap . ' untuk validasi uang.');
+            ->with('success', 'e-Bon dikonfirmasi terkirim. Stok sudah diamankan dan transaksi masuk ke admin ' . $receipt->idtap . ' untuk validasi.');
     }
 
     private function generateReceiptNumber(): string

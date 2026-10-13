@@ -54,6 +54,8 @@
             --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
             --radius-xl: 24px;
             --hero-surface: linear-gradient(145deg, #210006 0%, #8f0010 48%, #e32636 100%);
+            --mobile-safe-top: env(safe-area-inset-top, 0px);
+            --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         * {
@@ -72,7 +74,6 @@
         }
 
         .mobile-container {
-            --mobile-safe-top: env(safe-area-inset-top, 0px);
             max-width: 480px;
             margin: 0 auto;
             min-height: 100vh;
@@ -420,6 +421,49 @@
         .modal-content {
             border-radius: 28px 28px 0 0 !important;
             border: 1px solid rgba(226, 232, 240, 0.86) !important;
+        }
+
+        /* Every mobile dialog stays inside the visible app viewport. Inline
+         * bottom-sheet positioning from older screens is intentionally
+         * overridden so iOS status bars and PWA chrome never cover content. */
+        .modal {
+            padding: calc(var(--mobile-safe-top) + 12px) 12px calc(var(--mobile-safe-bottom) + 12px) !important;
+            overflow: hidden !important;
+        }
+
+        .modal .modal-dialog {
+            position: relative !important;
+            inset: auto !important;
+            width: 100% !important;
+            max-height: 100% !important;
+            margin: 0 auto !important;
+        }
+
+        .modal .modal-dialog:not(.modal-dialog-centered) {
+            display: flex;
+            height: 100%;
+            align-items: flex-end;
+        }
+
+        .modal .modal-content {
+            max-height: calc(100dvh - var(--mobile-safe-top) - var(--mobile-safe-bottom) - 24px) !important;
+            overflow: hidden;
+        }
+
+        .modal .modal-body {
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        .swal2-container.swal2-top,
+        .swal2-container.swal2-top-start,
+        .swal2-container.swal2-top-end {
+            padding-top: calc(var(--mobile-safe-top) + 12px) !important;
+        }
+
+        .swal2-popup.swal2-toast {
+            max-width: min(430px, calc(100vw - 24px));
         }
 
         .list-group-item {
