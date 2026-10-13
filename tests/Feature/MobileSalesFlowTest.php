@@ -611,7 +611,9 @@ class MobileSalesFlowTest extends TestCase
             ->assertOk()
             ->assertSee('SEDANG BERLANGSUNG')
             ->assertSee('LANJUTKAN')
-            ->assertSee('TERKUNCI');
+            ->assertSee('TERKUNCI')
+            ->assertSee('pjp-card-row', false)
+            ->assertSee('pjp-continue-button', false);
     }
 
     public function test_admin_approval_updates_outlet_coordinates_and_unlocks_visit(): void

@@ -96,46 +96,46 @@
             <div class="glass-card mb-2 p-0 border-0 overflow-hidden reveal shadow-sm" style="background: white; border-radius: 24px;">
                 <div class="d-flex align-items-stretch">
                     <!-- Vertical Status Strip -->
-                    <div style="width: 5px; background: {{ $pjp->is_visited ? '#10b981' : ($isActiveOutlet ? '#f59e0b' : '#e2e8f0') }}; transition: all 0.4s;"></div>
+                    <div class="pjp-status-strip" style="background: {{ $pjp->is_visited ? '#10b981' : ($isActiveOutlet ? '#f59e0b' : '#e2e8f0') }};"></div>
                     
-                    <div class="p-3 w-100">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center" data-lat="{{ $pjp->latitude }}" data-lng="{{ $pjp->longitude }}">
-                                <div class="p-2 rounded-4 me-3 d-flex align-items-center justify-content-center"
+                    <div class="pjp-card-body p-3 w-100">
+                        <div class="pjp-card-row">
+                            <div class="pjp-outlet-main" data-lat="{{ $pjp->latitude }}" data-lng="{{ $pjp->longitude }}">
+                                <div class="pjp-outlet-icon p-2 rounded-4 d-flex align-items-center justify-content-center"
                                      style="width: 40px; height: 40px; background: {{ $pjp->is_visited ? 'rgba(236,32,40,0.10)' : ($isActiveOutlet ? 'rgba(245,158,11,0.12)' : '#f8fafc') }}; color: {{ $pjp->is_visited ? 'var(--primary)' : ($isActiveOutlet ? '#d97706' : 'var(--text-muted)') }};">
                                     <i class="fas fa-store" style="font-size: 0.9rem;"></i>
                                 </div>
-                                <div>
-                                    <h6 class="fw-800 mb-0 text-dark" style="font-size: 0.85rem;">{{ $pjp->nama_outlet }}</h6>
-                                    <div class="d-flex align-items-center mt-1">
+                                <div class="pjp-outlet-copy">
+                                    <h6 class="pjp-outlet-name fw-800 mb-0 text-dark">{{ $pjp->nama_outlet }}</h6>
+                                    <div class="pjp-outlet-meta mt-1">
                                         <span class="text-muted fw-bold" style="font-size: 0.6rem;">ID: {{ $pjp->id_outlet }}</span>
-                                        <span class="distance-label ms-2 text-muted fw-bold" style="font-size: 0.58rem;">Mengukur jarak...</span>
+                                        <span class="distance-label text-muted fw-bold" style="font-size: 0.58rem;">Mengukur jarak...</span>
                                         @if($pjp->is_visited)
-                                            <span class="ms-2 badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">VERIFIED</span>
+                                            <span class="pjp-state-badge badge bg-success bg-opacity-10 text-success rounded-pill">VERIFIED</span>
                                         @elseif($isActiveOutlet)
-                                            <span class="ms-2 badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size: 0.5rem; padding: 3px 8px;">SEDANG BERLANGSUNG</span>
+                                            <span class="pjp-state-badge badge bg-warning bg-opacity-10 text-warning rounded-pill">SEDANG BERLANGSUNG</span>
                                         @endif
                                     </div>
                                 </div>
                             </div>
                             
                             @if($pjp->is_visited)
-                                <div class="text-success text-center">
+                                <div class="pjp-card-action text-success text-center">
                                     <i class="fas fa-check-circle fs-4 mb-1"></i>
                                     <div class="fw-800" style="font-size: 0.5rem;">DONE</div>
                                 </div>
                             @elseif($isActiveOutlet)
-                                <a href="{{ route('mobile.visit.menu', ['id_outlet' => $pjp->id_outlet]) }}" class="btn btn-sm rounded-pill px-3 fw-800"
-                                   style="font-size: 0.62rem; background: #fff7ed; color: #d97706; border: 1px solid #fed7aa;">
+                                <a href="{{ route('mobile.visit.menu', ['id_outlet' => $pjp->id_outlet]) }}" class="pjp-card-action pjp-continue-button btn btn-sm rounded-pill fw-800"
+                                   style="background: #fff7ed; color: #d97706; border: 1px solid #fed7aa;">
                                     LANJUTKAN <i class="fas fa-chevron-right ms-1" style="font-size: 0.5rem;"></i>
                                 </a>
                             @elseif($activeVisit)
-                                <button type="button" class="btn btn-sm rounded-pill px-3 fw-800" disabled
+                                <button type="button" class="pjp-card-action pjp-lock-button btn btn-sm rounded-pill fw-800" disabled
                                         style="font-size: 0.62rem; background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; opacity: 1;">
                                     <i class="fas fa-lock me-1"></i> TERKUNCI
                                 </button>
                             @else
-                                <a href="#" data-outlet="{{ $pjp->id_outlet }}" class="open-visit-menu btn btn-sm rounded-pill px-4 fw-800"
+                                <a href="#" data-outlet="{{ $pjp->id_outlet }}" class="pjp-card-action pjp-visit-button open-visit-menu btn btn-sm rounded-pill fw-800"
                                    style="font-size: 0.65rem; background: #f8fafc; color: var(--primary); border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
                                     VISIT <i class="fas fa-chevron-right ms-1" style="font-size: 0.5rem;"></i>
                                 </a>
@@ -333,6 +333,109 @@
 
     .distance-label.text-danger { color: #dc2626 !important; }
     .distance-label.text-success { color: #059669 !important; }
+
+    .pjp-card-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .pjp-status-strip {
+        width: 5px;
+        flex: 0 0 5px;
+        transition: background-color 0.4s;
+    }
+
+    .pjp-card-body {
+        min-width: 0;
+    }
+
+    .pjp-outlet-main {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .pjp-outlet-icon {
+        flex: 0 0 40px;
+        margin-right: 12px;
+    }
+
+    .pjp-outlet-copy {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .pjp-outlet-name {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.85rem;
+    }
+
+    .pjp-outlet-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        min-width: 0;
+        line-height: 1.25;
+    }
+
+    .pjp-outlet-meta .distance-label {
+        overflow-wrap: anywhere;
+    }
+
+    .pjp-state-badge {
+        padding: 3px 8px;
+        font-size: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .pjp-card-action {
+        flex: 0 0 auto;
+    }
+
+    .pjp-continue-button,
+    .pjp-lock-button,
+    .pjp-visit-button {
+        min-width: 92px;
+        padding: 7px 10px !important;
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    .pjp-continue-button {
+        font-size: 0.59rem;
+    }
+
+    @media (max-width: 370px) {
+        .pjp-card-row {
+            gap: 7px;
+        }
+
+        .pjp-outlet-icon {
+            flex-basis: 36px;
+            width: 36px !important;
+            height: 36px !important;
+            margin-right: 9px;
+        }
+
+        .pjp-continue-button,
+        .pjp-lock-button,
+        .pjp-visit-button {
+            min-width: 84px;
+            padding-inline: 8px !important;
+        }
+
+        .pjp-continue-button {
+            font-size: 0.55rem;
+        }
+    }
 
     .active-visit-banner {
         padding: 14px 16px;
