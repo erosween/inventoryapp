@@ -60,118 +60,86 @@
     </ul>
 
     <div class="tab-content" id="history-pills-content">
-        <!-- TAB PENJUALAN (Mobile + Web) -->
+        <!-- TAB PENJUALAN: summary per date, detail per outlet on demand -->
         <div class="tab-pane fade show active" id="pills-penjualan" role="tabpanel">
             <div class="mb-4">
-                {{-- Penjualan Mobile --}}
-                @foreach($history as $item)
-                <div class="glass-card p-4 mb-3 reveal shadow-sm border-0 history-card cursor-pointer" 
-                     style="background: white; border-radius: 24px;"
-                     data-id-outlet="{{ $item->id_outlet }}"
-                     data-tgl="{{ $item->tgl }}"
-                     data-receipt-url="{{ $item->draft_count > 0 && $item->receipt_id ? route('mobile.receipt.show', $item->receipt_id) : '' }}"
-                     data-nama-outlet="{{ $item->nama_outlet ?? 'ID: '.$item->id_outlet }}">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="theme-icon-box p-3 rounded-4 me-3">
-                                <i class="fas fa-store"></i>
+                @forelse($history as $day)
+                    @php
+                        $dateKey = \Carbon\Carbon::parse($day->tgl)->toDateString();
+                        $dayDenoms = $historyDenoms->get($dateKey, collect());
+                        $pvTotal = $dayDenoms->where('category', 'PV')->sum('total_qty');
+                        $saTotal = $dayDenoms->where('category', 'SA')->sum('total_qty');
+                    @endphp
+                    <button type="button"
+                            class="glass-card history-date-card w-100 p-0 mb-3 reveal shadow-sm border-0 text-start"
+                            data-tgl="{{ $dateKey }}"
+                            aria-label="Lihat detail penjualan {{ \Carbon\Carbon::parse($day->tgl)->format('d M Y') }}">
+                        <div class="history-date-head">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="theme-icon-box history-date-icon"><i class="fas fa-calendar-day"></i></div>
+                                <div>
+                                    <div class="history-date-label">{{ \Carbon\Carbon::parse($day->tgl)->locale('id')->translatedFormat('l') }}</div>
+                                    <h6 class="fw-800 mb-0 text-dark">{{ \Carbon\Carbon::parse($day->tgl)->format('d M Y') }}</h6>
+                                    <small class="text-muted fw-bold">{{ number_format($day->outlet_count) }} outlet</small>
+                                </div>
                             </div>
-                            <div>
-                                <h6 class="fw-800 mb-1 text-dark" style="font-size: 0.95rem;">{{ $item->nama_outlet ?? 'ID: '.$item->id_outlet }}</h6>
-                                <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">
-                                    <i class="far fa-calendar-alt me-1"></i> {{ \Carbon\Carbon::parse($item->tgl)->format('d M Y') }}
-                                </p>
-                            </div>
+                            <i class="fas fa-chevron-right history-date-chevron"></i>
                         </div>
-                        <div class="text-end">
-                            @if($item->draft_count > 0)
-                                <a href="{{ route('mobile.receipt.show', $item->receipt_id) }}" class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-800 text-decoration-none" style="font-size: 0.6rem;" onclick="event.stopPropagation();">
-                                    <i class="fab fa-whatsapp me-1"></i> KIRIM E-BON
-                                </a>
-                            @elseif($item->pending_count == 0)
-                                @if($item->rejected_count > 0 && $item->approved_count == 0)
-                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
-                                        <i class="fas fa-times-circle me-1"></i> DITOLAK
-                                    </span>
-                                @elseif($item->approved_count > 0 && $item->rejected_count == 0)
-                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
-                                        <i class="fas fa-check-circle me-1"></i> DISETUJUI
-                                    </span>
+
+                        <div class="history-totals">
+                            <div><span>PV</span><strong>{{ number_format($pvTotal) }}</strong><small>PCS</small></div>
+                            <div><span>SA</span><strong>{{ number_format($saTotal) }}</strong><small>PCS</small></div>
+                        </div>
+
+                        <div class="history-denom-list">
+                            @forelse($dayDenoms as $denom)
+                                <div class="history-denom-row">
+                                    <span class="history-denom-category {{ strtolower($denom->category) }}">{{ $denom->category }}</span>
+                                    <span class="history-denom-name">{{ $denom->denom }}</span>
+                                    <strong>{{ number_format($denom->total_qty) }} <small>pcs</small></strong>
+                                </div>
+                            @empty
+                                <div class="history-empty-summary">Belum ada transaksi selesai pada tanggal ini.</div>
+                            @endforelse
+                        </div>
+
+                        <div class="history-date-foot">
+                            <span>
+                                @if($day->draft_count > 0)
+                                    <i class="fas fa-circle-info text-success me-1"></i>Ada e-Bon yang belum dikirim
+                                @elseif($day->pending_count > 0)
+                                    <i class="fas fa-hourglass-half text-warning me-1"></i>Menunggu validasi
                                 @else
-                                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
-                                        <i class="fas fa-exclamation-circle me-1"></i> SEBAGIAN DITOLAK
-                                    </span>
+                                    <i class="fas fa-check-circle text-success me-1"></i>Transaksi diproses
                                 @endif
-                            @elseif($item->approved_count > 0 || $item->rejected_count > 0)
-                                <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
-                                    <i class="fas fa-hourglass-half me-1"></i> PROSES VALIDASI
-                                </span>
-                            @elseif($item->receipt_id)
-                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem;">
-                                    <i class="fas fa-hourglass-half me-1"></i> MENUNGGU VALIDASI
-                                </span>
-                            @else
-                                <a href="{{ route('mobile.edit', [$item->id_outlet, $item->tgl]) }}" class="btn btn-link text-primary p-0 action-edit-icon" title="Edit" aria-label="Edit" onclick="event.stopPropagation();">
-                                    <i class="fas fa-edit fa-lg" aria-hidden="true"></i>
-                                </a>
-                            @endif
+                            </span>
+                            <strong>Detail outlet</strong>
                         </div>
-                    </div>
-                    
-                    <div class="row g-0 mt-3 pt-3 border-top border-light">
-                        <div class="col-6">
-                            <div class="small text-muted fw-bold" style="font-size: 0.6rem;">ITEMS</div>
-                            <div class="fw-800 text-dark">{{ $item->item_count }} Produk</div>
-                        </div>
-                        <div class="col-6 text-end">
-                            <div class="small text-muted fw-bold" style="font-size: 0.6rem;">TOTAL SALES</div>
-                            <div class="fw-800" style="color: var(--primary);">{{ number_format($item->total_qty) }} <span class="small fw-normal text-muted" style="font-size: 0.65rem;">PCS</span></div>
-                        </div>
-                    </div>
-                </div>
-                @endforeach
-
-                {{-- Penjualan Web (Keluarsf) --}}
-                @foreach($keluarsf_history as $k)
-                <div class="glass-card p-4 mb-3 reveal shadow-sm border-0" style="background: white; border-radius: 24px;">
-                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-info bg-opacity-10 p-3 rounded-4 me-3 text-info">
-                                <i class="fas fa-laptop"></i>
-                            </div>
-                            <div>
-                                <h6 class="fw-800 mb-1 text-dark" style="font-size: 0.95rem;">Penjualan via Web Admin</h6>
-                                <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">
-                                    <i class="far fa-calendar-alt me-1"></i> {{ \Carbon\Carbon::parse($k->tgl)->format('d M Y') }}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-info bg-opacity-10 text-info fw-bold rounded-pill px-3 py-2" style="font-size: 0.6rem;">Sales Web</span>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="small text-muted fw-bold" style="font-size: 0.6rem;">DENOM / PRODUK</div>
-                            <div class="fw-800 text-dark">{{ $k->denom }}</div>
-                            @if($k->tambahanket)
-                                <div class="small text-muted mt-1" style="font-size: 0.65rem;"><i class="fas fa-quote-left text-muted opacity-50 me-1"></i> {{ $k->tambahanket }}</div>
-                            @endif
-                        </div>
-                        <div class="text-end">
-                            <div class="small text-muted fw-bold" style="font-size: 0.6rem;">TERJUAL</div>
-                            <div class="fw-800 text-info fs-5">{{ number_format($k->qty) }} <span class="small fw-normal text-muted" style="font-size: 0.65rem;">PCS</span></div>
-                        </div>
-                    </div>
-                </div>
-                @endforeach
-
-                @if(count($history) == 0 && count($keluarsf_history) == 0)
+                    </button>
+                @empty
                     <div class="glass-card text-center py-5 opacity-50 border-0" style="background: transparent; box-shadow: none;">
                         <i class="fas fa-history fs-1 mb-3"></i>
                         <p class="small fw-bold">Belum ada riwayat penjualan.</p>
                     </div>
-                @endif
+                @endforelse
+
+                @foreach($keluarsf_history->groupBy(fn ($row) => \Carbon\Carbon::parse($row->tgl)->toDateString()) as $webDate => $webRows)
+                    <div class="glass-card history-web-card p-3 mb-3 border-0 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span class="history-date-label">INPUT ADMIN</span>
+                                <div class="fw-800">{{ \Carbon\Carbon::parse($webDate)->format('d M Y') }}</div>
+                            </div>
+                            <i class="fas fa-desktop text-info"></i>
+                        </div>
+                        @foreach($webRows->groupBy('denom') as $denomName => $rows)
+                            <div class="history-denom-row px-0">
+                                <span class="history-denom-name">{{ $denomName }}</span>
+                                <strong>{{ number_format($rows->sum('qty')) }} <small>pcs</small></strong>
+                            </div>
+                        @endforeach
+                    </div>
+                @endforeach
             </div>
 
             <!-- Pagination (Mobile Penjualan only) -->
@@ -283,6 +251,147 @@
         background-color: rgba(236, 32, 40, 0.1) !important;
         color: var(--primary) !important;
     }
+    .history-date-card {
+        overflow: hidden;
+        background: #fff;
+        border-radius: 20px;
+        color: var(--text-main);
+    }
+    .history-date-card:active {
+        transform: scale(.99);
+    }
+    .history-date-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px;
+    }
+    .history-date-icon {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        flex: 0 0 42px;
+    }
+    .history-date-label {
+        color: var(--primary);
+        font-size: .58rem;
+        font-weight: 900;
+        letter-spacing: .1em;
+    }
+    .history-date-chevron {
+        color: #94a3b8;
+        font-size: .82rem;
+    }
+    .history-totals {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        margin: 0 16px 12px;
+        overflow: hidden;
+        border: 1px solid #eef2f7;
+        border-radius: 14px;
+        background: #eef2f7;
+    }
+    .history-totals > div {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        padding: 10px 12px;
+        background: #f8fafc;
+    }
+    .history-totals span {
+        color: var(--text-muted);
+        font-size: .58rem;
+        font-weight: 900;
+    }
+    .history-totals strong {
+        color: var(--primary);
+        font-size: 1rem;
+    }
+    .history-totals small,
+    .history-denom-row small {
+        color: #94a3b8;
+        font-size: .54rem;
+        font-weight: 800;
+    }
+    .history-denom-list {
+        padding: 0 16px 10px;
+    }
+    .history-denom-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 6px 0;
+        border-top: 1px solid #f1f5f9;
+        font-size: .72rem;
+    }
+    .history-denom-row:first-child {
+        border-top: 0;
+    }
+    .history-denom-category {
+        min-width: 28px;
+        padding: 3px 5px;
+        border-radius: 7px;
+        color: #fff;
+        font-size: .5rem;
+        font-weight: 900;
+        text-align: center;
+    }
+    .history-denom-category.pv { background: var(--primary); }
+    .history-denom-category.sa { background: #2563eb; }
+    .history-denom-name {
+        overflow: hidden;
+        color: #334155;
+        font-weight: 750;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .history-empty-summary {
+        padding: 8px 0 12px;
+        color: #94a3b8;
+        font-size: .68rem;
+        font-weight: 700;
+    }
+    .history-date-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 16px;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: .6rem;
+    }
+    .history-date-foot strong {
+        color: var(--primary);
+        white-space: nowrap;
+    }
+    .history-web-card {
+        border-radius: 18px;
+        background: #fff;
+    }
+    .history-outlet-card {
+        padding: 14px;
+        border: 1px solid #eef2f7;
+        border-radius: 16px;
+        background: #fff;
+    }
+    .history-outlet-card + .history-outlet-card {
+        margin-top: 12px;
+    }
+    .history-outlet-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        padding: 8px 0;
+        border-top: 1px solid #f1f5f9;
+        font-size: .72rem;
+    }
     .pagination {
         gap: 5px;
     }
@@ -309,13 +418,10 @@
             </div>
             <div class="modal-header border-0 p-4 pb-2">
                 <div>
-                    <h5 class="fw-800 mb-0" id="detail-outlet-name">Detail Kunjungan</h5>
+                    <h5 class="fw-800 mb-0">Detail Penjualan</h5>
                     <p class="small text-muted mb-0" id="detail-date">-</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="px-4 pb-2">
-                <a href="#" id="share-receipt-wa" class="btn btn-success rounded-pill w-100 fw-bold"><i class="fab fa-whatsapp me-2"></i>Kirim e-Bon ke WhatsApp</a>
             </div>
             <div class="modal-body p-4 pt-2">
                 <div id="detail-items-container">
@@ -348,67 +454,52 @@
             }
         });
 
-        // Detail Modal Logic
-        $('.history-card').on('click', function() {
-            const receiptUrl = $(this).data('receipt-url');
-            if (receiptUrl) {
-                window.location.href = receiptUrl;
-                return;
-            }
-            const idOutlet = $(this).data('id-outlet');
-            const tgl = $(this).data('tgl');
-            const namaOutlet = $(this).data('nama-outlet');
-            const tglFormatted = $(this).find('.small.text-muted').text().trim();
-            $('#share-receipt-wa').data({ idOutlet: idOutlet, tgl: tgl, outlet: namaOutlet, date: tglFormatted });
+        const escapeHtml = (value) => $('<div>').text(value ?? '').html();
+        const statusMeta = {
+            approved: ['success', 'DISETUJUI'],
+            rejected: ['danger', 'DITOLAK'],
+            pending: ['warning', 'MENUNGGU'],
+            draft_wa: ['info', 'E-BON BELUM DIKIRIM']
+        };
 
-            $('#detail-outlet-name').text(namaOutlet);
-            $('#detail-date').text(tglFormatted);
+        $('.history-date-card').on('click', function() {
+            const tgl = String($(this).data('tgl'));
             $('#detail-items-container').html('<div class="text-center py-5"><i class="fas fa-circle-notch fa-spin fs-2 text-primary opacity-50"></i></div>');
-            $('#historyDetailModal').modal('show');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('historyDetailModal')).show();
 
-            $.get("{{ route('mobile.history.details') }}", { id_outlet: idOutlet, tgl: tgl }, function(res) {
+            $.get("{{ route('mobile.history.details') }}", { tgl: tgl }, function(res) {
                 if (res.success) {
-                    let html = '';
-                    res.items.forEach(item => {
-                        let badgeClass = 'bg-warning';
-                        let statusText = 'PENDING';
-                        
-                        if (item.status === 'approved') {
-                            badgeClass = 'bg-success';
-                            statusText = 'DISETUJUI';
-                        } else if (item.status === 'rejected') {
-                            badgeClass = 'bg-danger';
-                            statusText = 'DITOLAK';
-                        }
+                    $('#detail-date').text(res.date);
+                    const html = res.outlets.map(outlet => {
+                        const items = outlet.items.map(item => {
+                            const [color, label] = statusMeta[item.status] || ['secondary', String(item.status).toUpperCase()];
+                            return `
+                                <div class="history-outlet-item">
+                                    <div><strong>${escapeHtml(item.produk)}</strong><div><span class="badge bg-${color} bg-opacity-10 text-${color} rounded-pill mt-1">${escapeHtml(label)}</span></div></div>
+                                    <strong class="text-primary">${Number(item.qty).toLocaleString('id-ID')} <small>PCS</small></strong>
+                                </div>`;
+                        }).join('');
+                        const receiptButton = outlet.receipt_url
+                            ? `<a href="${escapeHtml(outlet.receipt_url)}" class="btn btn-success btn-sm rounded-pill w-100 mt-2 fw-bold"><i class="fab fa-whatsapp me-1"></i>Lanjutkan e-Bon</a>`
+                            : '';
 
-                        html += `
-                            <div class="d-flex align-items-center mb-4 pb-3 border-bottom border-light">
-                                <div class="bg-light p-3 rounded-4 me-3">
-                                    <i class="fas fa-box text-muted"></i>
+                        return `
+                            <section class="history-outlet-card">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <div><div class="fw-800 text-dark">${escapeHtml(outlet.nama_outlet)}</div><small class="text-muted fw-bold">ID: ${escapeHtml(outlet.id_outlet)}</small></div>
+                                    <div class="text-end"><strong class="text-primary">${Number(outlet.total_qty).toLocaleString('id-ID')}</strong><small class="d-block text-muted">PCS</small></div>
                                 </div>
-                                <div class="flex-grow-1">
-                                    <div class="fw-800 text-dark" style="font-size: 0.85rem;">${item.produk}</div>
-                                    <div class="d-flex justify-content-between align-items-center mt-1">
-                                        <span class="fw-bold text-primary" style="font-size: 0.75rem;">${item.qty} PCS</span>
-                                        <span class="badge ${badgeClass} bg-opacity-10 text-${badgeClass.replace('bg-', '')} fw-800 rounded-pill px-2 py-1" style="font-size: 0.6rem;">${statusText}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
+                                ${items}
+                                ${receiptButton}
+                            </section>`;
+                    }).join('');
                     $('#detail-items-container').html(html);
-                    $('#share-receipt-wa').data('receipt', res.items.map(item => `${item.produk}: ${item.qty} PCS`).join('\n'));
                 } else {
                     $('#detail-items-container').html('<div class="alert alert-danger">Gagal mengambil data.</div>');
                 }
+            }).fail(function() {
+                $('#detail-items-container').html('<div class="alert alert-danger">Detail penjualan tidak dapat dimuat. Silakan coba lagi.</div>');
             });
-        });
-
-        $('#share-receipt-wa').on('click', function(e) {
-            e.preventDefault();
-            const data = $(this).data();
-            const text = `e-Bon SURYA\nOutlet: ${data.outlet}\nTanggal: ${data.date}\n\n${data.receipt || ''}`;
-            window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
         });
     });
 </script>

@@ -121,6 +121,15 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('prefers-reduced-motion', $layout);
     }
 
+    public function test_mobile_bottom_navigation_keeps_the_safe_area_outside_the_compact_bar(): void
+    {
+        $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
+
+        $this->assertStringContainsString('bottom: calc(7px + env(safe-area-inset-bottom, 0px));', $layout);
+        $this->assertStringContainsString('min-height: 48px;', $layout);
+        $this->assertStringNotContainsString('padding-bottom: calc(8px + env(safe-area-inset-bottom));', $layout);
+    }
+
     public function test_mobile_sales_form_warns_when_quantity_exceeds_stock(): void
     {
         $form = file_get_contents(resource_path('views/mobile/form.blade.php'));
@@ -692,6 +701,67 @@ class MobileSalesFlowTest extends TestCase
             ->assertOk()
             ->assertViewHas('pjp_list', fn ($list) => $list->count() === 1 && $list->first()->is_visited === false)
             ->assertSee('0 dari 1 outlet PJP selesai');
+    }
+
+    public function test_pjp_list_is_reloaded_from_appsdumais_for_the_current_weekday(): void
+    {
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'OUTLET-SENIN', 'nama_outlet' => 'Outlet Senin', 'sf' => ' Sales Test ', 'pjp' => ' SENIN '],
+            ['id_outlet' => 'OUTLET-SELASA', 'nama_outlet' => 'Outlet Selasa', 'sf' => 'Sales Test', 'pjp' => 'Selasa'],
+        ]);
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        Carbon::setTestNow('2026-10-12 08:00:00');
+        $this->withSession($session)->get(route('mobile.index'))
+            ->assertOk()
+            ->assertSee('Outlet Senin')
+            ->assertDontSee('Outlet Selasa');
+
+        Carbon::setTestNow('2026-10-13 08:00:00');
+        $this->withSession($session)->get(route('mobile.index'))
+            ->assertOk()
+            ->assertSee('Outlet Selasa')
+            ->assertDontSee('Outlet Senin');
+    }
+
+    public function test_history_is_grouped_by_date_and_loads_outlet_details_on_demand(): void
+    {
+        DB::table('denom')->insert([
+            ['iddenom' => 'PV-1', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'kategori_inject' => null, 'harga_jual' => 0],
+            ['iddenom' => 'SA-1', 'denom' => 'SA BYU', 'group_name' => 'SA', 'kategori_inject' => 'SEGEL', 'harga_jual' => 0],
+        ]);
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'OUTLET-1', 'nama_outlet' => 'Outlet Satu', 'sf' => 'Sales Test'],
+            ['id_outlet' => 'OUTLET-2', 'nama_outlet' => 'Outlet Dua', 'sf' => 'Sales Test'],
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 4, 'status' => 'pending'],
+            ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 6, 'status' => 'approved'],
+            ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'SA-1', 'qty' => 2, 'status' => 'approved'],
+            ['tgl' => '2026-10-12', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 3, 'status' => 'approved'],
+        ]);
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        $response = $this->withSession($session)->get(route('mobile.history'));
+
+        $response->assertOk()
+            ->assertViewHas('history', fn ($history) => $history->count() === 2)
+            ->assertViewHas('historyDenoms', function ($denoms) {
+                $current = $denoms->get('2026-10-13');
+
+                return $current
+                    && (int) $current->firstWhere('iddenom', 'PV-1')->total_qty === 10
+                    && (int) $current->firstWhere('iddenom', 'SA-1')->total_qty === 2;
+            })
+            ->assertSee('Detail outlet')
+            ->assertSee('data-tgl="2026-10-13"', false);
+
+        $this->withSession($session)->getJson(route('mobile.history.details', ['tgl' => '2026-10-13']))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(2, 'outlets')
+            ->assertJsonFragment(['id_outlet' => 'OUTLET-1', 'nama_outlet' => 'Outlet Satu'])
+            ->assertJsonFragment(['produk' => 'SA BYU', 'qty' => 2, 'status' => 'approved']);
     }
 
     public function test_completed_outlet_can_create_an_additional_transaction_and_locks_during_receipt_draft(): void

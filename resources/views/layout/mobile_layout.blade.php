@@ -78,7 +78,7 @@
             min-height: 100vh;
             min-height: 100dvh;
             padding-top: calc(var(--mobile-safe-top) + 8px);
-            padding-bottom: 116px;
+            padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
             position: relative;
             background: var(--bg-body);
             box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 30px 80px rgba(15, 23, 42, 0.12);
@@ -309,21 +309,20 @@
 
         .floating-nav {
             position: fixed;
-            bottom: 12px;
+            bottom: calc(7px + env(safe-area-inset-bottom, 0px));
             left: 50%;
             transform: translateX(-50%);
-            width: calc(100% - 24px);
-            max-width: 456px;
+            width: calc(100% - 28px);
+            max-width: 444px;
             background: #fff;
             border: 1px solid rgba(226, 232, 240, 0.9);
-            border-radius: 26px;
-            padding: 8px;
+            border-radius: 22px;
+            padding: 6px 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 1000;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
-            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
         }
 
         /* Prevent Bootstrap modal from shifting the centered mobile layout */
@@ -336,14 +335,15 @@
             text-decoration: none;
             color: var(--text-muted);
             text-align: center;
-            padding: 9px 8px;
-            border-radius: 20px;
+            padding: 7px 6px;
+            border-radius: 16px;
             transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-width: 56px;
+            min-width: 54px;
+            min-height: 48px;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -355,13 +355,13 @@
         }
 
         .nav-item i {
-            font-size: 1.12rem;
-            margin-bottom: 4px;
+            font-size: 1rem;
+            margin-bottom: 3px;
             transition: transform 0.2s;
         }
 
         .nav-item div {
-            font-size: 0.55rem;
+            font-size: 0.5rem;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0;
@@ -373,7 +373,7 @@
         }
         
         .nav-item.active i {
-            transform: scale(1.1);
+            transform: scale(1.06);
         }
 
         @keyframes reveal {

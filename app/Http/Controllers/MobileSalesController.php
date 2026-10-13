@@ -80,7 +80,7 @@ SQL;
 
         $pjp_list = DB::table('appsdumais')
             ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
-            ->where('pjp', $today_name)
+            ->whereRaw('UPPER(TRIM(pjp)) = ?', [mb_strtoupper($today_name)])
             ->orderBy('nama_outlet')
             ->get();
 
@@ -326,37 +326,81 @@ SQL;
     {
         $idsf = session('mobile_sf_id');
         $filter_date = $request->get('filter_date');
-        
-        $query = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
-            ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
-            ->select(
-                'mobile_penjualan.id_outlet', 
-                'mobile_penjualan.tgl', 
-                'appsdumais.nama_outlet',
-                DB::raw('count(*) as item_count'), 
-                DB::raw('sum(mobile_penjualan.qty) as total_qty'),
-                DB::raw('max(mobile_penjualan.id) as last_id'),
-                DB::raw('max(mobile_penjualan.receipt_id) as receipt_id'),
-                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "approved" THEN 1 ELSE 0 END) as approved_count'),
-                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "rejected" THEN 1 ELSE 0 END) as rejected_count'),
-                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "pending" THEN 1 ELSE 0 END) as pending_count'),
-                DB::raw('SUM(CASE WHEN mobile_penjualan.status = "draft_wa" THEN 1 ELSE 0 END) as draft_count')
-            )
-            ->groupBy('mobile_penjualan.id_outlet', 'mobile_penjualan.tgl', 'appsdumais.nama_outlet');
-            
-        if ($filter_date) {
-            if (strpos($filter_date, ' to ') !== false) {
-                $dates = explode(' to ', $filter_date);
-                $query->whereBetween('mobile_penjualan.tgl', [$dates[0] . ' 00:00:00', $dates[1] . ' 23:59:59']);
-            } else {
-                $query->whereDate('mobile_penjualan.tgl', $filter_date);
-            }
-        }
 
-        $history = $query->orderBy('mobile_penjualan.tgl', 'desc')
-            ->paginate(10);
-            
-        $history->appends(['filter_date' => $filter_date]);
+        $applyDateFilter = function ($query, string $column) use ($filter_date) {
+            if (! $filter_date) {
+                return $query;
+            }
+
+            if (str_contains($filter_date, ' to ')) {
+                [$dateFrom, $dateTo] = array_map('trim', explode(' to ', $filter_date, 2));
+
+                return $query->whereBetween($column, [$dateFrom, $dateTo]);
+            }
+
+            return $query->whereDate($column, $filter_date);
+        };
+
+        // The first level is deliberately grouped by date. Outlet and product
+        // details are fetched only after the user opens a date summary.
+        $historyQuery = MobilePenjualan::query()
+            ->where('mobile_penjualan.idsf', $idsf)
+            ->select(
+                'mobile_penjualan.tgl',
+                DB::raw('COUNT(DISTINCT mobile_penjualan.id_outlet) as outlet_count'),
+                DB::raw("SUM(CASE WHEN mobile_penjualan.status NOT IN ('draft_wa', 'rejected') THEN mobile_penjualan.qty ELSE 0 END) as total_qty"),
+                DB::raw("SUM(CASE WHEN mobile_penjualan.status = 'approved' THEN 1 ELSE 0 END) as approved_count"),
+                DB::raw("SUM(CASE WHEN mobile_penjualan.status = 'rejected' THEN 1 ELSE 0 END) as rejected_count"),
+                DB::raw("SUM(CASE WHEN mobile_penjualan.status = 'pending' THEN 1 ELSE 0 END) as pending_count"),
+                DB::raw("SUM(CASE WHEN mobile_penjualan.status = 'draft_wa' THEN 1 ELSE 0 END) as draft_count")
+            )
+            ->groupBy('mobile_penjualan.tgl');
+
+        $applyDateFilter($historyQuery, 'mobile_penjualan.tgl');
+
+        $history = $historyQuery
+            ->orderByDesc('mobile_penjualan.tgl')
+            ->paginate(10)
+            ->appends(['filter_date' => $filter_date]);
+
+        $historyDates = $history->getCollection()
+            ->pluck('tgl')
+            ->map(fn ($date) => Carbon::parse($date)->toDateString())
+            ->all();
+
+        $historyDenoms = collect();
+        if ($historyDates !== []) {
+            $historyDenoms = MobilePenjualan::query()
+                ->join('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
+                ->where('mobile_penjualan.idsf', $idsf)
+                ->whereIn('mobile_penjualan.tgl', $historyDates)
+                ->whereNotIn('mobile_penjualan.status', ['draft_wa', 'rejected'])
+                ->select(
+                    'mobile_penjualan.tgl',
+                    'mobile_penjualan.iddenom',
+                    'denom.denom',
+                    'denom.group_name',
+                    'denom.kategori_inject',
+                    DB::raw('SUM(mobile_penjualan.qty) as total_qty')
+                )
+                ->groupBy(
+                    'mobile_penjualan.tgl',
+                    'mobile_penjualan.iddenom',
+                    'denom.denom',
+                    'denom.group_name',
+                    'denom.kategori_inject'
+                )
+                ->orderBy('denom.denom')
+                ->get()
+                ->map(function ($item) {
+                    $injectCategory = strtoupper(trim((string) $item->kategori_inject));
+                    $groupName = strtoupper(trim((string) $item->group_name));
+                    $item->category = $injectCategory === 'SA' || $groupName === 'SA' ? 'SA' : 'PV';
+
+                    return $item;
+                })
+                ->groupBy(fn ($item) => Carbon::parse($item->tgl)->toDateString());
+        }
 
         // Fetch MasukSF History (Stock Received by SF)
         $masuk_query = DB::table('masuksf')
@@ -364,14 +408,7 @@ SQL;
             ->join('denom', 'masuksf.iddenom', '=', 'denom.iddenom')
             ->select('masuksf.*', 'denom.denom');
 
-        if ($filter_date) {
-            if (strpos($filter_date, ' to ') !== false) {
-                $dates = explode(' to ', $filter_date);
-                $masuk_query->whereBetween('masuksf.tgl', [$dates[0] . ' 00:00:00', $dates[1] . ' 23:59:59']);
-            } else {
-                $masuk_query->whereDate('masuksf.tgl', $filter_date);
-            }
-        }
+        $applyDateFilter($masuk_query, 'masuksf.tgl');
         $masuksf_history = $masuk_query->orderBy('masuksf.tgl', 'desc')
             ->limit(20)
             ->get();
@@ -382,19 +419,12 @@ SQL;
             ->join('denom', 'keluarsf.iddenom', '=', 'denom.iddenom')
             ->select('keluarsf.*', 'denom.denom');
 
-        if ($filter_date) {
-            if (strpos($filter_date, ' to ') !== false) {
-                $dates = explode(' to ', $filter_date);
-                $keluar_query->whereBetween('keluarsf.tgl', [$dates[0] . ' 00:00:00', $dates[1] . ' 23:59:59']);
-            } else {
-                $keluar_query->whereDate('keluarsf.tgl', $filter_date);
-            }
-        }
+        $applyDateFilter($keluar_query, 'keluarsf.tgl');
         $keluarsf_history = $keluar_query->orderBy('keluarsf.tgl', 'desc')
             ->limit(20)
             ->get();
 
-        return view('mobile.history', compact('history', 'filter_date', 'masuksf_history', 'keluarsf_history'));
+        return view('mobile.history', compact('history', 'historyDenoms', 'filter_date', 'masuksf_history', 'keluarsf_history'));
     }
 
     public function edit($id_outlet, $tgl)
@@ -539,17 +569,22 @@ SQL;
     public function getVisitDetails(Request $request)
     {
         $idsf = session('mobile_sf_id');
-        $id_outlet = $request->id_outlet;
-        $tgl = $request->tgl;
+        $validated = $request->validate([
+            'tgl' => ['required', 'date_format:Y-m-d'],
+        ]);
+        $tgl = $validated['tgl'];
 
         $sales = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
-            ->where('mobile_penjualan.id_outlet', $id_outlet)
             ->where('mobile_penjualan.tgl', $tgl)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
+            ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
             ->select(
                 'mobile_penjualan.*',
-                'denom.denom'
+                'denom.denom',
+                'appsdumais.nama_outlet'
             )
+            ->orderBy('appsdumais.nama_outlet')
+            ->orderBy('mobile_penjualan.id')
             ->get();
 
         if ($sales->isEmpty()) {
@@ -558,13 +593,30 @@ SQL;
 
         return response()->json([
             'success' => true,
-            'items' => $sales->map(function($s) {
-                return [
-                    'produk' => $s->denom,
-                    'qty' => $s->qty,
-                    'status' => $s->status,
-                ];
-            })
+            'date' => Carbon::parse($tgl)->locale('id')->translatedFormat('d M Y'),
+            'outlets' => $sales
+                ->groupBy('id_outlet')
+                ->map(function ($outletSales, $idOutlet) {
+                    $draftReceipt = $outletSales
+                        ->first(fn ($sale) => $sale->status === 'draft_wa' && $sale->receipt_id);
+
+                    return [
+                        'id_outlet' => $idOutlet,
+                        'nama_outlet' => $outletSales->first()->nama_outlet ?: $idOutlet,
+                        'total_qty' => (int) $outletSales
+                            ->whereNotIn('status', ['draft_wa', 'rejected'])
+                            ->sum('qty'),
+                        'receipt_url' => $draftReceipt
+                            ? route('mobile.receipt.show', $draftReceipt->receipt_id)
+                            : null,
+                        'items' => $outletSales->map(fn ($sale) => [
+                            'produk' => $sale->denom ?: $sale->iddenom,
+                            'qty' => (int) $sale->qty,
+                            'status' => $sale->status,
+                        ])->values(),
+                    ];
+                })
+                ->values(),
         ]);
     }
 
