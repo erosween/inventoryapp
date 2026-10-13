@@ -33,13 +33,22 @@ class SuryaVisit extends Model
             ->whereDate('visited_at', $visitDate)
             ->whereNotNull('photo_front_path')
             ->whereNotNull('photo_inside_path')
-            ->whereNotExists(function ($sales) use ($idsf, $visitDate) {
-                $sales->select(DB::raw(1))
-                    ->from('mobile_penjualan')
-                    ->whereColumn('mobile_penjualan.id_outlet', 'surya_visits.id_outlet')
-                    ->where('mobile_penjualan.idsf', $idsf)
-                    ->where('mobile_penjualan.status', '!=', 'draft_wa')
-                    ->whereDate('mobile_penjualan.tgl', $visitDate);
+            ->where(function (Builder $progress) use ($idsf, $visitDate) {
+                $progress->whereExists(function ($draftSales) use ($idsf, $visitDate) {
+                    $draftSales->select(DB::raw(1))
+                        ->from('mobile_penjualan')
+                        ->whereColumn('mobile_penjualan.id_outlet', 'surya_visits.id_outlet')
+                        ->where('mobile_penjualan.idsf', $idsf)
+                        ->where('mobile_penjualan.status', 'draft_wa')
+                        ->whereDate('mobile_penjualan.tgl', $visitDate);
+                })->orWhereNotExists(function ($completedSales) use ($idsf, $visitDate) {
+                    $completedSales->select(DB::raw(1))
+                        ->from('mobile_penjualan')
+                        ->whereColumn('mobile_penjualan.id_outlet', 'surya_visits.id_outlet')
+                        ->where('mobile_penjualan.idsf', $idsf)
+                        ->where('mobile_penjualan.status', '!=', 'draft_wa')
+                        ->whereDate('mobile_penjualan.tgl', $visitDate);
+                });
             });
     }
 }

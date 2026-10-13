@@ -14,16 +14,19 @@ class MobileSalesController extends Controller
 {
     public function searchOutlet(Request $request)
     {
-        $search = $request->get('q');
-        $namasf = session('mobile_sf_name');
+        $search = trim((string) $request->get('q', ''));
+        $namasf = trim((string) session('mobile_sf_name'));
 
         $outlets = DB::table('appsdumais')
-            ->where('sf', 'LIKE', '%' . $namasf . '%')
-            ->where(function($query) use ($search) {
-                $query->where('nama_outlet', 'LIKE', "%{$search}%")
-                      ->orWhere('id_outlet', 'LIKE', "%{$search}%");
+            ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('nama_outlet', 'LIKE', "%{$search}%")
+                        ->orWhere('id_outlet', 'LIKE', "%{$search}%");
+                });
             })
-            ->limit(20)
+            ->orderBy('nama_outlet')
+            ->limit(30)
             ->get(['id_outlet', 'nama_outlet']);
 
         return response()->json($outlets);
@@ -32,7 +35,9 @@ class MobileSalesController extends Controller
     public function index()
     {
         $idsf = session('mobile_sf_id');
-        $namasf = session('mobile_sf_name');
+        $namasf = trim((string) session('mobile_sf_name'));
+        $today = now();
+        $todayDate = $today->toDateString();
         
         $latest = MobilePenjualan::where('idsf', $idsf)
             ->where('status', '!=', 'draft_wa')
@@ -42,17 +47,24 @@ class MobileSalesController extends Controller
             ->limit(5)
             ->get();
 
-        // Calculate Stats
-        $today_sales = MobilePenjualan::where('idsf', $idsf)
-            ->whereDate('tgl', date('Y-m-d'))
-            ->where('status', '!=', 'draft_wa')
-            ->sum('qty');
+        $salesBase = DB::table('mobile_penjualan as m')
+            ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
+            ->where('m.idsf', $idsf)
+            ->whereNotIn('m.status', ['draft_wa', 'rejected']);
+        $totalsSelect = <<<'SQL'
+COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN m.qty ELSE 0 END), 0) AS sa,
+COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 0 ELSE m.qty END), 0) AS pv
+SQL;
 
-        $month_sales = MobilePenjualan::where('idsf', $idsf)
-            ->whereMonth('tgl', date('m'))
-            ->whereYear('tgl', date('Y'))
-            ->where('status', '!=', 'draft_wa')
-            ->sum('qty');
+        $todayTotals = (clone $salesBase)
+            ->whereDate('m.tgl', $todayDate)
+            ->selectRaw($totalsSelect)
+            ->first();
+        $monthTotals = (clone $salesBase)
+            ->whereMonth('m.tgl', $today->month)
+            ->whereYear('m.tgl', $today->year)
+            ->selectRaw($totalsSelect)
+            ->first();
 
         // PJP List Logic
         $days = [
@@ -64,17 +76,18 @@ class MobileSalesController extends Controller
             'Friday' => 'Jumat',
             'Saturday' => 'Sabtu'
         ];
-        $today_name = $days[date('l')];
+        $today_name = $days[$today->format('l')];
 
         $pjp_list = DB::table('appsdumais')
-            ->where('sf', 'LIKE', '%' . $namasf . '%')
+            ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
             ->where('pjp', $today_name)
+            ->orderBy('nama_outlet')
             ->get();
 
         // Check which ones are visited today
         $visited_outlets = MobilePenjualan::where('idsf', $idsf)
-            ->whereDate('tgl', date('Y-m-d'))
-            ->where('status', '!=', 'draft_wa')
+            ->whereDate('tgl', $todayDate)
+            ->whereNotIn('status', ['draft_wa', 'rejected'])
             ->pluck('id_outlet')
             ->unique()
             ->toArray();
@@ -95,7 +108,7 @@ class MobileSalesController extends Controller
             $visit = DB::table('surya_visits')
                 ->where('idsf', $idsf)
                 ->where('id_outlet', $pjp->id_outlet)
-                ->whereDate('visited_at', date('Y-m-d'))
+                ->whereDate('visited_at', $todayDate)
                 ->orderByDesc('visited_at')
                 ->first();
             $pjp->photo_status = $visit->gps_status ?? null;
@@ -109,7 +122,11 @@ class MobileSalesController extends Controller
             ->whereIn('id_outlet', $non_pjp_visited_ids)
             ->get();
 
-        return view('mobile.index', compact('latest', 'today_sales', 'month_sales', 'pjp_list', 'non_pjp_list', 'today_name', 'activeVisit'));
+        return response()
+            ->view('mobile.index', compact('latest', 'todayTotals', 'monthTotals', 'pjp_list', 'non_pjp_list', 'today_name', 'activeVisit'))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     public function form(Request $request)
@@ -148,7 +165,7 @@ class MobileSalesController extends Controller
         if ($pre_id_outlet) {
             $selected_outlet = DB::table('appsdumais')
                 ->where('id_outlet', strtoupper($pre_id_outlet))
-                ->where('sf', 'LIKE', '%' . $namasf . '%')
+                ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $namasf))])
                 ->first(['id_outlet', 'nama_outlet']);
         }
         
@@ -180,6 +197,14 @@ class MobileSalesController extends Controller
         $idsf = session('mobile_sf_id');
         $salesDate = now()->toDateString();
         $requestedOutlet = strtoupper($request->id_outlet);
+
+        $isAssignedOutlet = DB::table('appsdumais')
+            ->where('id_outlet', $requestedOutlet)
+            ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
+            ->exists();
+        if (! $isAssignedOutlet) {
+            return back()->withInput()->with('error', 'Outlet tidak terdaftar pada Sales Force ini.');
+        }
 
         $activeVisit = SuryaVisit::query()
             ->inProgressForSalesForce($idsf, $salesDate)
@@ -566,6 +591,31 @@ class MobileSalesController extends Controller
         return view('mobile.receipt', compact('receipt', 'outlet', 'items'));
     }
 
+    public function receiptImage(MobileSalesReceipt $receipt)
+    {
+        abort_unless($receipt->idsf === session('mobile_sf_id'), 403);
+        abort_unless(extension_loaded('gd'), 503, 'Generator nota JPEG belum tersedia.');
+
+        $outletName = DB::table('appsdumais')
+            ->where('id_outlet', $receipt->id_outlet)
+            ->value('nama_outlet') ?? $receipt->id_outlet;
+        $items = DB::table('mobile_penjualan as m')
+            ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
+            ->where('m.receipt_id', $receipt->id)
+            ->orderBy('m.id')
+            ->get(['d.denom', 'm.qty']);
+
+        $jpeg = $this->renderThermalReceiptJpeg($receipt, $outletName, $items);
+        $filename = preg_replace('/[^A-Za-z0-9_-]/', '-', $receipt->receipt_number).'.jpg';
+
+        return response($jpeg, 200, [
+            'Content-Type' => 'image/jpeg',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+            'Cache-Control' => 'private, max-age=300',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function prepareReceiptWhatsapp(Request $request, MobileSalesReceipt $receipt)
     {
         abort_unless($receipt->idsf === session('mobile_sf_id'), 403);
@@ -621,6 +671,9 @@ class MobileSalesController extends Controller
         return response()->json([
             'success' => true,
             'whatsapp_url' => 'https://wa.me/' . $whatsapp . '?text=' . rawurlencode($this->buildReceiptMessage($receipt->fresh())),
+            'image_url' => route('mobile.receipt.image', $receipt),
+            'image_filename' => preg_replace('/[^A-Za-z0-9_-]/', '-', $receipt->receipt_number).'.jpg',
+            'share_text' => $this->buildReceiptMessage($receipt->fresh()),
             'owner_whatsapp' => $whatsapp,
         ]);
     }
@@ -681,32 +734,87 @@ class MobileSalesController extends Controller
         $outletName = DB::table('appsdumais')
             ->where('id_outlet', $receipt->id_outlet)
             ->value('nama_outlet') ?? $receipt->id_outlet;
-        $salesName = session('mobile_sf_name') ?: $receipt->idsf;
-        $items = DB::table('mobile_penjualan as m')
-            ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
-            ->where('m.receipt_id', $receipt->id)
-            ->orderBy('m.id')
-            ->get(['d.denom', 'm.qty']);
-
         $lines = [
-            '*e-BON SURYA*',
-            'No: ' . $receipt->receipt_number,
-            'Tanggal: ' . $receipt->tgl->format('d/m/Y'),
-            'Outlet: ' . $outletName . ' (' . $receipt->id_outlet . ')',
-            'Sales: ' . $salesName,
-            '',
-            '*Rincian Belanja*',
+            '*NOTA PENJUALAN SURYA*',
+            'Outlet: '.$outletName.' ('.$receipt->id_outlet.')',
+            'No: '.$receipt->receipt_number,
+            'Total: '.number_format($receipt->total_qty, 0, ',', '.').' pcs',
+            'Nota JPEG terlampir.',
         ];
 
+        return implode("\n", $lines);
+    }
+
+    private function renderThermalReceiptJpeg(MobileSalesReceipt $receipt, string $outletName, $items): string
+    {
+        $width = 360;
+        $font = 5;
+        $lineHeight = 22;
+        $maxChars = 34;
+        $separator = str_repeat('-', $maxChars);
+        $doubleSeparator = str_repeat('=', $maxChars);
+        $salesName = session('mobile_sf_name') ?: $receipt->idsf;
+        $ascii = fn ($value) => Str::ascii(trim((string) $value));
+        $wrap = fn ($value, $length = null) => explode("\n", wordwrap($ascii($value), $length ?? $maxChars, "\n", true));
+
+        $lines = [
+            ['text' => 'SURYA', 'align' => 'center'],
+            ['text' => 'NOTA PENJUALAN', 'align' => 'center'],
+            ['text' => $doubleSeparator],
+        ];
+        foreach ($wrap($outletName) as $nameLine) {
+            $lines[] = ['text' => strtoupper($nameLine), 'align' => 'center'];
+        }
+        $lines[] = ['text' => 'ID     : '.$ascii($receipt->id_outlet)];
+        $lines[] = ['text' => 'NO BON : '.$ascii($receipt->receipt_number)];
+        $lines[] = ['text' => 'TANGGAL: '.$receipt->tgl->format('d/m/Y')];
+        foreach ($wrap('SALES  : '.$salesName) as $salesLine) {
+            $lines[] = ['text' => $salesLine];
+        }
+        $lines[] = ['text' => $separator];
+        $lines[] = ['text' => 'PRODUK                         QTY'];
+        $lines[] = ['text' => $separator];
+
         foreach ($items as $index => $item) {
-            $lines[] = ($index + 1) . '. ' . $item->denom . ' — ' . number_format($item->qty, 0, ',', '.') . ' pcs';
+            foreach ($wrap(($index + 1).'. '.$item->denom, 27) as $productLine) {
+                $lines[] = ['text' => $productLine];
+            }
+            $qtyText = number_format((int) $item->qty, 0, ',', '.').' PCS';
+            $lines[] = ['text' => str_pad($qtyText, $maxChars, ' ', STR_PAD_LEFT)];
         }
 
-        $lines[] = '';
-        $lines[] = '*Total ' . number_format($receipt->total_qty, 0, ',', '.') . ' pcs*';
-        $lines[] = '';
-        $lines[] = 'Terima kasih telah berbelanja.';
+        $lines[] = ['text' => $doubleSeparator];
+        $totalText = 'TOTAL QTY: '.number_format((int) $receipt->total_qty, 0, ',', '.').' PCS';
+        $lines[] = ['text' => str_pad($totalText, $maxChars, ' ', STR_PAD_LEFT)];
+        $lines[] = ['text' => $doubleSeparator];
+        $lines[] = ['text' => 'TERIMA KASIH', 'align' => 'center'];
+        $lines[] = ['text' => 'Simpan nota ini sebagai bukti', 'align' => 'center'];
 
-        return implode("\n", $lines);
+        $height = 36 + count($lines) * $lineHeight + 30;
+        $canvas = imagecreatetruecolor($width, $height);
+        $paper = imagecolorallocate($canvas, 255, 255, 252);
+        $ink = imagecolorallocate($canvas, 20, 20, 20);
+        $muted = imagecolorallocate($canvas, 85, 85, 85);
+        imagefilledrectangle($canvas, 0, 0, $width, $height, $paper);
+
+        $y = 22;
+        foreach ($lines as $index => $line) {
+            $text = $line['text'];
+            $textWidth = imagefontwidth($font) * strlen($text);
+            $x = ($line['align'] ?? null) === 'center'
+                ? max(12, (int) (($width - $textWidth) / 2))
+                : 18;
+            imagestring($canvas, $font, $x, $y, $text, $index >= count($lines) - 2 ? $muted : $ink);
+            $y += $lineHeight;
+        }
+
+        $scaled = imagescale($canvas, $width * 2, $height * 2, IMG_NEAREST_NEIGHBOUR);
+        imagedestroy($canvas);
+        ob_start();
+        imagejpeg($scaled, null, 82);
+        $jpeg = (string) ob_get_clean();
+        imagedestroy($scaled);
+
+        return $jpeg;
     }
 }

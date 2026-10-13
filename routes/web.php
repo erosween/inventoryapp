@@ -282,6 +282,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::post('/surya/{type}', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'store'])->name('surya.store');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::get('/receipt/{receipt}', [\App\Http\Controllers\MobileSalesController::class, 'showReceipt'])->name('receipt.show');
+        Route::get('/receipt/{receipt}/image.jpg', [\App\Http\Controllers\MobileSalesController::class, 'receiptImage'])->name('receipt.image');
         Route::post('/receipt/{receipt}/whatsapp', [\App\Http\Controllers\MobileSalesController::class, 'prepareReceiptWhatsapp'])->name('receipt.whatsapp');
         Route::post('/receipt/{receipt}/confirm', [\App\Http\Controllers\MobileSalesController::class, 'confirmReceiptWhatsapp'])->name('receipt.confirm');
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');

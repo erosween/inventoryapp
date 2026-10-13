@@ -21,8 +21,11 @@ class SuryaVisitController extends Controller
         }
 
         $outlet = $request->filled('id_outlet')
-            ? DB::table('appsdumais')->where('id_outlet', $request->id_outlet)->first(['id_outlet', 'nama_outlet'])
+            ? $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first(['id_outlet', 'nama_outlet'])
             : null;
+        if ($request->filled('id_outlet')) {
+            abort_unless($outlet, 404, 'Outlet tidak terdaftar pada Sales Force ini.');
+        }
 
         $visit = $outlet ? SuryaVisit::query()
             ->where('idsf', session('mobile_sf_id'))
@@ -48,9 +51,7 @@ class SuryaVisitController extends Controller
             return $redirect;
         }
 
-        $sfName = session('mobile_sf_name');
-        $outlets = DB::table('appsdumais')
-            ->where('sf', 'LIKE', '%'.$sfName.'%')
+        $outlets = $this->assignedOutlets()
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet', 'latitude', 'longitude']);
 
@@ -103,8 +104,8 @@ class SuryaVisitController extends Controller
             return $redirect;
         }
 
-        $outlet = DB::table('appsdumais')->where('id_outlet', $request->id_outlet)->first();
-        abort_unless($outlet, 404, 'Outlet tidak ditemukan.');
+        $outlet = $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first();
+        abort_unless($outlet, 404, 'Outlet tidak terdaftar pada Sales Force ini.');
 
         $currentLatitude = (float) $request->latitude;
         $currentLongitude = (float) $request->longitude;
@@ -214,5 +215,13 @@ class SuryaVisitController extends Controller
         return redirect()
             ->route('mobile.visit.menu', ['id_outlet' => $requestedOutlet])
             ->with('error', 'Dua foto visit sudah tersimpan dan tidak dapat diambil ulang. Lanjutkan proses penjualan outlet ini.');
+    }
+
+    private function assignedOutlets()
+    {
+        return DB::table('appsdumais')->whereRaw(
+            'UPPER(TRIM(sf)) = ?',
+            [mb_strtoupper(trim((string) session('mobile_sf_name')))]
+        );
     }
 }

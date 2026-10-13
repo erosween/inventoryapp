@@ -26,6 +26,12 @@ class MobileSalesFlowTest extends TestCase
         $this->createMobileSchema();
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_mobile_pages_redirect_to_login_when_session_is_missing(): void
     {
         $this->get(route('mobile.stock'))
@@ -194,6 +200,12 @@ class MobileSalesFlowTest extends TestCase
             'stock' => 20,
         ]);
 
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-1',
+            'nama_outlet' => 'Outlet Satu',
+            'sf' => 'Sales Test',
+        ]);
+
         DB::table('surya_visits')->insert([
             'visited_at' => now(),
             'id_outlet' => 'OUTLET-1',
@@ -336,6 +348,11 @@ class MobileSalesFlowTest extends TestCase
             'idsf' => 'SF001',
             'iddenom' => 'D-ZERO',
             'stock' => 10,
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-ZERO',
+            'nama_outlet' => 'Outlet Tanpa Harga',
+            'sf' => 'Sales Test',
         ]);
         DB::table('surya_visits')->insert([
             'visited_at' => now(),
@@ -578,13 +595,13 @@ class MobileSalesFlowTest extends TestCase
                 'id_outlet' => 'OUTLET-AKTIF',
                 'nama_outlet' => 'Outlet Sedang Berlangsung',
                 'sf' => 'Sales Test',
-                'pjp' => $days[date('l')],
+                'pjp' => $days[now()->format('l')],
             ],
             [
                 'id_outlet' => 'OUTLET-LAIN',
                 'nama_outlet' => 'Outlet Lain',
                 'sf' => 'Sales Test',
-                'pjp' => $days[date('l')],
+                'pjp' => $days[now()->format('l')],
             ],
         ]);
 
@@ -614,6 +631,154 @@ class MobileSalesFlowTest extends TestCase
             ->assertSee('TERKUNCI')
             ->assertSee('pjp-card-row', false)
             ->assertSee('pjp-continue-button', false);
+    }
+
+    public function test_dashboard_splits_current_sales_into_pv_and_sa(): void
+    {
+        Carbon::setTestNow('2026-10-13 09:00:00');
+        DB::table('denom')->insert([
+            ['iddenom' => 'PV-1', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'kategori_inject' => null, 'harga_jual' => 0],
+            ['iddenom' => 'SA-1', 'denom' => 'SA SIMPATI', 'group_name' => 'SA', 'kategori_inject' => 'SA', 'harga_jual' => 0],
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 7, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()],
+            ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'SA-1', 'qty' => 3, 'status' => 'approved', 'created_at' => now(), 'updated_at' => now()],
+            ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'SA-1', 'qty' => 50, 'status' => 'rejected', 'created_at' => now(), 'updated_at' => now()],
+            ['tgl' => '2026-09-30', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 99, 'status' => 'approved', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $response = $this->withSession([
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ])->get(route('mobile.index'));
+
+        $response->assertOk()
+            ->assertViewHas('todayTotals', fn ($totals) => (int) $totals->pv === 7 && (int) $totals->sa === 3)
+            ->assertViewHas('monthTotals', fn ($totals) => (int) $totals->pv === 7 && (int) $totals->sa === 3)
+            ->assertSeeInOrder(['Sales Hari Ini', 'PV', '7', 'SA', '3']);
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+    }
+
+    public function test_pjp_completion_resets_for_the_current_day(): void
+    {
+        Carbon::setTestNow('2026-10-13 09:00:00');
+        DB::table('denom')->insert([
+            'iddenom' => 'PV-1', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'harga_jual' => 0,
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-HARIAN',
+            'nama_outlet' => 'Outlet Harian',
+            'sf' => 'Sales Test',
+            'pjp' => 'Selasa',
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'tgl' => '2026-10-12',
+            'id_outlet' => 'OUTLET-HARIAN',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'iddenom' => 'PV-1',
+            'qty' => 2,
+            'status' => 'approved',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ])->get(route('mobile.index'))
+            ->assertOk()
+            ->assertViewHas('pjp_list', fn ($list) => $list->count() === 1 && $list->first()->is_visited === false)
+            ->assertSee('0 dari 1 outlet PJP selesai');
+    }
+
+    public function test_completed_outlet_can_create_an_additional_transaction_and_locks_during_receipt_draft(): void
+    {
+        Carbon::setTestNow('2026-10-13 09:00:00');
+        DB::table('denom')->insert([
+            'iddenom' => 'PV-1', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'harga_jual' => 0,
+        ]);
+        DB::table('stockawalsf')->insert(['idsf' => 'SF001', 'iddenom' => 'PV-1', 'stock' => 20]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-ULANG', 'nama_outlet' => 'Outlet Ulang', 'sf' => 'Sales Test', 'pjp' => 'Selasa',
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(), 'id_outlet' => 'OUTLET-ULANG', 'idtap' => 'TAP001', 'idsf' => 'SF001',
+            'latitude' => 1.1, 'longitude' => 101.1, 'photo_path' => 'front.webp',
+            'photo_front_path' => 'front.webp', 'photo_inside_path' => 'inside.webp', 'gps_status' => 'valid',
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-ULANG', 'idtap' => 'TAP001', 'idsf' => 'SF001',
+            'iddenom' => 'PV-1', 'qty' => 2, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        $this->withSession($session)->get(route('mobile.index'))
+            ->assertOk()
+            ->assertSee('INPUT LAGI');
+
+        $this->withSession($session)->post(route('mobile.store'), [
+            'id_outlet' => 'OUTLET-ULANG',
+            'products' => [['iddenom' => 'PV-1', 'qty' => 4]],
+        ])->assertRedirect();
+
+        $this->assertSame(2, DB::table('mobile_penjualan')->where('id_outlet', 'OUTLET-ULANG')->count());
+        $this->assertTrue(
+            \App\Models\SuryaVisit::query()->inProgressForSalesForce('SF001', '2026-10-13')->exists()
+        );
+    }
+
+    public function test_outlet_search_only_returns_outlets_assigned_to_the_logged_in_sales_force(): void
+    {
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'MATCH-1', 'nama_outlet' => 'Outlet Cocok', 'sf' => 'Sales Test'],
+            ['id_outlet' => 'MATCH-2', 'nama_outlet' => 'Outlet Spasi', 'sf' => ' sales test '],
+            ['id_outlet' => 'OTHER-1', 'nama_outlet' => 'Outlet Sales Lain', 'sf' => 'Sales Tester'],
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001',
+        ])->getJson(route('mobile.search-outlet'))
+            ->assertOk()
+            ->assertJsonCount(2)
+            ->assertJsonFragment(['id_outlet' => 'MATCH-1'])
+            ->assertJsonFragment(['id_outlet' => 'MATCH-2'])
+            ->assertJsonMissing(['id_outlet' => 'OTHER-1']);
+    }
+
+    public function test_receipt_is_rendered_as_an_on_demand_jpeg_for_whatsapp_sharing(): void
+    {
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('GD is required for receipt JPEG rendering.');
+        }
+
+        DB::table('denom')->insert([
+            'iddenom' => 'PV-1', 'denom' => 'PV 5GB 1 HARI', 'group_name' => '1 HARI', 'harga_jual' => 0,
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-BON', 'nama_outlet' => 'TOKO CONTOH', 'sf' => 'Sales Test',
+        ]);
+        $receiptId = DB::table('mobile_sales_receipts')->insertGetId([
+            'receipt_number' => 'SUR-TEST-001', 'tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-BON',
+            'idtap' => 'TAP001', 'idsf' => 'SF001', 'total_qty' => 6, 'total_amount' => 0,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'receipt_id' => $receiptId, 'tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-BON',
+            'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 6, 'status' => 'draft_wa',
+        ]);
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        $image = $this->withSession($session)->get(route('mobile.receipt.image', $receiptId));
+        $image->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        $this->assertStringStartsWith("\xFF\xD8", $image->getContent());
+
+        $this->withSession($session)->get(route('mobile.receipt.show', $receiptId))
+            ->assertOk()
+            ->assertSee('PREVIEW NOTA JPEG')
+            ->assertSee('navigator.share', false)
+            ->assertSee('Kirim Nota JPEG ke WhatsApp');
     }
 
     public function test_admin_approval_updates_outlet_coordinates_and_unlocks_visit(): void
@@ -733,6 +898,7 @@ class MobileSalesFlowTest extends TestCase
             $table->string('iddenom')->primary();
             $table->string('denom');
             $table->string('group_name')->default('LAINNYA');
+            $table->string('kategori_inject')->nullable();
             $table->integer('harga_jual')->default(0);
         });
 

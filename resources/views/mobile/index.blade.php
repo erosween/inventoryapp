@@ -17,7 +17,7 @@
             </div>
         </div>
         <div class="text-end">
-            <div class="text-white-50 fw-bold" style="font-size: 0.62rem;">{{ date('d M Y') }}</div>
+            <div class="text-white-50 fw-bold" style="font-size: 0.62rem;">{{ now()->format('d M Y') }}</div>
             <div class="text-white fw-900" style="font-size: 0.95rem;">{{ session('idtap') }}</div>
         </div>
     </div>
@@ -38,13 +38,17 @@
     <div class="mobile-kpi-grid mb-3">
         <div class="mobile-kpi-card accent-red">
             <span>Sales Hari Ini</span>
-            <strong>{{ number_format($today_sales) }}</strong>
-            <small>PCS terjual</small>
+            <div class="mobile-kpi-split">
+                <div><small>PV</small><strong>{{ number_format($todayTotals->pv ?? 0) }}</strong></div>
+                <div><small>SA</small><strong>{{ number_format($todayTotals->sa ?? 0) }}</strong></div>
+            </div>
         </div>
         <div class="mobile-kpi-card">
             <span>Sales Bulan Ini</span>
-            <strong>{{ number_format($month_sales) }}</strong>
-            <small>PCS terjual</small>
+            <div class="mobile-kpi-split">
+                <div><small>PV</small><strong>{{ number_format($monthTotals->pv ?? 0) }}</strong></div>
+                <div><small>SA</small><strong>{{ number_format($monthTotals->sa ?? 0) }}</strong></div>
+            </div>
         </div>
     </div>
 
@@ -64,7 +68,7 @@
     <div class="d-flex justify-content-between align-items-end mb-3">
         <div>
             <h5 class="fw-800 mb-0 text-dark" style="letter-spacing: -0.5px;">Journey Plan</h5>
-            <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">{{ date('d M Y') }}</p>
+            <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">{{ now()->format('d M Y') }}</p>
         </div>
         <div class="d-flex align-items-center">
             @if($activeVisit)
@@ -96,13 +100,13 @@
             <div class="glass-card mb-2 p-0 border-0 overflow-hidden reveal shadow-sm" style="background: white; border-radius: 24px;">
                 <div class="d-flex align-items-stretch">
                     <!-- Vertical Status Strip -->
-                    <div class="pjp-status-strip" style="background: {{ $pjp->is_visited ? '#10b981' : ($isActiveOutlet ? '#f59e0b' : '#e2e8f0') }};"></div>
+                    <div class="pjp-status-strip" style="background: {{ $isActiveOutlet ? '#f59e0b' : ($pjp->is_visited ? '#10b981' : '#e2e8f0') }};"></div>
                     
                     <div class="pjp-card-body p-3 w-100">
                         <div class="pjp-card-row">
                             <div class="pjp-outlet-main" data-lat="{{ $pjp->latitude }}" data-lng="{{ $pjp->longitude }}">
                                 <div class="pjp-outlet-icon p-2 rounded-4 d-flex align-items-center justify-content-center"
-                                     style="width: 40px; height: 40px; background: {{ $pjp->is_visited ? 'rgba(236,32,40,0.10)' : ($isActiveOutlet ? 'rgba(245,158,11,0.12)' : '#f8fafc') }}; color: {{ $pjp->is_visited ? 'var(--primary)' : ($isActiveOutlet ? '#d97706' : 'var(--text-muted)') }};">
+                                     style="width: 40px; height: 40px; background: {{ $isActiveOutlet ? 'rgba(245,158,11,0.12)' : ($pjp->is_visited ? 'rgba(236,32,40,0.10)' : '#f8fafc') }}; color: {{ $isActiveOutlet ? '#d97706' : ($pjp->is_visited ? 'var(--primary)' : 'var(--text-muted)') }};">
                                     <i class="fas fa-store" style="font-size: 0.9rem;"></i>
                                 </div>
                                 <div class="pjp-outlet-copy">
@@ -110,21 +114,16 @@
                                     <div class="pjp-outlet-meta mt-1">
                                         <span class="text-muted fw-bold" style="font-size: 0.6rem;">ID: {{ $pjp->id_outlet }}</span>
                                         <span class="distance-label text-muted fw-bold" style="font-size: 0.58rem;">Mengukur jarak...</span>
-                                        @if($pjp->is_visited)
-                                            <span class="pjp-state-badge badge bg-success bg-opacity-10 text-success rounded-pill">VERIFIED</span>
-                                        @elseif($isActiveOutlet)
+                                        @if($isActiveOutlet)
                                             <span class="pjp-state-badge badge bg-warning bg-opacity-10 text-warning rounded-pill">SEDANG BERLANGSUNG</span>
+                                        @elseif($pjp->is_visited)
+                                            <span class="pjp-state-badge badge bg-success bg-opacity-10 text-success rounded-pill">VERIFIED</span>
                                         @endif
                                     </div>
                                 </div>
                             </div>
                             
-                            @if($pjp->is_visited)
-                                <div class="pjp-card-action text-success text-center">
-                                    <i class="fas fa-check-circle fs-4 mb-1"></i>
-                                    <div class="fw-800" style="font-size: 0.5rem;">DONE</div>
-                                </div>
-                            @elseif($isActiveOutlet)
+                            @if($isActiveOutlet)
                                 <a href="{{ route('mobile.visit.menu', ['id_outlet' => $pjp->id_outlet]) }}" class="pjp-card-action pjp-continue-button btn btn-sm rounded-pill fw-800"
                                    style="background: #fff7ed; color: #d97706; border: 1px solid #fed7aa;">
                                     LANJUTKAN <i class="fas fa-chevron-right ms-1" style="font-size: 0.5rem;"></i>
@@ -134,6 +133,11 @@
                                         style="font-size: 0.62rem; background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; opacity: 1;">
                                     <i class="fas fa-lock me-1"></i> TERKUNCI
                                 </button>
+                            @elseif($pjp->is_visited)
+                                <a href="{{ route('mobile.form', ['id_outlet' => $pjp->id_outlet]) }}" class="pjp-card-action pjp-repeat-button btn btn-sm rounded-pill fw-800"
+                                   style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;">
+                                    <i class="fas fa-plus me-1"></i> INPUT LAGI
+                                </a>
                             @else
                                 <a href="#" data-outlet="{{ $pjp->id_outlet }}" class="pjp-card-action pjp-visit-button open-visit-menu btn btn-sm rounded-pill fw-800"
                                    style="font-size: 0.65rem; background: #f8fafc; color: var(--primary); border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
@@ -193,6 +197,7 @@
 
     <div class="non-pjp-list mb-4">
         @foreach($non_pjp_list as $np)
+            @php($isActiveNonPjp = $activeVisit && strtoupper($activeVisit->id_outlet) === strtoupper($np->id_outlet))
             <div class="glass-card mb-2 p-0 border-0 overflow-hidden reveal shadow-sm" style="background: white; border-radius: 24px;">
                 <div class="d-flex align-items-stretch">
                     <!-- Vertical Status Strip (Orange for extra visit) -->
@@ -213,10 +218,16 @@
                                 </div>
                             </div>
                             
-                            <div class="text-warning text-center">
-                                <i class="fas fa-check-circle fs-4 mb-1"></i>
-                                <div class="fw-800" style="font-size: 0.5rem;">DONE</div>
-                            </div>
+                            @if($isActiveNonPjp)
+                                <a href="{{ route('mobile.visit.menu', ['id_outlet' => $np->id_outlet]) }}" class="pjp-card-action pjp-continue-button btn btn-sm rounded-pill fw-800"
+                                   style="background: #fff7ed; color: #d97706; border: 1px solid #fed7aa;">LANJUTKAN <i class="fas fa-chevron-right ms-1"></i></a>
+                            @elseif($activeVisit)
+                                <button type="button" class="pjp-card-action pjp-lock-button btn btn-sm rounded-pill fw-800" disabled
+                                        style="background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; opacity: 1;"><i class="fas fa-lock me-1"></i> TERKUNCI</button>
+                            @else
+                                <a href="{{ route('mobile.form', ['id_outlet' => $np->id_outlet]) }}" class="pjp-card-action pjp-repeat-button btn btn-sm rounded-pill fw-800"
+                                   style="background: #fffbeb; color: #d97706; border: 1px solid #fde68a;"><i class="fas fa-plus me-1"></i> INPUT LAGI</a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -323,6 +334,34 @@
         overflow-wrap: anywhere;
     }
 
+    .mobile-kpi-split {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 9px;
+    }
+
+    .mobile-kpi-split > div {
+        min-width: 0;
+        padding-left: 9px;
+        border-left: 2px solid #e2e8f0;
+    }
+
+    .mobile-kpi-split > div:first-child {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .mobile-kpi-split small,
+    .mobile-kpi-split strong {
+        display: block;
+    }
+
+    .mobile-kpi-split strong {
+        margin-top: 3px;
+        font-size: clamp(.95rem, 4vw, 1.35rem);
+    }
+
     .mobile-kpi-card.accent-red strong {
         color: var(--primary);
     }
@@ -402,7 +441,8 @@
 
     .pjp-continue-button,
     .pjp-lock-button,
-    .pjp-visit-button {
+    .pjp-visit-button,
+    .pjp-repeat-button {
         min-width: 92px;
         padding: 7px 10px !important;
         white-space: nowrap;
@@ -427,7 +467,8 @@
 
         .pjp-continue-button,
         .pjp-lock-button,
-        .pjp-visit-button {
+        .pjp-visit-button,
+        .pjp-repeat-button {
             min-width: 84px;
             padding-inline: 8px !important;
         }
@@ -488,7 +529,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 pt-2">
-                <p class="small text-muted fw-bold mb-3">Input data jualan di luar jadwal PJP hari ini.</p>
+                <p class="small text-muted fw-bold mb-3">Hanya outlet yang terdaftar untuk {{ session('mobile_sf_name') }}.</p>
                 <div class="glass-input-group mb-4">
                     <input type="text" id="outletSearchInput" class="glass-input" placeholder="Ketik nama atau ID outlet..." autocomplete="off">
                 </div>
@@ -496,7 +537,7 @@
                 <div id="outletSearchResults" class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
                     <div class="text-center py-4 opacity-50">
                         <i class="fas fa-search fs-2 mb-2"></i>
-                        <p class="small fw-bold">Cari untuk memunculkan hasil</p>
+                        <p class="small fw-bold">Memuat outlet Sales Force...</p>
                     </div>
                 </div>
             </div>
@@ -510,15 +551,11 @@
 $(document).ready(function() {
     let searchTimeout = null;
 
-    $('#outletSearchInput').on('keyup', function() {
-        clearTimeout(searchTimeout);
-        let q = $(this).val();
-        
-        if (q.length < 3) {
-            $('#outletSearchResults').html('<div class="text-center py-4 opacity-50"><i class="fas fa-search fs-2 mb-2"></i><p class="small fw-bold">Ketik minimal 3 karakter</p></div>');
-            return;
-        }
+    const escapeHtml = value => $('<div>').text(value == null ? '' : String(value)).html();
+    const visitMenuUrl = @json(route('mobile.visit.menu'));
 
+    function loadOutlets(q = '') {
+        clearTimeout(searchTimeout);
         searchTimeout = setTimeout(function() {
             $('#outletSearchResults').html('<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
             
@@ -529,14 +566,16 @@ $(document).ready(function() {
                     let html = '';
                     if (data.length > 0) {
                         data.forEach(function(outlet) {
+                            const outletId = escapeHtml(outlet.id_outlet);
+                            const outletName = escapeHtml(outlet.nama_outlet);
                             html += `
-                                <a href="{{ route('mobile.form') }}?id_outlet=${outlet.id_outlet}" class="list-group-item list-group-item-action border-0 py-3 px-0 d-flex align-items-center">
+                                <a href="${visitMenuUrl}?id_outlet=${encodeURIComponent(outlet.id_outlet)}" class="list-group-item list-group-item-action border-0 py-3 px-0 d-flex align-items-center">
                                     <div class="bg-light p-2 rounded-3 me-3 text-muted">
                                         <i class="fas fa-store"></i>
                                     </div>
                                     <div>
-                                        <div class="fw-800 text-dark" style="font-size: 0.85rem;">${outlet.nama_outlet}</div>
-                                        <div class="small text-muted fw-bold" style="font-size: 0.65rem;">ID: ${outlet.id_outlet}</div>
+                                        <div class="fw-800 text-dark" style="font-size: 0.85rem;">${outletName}</div>
+                                        <div class="small text-muted fw-bold" style="font-size: 0.65rem;">ID: ${outletId}</div>
                                     </div>
                                     <i class="fas fa-chevron-right ms-auto text-muted opacity-50" style="font-size: 0.7rem;"></i>
                                 </a>
@@ -546,15 +585,27 @@ $(document).ready(function() {
                         html = '<div class="text-center py-4 opacity-50"><p class="small fw-bold">Outlet tidak ditemukan</p></div>';
                     }
                     $('#outletSearchResults').html(html);
+                },
+                error: function() {
+                    $('#outletSearchResults').html('<div class="text-center py-4 text-danger"><p class="small fw-bold">Daftar outlet gagal dimuat. Coba lagi.</p></div>');
                 }
             });
-        }, 500);
+        }, q === '' ? 0 : 250);
+    }
+
+    $('#outletSearchInput').on('input', function() {
+        loadOutlets($(this).val().trim());
+    });
+
+    $('#searchOutletModal').on('shown.bs.modal', function () {
+        loadOutlets('');
+        $('#outletSearchInput').trigger('focus');
     });
 
     // Reset search when modal closed
     $('#searchOutletModal').on('hidden.bs.modal', function () {
         $('#outletSearchInput').val('');
-        $('#outletSearchResults').html('<div class="text-center py-4 opacity-50"><i class="fas fa-search fs-2 mb-2"></i><p class="small fw-bold">Cari untuk memunculkan hasil</p></div>');
+        $('#outletSearchResults').html('<div class="text-center py-4 opacity-50"><i class="fas fa-store fs-2 mb-2"></i><p class="small fw-bold">Daftar outlet akan dimuat saat dibuka</p></div>');
     });
 });
 </script>
