@@ -422,13 +422,27 @@ class MobileApprovalController extends Controller
                 }
             }
 
-            DB::table('mobile_penjualan')->where('id', $id)->update([
-                'status' => 'rejected',
-                'stock_reserved_at' => null,
-                'updated_at' => now(),
-            ]);
-
             AuditLogger::log('REJECT', 'Mobile Sales', $id, (array) $sale);
+
+            $receiptId = $sale->receipt_id;
+            DB::table('mobile_penjualan')->where('id', $id)->delete();
+
+            if ($receiptId) {
+                $receiptTotals = DB::table('mobile_penjualan')
+                    ->where('receipt_id', $receiptId)
+                    ->selectRaw('COUNT(*) as item_count, COALESCE(SUM(qty), 0) as total_qty, COALESCE(SUM(qty * COALESCE(unit_price, 0)), 0) as total_amount')
+                    ->first();
+
+                if ((int) $receiptTotals->item_count === 0) {
+                    DB::table('mobile_sales_receipts')->where('id', $receiptId)->delete();
+                } else {
+                    DB::table('mobile_sales_receipts')->where('id', $receiptId)->update([
+                        'total_qty' => (int) $receiptTotals->total_qty,
+                        'total_amount' => (int) $receiptTotals->total_amount,
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         });
     }
 }

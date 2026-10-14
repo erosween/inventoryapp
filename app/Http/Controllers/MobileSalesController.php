@@ -40,7 +40,7 @@ class MobileSalesController extends Controller
         $todayDate = $today->toDateString();
         
         $latest = MobilePenjualan::where('idsf', $idsf)
-            ->where('status', '!=', 'draft_wa')
+            ->whereNotIn('status', ['draft_wa', 'rejected'])
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select('mobile_penjualan.*', 'denom.denom')
             ->orderBy('mobile_penjualan.created_at', 'desc')
@@ -351,6 +351,7 @@ SQL;
         // details are fetched only after the user opens a date summary.
         $historyQuery = MobilePenjualan::query()
             ->where('mobile_penjualan.idsf', $idsf)
+            ->whereNotIn('mobile_penjualan.status', ['draft_wa', 'rejected'])
             ->select(
                 'mobile_penjualan.tgl',
                 DB::raw('COUNT(DISTINCT mobile_penjualan.id_outlet) as outlet_count'),
@@ -582,6 +583,7 @@ SQL;
 
         $sales = MobilePenjualan::where('mobile_penjualan.idsf', $idsf)
             ->where('mobile_penjualan.tgl', $tgl)
+            ->whereNotIn('mobile_penjualan.status', ['draft_wa', 'rejected'])
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->leftJoin('appsdumais', 'mobile_penjualan.id_outlet', '=', 'appsdumais.id_outlet')
             ->select(

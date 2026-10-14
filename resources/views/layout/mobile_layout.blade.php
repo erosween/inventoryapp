@@ -528,6 +528,22 @@
             font-weight: 900 !important;
         }
 
+        .soon-feature {
+            color: var(--text-main);
+            cursor: default;
+            opacity: 0.62;
+        }
+
+        .soon-feature .soon-badge {
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: #eef2f7;
+            color: var(--text-muted);
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .reveal,
             .main-content,
@@ -563,7 +579,7 @@
         @endif
 
         <!-- Main Content Area -->
-        <main class="main-content reveal px-3 {{ request()->is('mobile') ? 'pt-0' : 'pt-2' }}" style="animation-delay: 0.1s;">
+        <main class="main-content reveal px-3 {{ request()->is('mobile') || request()->is('mobile/history') || request()->is('mobile/stock') ? 'pt-0' : 'pt-2' }}" style="animation-delay: 0.1s;">
             @yield('content')
         </main>
 
@@ -635,9 +651,9 @@
                         </div>
                         <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: 0.7rem;"></i>
                     </a>
-                    <a href="{{ route('mobile.surya.consignment') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-sim-card"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Konsinyasi SA</div><div class="small text-muted">Catat nomor perdana</div></div></a>
-                    <a href="{{ route('mobile.surya.survey') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan ketersediaan</div></div></a>
-                    <a href="{{ route('mobile.surya.network') }}" class="d-flex align-items-center py-3 text-decoration-none border-bottom" style="color: var(--text-main);"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-signal"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Kondisi Network</div><div class="small text-muted">Laporkan kondisi sinyal</div></div></a>
+                    <button type="button" class="soon-feature d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" disabled aria-disabled="true"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-sim-card"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Konsinyasi SA</div><div class="small text-muted">Catat nomor perdana</div></div><span class="soon-badge">SOON</span></button>
+                    <button type="button" class="soon-feature d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" disabled aria-disabled="true"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan ketersediaan</div></div><span class="soon-badge">SOON</span></button>
+                    <button type="button" class="soon-feature d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" disabled aria-disabled="true"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-signal"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Kondisi Network</div><div class="small text-muted">Laporkan kondisi sinyal</div></div><span class="soon-badge">SOON</span></button>
                     <button type="button" data-pwa-install hidden class="d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" style="color: var(--text-main);">
                         <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-download"></i></div>
                         <div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Install Aplikasi</div><div class="small text-muted">Pasang SURYA di perangkat ini</div></div>

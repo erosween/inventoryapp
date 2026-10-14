@@ -170,6 +170,18 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('position: relative !important;', $layout);
         $this->assertStringContainsString('.swal2-container.swal2-top', $layout);
         $this->assertStringContainsString('padding-top: calc(var(--mobile-safe-top) + 54px) !important;', $layout);
+        $this->assertStringContainsString("request()->is('mobile/history') || request()->is('mobile/stock') ? 'pt-0' : 'pt-2'", $layout);
+    }
+
+    public function test_unreleased_extra_features_are_disabled_and_marked_soon(): void
+    {
+        $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
+
+        $this->assertSame(3, substr_count($layout, 'class="soon-feature'));
+        $this->assertSame(3, substr_count($layout, 'class="soon-badge">SOON'));
+        $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.consignment') }}\"", $layout);
+        $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.survey') }}\"", $layout);
+        $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.network') }}\"", $layout);
     }
 
     public function test_mobile_sales_views_hide_currency_and_use_the_optimized_logo(): void
@@ -786,6 +798,7 @@ class MobileSalesFlowTest extends TestCase
             ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 6, 'status' => 'approved'],
             ['tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'SA-1', 'qty' => 2, 'status' => 'approved'],
             ['tgl' => '2026-10-12', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 3, 'status' => 'approved'],
+            ['tgl' => '2026-10-11', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 99, 'status' => 'rejected'],
         ]);
         $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
 
@@ -809,6 +822,10 @@ class MobileSalesFlowTest extends TestCase
             ->assertJsonCount(2, 'outlets')
             ->assertJsonFragment(['id_outlet' => 'OUTLET-1', 'nama_outlet' => 'Outlet Satu'])
             ->assertJsonFragment(['produk' => 'SA BYU', 'qty' => 2, 'status' => 'approved']);
+
+        $this->withSession($session)->getJson(route('mobile.history.details', ['tgl' => '2026-10-11']))
+            ->assertOk()
+            ->assertJsonPath('success', false);
     }
 
     public function test_completed_outlet_can_create_an_additional_transaction_and_locks_during_receipt_draft(): void
@@ -1021,10 +1038,22 @@ class MobileSalesFlowTest extends TestCase
         DB::table('stockawalsf')->insert([
             'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 7,
         ]);
+        DB::table('mobile_sales_receipts')->insert([
+            'id' => 91, 'receipt_number' => 'SUR-REJECT-001', 'tgl' => '2026-10-14',
+            'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001',
+            'total_qty' => 8, 'total_amount' => 13000,
+        ]);
         DB::table('mobile_penjualan')->insert([
-            'id' => 201, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
-            'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 3, 'status' => 'pending',
-            'stock_reserved_at' => now(),
+            [
+                'id' => 201, 'receipt_id' => 91, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+                'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 3, 'unit_price' => 1000, 'status' => 'pending',
+                'stock_reserved_at' => now(),
+            ],
+            [
+                'id' => 202, 'receipt_id' => 91, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+                'idsf' => 'SF001', 'iddenom' => 'D002', 'qty' => 5, 'unit_price' => 2000, 'status' => 'pending',
+                'stock_reserved_at' => null,
+            ],
         ]);
         session(['idtap' => 'TAP001']);
 
@@ -1034,7 +1063,9 @@ class MobileSalesFlowTest extends TestCase
 
         $this->assertTrue($result['success'], json_encode($result));
         $this->assertSame(10, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
-        $this->assertDatabaseHas('mobile_penjualan', ['id' => 201, 'status' => 'rejected', 'stock_reserved_at' => null]);
+        $this->assertDatabaseMissing('mobile_penjualan', ['id' => 201]);
+        $this->assertDatabaseHas('mobile_penjualan', ['id' => 202, 'status' => 'pending']);
+        $this->assertDatabaseHas('mobile_sales_receipts', ['id' => 91, 'total_qty' => 5, 'total_amount' => 10000]);
     }
 
     public function test_mobile_sales_update_removes_items_deleted_from_edit_form_and_updates_notes(): void
