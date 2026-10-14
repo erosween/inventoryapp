@@ -28,9 +28,6 @@
             <div class="text-white fw-900" style="font-size: 2.15rem; line-height: 1;">{{ round($progress) }}%</div>
             <div class="text-white-50 fw-bold mt-1" style="font-size: 0.72rem;">{{ $pjp_list->where('is_visited', true)->count() }} dari {{ $pjp_list->count() }} outlet PJP selesai</div>
         </div>
-        <a href="{{ $activeVisit ? route('mobile.visit.menu', ['id_outlet' => $activeVisit->id_outlet]) : route('mobile.form') }}" class="hero-action" aria-label="{{ $activeVisit ? 'Lanjutkan visit' : 'Input penjualan' }}">
-            <i class="fas fa-plus"></i>
-        </a>
     </div>
 </div>
 
@@ -273,30 +270,8 @@
     }
 
     .hero-command {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: 18px;
         position: relative;
         z-index: 1;
-    }
-
-    .hero-action {
-        width: 62px;
-        height: 62px;
-        border-radius: 22px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-        color: #111827;
-        background: #fff;
-        text-decoration: none;
-        box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
-    }
-
-    .hero-action i {
-        font-size: 1.25rem;
     }
 
     .mobile-kpi-grid {

@@ -6,22 +6,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\MobilePenjualan;
 use App\Helpers\AuditLogger;
+use Carbon\Carbon;
 use Yajra\DataTables\Facades\DataTables;
 
 class MobileApprovalController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $idtap = session('idtap');
-        $today = now()->toDateString();
+        $selected_date = $this->salesDate($request);
+        $selected_date_label = Carbon::parse($selected_date)->locale('id')->translatedFormat('d M Y');
 
         // 1. Total Pending Count
-        $pendingQuery = MobilePenjualan::where('status', 'pending');
+        $pendingQuery = MobilePenjualan::where('status', 'pending')->whereDate('tgl', $selected_date);
         if ($idtap !== 'SBP_DUMAI') $pendingQuery->where('idtap', $idtap);
         $total_pending_count = $pendingQuery->count();
 
         // 2. Total Pending Amount
         $pendingAmountQuery = MobilePenjualan::where('mobile_penjualan.status', 'pending')
+            ->whereDate('mobile_penjualan.tgl', $selected_date)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $pendingAmountQuery->where('mobile_penjualan.idtap', $idtap);
@@ -29,7 +32,7 @@ class MobileApprovalController extends Controller
 
         // 3. Today Approved Amount
         $approvedTodayQuery = MobilePenjualan::where('mobile_penjualan.status', 'approved')
-            ->whereDate('mobile_penjualan.updated_at', $today)
+            ->whereDate('mobile_penjualan.tgl', $selected_date)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $approvedTodayQuery->where('mobile_penjualan.idtap', $idtap);
@@ -37,7 +40,7 @@ class MobileApprovalController extends Controller
 
         // 4. Top SF Today (Suggestion)
         $topSfQuery = MobilePenjualan::where('mobile_penjualan.status', 'approved')
-            ->whereDate('mobile_penjualan.updated_at', $today)
+            ->whereDate('mobile_penjualan.tgl', $selected_date)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->join('idsf', 'mobile_penjualan.idsf', '=', 'idsf.idsf')
             ->select('idsf.namasf', DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'))
@@ -57,7 +60,9 @@ class MobileApprovalController extends Controller
             'total_pending_amount', 
             'today_approved_amount', 
             'top_sf_today',
-            'sf_list'
+            'sf_list',
+            'selected_date',
+            'selected_date_label'
         ));
     }
 
@@ -65,16 +70,17 @@ class MobileApprovalController extends Controller
     {
         $idtap = session('idtap');
         $idsf = $request->idsf;
-        $today = now()->toDateString();
+        $selectedDate = $this->salesDate($request);
 
         // 1. Pending Count
-        $pendingQuery = MobilePenjualan::where('status', 'pending');
+        $pendingQuery = MobilePenjualan::where('status', 'pending')->whereDate('tgl', $selectedDate);
         if ($idtap !== 'SBP_DUMAI') $pendingQuery->where('idtap', $idtap);
         if ($idsf) $pendingQuery->where('idsf', $idsf);
         $count = $pendingQuery->count();
 
         // 2. Pending Amount
         $pendingAmountQuery = MobilePenjualan::where('mobile_penjualan.status', 'pending')
+            ->whereDate('mobile_penjualan.tgl', $selectedDate)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $pendingAmountQuery->where('mobile_penjualan.idtap', $idtap);
@@ -83,7 +89,7 @@ class MobileApprovalController extends Controller
 
         // 3. Approved Today
         $approvedTodayQuery = MobilePenjualan::where('mobile_penjualan.status', 'approved')
-            ->whereDate('mobile_penjualan.updated_at', $today)
+            ->whereDate('mobile_penjualan.tgl', $selectedDate)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $approvedTodayQuery->where('mobile_penjualan.idtap', $idtap);
@@ -93,7 +99,9 @@ class MobileApprovalController extends Controller
         return response()->json([
             'count' => number_format($count) . ' Data',
             'pending_amount' => 'Rp ' . number_format($pending_amount, 0, ',', '.'),
-            'approved_amount' => 'Rp ' . number_format($approved_amount, 0, ',', '.')
+            'approved_amount' => 'Rp ' . number_format($approved_amount, 0, ',', '.'),
+            'date' => $selectedDate,
+            'date_label' => Carbon::parse($selectedDate)->locale('id')->translatedFormat('d M Y'),
         ]);
     }
 
@@ -104,6 +112,7 @@ class MobileApprovalController extends Controller
         $status = $request->status;
         $idtap_filter = $request->idtap;
         $jenis = $request->jenis;
+        $selectedDate = $this->salesDate($request);
 
         $query = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
@@ -118,7 +127,8 @@ class MobileApprovalController extends Controller
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as harga_jual'),
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_setoran')
             )
-            ->where('m.idsf', $idsf);
+            ->where('m.idsf', $idsf)
+            ->whereDate('m.tgl', $selectedDate);
 
         if ($idtap_session !== 'SBP_DUMAI') $query->where('m.idtap', $idtap_session);
         if ($idtap_filter) $query->where('m.idtap', $idtap_filter);
@@ -162,6 +172,7 @@ class MobileApprovalController extends Controller
             'status' => $status,
             'idtap' => $idtap_filter,
             'jenis' => $jenis,
+            'date' => $selectedDate,
             'items' => $items,
         ]);
     }
@@ -171,6 +182,7 @@ class MobileApprovalController extends Controller
         $idtap = session('idtap');
         $idsf = $request->idsf;
         $status = $request->status;
+        $selectedDate = $this->salesDate($request);
         
         $query = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
@@ -185,6 +197,7 @@ class MobileApprovalController extends Controller
                 DB::raw('SUM(m.qty) as total_qty'),
                 DB::raw('SUM(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_rupiah')
             )
+            ->whereDate('m.tgl', $selectedDate)
             ->groupBy('m.idsf', 's.namasf', 'm.idtap', 'm.status', 'jenis_paket');
 
         if ($idtap !== 'SBP_DUMAI') {
@@ -231,6 +244,23 @@ class MobileApprovalController extends Controller
             })
             ->rawColumns(['namasf', 'status', 'action'])
             ->make(true);
+    }
+
+    private function salesDate(Request $request): string
+    {
+        $value = trim((string) $request->input('date', now()->toDateString()));
+
+        try {
+            $date = Carbon::createFromFormat('!Y-m-d', $value);
+
+            if ($date && $date->format('Y-m-d') === $value) {
+                return $value;
+            }
+        } catch (\Throwable $e) {
+            // Invalid filters fall back to today instead of breaking DataTables.
+        }
+
+        return now()->toDateString();
     }
 
     public function approve(Request $request)

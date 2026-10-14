@@ -22,8 +22,8 @@
                         <div class="card-body py-4 position-relative">
                             <div class="row align-items-center">
                                 <div class="col-md-12">
-                                    <h6 class="text-white-50 fw-bold mb-1">TOTAL PENDING HARI INI</h6>
-                                    <h1 class="fw-900 mb-0" style="font-size: 2.5rem;">Rp {{ number_format($total_pending_amount, 0, ',', '.') }}</h1>
+                                    <h6 class="text-white-50 fw-bold mb-1" id="total-pending-label">TOTAL PENDING {{ strtoupper($selected_date_label) }}</h6>
+                                    <h1 class="fw-900 mb-0" id="total-pending-amount" style="font-size: 2.5rem;">Rp {{ number_format($total_pending_amount, 0, ',', '.') }}</h1>
                                     <div class="mt-2 text-white-50 small">
                                         <i class="fas fa-chart-line me-1"></i> Rekapitulasi setoran tertunda yang menunggu verifikasi
                                     </div>
@@ -38,7 +38,7 @@
                 <div class="col-md-12">
                     <div class="card premium-card card-round border-0 shadow-sm">
                         <div class="card-header border-bottom py-3">
-                            <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap" style="gap: 12px;">
                                 <div class="d-flex align-items-center">
                                     <div class="bg-light-indigo p-2 rounded-3 me-3 text-indigo">
                                         <i class="fas fa-users-cog"></i>
@@ -57,8 +57,13 @@
                                         </li>
                                     </ul>
                                 </div>
-                                <div>
-                                    <i class="fas fa-sync-alt fa-spin me-1 d-none text-muted" id="table-loader"></i> 
+                                <div class="d-flex align-items-center" style="gap: 8px;">
+                                    <label for="approval-date" class="mb-0 small fw-bold text-muted">Tanggal Penjualan</label>
+                                    <input type="date" id="approval-date" class="form-control form-control-sm" value="{{ $selected_date }}" style="width: 155px;">
+                                    <button type="button" class="btn btn-indigo btn-sm btn-round" id="approval-refresh" title="Perbarui rekap">
+                                        <i class="fas fa-sync-alt"></i> Perbarui
+                                    </button>
+                                    <i class="fas fa-sync-alt fa-spin me-1 d-none text-muted" id="table-loader"></i>
                                 </div>
                             </div>
                         </div>
@@ -216,6 +221,7 @@
     $(document).ready(function() {
         var selectedIdsf = '';
         var selectedStatus = 'pending';
+        var selectedDate = @json($selected_date);
         var currentModalSf = '';
         var currentModalIdtap = '';
         var currentModalJenis = '';
@@ -230,6 +236,7 @@
                 data: function(d) {
                     d.idsf = selectedIdsf;
                     d.status = selectedStatus;
+                    d.date = selectedDate;
                 },
                 beforeSend: function() { $('#table-loader').removeClass('d-none'); },
                 complete: function() { $('#table-loader').addClass('d-none'); }
@@ -245,6 +252,33 @@
             ],
             order: [[0, 'asc']],
             pageLength: 25
+        });
+
+        function refreshStats() {
+            return $.get("{{ route('admin.mobile-approval.stats') }}", {
+                idsf: selectedIdsf,
+                date: selectedDate
+            }, function(res) {
+                $('#total-pending-amount').text(res.pending_amount);
+                $('#total-pending-label').text('TOTAL PENDING ' + String(res.date_label || '').toUpperCase());
+            });
+        }
+
+        table.on('xhr.dt', function() {
+            refreshStats();
+        });
+
+        $('#approval-date').on('change', function() {
+            selectedDate = $(this).val() || @json(now()->toDateString());
+            table.ajax.reload();
+        });
+
+        $('#approval-refresh').on('click', function() {
+            var button = $(this);
+            button.prop('disabled', true).find('i').addClass('fa-spin');
+            $.when(table.ajax.reload(null, false), refreshStats()).always(function() {
+                button.prop('disabled', false).find('i').removeClass('fa-spin');
+            });
         });
 
         // Status Tabs
@@ -285,7 +319,8 @@
                 idsf: idsf, 
                 status: status,
                 idtap: idtap,
-                jenis: jenis
+                jenis: jenis,
+                date: selectedDate
             }, function(res) {
                 $('#modal-sf-name').text(res.sf_name.toUpperCase());
                 $('#modal-total-amount').text(res.total_amount);

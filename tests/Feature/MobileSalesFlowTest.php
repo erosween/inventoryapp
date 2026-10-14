@@ -707,6 +707,15 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
     }
 
+    public function test_dashboard_uses_only_the_journey_plan_add_button(): void
+    {
+        $dashboard = file_get_contents(resource_path('views/mobile/index.blade.php'));
+
+        $this->assertStringNotContainsString('class="hero-action"', $dashboard);
+        $this->assertStringContainsString('data-bs-target="#searchOutletModal"', $dashboard);
+        $this->assertStringContainsString('<i class="fas fa-plus me-1"></i> TAMBAH', $dashboard);
+    }
+
     public function test_pjp_completion_resets_for_the_current_day(): void
     {
         Carbon::setTestNow('2026-10-13 09:00:00');
@@ -929,6 +938,7 @@ class MobileSalesFlowTest extends TestCase
 
     public function test_admin_setoran_is_grouped_by_denom_and_reserved_stock_is_not_deducted_twice(): void
     {
+        Carbon::setTestNow('2026-10-14 17:00:00');
         DB::table('idsf')->insert([
             'idsf' => 'SF001', 'namasf' => 'Sales Test', 'idtap' => 'TAP001',
         ]);
@@ -968,6 +978,42 @@ class MobileSalesFlowTest extends TestCase
         $this->assertSame(70, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
         $this->assertSame(30, (int) DB::table('keluarsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->sum('qty'));
         $this->assertSame(2, DB::table('mobile_penjualan')->where('status', 'approved')->count());
+    }
+
+    public function test_admin_daily_recap_filters_sales_by_transaction_date(): void
+    {
+        DB::table('idsf')->insert([
+            'idsf' => 'SF001', 'namasf' => 'Sales Test', 'idtap' => 'TAP001',
+        ]);
+        DB::table('denom')->insert([
+            'iddenom' => 'D001', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'harga_jual' => 1000,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['id' => 301, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 4, 'status' => 'pending'],
+            ['id' => 302, 'tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 9, 'status' => 'pending'],
+        ]);
+        session(['idtap' => 'TAP001']);
+        $controller = app(\App\Http\Controllers\MobileApprovalController::class);
+
+        $stats = $controller->getStats(new Request(['date' => '2026-10-14']))->getData(true);
+        $details = $controller->getSfDetails(new Request([
+            'idsf' => 'SF001',
+            'status' => 'pending',
+            'idtap' => 'TAP001',
+            'jenis' => 'VOUCHER FISIK',
+            'date' => '2026-10-14',
+        ]))->getData(true);
+
+        $this->assertSame('1 Data', $stats['count']);
+        $this->assertSame('Rp 4.000', $stats['pending_amount']);
+        $this->assertSame('2026-10-14', $stats['date']);
+        $this->assertSame(1, $details['transaction_count']);
+        $this->assertSame([301], $details['items'][0]['ids']);
+        $this->assertSame('4', $details['items'][0]['qty']);
+
+        $adminView = file_get_contents(resource_path('views/admin/mobile-approval.blade.php'));
+        $this->assertStringContainsString('id="approval-date"', $adminView);
+        $this->assertStringContainsString("d.date = selectedDate", $adminView);
     }
 
     public function test_rejecting_pending_sale_returns_reserved_stock_to_sales_force(): void
