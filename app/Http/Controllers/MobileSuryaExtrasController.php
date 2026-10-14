@@ -9,7 +9,9 @@ class MobileSuryaExtrasController extends Controller
 {
     public function consignment()
     {
-        return view('mobile.surya-form', ['type' => 'consignment', 'title' => 'Konsinyasi SA', 'outlets' => $this->outlets()]);
+        return redirect()
+            ->route('mobile.form')
+            ->with('success', 'Konsinyasi SA sekarang tersedia langsung di form penjualan.');
     }
 
     public function survey()
@@ -24,14 +26,18 @@ class MobileSuryaExtrasController extends Controller
 
     public function store(Request $request, string $type)
     {
+        if ($type === 'consignment') {
+            return redirect()
+                ->route('mobile.form')
+                ->with('error', 'Masukkan konsinyasi SA bersama transaksi penjualan agar outlet dan receipt tercatat otomatis.');
+        }
+
         $rules = ['id_outlet' => ['required'], 'notes' => ['nullable', 'string', 'max:1000']];
-        if ($type === 'consignment') $rules['serial_number'] = ['required', 'string', 'max:30'];
         if ($type === 'survey') $rules += ['operator' => ['required'], 'product' => ['nullable'], 'price' => ['nullable', 'numeric'], 'estimated_stock' => ['nullable', 'integer', 'min:0']];
         if ($type === 'network') $rules += ['operator' => ['required'], 'signal_status' => ['required'], 'data_status' => ['nullable']];
         $data = $request->validate($rules);
         $data += ['reported_at' => now(), 'idtap' => session('idtap'), 'idsf' => session('mobile_sf_id')];
         $table = match ($type) {
-            'consignment' => 'surya_sa_consignment_numbers',
             'survey' => 'surya_competitor_surveys',
             'network' => 'surya_network_reports',
             default => abort(404),

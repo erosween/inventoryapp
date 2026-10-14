@@ -17,6 +17,7 @@ class SuryaFieldReportController extends Controller
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'r.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'r.idsf')
             ->when($idtap && $idtap !== 'SBP_DUMAI', fn ($q) => $q->where('r.idtap', $idtap))
+            ->when($type === 'consignment', fn ($q) => $q->where('r.status', '<>', 'draft'))
             ->select('r.*', 'o.nama_outlet', 's.namasf')
             ->orderByDesc('r.reported_at')->paginate(25)->withQueryString();
         return view('surya.field-reports', compact('rows', 'type'));

@@ -195,10 +195,35 @@ SQL;
             'products' => 'required|array|min:1',
             'products.*.iddenom' => 'required|exists:denom,iddenom',
             'products.*.qty' => 'required|integer|min:1',
+            'consignment_enabled' => 'nullable|boolean',
+            'consignment_numbers' => 'nullable|string|max:10000',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'keterangan' => 'nullable|string|max:1000',
         ]);
+
+        $consignmentNumbers = [];
+        if ($request->boolean('consignment_enabled')) {
+            [$consignmentNumbers, $invalidNumbers, $duplicateNumbers] = $this->parseConsignmentNumbers(
+                $request->input('consignment_numbers')
+            );
+
+            if ($consignmentNumbers === []) {
+                return back()->withInput()->withErrors([
+                    'consignment_numbers' => 'Masukkan minimal satu nomor perdana SA.',
+                ]);
+            }
+            if ($invalidNumbers !== []) {
+                return back()->withInput()->withErrors([
+                    'consignment_numbers' => 'Format nomor tidak valid: '.implode(', ', array_slice($invalidNumbers, 0, 5)).'.',
+                ]);
+            }
+            if ($duplicateNumbers !== []) {
+                return back()->withInput()->withErrors([
+                    'consignment_numbers' => 'Nomor duplikat pada isian: '.implode(', ', array_slice($duplicateNumbers, 0, 5)).'.',
+                ]);
+            }
+        }
 
         $idsf = session('mobile_sf_id');
         $salesDate = now()->toDateString();
@@ -250,7 +275,7 @@ SQL;
         }
 
         try {
-            $receipt = DB::transaction(function () use ($request, $idsf, $salesDate, $requestedOutlet) {
+            $receipt = DB::transaction(function () use ($request, $idsf, $salesDate, $requestedOutlet, $consignmentNumbers) {
                 $products = collect($request->products)
                     ->groupBy('iddenom')
                     ->map(fn ($rows, $iddenom) => [
@@ -314,6 +339,36 @@ SQL;
                         'latitude' => $request->latitude,
                         'longitude' => $request->longitude,
                     ]);
+                }
+
+                if ($consignmentNumbers !== []) {
+                    $registeredNumbers = DB::table('surya_sa_consignment_numbers')
+                        ->whereIn('serial_number', $consignmentNumbers)
+                        ->lockForUpdate()
+                        ->pluck('serial_number')
+                        ->all();
+
+                    if ($registeredNumbers !== []) {
+                        throw new \RuntimeException(
+                            'Nomor perdana sudah pernah dicatat: '.implode(', ', array_slice($registeredNumbers, 0, 5)).'.'
+                        );
+                    }
+
+                    $timestamp = now();
+                    DB::table('surya_sa_consignment_numbers')->insert(
+                        collect($consignmentNumbers)->map(fn (string $number) => [
+                            'receipt_id' => $receipt->id,
+                            'reported_at' => $timestamp,
+                            'id_outlet' => $requestedOutlet,
+                            'idtap' => session('idtap'),
+                            'idsf' => $idsf,
+                            'serial_number' => $number,
+                            'status' => 'draft',
+                            'notes' => $request->keterangan,
+                            'created_at' => $timestamp,
+                            'updated_at' => $timestamp,
+                        ])->all()
+                    );
                 }
 
                 return $receipt;
@@ -790,6 +845,14 @@ SQL;
                     ]);
                 }
 
+                DB::table('surya_sa_consignment_numbers')
+                    ->where('receipt_id', $lockedReceipt->id)
+                    ->where('status', 'draft')
+                    ->update([
+                        'status' => 'consigned',
+                        'updated_at' => now(),
+                    ]);
+
                 $lockedReceipt->update(['whatsapp_shared_at' => now()]);
             });
         } catch (\Throwable $e) {
@@ -821,6 +884,46 @@ SQL;
         }
 
         return preg_match('/^62[0-9]{8,13}$/', $digits) ? $digits : null;
+    }
+
+    private function parseConsignmentNumbers(?string $rawNumbers): array
+    {
+        $numbers = [];
+        $invalid = [];
+        $duplicates = [];
+
+        foreach (preg_split('/[\r\n,;]+/', (string) $rawNumbers) ?: [] as $rawNumber) {
+            $rawNumber = trim($rawNumber);
+            if ($rawNumber === '') {
+                continue;
+            }
+
+            $candidate = preg_replace('/[\s().-]+/', '', $rawNumber);
+            if (! preg_match('/^\+?\d+$/', (string) $candidate)) {
+                $invalid[] = $rawNumber;
+                continue;
+            }
+
+            $number = ltrim((string) $candidate, '+');
+            if (str_starts_with($number, '0062')) {
+                $number = substr($number, 2);
+            } elseif (str_starts_with($number, '0')) {
+                $number = '62'.substr($number, 1);
+            }
+
+            if (! preg_match('/^\d{8,20}$/', $number)) {
+                $invalid[] = $rawNumber;
+                continue;
+            }
+            if (in_array($number, $numbers, true)) {
+                $duplicates[] = $number;
+                continue;
+            }
+
+            $numbers[] = $number;
+        }
+
+        return [$numbers, array_values(array_unique($invalid)), array_values(array_unique($duplicates))];
     }
 
     private function buildReceiptMessage(MobileSalesReceipt $receipt): string

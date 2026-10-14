@@ -176,12 +176,22 @@ class MobileSalesFlowTest extends TestCase
     public function test_unreleased_extra_features_are_disabled_and_marked_soon(): void
     {
         $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
+        $form = file_get_contents(resource_path('views/mobile/form.blade.php'));
 
-        $this->assertSame(3, substr_count($layout, 'class="soon-feature'));
-        $this->assertSame(3, substr_count($layout, 'class="soon-badge">SOON'));
+        $this->assertSame(2, substr_count($layout, 'class="soon-feature'));
+        $this->assertSame(2, substr_count($layout, 'class="soon-badge">SOON'));
+        $this->assertStringNotContainsString('Konsinyasi SA', $layout);
+        $this->assertStringContainsString('id="consignment-toggle"', $form);
+        $this->assertStringContainsString('name="consignment_numbers"', $form);
+        $this->assertStringContainsString('consignment_numbers: $(\'#consignment_numbers\').val()', $form);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.consignment') }}\"", $layout);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.survey') }}\"", $layout);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.network') }}\"", $layout);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001',
+        ])->get(route('mobile.surya.consignment'))
+            ->assertRedirect(route('mobile.form'));
     }
 
     public function test_mobile_sales_views_hide_currency_and_use_the_optimized_logo(): void
@@ -200,6 +210,39 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('surya-logo-mobile.webp', $login);
         $this->assertFileExists($logo);
         $this->assertLessThan(10_000, filesize($logo));
+    }
+
+    public function test_enabled_consignment_requires_unique_valid_starter_numbers(): void
+    {
+        DB::table('denom')->insert([
+            'iddenom' => 'SA-VALIDATION',
+            'denom' => 'SA VALIDATION',
+            'group_name' => 'SA',
+            'harga_jual' => 0,
+        ]);
+
+        $session = [
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ];
+        $payload = [
+            'id_outlet' => 'OUTLET-VALIDATION',
+            'products' => [['iddenom' => 'SA-VALIDATION', 'qty' => 1]],
+            'consignment_enabled' => '1',
+        ];
+
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $payload)
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('consignment_numbers');
+
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $payload + [
+            'consignment_numbers' => "081234567890\n+62 812-3456-7890",
+        ])->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('consignment_numbers');
+
+        $this->assertDatabaseCount('mobile_sales_receipts', 0);
+        $this->assertDatabaseCount('surya_sa_consignment_numbers', 0);
     }
 
     public function test_prefilled_outlet_on_sales_form_is_locked_and_shows_outlet_name(): void
@@ -288,6 +331,8 @@ class MobileSalesFlowTest extends TestCase
                     'qty' => 3,
                 ],
             ],
+            'consignment_enabled' => '1',
+            'consignment_numbers' => "081234567890\n+62 812-3456-7891",
             'latitude' => -6.20000000,
             'longitude' => 106.81666600,
         ]);
@@ -310,6 +355,16 @@ class MobileSalesFlowTest extends TestCase
         $this->assertDatabaseMissing('mobile_penjualan', [
             'tgl' => '2026-04-01',
             'id_outlet' => 'OUTLET-1',
+        ]);
+        $this->assertDatabaseHas('surya_sa_consignment_numbers', [
+            'receipt_id' => $receipt->id,
+            'serial_number' => '6281234567890',
+            'status' => 'draft',
+        ]);
+        $this->assertDatabaseHas('surya_sa_consignment_numbers', [
+            'receipt_id' => $receipt->id,
+            'serial_number' => '6281234567891',
+            'status' => 'draft',
         ]);
 
         $this->assertTrue(
@@ -342,6 +397,10 @@ class MobileSalesFlowTest extends TestCase
             'receipt_id' => $receipt->id,
             'status' => 'pending',
         ]);
+        $this->assertSame(2, DB::table('surya_sa_consignment_numbers')
+            ->where('receipt_id', $receipt->id)
+            ->where('status', 'consigned')
+            ->count());
         $this->assertNotNull(
             DB::table('mobile_penjualan')->where('receipt_id', $receipt->id)->value('stock_reserved_at')
         );
@@ -967,14 +1026,27 @@ class MobileSalesFlowTest extends TestCase
         ]);
         DB::table('mobile_penjualan')->insert([
             [
-                'id' => 101, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+                'id' => 101, 'receipt_id' => 501, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
                 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 20, 'status' => 'pending',
                 'stock_reserved_at' => now(),
             ],
             [
-                'id' => 102, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001',
+                'id' => 102, 'receipt_id' => 501, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001',
                 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 10, 'status' => 'pending',
                 'stock_reserved_at' => now(),
+            ],
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-1', 'nama_outlet' => 'Outlet Konsinyasi', 'sf' => 'Sales Test',
+        ]);
+        DB::table('surya_sa_consignment_numbers')->insert([
+            [
+                'receipt_id' => 501, 'reported_at' => now(), 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+                'idsf' => 'SF001', 'serial_number' => '6281234567890', 'status' => 'consigned',
+            ],
+            [
+                'receipt_id' => 501, 'reported_at' => now(), 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+                'idsf' => 'SF001', 'serial_number' => '6281234567891', 'status' => 'consigned',
             ],
         ]);
         session(['idtap' => 'TAP001']);
@@ -989,12 +1061,16 @@ class MobileSalesFlowTest extends TestCase
         $this->assertSame([101, 102], $detail['items'][0]['ids']);
         $this->assertSame('30', $detail['items'][0]['qty']);
         $this->assertArrayNotHasKey('outlet', $detail['items'][0]);
+        $this->assertSame(2, $detail['consignment']['count']);
+        $this->assertSame('Outlet Konsinyasi', $detail['consignment']['outlets'][0]['nama_outlet']);
+        $this->assertSame(['6281234567890', '6281234567891'], $detail['consignment']['outlets'][0]['numbers']);
 
         $approval = $controller->bulkApprove(new Request(['ids' => [101, 102]]))->getData(true);
         $this->assertTrue($approval['success'], json_encode($approval));
         $this->assertSame(70, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
         $this->assertSame(30, (int) DB::table('keluarsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->sum('qty'));
         $this->assertSame(2, DB::table('mobile_penjualan')->where('status', 'approved')->count());
+        $this->assertSame(2, DB::table('surya_sa_consignment_numbers')->where('status', 'approved')->count());
     }
 
     public function test_admin_daily_recap_filters_sales_by_transaction_date(): void
@@ -1055,6 +1131,10 @@ class MobileSalesFlowTest extends TestCase
                 'stock_reserved_at' => null,
             ],
         ]);
+        DB::table('surya_sa_consignment_numbers')->insert([
+            'receipt_id' => 91, 'reported_at' => now(), 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+            'idsf' => 'SF001', 'serial_number' => '628111111111', 'status' => 'consigned',
+        ]);
         session(['idtap' => 'TAP001']);
 
         $result = app(\App\Http\Controllers\MobileApprovalController::class)
@@ -1066,6 +1146,15 @@ class MobileSalesFlowTest extends TestCase
         $this->assertDatabaseMissing('mobile_penjualan', ['id' => 201]);
         $this->assertDatabaseHas('mobile_penjualan', ['id' => 202, 'status' => 'pending']);
         $this->assertDatabaseHas('mobile_sales_receipts', ['id' => 91, 'total_qty' => 5, 'total_amount' => 10000]);
+        $this->assertDatabaseHas('surya_sa_consignment_numbers', ['receipt_id' => 91]);
+
+        $secondResult = app(\App\Http\Controllers\MobileApprovalController::class)
+            ->bulkReject(new Request(['ids' => [202]]))
+            ->getData(true);
+
+        $this->assertTrue($secondResult['success'], json_encode($secondResult));
+        $this->assertDatabaseMissing('mobile_sales_receipts', ['id' => 91]);
+        $this->assertDatabaseMissing('surya_sa_consignment_numbers', ['receipt_id' => 91]);
     }
 
     public function test_mobile_sales_update_removes_items_deleted_from_edit_form_and_updates_notes(): void
@@ -1187,6 +1276,19 @@ class MobileSalesFlowTest extends TestCase
             $table->text('keterangan')->nullable();
             $table->string('status', 20)->default('pending');
             $table->timestamp('stock_reserved_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('surya_sa_consignment_numbers', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('receipt_id')->nullable();
+            $table->dateTime('reported_at');
+            $table->string('id_outlet', 100);
+            $table->string('idtap', 25);
+            $table->string('idsf', 25);
+            $table->string('serial_number', 30);
+            $table->string('status', 20)->default('consigned');
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
 

@@ -144,6 +144,17 @@
                     </div>
                 </div>
 
+                <div id="modal-consignment-section" class="d-none px-4 py-3 border-top bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <div class="fw-900 text-dark"><i class="fas fa-sim-card text-indigo me-2"></i>Konsinyasi SA</div>
+                            <small class="text-muted">Nomor perdana yang dicatat bersama transaksi</small>
+                        </div>
+                        <span id="modal-consignment-count" class="badge badge-indigo">0 Nomor</span>
+                    </div>
+                    <div id="modal-consignment-list"></div>
+                </div>
+
                 <!-- Comparison Helper (Only for Pending) -->
                 <div id="modal-comparison-section" class="px-4 py-3 bg-light border-top">
                     <div class="row align-items-center">
@@ -173,6 +184,22 @@
     .bg-light-indigo { background-color: rgba(78, 115, 223, 0.05); }
     .text-indigo { color: #4e73df; }
     .bg-indigo { background-color: #4e73df; }
+    .consignment-outlet-block {
+        padding: 12px 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #f8fafc;
+    }
+    .consignment-number-chip {
+        display: inline-block;
+        margin: 4px 4px 0 0;
+        padding: 5px 8px;
+        border-radius: 8px;
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        color: #1f2937;
+        font: 700 .78rem/1.2 monospace;
+    }
     
     .nav-pills.nav-indigo .nav-link.active {
         background-color: #4e73df;
@@ -311,6 +338,9 @@
             $('#modal-item-count').text('Memuat...');
             $('#modal-status-badge').html('<i class="fas fa-circle-notch fa-spin text-muted"></i>');
             $('#modal-items-table tbody').html('<tr><td colspan="6" class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-indigo"></i><br><small class="text-muted">Mengambil data rincian...</small></td></tr>');
+            $('#modal-consignment-section').addClass('d-none');
+            $('#modal-consignment-list').empty();
+            $('#modal-consignment-count').text('0 Nomor');
             $('#modal-comparison-section, #modal-footer-actions').addClass('d-none');
             $('#check-all-items').prop('checked', false);
             $('#reviewModal').modal('show');
@@ -367,6 +397,25 @@
                     </tr>`;
                 });
                 $('#modal-items-table tbody').html(html);
+
+                var consignment = res.consignment || { count: 0, outlets: [] };
+                if (consignment.count > 0) {
+                    var consignmentHtml = (consignment.outlets || []).map(function(outlet) {
+                        var numberChips = (outlet.numbers || []).map(function(number) {
+                            return `<span class="consignment-number-chip">${escapeHtml(number)}</span>`;
+                        }).join('');
+
+                        return `<div class="consignment-outlet-block mb-2">
+                            <div class="fw-bold text-dark">${escapeHtml(outlet.nama_outlet)}</div>
+                            <small class="text-muted">ID: ${escapeHtml(outlet.id_outlet)}</small>
+                            <div class="mt-1">${numberChips}</div>
+                        </div>`;
+                    }).join('');
+
+                    $('#modal-consignment-count').text(consignment.count + ' Nomor');
+                    $('#modal-consignment-list').html(consignmentHtml);
+                    $('#modal-consignment-section').removeClass('d-none');
+                }
                 updateSelectedCount();
             });
         });

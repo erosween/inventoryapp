@@ -119,6 +119,7 @@ class MobileApprovalController extends Controller
             ->join('idsf as s', 'm.idsf', '=', 's.idsf')
             ->select(
                 'm.id',
+                'm.receipt_id',
                 'm.tgl',
                 'm.status',
                 'm.iddenom',
@@ -148,6 +149,24 @@ class MobileApprovalController extends Controller
 
         $sales = $query->orderBy('d.denom')->orderBy('m.tgl')->get();
         $total_amount = $sales->sum('total_setoran');
+        $receiptIds = $sales->pluck('receipt_id')->filter()->unique()->values();
+        $consignmentRows = $receiptIds->isEmpty()
+            ? collect()
+            : DB::table('surya_sa_consignment_numbers as c')
+                ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
+                ->whereIn('c.receipt_id', $receiptIds)
+                ->where('c.idsf', $idsf)
+                ->whereNotIn('c.status', ['draft'])
+                ->when($idtap_session !== 'SBP_DUMAI', fn ($consignmentQuery) => $consignmentQuery->where('c.idtap', $idtap_session))
+                ->when($idtap_filter, fn ($consignmentQuery) => $consignmentQuery->where('c.idtap', $idtap_filter))
+                ->orderBy('o.nama_outlet')
+                ->orderBy('c.serial_number')
+                ->get([
+                    'c.id_outlet',
+                    'c.serial_number',
+                    'c.status',
+                    DB::raw('COALESCE(o.nama_outlet, c.id_outlet) as nama_outlet'),
+                ]);
         $items = $sales->groupBy('iddenom')->map(function ($denomSales) {
             $firstDate = $denomSales->min('tgl');
             $lastDate = $denomSales->max('tgl');
@@ -174,6 +193,16 @@ class MobileApprovalController extends Controller
             'jenis' => $jenis,
             'date' => $selectedDate,
             'items' => $items,
+            'consignment' => [
+                'count' => $consignmentRows->count(),
+                'outlets' => $consignmentRows->groupBy('id_outlet')->map(function ($rows) {
+                    return [
+                        'id_outlet' => $rows->first()->id_outlet,
+                        'nama_outlet' => $rows->first()->nama_outlet,
+                        'numbers' => $rows->pluck('serial_number')->values()->all(),
+                    ];
+                })->values(),
+            ],
         ]);
     }
 
@@ -314,6 +343,19 @@ class MobileApprovalController extends Controller
                     'updated_at' => now()
                 ]);
 
+                if ($sale->receipt_id && ! DB::table('mobile_penjualan')
+                    ->where('receipt_id', $sale->receipt_id)
+                    ->where('status', 'pending')
+                    ->exists()) {
+                    DB::table('surya_sa_consignment_numbers')
+                        ->where('receipt_id', $sale->receipt_id)
+                        ->where('status', 'consigned')
+                        ->update([
+                            'status' => 'approved',
+                            'updated_at' => now(),
+                        ]);
+                }
+
                 AuditLogger::log('APPROVE', 'Mobile Sales', $id, (array)$sale);
             });
 
@@ -434,6 +476,9 @@ class MobileApprovalController extends Controller
                     ->first();
 
                 if ((int) $receiptTotals->item_count === 0) {
+                    DB::table('surya_sa_consignment_numbers')
+                        ->where('receipt_id', $receiptId)
+                        ->delete();
                     DB::table('mobile_sales_receipts')->where('id', $receiptId)->delete();
                 } else {
                     DB::table('mobile_sales_receipts')->where('id', $receiptId)->update([

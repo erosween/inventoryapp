@@ -60,6 +60,34 @@
             <!-- Product Rows added via JS -->
         </div>
 
+        @php
+            $consignmentOpen = old('consignment_enabled') === '1';
+        @endphp
+        <div class="consignment-shell mb-4">
+            <button type="button" id="consignment-toggle" class="consignment-toggle" aria-expanded="{{ $consignmentOpen ? 'true' : 'false' }}" aria-controls="consignment-panel">
+                <span><i class="fas fa-sim-card me-2"></i>Konsinyasi SA</span>
+                <span class="consignment-toggle-action"><i class="fas fa-plus me-1"></i> Isi nomor perdana</span>
+            </button>
+            <input type="hidden" name="consignment_enabled" id="consignment_enabled" value="{{ $consignmentOpen ? '1' : '0' }}">
+            <div id="consignment-panel" class="consignment-panel {{ $consignmentOpen ? '' : 'd-none' }}">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <div class="fw-800 text-dark" style="font-size: .78rem;">Nomor perdana wajib diisi</div>
+                        <div class="text-muted fw-bold" style="font-size: .62rem;">Satu nomor per baris. Qty dihitung otomatis oleh sistem.</div>
+                    </div>
+                    <span id="consignment-count" class="consignment-count">0 nomor</span>
+                </div>
+                <textarea name="consignment_numbers" id="consignment_numbers" class="form-control consignment-textarea" rows="5" inputmode="tel" autocomplete="off" placeholder="081234567890&#10;081234567891">{{ old('consignment_numbers') }}</textarea>
+                <div id="consignment-feedback" class="consignment-feedback mt-2"></div>
+                @error('consignment_numbers')
+                    <div class="consignment-server-error mt-2"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</div>
+                @enderror
+                <button type="button" id="consignment-clear" class="btn btn-link text-danger text-decoration-none fw-bold p-0 mt-3" style="font-size: .66rem;">
+                    Hapus konsinyasi dari transaksi
+                </button>
+            </div>
+        </div>
+
         <!-- Notes Section - Orange Bento Card -->
         <div class="glass-card mb-4 p-0 border-0 shadow-sm overflow-hidden" style="background: white; border-radius: 24px;">
             <div class="d-flex align-items-stretch">
@@ -132,6 +160,66 @@
     .outlet-inline-option small { display: block; }
     .outlet-inline-option strong { font-size: .72rem; }
     .outlet-inline-option small { color: #64748b; font-size: .6rem; font-weight: 700; }
+    .consignment-shell {
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+        overflow: hidden;
+    }
+    .consignment-toggle {
+        width: 100%;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 14px;
+        border: 0;
+        background: #fff;
+        color: #111827;
+        font-size: .72rem;
+        font-weight: 800;
+        text-align: left;
+    }
+    .consignment-toggle-action {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        padding: 7px 10px;
+        background: rgba(220, 38, 38, .08);
+        color: var(--primary);
+        font-size: .6rem;
+    }
+    .consignment-panel {
+        padding: 14px;
+        border-top: 1px solid #f1f5f9;
+        background: #f8fafc;
+    }
+    .consignment-count {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        padding: 6px 9px;
+        background: rgba(16, 185, 129, .12);
+        color: #047857;
+        font-size: .62rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+    .consignment-textarea {
+        border: 1px solid #dbe3ee !important;
+        border-radius: 14px !important;
+        background: #fff !important;
+        font-size: .78rem;
+        font-weight: 700;
+        line-height: 1.65;
+        resize: vertical;
+    }
+    .consignment-feedback,
+    .consignment-server-error {
+        color: #dc2626;
+        font-size: .64rem;
+        font-weight: 700;
+    }
 </style>
 @endpush
 
@@ -326,6 +414,8 @@
             const formData = {
                 id_outlet: $('#id_outlet').val(),
                 keterangan: $('#keterangan').val(),
+                consignment_enabled: $('#consignment_enabled').val() === '1',
+                consignment_numbers: $('#consignment_numbers').val(),
                 products: []
             };
             $('#product-container .glass-card').each(function() {
@@ -344,6 +434,69 @@
         });
         $('#keterangan').on('input', saveFormState);
 
+        function parseConsignmentNumbers(value) {
+            const numbers = [];
+            const invalid = [];
+            const duplicates = [];
+
+            String(value || '').split(/[\r\n,;]+/).forEach(rawValue => {
+                const raw = rawValue.trim();
+                if (!raw) return;
+                const compact = raw.replace(/[\s().-]+/g, '');
+                if (!/^\+?\d+$/.test(compact)) {
+                    invalid.push(raw);
+                    return;
+                }
+                let number = compact.replace(/^\+/, '');
+                if (number.startsWith('0062')) number = number.slice(2);
+                else if (number.startsWith('0')) number = `62${number.slice(1)}`;
+                if (!/^\d{8,20}$/.test(number)) {
+                    invalid.push(raw);
+                    return;
+                }
+                if (numbers.includes(number)) {
+                    duplicates.push(number);
+                    return;
+                }
+                numbers.push(number);
+            });
+
+            return { numbers, invalid: [...new Set(invalid)], duplicates: [...new Set(duplicates)] };
+        }
+
+        function updateConsignmentSummary() {
+            const result = parseConsignmentNumbers($('#consignment_numbers').val());
+            $('#consignment-count').text(`${result.numbers.length.toLocaleString('id-ID')} nomor`);
+            let message = '';
+            if (result.invalid.length) message = `${result.invalid.length} nomor belum valid.`;
+            else if (result.duplicates.length) message = `${result.duplicates.length} nomor duplikat harus dihapus.`;
+            $('#consignment-feedback').text(message);
+            return result;
+        }
+
+        function setConsignmentOpen(open) {
+            $('#consignment_enabled').val(open ? '1' : '0');
+            $('#consignment-panel').toggleClass('d-none', !open);
+            $('#consignment-toggle').attr('aria-expanded', open ? 'true' : 'false');
+            $('#consignment-toggle .consignment-toggle-action i').toggleClass('fa-plus', !open).toggleClass('fa-chevron-up', open);
+            if (open) updateConsignmentSummary();
+        }
+
+        $('#consignment-toggle').on('click', function() {
+            setConsignmentOpen($('#consignment_enabled').val() !== '1');
+            saveFormState();
+        });
+        $('#consignment_numbers').on('input', function() {
+            updateConsignmentSummary();
+            saveFormState();
+        });
+        $('#consignment-clear').on('click', function() {
+            $('#consignment_numbers').val('');
+            setConsignmentOpen(false);
+            updateConsignmentSummary();
+            saveFormState();
+        });
+
         function loadFormState() {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (!saved) return;
@@ -358,6 +511,8 @@
                     });
                 }
                 $('#keterangan').val(data.keterangan || '');
+                $('#consignment_numbers').val(data.consignment_numbers || '');
+                setConsignmentOpen(Boolean(data.consignment_enabled));
                 if (data.products && data.products.length > 0) {
                     $('#product-container').empty();
                     data.products
@@ -491,6 +646,18 @@
                 Swal.fire({ icon: 'warning', title: 'Pilih Outlet', text: 'Cari lalu pilih outlet yang terdaftar untuk Sales Force ini.', confirmButtonColor: 'var(--primary)' });
                 return;
             }
+            if ($('#consignment_enabled').val() === '1') {
+                const consignment = updateConsignmentSummary();
+                if (!consignment.numbers.length || consignment.invalid.length || consignment.duplicates.length) {
+                    e.preventDefault();
+                    const message = !consignment.numbers.length
+                        ? 'Masukkan minimal satu nomor perdana.'
+                        : (consignment.invalid.length ? 'Periksa nomor yang formatnya belum valid.' : 'Hapus nomor yang duplikat.');
+                    Swal.fire({ icon: 'warning', title: 'Periksa Konsinyasi SA', text: message, confirmButtonColor: 'var(--primary)' });
+                    return;
+                }
+                $('#consignment_numbers').val(consignment.numbers.join('\n'));
+            }
             const requested = {};
             $('.iddenom-input').each(function() {
                 const id = $(this).val();
@@ -507,6 +674,8 @@
         });
 
         loadFormState();
+        setConsignmentOpen($('#consignment_enabled').val() === '1');
+        updateConsignmentSummary();
         if ($('#product-container').children().length === 0) addProductRow();
     });
 </script>
