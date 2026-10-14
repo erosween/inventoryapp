@@ -121,6 +121,20 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('prefers-reduced-motion', $layout);
     }
 
+    public function test_mobile_layout_supports_pull_to_refresh_without_discarding_form_drafts(): void
+    {
+        $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
+        $form = file_get_contents(resource_path('views/mobile/form.blade.php'));
+
+        $this->assertStringContainsString('mobile-pull-refresh', $layout);
+        $this->assertStringContainsString('surya:pull-refresh:', $layout);
+        $this->assertStringContainsString('mobile:before-refresh', $layout);
+        $this->assertStringContainsString('preserveFormInputs', $layout);
+        $this->assertStringContainsString('restoreFormInputs', $layout);
+        $this->assertStringContainsString('hasUnsavedFiles', $layout);
+        $this->assertStringContainsString("window.addEventListener('mobile:before-refresh', saveFormState);", $form);
+    }
+
     public function test_mobile_bottom_navigation_keeps_the_safe_area_outside_the_compact_bar(): void
     {
         $layout = file_get_contents(resource_path('views/layout/mobile_layout.blade.php'));
@@ -142,6 +156,9 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('outlet-search-inline', $form);
         $this->assertStringContainsString("route('mobile.search-outlet')", $form);
         $this->assertStringContainsString('Pilih outlet dari hasil pencarian', $form);
+        $this->assertStringContainsString('outlet-details-card', $form);
+        $this->assertStringContainsString('overflow: visible !important;', $form);
+        $this->assertStringContainsString('z-index: 1085;', $form);
     }
 
     public function test_mobile_modals_and_toasts_respect_the_device_safe_area(): void
@@ -152,6 +169,7 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('.modal .modal-dialog:not(.modal-dialog-centered)', $layout);
         $this->assertStringContainsString('position: relative !important;', $layout);
         $this->assertStringContainsString('.swal2-container.swal2-top', $layout);
+        $this->assertStringContainsString('padding-top: calc(var(--mobile-safe-top) + 54px) !important;', $layout);
     }
 
     public function test_mobile_sales_views_hide_currency_and_use_the_optimized_logo(): void

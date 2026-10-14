@@ -78,7 +78,7 @@
             margin: 0 auto;
             min-height: 100vh;
             min-height: 100dvh;
-            padding-top: calc(var(--mobile-safe-top) + 8px);
+            padding-top: var(--mobile-safe-top);
             padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
             position: relative;
             background: var(--bg-body);
@@ -95,7 +95,7 @@
             top: 0;
             left: 50%;
             width: min(100%, 480px);
-            height: calc(var(--mobile-safe-top) + 9px);
+            height: calc(var(--mobile-safe-top) + 2px);
             transform: translateX(-50%);
             pointer-events: none;
             background: #78000b;
@@ -106,6 +106,50 @@
         .main-content {
             will-change: opacity, transform;
             transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+
+        .pull-refresh-indicator {
+            position: fixed;
+            z-index: 1065;
+            top: calc(var(--mobile-safe-top) + 12px);
+            left: 50%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: calc(100vw - 32px);
+            padding: 9px 14px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--ink-soft);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+            font-size: 0.72rem;
+            font-weight: 800;
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -135%);
+            transition: transform 0.16s ease, opacity 0.16s ease;
+        }
+
+        .pull-refresh-indicator.is-visible {
+            opacity: 1;
+            transform: translate(-50%, var(--pull-offset, 0px));
+        }
+
+        .pull-refresh-indicator.is-ready {
+            color: var(--primary);
+        }
+
+        .pull-refresh-indicator.is-ready i {
+            transform: rotate(180deg);
+        }
+
+        .pull-refresh-indicator.is-refreshing i {
+            animation: pull-refresh-spin 0.75s linear infinite;
+        }
+
+        @keyframes pull-refresh-spin {
+            to { transform: rotate(360deg); }
         }
 
         .glass-card {
@@ -459,7 +503,9 @@
         .swal2-container.swal2-top,
         .swal2-container.swal2-top-start,
         .swal2-container.swal2-top-end {
-            padding-top: calc(var(--mobile-safe-top) + 12px) !important;
+            padding-top: calc(var(--mobile-safe-top) + 54px) !important;
+            padding-right: 12px !important;
+            padding-left: 12px !important;
         }
 
         .swal2-popup.swal2-toast {
@@ -486,7 +532,8 @@
             .reveal,
             .main-content,
             .nav-item,
-            .nav-item i {
+            .nav-item i,
+            .pull-refresh-indicator {
                 animation: none !important;
                 transition: none !important;
             }
@@ -497,6 +544,11 @@
 <body>
 
     <div class="mobile-container">
+        <div id="mobile-pull-refresh" class="pull-refresh-indicator" aria-live="polite" aria-hidden="true">
+            <i class="fas fa-arrow-down"></i>
+            <span>Tarik untuk memperbarui</span>
+        </div>
+
         @if(!request()->is('mobile') && !request()->is('mobile/history') && !request()->is('mobile/stock'))
             <!-- Premium Header Light for Non-Dashboard Pages -->
             <header class="premium-header reveal px-4 pt-4">
@@ -608,6 +660,169 @@
 
     @stack('scripts')
     <script>
+        (function() {
+            const indicator = document.getElementById('mobile-pull-refresh');
+            const indicatorIcon = indicator?.querySelector('i');
+            const indicatorText = indicator?.querySelector('span');
+            const snapshotKey = 'surya:pull-refresh:' + window.location.pathname + window.location.search;
+            const threshold = 76;
+            let startY = 0;
+            let distance = 0;
+            let tracking = false;
+            let refreshing = false;
+            let draftRestored = false;
+
+            function fieldIdentifier(field, index) {
+                return field.id ? 'id:' + field.id : (field.name ? 'name:' + field.name + ':index:' + index : 'index:' + index);
+            }
+
+            function preserveFormInputs() {
+                const values = [];
+                const fields = document.querySelectorAll('form input, form textarea, form select');
+
+                fields.forEach(function(field, index) {
+                    const type = String(field.type || '').toLowerCase();
+                    if (['password', 'file', 'submit', 'button', 'reset', 'image'].includes(type) || field.name === '_token') {
+                        return;
+                    }
+
+                    values.push({
+                        key: fieldIdentifier(field, index),
+                        type: type,
+                        value: field.value,
+                        checked: Boolean(field.checked)
+                    });
+                });
+
+                sessionStorage.setItem(snapshotKey, JSON.stringify(values));
+            }
+
+            function restoreFormInputs() {
+                if (draftRestored) return;
+                const saved = sessionStorage.getItem(snapshotKey);
+                if (!saved) return;
+
+                try {
+                    const values = JSON.parse(saved);
+                    const fields = Array.from(document.querySelectorAll('form input, form textarea, form select'));
+
+                    values.forEach(function(item) {
+                        const field = fields.find(function(candidate, index) {
+                            return fieldIdentifier(candidate, index) === item.key;
+                        });
+                        if (!field || field.disabled) return;
+
+                        if (item.type === 'checkbox' || item.type === 'radio') {
+                            field.checked = item.checked;
+                        } else {
+                            field.value = item.value;
+                        }
+                    });
+                    draftRestored = true;
+                    sessionStorage.removeItem(snapshotKey);
+                    window.dispatchEvent(new CustomEvent('mobile:draft-restored'));
+                } catch (error) {
+                    sessionStorage.removeItem(snapshotKey);
+                }
+            }
+
+            function hasUnsavedFiles() {
+                return Array.from(document.querySelectorAll('input[type="file"]')).some(function(input) {
+                    return input.files && input.files.length > 0;
+                });
+            }
+
+            function resetIndicator() {
+                if (!indicator || refreshing) return;
+                indicator.classList.remove('is-visible', 'is-ready');
+                indicator.style.removeProperty('--pull-offset');
+                indicator.setAttribute('aria-hidden', 'true');
+                if (indicatorIcon) indicatorIcon.className = 'fas fa-arrow-down';
+                if (indicatorText) indicatorText.textContent = 'Tarik untuk memperbarui';
+                distance = 0;
+                tracking = false;
+            }
+
+            function beginRefresh() {
+                if (!indicator || refreshing) return;
+
+                if (hasUnsavedFiles()) {
+                    resetIndicator();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Foto belum disimpan',
+                        text: 'Selesaikan pengiriman foto sebelum memperbarui halaman supaya foto tidak hilang.',
+                        confirmButtonColor: 'var(--primary)'
+                    });
+                    return;
+                }
+
+                refreshing = true;
+                window.dispatchEvent(new CustomEvent('mobile:before-refresh'));
+                preserveFormInputs();
+                indicator.classList.add('is-visible', 'is-refreshing');
+                indicator.classList.remove('is-ready');
+                indicator.style.setProperty('--pull-offset', '8px');
+                indicator.setAttribute('aria-hidden', 'false');
+                if (indicatorIcon) indicatorIcon.className = 'fas fa-rotate';
+                if (indicatorText) indicatorText.textContent = 'Memperbarui data...';
+
+                window.setTimeout(function() {
+                    window.location.reload();
+                }, 180);
+            }
+
+            window.addEventListener('load', restoreFormInputs, { once: true });
+            window.addEventListener('pageshow', function() {
+                window.setTimeout(restoreFormInputs, 0);
+            });
+
+            document.addEventListener('touchstart', function(event) {
+                if (
+                    refreshing ||
+                    event.touches.length !== 1 ||
+                    window.scrollY > 0 ||
+                    document.body.classList.contains('modal-open') ||
+                    event.target.closest('input, textarea, select, [contenteditable="true"], .modal-body')
+                ) {
+                    return;
+                }
+
+                startY = event.touches[0].clientY;
+                tracking = true;
+            }, { passive: true });
+
+            document.addEventListener('touchmove', function(event) {
+                if (!tracking || refreshing || window.scrollY > 0) return;
+
+                const delta = event.touches[0].clientY - startY;
+                if (delta <= 0) {
+                    resetIndicator();
+                    return;
+                }
+
+                distance = Math.min(110, delta * 0.62);
+                indicator.classList.add('is-visible');
+                indicator.classList.toggle('is-ready', distance >= threshold);
+                indicator.style.setProperty('--pull-offset', Math.min(42, distance * 0.38) + 'px');
+                indicator.setAttribute('aria-hidden', 'false');
+
+                if (indicatorText) {
+                    indicatorText.textContent = distance >= threshold ? 'Lepas untuk memperbarui' : 'Tarik untuk memperbarui';
+                }
+
+                if (distance >= 8) event.preventDefault();
+            }, { passive: false });
+
+            document.addEventListener('touchend', function() {
+                if (!tracking || refreshing) return;
+                if (distance >= threshold) beginRefresh();
+                else resetIndicator();
+            }, { passive: true });
+
+            document.addEventListener('touchcancel', resetIndicator, { passive: true });
+        })();
+
         // Settings bottom sheet
         document.getElementById('nav-settings')?.addEventListener('click', function(e) {
             e.preventDefault();

@@ -10,7 +10,7 @@
         <input type="hidden" name="longitude" id="longitude">
         
         <!-- Outlet Details - Blue Bento Card -->
-        <div class="glass-card mb-4 p-0 border-0 shadow-sm overflow-hidden" style="background: white; border-radius: 24px;">
+        <div class="glass-card outlet-details-card mb-4 p-0 border-0 shadow-sm" style="background: white; border-radius: 24px;">
             <div class="d-flex align-items-stretch">
                 <div style="width: 6px; background: var(--primary); opacity: 0.8;"></div>
                 <div class="p-4 w-100">
@@ -97,16 +97,26 @@
 <style>
     .outlet-inline-results {
         position: absolute;
-        z-index: 1050;
+        z-index: 1085;
         top: calc(100% + 6px);
         right: 0;
         left: 0;
-        max-height: 230px;
+        max-height: min(280px, 46vh);
         overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
         border: 1px solid #e2e8f0;
         border-radius: 14px;
         background: #fff;
         box-shadow: 0 16px 34px rgba(15, 23, 42, .16);
+    }
+    .outlet-details-card {
+        position: relative;
+        z-index: 30;
+        overflow: visible !important;
+    }
+    .outlet-details-card > .d-flex {
+        overflow: visible;
     }
     .outlet-inline-option {
         width: 100%;
@@ -326,6 +336,13 @@
             });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
         }
+
+        window.addEventListener('mobile:before-refresh', saveFormState);
+        window.addEventListener('mobile:draft-restored', function() {
+            const query = String($('#outlet-search-inline').val() || '').trim();
+            if (!$('#id_outlet').val() && query.length >= 2) loadOutletOptions(query);
+        });
+        $('#keterangan').on('input', saveFormState);
 
         function loadFormState() {
             const saved = localStorage.getItem(STORAGE_KEY);
