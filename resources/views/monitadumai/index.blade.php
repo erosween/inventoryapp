@@ -2626,7 +2626,7 @@
         .visit-date-filter input, .visit-date-filter button { min-height: 44px; border-radius: 10px; border: 1px solid #d8dee8; font: inherit; font-weight: 700; }
         .visit-date-filter input { flex: 1; padding: 0 13px; background: #fff; color: #111827; color-scheme: light; }
         .visit-date-filter button { padding: 0 16px; border-color: #c9001d; background: #c9001d; color: #fff; cursor: pointer; }
-        .visit-summary-strip { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; margin: 18px 0; }
+        .visit-summary-strip { display: grid; grid-template-columns: repeat(9, minmax(110px,1fr)); gap: 10px; margin: 18px 0; }
         .visit-summary-strip > div { padding: 16px 18px; border: 1px solid var(--monita-line); border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(15,23,42,.05); }
         .visit-summary-strip small { display: block; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
         .visit-summary-strip strong { display: block; margin-top: 7px; color: #111827; font-size: 24px; }
@@ -3647,8 +3647,16 @@
                     </div>
                     <div class="visit-subpanel" data-visit-subpanel="summary" @if($activeVisitTab !== 'summary') hidden @endif>
                     <div class="visit-summary-strip">
+                        @php
+                            $visitRows = collect($visitDetails);
+                            $totalPjp = (int) $visitRows->sum('pjp_total');
+                            $totalActualCall = (int) $visitRows->sum('actual_call');
+                            $visitPercentage = $totalPjp > 0 ? ($totalActualCall / $totalPjp) * 100 : 0;
+                        @endphp
                         <div><small>SALES FORCE AKTIF</small><strong>{{ number_format(count($visitDetails), 0, ',', '.') }}</strong></div>
-                        <div><small>ACTUAL CALL</small><strong>{{ number_format(collect($visitDetails)->sum('actual_call'), 0, ',', '.') }}</strong></div>
+                        <div><small>TOTAL PJP</small><strong>{{ number_format($totalPjp, 0, ',', '.') }}</strong></div>
+                        <div><small>ACTUAL CALL</small><strong>{{ number_format($totalActualCall, 0, ',', '.') }}</strong></div>
+                        <div><small>% VISIT</small><strong>{{ number_format($visitPercentage, 1, ',', '.') }}%</strong></div>
                         <div><small>EFFECTIVE CALL</small><strong>{{ number_format(collect($visitDetails)->sum('effective_call'), 0, ',', '.') }}</strong></div>
                         <div><small>EXTRA CALL</small><strong>{{ number_format(collect($visitDetails)->sum('non_pjp'), 0, ',', '.') }}</strong></div>
                         <div><small>OUTLET NON BELANJA</small><strong>{{ number_format(collect($visitDetails)->sum('non_buying'), 0, ',', '.') }}</strong></div>
@@ -3657,8 +3665,8 @@
                     </div>
                     <div class="visit-detail-card">
                         <div class="visit-detail-table-wrap">
-                            <table class="visit-detail-table visit-summary-table" style="min-width:1240px">
-                                <thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th><th>Cluster</th><th>Actual Call</th><th>Effective Call</th><th>Extra Call</th><th>Non Belanja</th><th>Total PV</th><th>Total SA</th></tr></thead>
+                            <table class="visit-detail-table visit-summary-table" style="min-width:1450px">
+                                <thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th><th>Cluster</th><th>Total PJP</th><th>Actual Call</th><th>% Visit</th><th>Effective Call</th><th>Extra Call</th><th>Non Belanja</th><th>Total PV</th><th>Total SA</th></tr></thead>
                                 <tbody>
                                     @forelse($visitDetails as $row)
                                         <tr>
@@ -3666,7 +3674,9 @@
                                             <td><strong>{{ $row['name'] }}</strong></td>
                                             <td>{{ $row['tap'] }}</td>
                                             <td><span class="cluster-chip">{{ $row['cluster'] }}</span></td>
+                                            <td><span class="metric-number">{{ number_format($row['pjp_total'], 0, ',', '.') }}</span></td>
                                             <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0, ',', '.') }}</button></td>
+                                            <td><span class="metric-number actual">{{ number_format($row['visit_percentage'], 1, ',', '.') }}%</span></td>
                                             <td><button type="button" class="metric-number effective" data-visit-row="{{ $loop->index }}" data-visit-scope="effective">{{ number_format($row['effective_call'], 0, ',', '.') }}</button></td>
                                             <td><button type="button" class="metric-number non-pjp" data-visit-row="{{ $loop->index }}" data-visit-scope="non-pjp">{{ number_format($row['non_pjp'], 0, ',', '.') }}</button></td>
                                             <td><button type="button" class="metric-number non-buying" data-visit-row="{{ $loop->index }}" data-visit-scope="non-buying">{{ number_format($row['non_buying'], 0, ',', '.') }}</button></td>
@@ -3674,7 +3684,7 @@
                                             <td><span class="metric-number sa">{{ number_format($row['total_sa'], 0, ',', '.') }}</span></td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="10" class="visit-empty"><i class="fas fa-calendar-xmark"></i><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></td></tr>
+                                        <tr><td colspan="12" class="visit-empty"><i class="fas fa-calendar-xmark"></i><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></td></tr>
                                     @endforelse
                                 </tbody>
                             </table>

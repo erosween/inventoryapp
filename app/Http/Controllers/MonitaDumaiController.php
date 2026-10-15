@@ -126,12 +126,18 @@ class MonitaDumaiController extends Controller
             'Saturday' => 'Sabtu',
         ][Carbon::parse($visitDate)->format('l')];
 
+        $pjpCountsBySalesForce = DB::table('appsdumais')
+            ->whereRaw('UPPER(TRIM(pjp)) = ?', [mb_strtoupper($pjpDay)])
+            ->whereNotNull('sf')
+            ->get(['sf'])
+            ->countBy(fn ($outlet) => mb_strtoupper(trim((string) $outlet->sf)));
+
         return DB::table('idsf')
             ->whereIn('idsf', $activeSfIds)
             ->orderBy('idtap')
             ->orderBy('namasf')
             ->get(['idsf', 'namasf', 'idtap'])
-            ->map(function ($sf) use ($actualBySf, $salesBySf, $consignmentBySf, $outletMaster, $pjpDay) {
+            ->map(function ($sf) use ($actualBySf, $salesBySf, $consignmentBySf, $outletMaster, $pjpDay, $pjpCountsBySalesForce) {
                 $actual = $actualBySf->get($sf->idsf, collect());
                 $sales = $salesBySf->get($sf->idsf, collect());
                 $consignments = $consignmentBySf->get($sf->idsf, collect());
@@ -202,13 +208,17 @@ class MonitaDumaiController extends Controller
 
                 $nonPjp = collect($actualDetails)->where('is_pjp', false)->count();
                 $nonBuying = collect($actualDetails)->where('effective', false)->count();
+                $actualCall = $actual->pluck('id_outlet')->filter()->unique()->count();
+                $pjpTotal = (int) $pjpCountsBySalesForce->get(mb_strtoupper(trim((string) $sf->namasf)), 0);
 
                 return [
                     'sfcode' => $sf->idsf,
                     'name' => $sf->namasf,
                     'tap' => $sf->idtap,
                     'cluster' => $this->clusterForTap((string) $sf->idtap),
-                    'actual_call' => $actual->pluck('id_outlet')->filter()->unique()->count(),
+                    'pjp_total' => $pjpTotal,
+                    'actual_call' => $actualCall,
+                    'visit_percentage' => $pjpTotal > 0 ? round(($actualCall / $pjpTotal) * 100, 1) : 0,
                     'effective_call' => $effectiveOutlets->count(),
                     'non_pjp' => $nonPjp,
                     'non_buying' => $nonBuying,
