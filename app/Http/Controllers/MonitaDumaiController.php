@@ -3,168 +3,273 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use App\Services\OptimizedImageStorage;
+use Carbon\Carbon;
 
 class MonitaDumaiController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $showLeaderDashboard = session()->has('monita_leader_auth');
+        $showLeaderDashboard = $this->hasSuryaAccess($request);
 
         if (!$showLeaderDashboard) {
-            return view('monitadumai.login');
+            return redirect('/');
         }
 
-        $dashboard = $this->buildLeaderDashboard();
+        $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
+        $dashboard = $this->buildLeaderDashboard($visitDate);
 
-        return view('monitadumai.index', compact('dashboard', 'showLeaderDashboard'));
+        return view('monitadumai.index', compact('dashboard', 'showLeaderDashboard', 'visitDate'));
     }
 
     public function showLeaderLogin()
     {
-        return redirect('/monitadumai');
+        return redirect('/');
     }
 
     public function leaderLogin(Request $request)
     {
-        $request->validate([
-            'access_code' => ['required', 'string', 'max:80'],
-        ], [
-            'access_code.required' => 'Kode akses wajib diisi.',
-        ]);
-
-        $expectedCode = (string) env('MONITA_ACCESS_KEY', 'msp123');
-
-        if (!hash_equals($expectedCode, (string) $request->input('access_code'))) {
-            return back()
-                ->withInput()
-                ->with('error', 'Kode akses Monita belum sesuai.');
-        }
-
-        $request->session()->put('monita_leader_auth', true);
-        $request->session()->put('monita_leader_login_at', now()->toDateTimeString());
-
-        return redirect('/monitadumai')->with('success', 'Dashboard leader Monita aktif.');
+        return redirect('/');
     }
 
     public function leaderLogout(Request $request)
     {
         $request->session()->forget(['monita_leader_auth', 'monita_leader_login_at']);
 
-        return redirect('/monitadumai')->with('success', 'Akses dashboard leader ditutup.');
+        if (Auth::check()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
+        return redirect('/')->with('success', 'Akses SURYA ditutup.');
     }
 
-    private function buildLeaderDashboard(): array
+    private function hasSuryaAccess(Request $request): bool
     {
-        $areaTaps = [
-            'Kota Dumai' => ['DUMAI'],
-            'Kabupaten Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
-            'Kabupaten Bengkalis' => ['BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
-        ];
+        return $request->session()->has('monita_leader_auth')
+            || (Auth::check() && strcasecmp((string) Auth::user()->username, 'admin_surya') === 0);
+    }
 
-        $tapRows = collect($areaTaps)
-            ->flatten()
-            ->unique()
-            ->map(fn ($tap) => $this->aggregateTapPerformance($tap))
-            ->filter(fn ($tap) => $tap['outlets'] > 0)
-            ->values();
-
-        $areas = collect($areaTaps)->map(function ($taps, $name) use ($tapRows) {
-            $items = $tapRows->whereIn('tap', $taps)->values();
-            $current = $items->sum('current');
-            $previous = $items->sum('previous');
-            $outlets = $items->sum('outlets');
-            $productive = $items->sum('productive_outlets');
-            $mom = $previous > 0 ? (($current - $previous) / $previous) * 100 : 0;
-            $productivity = $outlets > 0 ? ($productive / $outlets) * 100 : 0;
-
-            return [
-                'name' => $name,
-                'taps' => $items->pluck('tap')->all(),
-                'outlets' => $outlets,
-                'productive_outlets' => $productive,
-                'productivity' => round($productivity, 1),
-                'st_sa' => $items->sum('st_sa'),
-                'st_pv' => $items->sum('st_pv'),
-                'trx_m' => $items->sum('trx_m'),
-                'trx_cvm' => $items->sum('trx_cvm'),
-                'current' => $current,
-                'previous' => $previous,
-                'mom' => round($mom, 1),
-                'latitude' => $items->whereNotNull('latitude')->avg('latitude'),
-                'longitude' => $items->whereNotNull('longitude')->avg('longitude'),
-                'risk' => $this->areaRiskLabel($mom, $productivity),
-            ];
-        })->values();
-
-        $totalCurrent = $tapRows->sum('current');
-        $totalPrevious = $tapRows->sum('previous');
-        $totalOutlets = $tapRows->sum('outlets');
-        $totalProductive = $tapRows->sum('productive_outlets');
-        $totalMom = $totalPrevious > 0 ? (($totalCurrent - $totalPrevious) / $totalPrevious) * 100 : 0;
-        $totalProductivity = $totalOutlets > 0 ? ($totalProductive / $totalOutlets) * 100 : 0;
-
-        $riskTaps = $tapRows
-            ->sortBy(function ($tap) {
-                return [$tap['mom'], $tap['productivity']];
-            })
-            ->take(5)
-            ->values();
-
-        $growthTaps = $tapRows
-            ->sortByDesc('mom')
-            ->take(4)
-            ->values();
-
-        $leaderActions = $this->leaderActions($riskTaps, $areas);
-        $outletPoints = $this->leaderOutletPoints($areaTaps);
-        $activeThresholds = [
-            'sa' => 5,
-            'pv' => 40,
-            'cvm' => 11,
-        ];
-        $clusterCoverage = $this->leaderClusterCoverage($activeThresholds);
-        $coveragePoints = $this->leaderCoveragePoints();
-        $competitionPoints = $this->leaderCompetitionPoints();
-        $monitoringUpdateDate = $this->leaderMonitoringUpdateDate();
-        $hotOutletCount = collect($outletPoints)->where('status', 'hot')->count();
-        $coldOutletCount = collect($outletPoints)->where('status', 'cold')->count();
-        $unmappedOutletCount = collect($outletPoints)->where('status', 'unmapped')->count();
-        $pvMonitoring = $this->buildPvMonitoring();
-        $saMonitoring = $this->buildSaMonitoring();
-        $cvmMonitoring = $this->buildCvmMonitoring();
-
+    private function buildLeaderDashboard(string $visitDate): array
+    {
+        // Modul performa lama sengaja tidak dibaca lagi. Dashboard SURYA saat ini
+        // hanya memakai master outlet, visit, dan transaksi dari SURYA Mobile.
         return [
-            'summary' => [
-                'outlets' => $totalOutlets,
-                'productive_outlets' => $totalProductive,
-                'productivity' => round($totalProductivity, 1),
-                'current' => $totalCurrent,
-                'previous' => $totalPrevious,
-                'mom' => round($totalMom, 1),
-                'st_sa' => $tapRows->sum('st_sa'),
-                'st_pv' => $tapRows->sum('st_pv'),
-                'trx_m' => $tapRows->sum('trx_m'),
-                'trx_cvm' => $tapRows->sum('trx_cvm'),
-                'mapped_outlets' => count($outletPoints),
-                'hot_outlets' => $hotOutletCount,
-                'cold_outlets' => $coldOutletCount,
-                'unmapped_outlets' => $unmappedOutletCount,
-            ],
-            'areas' => $areas->all(),
-            'tapRows' => $tapRows->all(),
-            'riskTaps' => $riskTaps->all(),
-            'growthTaps' => $growthTaps->all(),
-            'leaderActions' => $leaderActions,
-            'outletPoints' => $outletPoints,
-            'clusterCoverage' => $clusterCoverage,
-            'coveragePoints' => $coveragePoints,
-            'competitionPoints' => $competitionPoints,
-            'monitoringUpdateDate' => $monitoringUpdateDate,
-            'pvMonitoring' => $pvMonitoring,
-            'saMonitoring' => $saMonitoring,
-            'cvmMonitoring' => $cvmMonitoring,
+            'summary' => [],
+            'areas' => [],
+            'tapRows' => [],
+            'riskTaps' => [],
+            'growthTaps' => [],
+            'leaderActions' => [],
+            'outletPoints' => [],
+            'clusterCoverage' => ['groups' => []],
+            'coveragePoints' => [],
+            'competitionPoints' => [],
+            'monitoringUpdateDate' => null,
+            'visitDetails' => $this->buildVisitDetails($visitDate),
+            'approvalVisits' => $this->buildApprovalVisits($visitDate),
+            'visitDate' => $visitDate,
         ];
+    }
+
+    private function buildVisitDetails(string $visitDate): array
+    {
+        $actualRows = DB::table('surya_visits')
+            ->whereDate('visited_at', $visitDate)
+            ->orderBy('visited_at')
+            ->get(['id', 'visited_at', 'checkout_at', 'idsf', 'idtap', 'id_outlet', 'gps_status', 'checkout_reason', 'photo_front_path']);
+
+        $salesRows = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->whereDate('m.tgl', $visitDate)
+            ->whereIn('m.status', ['pending', 'approved'])
+            ->get([
+                'm.idsf',
+                'm.id_outlet',
+                'm.qty',
+                'm.iddenom',
+                'd.denom',
+                'd.group_name',
+            ]);
+
+        $consignmentRows = DB::table('surya_sa_consignment_numbers')
+            ->whereDate('reported_at', $visitDate)
+            ->where('status', 'consigned')
+            ->get(['idsf', 'id_outlet', 'serial_number']);
+
+        $activeSfIds = $actualRows->pluck('idsf')
+            ->merge($salesRows->pluck('idsf'))
+            ->merge($consignmentRows->pluck('idsf'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($activeSfIds->isEmpty()) {
+            return [];
+        }
+
+        $actualBySf = $actualRows->groupBy('idsf');
+        $salesBySf = $salesRows->groupBy('idsf');
+        $consignmentBySf = $consignmentRows->groupBy('idsf');
+        $outletMaster = DB::table('appsdumais')
+            ->whereIn('id_outlet', $actualRows->pluck('id_outlet')->filter()->unique()->all())
+            ->get(['id_outlet', 'nama_outlet', 'pjp'])
+            ->keyBy('id_outlet');
+
+        $pjpDay = [
+            'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+        ][Carbon::parse($visitDate)->format('l')];
+
+        return DB::table('idsf')
+            ->whereIn('idsf', $activeSfIds)
+            ->orderBy('idtap')
+            ->orderBy('namasf')
+            ->get(['idsf', 'namasf', 'idtap'])
+            ->map(function ($sf) use ($actualBySf, $salesBySf, $consignmentBySf, $outletMaster, $pjpDay) {
+                $actual = $actualBySf->get($sf->idsf, collect());
+                $sales = $salesBySf->get($sf->idsf, collect());
+                $consignments = $consignmentBySf->get($sf->idsf, collect());
+                $effectiveOutlets = $sales->pluck('id_outlet')
+                    ->merge($consignments->pluck('id_outlet'))
+                    ->filter()
+                    ->unique();
+
+                $saSales = $sales->filter(function ($row) {
+                    $group = strtoupper(trim((string) ($row->group_name ?? '')));
+                    $id = strtoupper((string) ($row->iddenom ?? ''));
+
+                    return $group === 'SA' || str_starts_with($id, 'SA_');
+                })->sum(fn ($row) => (int) $row->qty);
+
+                $pvSales = $sales->reject(function ($row) {
+                    $group = strtoupper(trim((string) ($row->group_name ?? '')));
+                    $id = strtoupper((string) ($row->iddenom ?? ''));
+
+                    return $group === 'SA' || str_starts_with($id, 'SA_');
+                })->sum(fn ($row) => (int) $row->qty);
+
+                $salesByOutlet = $sales->groupBy('id_outlet');
+                $consignmentByOutlet = $consignments->groupBy('id_outlet');
+                $actualDetails = $actual->groupBy('id_outlet')->map(function ($visits, $idOutlet) use ($outletMaster, $pjpDay, $salesByOutlet, $consignmentByOutlet) {
+                    $visit = $visits->sortByDesc('visited_at')->first();
+                    $master = $outletMaster->get($idOutlet);
+                    $outletSales = $salesByOutlet->get($idOutlet, collect());
+                    $outletConsignments = $consignmentByOutlet->get($idOutlet, collect());
+                    $saItems = $outletSales->filter(function ($row) {
+                        $group = strtoupper(trim((string) ($row->group_name ?? '')));
+                        $id = strtoupper((string) ($row->iddenom ?? ''));
+
+                        return $group === 'SA' || str_starts_with($id, 'SA_');
+                    });
+                    $pvItems = $outletSales->reject(function ($row) {
+                        $group = strtoupper(trim((string) ($row->group_name ?? '')));
+                        $id = strtoupper((string) ($row->iddenom ?? ''));
+
+                        return $group === 'SA' || str_starts_with($id, 'SA_');
+                    });
+                    $sa = $saItems->sum(fn ($row) => (int) $row->qty);
+                    $pv = $pvItems->sum(fn ($row) => (int) $row->qty);
+                    $durationMinutes = $visit->checkout_at
+                        ? max(0, Carbon::parse($visit->visited_at)->diffInMinutes(Carbon::parse($visit->checkout_at)))
+                        : null;
+
+                    return [
+                        'id_outlet' => (string) $idOutlet,
+                        'outlet_name' => $master->nama_outlet ?? (string) $idOutlet,
+                        'visited_at' => $visit->visited_at,
+                        'checkout_at' => $visit->checkout_at,
+                        'duration_minutes' => $durationMinutes,
+                        'gps_status' => $visit->gps_status,
+                        'checkout_reason' => $visit->checkout_reason,
+                        'total_pv' => $pv,
+                        'total_sa' => $sa,
+                        'consignment_qty' => $outletConsignments->count(),
+                        'pv_items' => $pvItems->map(fn ($row) => ['name' => $row->denom ?: $row->iddenom, 'qty' => (int) $row->qty])->values()->all(),
+                        'sa_items' => $saItems->map(fn ($row) => ['name' => $row->denom ?: $row->iddenom, 'qty' => (int) $row->qty])->values()->all(),
+                        'consignment_numbers' => $outletConsignments->pluck('serial_number')->filter()->values()->all(),
+                        'is_pjp' => strcasecmp(trim((string) ($master->pjp ?? '')), $pjpDay) === 0,
+                        'effective' => $outletSales->isNotEmpty() || $outletConsignments->isNotEmpty(),
+                        'front_thumbnail_url' => $this->visitPhotoUrl($visit->photo_front_path, true),
+                        'front_photo_url' => $this->visitPhotoUrl($visit->photo_front_path),
+                    ];
+                })->values()->all();
+
+                $nonPjp = collect($actualDetails)->where('is_pjp', false)->count();
+                $nonBuying = collect($actualDetails)->where('effective', false)->count();
+
+                return [
+                    'sfcode' => $sf->idsf,
+                    'name' => $sf->namasf,
+                    'tap' => $sf->idtap,
+                    'cluster' => $this->clusterForTap((string) $sf->idtap),
+                    'actual_call' => $actual->pluck('id_outlet')->filter()->unique()->count(),
+                    'effective_call' => $effectiveOutlets->count(),
+                    'non_pjp' => $nonPjp,
+                    'non_buying' => $nonBuying,
+                    'total_pv' => $pvSales,
+                    'total_sa' => $saSales,
+                    'outlets' => $actualDetails,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function buildApprovalVisits(string $visitDate): array
+    {
+        return DB::table('surya_visits as v')
+            ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
+            ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
+            ->whereDate('v.visited_at', $visitDate)
+            ->orderByRaw("CASE WHEN v.gps_status = 'pending_admin' THEN 0 ELSE 1 END")
+            ->orderByDesc('v.visited_at')
+            ->get([
+                'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
+                'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path',
+                'o.nama_outlet', 's.namasf',
+            ])
+            ->map(function ($visit) {
+                $visit->front_photo_url = $this->visitPhotoUrl($visit->photo_front_path);
+                $visit->front_thumbnail_url = $this->visitPhotoUrl($visit->photo_front_path, true);
+                $visit->inside_photo_url = $this->visitPhotoUrl($visit->photo_inside_path);
+                $visit->inside_thumbnail_url = $this->visitPhotoUrl($visit->photo_inside_path, true);
+
+                return $visit;
+            })
+            ->all();
+    }
+
+    private function visitPhotoUrl(?string $path, bool $thumbnail = false): ?string
+    {
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        if ($thumbnail) {
+            $thumbnailPath = OptimizedImageStorage::thumbnailPathFor($path);
+            if (Storage::disk('public')->exists($thumbnailPath)) {
+                $path = $thumbnailPath;
+            }
+        }
+
+        return '/storage/'.ltrim($path, '/');
+    }
+
+    private function clusterForTap(string $tap): string
+    {
+        $tap = strtoupper(trim($tap));
+
+        return in_array($tap, ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'], true)
+            ? 'DUMAI BENGKALIS'
+            : (in_array($tap, ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'], true)
+                ? 'ROKAN HILIR'
+                : '-');
     }
 
     private function buildPvMonitoring(): array
@@ -1040,35 +1145,24 @@ class MonitaDumaiController extends Controller
 
     public function search(Request $request)
     {
-        if (!$request->session()->has('monita_leader_auth')) {
+        if (!$this->hasSuryaAccess($request)) {
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
-            ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
-            ->select(
-                'appsdumais.*',
-                'outlet_performance.total_sp_fm1 as fm1_stsa',
-                'outlet_performance.total_sp_m1 as m1_stsa',
-                'outlet_performance.total_sp_m as m_stsa',
-                'outlet_performance.tgl_update as tgl_sa',
-                'outlet_performance.total_pvreg_fm1 as fm1_stpv',
-                'outlet_performance.total_pvreg_m1 as m1_stpv',
-                'outlet_performance.total_pvreg_m as m_stpv',
-                'outlet_performance.tgl_update as tgl_pv'
-            )
+            ->select('appsdumais.*')
             ->where('appsdumais.id_outlet', $keyword)
             ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%')
             ->get()
-            ->map(fn ($row) => $this->decorateOutletDetailPerformance($row));
+            ->map(fn ($row) => $this->decorateOutletVisitPhoto($row));
 
         return response()->json($data);
     }
 
     public function suggest(Request $request)
     {
-        if (!$request->session()->has('monita_leader_auth')) {
+        if (!$this->hasSuryaAccess($request)) {
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
@@ -1085,7 +1179,7 @@ class MonitaDumaiController extends Controller
 
     public function outlets(Request $request)
     {
-        if (!$request->session()->has('monita_leader_auth')) {
+        if (!$this->hasSuryaAccess($request)) {
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
@@ -1103,24 +1197,29 @@ class MonitaDumaiController extends Controller
                 'sf',
                 'tap',
                 'latitude',
-                'longitude',
-                'm_cvm'
+                'longitude'
             )
             ->get();
 
-        $performanceByOutlet = DB::table('outlet_performance')
-            ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
-            ->select('id_outlet', 'total_sp_m')
-            ->selectRaw('COALESCE(total_pvreg_m, 0) as total_m')
-            ->get()
+        $latestFrontPhotos = DB::table('surya_visits as v')
+            ->joinSub(
+                DB::table('surya_visits')
+                    ->whereNotNull('photo_front_path')
+                    ->select('id_outlet', DB::raw('MAX(id) as latest_visit_id'))
+                    ->groupBy('id_outlet'),
+                'latest_visit',
+                fn ($join) => $join->on('latest_visit.latest_visit_id', '=', 'v.id')
+            )
+            ->whereIn('v.id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+            ->get(['v.id_outlet', 'v.photo_front_path', 'v.visited_at'])
             ->keyBy(fn ($row) => (string) $row->id_outlet);
 
-        $data = $outlets->map(function ($outlet) use ($performanceByOutlet) {
-            $performance = $performanceByOutlet->get((string) $outlet->id_outlet);
-            $outlet->m_stsa = $performance->total_sp_m ?? 0;
-            $outlet->m_stpv = $performance->total_m ?? 0;
+        $data = $outlets->map(function ($outlet) use ($latestFrontPhotos) {
+            $latestPhoto = $latestFrontPhotos->get((string) $outlet->id_outlet);
+            $outlet->photo_front_path = $latestPhoto->photo_front_path ?? null;
+            $outlet->front_photo_visited_at = $latestPhoto->visited_at ?? null;
 
-            return $outlet;
+            return $this->decorateOutletVisitPhoto($outlet);
         });
 
         return response()->json($data);
@@ -1128,7 +1227,7 @@ class MonitaDumaiController extends Controller
 
     public function nearby(Request $request)
     {
-        if (!$request->session()->has('monita_leader_auth')) {
+        if (!$this->hasSuryaAccess($request)) {
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
@@ -1150,18 +1249,7 @@ class MonitaDumaiController extends Controller
         $data = DB::table('appsdumais')
             ->whereBetween('latitude', [$lat - $lat_delta, $lat + $lat_delta])
             ->whereBetween('longitude', [$long - $lon_delta, $long + $lon_delta])
-            ->leftJoin('outlet_performance', 'appsdumais.id_outlet', '=', 'outlet_performance.id_outlet')
-            ->select(
-                'appsdumais.*',
-                'outlet_performance.total_sp_fm1 as fm1_stsa',
-                'outlet_performance.total_sp_m1 as m1_stsa',
-                'outlet_performance.total_sp_m as m_stsa',
-                'outlet_performance.tgl_update as tgl_sa',
-                'outlet_performance.total_pvreg_fm1 as fm1_stpv',
-                'outlet_performance.total_pvreg_m1 as m1_stpv',
-                'outlet_performance.total_pvreg_m as m_stpv',
-                'outlet_performance.tgl_update as tgl_pv'
-            )
+            ->select('appsdumais.*')
             ->selectRaw(
                 '( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS distance',
                 [$lat, $long, $lat]
@@ -1171,14 +1259,14 @@ class MonitaDumaiController extends Controller
             ->orderBy('distance')
             ->limit(50)
             ->get()
-            ->map(fn ($row) => $this->decorateOutletDetailPerformance($row));
+            ->map(fn ($row) => $this->decorateOutletVisitPhoto($row));
 
         return response()->json($data);
     }
 
     public function performance(Request $request)
     {
-        if (!$request->session()->has('monita_leader_auth')) {
+        if (!$this->hasSuryaAccess($request)) {
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
@@ -1188,5 +1276,35 @@ class MonitaDumaiController extends Controller
             ->first();
 
         return response()->json($this->decoratePvPerformance($data));
+    }
+
+    private function decorateOutletVisitPhoto(object $outlet): object
+    {
+        if (! isset($outlet->photo_front_path)) {
+            $latestPhoto = DB::table('surya_visits')
+                ->where('id_outlet', $outlet->id_outlet)
+                ->whereNotNull('photo_front_path')
+                ->orderByDesc('visited_at')
+                ->orderByDesc('id')
+                ->first(['photo_front_path', 'visited_at']);
+            $outlet->photo_front_path = $latestPhoto->photo_front_path ?? null;
+            $outlet->front_photo_visited_at = $latestPhoto->visited_at ?? null;
+        }
+
+        $path = $outlet->photo_front_path;
+        $outlet->front_photo_url = null;
+        $outlet->front_thumbnail_url = null;
+
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return $outlet;
+        }
+
+        $thumbnailPath = OptimizedImageStorage::thumbnailPathFor($path);
+        $outlet->front_photo_url = '/storage/'.ltrim($path, '/');
+        $outlet->front_thumbnail_url = Storage::disk('public')->exists($thumbnailPath)
+            ? '/storage/'.ltrim($thumbnailPath, '/')
+            : $outlet->front_photo_url;
+
+        return $outlet;
     }
 }

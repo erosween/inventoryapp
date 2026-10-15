@@ -12,8 +12,8 @@ class ServiceWorkerCacheTest extends TestCase
 
         $this->assertStringNotContainsString("  '/mobile',", $serviceWorker);
         $this->assertStringNotContainsString('  "/mobile",', $serviceWorker);
-        $this->assertStringContainsString("requestUrl.pathname.startsWith('/mobile')", $serviceWorker);
-        $this->assertStringContainsString("event.request.mode === 'navigate'", $serviceWorker);
+        $this->assertStringContainsString("request.mode === 'navigate'", $serviceWorker);
+        $this->assertStringNotContainsString("requestUrl.pathname.startsWith('/mobile')", $serviceWorker);
         $this->assertStringContainsString('no-store', file_get_contents(app_path('Http/Middleware/MobileSFAccess.php')));
     }
 }

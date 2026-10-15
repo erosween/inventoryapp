@@ -59,6 +59,10 @@
         <div id="product-container">
             <!-- Product Rows added via JS -->
         </div>
+        <div id="sales-activity-feedback" class="consignment-server-error d-none mb-3 px-2"></div>
+        @error('products')
+            <div class="consignment-server-error mb-3 px-2"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</div>
+        @enderror
 
         @php
             $consignmentOpen = old('consignment_enabled') === '1';
@@ -115,7 +119,7 @@
 
         <div class="sticky-bottom pb-4 pt-2 px-1" style="background: var(--bg-body); z-index: 10;">
             <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-800 shadow" style="font-size: 0.95rem; background: var(--primary); border: none;">
-                Log Activity <i class="fas fa-paper-plane ms-1"></i>
+                Lihat Detail & Konfirmasi <i class="fas fa-arrow-right ms-1"></i>
             </button>
         </div>
     </form>
@@ -220,6 +224,17 @@
         font-size: .64rem;
         font-weight: 700;
     }
+    .consignment-validation-list { display: grid; gap: 7px; }
+    .consignment-validation-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+    .consignment-validation-row i { margin-top: 2px; }
+    .consignment-validation-row strong, .consignment-validation-row small { display: block; overflow-wrap: anywhere; }
+    .consignment-validation-row strong { color: #334155; font-size: .68rem; }
+    .consignment-validation-row small { margin-top: 2px; color: #64748b; font-size: .59rem; }
+    .consignment-validation-row.valid { border-color: #bbf7d0; background: #f0fdf4; }
+    .consignment-validation-row.valid i { color: #16a34a; }
+    .consignment-validation-row.invalid { border-color: #fecaca; background: #fff1f2; }
+    .consignment-validation-row.invalid i { color: #dc2626; }
+    .consignment-validation-row.checking i { color: #64748b; }
 </style>
 @endpush
 
@@ -438,6 +453,7 @@
             const numbers = [];
             const invalid = [];
             const duplicates = [];
+            const entries = [];
 
             String(value || '').split(/[\r\n,;]+/).forEach(rawValue => {
                 const raw = rawValue.trim();
@@ -445,6 +461,7 @@
                 const compact = raw.replace(/[\s().-]+/g, '');
                 if (!/^\+?\d+$/.test(compact)) {
                     invalid.push(raw);
+                    entries.push({ raw, number: null, state: 'invalid', message: 'Format nomor tidak valid' });
                     return;
                 }
                 let number = compact.replace(/^\+/, '');
@@ -452,26 +469,89 @@
                 else if (number.startsWith('0')) number = `62${number.slice(1)}`;
                 if (!/^\d{8,20}$/.test(number)) {
                     invalid.push(raw);
+                    entries.push({ raw, number, state: 'invalid', message: 'Nomor harus berisi 8–20 digit' });
                     return;
                 }
                 if (numbers.includes(number)) {
                     duplicates.push(number);
+                    entries.push({ raw, number, state: 'duplicate', message: 'Nomor duplikat dalam isian ini' });
                     return;
                 }
                 numbers.push(number);
+                entries.push({ raw, number, state: 'pending', message: 'Memeriksa nomor…' });
             });
 
-            return { numbers, invalid: [...new Set(invalid)], duplicates: [...new Set(duplicates)] };
+            return { numbers, invalid: [...new Set(invalid)], duplicates: [...new Set(duplicates)], entries };
+        }
+
+        let consignmentCheckTimer = null;
+        let checkedConsignmentKey = '';
+        let consignmentAvailability = new Map();
+        let consignmentCheckRequest = null;
+
+        function renderConsignmentValidation(result, checking = false) {
+            const rows = result.entries.map(entry => {
+                let state = entry.state;
+                let message = entry.message;
+                let icon = 'fa-times-circle';
+                if (entry.number && state === 'pending') {
+                    const remote = consignmentAvailability.get(entry.number);
+                    if (checking || !remote) {
+                        state = 'checking'; message = 'Memeriksa ketersediaan…'; icon = 'fa-circle-notch fa-spin';
+                    } else if (remote.available) {
+                        state = 'valid'; message = 'Nomor tersedia'; icon = 'fa-check-circle';
+                    } else {
+                        state = 'invalid';
+                        const outlet = remote.nama_outlet || remote.id_outlet || 'outlet lain';
+                        const outletId = remote.id_outlet && remote.nama_outlet ? ` (${remote.id_outlet})` : '';
+                        message = `Sudah tercatat di ${outlet}${outletId}`;
+                    }
+                }
+                return `<div class="consignment-validation-row ${state}"><i class="fas ${icon}"></i><div><strong>${escapeHtml(entry.number || entry.raw)}</strong><small>${escapeHtml(message)}</small></div></div>`;
+            }).join('');
+            $('#consignment-feedback').html(rows ? `<div class="consignment-validation-list">${rows}</div>` : '');
         }
 
         function updateConsignmentSummary() {
             const result = parseConsignmentNumbers($('#consignment_numbers').val());
             $('#consignment-count').text(`${result.numbers.length.toLocaleString('id-ID')} nomor`);
-            let message = '';
-            if (result.invalid.length) message = `${result.invalid.length} nomor belum valid.`;
-            else if (result.duplicates.length) message = `${result.duplicates.length} nomor duplikat harus dihapus.`;
-            $('#consignment-feedback').text(message);
+            renderConsignmentValidation(result, false);
             return result;
+        }
+
+        function checkConsignmentAvailability(onComplete = null) {
+            const result = parseConsignmentNumbers($('#consignment_numbers').val());
+            const key = result.numbers.join('|');
+            if (!result.numbers.length || result.invalid.length || result.duplicates.length) {
+                checkedConsignmentKey = '';
+                consignmentAvailability = new Map();
+                renderConsignmentValidation(result, false);
+                if (onComplete) onComplete(false, result);
+                return;
+            }
+            if (checkedConsignmentKey === key && result.numbers.every(number => consignmentAvailability.has(number))) {
+                renderConsignmentValidation(result, false);
+                if (onComplete) onComplete(result.numbers.every(number => consignmentAvailability.get(number)?.available), result);
+                return;
+            }
+            if (consignmentCheckRequest) consignmentCheckRequest.abort();
+            renderConsignmentValidation(result, true);
+            consignmentCheckRequest = $.ajax({
+                url: "{{ route('mobile.consignment.check') }}",
+                method: 'POST',
+                data: { _token: "{{ csrf_token() }}", numbers: result.numbers }
+            }).done(response => {
+                consignmentAvailability = new Map((response.results || []).map(item => [String(item.number), item]));
+                checkedConsignmentKey = key;
+                renderConsignmentValidation(result, false);
+                if (onComplete) onComplete(result.numbers.every(number => consignmentAvailability.get(number)?.available), result);
+            }).fail((xhr, status) => {
+                if (status === 'abort') return;
+                checkedConsignmentKey = '';
+                consignmentAvailability = new Map();
+                $('#consignment-feedback').html('<div class="consignment-validation-row invalid"><i class="fas fa-times-circle"></i><div><strong>Validasi belum berhasil</strong><small>Periksa koneksi lalu coba lagi.</small></div></div>');
+                if (onComplete) onComplete(false, result);
+            }).always(() => { consignmentCheckRequest = null; });
         }
 
         function setConsignmentOpen(open) {
@@ -487,7 +567,13 @@
             saveFormState();
         });
         $('#consignment_numbers').on('input', function() {
-            updateConsignmentSummary();
+            checkedConsignmentKey = '';
+            consignmentAvailability = new Map();
+            const result = updateConsignmentSummary();
+            clearTimeout(consignmentCheckTimer);
+            if (result.numbers.length && !result.invalid.length && !result.duplicates.length) {
+                consignmentCheckTimer = setTimeout(() => checkConsignmentAvailability(), 350);
+            }
             saveFormState();
         });
         $('#consignment-clear').on('click', function() {
@@ -515,8 +601,15 @@
                 setConsignmentOpen(Boolean(data.consignment_enabled));
                 if (data.products && data.products.length > 0) {
                     $('#product-container').empty();
+                    const restoredDenoms = new Set();
                     data.products
                         .filter(p => !p.id || Number(stockMap[p.id] || 0) > 0)
+                        .filter(p => {
+                            if (!p.id) return true;
+                            if (restoredDenoms.has(String(p.id))) return false;
+                            restoredDenoms.add(String(p.id));
+                            return true;
+                        })
                         .forEach(p => addProductRow(p.id, p.name, p.qty));
                     recalcTotal();
                 }
@@ -540,7 +633,7 @@
                                 <div class="col-8">
                                     <div class="product-trigger border-0 bg-light rounded-3 px-3 py-2 d-flex justify-content-between align-items-center" style="cursor: pointer;">
                                         <span class="product-placeholder fw-bold ${id ? 'text-dark' : 'text-muted'}" style="font-size: 0.8rem;">${safeName}</span>
-                                        <input type="hidden" name="products[${rowId}][iddenom]" class="iddenom-input" value="${id}" required>
+                                        <input type="hidden" name="products[${rowId}][iddenom]" class="iddenom-input" value="${id}">
                                         <i class="fas fa-search text-muted" style="font-size: 0.7rem;"></i>
                                     </div>
                                     <div class="mt-1"><span class="small text-muted fw-bold" style="font-size: 0.6rem;">STOK: <span class="stock-info">${stock}</span></span></div>
@@ -550,7 +643,7 @@
                                 <div class="col-4"><label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Quantity</label></div>
                                 <div class="col-8">
                                     <input type="number" name="products[${rowId}][qty]" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark qty-input" 
-                                           placeholder="0" value="${qty}" min="1" required style="font-size: 0.85rem;" inputmode="numeric">
+                                           placeholder="0" value="${qty}" min="1" style="font-size: 0.85rem;" inputmode="numeric">
                                     <div class="stock-warning mt-2 d-none rounded-3 px-3 py-2 fw-bold" style="font-size: 0.68rem; background: rgba(239, 68, 68, 0.08); color: #dc2626;"></div>
                                 </div>
                             </div>
@@ -603,23 +696,36 @@
             return true;
         }
 
+        function selectedDenomIdsExceptActiveRow() {
+            const selected = new Set();
+            const activeCard = activeRow?.closest('.glass-card')[0];
+            $('.iddenom-input').each(function() {
+                if ($(this).closest('.glass-card')[0] === activeCard) return;
+                const id = String($(this).val() || '');
+                if (id) selected.add(id);
+            });
+            return selected;
+        }
+
         $(document).on('click', '.product-trigger', function() { activeRow = $(this); $('#productPickerModal').modal('show'); $('#product-search-modal').val('').trigger('input').focus(); });
         $('#product-search-modal').on('input', function() {
             const val = $(this).val().toLowerCase().trim();
+            const selectedDenoms = selectedDenomIdsExceptActiveRow();
             let matches = 0;
             $('.select-product-btn').each(function() {
                 const name = $(this).data('name').toString().toLowerCase();
                 const id = $(this).data('id').toString().toLowerCase();
                 const stock = parseInt($(this).data('stock')) || 0;
+                const alreadySelected = selectedDenoms.has(String($(this).data('id')));
                 
                 if (val === '') {
-                    if (stock > 0) {
+                    if (stock > 0 && !alreadySelected) {
                         $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); 
                         matches++; 
                     }
                     else { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: none !important;'); }
                 } else {
-                    if (stock > 0 && (name.includes(val) || id.includes(val))) { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); matches++; }
+                    if (stock > 0 && !alreadySelected && (name.includes(val) || id.includes(val))) { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); matches++; }
                     else { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: none !important;'); }
                 }
             });
@@ -629,8 +735,10 @@
 
         $(document).on('click', '.select-product-btn', function() {
             const id = $(this).data('id'), name = $(this).data('name'), stock = Number(stockMap[id] || 0);
+            if (selectedDenomIdsExceptActiveRow().has(String(id))) return;
             activeRow.find('.product-placeholder').text(name).removeClass('text-muted').addClass('text-dark');
-            activeRow.find('.iddenom-input').val(id);
+            activeRow.find('.iddenom-input').prop('disabled', false).val(id);
+            activeRow.closest('.glass-card').find('.qty-input').prop('disabled', false);
             activeRow.closest('.p-4').find('.stock-info').text(stock);
             $('#productPickerModal').modal('hide');
             recalcTotal(); validateStock(activeRow.closest('.glass-card')); saveFormState();
@@ -650,32 +758,75 @@
                 const consignment = updateConsignmentSummary();
                 if (!consignment.numbers.length || consignment.invalid.length || consignment.duplicates.length) {
                     e.preventDefault();
-                    const message = !consignment.numbers.length
-                        ? 'Masukkan minimal satu nomor perdana.'
-                        : (consignment.invalid.length ? 'Periksa nomor yang formatnya belum valid.' : 'Hapus nomor yang duplikat.');
-                    Swal.fire({ icon: 'warning', title: 'Periksa Konsinyasi SA', text: message, confirmButtonColor: 'var(--primary)' });
+                    renderConsignmentValidation(consignment, false);
+                    $('#consignment_numbers').trigger('focus');
+                    return;
+                }
+                const key = consignment.numbers.join('|');
+                const availabilityReady = checkedConsignmentKey === key && consignment.numbers.every(number => consignmentAvailability.has(number));
+                if (!availabilityReady) {
+                    e.preventDefault();
+                    checkConsignmentAvailability((available) => {
+                        if (available) $('#sales-form').trigger('submit');
+                        else $('#consignment_numbers').trigger('focus');
+                    });
+                    return;
+                }
+                if (consignment.numbers.some(number => !consignmentAvailability.get(number)?.available)) {
+                    e.preventDefault();
+                    renderConsignmentValidation(consignment, false);
+                    $('#consignment_numbers').trigger('focus');
                     return;
                 }
                 $('#consignment_numbers').val(consignment.numbers.join('\n'));
             }
             const requested = {};
+            let duplicateDenom = false;
+            let hasProduct = false;
+            let incompleteProduct = false;
             $('.iddenom-input').each(function() {
                 const id = $(this).val();
                 const qty = parseInt($(this).closest('.glass-card').find('.qty-input').val()) || 0;
+                if (id || qty) {
+                    hasProduct = true;
+                    if (!id || qty < 1) incompleteProduct = true;
+                }
+                if (id && Object.prototype.hasOwnProperty.call(requested, id)) duplicateDenom = true;
                 if (id) requested[id] = (requested[id] || 0) + qty;
             });
+            const hasConsignment = $('#consignment_enabled').val() === '1' && parseConsignmentNumbers($('#consignment_numbers').val()).numbers.length > 0;
+            if (!hasProduct && !hasConsignment) {
+                e.preventDefault();
+                $('#sales-activity-feedback').removeClass('d-none').html('<i class="fas fa-exclamation-circle me-1"></i>Pilih produk atau isi nomor konsinyasi SA.');
+                return;
+            }
+            if (incompleteProduct) {
+                e.preventDefault();
+                $('#sales-activity-feedback').removeClass('d-none').html('<i class="fas fa-exclamation-circle me-1"></i>Lengkapi produk dan quantity, atau hapus baris produk yang kosong.');
+                return;
+            }
+            $('#sales-activity-feedback').addClass('d-none').empty();
+            if (duplicateDenom) {
+                e.preventDefault();
+                Swal.fire({ icon: 'warning', title: 'Produk Duplikat', text: 'Satu denom hanya boleh dimasukkan satu kali.', confirmButtonColor: 'var(--primary)' });
+                return;
+            }
             let valid = true;
             $('#product-container .glass-card').each(function() {
                 const id = $(this).find('.iddenom-input').val();
+                if (!id) {
+                    $(this).find('input').prop('disabled', true);
+                    return;
+                }
                 if (!validateStock($(this), requested[id] || 0)) valid = false;
             });
             if (!valid) { e.preventDefault(); Swal.fire({ icon: 'warning', title: 'Stok Tidak Cukup', text: 'Periksa kembali qty yang melebihi stok.', confirmButtonColor: 'var(--primary)' }); }
-            else localStorage.removeItem(STORAGE_KEY);
         });
 
         loadFormState();
         setConsignmentOpen($('#consignment_enabled').val() === '1');
         updateConsignmentSummary();
+        if ($('#consignment_enabled').val() === '1' && $('#consignment_numbers').val().trim()) checkConsignmentAvailability();
         if ($('#product-container').children().length === 0) addProductRow();
     });
 </script>

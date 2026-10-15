@@ -8,6 +8,7 @@ use App\Models\MobileSalesReceipt;
 use App\Models\SuryaVisit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class MobileSalesController extends Controller
@@ -84,13 +85,29 @@ SQL;
             ->orderBy('nama_outlet')
             ->get();
 
-        // Check which ones are visited today
-        $visited_outlets = MobilePenjualan::where('idsf', $idsf)
+        // Load today's sales and visits in bulk. This avoids one visit query per
+        // PJP card when many Sales Force users open the dashboard together.
+        $salesVisitedOutlets = MobilePenjualan::where('idsf', $idsf)
             ->whereDate('tgl', $todayDate)
             ->whereNotIn('status', ['draft_wa', 'rejected'])
             ->pluck('id_outlet')
             ->unique()
             ->toArray();
+
+        $todayVisits = DB::table('surya_visits')
+            ->where('idsf', $idsf)
+            ->whereDate('visited_at', $todayDate)
+            ->orderByDesc('visited_at')
+            ->get(['id_outlet', 'gps_status'])
+            ->unique('id_outlet')
+            ->keyBy(fn ($visit) => (string) $visit->id_outlet);
+
+        $visited_outlets = collect($salesVisitedOutlets)
+            ->merge($todayVisits->keys())
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         $activeVisit = SuryaVisit::query()
             ->inProgressForSalesForce($idsf)
@@ -105,16 +122,11 @@ SQL;
 
         foreach($pjp_list as $pjp) {
             $pjp->is_visited = in_array($pjp->id_outlet, $visited_outlets);
-            $visit = DB::table('surya_visits')
-                ->where('idsf', $idsf)
-                ->where('id_outlet', $pjp->id_outlet)
-                ->whereDate('visited_at', $todayDate)
-                ->orderByDesc('visited_at')
-                ->first();
+            $visit = $todayVisits->get((string) $pjp->id_outlet);
             $pjp->photo_status = $visit->gps_status ?? null;
         }
 
-        // Calculate Non-PJP Visits
+        // Calculate Extra Call visits (outlets visited outside the day's PJP schedule).
         $pjp_outlet_ids = $pjp_list->pluck('id_outlet')->toArray();
         $non_pjp_visited_ids = array_diff($visited_outlets, $pjp_outlet_ids);
         
@@ -158,7 +170,7 @@ SQL;
         if ($draftReceipt) {
             return redirect()
                 ->route('mobile.receipt.show', $draftReceipt)
-                ->with('error', 'Selesaikan pengiriman e-Bon WhatsApp untuk transaksi ini terlebih dahulu.');
+                ->with('error', 'Selesaikan konfirmasi transaksi yang sudah tersimpan terlebih dahulu.');
         }
 
         $selected_outlet = null;
@@ -190,10 +202,16 @@ SQL;
 
     public function store(Request $request)
     {
+        $products = collect($request->input('products', []))
+            ->filter(fn ($row) => filled($row['iddenom'] ?? null) || filled($row['qty'] ?? null))
+            ->values()
+            ->all();
+        $request->merge(['products' => $products]);
+
         $request->validate([
             'id_outlet' => 'required',
-            'products' => 'required|array|min:1',
-            'products.*.iddenom' => 'required|exists:denom,iddenom',
+            'products' => 'nullable|array',
+            'products.*.iddenom' => 'required|distinct|exists:denom,iddenom',
             'products.*.qty' => 'required|integer|min:1',
             'consignment_enabled' => 'nullable|boolean',
             'consignment_numbers' => 'nullable|string|max:10000',
@@ -223,6 +241,27 @@ SQL;
                     'consignment_numbers' => 'Nomor duplikat pada isian: '.implode(', ', array_slice($duplicateNumbers, 0, 5)).'.',
                 ]);
             }
+
+            $registered = DB::table('surya_sa_consignment_numbers as c')
+                ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
+                ->whereIn('c.serial_number', $consignmentNumbers)
+                ->get(['c.serial_number', 'c.id_outlet', 'o.nama_outlet']);
+            if ($registered->isNotEmpty()) {
+                $locations = $registered->map(function ($row) {
+                    $outlet = $row->nama_outlet ?: $row->id_outlet;
+                    return "{$row->serial_number} di {$outlet}";
+                })->implode(', ');
+
+                return back()->withInput()->withErrors([
+                    'consignment_numbers' => 'Nomor sudah tercatat: '.$locations.'.',
+                ]);
+            }
+        }
+
+        if ($products === [] && $consignmentNumbers === []) {
+            return back()->withInput()->withErrors([
+                'products' => 'Pilih minimal satu produk atau isi nomor konsinyasi SA.',
+            ]);
         }
 
         $idsf = session('mobile_sf_id');
@@ -259,7 +298,7 @@ SQL;
         if ($draftReceipt) {
             return redirect()
                 ->route('mobile.receipt.show', $draftReceipt)
-                ->with('error', 'Transaksi sudah tersimpan. Kirimkan e-Bon ke WhatsApp owner untuk menyelesaikan penjualan.');
+                ->with('error', 'Transaksi sudah tersimpan. Periksa detail lalu konfirmasi submit penjualan.');
         }
 
         $approvedVisit = DB::table('surya_visits')
@@ -349,9 +388,9 @@ SQL;
                         ->all();
 
                     if ($registeredNumbers !== []) {
-                        throw new \RuntimeException(
-                            'Nomor perdana sudah pernah dicatat: '.implode(', ', array_slice($registeredNumbers, 0, 5)).'.'
-                        );
+                        throw ValidationException::withMessages([
+                            'consignment_numbers' => 'Nomor perdana baru saja tercatat di transaksi lain: '.implode(', ', array_slice($registeredNumbers, 0, 5)).'.',
+                        ]);
                     }
 
                     $timestamp = now();
@@ -376,11 +415,41 @@ SQL;
 
             return redirect()
                 ->route('mobile.receipt.show', $receipt)
-                ->with('success', 'Transaksi tersimpan. Kirimkan e-Bon ke WhatsApp owner untuk meneruskan transaksi ke admin.');
+                ->with('success', 'Detail transaksi sudah disiapkan. Periksa kembali sebelum submit penjualan.');
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+    }
+
+    public function checkConsignmentNumbers(Request $request)
+    {
+        $validated = $request->validate([
+            'numbers' => ['required', 'array', 'max:100'],
+            'numbers.*' => ['required', 'string', 'regex:/^\d{8,20}$/'],
+        ]);
+
+        $numbers = collect($validated['numbers'])->unique()->values();
+        $registered = DB::table('surya_sa_consignment_numbers as c')
+            ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
+            ->whereIn('c.serial_number', $numbers)
+            ->get(['c.serial_number', 'c.id_outlet', 'c.status', 'o.nama_outlet'])
+            ->keyBy('serial_number');
+
+        return response()->json([
+            'results' => $numbers->map(function ($number) use ($registered) {
+                $match = $registered->get($number);
+
+                return [
+                    'number' => $number,
+                    'available' => ! $match,
+                    'id_outlet' => $match->id_outlet ?? null,
+                    'nama_outlet' => $match->nama_outlet ?? null,
+                ];
+            })->values(),
+        ]);
     }
 
     public function history(Request $request)
@@ -542,7 +611,7 @@ SQL;
         
         $request->validate([
             'products' => 'required|array',
-            'products.*.iddenom' => 'required',
+            'products.*.iddenom' => 'required|distinct',
             'products.*.qty' => 'required|numeric|min:1',
             'keterangan' => 'nullable|string',
         ]);
@@ -650,22 +719,37 @@ SQL;
             ->orderBy('mobile_penjualan.id')
             ->get();
 
-        if ($sales->isEmpty()) {
+        $consignments = DB::table('surya_sa_consignment_numbers as c')
+            ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
+            ->where('c.idsf', $idsf)
+            ->whereDate('c.reported_at', $tgl)
+            ->where('c.status', 'consigned')
+            ->orderBy('c.id')
+            ->get(['c.id_outlet', 'c.serial_number', 'o.nama_outlet']);
+
+        if ($sales->isEmpty() && $consignments->isEmpty()) {
             return response()->json(['success' => false, 'message' => 'Data tidak ditemukan']);
         }
+
+        $salesByOutlet = $sales->groupBy('id_outlet');
+        $consignmentsByOutlet = $consignments->groupBy('id_outlet');
+        $outletIds = $salesByOutlet->keys()->merge($consignmentsByOutlet->keys())->unique();
 
         return response()->json([
             'success' => true,
             'date' => Carbon::parse($tgl)->locale('id')->translatedFormat('d M Y'),
-            'outlets' => $sales
-                ->groupBy('id_outlet')
-                ->map(function ($outletSales, $idOutlet) {
+            'outlets' => $outletIds
+                ->map(function ($idOutlet) use ($salesByOutlet, $consignmentsByOutlet) {
+                    $outletSales = $salesByOutlet->get($idOutlet, collect());
+                    $outletConsignments = $consignmentsByOutlet->get($idOutlet, collect());
                     $draftReceipt = $outletSales
                         ->first(fn ($sale) => $sale->status === 'draft_wa' && $sale->receipt_id);
+                    $firstSale = $outletSales->first();
+                    $firstConsignment = $outletConsignments->first();
 
                     return [
                         'id_outlet' => $idOutlet,
-                        'nama_outlet' => $outletSales->first()->nama_outlet ?: $idOutlet,
+                        'nama_outlet' => ($firstSale->nama_outlet ?? $firstConsignment->nama_outlet ?? null) ?: $idOutlet,
                         'total_qty' => (int) $outletSales
                             ->whereNotIn('status', ['draft_wa', 'rejected'])
                             ->sum('qty'),
@@ -677,6 +761,8 @@ SQL;
                             'qty' => (int) $sale->qty,
                             'status' => $sale->status,
                         ])->values(),
+                        'consignment_qty' => $outletConsignments->count(),
+                        'consignment_numbers' => $outletConsignments->pluck('serial_number')->filter()->values(),
                     ];
                 })
                 ->values(),
@@ -703,7 +789,12 @@ SQL;
                 'd.denom',
             ]);
 
-        return view('mobile.receipt', compact('receipt', 'outlet', 'items'));
+        $consignments = DB::table('surya_sa_consignment_numbers')
+            ->where('receipt_id', $receipt->id)
+            ->orderBy('id')
+            ->pluck('serial_number');
+
+        return view('mobile.receipt', compact('receipt', 'outlet', 'items', 'consignments'));
     }
 
     public function receiptImage(MobileSalesReceipt $receipt)
@@ -797,9 +888,6 @@ SQL;
     {
         abort_unless($receipt->idsf === session('mobile_sf_id'), 403);
 
-        if (! $receipt->owner_whatsapp || ! $receipt->whatsapp_opened_at) {
-            return back()->with('error', 'Buka WhatsApp dan kirim e-Bon ke owner terlebih dahulu.');
-        }
         try {
             DB::transaction(function () use ($receipt) {
                 $lockedReceipt = MobileSalesReceipt::query()->lockForUpdate()->findOrFail($receipt->id);
@@ -814,7 +902,13 @@ SQL;
                     ->lockForUpdate()
                     ->get();
 
-                if ($sales->isEmpty()) {
+                $consignments = DB::table('surya_sa_consignment_numbers')
+                    ->where('receipt_id', $lockedReceipt->id)
+                    ->where('status', 'draft')
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($sales->isEmpty() && $consignments->isEmpty()) {
                     throw new \RuntimeException('Item penjualan tidak ditemukan atau sudah diproses.');
                 }
 
@@ -859,9 +953,13 @@ SQL;
             return back()->with('error', $e->getMessage());
         }
 
+        $hasSales = MobilePenjualan::query()->where('receipt_id', $receipt->id)->exists();
+
         return redirect()
             ->route('mobile.history')
-            ->with('success', 'e-Bon dikonfirmasi terkirim. Stok sudah diamankan dan transaksi masuk ke admin ' . $receipt->idtap . ' untuk validasi.');
+            ->with('success', $hasSales
+                ? 'Penjualan berhasil disubmit. Stok sudah diamankan dan transaksi masuk ke admin ' . $receipt->idtap . ' untuk validasi.'
+                : 'Konsinyasi berhasil dicatat dan nomor perdana sudah terhubung ke outlet.');
     }
 
     private function generateReceiptNumber(): string

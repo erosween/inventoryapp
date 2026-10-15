@@ -3,8 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Login SF - SURYA</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SURYA - MOBILE</title>
 
     <link rel="manifest" href="/manifest.json">
     <meta name="application-name" content="SURYA">
@@ -20,7 +21,8 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png">
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#b40012">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -226,6 +228,7 @@
         }
 
         @supports not (height: 100svh) {
+
             body,
             .login-phone {
                 min-height: 100vh;
@@ -292,7 +295,7 @@
             position: relative;
         }
 
-        .field-wrap > i {
+        .field-wrap>i {
             position: absolute;
             left: 16px;
             top: 50%;
@@ -421,20 +424,21 @@
         <section class="login-hero">
             <div class="brand-row">
                 <div class="brand-lockup">
-                    <img src="/assets/img/surya-logo-mobile.webp" class="brand-logo" alt="SURYA" width="40" height="40" loading="eager" decoding="async">
+                    <img src="/assets/img/surya-logo-mobile.webp" class="brand-logo" alt="SURYA" width="40"
+                        height="40" loading="eager" decoding="async">
                     <div>
                         <div class="brand-name">SURYA</div>
                         <div class="brand-sub">Sales Unified Reporting &amp; Yield Application</div>
                     </div>
                 </div>
-                <div class="secure-pill">
+                {{-- <div class="secure-pill">
                     <i class="fas fa-shield-halved me-1"></i> Secure
-                </div>
+                </div> --}}
             </div>
 
             <div class="hero-copy">
-                <h1>Sales dan stok dalam satu layar.</h1>
-                <p>Akses cepat untuk input kunjungan, pantau inventory, dan cek riwayat penjualan tim lapangan.</p>
+                <h1>Aplikasi Visit dan Stock Sales Force</h1>
+                <p>Akses cepat untuk input kunjungan, pantau inventory, dan cek riwayat penjualan Sales Force.</p>
             </div>
 
             <div class="hero-strip">
@@ -459,10 +463,9 @@
                     <h2>Masuk SF</h2>
                     <p>Gunakan login code dari admin TAP.</p>
                 </div>
-                <i class="fas fa-fingerprint"></i>
             </div>
 
-            @if(session('error'))
+            @if (session('error'))
                 <div class="alert-premium">
                     <i class="fas fa-circle-exclamation me-2"></i>{{ session('error') }}
                 </div>
@@ -474,7 +477,8 @@
                     <label class="field-label" for="login_code">Sales Login Code</label>
                     <div class="field-wrap">
                         <i class="fas fa-id-badge"></i>
-                        <input type="text" name="login_code" id="login_code" class="login-input" placeholder="06D5LA" value="{{ old('login_code') }}" required autocomplete="username">
+                        <input type="text" name="login_code" id="login_code" class="login-input" placeholder="06D5LA"
+                            value="{{ old('login_code') }}" required autocomplete="username">
                     </div>
                 </div>
 
@@ -482,8 +486,10 @@
                     <label class="field-label" for="password">Password</label>
                     <div class="field-wrap">
                         <i class="fas fa-lock"></i>
-                        <input type="password" name="password" id="password" class="login-input" placeholder="Password" required autocomplete="current-password">
-                        <button type="button" class="password-toggle" id="passwordToggle" aria-label="Tampilkan password">
+                        <input type="password" name="password" id="password" class="login-input" placeholder="Password"
+                            required autocomplete="current-password">
+                        <button type="button" class="password-toggle" id="passwordToggle"
+                            aria-label="Tampilkan password">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>

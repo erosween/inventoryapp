@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monita Leader Login</title>
+    <title>SURYA Leader Login</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -281,13 +281,13 @@
     <main class="login-shell">
         <section class="hero-panel">
             <div class="brand">
-                <div class="brand-icon"><i class="fas fa-chart-line"></i></div>
-                <span>MONITA LEADER</span>
+                <div class="brand-icon"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"></div>
+                <span>SURYA LEADER</span>
             </div>
 
             <div class="hero-copy">
                 <h1>One view for every territory performance.</h1>
-                <p>Command center Monita untuk membaca tren NGRS, PV, SA, dan Digipos Package dari level Sales Force hingga Cluster.</p>
+                <p>Performance hub SURYA untuk membaca tren NGRS, PV, SA, dan Digipos Package dari level Sales Force hingga Cluster.</p>
             </div>
 
             <div class="metric-row">
@@ -307,14 +307,14 @@
         </section>
 
         <section class="login-panel">
-            <h2>Login Monita</h2>
-            <p>Masukkan kode akses leader untuk membuka seluruh workspace performance Monita.</p>
+            <h2>Login SURYA</h2>
+            <p>Masukkan kode akses leader untuk membuka seluruh workspace performance SURYA.</p>
 
             @if(session('error'))
                 <div class="alert error">{{ session('error') }}</div>
             @endif
 
-            <form action="{{ route('monita.leader.login.post') }}" method="POST">
+            <form action="{{ route('surya.leader.login.post') }}" method="POST">
                 @csrf
                 <div class="field">
                     <label for="access_code">Kode akses</label>

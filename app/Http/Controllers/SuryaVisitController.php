@@ -84,6 +84,33 @@ class SuryaVisitController extends Controller
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
+    public function checkout(Request $request)
+    {
+        $validated = $request->validate([
+            'id_outlet' => ['required', 'string'],
+            'checkout_reason' => ['required', 'in:outlet_tutup,pemilik_tidak_ada,menolak_visit,lainnya'],
+            'checkout_notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $visit = SuryaVisit::query()
+            ->where('idsf', session('mobile_sf_id'))
+            ->where('id_outlet', $validated['id_outlet'])
+            ->whereDate('visited_at', now()->toDateString())
+            ->whereNull('checkout_at')
+            ->latest('visited_at')
+            ->firstOrFail();
+
+        $visit->update([
+            'checkout_at' => now(),
+            'checkout_reason' => $validated['checkout_reason'],
+            'checkout_notes' => $validated['checkout_notes'] ?? null,
+        ]);
+
+        return redirect()
+            ->route('mobile.index')
+            ->with('success', 'Visit ditutup tanpa penjualan dan tetap dihitung sebagai Actual Call.');
+    }
+
     public function store(Request $request)
     {
         $request->validate([

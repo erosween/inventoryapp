@@ -4,7 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monita Dumai</title>
+    <title>SURYA Performance Hub</title>
+    <script>
+        (() => {
+            try {
+                if (localStorage.getItem('surya-sidebar-collapsed') === '1') {
+                    document.documentElement.classList.add('sidebar-collapsed-boot');
+                }
+            } catch (error) {}
+            const allowedTabs = new Set(['outlet', 'visit-detail']);
+            const queryTab = new URLSearchParams(window.location.search).get('panel');
+            const hashTab = window.location.hash.replace('#', '');
+            const tab = allowedTabs.has(hashTab) ? hashTab : (allowedTabs.has(queryTab) ? queryTab : 'outlet');
+            const style = document.createElement('style');
+            style.id = 'dashboard-boot-panel-style';
+            style.textContent = `.dashboard-panel.active{display:none!important}#dashboard-panel-${tab}{display:block!important}`;
+            document.head.appendChild(style);
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('static/style.css') }}">
@@ -1887,6 +1904,17 @@
             border-width: 3px;
             box-shadow: 0 3px 12px rgba(255, 193, 7, 0.65);
         }
+        .outlet-marker-photo {
+            width: 36px; height: 36px; overflow: hidden; border: 3px solid #fff; border-radius: 11px;
+            background: #fff; box-shadow: 0 3px 10px rgba(15,23,42,.38); position: relative;
+        }
+        .outlet-marker-photo img { width: 100%; height: 100%; display: block; object-fit: cover; }
+        .outlet-marker-photo::after {
+            content: "✓"; position: absolute; right: -1px; bottom: -1px; width: 14px; height: 14px;
+            display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%;
+            background: #16a34a; color: #fff; font-size: 8px; font-weight: 900;
+        }
+        .outlet-marker-selected .outlet-marker-photo { width: 46px; height: 46px; border-color: #fbbf24; box-shadow: 0 4px 16px rgba(245,158,11,.6); }
 
         .map-heading {
             display: flex;
@@ -2457,11 +2485,12 @@
         body { background: #f4f6f8; }
         .app-shell { min-height: 100vh; }
         .enterprise-sidebar {
-            position: fixed; inset: 0 auto 0 0; z-index: 1500;
+            position: fixed; inset: 0 auto 0 0; z-index: 1100;
             width: var(--sidebar-width); padding: 24px 16px;
             background: #102a33; color: #fff;
             display: flex; flex-direction: column;
             border-right: 1px solid rgba(255,255,255,.08);
+            transition: transform .22s ease;
         }
         .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 26px; }
         .sidebar-logo {
@@ -2485,7 +2514,11 @@
         .sidebar-avatar { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #344054; }
         .sidebar-user strong { display: block; font-size: 12px; }
         .sidebar-user small { color: #667085; font-size: 10px; }
-        .app-main { min-height: 100vh; margin-left: var(--sidebar-width); }
+        .app-main { min-height: 100vh; margin-left: var(--sidebar-width); transition: margin-left .22s ease; }
+        .app-shell.sidebar-collapsed .enterprise-sidebar { transform: translateX(-100%); }
+        .app-shell.sidebar-collapsed .app-main { margin-left: 0; }
+        html.sidebar-collapsed-boot .enterprise-sidebar { transform: translateX(-100%); }
+        html.sidebar-collapsed-boot .app-main { margin-left: 0; }
         .header {
             position: sticky; top: 0; z-index: 1000; min-height: 72px; padding: 0 28px;
             justify-content: space-between; background: rgba(255,255,255,.94); color: var(--monita-ink);
@@ -2496,7 +2529,7 @@
         .header-actions { display: flex; align-items: center; gap: 10px; }
         .header-status { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid var(--monita-line); border-radius: 10px; color: #475467; font-size: 11px; font-weight: 700; background: #fff; }
         .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #12b76a; box-shadow: 0 0 0 3px #d1fadf; }
-        .mobile-menu { display: none; width: 38px; height: 38px; border: 1px solid var(--monita-line); border-radius: 10px; background: #fff; }
+        .mobile-menu { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--monita-line); border-radius: 10px; background: #fff; cursor: pointer; }
         .container { max-width: 1600px; margin: 0 auto; padding: 26px 28px 90px; }
         .dashboard-menu { grid-template-columns: repeat(2, max-content); justify-content: start; box-shadow: none; border: 1px solid var(--monita-line); width: max-content; }
         .dashboard-menu-button.active { background: #101828; box-shadow: none; }
@@ -2586,6 +2619,79 @@
             text-align: right;
             line-height: 1.55;
         }
+        .visit-detail-hero { align-items: flex-end; }
+        .visit-date-filter { min-width: 310px; }
+        .visit-date-filter label { display: block; margin-bottom: 7px; color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .visit-date-filter > div { display: flex; gap: 8px; }
+        .visit-date-filter input, .visit-date-filter button { min-height: 44px; border-radius: 10px; border: 1px solid #d8dee8; font: inherit; font-weight: 700; }
+        .visit-date-filter input { flex: 1; padding: 0 13px; background: #fff; color: #111827; color-scheme: light; }
+        .visit-date-filter button { padding: 0 16px; border-color: #c9001d; background: #c9001d; color: #fff; cursor: pointer; }
+        .visit-summary-strip { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; margin: 18px 0; }
+        .visit-summary-strip > div { padding: 16px 18px; border: 1px solid var(--monita-line); border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(15,23,42,.05); }
+        .visit-summary-strip small { display: block; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+        .visit-summary-strip strong { display: block; margin-top: 7px; color: #111827; font-size: 24px; }
+        .visit-detail-card { overflow: hidden; border: 1px solid var(--monita-line); border-radius: 16px; background: #fff; box-shadow: 0 10px 28px rgba(15,23,42,.05); }
+        .visit-detail-table-wrap { overflow: auto; }
+        .visit-detail-table { width: 100%; min-width: 980px; border-collapse: collapse; }
+        .visit-detail-table th { padding: 14px 16px; background: #f8fafc; color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+        .visit-detail-table th:nth-child(n+5), .visit-detail-table td:nth-child(n+5) { text-align: center; }
+        .visit-detail-table th small { display: block; margin-top: 2px; color: #94a3b8; font-size: 8px; }
+        .visit-detail-table td { padding: 15px 16px; border-top: 1px solid #edf0f4; color: #334155; font-size: 12px; }
+        .visit-detail-table tbody tr:hover { background: #fffafa; }
+        .visit-code { color: #b0001b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; }
+        .cluster-chip { display: inline-flex; padding: 5px 8px; border-radius: 999px; background: #fef2f2; color: #b91c1c; font-size: 9px; font-weight: 800; }
+        .metric-number { display: inline-grid; min-width: 42px; min-height: 30px; place-items: center; border-radius: 9px; font-weight: 900; }
+        .metric-number.actual { background: #eff6ff; color: #1d4ed8; }
+        button.metric-number { border: 0; cursor: pointer; }
+        button.metric-number:hover { box-shadow: 0 0 0 3px #dbeafe; }
+        .metric-number.effective { background: #ecfdf5; color: #047857; }
+        .metric-number.non-pjp { background: #f5f3ff; color: #6d28d9; }
+        .metric-number.non-buying { background: #fef2f2; color: #b91c1c; }
+        .metric-number.pv { background: #fff7ed; color: #c2410c; }
+        .metric-number.sa { background: #fdf2f8; color: #be185d; }
+        .visit-empty { padding: 54px !important; text-align: center !important; color: #94a3b8 !important; }
+        .visit-empty i, .visit-empty strong, .visit-empty span { display: block; }
+        .visit-empty i { margin-bottom: 10px; font-size: 24px; }
+        .visit-empty strong { color: #475569; font-size: 15px; }
+        .visit-empty span { margin-top: 4px; }
+        .visit-module-tabs { display: inline-flex; gap: 6px; margin-bottom: 14px; padding: 5px; border: 1px solid var(--monita-line); border-radius: 12px; background: #fff; }
+        .visit-module-tab { min-height: 38px; padding: 0 15px; border: 0; border-radius: 9px; background: transparent; color: #64748b; font-weight: 800; cursor: pointer; }
+        .visit-module-tab.active { background: #c9001d; color: #fff; box-shadow: 0 7px 16px rgba(201,0,29,.18); }
+        .notice { margin-bottom: 14px; padding: 12px 14px; border: 1px solid #bbf7d0; border-radius: 11px; background: #f0fdf4; color: #166534; font-size: 12px; font-weight: 700; }
+        .visit-subpanel[hidden] { display: none; }
+        .visit-photo-thumb { width: 68px; height: 50px; object-fit: cover; border-radius: 9px; box-shadow: 0 0 0 1px #e2e8f0; }
+        .visit-approve-btn { min-height: 34px; padding: 0 11px; border: 0; border-radius: 9px; background: #15935d; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+        .visit-modal[hidden] { display: none; }
+        .visit-modal { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 24px; background: rgba(15,23,42,.62); }
+        .visit-modal-card { width: min(980px,100%); max-height: calc(100vh - 48px); overflow: hidden; border-radius: 18px; background: #fff; box-shadow: 0 30px 80px rgba(15,23,42,.3); }
+        .visit-modal-head { padding: 17px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e5e7eb; }
+        .visit-modal-head h3 { margin: 0; font-size: 17px; }
+        .visit-modal-close { width: 36px; height: 36px; border: 0; border-radius: 10px; background: #f1f5f9; cursor: pointer; }
+        .visit-modal-body { max-height: calc(100vh - 130px); overflow: auto; padding: 14px 20px 22px; }
+        .visit-refresh-button { margin-left: auto; min-height: 40px; padding: 0 15px; border: 1px solid #fecaca; border-radius: 11px; display: inline-flex; align-items: center; gap: 8px; color: #b91c1c; background: #fff7f7; font-size: 12px; font-weight: 800; text-decoration: none; }
+        .visit-refresh-button:hover { background: #fee2e2; color: #991b1b; }
+        .visit-outlet-row { display: grid; grid-template-columns: 72px minmax(180px,1fr) 150px repeat(3,90px); gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #edf0f4; }
+        .visit-outlet-row strong,.visit-outlet-row small { display: block; }
+        .visit-outlet-row small { margin-top: 3px; color: #64748b; }
+        .visit-outlet-metric { text-align: center; }
+        .visit-outlet-metric strong { font-size: 16px; }
+        .visit-outlet-metric button { width: 100%; padding: 7px 5px; border: 1px solid #e2e8f0; border-radius: 9px; background: #f8fafc; color: #111827; cursor: pointer; font: inherit; font-weight: 900; }
+        .visit-outlet-metric button:hover { border-color: #fca5a5; background: #fff7f7; }
+        .visit-outlet-detail { grid-column: 1 / -1; display: none; padding: 12px 14px; border-radius: 10px; background: #f8fafc; color: #334155; }
+        .visit-outlet-detail.active { display: block; }
+        .visit-outlet-detail ul { margin: 0; padding-left: 18px; }
+        .visit-outlet-detail li + li { margin-top: 5px; }
+        .approval-visit-table th:nth-child(-n+4), .approval-visit-table td:nth-child(-n+4),
+        .visit-summary-table th:nth-child(-n+4), .visit-summary-table td:nth-child(-n+4) { text-align: left !important; }
+        .outlet-branding-photo { display: block; width: 100%; height: 112px; margin: 8px 0; overflow: hidden; border-radius: 10px; background: #eef2f7; }
+        .outlet-branding-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .map-detail-branding { margin-bottom: 14px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 13px; background: #f8fafc; }
+        .map-detail-branding a { display: block; }
+        .map-detail-branding img { display: block; width: 100%; max-height: 250px; object-fit: cover; }
+        .map-detail-branding-copy { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; }
+        .map-detail-branding-copy strong { display: block; color: #111827; font-size: 11px; }
+        .map-detail-branding-copy small { color: #64748b; font-size: 9px; }
+        .map-detail-branding-empty { display: grid; min-height: 100px; place-items: center; color: #94a3b8; font-size: 11px; text-align: center; }
         .pv-table-scroll {
             max-height: 640px;
             overflow: auto;
@@ -2788,47 +2894,48 @@
             color: #fff;
         }
 
-        /* CLEAN MONITA THEME — neutral, compact, and content-first */
+        /* SURYA PERFORMANCE HUB THEME */
         :root {
-            --monita-red: #18181b;
-            --monita-ink: #18181b;
-            --monita-muted: #71717a;
-            --monita-line: #e4e4e7;
-            --monita-soft: #f4f4f5;
+            --monita-red: #d10b20;
+            --monita-ink: #111827;
+            --monita-muted: #64748b;
+            --monita-line: #e2e8f0;
+            --monita-soft: #f1f5f9;
             --monita-surface: #ffffff;
             --sidebar-width: 236px;
         }
 
-        body { background: #fafafa; color: var(--monita-ink); }
+        body { background: #edf2f7; color: var(--monita-ink); }
         .enterprise-sidebar {
             padding: 18px 12px;
-            background: #fff;
-            color: var(--monita-ink);
-            border-right: 1px solid var(--monita-line);
+            background: linear-gradient(180deg, #3a000a 0%, #970017 52%, #d10b20 100%);
+            color: #fff;
+            border-right: 0;
         }
         .sidebar-brand { padding: 0 8px 22px; }
         .sidebar-logo {
             width: 36px; height: 36px; border-radius: 9px;
-            background: #18181b; color: #fff; box-shadow: none;
+            background: transparent; color: #fff; box-shadow: none; overflow: hidden;
         }
+        .sidebar-logo img { width: 100%; height: 100%; object-fit: cover; }
         .sidebar-brand strong { font-size: 15px; }
-        .sidebar-brand small, .sidebar-user small { color: #a1a1aa; }
-        .sidebar-label { color: #a1a1aa; font-size: 9px; }
+        .sidebar-brand small, .sidebar-user small { color: rgba(255,255,255,.62); }
+        .sidebar-label { color: rgba(255,255,255,.5); font-size: 9px; }
         .sidebar-nav { gap: 3px; }
         .sidebar-link {
-            min-height: 40px; border-radius: 8px; color: #52525b;
-            font-size: 12px; font-weight: 600;
+            min-height: 40px; border-radius: 8px; color: rgba(255,255,255,.78);
+            font-size: 12px; font-weight: 600; text-decoration: none;
         }
-        .sidebar-link:hover { background: #f4f4f5; color: #18181b; }
+        .sidebar-link:hover { background: rgba(255,255,255,.12); color: #fff; }
         .sidebar-link.active {
-            background: #f4f4f5; color: #18181b; box-shadow: none;
+            background: #fff; color: #b5001c; box-shadow: 0 8px 18px rgba(38,0,5,.18);
         }
-        .sidebar-link.active i { color: #18181b; }
-        .sidebar-foot { border-top-color: var(--monita-line); }
-        .sidebar-avatar { background: #f4f4f5; color: #3f3f46; border-radius: 8px; }
+        .sidebar-link.active i { color: #b5001c; }
+        .sidebar-foot { border-top-color: rgba(255,255,255,.18); }
+        .sidebar-avatar { background: rgba(255,255,255,.14); color: #fff; border-radius: 8px; }
 
         .header {
-            min-height: 64px; padding: 0 24px; background: rgba(255,255,255,.88);
+            min-height: 64px; padding: 0 24px; background: rgba(255,255,255,.94);
             border-bottom-color: var(--monita-line); backdrop-filter: blur(12px);
         }
         .header-copy h1 { font-size: 15px; font-weight: 650; letter-spacing: -.2px; }
@@ -2930,35 +3037,40 @@
             .analytics-toolbar, .module-grid { grid-template-columns: 1fr; }
             .module-hero { align-items: flex-start; flex-direction: column; }
             .dashboard-menu { width: 100%; grid-template-columns: repeat(2, 1fr); }
+            .visit-date-filter { width: 100%; min-width: 0; }
+            .visit-summary-strip { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .visit-outlet-row { grid-template-columns: 60px 1fr repeat(2,70px); }
+            .visit-outlet-row > :nth-child(3), .visit-outlet-row > :nth-child(6) { grid-column: 2 / -1; text-align: left; }
+        }
+        @media (max-width: 900px) {
+            .visit-detail-hero { align-items: stretch; flex-direction: column; }
+            .visit-date-filter { width: 100%; min-width: 0; }
+            .visit-summary-strip { grid-template-columns: repeat(2, minmax(0,1fr)); }
         }
     </style>
 </head>
 
 <body>
     <div class="app-shell" id="app-shell">
-    <aside class="enterprise-sidebar" aria-label="Navigasi utama Monita">
+    <aside class="enterprise-sidebar" aria-label="Navigasi utama SURYA">
         <div class="sidebar-brand">
-            <div class="sidebar-logo"><i class="fas fa-chart-line"></i></div>
-            <div><strong>MONITA</strong><small>PERFORMANCE HUB</small></div>
+            <div class="sidebar-logo"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA"></div>
+            <div><strong>SURYA</strong><small>PERFORMANCE WOK</small></div>
         </div>
         <div class="sidebar-label">WORKSPACE</div>
         <nav class="sidebar-nav">
-            <button type="button" class="sidebar-link active" data-dashboard-tab="leader"><i class="fas fa-table-cells-large"></i><span>Dashboard</span></button>
-            <button type="button" class="sidebar-link" data-dashboard-tab="ngrs"><i class="fas fa-tower-broadcast"></i><span>NGRS</span></button>
-            <button type="button" class="sidebar-link" data-dashboard-tab="cvm"><i class="fas fa-chart-simple"></i><span>CVM</span></button>
-            <button type="button" class="sidebar-link" data-dashboard-tab="pv"><i class="fas fa-bolt"></i><span>PV</span></button>
-            <button type="button" class="sidebar-link" data-dashboard-tab="sa"><i class="fas fa-sim-card"></i><span>SA</span></button>
-            <button type="button" class="sidebar-link" data-dashboard-tab="digipos"><i class="fas fa-box-open"></i><span>DIGIPOS PACKAGE</span></button>
+            <a href="#outlet" class="sidebar-link {{ request('panel') === 'visit-detail' ? '' : 'active' }}" data-dashboard-tab="outlet"><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
+            <a href="#visit-detail" class="sidebar-link {{ request('panel') === 'visit-detail' ? 'active' : '' }}" data-dashboard-tab="visit-detail"><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
         </nav>
         <div class="sidebar-foot">
-            <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>Monita Leader</strong><small>Secure access</small></div></div>
+            <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>SURYA Leader</strong><small>Secure access</small></div></div>
         </div>
     </aside>
     <div class="app-main">
     <header class="header">
-        <button class="mobile-menu" type="button" aria-label="Buka menu" onclick="document.getElementById('app-shell').classList.toggle('sidebar-open')"><i class="fas fa-bars"></i></button>
+        <button class="mobile-menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button>
         <div class="header-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div>
-        <div class="header-actions"><div class="header-status"><span class="status-dot"></span> Data terhubung</div><a href="{{ route('monita.leader.logout') }}" class="header-status" title="Logout"><i class="fas fa-arrow-right-from-bracket"></i></a></div>
+        <div class="header-actions"><div class="header-status"><span class="status-dot"></span> Data terhubung</div><a href="{{ route('surya.leader.logout') }}" class="header-status" title="Logout"><i class="fas fa-arrow-right-from-bracket"></i></a></div>
     </header>
 
     <main class="container">
@@ -2970,6 +3082,8 @@
             $leaderActions = $dashboard['leaderActions'] ?? [];
             $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
             $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
+            $visitDetails = $dashboard['visitDetails'] ?? [];
+            $approvalVisits = $dashboard['approvalVisits'] ?? [];
             $emptyMonitoring = [
                 'categories' => [],
                 'categoryValidities' => [],
@@ -3035,14 +3149,7 @@
         @endphp
 
         @if ($showLeaderDashboard)
-            <nav class="dashboard-menu" id="dashboard-submenu" aria-label="Tampilan dashboard Monita">
-                <button type="button" class="dashboard-menu-button active" data-dashboard-tab="leader"><i class="fas fa-chart-line"></i> Executive View</button>
-                <button type="button" class="dashboard-menu-button" data-dashboard-tab="outlet">
-                    <i class="fas fa-map-location-dot"></i> Peta Outlet
-                </button>
-            </nav>
-
-            <div class="dashboard-panel active" id="dashboard-panel-leader">
+            <div class="dashboard-panel" id="dashboard-panel-leader">
             <section class="leader-dashboard">
                 <div class="leader-top">
                     <div class="leader-intro">
@@ -3313,7 +3420,7 @@
             </section>
             </div>
 
-            <div class="dashboard-panel" id="dashboard-panel-outlet">
+            <div class="dashboard-panel {{ request('panel') === 'visit-detail' ? '' : 'active' }}" id="dashboard-panel-outlet">
 
         <h2 class="search-panel-title">Cari dan bedah outlet</h2>
         <!-- Search Box -->
@@ -3516,6 +3623,85 @@
             </div>
             @endforeach
 
+            <div class="dashboard-panel {{ request('panel') === 'visit-detail' ? 'active' : '' }}" id="dashboard-panel-visit-detail">
+                <section class="module-page visit-detail-page">
+                    <div class="module-hero visit-detail-hero">
+                        <div>
+                            <div class="module-kicker">SURYA FIELD OPERATIONS</div>
+                            <h2>Detail Visit Sales Force</h2>
+                            <p>Rekap pelaksanaan PJP, rincian outlet, foto branding, serta approval visit dalam satu modul.</p>
+                        </div>
+                        <form class="visit-date-filter" method="GET" action="{{ route('surya.dashboard') }}#visit-detail">
+                            <input type="hidden" name="panel" value="visit-detail">
+                            <input type="hidden" name="visit_tab" id="visit-tab-filter" value="{{ request('visit_tab') === 'approval' ? 'approval' : 'summary' }}">
+                            <label for="visit-date">Tanggal Visit</label>
+                            <div><input id="visit-date" type="date" name="visit_date" value="{{ $visitDate }}"><button type="submit"><i class="fas fa-filter"></i> Tampilkan</button></div>
+                        </form>
+                    </div>
+                    @if(session('success'))<div class="notice"><i class="fas fa-circle-check"></i> {{ session('success') }}</div>@endif
+                    @php($activeVisitTab = request('visit_tab') === 'approval' ? 'approval' : 'summary')
+                    <div class="visit-module-tabs" role="tablist">
+                        <button type="button" class="visit-module-tab {{ $activeVisitTab === 'summary' ? 'active' : '' }}" data-visit-subtab="summary"><i class="fas fa-chart-column"></i> Rekap Visit</button>
+                        <button type="button" class="visit-module-tab {{ $activeVisitTab === 'approval' ? 'active' : '' }}" data-visit-subtab="approval"><i class="fas fa-camera"></i> Approval Visit</button>
+                        <a class="visit-refresh-button" href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a>
+                    </div>
+                    <div class="visit-subpanel" data-visit-subpanel="summary" @if($activeVisitTab !== 'summary') hidden @endif>
+                    <div class="visit-summary-strip">
+                        <div><small>SALES FORCE AKTIF</small><strong>{{ number_format(count($visitDetails), 0, ',', '.') }}</strong></div>
+                        <div><small>ACTUAL CALL</small><strong>{{ number_format(collect($visitDetails)->sum('actual_call'), 0, ',', '.') }}</strong></div>
+                        <div><small>EFFECTIVE CALL</small><strong>{{ number_format(collect($visitDetails)->sum('effective_call'), 0, ',', '.') }}</strong></div>
+                        <div><small>EXTRA CALL</small><strong>{{ number_format(collect($visitDetails)->sum('non_pjp'), 0, ',', '.') }}</strong></div>
+                        <div><small>OUTLET NON BELANJA</small><strong>{{ number_format(collect($visitDetails)->sum('non_buying'), 0, ',', '.') }}</strong></div>
+                        <div><small>TOTAL PV</small><strong>{{ number_format(collect($visitDetails)->sum('total_pv'), 0, ',', '.') }}</strong></div>
+                        <div><small>TOTAL SA</small><strong>{{ number_format(collect($visitDetails)->sum('total_sa'), 0, ',', '.') }}</strong></div>
+                    </div>
+                    <div class="visit-detail-card">
+                        <div class="visit-detail-table-wrap">
+                            <table class="visit-detail-table visit-summary-table" style="min-width:1240px">
+                                <thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th><th>Cluster</th><th>Actual Call</th><th>Effective Call</th><th>Extra Call</th><th>Non Belanja</th><th>Total PV</th><th>Total SA</th></tr></thead>
+                                <tbody>
+                                    @forelse($visitDetails as $row)
+                                        <tr>
+                                            <td><span class="visit-code">{{ $row['sfcode'] }}</span></td>
+                                            <td><strong>{{ $row['name'] }}</strong></td>
+                                            <td>{{ $row['tap'] }}</td>
+                                            <td><span class="cluster-chip">{{ $row['cluster'] }}</span></td>
+                                            <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0, ',', '.') }}</button></td>
+                                            <td><button type="button" class="metric-number effective" data-visit-row="{{ $loop->index }}" data-visit-scope="effective">{{ number_format($row['effective_call'], 0, ',', '.') }}</button></td>
+                                            <td><button type="button" class="metric-number non-pjp" data-visit-row="{{ $loop->index }}" data-visit-scope="non-pjp">{{ number_format($row['non_pjp'], 0, ',', '.') }}</button></td>
+                                            <td><button type="button" class="metric-number non-buying" data-visit-row="{{ $loop->index }}" data-visit-scope="non-buying">{{ number_format($row['non_buying'], 0, ',', '.') }}</button></td>
+                                            <td><span class="metric-number pv">{{ number_format($row['total_pv'], 0, ',', '.') }}</span></td>
+                                            <td><span class="metric-number sa">{{ number_format($row['total_sa'], 0, ',', '.') }}</span></td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="10" class="visit-empty"><i class="fas fa-calendar-xmark"></i><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    </div>
+                    <div class="visit-subpanel" data-visit-subpanel="approval" @if($activeVisitTab !== 'approval') hidden @endif>
+                        <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1120px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status</th><th>Jarak</th><th>Tampak Depan</th><th>Tampak Dalam</th><th>Aksi</th></tr></thead><tbody>
+                        @forelse($approvalVisits as $visit)
+                            <tr>
+                                <td><strong>{{ $visit->nama_outlet ?? $visit->id_outlet }}</strong><small style="display:block;color:#94a3b8">{{ $visit->id_outlet }}</small></td>
+                                <td>{{ $visit->idtap }}</td><td>{{ $visit->namasf ?? $visit->idsf }}</td>
+                                <td>{{ \Carbon\Carbon::parse($visit->visited_at)->format('d M Y H:i') }}</td>
+                                <td><span class="cluster-chip">{{ strtoupper(str_replace('_',' ',$visit->gps_status)) }}</span></td>
+                                <td>{{ $visit->distance_meters !== null ? number_format($visit->distance_meters,0).' m' : '—' }}</td>
+                                <td>@if($visit->front_photo_url)<a href="{{ $visit->front_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->front_thumbnail_url }}" loading="lazy" alt="Tampak depan"></a>@else — @endif</td>
+                                <td>@if($visit->inside_photo_url)<a href="{{ $visit->inside_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->inside_thumbnail_url }}" loading="lazy" alt="Tampak dalam"></a>@else — @endif</td>
+                                <td>@if($visit->gps_status === 'pending_admin')<form method="POST" action="{{ route('surya.visits.approve',$visit->id) }}">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-approve-btn">Setujui Koordinat</button></form>@else — @endif</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="9" class="visit-empty"><strong>Belum ada visit pada tanggal ini</strong></td></tr>
+                        @endforelse
+                        </tbody></table></div></div>
+                    </div>
+                </section>
+            </div>
+
             @foreach([
                 'ngrs' => ['NGRS', 'Network Growth & Revenue Score', 'fa-tower-broadcast'],
                 'digipos' => ['DIGIPOS PACKAGE', 'Digital Package Performance', 'fa-box-open'],
@@ -3551,10 +3737,10 @@
                     <i class="fas fa-lock"></i>
                 </div>
                 <div>
-                    <h2>Dashboard Monita terkunci</h2>
+                    <h2>Dashboard SURYA terkunci</h2>
                     <p>Dashboard leader dan data outlet hanya dapat diakses setelah login internal.</p>
                 </div>
-                <form class="leader-inline-login" action="{{ route('monita.leader.login.post') }}" method="POST">
+                <form class="leader-inline-login" action="{{ route('surya.leader.login.post') }}" method="POST">
                     @csrf
                     <input type="password" name="access_code" aria-label="Kode akses dashboard"
                         placeholder="Masukkan kode akses" autocomplete="current-password" required>
@@ -3624,6 +3810,7 @@
         };
         let markers = [];
         let outletClusterLayer = null;
+        let outletVisitedLayer = null;
         let outletMarkers = new Map();
         let selectedOutletMarker = null;
         let pendingOutletFocus = null;
@@ -4694,42 +4881,101 @@
             });
         }
 
+        function collapseSuryaSidebar() {
+            const shell = document.getElementById('app-shell');
+            if (!shell) return;
+
+            shell.classList.remove('sidebar-open');
+            if (window.innerWidth > 900) {
+                shell.classList.add('sidebar-collapsed');
+                try { localStorage.setItem('surya-sidebar-collapsed', '1'); } catch (error) {}
+                if (map) setTimeout(() => map.invalidateSize(), 240);
+                if (leaderMap) setTimeout(() => leaderMap.invalidateSize(), 240);
+            }
+        }
+
         function bindDashboardMenu() {
             const buttons = document.querySelectorAll('[data-dashboard-tab]');
             if (!buttons.length) return;
 
-            buttons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    const tab = button.dataset.dashboardTab;
+            const availableTabs = new Set(Array.from(buttons).map((button) => button.dataset.dashboardTab));
+            const activateTab = (requestedTab) => {
+                const tab = availableTabs.has(requestedTab) ? requestedTab : 'outlet';
 
-                    buttons.forEach((item) => {
-                        const itemTab = item.dataset.dashboardTab;
-                        const isSidebar = item.classList.contains('sidebar-link');
-                        const active = isSidebar
-                            ? (itemTab === tab || (itemTab === 'leader' && tab === 'outlet'))
-                            : itemTab === tab;
-                        item.classList.toggle('active', active);
-                        item.setAttribute('aria-selected', active ? 'true' : 'false');
-                    });
+                if (requestedTab !== tab) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('panel', tab);
+                    url.hash = tab;
+                    window.history.replaceState(null, '', url);
+                }
 
-                    document.querySelectorAll('.dashboard-panel').forEach((panel) => {
-                        panel.classList.toggle('active', panel.id === `dashboard-panel-${tab}`);
-                    });
-
-                    const dashboardSubmenu = document.getElementById('dashboard-submenu');
-                    if (dashboardSubmenu) {
-                        dashboardSubmenu.hidden = !(tab === 'leader' || tab === 'outlet');
-                    }
-
-                    if (tab === 'outlet') {
-                        if (!map) loadAllOutlets();
-                        else setTimeout(() => map.invalidateSize(), 100);
-                    } else if (leaderMap) {
-                        setTimeout(() => leaderMap.invalidateSize(), 100);
-                    }
-
-                    document.getElementById('app-shell')?.classList.remove('sidebar-open');
+                buttons.forEach((item) => {
+                    const itemTab = item.dataset.dashboardTab;
+                    const isSidebar = item.classList.contains('sidebar-link');
+                    const active = itemTab === tab;
+                    item.classList.toggle('active', active);
+                    item.setAttribute('aria-selected', active ? 'true' : 'false');
                 });
+
+                document.querySelectorAll('.dashboard-panel').forEach((panel) => {
+                    panel.classList.toggle('active', panel.id === `dashboard-panel-${tab}`);
+                });
+                document.getElementById('dashboard-boot-panel-style')?.remove();
+
+                if (tab === 'outlet') {
+                    if (!map) loadAllOutlets();
+                    else setTimeout(() => map.invalidateSize(), 100);
+                } else if (leaderMap) {
+                    setTimeout(() => leaderMap.invalidateSize(), 100);
+                }
+
+                collapseSuryaSidebar();
+            };
+
+            buttons.forEach((button) => {
+                button.addEventListener('click', (event) => {
+                    const tab = button.dataset.dashboardTab;
+                    if (button.matches('a[href^="#"]')) event.preventDefault();
+                    if (tab) {
+                        const url = new URL(window.location.href);
+                        if (tab === 'leader') url.searchParams.delete('panel');
+                        else url.searchParams.set('panel', tab);
+                        url.hash = tab;
+                        if (url.href !== window.location.href) window.history.pushState(null, '', url);
+                    }
+                    activateTab(tab);
+                });
+            });
+
+            window.addEventListener('hashchange', () => activateTab(window.location.hash.replace('#', '')));
+            window.addEventListener('popstate', () => activateTab(window.location.hash.replace('#', '')));
+            activateTab(
+                window.location.hash.replace('#', '') ||
+                new URLSearchParams(window.location.search).get('panel') ||
+                'outlet'
+            );
+        }
+
+        function bindSidebarToggle() {
+            const shell = document.getElementById('app-shell');
+            const toggle = document.getElementById('sidebar-toggle');
+            if (!shell || !toggle) return;
+
+            let collapsed = false;
+            try { collapsed = localStorage.getItem('surya-sidebar-collapsed') === '1'; } catch (error) {}
+            if (window.innerWidth > 900 && collapsed) shell.classList.add('sidebar-collapsed');
+            document.documentElement.classList.remove('sidebar-collapsed-boot');
+
+            toggle.addEventListener('click', () => {
+                if (window.innerWidth <= 900) {
+                    shell.classList.toggle('sidebar-open');
+                    return;
+                }
+                const isCollapsed = shell.classList.toggle('sidebar-collapsed');
+                toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+                try { localStorage.setItem('surya-sidebar-collapsed', isCollapsed ? '1' : '0'); } catch (error) {}
+                if (map) setTimeout(() => map.invalidateSize(), 240);
+                if (leaderMap) setTimeout(() => leaderMap.invalidateSize(), 240);
             });
         }
 
@@ -4963,6 +5209,7 @@
             bindFbShareToggles();
             bindLeaderMapZoom();
             bindActiveTableViewToggles();
+            bindSidebarToggle();
             bindDashboardMenu();
             bindPerformanceMonitoringTables();
         });
@@ -5053,7 +5300,7 @@
             skeleton.style.display = 'block';
 
             try {
-                const response = await fetch(`/monitadumai/search?keyword=${encodeURIComponent(keyword)}`);
+                const response = await fetch(`/surya/search?keyword=${encodeURIComponent(keyword)}`);
                 const data = await response.json();
 
                 skeleton.style.display = 'none';
@@ -5258,12 +5505,13 @@
             const countEl = document.getElementById('map-outlet-count');
 
             try {
-                const response = await fetch('/monitadumai/outlets');
+                const response = await fetch('/surya/outlets');
                 if (!response.ok) throw new Error('Gagal memuat outlet');
 
                 const outlets = await response.json();
                 initMap(outlets);
-                countEl.textContent = `${outlets.length.toLocaleString()} outlet`;
+                const visitedCount = outlets.filter(outlet => outlet.front_thumbnail_url).length;
+                countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
             } catch (error) {
                 countEl.textContent = 'Gagal memuat';
             }
@@ -5288,16 +5536,27 @@
                     }
                 }
             }).addTo(map);
+            // Foto branding yang sudah tersedia selalu tampil langsung di peta.
+            // Hanya outlet tanpa foto yang dikelompokkan untuk menjaga performa.
+            outletVisitedLayer = L.layerGroup().addTo(map);
 
             const bounds = [];
+            const unvisitedMarkers = [];
             outlets.forEach(outlet => {
                 const marker = addOutletMarker(outlet, false);
-                if (marker) bounds.push(marker.getLatLng());
+                if (!marker) return;
+
+                bounds.push(marker.getLatLng());
+                if (outlet.front_thumbnail_url) {
+                    outletVisitedLayer.addLayer(marker);
+                } else {
+                    unvisitedMarkers.push(marker);
+                }
             });
 
             // Tambahkan sekaligus agar plugin dapat membagi pekerjaan rendering
             // ke beberapa frame dan UI tidak membeku saat ribuan outlet dimuat.
-            outletClusterLayer.addLayers(markers);
+            outletClusterLayer.addLayers(unvisitedMarkers);
 
             if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
             addFullscreenControl();
@@ -5305,13 +5564,17 @@
 
         }
 
-        function createOutletIcon(selected = false) {
+        function createOutletIcon(outlet = null, selected = false) {
+            const thumbnail = outlet?.front_thumbnail_url;
+            const content = thumbnail
+                ? `<div class="outlet-marker-photo"><img src="${escapeMapDetailHtml(thumbnail)}" alt="" loading="lazy"></div>`
+                : '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>';
             return L.divIcon({
                 className: selected ? 'outlet-marker-icon outlet-marker-selected' : 'outlet-marker-icon',
-                html: '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>',
-                iconSize: selected ? [38, 42] : [30, 34],
-                iconAnchor: selected ? [19, 40] : [15, 32],
-                popupAnchor: selected ? [0, -38] : [0, -30]
+                html: content,
+                iconSize: thumbnail ? (selected ? [46, 46] : [36, 36]) : (selected ? [38, 42] : [30, 34]),
+                iconAnchor: thumbnail ? (selected ? [23, 23] : [18, 18]) : (selected ? [19, 40] : [15, 32]),
+                popupAnchor: thumbnail ? [0, selected ? -25 : -20] : (selected ? [0, -38] : [0, -30])
             });
         }
 
@@ -5324,7 +5587,7 @@
             if (!Number.isFinite(lat) || !Number.isFinite(lon) || !lat || !lon) return null;
 
             const marker = L.marker([lat, lon], {
-                icon: createOutletIcon()
+                icon: createOutletIcon(outlet)
             });
 
             marker.outletData = outlet;
@@ -5332,7 +5595,13 @@
 
             markers.push(marker);
             outletMarkers.set(outletId, marker);
-            if (addToCluster && outletClusterLayer) outletClusterLayer.addLayer(marker);
+            if (addToCluster) {
+                if (outlet.front_thumbnail_url && outletVisitedLayer) {
+                    outletVisitedLayer.addLayer(marker);
+                } else if (outletClusterLayer) {
+                    outletClusterLayer.addLayer(marker);
+                }
+            }
             return marker;
         }
 
@@ -5351,9 +5620,14 @@
                 distanceHtml = `<div class="outlet-distance"><i class="fas fa-route"></i> Jarak dari kamu: ${distanceLabel}</div>`;
             }
 
+            const photoHtml = outlet.front_thumbnail_url
+                ? `<a class="outlet-branding-photo" href="${escapeMapDetailHtml(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeMapDetailHtml(outlet.front_thumbnail_url)}" alt="Tampak luar ${escapeMapDetailHtml(outlet.nama_outlet)}" loading="lazy"></a><small style="display:block;margin:0 0 7px;color:#64748b">Foto visit: ${mapDetailDate(outlet.front_photo_visited_at)}</small>`
+                : '';
+
             return `
                 <b>${outlet.nama_outlet}</b><br>
                 ${outlet.id_outlet} • ${outlet.tap}
+                ${photoHtml}
                 <div class="outlet-metrics">
                     <div class="outlet-metric"><small>CVM TRX</small><strong>${cvm}</strong></div>
                     <div class="outlet-metric"><small>ST SA</small><strong>${sa}</strong></div>
@@ -5446,11 +5720,20 @@
             const outletId = escapeMapDetailHtml(outlet.id_outlet);
             const outletSf = escapeMapDetailHtml(outlet.sf);
             const outletTap = escapeMapDetailHtml(outlet.tap);
+            const brandingPhoto = outlet.front_thumbnail_url
+                ? '<div class="map-detail-branding">' +
+                    '<a href="' + escapeMapDetailHtml(outlet.front_photo_url || outlet.front_thumbnail_url) + '" target="_blank" rel="noopener noreferrer">' +
+                        '<img src="' + escapeMapDetailHtml(outlet.front_thumbnail_url) + '" alt="Foto branding tampak luar outlet" loading="lazy">' +
+                    '</a>' +
+                    '<div class="map-detail-branding-copy"><div><strong>Branding / Tampak Luar Terbaru</strong><small>Visit ' + mapDetailDate(outlet.front_photo_visited_at) + '</small></div><i class="fas fa-up-right-from-square"></i></div>' +
+                  '</div>'
+                : '<div class="map-detail-branding map-detail-branding-empty"><div><i class="fas fa-image"></i><br>Belum ada foto tampak luar dari check-in SF.</div></div>';
 
             document.getElementById('map-detail-title').textContent = outlet.nama_outlet || 'Detail Outlet';
             document.getElementById('map-detail-subtitle').textContent =
                 (outlet.id_outlet || '-') + ' • ' + (outlet.tap || '-');
             document.getElementById('map-detail-body').innerHTML =
+                brandingPhoto +
                 '<div class="map-detail-profile">' +
                     '<div class="map-detail-profile-item"><small>ID Outlet</small><strong title="' + outletId + '">' + outletId + '</strong></div>' +
                     '<div class="map-detail-profile-item"><small>Sales Force</small><strong title="' + outletSf + '">' + outletSf + '</strong></div>' +
@@ -5484,7 +5767,7 @@
             map.closePopup();
 
             try {
-                const response = await fetch('/monitadumai/search?keyword=' + encodeURIComponent(id));
+                const response = await fetch('/surya/search?keyword=' + encodeURIComponent(id));
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 if (!Array.isArray(data) || !data.length) throw new Error('Outlet tidak ditemukan');
@@ -5521,14 +5804,14 @@
             }
 
             if (selectedOutletMarker && selectedOutletMarker !== marker) {
-                selectedOutletMarker.setIcon(createOutletIcon());
+                selectedOutletMarker.setIcon(createOutletIcon(selectedOutletMarker.outletData));
                 selectedOutletMarker.setZIndexOffset(0);
             }
 
-            marker.setIcon(createOutletIcon(true));
+            marker.setIcon(createOutletIcon(marker.outletData, true));
             marker.setZIndexOffset(1000);
 
-            if (outletClusterLayer) {
+            if (outletClusterLayer && outletClusterLayer.hasLayer(marker)) {
                 outletClusterLayer.zoomToShowLayer(marker, () => {
                     map.setView(marker.getLatLng(), 17, { animate: true });
                     marker.openPopup();
@@ -5670,7 +5953,7 @@
                 return;
             }
             try {
-                const res = await fetch(`/monitadumai/suggest?keyword=${q}`);
+                const res = await fetch(`/surya/suggest?keyword=${q}`);
                 const data = await res.json();
                 box.innerHTML = '';
                 selectedIndex = -1; // Reset selection
@@ -5745,7 +6028,7 @@
             modal.style.display = 'flex';
 
             try {
-                const response = await fetch(`/monitadumai/performance?id_outlet=${id}`);
+                const response = await fetch(`/surya/performance?id_outlet=${id}`);
                 const data = await response.json();
 
                 if (!data) {
@@ -5887,6 +6170,97 @@
             if (document.documentElement.scrollTop > 200) fab.style.display = 'flex';
             else fab.style.display = 'none';
         };
+    </script>
+    <div class="visit-modal" id="visit-outlet-modal" hidden aria-hidden="true">
+        <div class="visit-modal-card" role="dialog" aria-modal="true" aria-labelledby="visit-outlet-title">
+            <div class="visit-modal-head"><h3 id="visit-outlet-title">Rincian Actual Call</h3><button type="button" class="visit-modal-close" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
+            <div class="visit-modal-body" id="visit-outlet-body"></div>
+        </div>
+    </div>
+    <script>
+        (() => {
+            const visitRows = @json($visitDetails);
+            const modal = document.getElementById('visit-outlet-modal');
+            const body = document.getElementById('visit-outlet-body');
+            const title = document.getElementById('visit-outlet-title');
+            const esc = value => String(value ?? '—').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
+            const formatDate = value => value ? new Intl.DateTimeFormat('id-ID', {dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '—';
+            const formatDuration = minutes => {
+                if (minutes === null || minutes === undefined) return 'Belum checkout';
+                const value = Number(minutes || 0);
+                return value >= 60 ? `${Math.floor(value / 60)} jam ${value % 60} menit` : `${value} menit`;
+            };
+
+            document.querySelectorAll('[data-visit-subtab]').forEach(button => button.addEventListener('click', () => {
+                const selectedTab = button.dataset.visitSubtab;
+                document.querySelectorAll('[data-visit-subtab]').forEach(item => item.classList.toggle('active', item === button));
+                document.querySelectorAll('[data-visit-subpanel]').forEach(panel => panel.hidden = panel.dataset.visitSubpanel !== selectedTab);
+
+                const filterInput = document.getElementById('visit-tab-filter');
+                if (filterInput) filterInput.value = selectedTab;
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('panel', 'visit-detail');
+                url.searchParams.set('visit_tab', selectedTab);
+                url.hash = 'visit-detail';
+                window.history.replaceState(null, '', url);
+
+                const refresh = document.querySelector('.visit-refresh-button');
+                if (refresh) {
+                    const refreshUrl = new URL(refresh.href);
+                    refreshUrl.searchParams.set('visit_tab', selectedTab);
+                    refresh.href = refreshUrl.toString();
+                }
+            }));
+
+            document.querySelectorAll('[data-visit-row]').forEach(button => button.addEventListener('click', () => {
+                const rowIndex = Number(button.dataset.visitRow);
+                const row = visitRows[rowIndex];
+                if (!row) return;
+                const scope = button.dataset.visitScope || 'actual';
+                const labels = {'actual':'Actual Call','effective':'Effective Call','non-pjp':'Extra Call','non-buying':'Outlet Non Belanja'};
+                const outlets = row.outlets.filter(outlet => {
+                    if (scope === 'effective') return outlet.effective;
+                    if (scope === 'non-pjp') return !outlet.is_pjp;
+                    if (scope === 'non-buying') return !outlet.effective;
+                    return true;
+                });
+                collapseSuryaSidebar();
+                title.textContent = `${labels[scope] || 'Detail Visit'} · ${row.name}`;
+                body.innerHTML = outlets.map((outlet) => {
+                    const outletIndex = row.outlets.indexOf(outlet);
+                    const photo = outlet.front_thumbnail_url
+                        ? `<a href="${esc(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener"><img class="visit-photo-thumb" src="${esc(outlet.front_thumbnail_url)}" alt="Foto tampak luar"></a>`
+                        : '<div class="visit-photo-thumb" style="display:grid;place-items:center;background:#f1f5f9;color:#94a3b8"><i class="fas fa-image"></i></div>';
+                    const activity = outlet.effective ? '<span class="cluster-chip" style="color:#047857;background:#ecfdf5">BELANJA</span>' : '<span class="cluster-chip">TIDAK BELANJA</span>';
+                    return `<div class="visit-outlet-row">${photo}<div><strong>${esc(outlet.outlet_name)}</strong><small>${esc(outlet.id_outlet)} · ${outlet.is_pjp ? 'PJP' : 'EXTRA CALL'}</small></div><div><strong>Masuk ${formatDate(outlet.visited_at)}</strong><small>Keluar ${formatDate(outlet.checkout_at)}</small><small>Durasi ${esc(formatDuration(outlet.duration_minutes))}</small><small>${activity}</small></div><div class="visit-outlet-metric"><small>PV</small><button type="button" data-outlet-metric="pv" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_pv || 0).toLocaleString('id-ID')}</button></div><div class="visit-outlet-metric"><small>SA</small><button type="button" data-outlet-metric="sa" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_sa || 0).toLocaleString('id-ID')}</button></div><div class="visit-outlet-metric"><small>Konsinyasi</small><button type="button" data-outlet-metric="consignment" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.consignment_qty || 0).toLocaleString('id-ID')}</button></div><div class="visit-outlet-detail" data-outlet-detail="${rowIndex}-${outletIndex}"></div></div>`;
+                }).join('') || '<div class="visit-empty"><strong>Belum ada rincian outlet.</strong></div>';
+                modal.hidden = false;
+                modal.setAttribute('aria-hidden', 'false');
+            }));
+
+            body.addEventListener('click', event => {
+                const button = event.target.closest('[data-outlet-metric]');
+                if (!button) return;
+                const row = visitRows[Number(button.dataset.rowIndex)];
+                const outlet = row?.outlets?.[Number(button.dataset.outletIndex)];
+                const detail = body.querySelector(`[data-outlet-detail="${button.dataset.rowIndex}-${button.dataset.outletIndex}"]`);
+                if (!outlet || !detail) return;
+                const type = button.dataset.outletMetric;
+                let heading = 'Detail';
+                let values = [];
+                if (type === 'pv') { heading = 'Detail Penjualan PV'; values = outlet.pv_items || []; }
+                if (type === 'sa') { heading = 'Detail Penjualan SA'; values = outlet.sa_items || []; }
+                if (type === 'consignment') { heading = 'Nomor Konsinyasi'; values = (outlet.consignment_numbers || []).map(number => ({name:number, qty:null})); }
+                detail.innerHTML = `<strong>${heading}</strong>${values.length ? `<ul>${values.map(item => `<li>${esc(item.name)}${item.qty === null ? '' : ` — ${Number(item.qty).toLocaleString('id-ID')} PCS`}</li>`).join('')}</ul>` : '<small>Tidak ada data.</small>'}`;
+                detail.classList.toggle('active', true);
+            });
+
+            const close = () => { modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); };
+            modal.querySelector('.visit-modal-close').addEventListener('click', close);
+            modal.addEventListener('click', event => { if (event.target === modal) close(); });
+            document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
+        })();
     </script>
 </body>
 

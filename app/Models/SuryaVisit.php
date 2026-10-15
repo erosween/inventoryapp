@@ -11,13 +11,15 @@ class SuryaVisit extends Model
     protected $table = 'surya_visits';
 
     protected $fillable = [
-        'visited_at', 'id_outlet', 'idtap', 'idsf', 'latitude', 'longitude',
+        'visited_at', 'checkout_at', 'checkout_reason', 'checkout_notes',
+        'id_outlet', 'idtap', 'idsf', 'latitude', 'longitude',
         'accuracy', 'distance_meters', 'photo_path', 'photo_front_path',
         'photo_inside_path', 'gps_status', 'notes',
     ];
 
     protected $casts = [
         'visited_at' => 'datetime',
+        'checkout_at' => 'datetime',
         'latitude' => 'float',
         'longitude' => 'float',
         'accuracy' => 'float',
@@ -31,6 +33,7 @@ class SuryaVisit extends Model
         return $query
             ->where('idsf', $idsf)
             ->whereDate('visited_at', $visitDate)
+            ->whereNull('checkout_at')
             ->whereNotNull('photo_front_path')
             ->whereNotNull('photo_inside_path')
             ->where(function (Builder $progress) use ($idsf, $visitDate) {

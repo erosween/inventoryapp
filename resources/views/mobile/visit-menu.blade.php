@@ -46,6 +46,26 @@
     @else
         <div class="visit-action visit-action-locked"><span class="visit-action-icon"><i class="fas fa-lock"></i></span><span><strong>Input Penjualan Terkunci</strong><small>{{ $photoDone ? 'Menunggu persetujuan admin' : 'Lengkapi foto depan dan foto dalam terlebih dahulu' }}</small></span></div>
     @endif
+    @if($photoDone)
+        <details class="visit-checkout-panel">
+            <summary><i class="fas fa-door-open"></i><span><strong>Check-out Tanpa Penjualan</strong><small>Outlet tutup, pemilik tidak ada, atau tidak bisa dilayani</small></span><i class="fas fa-chevron-down"></i></summary>
+            <form method="POST" action="{{ route('mobile.visit.checkout') }}" class="visit-checkout-form" data-checkout-form>
+                @csrf
+                <input type="hidden" name="id_outlet" value="{{ $outlet->id_outlet }}">
+                <label for="checkout-reason">Alasan check-out</label>
+                <select id="checkout-reason" name="checkout_reason" required>
+                    <option value="">Pilih alasan...</option>
+                    <option value="outlet_tutup">Outlet tutup</option>
+                    <option value="pemilik_tidak_ada">Pemilik / penjaga tidak ada</option>
+                    <option value="menolak_visit">Outlet menolak visit</option>
+                    <option value="lainnya">Lainnya</option>
+                </select>
+                <label for="checkout-notes">Catatan (opsional)</label>
+                <textarea id="checkout-notes" name="checkout_notes" rows="2" maxlength="500" placeholder="Tambahkan keterangan singkat..."></textarea>
+                <button type="submit"><i class="fas fa-check"></i> Konfirmasi Check-out</button>
+            </form>
+        </details>
+    @endif
 </div>
 @endsection
 
@@ -145,8 +165,43 @@
         line-height: 1.4;
     }
     .visit-action-chevron { color: #cbd5e1; font-size: .7rem; }
+    .visit-checkout-panel { margin-top: 4px; border: 1px solid #fee2e2; border-radius: 17px; background: #fffafa; overflow: hidden; }
+    .visit-checkout-panel summary { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 13px 14px; color: #991b1b; cursor: pointer; list-style: none; }
+    .visit-checkout-panel summary::-webkit-details-marker { display: none; }
+    .visit-checkout-panel summary > i:first-child { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 13px; background: #fff; }
+    .visit-checkout-panel summary strong, .visit-checkout-panel summary small { display: block; }
+    .visit-checkout-panel summary strong { font-size: .8rem; }
+    .visit-checkout-panel summary small { margin-top: 2px; color: #7f1d1d; font-size: .58rem; line-height: 1.35; }
+    .visit-checkout-form { padding: 0 14px 14px; }
+    .visit-checkout-form label { display: block; margin: 9px 0 5px; color: #475569; font-size: .62rem; font-weight: 800; }
+    .visit-checkout-form select, .visit-checkout-form textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; color: #1f2937; font: inherit; font-size: .72rem; }
+    .visit-checkout-form select { min-height: 42px; padding: 0 10px; }
+    .visit-checkout-form textarea { padding: 9px 10px; resize: vertical; }
+    .visit-checkout-form button { width: 100%; min-height: 42px; margin-top: 11px; border: 0; border-radius: 12px; background: #b91c1c; color: #fff; font-size: .72rem; font-weight: 900; }
 </style>
 @endpush
+
+@if($photoDone)
+@push('scripts')
+<script>
+document.querySelector('[data-checkout-form]')?.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const form = this;
+    Swal.fire({
+        icon: 'warning',
+        title: 'Check-out tanpa penjualan?',
+        text: 'Visit tetap dihitung sebagai Actual Call dan outlet berikutnya akan dibuka.',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Check-out',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#b91c1c'
+    }).then(result => {
+        if (result.isConfirmed) form.submit();
+    });
+});
+</script>
+@endpush
+@endif
 
 @if($photoDone && $visit->gps_status === 'pending_admin')
 @push('scripts')

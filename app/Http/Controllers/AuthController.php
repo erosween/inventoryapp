@@ -38,6 +38,13 @@ class AuthController extends Controller
             'level' => auth()->user()->level,
         ]);
 
+        if (strcasecmp((string) auth()->user()->username, 'admin_surya') === 0) {
+            $request->session()->put('monita_leader_auth', true);
+            $request->session()->put('monita_leader_login_at', now()->toDateTimeString());
+
+            return redirect()->route('surya.dashboard');
+        }
+
         if (auth()->user()->idtap === 'SB DUMAI') {
             return redirect('/homenocan');
         } elseif (auth()->user()->idtap === 'SB SIDEMPUAN') {

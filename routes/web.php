@@ -56,16 +56,25 @@ Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan.jual');
 
 Route::get('/search', [searchController::class, 'search'])->name('search');
 
-//monita dumai
-Route::get('/monitadumai', [MonitaDumaiController::class, 'index'])->name('monita.index');
-Route::post('/monitadumai', [MonitaDumaiController::class, 'leaderLogin'])->name('monita.leader.login.post');
-Route::get('/monitadumai/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
-Route::get('/monitadumai/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('monita.leader.logout');
-Route::get('/monitadumai/search', [MonitaDumaiController::class, 'search']);
-Route::get('/monitadumai/suggest', [MonitaDumaiController::class, 'suggest']);
-Route::get('/monitadumai/outlets', [MonitaDumaiController::class, 'outlets']);
-Route::get('/monitadumai/nearby', [MonitaDumaiController::class, 'nearby']);
-Route::get('/monitadumai/performance', [MonitaDumaiController::class, 'performance']);
+// SURYA performance hub (formerly Monita Dumai)
+Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
+Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
+Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
+Route::get('/surya/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('surya.leader.logout');
+Route::get('/surya/search', [MonitaDumaiController::class, 'search']);
+Route::get('/surya/suggest', [MonitaDumaiController::class, 'suggest']);
+Route::get('/surya/outlets', [MonitaDumaiController::class, 'outlets']);
+Route::get('/surya/nearby', [MonitaDumaiController::class, 'nearby']);
+Route::get('/surya/performance', [MonitaDumaiController::class, 'performance']);
+
+Route::redirect('/monitadumai', '/surya', 301);
+Route::redirect('/monitadumai/leader-login', '/surya/leader-login', 301);
+Route::redirect('/monitadumai/leader-logout', '/surya/leader-logout', 301);
+Route::redirect('/monitadumai/search', '/surya/search', 301);
+Route::redirect('/monitadumai/suggest', '/surya/suggest', 301);
+Route::redirect('/monitadumai/outlets', '/surya/outlets', 301);
+Route::redirect('/monitadumai/nearby', '/surya/nearby', 301);
+Route::redirect('/monitadumai/performance', '/surya/performance', 301);
 
 
 // group middleware
@@ -276,11 +285,13 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/visit-menu', [\App\Http\Controllers\SuryaVisitController::class, 'menu'])->name('visit.menu');
         Route::get('/visit-status', [\App\Http\Controllers\SuryaVisitController::class, 'status'])->name('visit.status');
         Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
+        Route::post('/visit-checkout', [\App\Http\Controllers\SuryaVisitController::class, 'checkout'])->name('visit.checkout');
         Route::get('/consignment', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'consignment'])->name('surya.consignment');
         Route::get('/survey', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'survey'])->name('surya.survey');
         Route::get('/network', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'network'])->name('surya.network');
         Route::post('/surya/{type}', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'store'])->name('surya.store');
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
+        Route::post('/consignment/check', [\App\Http\Controllers\MobileSalesController::class, 'checkConsignmentNumbers'])->name('consignment.check');
         Route::get('/receipt/{receipt}', [\App\Http\Controllers\MobileSalesController::class, 'showReceipt'])->name('receipt.show');
         Route::get('/receipt/{receipt}/image.jpg', [\App\Http\Controllers\MobileSalesController::class, 'receiptImage'])->name('receipt.image');
         Route::post('/receipt/{receipt}/whatsapp', [\App\Http\Controllers\MobileSalesController::class, 'prepareReceiptWhatsapp'])->name('receipt.whatsapp');

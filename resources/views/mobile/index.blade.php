@@ -180,12 +180,12 @@
     }, function(){document.querySelectorAll('.distance-label').forEach(e=>e.textContent='GPS tidak aktif');},{enableHighAccuracy:true,timeout:10000,maximumAge:0});
     </script>
 
-    <!-- Non-PJP Section -->
+    <!-- Extra Call Section -->
     @if(isset($non_pjp_list) && $non_pjp_list->count() > 0)
     <div class="d-flex justify-content-between align-items-end mb-3 mt-2">
         <div>
-            <h6 class="fw-800 mb-0 text-dark" style="letter-spacing: -0.5px;">Kunjungan Luar PJP</h6>
-            <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">Ekstra Visit Hari Ini</p>
+            <h6 class="fw-800 mb-0 text-dark" style="letter-spacing: -0.5px;">Extra Call</h6>
+            <p class="small text-muted mb-0 fw-bold" style="font-size: 0.65rem;">Kunjungan di luar jadwal PJP hari ini</p>
         </div>
         <div class="text-end">
             <span class="badge bg-warning text-dark fw-bold rounded-pill" style="font-size: 0.6rem;">+{{ $non_pjp_list->count() }} OUTLET</span>

@@ -245,6 +245,83 @@ class MobileSalesFlowTest extends TestCase
         $this->assertDatabaseCount('surya_sa_consignment_numbers', 0);
     }
 
+    public function test_sales_force_can_submit_consignment_without_sales_product(): void
+    {
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-CONSIGN-ONLY',
+            'nama_outlet' => 'Outlet Konsinyasi Saja',
+            'sf' => 'Sales Test',
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(),
+            'id_outlet' => 'OUTLET-CONSIGN-ONLY',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'latitude' => -6.2,
+            'longitude' => 106.8,
+            'photo_path' => 'surya-visits/front/test.jpg',
+            'photo_front_path' => 'surya-visits/front/test.jpg',
+            'photo_inside_path' => 'surya-visits/inside/test.jpg',
+            'gps_status' => 'approved',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        $response = $this->withSession($session)->post(route('mobile.store'), [
+            'id_outlet' => 'OUTLET-CONSIGN-ONLY',
+            'products' => [],
+            'consignment_enabled' => '1',
+            'consignment_numbers' => "081299900001\n081299900002",
+        ]);
+
+        $receipt = \App\Models\MobileSalesReceipt::query()->firstOrFail();
+        $response->assertRedirect(route('mobile.receipt.show', $receipt));
+        $this->assertDatabaseCount('mobile_penjualan', 0);
+        $this->assertDatabaseHas('surya_sa_consignment_numbers', [
+            'receipt_id' => $receipt->id,
+            'serial_number' => '6281299900001',
+            'status' => 'draft',
+        ]);
+
+        $this->withSession($session)->get(route('mobile.receipt.show', $receipt))
+            ->assertOk()
+            ->assertSee('Konsinyasi SA')
+            ->assertSee('6281299900001');
+
+        $this->withSession($session)->post(route('mobile.receipt.confirm', $receipt))
+            ->assertRedirect(route('mobile.history'));
+        $this->assertSame(2, DB::table('surya_sa_consignment_numbers')->where('status', 'consigned')->count());
+    }
+
+    public function test_consignment_live_check_returns_existing_outlet_name(): void
+    {
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-USED-NUMBER',
+            'nama_outlet' => 'Outlet Pemilik Nomor',
+            'sf' => 'Sales Test',
+        ]);
+        DB::table('surya_sa_consignment_numbers')->insert([
+            'reported_at' => now(),
+            'id_outlet' => 'OUTLET-USED-NUMBER',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'serial_number' => '6281234500000',
+            'status' => 'consigned',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001',
+        ])->postJson(route('mobile.consignment.check'), [
+            'numbers' => ['6281234500000', '6281234500001'],
+        ])->assertOk()
+            ->assertJsonPath('results.0.available', false)
+            ->assertJsonPath('results.0.nama_outlet', 'Outlet Pemilik Nomor')
+            ->assertJsonPath('results.1.available', true);
+    }
+
     public function test_prefilled_outlet_on_sales_form_is_locked_and_shows_outlet_name(): void
     {
         DB::table('appsdumais')->insert([
@@ -941,7 +1018,7 @@ class MobileSalesFlowTest extends TestCase
             ->assertJsonMissing(['id_outlet' => 'OTHER-1']);
     }
 
-    public function test_receipt_is_rendered_as_an_on_demand_jpeg_for_whatsapp_sharing(): void
+    public function test_sales_confirmation_hides_whatsapp_and_submits_pending_sale(): void
     {
         if (! extension_loaded('gd')) {
             $this->markTestSkipped('GD is required for receipt JPEG rendering.');
@@ -961,6 +1038,9 @@ class MobileSalesFlowTest extends TestCase
             'receipt_id' => $receiptId, 'tgl' => '2026-10-13', 'id_outlet' => 'OUTLET-BON',
             'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-1', 'qty' => 6, 'status' => 'draft_wa',
         ]);
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF001', 'iddenom' => 'PV-1', 'stock' => 10,
+        ]);
         $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
 
         $image = $this->withSession($session)->get(route('mobile.receipt.image', $receiptId));
@@ -969,9 +1049,20 @@ class MobileSalesFlowTest extends TestCase
 
         $this->withSession($session)->get(route('mobile.receipt.show', $receiptId))
             ->assertOk()
-            ->assertSee('PREVIEW NOTA JPEG')
-            ->assertSee('navigator.share', false)
-            ->assertSee('Kirim Nota JPEG ke WhatsApp');
+            ->assertSee('Konfirmasi Penjualan')
+            ->assertSee('PV 5GB 1 HARI')
+            ->assertSee('Submit Penjualan')
+            ->assertDontSee('WhatsApp')
+            ->assertDontSee('PREVIEW NOTA JPEG');
+
+        $this->withSession($session)->post(route('mobile.receipt.confirm', $receiptId))
+            ->assertRedirect(route('mobile.history'));
+
+        $this->assertDatabaseHas('mobile_penjualan', [
+            'receipt_id' => $receiptId,
+            'status' => 'pending',
+        ]);
+        $this->assertSame(4, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'PV-1')->value('stock'));
     }
 
     public function test_admin_approval_updates_outlet_coordinates_and_unlocks_visit(): void
@@ -1010,6 +1101,44 @@ class MobileSalesFlowTest extends TestCase
             'latitude' => 1.23456789,
             'longitude' => 101.98765432,
         ]);
+    }
+
+    public function test_sales_force_can_checkout_without_sale_and_continue_to_next_outlet(): void
+    {
+        Carbon::setTestNow('2026-10-15 10:00:00');
+
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(),
+            'id_outlet' => 'OUTLET-TUTUP',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'latitude' => 1.23456789,
+            'longitude' => 101.98765432,
+            'photo_front_path' => 'surya-visits/front/test.webp',
+            'photo_inside_path' => 'surya-visits/inside/test.webp',
+            'gps_status' => 'valid',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        $this->withSession($session)
+            ->post(route('mobile.visit.checkout'), [
+                'id_outlet' => 'OUTLET-TUTUP',
+                'checkout_reason' => 'outlet_tutup',
+                'checkout_notes' => 'Rolling door tertutup.',
+            ])
+            ->assertRedirect(route('mobile.index'));
+
+        $this->assertDatabaseHas('surya_visits', [
+            'id_outlet' => 'OUTLET-TUTUP',
+            'idsf' => 'SF001',
+            'checkout_reason' => 'outlet_tutup',
+            'checkout_notes' => 'Rolling door tertutup.',
+        ]);
+        $this->assertNotNull(DB::table('surya_visits')->where('id_outlet', 'OUTLET-TUTUP')->value('checkout_at'));
+        $this->assertFalse(\App\Models\SuryaVisit::query()->inProgressForSalesForce('SF001')->exists());
     }
 
     public function test_admin_setoran_is_grouped_by_denom_and_reserved_stock_is_not_deducted_twice(): void
@@ -1304,6 +1433,9 @@ class MobileSalesFlowTest extends TestCase
         Schema::create('surya_visits', function ($table) {
             $table->id();
             $table->dateTime('visited_at');
+            $table->dateTime('checkout_at')->nullable();
+            $table->string('checkout_reason', 80)->nullable();
+            $table->text('checkout_notes')->nullable();
             $table->string('id_outlet');
             $table->string('idtap', 25);
             $table->string('idsf', 25);

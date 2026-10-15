@@ -106,7 +106,7 @@
                         <div class="history-date-foot">
                             <span>
                                 @if($day->draft_count > 0)
-                                    <i class="fas fa-circle-info text-success me-1"></i>Ada e-Bon yang belum dikirim
+                                    <i class="fas fa-circle-info text-warning me-1"></i>Ada penjualan yang belum disubmit
                                 @elseif($day->pending_count > 0)
                                     <i class="fas fa-hourglass-half text-warning me-1"></i>Menunggu validasi
                                 @else
@@ -459,7 +459,7 @@
             approved: ['success', 'DISETUJUI'],
             rejected: ['danger', 'DITOLAK'],
             pending: ['warning', 'MENUNGGU'],
-            draft_wa: ['info', 'E-BON BELUM DIKIRIM']
+            draft_wa: ['info', 'BELUM DISUBMIT']
         };
 
         $('.history-date-card').on('click', function() {
@@ -480,7 +480,16 @@
                                 </div>`;
                         }).join('');
                         const receiptButton = outlet.receipt_url
-                            ? `<a href="${escapeHtml(outlet.receipt_url)}" class="btn btn-success btn-sm rounded-pill w-100 mt-2 fw-bold"><i class="fab fa-whatsapp me-1"></i>Lanjutkan e-Bon</a>`
+                            ? `<a href="${escapeHtml(outlet.receipt_url)}" class="btn btn-danger btn-sm rounded-pill w-100 mt-2 fw-bold"><i class="fas fa-check-circle me-1"></i>Lanjutkan Konfirmasi</a>`
+                            : '';
+                        const consignmentNumbers = (outlet.consignment_numbers || []).map(number =>
+                            `<span class="badge rounded-pill text-bg-light border text-dark me-1 mb-1">${escapeHtml(number)}</span>`
+                        ).join('');
+                        const consignmentBlock = Number(outlet.consignment_qty || 0) > 0
+                            ? `<div class="history-outlet-item align-items-start">
+                                    <div><strong>Konsinyasi SA</strong><div class="mt-2">${consignmentNumbers}</div></div>
+                                    <strong class="text-danger">${Number(outlet.consignment_qty).toLocaleString('id-ID')} <small>NOMOR</small></strong>
+                               </div>`
                             : '';
 
                         return `
@@ -490,6 +499,7 @@
                                     <div class="text-end"><strong class="text-primary">${Number(outlet.total_qty).toLocaleString('id-ID')}</strong><small class="d-block text-muted">PCS</small></div>
                                 </div>
                                 ${items}
+                                ${consignmentBlock}
                                 ${receiptButton}
                             </section>`;
                     }).join('');

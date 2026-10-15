@@ -1,216 +1,92 @@
 @extends('layout.mobile_layout')
 
-@section('title', 'e-Bon Penjualan')
+@section('title', 'Konfirmasi Penjualan')
 
 @section('content')
 <div class="receipt-page reveal">
-    <div class="d-flex align-items-center gap-3 mb-3 px-1">
-        <a href="{{ $receipt->whatsapp_shared_at ? route('mobile.history') : route('mobile.visit.menu', ['id_outlet' => $receipt->id_outlet]) }}" class="receipt-back" aria-label="Kembali">
-            <i class="fas fa-arrow-left"></i>
-        </a>
-        <div>
-            <h5 class="fw-800 mb-0">e-Bon Penjualan</h5>
-            <small class="text-muted">Rincian transaksi outlet</small>
-        </div>
+    <div class="d-flex align-items-center gap-3 mb-4 px-1">
+        <a href="{{ $receipt->whatsapp_shared_at ? route('mobile.history') : route('mobile.visit.menu', ['id_outlet' => $receipt->id_outlet]) }}" class="receipt-back" aria-label="Kembali"><i class="fas fa-arrow-left"></i></a>
+        <div><h5 class="fw-800 mb-0">Konfirmasi Penjualan & Konsinyasi</h5><small class="text-muted">Periksa detail sebelum disubmit</small></div>
     </div>
 
-    <section class="thermal-preview-card mb-4">
-        <div class="thermal-preview-heading">
-            <div>
-                <div class="receipt-kicker">PREVIEW NOTA JPEG</div>
-                <strong>{{ $outlet->nama_outlet ?? $receipt->id_outlet }}</strong>
-            </div>
-            <span>{{ number_format($receipt->total_qty, 0, ',', '.') }} PCS</span>
+    <section class="confirmation-card mb-4">
+        <div class="confirmation-head">
+            <div><div class="confirmation-kicker">OUTLET</div><strong>{{ $outlet->nama_outlet ?? $receipt->id_outlet }}</strong><small>ID: {{ $receipt->id_outlet }}</small></div>
+            <span>
+                @if($items->isNotEmpty())
+                    {{ number_format($receipt->total_qty, 0, ',', '.') }} PCS
+                @endif
+                @if($consignments->isNotEmpty())
+                    {{ $consignments->count() }} KONSINYASI
+                @endif
+            </span>
         </div>
-        <div class="thermal-image-wrap">
-            <img src="{{ route('mobile.receipt.image', $receipt) }}" alt="Nota penjualan {{ $receipt->receipt_number }}" class="thermal-receipt-image" loading="eager">
-            <div class="visually-hidden">
-                Outlet {{ $outlet->nama_outlet ?? $receipt->id_outlet }}.
-                @foreach($items as $item)
-                    {{ $item->denom }} {{ number_format($item->qty, 0, ',', '.') }} pcs.
-                @endforeach
-                Total {{ number_format($receipt->total_qty, 0, ',', '.') }} pcs.
-            </div>
+        <div class="confirmation-items">
+            @foreach($items as $item)
+                <div class="confirmation-item">
+                    <div><strong>{{ $item->denom }}</strong><small>Produk / denom penjualan</small></div>
+                    <div class="confirmation-qty">{{ number_format($item->qty, 0, ',', '.') }} <small>PCS</small></div>
+                </div>
+            @endforeach
+            @if($consignments->isNotEmpty())
+                <div class="confirmation-item consignment-confirmation-item">
+                    <div><strong>Konsinyasi SA</strong><small>{{ $consignments->count() }} nomor perdana tercatat</small></div>
+                    <div class="confirmation-qty">{{ $consignments->count() }} <small>NOMOR</small></div>
+                </div>
+                <div class="consignment-number-list">
+                    @foreach($consignments as $number)<span><i class="fas fa-check-circle"></i>{{ $number }}</span>@endforeach
+                </div>
+            @endif
         </div>
-        <a href="{{ route('mobile.receipt.image', $receipt) }}" download="{{ $receipt->receipt_number }}.jpg" class="thermal-download">
-            <i class="fas fa-download me-2"></i>Unduh Nota JPEG
-        </a>
+        <div class="confirmation-total">
+            <span>Ringkasan</span>
+            <strong>
+                {{ number_format($receipt->total_qty, 0, ',', '.') }} PCS
+                @if($consignments->isNotEmpty())
+                    · {{ $consignments->count() }} Konsinyasi
+                @endif
+            </strong>
+        </div>
     </section>
 
     @if($receipt->whatsapp_shared_at)
         <section class="glass-card p-4 text-center border-0">
             <div class="receipt-success-icon"><i class="fas fa-check"></i></div>
-            <h5 class="fw-800 mt-3">e-Bon Sudah Dikirim</h5>
-            <p class="text-muted small mb-3">Transaksi sudah masuk ke admin <strong>{{ $receipt->idtap }}</strong> untuk validasi uang.</p>
-            <div class="bg-light rounded-4 p-3 mb-3 small">
-                WhatsApp owner: <strong>+{{ $receipt->owner_whatsapp }}</strong><br>
-                Dikirim: {{ $receipt->whatsapp_shared_at->format('d/m/Y H:i') }}
-            </div>
-            <a href="{{ route('mobile.history') }}" class="btn btn-danger rounded-pill w-100 py-3 fw-bold">Lihat Riwayat Transaksi</a>
+            <h5 class="fw-800 mt-3">{{ $items->isNotEmpty() ? 'Penjualan Sudah Disubmit' : 'Konsinyasi Sudah Dicatat' }}</h5>
+            <p class="text-muted small mb-3">{{ $items->isNotEmpty() ? 'Transaksi sudah masuk ke admin '.$receipt->idtap.' untuk validasi.' : 'Nomor perdana sudah terhubung ke outlet ini dan dapat dilacak dari sistem.' }}</p>
+            <a href="{{ route('mobile.history') }}" class="btn btn-danger rounded-pill w-100 py-3 fw-bold">Lihat Riwayat Penjualan</a>
         </section>
     @else
-        <section class="glass-card p-4 border-0">
-            <div class="d-flex align-items-center gap-3 mb-3">
-                <div class="wa-icon"><i class="fab fa-whatsapp"></i></div>
-                <div>
-                    <h6 class="fw-800 mb-1">Kirim ke Owner Outlet</h6>
-                    <small class="text-muted">Masukkan nomor owner, lalu pilih WhatsApp saat menu berbagi terbuka.</small>
-                </div>
-            </div>
-
-            <label for="owner-whatsapp" class="form-label fw-bold small">Nomor WhatsApp Owner</label>
-            <div class="input-group mb-2">
-                <span class="input-group-text border-0 bg-light fw-bold">WA</span>
-                <input type="tel" id="owner-whatsapp" class="form-control border-0 bg-light py-3" inputmode="tel" autocomplete="tel" placeholder="Contoh: 0812 3456 7890" value="{{ $receipt->owner_whatsapp ? '+' . $receipt->owner_whatsapp : '' }}">
-            </div>
-            <div id="wa-error" class="small text-danger fw-bold mb-3 d-none"></div>
-
-            <button type="button" id="open-whatsapp" class="btn btn-success rounded-pill w-100 py-3 fw-bold">
-                <i class="fab fa-whatsapp me-2"></i>Kirim Nota JPEG ke WhatsApp
-            </button>
-
-            <div id="confirm-wa-section" class="{{ $receipt->whatsapp_opened_at ? '' : 'd-none' }} mt-4 pt-4 border-top">
-                <div class="alert alert-warning rounded-4 small mb-3">
-                    <i class="fas fa-circle-info me-2"></i>Setelah nota JPEG terkirim di WhatsApp, kembali ke halaman ini lalu konfirmasi.
-                </div>
-                <form method="POST" action="{{ route('mobile.receipt.confirm', $receipt) }}">
-                    @csrf
-                    <button type="submit" class="btn btn-danger rounded-pill w-100 py-3 fw-bold">
-                        <i class="fas fa-check-circle me-2"></i>Saya Sudah Mengirim e-Bon
-                    </button>
-                </form>
-            </div>
-        </section>
+        <div class="alert alert-warning rounded-4 small mb-3"><i class="fas fa-circle-info me-2"></i>{{ $items->isNotEmpty() ? 'Setelah dikonfirmasi, stok akan diamankan sementara dan transaksi dikirim ke admin untuk validasi.' : 'Setelah dikonfirmasi, nomor konsinyasi langsung dicatat ke outlet ini tanpa memotong stok.' }}</div>
+        <form method="POST" action="{{ route('mobile.receipt.confirm', $receipt) }}" id="confirm-sales-form">
+            @csrf
+            <button type="submit" class="btn btn-danger rounded-pill w-100 py-3 fw-bold shadow-sm"><i class="fas fa-check-circle me-2"></i>Konfirmasi & Submit Penjualan</button>
+        </form>
     @endif
 </div>
 @endsection
 
 @push('styles')
 <style>
-    .receipt-back {
-        width: 40px;
-        height: 40px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 40px;
-        border-radius: 14px;
-        background: #fff;
-        color: #111827;
-        box-shadow: 0 8px 25px rgba(15, 23, 42, .08);
-        text-decoration: none;
-    }
-    .thermal-preview-card {
-        overflow: hidden;
-        border-radius: 26px;
-        background: #fff;
-        box-shadow: 0 16px 45px rgba(15, 23, 42, .09);
-    }
-    .thermal-preview-heading {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 18px 20px;
-        color: #fff;
-        background: linear-gradient(135deg, #72000d, #ed1b2f);
-    }
-    .thermal-preview-heading strong { display: block; font-size: .84rem; }
-    .thermal-preview-heading > span { font-size: .72rem; font-weight: 900; white-space: nowrap; }
-    .receipt-kicker { margin-bottom: 6px; font-size: .62rem; font-weight: 800; letter-spacing: .13em; opacity: .8; }
-    .thermal-image-wrap { padding: 20px; background: #eef2f7; text-align: center; }
-    .thermal-receipt-image {
-        display: block;
-        width: min(100%, 360px);
-        height: auto;
-        margin: 0 auto;
-        border: 1px solid #d9dde5;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, .12);
-    }
-    .thermal-download {
-        display: block;
-        padding: 14px 20px;
-        color: #475569;
-        font-size: .72rem;
-        font-weight: 800;
-        text-align: center;
-        text-decoration: none;
-        border-top: 1px solid #eef2f7;
-    }
-    .wa-icon, .receipt-success-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 18px;
-    }
-    .wa-icon { width: 48px; height: 48px; flex: 0 0 48px; color: #128c4e; background: #e7f8ef; font-size: 1.4rem; }
-    .receipt-success-icon { width: 64px; height: 64px; color: #fff; background: #16a066; font-size: 1.5rem; }
+    .receipt-back{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 40px;border-radius:14px;background:#fff;color:#111827;box-shadow:0 8px 25px rgba(15,23,42,.08);text-decoration:none}
+    .confirmation-card{overflow:hidden;border-radius:24px;background:#fff;box-shadow:0 16px 45px rgba(15,23,42,.09)}
+    .confirmation-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;color:#fff;background:linear-gradient(135deg,#72000d,#ed1b2f)}
+    .confirmation-head strong,.confirmation-head small{display:block}.confirmation-head strong{font-size:.92rem}.confirmation-head small{margin-top:4px;font-size:.65rem;opacity:.78}.confirmation-head>span{font-size:.78rem;font-weight:900;white-space:nowrap}
+    .confirmation-kicker{margin-bottom:6px;font-size:.6rem;font-weight:800;letter-spacing:.13em;opacity:.75}
+    .confirmation-items{padding:6px 20px}.confirmation-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid #edf1f5}.confirmation-item:last-child{border-bottom:0}.confirmation-item strong,.confirmation-item small{display:block}.confirmation-item strong{font-size:.82rem;color:#111827}.confirmation-item small{margin-top:4px;color:#94a3b8;font-size:.61rem;font-weight:700}.confirmation-qty{color:#d10b20;font-size:.9rem;font-weight:900;white-space:nowrap}.confirmation-qty small{display:inline;color:#64748b;font-size:.58rem}
+    .confirmation-total{display:flex;align-items:center;justify-content:space-between;padding:17px 20px;background:#f8fafc;border-top:1px solid #e2e8f0}.confirmation-total span{color:#64748b;font-size:.7rem;font-weight:800}.confirmation-total strong{color:#111827;font-size:.9rem}
+    .receipt-success-icon{width:64px;height:64px;margin:auto;display:grid;place-items:center;border-radius:50%;color:#fff;background:#16a066;font-size:1.5rem}
+    .consignment-number-list{display:grid;gap:7px;padding:0 0 16px}.consignment-number-list span{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:10px;background:#f0fdf4;color:#166534;font-size:.7rem;font-weight:800}.consignment-number-list i{color:#16a34a}
 </style>
 @endpush
 
-@if(!$receipt->whatsapp_shared_at)
 @push('scripts')
 <script>
-document.getElementById('open-whatsapp').addEventListener('click', async function() {
-    const button = this;
-    const error = document.getElementById('wa-error');
-    const number = document.getElementById('owner-whatsapp').value.trim();
-
-    error.classList.add('d-none');
+localStorage.removeItem('sf_sales_form_data');
+document.getElementById('confirm-sales-form')?.addEventListener('submit', function () {
+    const button = this.querySelector('button[type="submit"]');
     button.disabled = true;
-    button.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Menyiapkan e-Bon...';
-
-    try {
-        const response = await fetch(@json(route('mobile.receipt.whatsapp', $receipt)), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': @json(csrf_token()),
-            },
-            body: JSON.stringify({ owner_whatsapp: number }),
-        });
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-            throw new Error(result.message || 'Nomor WhatsApp tidak dapat diproses.');
-        }
-
-        const imageResponse = await fetch(result.image_url, {credentials: 'same-origin', cache: 'no-store'});
-        if (!imageResponse.ok) throw new Error('Nota JPEG tidak dapat dibuat.');
-
-        const imageBlob = await imageResponse.blob();
-        const imageFile = typeof File === 'function'
-            ? new File([imageBlob], result.image_filename, {type: 'image/jpeg'})
-            : null;
-        const shareData = imageFile
-            ? {files: [imageFile], title: 'Nota Penjualan SURYA', text: result.share_text}
-            : null;
-
-        if (shareData && navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
-            await navigator.share(shareData);
-        } else {
-            const downloadUrl = URL.createObjectURL(imageBlob);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = result.image_filename;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            downloadLink.remove();
-            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-            window.location.href = result.whatsapp_url;
-        }
-
-        document.getElementById('confirm-wa-section').classList.remove('d-none');
-        button.disabled = false;
-        button.innerHTML = '<i class="fab fa-whatsapp me-2"></i>Kirim Nota JPEG Lagi';
-    } catch (exception) {
-        error.textContent = exception.name === 'AbortError' ? 'Pengiriman dibatalkan. Nota belum dikonfirmasi terkirim.' : exception.message;
-        error.classList.remove('d-none');
-        button.disabled = false;
-        button.innerHTML = '<i class="fab fa-whatsapp me-2"></i>Kirim Nota JPEG ke WhatsApp';
-    }
+    button.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Menyimpan Penjualan...';
 });
 </script>
 @endpush
-@endif

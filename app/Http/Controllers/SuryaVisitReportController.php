@@ -25,6 +25,17 @@ class SuryaVisitReportController extends Controller
                 ]);
         });
 
+        if (request()->input('return_to') === 'visit-detail') {
+            $visitDate = request()->input('visit_date', $visit->visited_at?->toDateString() ?? now()->toDateString());
+
+            return redirect(route('surya.dashboard', [
+                'panel' => 'visit-detail',
+                'visit_date' => $visitDate,
+                'visit_tab' => 'approval',
+            ]).'#visit-detail')
+                ->with('success', 'Visit disetujui dan koordinat outlet diperbarui ke lokasi foto terbaru.');
+        }
+
         return back()->with('success', 'Visit disetujui dan koordinat outlet diperbarui ke lokasi foto terbaru.');
     }
 
@@ -55,30 +66,20 @@ class SuryaVisitReportController extends Controller
         $disk = Storage::disk('public');
         $visits->getCollection()->each(function ($visit) use ($disk) {
             $frontPath = $visit->photo_front_path ?? $visit->photo_path;
-
             foreach (['front' => $frontPath, 'inside' => $visit->photo_inside_path] as $type => $path) {
                 if (! $path || ! $disk->exists($path)) {
                     $visit->{$type.'_photo_url'} = null;
                     $visit->{$type.'_thumbnail_url'} = null;
-
                     continue;
                 }
-
-                $thumbnailPath = $path ? OptimizedImageStorage::thumbnailPathFor($path) : null;
-                // Keep media URLs relative to the active host. The production
-                // APP_URL can differ from the domain opened by the admin.
-                $visit->{$type.'_photo_url'} = $this->publicStorageUrl($path);
-                $visit->{$type.'_thumbnail_url'} = $thumbnailPath && $disk->exists($thumbnailPath)
-                    ? $this->publicStorageUrl($thumbnailPath)
+                $thumbnailPath = OptimizedImageStorage::thumbnailPathFor($path);
+                $visit->{$type.'_photo_url'} = '/storage/'.ltrim($path, '/');
+                $visit->{$type.'_thumbnail_url'} = $disk->exists($thumbnailPath)
+                    ? '/storage/'.ltrim($thumbnailPath, '/')
                     : $visit->{$type.'_photo_url'};
             }
         });
 
         return view('surya.visits-report', compact('visits', 'dateFrom', 'dateTo'));
-    }
-
-    private function publicStorageUrl(string $path): string
-    {
-        return '/storage/'.ltrim($path, '/');
     }
 }
