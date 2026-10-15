@@ -3539,7 +3539,10 @@
                                 <thead>
                                     <tr><th class="pv-identity"><button class="pv-sort left" type="button" data-pv-sort="name"><span data-pv-dimension-heading>TAP / Nama SF</span><i class="fas fa-sort"></i></button></th>
                                         @foreach($monitoringValidities as $validity)
-                                            @php($header = $monitoringValidityHeaders[$validity] ?? ['label' => $validity, 'short_label' => $validity])
+                                            @php
+                                                $header = $monitoringValidityHeaders[$validity]
+                                                    ?? ['label' => $validity, 'short_label' => $validity];
+                                            @endphp
                                             <th colspan="3" data-pv-validity-group="{{ $validity }}" data-label="{{ $header['label'] }}" data-short-label="{{ $header['short_label'] }}">VALIDITY {{ $header['label'] }}</th>
                                         @endforeach
                                         <th colspan="3" class="pv-grand-group">GRAND TOTAL</th>
@@ -3551,7 +3554,10 @@
                                         <th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="m1">M-1<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mtd">MTD<i class="fas fa-sort"></i></button></th><th class="pv-metric-col pv-grand-col"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="grand_total" data-metric="mom">%MoM<i class="fas fa-sort"></i></button></th>
                                         @if($showContribution)
                                             @foreach($monitoringValidities as $validity)
-                                                @php($header = $monitoringValidityHeaders[$validity] ?? ['label' => $validity, 'short_label' => $validity])
+                                                @php
+                                                    $header = $monitoringValidityHeaders[$validity]
+                                                        ?? ['label' => $validity, 'short_label' => $validity];
+                                                @endphp
                                                 <th class="pv-contribution-col" data-pv-contribution-header="{{ $validity }}"><button class="pv-sort" type="button" data-pv-sort="metric" data-validity="{{ $validity }}" data-metric="contribution">{{ $header['label'] }}<i class="fas fa-sort"></i></button></th>
                                             @endforeach
                                         @endif
@@ -3559,7 +3565,9 @@
                                 </thead>
                                 <tbody>
                                     @forelse($monitoring['rows'] as $rowIndex => $row)
-                                        @php($isPvGroup = ($row['row_type'] ?? 'detail') === 'group')
+                                        @php
+                                            $isPvGroup = ($row['row_type'] ?? 'detail') === 'group';
+                                        @endphp
                                         <tr class="{{ $isPvGroup ? 'pv-group-row' : (($row['dimension'] ?? '') === 'tap' ? 'pv-child-row' : '') }}" data-pv-row data-dimension="{{ $row['dimension'] }}" data-row-index="{{ $rowIndex }}" data-row-type="{{ $row['row_type'] ?? 'detail' }}" data-parent-tap="{{ $row['parent_tap'] ?? $row['tap'] ?? '' }}" data-cluster-order="{{ $row['cluster_order'] ?? 99 }}" @if($row['dimension'] !== $defaultDimension) hidden @endif>
                                             <td class="pv-identity">
                                                 <span class="pv-name">{{ $row['name'] }}</span>
@@ -3568,18 +3576,28 @@
                                                 @endif
                                             </td>
                                             @foreach($monitoringValidities as $validity)
-                                                @php($metric = $row['values'][$defaultCategory][$validity] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                                @php
+                                                    $metric = $row['values'][$defaultCategory][$validity]
+                                                        ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0];
+                                                @endphp
                                                 <td data-pv-metric="m1" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($metric['m1']) }}</td>
                                                 <td data-pv-metric="mtd" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($metric['mtd']) }}</td>
                                                 <td data-pv-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ $metric['mom'] > 0 ? 'up' : ($metric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($metric['mom'], 1, ',', '.') }}%</span></td>
                                             @endforeach
-                                            @php($grandMetric = $row['values'][$defaultCategory]['grand_total'] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                            @php
+                                                $grandMetric = $row['values'][$defaultCategory]['grand_total']
+                                                    ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0];
+                                            @endphp
                                             <td class="pv-grand-col" data-pv-metric="m1" data-validity="grand_total">{{ $fmt($grandMetric['m1']) }}</td>
                                             <td class="pv-grand-col" data-pv-metric="mtd" data-validity="grand_total">{{ $fmt($grandMetric['mtd']) }}</td>
                                             <td class="pv-grand-col" data-pv-metric="mom" data-validity="grand_total"><span class="pv-mom {{ $grandMetric['mom'] > 0 ? 'up' : ($grandMetric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($grandMetric['mom'], 1, ',', '.') }}%</span></td>
                                             @if($showContribution)
                                                 @foreach($monitoringValidities as $validity)
-                                                    @php($contribution = $grandMetric['mtd'] > 0 ? (($row['values'][$defaultCategory][$validity]['mtd'] ?? 0) / $grandMetric['mtd']) * 100 : 0)
+                                                    @php
+                                                        $contribution = $grandMetric['mtd'] > 0
+                                                            ? (($row['values'][$defaultCategory][$validity]['mtd'] ?? 0) / $grandMetric['mtd']) * 100
+                                                            : 0;
+                                                    @endphp
                                                     <td class="pv-contribution-col" data-pv-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($contribution, 1, ',', '.') }}%</td>
                                                 @endforeach
                                             @endif
@@ -3591,13 +3609,19 @@
                                 @if(!empty($monitoring['clusterSummary']))
                                     <tfoot class="pv-cluster-footer">
                                     @foreach($monitoring['clusterSummary'] as $clusterIndex => $cluster)
-                                        @php($clusterGrand = $cluster['values'][$defaultCategory]['grand_total'] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                        @php
+                                            $clusterGrand = $cluster['values'][$defaultCategory]['grand_total']
+                                                ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0];
+                                        @endphp
                                         <tr data-pv-cluster-row data-cluster-index="{{ $clusterIndex }}">
                                             <td class="pv-identity">
                                                 <span class="pv-name">CLUSTER {{ strtoupper($cluster['label']) }}</span>
                                             </td>
                                             @foreach($monitoringValidities as $validity)
-                                                @php($clusterMetric = $cluster['values'][$defaultCategory][$validity] ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0])
+                                                @php
+                                                    $clusterMetric = $cluster['values'][$defaultCategory][$validity]
+                                                        ?? ['m1' => 0, 'mtd' => 0, 'mom' => 0];
+                                                @endphp
                                                 <td data-pv-footer-metric="m1" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($clusterMetric['m1'] ?? 0) }}</td>
                                                 <td data-pv-footer-metric="mtd" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($clusterMetric['mtd'] ?? 0) }}</td>
                                                 <td data-pv-footer-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ ($clusterMetric['mom'] ?? 0) > 0 ? 'up' : (($clusterMetric['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterMetric['mom'] ?? 0, 1, ',', '.') }}%</span></td>
@@ -3607,8 +3631,12 @@
                                             <td class="pv-grand-col" data-pv-footer-metric="mom" data-validity="grand_total"><span class="pv-mom {{ ($clusterGrand['mom'] ?? 0) > 0 ? 'up' : (($clusterGrand['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterGrand['mom'] ?? 0, 1, ',', '.') }}%</span></td>
                                             @if($showContribution)
                                                 @foreach($monitoringValidities as $validity)
-                                                    @php($clusterMetric = $cluster['values'][$defaultCategory][$validity] ?? ['mtd' => 0])
-                                                    @php($clusterContribution = ($clusterGrand['mtd'] ?? 0) > 0 ? (($clusterMetric['mtd'] ?? 0) / ($clusterGrand['mtd'] ?? 1)) * 100 : 0)
+                                                    @php
+                                                        $clusterMetric = $cluster['values'][$defaultCategory][$validity] ?? ['mtd' => 0];
+                                                        $clusterContribution = ($clusterGrand['mtd'] ?? 0) > 0
+                                                            ? (($clusterMetric['mtd'] ?? 0) / ($clusterGrand['mtd'] ?? 1)) * 100
+                                                            : 0;
+                                                    @endphp
                                                     <td class="pv-contribution-col" data-pv-footer-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($clusterContribution, 1, ',', '.') }}%</td>
                                                 @endforeach
                                             @endif
@@ -3639,7 +3667,9 @@
                         </form>
                     </div>
                     @if(session('success'))<div class="notice"><i class="fas fa-circle-check"></i> {{ session('success') }}</div>@endif
-                    @php($activeVisitTab = request('visit_tab') === 'approval' ? 'approval' : 'summary')
+                    @php
+                        $activeVisitTab = request('visit_tab') === 'approval' ? 'approval' : 'summary';
+                    @endphp
                     <div class="visit-module-tabs" role="tablist">
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'summary' ? 'active' : '' }}" data-visit-subtab="summary"><i class="fas fa-chart-column"></i> Rekap Visit</button>
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'approval' ? 'active' : '' }}" data-visit-subtab="approval"><i class="fas fa-camera"></i> Approval Visit</button>
