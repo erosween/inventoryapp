@@ -576,6 +576,20 @@
             }
             saveFormState();
         });
+
+        // iOS Safari can treat Enter in a form textarea as the form's next
+        // action instead of inserting a line break. Force the expected
+        // one-number-per-line behaviour while preserving the caret position.
+        $('#consignment_numbers').on('keydown', function(event) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const value = this.value;
+            this.value = value.slice(0, start) + '\n' + value.slice(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+            $(this).trigger('input');
+        });
         $('#consignment-clear').on('click', function() {
             $('#consignment_numbers').val('');
             setConsignmentOpen(false);

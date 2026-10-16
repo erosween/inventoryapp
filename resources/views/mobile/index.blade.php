@@ -136,7 +136,7 @@
                                     <i class="fas fa-plus me-1"></i> INPUT LAGI
                                 </a>
                             @else
-                                <a href="#" data-outlet="{{ $pjp->id_outlet }}" class="pjp-card-action pjp-visit-button open-visit-menu btn btn-sm rounded-pill fw-800"
+                                <a href="{{ route('mobile.visit.menu', ['id_outlet' => $pjp->id_outlet]) }}" data-outlet="{{ $pjp->id_outlet }}" class="pjp-card-action pjp-visit-button open-visit-menu btn btn-sm rounded-pill fw-800"
                                    style="font-size: 0.65rem; background: #f8fafc; color: var(--primary); border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s;">
                                     VISIT <i class="fas fa-chevron-right ms-1" style="font-size: 0.5rem;"></i>
                                 </a>
@@ -156,19 +156,39 @@
     <script>
     document.querySelectorAll('.open-visit-menu').forEach(function(button) {
         button.addEventListener('click', function(event) {
-            event.preventDefault();
             const target = this;
+            // The href is the reliable fallback for mobile Safari. GPS is an
+            // enhancement only; it must never be able to block opening the menu.
             const go = function(distance) {
-                let url = '{{ route('mobile.visit.menu') }}?id_outlet=' + encodeURIComponent(target.dataset.outlet);
+                let url = target.href;
                 if (distance !== null) url += '&distance=' + Math.round(distance);
                 window.location.href = url;
             };
+            let navigated = false;
+            const fallback = window.setTimeout(function() {
+                if (!navigated) {
+                    navigated = true;
+                    window.location.href = target.href;
+                }
+            }, 1200);
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function(pos) {
+                    if (navigated) return;
+                    navigated = true;
+                    window.clearTimeout(fallback);
                     const card = target.closest('.glass-card'), point = card ? card.querySelector('[data-lat][data-lng]') : null;
                     go(point && point.dataset.lat && point.dataset.lng ? distanceMeters(pos.coords.latitude, pos.coords.longitude, parseFloat(point.dataset.lat), parseFloat(point.dataset.lng)) : null);
-                }, function() { go(null); }, {enableHighAccuracy:true, timeout:10000, maximumAge:0});
-            } else go(null);
+                }, function() {
+                    if (navigated) return;
+                    navigated = true;
+                    window.clearTimeout(fallback);
+                    go(null);
+                }, {enableHighAccuracy:true, timeout:10000, maximumAge:0});
+            } else {
+                navigated = true;
+                window.clearTimeout(fallback);
+                go(null);
+            }
         });
     });
     </script>

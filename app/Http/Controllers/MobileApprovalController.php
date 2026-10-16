@@ -227,7 +227,16 @@ class MobileApprovalController extends Controller
                 DB::raw('SUM(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_rupiah')
             )
             ->whereDate('m.tgl', $selectedDate)
-            ->groupBy('m.idsf', 's.namasf', 'm.idtap', 'm.status', 'jenis_paket');
+            // Keep the computed package type in GROUP BY as an expression.
+            // Some MySQL configurations reject SELECT aliases here, which
+            // makes DataTables receive a 500 response and show only "Ajax error".
+            ->groupBy(
+                'm.idsf',
+                's.namasf',
+                'm.idtap',
+                'm.status',
+                DB::raw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END")
+            );
 
         if ($idtap !== 'SBP_DUMAI') {
             $query->where('m.idtap', $idtap);
