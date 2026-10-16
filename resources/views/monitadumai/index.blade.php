@@ -3075,8 +3075,8 @@
         <nav class="sidebar-nav">
             <a href="{{ request()->fullUrlWithQuery(['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ request('panel') === 'visit-detail' ? '' : 'active' }}" data-dashboard-tab="outlet"><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
             <a href="{{ request()->fullUrlWithQuery(['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ request('panel') === 'visit-detail' ? 'active' : '' }}" data-dashboard-tab="visit-detail"><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
-            @php($stockUser = strtolower((string) (auth()->user()->username ?? '')))
-            @php($stockUrl = in_array($stockUser, ['gm', 'admin_super', 'admin_cluster'], true) || str_starts_with($stockUser, 'asmen_') ? url('/sisastock') : url('/stocktap'))
+            <?php $stockUser = strtolower((string) (auth()->user()->username ?? '')); ?>
+            <?php $stockUrl = in_array($stockUser, ['gm', 'admin_super', 'admin_cluster'], true) || str_starts_with($stockUser, 'asmen_') ? url('/sisastock') : url('/stocktap'); ?>
             <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
         </nav>
         <div class="sidebar-foot">
@@ -3091,11 +3091,11 @@
     </header>
 
     <main class="container">
-        @php
+        <?php
             $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
             $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
             $summary = $dashboard['summary'] ?? [];
-        @endphp
+        ?>
         @php
             $summary = $dashboard['summary'] ?? [];
             $areas = $dashboard['areas'] ?? [];
