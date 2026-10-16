@@ -27,13 +27,18 @@
             <input type="hidden" name="id_outlet" id="visit-outlet" value="{{ $selectedOutlet->id_outlet }}">
             <div class="form-control mb-3 fw-bold bg-light">{{ $selectedOutlet->nama_outlet }} ({{ $selectedOutlet->id_outlet }})</div>
         @else
-            <input type="search" id="outlet-search" class="form-control mb-2" placeholder="Cari ID outlet atau nama outlet...">
-            <select name="id_outlet" id="visit-outlet" class="form-select mb-3" required>
-                <option value="">Pilih outlet</option>
+            <input type="hidden" name="id_outlet" id="visit-outlet" required>
+            <div class="outlet-picker mb-3" id="outlet-picker">
+                <button type="button" class="outlet-picker-button" id="outlet-picker-button"><span><i class="fas fa-store me-2"></i>Pilih outlet Extra Call</span><i class="fas fa-chevron-down"></i></button>
+                <div class="outlet-picker-menu d-none" id="outlet-picker-menu">
+                    <div class="outlet-picker-search"><i class="fas fa-search"></i><input type="search" id="outlet-search" placeholder="Cari nama atau ID outlet..." autocomplete="off"></div>
+                    <div class="outlet-picker-options" id="outlet-picker-options">
                 @foreach($outlets as $outlet)
-                    <option value="{{ $outlet->id_outlet }}" data-lat="{{ $outlet->latitude }}" data-lng="{{ $outlet->longitude }}">{{ $outlet->nama_outlet }} ({{ $outlet->id_outlet }})</option>
+                    <button type="button" class="outlet-picker-option" data-value="{{ $outlet->id_outlet }}" data-label="{{ $outlet->nama_outlet }}" data-search="{{ strtolower($outlet->nama_outlet.' '.$outlet->id_outlet) }}"><span><strong>{{ $outlet->nama_outlet }}</strong><small>{{ $outlet->id_outlet }}</small></span><i class="fas fa-check"></i></button>
                 @endforeach
-            </select>
+                    </div>
+                </div>
+            </div>
         @endif
         <input type="hidden" name="latitude" id="visit-latitude"><input type="hidden" name="longitude" id="visit-longitude"><input type="hidden" name="accuracy" id="visit-accuracy">
 
@@ -100,6 +105,20 @@
         border-radius: 22px;
         background: #f8fafc;
     }
+    .outlet-picker { position: relative; z-index: 20; }
+    .outlet-picker-button { width: 100%; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; color: #334155; padding: 13px 14px; font: inherit; font-size: .78rem; font-weight: 800; text-align: left; }
+    .outlet-picker-button.is-selected { border-color: #fecaca; color: #991b1b; background: #fffafa; }
+    .outlet-picker-menu { position: absolute; left: 0; right: 0; top: calc(100% + 7px); overflow: hidden; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 16px 35px rgba(15,23,42,.16); }
+    .outlet-picker-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #94a3b8; }
+    .outlet-picker-search input { width: 100%; border: 0; outline: 0; font: inherit; font-size: .75rem; }
+    .outlet-picker-options { max-height: 260px; overflow-y: auto; padding: 5px; }
+    .outlet-picker-option { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 0; border-radius: 11px; background: transparent; padding: 10px; text-align: left; }
+    .outlet-picker-option:hover, .outlet-picker-option:focus { background: #fff1f2; outline: 0; }
+    .outlet-picker-option strong, .outlet-picker-option small { display: block; }
+    .outlet-picker-option strong { color: #1e293b; font-size: .72rem; }
+    .outlet-picker-option small { margin-top: 2px; color: #94a3b8; font-size: .62rem; }
+    .outlet-picker-option > i { color: #dc2626; opacity: 0; }
+    .outlet-picker-option.selected > i { opacity: 1; }
 
     .visit-back-button {
         width: 38px;
@@ -373,13 +392,27 @@ $('#visit-form').on('submit', function(event) {
 
 window.addEventListener('pagehide', stopVisitCamera);
 
+$('#outlet-picker-button').on('click', function() {
+    $('#outlet-picker-menu').toggleClass('d-none');
+    if (!$('#outlet-picker-menu').hasClass('d-none')) $('#outlet-search').trigger('focus');
+});
 $('#outlet-search').on('input', function() {
     const keyword = $(this).val().toLowerCase().trim();
-    $('#visit-outlet option').each(function() {
-        if (!this.value) return;
-        const visible = !keyword || $(this).text().toLowerCase().includes(keyword) || this.value.toLowerCase().includes(keyword);
-        $(this).toggle(visible);
+    $('.outlet-picker-option').each(function() {
+        $(this).toggle(!keyword || String($(this).data('search')).includes(keyword));
     });
+});
+$('.outlet-picker-option').on('click', function() {
+    const value = $(this).data('value');
+    const label = $(this).data('label');
+    $('#visit-outlet').val(value);
+    $('#outlet-picker-button').addClass('is-selected').find('span').html('<i class="fas fa-store me-2"></i>' + $('<div>').text(label).html() + '<small class="d-block text-muted mt-1">' + value + '</small>');
+    $('.outlet-picker-option').removeClass('selected');
+    $(this).addClass('selected');
+    $('#outlet-picker-menu').addClass('d-none');
+});
+$(document).on('click', function(event) {
+    if (!$(event.target).closest('#outlet-picker').length) $('#outlet-picker-menu').addClass('d-none');
 });
 
 </script>
