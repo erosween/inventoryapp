@@ -235,6 +235,8 @@ class MobileApprovalController extends Controller
                 's.namasf',
                 'm.idtap',
                 'm.status',
+                'd.kategori_inject',
+                'd.group_name',
                 DB::raw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END")
             );
 
