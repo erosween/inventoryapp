@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\SuryaSalesProductExport;
 use App\Exports\SuryaVisitExport;
+use App\Exports\SuryaWorkbookExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +53,16 @@ class MonitaDumaiController extends Controller
                 'o.pjp', 's.namasf',
             ])
             ->map(function ($row) {
-                $distance = $row->distance_meters !== null ? round((float) $row->distance_meters, 1) : null;
+                $distance = null;
+                if ($row->visit_latitude !== null && $row->visit_longitude !== null
+                    && $row->outlet_latitude !== null && $row->outlet_longitude !== null) {
+                    $distance = round($this->distanceInMeters(
+                        (float) $row->visit_latitude,
+                        (float) $row->visit_longitude,
+                        (float) $row->outlet_latitude,
+                        (float) $row->outlet_longitude
+                    ), 1);
+                }
 
                 return [
                     Carbon::parse($row->visited_at)->format('d/m/Y'),
@@ -75,12 +86,42 @@ class MonitaDumaiController extends Controller
                 ];
             });
 
-        return Excel::download(new SuryaVisitExport($rows), "surya-visit-{$visitDate}.xlsx");
+        $sales = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->leftJoin('idsf as s', 's.idsf', '=', 'm.idsf')
+            ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'm.id_outlet')
+            ->whereDate('m.tgl', $visitDate)
+            ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
+            ->get([
+                'm.tgl', 'm.idsf', 's.namasf', 'm.idtap', 'm.id_outlet', 'o.nama_outlet',
+                'd.denom', 'd.kategori_inject', 'm.qty',
+                DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price'),
+                DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total'),
+                'm.status',
+            ])->map(fn ($row) => [
+                Carbon::parse($row->tgl)->format('d/m/Y'), $row->idsf, $row->namasf ?: $row->idsf,
+                $row->idtap, $row->id_outlet, $row->nama_outlet ?: $row->id_outlet,
+                $row->denom ?: $row->iddenom, $row->kategori_inject ?: '—', (int) $row->qty,
+                (float) $row->unit_price, (float) $row->total, strtoupper((string) $row->status),
+            ]);
+
+        return Excel::download(new SuryaWorkbookExport($rows, $sales), "surya-visit-{$visitDate}.xlsx");
     }
 
     public function showLeaderLogin()
     {
         return redirect('/');
+    }
+
+    private function distanceInMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return 2 * $earthRadius * asin(min(1, sqrt($a)));
     }
 
     public function leaderLogin(Request $request)

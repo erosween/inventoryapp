@@ -4,12 +4,13 @@ namespace App\Exports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles
+class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles, WithTitle
 {
     public function __construct(private readonly Collection $rows)
     {
@@ -28,6 +29,11 @@ class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, 
             'Latitude Visit', 'Longitude Visit', 'Jarak (Meter)', 'Kesesuaian Longlat',
             'Status Approval', 'Alasan Check-out',
         ];
+    }
+
+    public function title(): string
+    {
+        return 'Visit & Koordinat';
     }
 
     public function styles(Worksheet $sheet): array
