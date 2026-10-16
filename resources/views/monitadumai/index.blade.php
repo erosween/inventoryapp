@@ -3075,6 +3075,9 @@
         <nav class="sidebar-nav">
             <a href="{{ request()->fullUrlWithQuery(['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ request('panel') === 'visit-detail' ? '' : 'active' }}" data-dashboard-tab="outlet"><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
             <a href="{{ request()->fullUrlWithQuery(['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ request('panel') === 'visit-detail' ? 'active' : '' }}" data-dashboard-tab="visit-detail"><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
+            @php($stockUser = strtolower((string) (auth()->user()->username ?? '')))
+            @php($stockUrl = in_array($stockUser, ['gm', 'admin_super', 'admin_cluster'], true) || str_starts_with($stockUser, 'asmen_') ? url('/sisastock') : url('/stocktap'))
+            <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
         </nav>
         <div class="sidebar-foot">
             <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>SURYA Leader</strong><small>Secure access</small></div></div>

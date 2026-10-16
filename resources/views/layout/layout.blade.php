@@ -470,6 +470,12 @@
                                     <p>STOCK GUDANG</p>
                                 </a>
                             </li>
+                            <li class="nav-item {{ request()->is('surya*') ? 'active' : '' }}">
+                                <a href="{{ route('surya.dashboard') }}">
+                                    <i class="fas fa-chart-line"></i>
+                                    <p>SURYA</p>
+                                </a>
+                            </li>
                             @if (!$isAsmen)
                             <li class="nav-item {{ request()->is('stock-journey*') ? 'active' : '' }}">
                                 <a href="{{ route('stock-journey.index') }}">
