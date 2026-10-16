@@ -357,6 +357,7 @@ class MonitaDumaiController extends Controller
             ->get([
                 'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
                 'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
+                DB::raw("(SELECT r.receipt_photo_path FROM mobile_sales_receipts r WHERE r.id_outlet = v.id_outlet AND r.idsf = v.idsf AND r.tgl = DATE(v.visited_at) AND r.receipt_photo_path IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS receipt_photo_path"),
                 'o.nama_outlet', 's.namasf',
             ])
             ->map(function ($visit) {
@@ -364,6 +365,8 @@ class MonitaDumaiController extends Controller
                 $visit->front_thumbnail_url = $this->visitPhotoUrl($visit->photo_front_path, true);
                 $visit->inside_photo_url = $this->visitPhotoUrl($visit->photo_inside_path);
                 $visit->inside_thumbnail_url = $this->visitPhotoUrl($visit->photo_inside_path, true);
+                $visit->receipt_photo_url = $this->visitPhotoUrl($visit->receipt_photo_path);
+                $visit->receipt_thumbnail_url = $this->visitPhotoUrl($visit->receipt_photo_path, true);
 
                 return $visit;
             })

@@ -89,5 +89,31 @@ document.getElementById('confirm-sales-form')?.addEventListener('submit', functi
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Menyimpan Penjualan...';
 });
+
+document.getElementById('confirm-sales-form')?.addEventListener('submit', async function (event) {
+    const input = document.getElementById('receipt_photo');
+    if (!input?.files?.[0] || input.dataset.compressed === '1') return;
+    event.preventDefault();
+    const file = input.files[0];
+    const image = new Image();
+    image.onload = () => {
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+            if (!blob) return this.submit();
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([blob], 'nota-bon.jpg', { type: 'image/jpeg' }));
+            input.files = transfer.files;
+            input.dataset.compressed = '1';
+            this.requestSubmit();
+        }, 'image/jpeg', 0.72);
+    };
+    image.onerror = () => this.submit();
+    image.src = URL.createObjectURL(file);
+});
 </script>
 @endpush
