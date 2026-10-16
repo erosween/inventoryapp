@@ -256,6 +256,17 @@ class MobileApprovalController extends Controller
             ->filterColumn('namasf', function($query, $keyword) {
                 $query->where('s.namasf', 'LIKE', "%{$keyword}%");
             })
+            ->filterColumn('jenis_paket', function ($query, $keyword) {
+                $query->whereRaw("(CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END) LIKE ?", ["%{$keyword}%"]);
+            })
+            ->filterColumn('total_qty', function ($query, $keyword) {
+                // Aggregate values are rendered after GROUP BY; do not let
+                // DataTables turn this alias into the nonexistent m.total_qty.
+            })
+            ->filterColumn('total_rupiah', function ($query, $keyword) {
+                // Aggregate values are rendered after GROUP BY; keep this
+                // search column harmless instead of filtering a base column.
+            })
             ->editColumn('namasf', function($row) {
                 return '<a href="#" class="fw-bold text-indigo tinjau-btn" data-idsf="'.$row->idsf.'" data-namasf="'.$row->namasf.'" data-status="'.$row->status.'" data-idtap="'.$row->idtap.'" data-jenis="'.$row->jenis_paket.'">'.strtoupper($row->namasf).'</a>';
             })
