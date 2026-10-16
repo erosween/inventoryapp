@@ -221,7 +221,7 @@ class MobileApprovalController extends Controller
                 's.namasf',
                 'm.idtap',
                 'm.status',
-                DB::raw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
+                DB::raw("CASE WHEN MAX(CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 1 ELSE 0 END) = 1 THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
                 DB::raw('COUNT(m.id) as trans_count'),
                 DB::raw('SUM(m.qty) as total_qty'),
                 DB::raw('SUM(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_rupiah')
@@ -235,9 +235,6 @@ class MobileApprovalController extends Controller
                 's.namasf',
                 'm.idtap',
                 'm.status',
-                'd.kategori_inject',
-                'd.group_name',
-                DB::raw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END")
             );
 
         if ($idtap !== 'SBP_DUMAI') {
@@ -257,7 +254,13 @@ class MobileApprovalController extends Controller
                 $query->where('s.namasf', 'LIKE', "%{$keyword}%");
             })
             ->filterColumn('jenis_paket', function ($query, $keyword) {
-                $query->whereRaw("(CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END) LIKE ?", ["%{$keyword}%"]);
+                $query->where(function ($categoryQuery) use ($keyword) {
+                    if (stripos($keyword, 'SA') !== false && stripos($keyword, 'VOUCHER') === false) {
+                        $categoryQuery->whereRaw("UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA'");
+                    } elseif (stripos($keyword, 'VOUCHER') !== false) {
+                        $categoryQuery->whereRaw("UPPER(COALESCE(d.kategori_inject, '')) <> 'SA' AND UPPER(COALESCE(d.group_name, '')) <> 'SA'");
+                    }
+                });
             })
             ->filterColumn('total_qty', function ($query, $keyword) {
                 // Aggregate values are rendered after GROUP BY; do not let
