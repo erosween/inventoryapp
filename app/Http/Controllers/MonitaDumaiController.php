@@ -144,8 +144,18 @@ class MonitaDumaiController extends Controller
 
     private function hasSuryaAccess(Request $request): bool
     {
-        return $request->session()->has('monita_leader_auth')
-            || (Auth::check() && strcasecmp((string) Auth::user()->username, 'admin_surya') === 0);
+        if ($request->session()->has('monita_leader_auth')) {
+            return true;
+        }
+
+        if (! Auth::check()) {
+            return false;
+        }
+
+        $username = strtolower(trim((string) Auth::user()->username));
+
+        return in_array($username, ['gm', 'admin_super', 'admin_cluster'], true)
+            || str_starts_with($username, 'asmen_');
     }
 
     private function buildLeaderDashboard(string $visitDate): array
