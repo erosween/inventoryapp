@@ -3092,6 +3092,11 @@
 
     <main class="container">
         @php
+            $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
+            $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
+            $summary = $dashboard['summary'] ?? [];
+        @endphp
+        @php
             $summary = $dashboard['summary'] ?? [];
             $areas = $dashboard['areas'] ?? [];
             $riskTaps = $dashboard['riskTaps'] ?? [];
