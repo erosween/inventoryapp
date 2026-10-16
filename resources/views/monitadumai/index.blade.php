@@ -3074,7 +3074,7 @@
         <div class="sidebar-label">WORKSPACE</div>
         <nav class="sidebar-nav">
             <a href="#outlet" class="sidebar-link {{ request('panel') === 'visit-detail' ? '' : 'active' }}" data-dashboard-tab="outlet"><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
-            <a href="#visit-detail" class="sidebar-link {{ request('panel') === 'visit-detail' ? 'active' : '' }}" data-dashboard-tab="visit-detail"><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
+            <a href="{{ request()->fullUrlWithQuery(['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ request('panel') === 'visit-detail' ? 'active' : '' }}" data-dashboard-tab="visit-detail"><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
         </nav>
         <div class="sidebar-foot">
             <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>SURYA Leader</strong><small>Secure access</small></div></div>
