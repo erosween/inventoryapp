@@ -398,6 +398,9 @@ class MonitaDumaiController extends Controller
 
         if (str_starts_with($username, 'asmen_')) {
             $tap = $this->suryaTapScope();
+            if ($tap === 'ROHIL') {
+                return ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
+            }
             return $tap ? [$tap] : [];
         }
 
@@ -1356,7 +1359,9 @@ class MonitaDumaiController extends Controller
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
+        $tapScopes = $this->suryaTapScopes();
         $outlets = DB::table('appsdumais')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->where('latitude', '!=', '')
