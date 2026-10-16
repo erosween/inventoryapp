@@ -310,6 +310,17 @@ $('.capture-photo').on('click', async function() {
         return;
     }
 
+    // Some mobile browsers expose the camera dimensions before the first
+    // decoded frame is actually available. Waiting for a real frame prevents
+    // an otherwise valid-looking capture from becoming a black image.
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    if (typeof video.play === 'function') {
+        try { await video.play(); } catch (e) {}
+    }
+    await new Promise(resolve => setTimeout(resolve, 180));
+
     const maxEdge = 1600;
     const scale = Math.min(1, maxEdge / Math.max(video.videoWidth, video.videoHeight));
     canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
@@ -338,16 +349,9 @@ $('.capture-photo').on('click', async function() {
         activePhotoCard = null;
     };
 
-    canvas.toBlob(function(blob) {
-        if (blob && blob.type === 'image/webp') {
-            usePhotoBlob(blob);
-            return;
-        }
-
-        // Browser lama yang belum bisa membuat WebP tetap mengirim JPEG kecil;
-        // server akan menormalisasikannya menjadi WebP.
-        canvas.toBlob(usePhotoBlob, 'image/jpeg', .78);
-    }, 'image/webp', .76);
+    // Use JPEG for the upload. WebP encoding is inconsistent on mobile
+    // browsers; the server already normalizes the stored image to WebP.
+    canvas.toBlob(usePhotoBlob, 'image/jpeg', .86);
 });
 
 $('#visit-form').on('submit', function(event) {
