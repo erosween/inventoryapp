@@ -275,7 +275,7 @@
                 complete: function() { $('#table-loader').addClass('d-none'); }
             },
             columns: [
-                { data: 'namasf', name: 's.namasf' },
+                { data: 'namasf', name: 'x.namasf' },
                 { data: 'idtap', name: 'x.idtap', className: 'text-center' },
                 { data: 'jenis_paket', name: 'jenis_paket', className: 'text-center fw-bold' },
                 { data: 'total_qty', name: 'total_qty', className: 'text-right fw-bold' },
