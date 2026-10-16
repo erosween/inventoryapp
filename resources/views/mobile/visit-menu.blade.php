@@ -19,6 +19,9 @@
     @if(request('distance') && (float) request('distance') > 10)
         <div class="alert alert-danger rounded-4 small"><i class="fas fa-location-dot me-2"></i>Lokasi tidak sesuai outlet ({{ number_format((float) request('distance'), 0) }} m). Foto visit akan menunggu konfirmasi admin.</div>
     @endif
+    @if($visit?->gps_status === 'rejected')
+        <div class="alert alert-danger rounded-4 small"><i class="fas fa-circle-xmark me-2"></i>Foto visit ditolak admin. Ambil ulang foto tampak depan dan tampak dalam agar aktivitas dapat dilanjutkan.</div>
+    @endif
     @if($photoDone && $visit->gps_status === 'pending_admin')
         <div class="alert alert-warning rounded-4 small" id="visit-approval-alert">
             <div class="d-flex align-items-start gap-2">
@@ -38,7 +41,7 @@
         </div>
     @else
         <a href="{{ route('mobile.visit', $outlet ? ['id_outlet' => $outlet->id_outlet] : []) }}" class="visit-action visit-action-camera text-decoration-none">
-            <span class="visit-action-icon"><i class="fas fa-camera"></i></span><span><strong>Input 2 Foto Visit</strong><small>Foto depan, foto dalam, dan verifikasi lokasi GPS</small></span><i class="fas fa-chevron-right visit-action-chevron"></i>
+            <span class="visit-action-icon"><i class="fas fa-camera"></i></span><span><strong>{{ $visit?->gps_status === 'rejected' ? 'Ambil Ulang 2 Foto Visit' : 'Input 2 Foto Visit' }}</strong><small>Foto depan, foto dalam, dan verifikasi lokasi GPS</small></span><i class="fas fa-chevron-right visit-action-chevron"></i>
         </a>
     @endif
     @if($canSell)
@@ -222,6 +225,17 @@ document.getElementById('refresh-visit-status')?.addEventListener('click', async
         if (!response.ok) throw new Error('Status visit tidak dapat dimuat.');
 
         const result = await response.json();
+        if (result.gps_status === 'rejected') {
+            message.textContent = result.message;
+            Swal.fire({
+                icon: 'error',
+                title: 'Foto Ditolak',
+                text: result.message,
+                confirmButtonText: 'Ambil Ulang Foto',
+                confirmButtonColor: 'var(--primary)'
+            }).then(() => window.location.reload());
+            return;
+        }
         if (result.can_sell) {
             button.innerHTML = '<i class="fas fa-check me-1"></i> Disetujui';
             message.textContent = result.message;

@@ -261,6 +261,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('/mobile-approval', [\App\Http\Controllers\MobileApprovalController::class, 'index'])->name('admin.mobile-approval.index');
 	Route::get('/surya/visits', [\App\Http\Controllers\SuryaVisitReportController::class, 'index'])->name('surya.visits.report');
 	Route::post('/surya/visits/{visit}/approve', [\App\Http\Controllers\SuryaVisitReportController::class, 'approve'])->name('surya.visits.approve');
+	Route::post('/surya/visits/{visit}/reject', [\App\Http\Controllers\SuryaVisitReportController::class, 'reject'])->name('surya.visits.reject');
 	Route::get('/surya/field-reports', [\App\Http\Controllers\SuryaFieldReportController::class, 'index'])->name('surya.field-reports');
 	Route::get('/mobile-approval/data', [\App\Http\Controllers\MobileApprovalController::class, 'data'])->name('admin.mobile-approval.data');
 	Route::get('/mobile-approval/stats', [\App\Http\Controllers\MobileApprovalController::class, 'getStats'])->name('admin.mobile-approval.stats');

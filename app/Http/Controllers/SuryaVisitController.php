@@ -34,6 +34,7 @@ class SuryaVisitController extends Controller
             ->latest('visited_at')
             ->first() : null;
         $photoDone = $visit
+            && $visit->gps_status !== 'rejected'
             && filled($visit->photo_front_path)
             && filled($visit->photo_inside_path);
         $canSell = $photoDone && in_array($visit->gps_status, ['valid', 'approved'], true);
@@ -71,16 +72,20 @@ class SuryaVisitController extends Controller
 
         abort_unless($visit, 404, 'Visit tidak ditemukan.');
 
-        $photoDone = filled($visit->photo_front_path) && filled($visit->photo_inside_path);
+        $photoDone = $visit->gps_status !== 'rejected'
+            && filled($visit->photo_front_path)
+            && filled($visit->photo_inside_path);
         $canSell = $photoDone && in_array($visit->gps_status, ['valid', 'approved'], true);
 
         return response()->json([
             'gps_status' => $visit->gps_status,
             'photo_done' => $photoDone,
             'can_sell' => $canSell,
-            'message' => $canSell
-                ? 'Visit sudah disetujui. Input penjualan telah dibuka.'
-                : 'Belum ada persetujuan admin. Silakan cek kembali beberapa saat lagi.',
+            'message' => match (true) {
+                $canSell => 'Visit sudah disetujui. Input penjualan telah dibuka.',
+                $visit->gps_status === 'rejected' => 'Foto visit ditolak admin. Silakan ambil ulang foto depan dan foto dalam.',
+                default => 'Belum ada persetujuan admin. Silakan cek kembali beberapa saat lagi.',
+            },
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
@@ -158,7 +163,18 @@ class SuryaVisitController extends Controller
             $frontPath = $this->imageStorage->store($request->file('photo_front'), 'surya-visits/front')['path'];
             $insidePath = $this->imageStorage->store($request->file('photo_inside'), 'surya-visits/inside')['path'];
 
-            SuryaVisit::create([
+            $rejectedVisit = SuryaVisit::query()
+                ->where('idsf', session('mobile_sf_id'))
+                ->where('id_outlet', $outlet->id_outlet)
+                ->whereDate('visited_at', now()->toDateString())
+                ->where('gps_status', 'rejected')
+                ->latest('visited_at')
+                ->first();
+            $oldPaths = $rejectedVisit
+                ? array_filter([$rejectedVisit->photo_path, $rejectedVisit->photo_front_path, $rejectedVisit->photo_inside_path])
+                : [];
+
+            $visitData = [
                 'visited_at' => now(),
                 'id_outlet' => $outlet->id_outlet,
                 'idtap' => session('idtap'),
@@ -173,7 +189,19 @@ class SuryaVisitController extends Controller
                 'photo_inside_path' => $insidePath,
                 'gps_status' => $gpsStatus,
                 'notes' => $request->notes,
-            ]);
+                'checkout_at' => null,
+                'checkout_reason' => null,
+                'checkout_notes' => null,
+            ];
+
+            if ($rejectedVisit) {
+                $rejectedVisit->update($visitData);
+                foreach (array_unique($oldPaths) as $path) {
+                    Storage::disk('public')->delete([$path, OptimizedImageStorage::thumbnailPathFor($path)]);
+                }
+            } else {
+                SuryaVisit::create($visitData);
+            }
         } catch (\Throwable $exception) {
             foreach (array_filter([$frontPath, $insidePath]) as $path) {
                 Storage::disk('public')->delete([$path, OptimizedImageStorage::thumbnailPathFor($path)]);
@@ -231,6 +259,7 @@ class SuryaVisitController extends Controller
             ->where('idsf', session('mobile_sf_id'))
             ->where('id_outlet', $requestedOutlet)
             ->whereDate('visited_at', now()->toDateString())
+            ->where('gps_status', '!=', 'rejected')
             ->whereNotNull('photo_front_path')
             ->whereNotNull('photo_inside_path')
             ->exists();

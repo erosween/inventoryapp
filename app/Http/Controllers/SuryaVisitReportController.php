@@ -39,6 +39,26 @@ class SuryaVisitReportController extends Controller
         return back()->with('success', 'Visit disetujui dan koordinat outlet diperbarui ke lokasi foto terbaru.');
     }
 
+    public function reject(SuryaVisit $visit)
+    {
+        abort_unless($visit->gps_status === 'pending_admin', 422, 'Visit ini tidak menunggu persetujuan.');
+
+        $visit->update(['gps_status' => 'rejected']);
+
+        if (request()->input('return_to') === 'visit-detail') {
+            $visitDate = request()->input('visit_date', $visit->visited_at?->toDateString() ?? now()->toDateString());
+
+            return redirect(route('surya.dashboard', [
+                'panel' => 'visit-detail',
+                'visit_date' => $visitDate,
+                'visit_tab' => 'approval',
+            ]).'#visit-detail')
+                ->with('success', 'Foto visit ditolak. Sales Force dapat mengambil ulang foto pada outlet ini.');
+        }
+
+        return back()->with('success', 'Foto visit ditolak. Sales Force dapat mengambil ulang foto pada outlet ini.');
+    }
+
     public function index(Request $request)
     {
         $idtap = session('idtap');

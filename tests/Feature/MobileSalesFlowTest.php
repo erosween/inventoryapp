@@ -1103,6 +1103,63 @@ class MobileSalesFlowTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_reject_visit_photos_and_sales_force_can_retake_them(): void
+    {
+        Carbon::setTestNow('2026-10-16 11:00:00');
+
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-RETAKE',
+            'nama_outlet' => 'Outlet Retake',
+            'sf' => 'Sales Test',
+            'latitude' => 1.00000000,
+            'longitude' => 101.00000000,
+        ]);
+
+        $visitId = DB::table('surya_visits')->insertGetId([
+            'visited_at' => now(),
+            'id_outlet' => 'OUTLET-RETAKE',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'latitude' => 1.20000000,
+            'longitude' => 101.20000000,
+            'photo_path' => 'surya-visits/front/wrong.webp',
+            'photo_front_path' => 'surya-visits/front/wrong.webp',
+            'photo_inside_path' => 'surya-visits/inside/wrong.webp',
+            'gps_status' => 'pending_admin',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        app(\App\Http\Controllers\SuryaVisitReportController::class)
+            ->reject(\App\Models\SuryaVisit::findOrFail($visitId));
+
+        $this->assertDatabaseHas('surya_visits', [
+            'id' => $visitId,
+            'gps_status' => 'rejected',
+        ]);
+
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+
+        $this->withSession($session)
+            ->get(route('mobile.visit.menu', ['id_outlet' => 'OUTLET-RETAKE']))
+            ->assertOk()
+            ->assertSee('Foto visit ditolak admin')
+            ->assertSee('Ambil Ulang 2 Foto Visit');
+
+        $this->withSession($session)
+            ->get(route('mobile.visit.status', ['id_outlet' => 'OUTLET-RETAKE']))
+            ->assertOk()
+            ->assertJson([
+                'gps_status' => 'rejected',
+                'photo_done' => false,
+                'can_sell' => false,
+            ]);
+
+        $this->withSession($session)
+            ->get(route('mobile.visit', ['id_outlet' => 'OUTLET-RETAKE']))
+            ->assertOk();
+    }
+
     public function test_sales_force_can_checkout_without_sale_and_continue_to_next_outlet(): void
     {
         Carbon::setTestNow('2026-10-15 10:00:00');

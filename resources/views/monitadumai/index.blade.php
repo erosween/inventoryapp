@@ -2655,7 +2655,10 @@
         .notice { margin-bottom: 14px; padding: 12px 14px; border: 1px solid #bbf7d0; border-radius: 11px; background: #f0fdf4; color: #166534; font-size: 12px; font-weight: 700; }
         .visit-subpanel[hidden] { display: none; }
         .visit-photo-thumb { width: 68px; height: 50px; object-fit: cover; border-radius: 9px; box-shadow: 0 0 0 1px #e2e8f0; }
-        .visit-approve-btn { min-height: 34px; padding: 0 11px; border: 0; border-radius: 9px; background: #15935d; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+        .visit-action-buttons { display: flex; align-items: center; gap: 7px; }
+        .visit-approve-btn, .visit-reject-btn { min-height: 34px; padding: 0 11px; border-radius: 9px; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+        .visit-approve-btn { border: 0; background: #15935d; color: #fff; }
+        .visit-reject-btn { border: 1px solid #fecaca; background: #fff; color: #b91c1c; }
         .visit-modal[hidden] { display: none; }
         .visit-modal { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 24px; background: rgba(15,23,42,.62); }
         .visit-modal-card { width: min(980px,100%); max-height: calc(100vh - 48px); overflow: hidden; border-radius: 18px; background: #fff; box-shadow: 0 30px 80px rgba(15,23,42,.3); }
@@ -3740,7 +3743,7 @@
                                 <td>{{ $visit->distance_meters !== null ? number_format($visit->distance_meters,0).' m' : '—' }}</td>
                                 <td>@if($visit->front_photo_url)<a href="{{ $visit->front_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->front_thumbnail_url }}" loading="lazy" alt="Tampak depan"></a>@else — @endif</td>
                                 <td>@if($visit->inside_photo_url)<a href="{{ $visit->inside_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->inside_thumbnail_url }}" loading="lazy" alt="Tampak dalam"></a>@else — @endif</td>
-                                <td>@if($visit->gps_status === 'pending_admin')<form method="POST" action="{{ route('surya.visits.approve',$visit->id) }}">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-approve-btn">Setujui Koordinat</button></form>@else — @endif</td>
+                                <td>@if($visit->gps_status === 'pending_admin')<div class="visit-action-buttons"><form method="POST" action="{{ route('surya.visits.approve',$visit->id) }}">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-approve-btn">Setujui Koordinat</button></form><form method="POST" action="{{ route('surya.visits.reject',$visit->id) }}" onsubmit="return confirm('Tolak foto visit ini? Sales Force harus mengambil ulang foto depan dan dalam.')">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-reject-btn">Tolak Foto</button></form></div>@else — @endif</td>
                             </tr>
                         @empty
                             <tr><td colspan="9" class="visit-empty"><strong>Belum ada visit pada tanggal ini</strong></td></tr>

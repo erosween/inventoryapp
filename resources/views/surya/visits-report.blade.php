@@ -663,6 +663,9 @@
                                                     action="{{ route('surya.visits.approve', $visit->id) }}">
                                                     @csrf<button class="approve-btn">Setujui & Perbarui
                                                         Koordinat</button></form>
+                                                <form method="POST" action="{{ route('surya.visits.reject', $visit->id) }}"
+                                                    onsubmit="return confirm('Tolak foto visit ini? Sales Force harus mengambil ulang foto depan dan dalam.')">
+                                                    @csrf<button class="approve-btn" style="margin-top:6px;background:#b91c1c">Tolak Foto</button></form>
                                             @endif
                                         </td>
                                     </tr>
