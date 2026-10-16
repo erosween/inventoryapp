@@ -275,9 +275,12 @@ class SuryaVisitController extends Controller
 
     private function assignedOutlets()
     {
-        return DB::table('appsdumais')->whereRaw(
-            'UPPER(TRIM(sf)) = ?',
-            [mb_strtoupper(trim((string) session('mobile_sf_name')))]
-        );
+        $name = mb_strtoupper(trim((string) session('mobile_sf_name')));
+        $idsf = mb_strtoupper(trim((string) session('mobile_sf_id')));
+
+        return DB::table('appsdumais')->where(function ($query) use ($name, $idsf) {
+            $query->whereRaw('UPPER(TRIM(sf)) = ?', [$name])
+                ->orWhereRaw('UPPER(TRIM(sf)) = ?', [$idsf]);
+        });
     }
 }

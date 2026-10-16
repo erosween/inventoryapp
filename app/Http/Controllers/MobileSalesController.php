@@ -17,9 +17,13 @@ class MobileSalesController extends Controller
     {
         $search = trim((string) $request->get('q', ''));
         $namasf = trim((string) session('mobile_sf_name'));
+        $idsf = trim((string) session('mobile_sf_id'));
 
         $outlets = DB::table('appsdumais')
-            ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
+            ->where(function ($sfQuery) use ($namasf, $idsf) {
+                $sfQuery->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
+                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($idsf)]);
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($searchQuery) use ($search) {
                     $searchQuery->where('nama_outlet', 'LIKE', "%{$search}%")
@@ -37,6 +41,7 @@ class MobileSalesController extends Controller
     {
         $idsf = session('mobile_sf_id');
         $namasf = trim((string) session('mobile_sf_name'));
+        $idsf = trim((string) session('mobile_sf_id'));
         $today = now();
         $todayDate = $today->toDateString();
         
@@ -80,7 +85,10 @@ SQL;
         $today_name = $days[$today->format('l')];
 
         $pjp_list = DB::table('appsdumais')
-            ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
+            ->where(function ($sfQuery) use ($namasf, $idsf) {
+                $sfQuery->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
+                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($idsf)]);
+            })
             ->whereRaw('UPPER(TRIM(pjp)) = ?', [mb_strtoupper($today_name)])
             ->orderBy('nama_outlet')
             ->get();

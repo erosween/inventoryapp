@@ -240,6 +240,12 @@
 
     /* Custom Table Loader Overlay */
     .table-responsive { position: relative; }
+    .denom-outlet-detail td { padding-top: 0 !important; border-top: 0 !important; }
+    .transaction-outlet-list { margin: -2px 0 10px; padding: 9px 12px; border-left: 3px solid #dbe4ff; background: #f8faff; border-radius: 0 8px 8px 0; }
+    .transaction-outlet-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px 32px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid #e8edf7; font-size: .75rem; }
+    .transaction-outlet-row span, .transaction-outlet-row small { display: block; }
+    .transaction-outlet-row small { color: #94a3b8; font-size: .65rem; }
+    .transaction-outlet-row b { text-align: right; color: #4e5bd5; }
 </style>
 @endsection
 
@@ -370,6 +376,12 @@
                 var html = '';
                 res.items.forEach(function(item, index) {
                     var idList = (item.ids || []).join(',');
+                    var outletDetails = (item.transactions || []).map(function(transaction) {
+                        var cancelButton = res.status == 'pending'
+                            ? `<button type="button" class="btn btn-outline-danger btn-xs transaction-reject-btn" data-id="${transaction.id}" title="Batalkan transaksi outlet ini"><i class="fas fa-times"></i></button>`
+                            : '';
+                        return `<div class="transaction-outlet-row"><span><strong>${escapeHtml(transaction.nama_outlet)}</strong><small>${escapeHtml(transaction.id_outlet)}</small></span><b>${Number(transaction.qty || 0).toLocaleString('id-ID')}</b>${cancelButton}</div>`;
+                    }).join('');
                     var actionBtns = res.status == 'pending' ? `
                         <div class="d-flex gap-1 justify-content-center">
                             <button type="button" class="btn btn-icon btn-round btn-success btn-xs item-approve-btn" data-ids="${idList}" title="Approve semua transaksi denom ini"><i class="fas fa-check"></i></button>
@@ -394,7 +406,7 @@
                         <td class="text-end fw-bold">${item.qty}</td>
                         <td class="text-end text-indigo fw-bold">${item.total}</td>
                         <td class="text-center">${actionBtns}</td>
-                    </tr>`;
+                    </tr><tr class="denom-outlet-detail"><td></td><td colspan="5"><div class="transaction-outlet-list"><small class="text-muted fw-bold">RINCIAN OUTLET / TRANSAKSI</small>${outletDetails}</div></td></tr>`;
                 });
                 $('#modal-items-table tbody').html(html);
 
@@ -507,6 +519,29 @@
                         }
                     });
                 }
+            });
+        });
+
+        $(document).on('click', '.transaction-reject-btn', function() {
+            var button = $(this);
+            var id = Number(button.data('id'));
+            Swal.fire({
+                title: 'Batalkan transaksi ini?',
+                text: 'Penjualan outlet ini akan dihapus dari pengajuan SF.',
+                icon: 'warning', showCancelButton: true,
+                confirmButtonColor: '#dc3545', confirmButtonText: 'Ya, Batalkan'
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+                $.post("{{ route('admin.mobile-approval.reject') }}", { id: id }, function(response) {
+                    if (response.success) {
+                        Swal.fire('Berhasil', 'Transaksi outlet dibatalkan.', 'success').then(function() {
+                            $('#reviewModal').modal('hide');
+                            table.ajax.reload(null, false);
+                        });
+                    } else {
+                        Swal.fire('Gagal', response.message || 'Transaksi tidak dapat dibatalkan.', 'error');
+                    }
+                });
             });
         });
 

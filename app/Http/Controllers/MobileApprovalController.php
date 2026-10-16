@@ -117,10 +117,13 @@ class MobileApprovalController extends Controller
         $query = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
             ->join('idsf as s', 'm.idsf', '=', 's.idsf')
+            ->leftJoin('appsdumais as o', 'm.id_outlet', '=', 'o.id_outlet')
             ->select(
                 'm.id',
                 'm.receipt_id',
                 'm.tgl',
+                'm.id_outlet',
+                'o.nama_outlet',
                 'm.status',
                 'm.iddenom',
                 'd.denom',
@@ -180,6 +183,13 @@ class MobileApprovalController extends Controller
                     : date('d/m/Y', strtotime($firstDate)).' - '.date('d/m/Y', strtotime($lastDate)),
                 'qty' => number_format($denomSales->sum('qty')),
                 'total' => 'Rp '.number_format($denomSales->sum('total_setoran'), 0, ',', '.'),
+                'transactions' => $denomSales->map(fn ($sale) => [
+                    'id' => (int) $sale->id,
+                    'id_outlet' => $sale->id_outlet,
+                    'nama_outlet' => $sale->nama_outlet ?: $sale->id_outlet,
+                    'qty' => (int) $sale->qty,
+                    'status' => $sale->status,
+                ])->values()->all(),
             ];
         })->values();
 
