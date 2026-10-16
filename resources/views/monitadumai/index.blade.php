@@ -3744,7 +3744,7 @@
                     </div>
                     </div>
                     <div class="visit-subpanel" data-visit-subpanel="approval" @if($activeVisitTab !== 'approval') hidden @endif>
-                        <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1120px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status</th><th>Jarak</th><th>Tampak Depan</th><th>Tampak Dalam</th><th>Aksi</th></tr></thead><tbody>
+                        <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1120px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status</th><th>Jarak</th><th>Tampak Depan</th><th>Foto Etalase</th><th>Aksi</th></tr></thead><tbody>
                         @forelse($approvalVisits as $visit)
                             <tr>
                                 <td><strong>{{ $visit->nama_outlet ?? $visit->id_outlet }}</strong><small style="display:block;color:#94a3b8">{{ $visit->id_outlet }}</small></td>
@@ -3753,7 +3753,7 @@
                                 <td><span class="cluster-chip">{{ strtoupper(str_replace('_',' ',$visit->gps_status)) }}</span></td>
                                 <td>{{ $visit->distance_meters !== null ? number_format($visit->distance_meters,0).' m' : '—' }}</td>
                                 <td>@if($visit->front_photo_url)<a href="{{ $visit->front_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->front_thumbnail_url }}" loading="lazy" alt="Tampak depan"></a>@else — @endif</td>
-                                <td>@if($visit->inside_photo_url)<a href="{{ $visit->inside_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->inside_thumbnail_url }}" loading="lazy" alt="Tampak dalam"></a>@else — @endif</td>
+                                <td>@if($visit->inside_photo_url)<a href="{{ $visit->inside_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->inside_thumbnail_url }}" loading="lazy" alt="Foto etalase"></a>@else — @endif</td>
                                 <td>@if($visit->gps_status === 'pending_admin')<div class="visit-action-buttons"><form method="POST" action="{{ route('surya.visits.approve',$visit->id) }}">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-approve-btn">Setujui Koordinat</button></form><form method="POST" action="{{ route('surya.visits.reject',$visit->id) }}" onsubmit="return confirm('Tolak foto visit ini? Sales Force harus mengambil ulang foto depan dan dalam.')">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-reject-btn">Tolak Foto</button></form></div>@else — @endif</td>
                             </tr>
                         @empty

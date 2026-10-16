@@ -42,6 +42,9 @@
         @endif
         <input type="hidden" name="latitude" id="visit-latitude"><input type="hidden" name="longitude" id="visit-longitude"><input type="hidden" name="accuracy" id="visit-accuracy">
 
+        <label class="form-label fw-bold">Catatan Visit <span class="text-muted fw-normal">(opsional)</span></label>
+        <textarea name="notes" class="form-control mb-3" rows="3" placeholder="Tulis catatan jika ada..."></textarea>
+
         <div class="visit-photo-card mb-3" data-photo-kind="front">
             <div class="d-flex align-items-center gap-3 mb-3">
                 <span class="visit-photo-number">1</span>
@@ -70,8 +73,8 @@
             <div class="d-flex align-items-center gap-3 mb-3">
                 <span class="visit-photo-number">2</span>
                 <div>
-                    <div class="fw-bold">Foto outlet tampak dalam</div>
-                    <small class="text-muted">Ambil kondisi bagian dalam, display, dan branding outlet.</small>
+                    <div class="fw-bold">Foto etalase outlet</div>
+                    <small class="text-muted">Ambil foto etalase, display, dan branding outlet.</small>
                 </div>
             </div>
             <input type="file" name="photo_inside" id="visit-photo-inside" class="d-none visit-photo-input" accept="image/jpeg,image/webp" required>
@@ -82,15 +85,14 @@
                 </button>
             </div>
             <canvas class="visit-canvas d-none"></canvas>
-            <img class="visit-preview rounded-4 mb-3 d-none" alt="Foto outlet tampak dalam">
+            <img class="visit-preview rounded-4 mb-3 d-none" alt="Foto etalase outlet">
             <div class="visit-camera-actions mb-2">
                 <button type="button" class="open-camera camera-action btn btn-outline-danger rounded-pill fw-bold"><i class="fas fa-camera me-2"></i>Buka Kamera</button>
                 <button type="button" class="capture-photo camera-action btn btn-danger rounded-pill fw-bold d-none"><i class="fas fa-circle-dot me-2"></i>Ambil Foto</button>
             </div>
-            <div class="visit-photo-status small text-muted"><i class="fas fa-circle me-1"></i> Foto tampak dalam belum diambil</div>
+            <div class="visit-photo-status small text-muted"><i class="fas fa-circle me-1"></i> Foto etalase belum diambil</div>
         </div>
 
-        <textarea name="notes" class="form-control mb-3" rows="3" placeholder="Catatan visit (opsional)"></textarea>
         <div id="visit-gps-status" class="alert alert-warning small">Mengambil lokasi GPS...</div>
         <button class="btn btn-danger w-100 rounded-pill py-3 fw-bold" type="submit"><i class="fas fa-camera me-2"></i>Simpan 2 Foto Visit</button>
     </form>
@@ -291,7 +293,7 @@ $('.capture-photo').on('click', async function() {
     const video = card.find('.visit-camera').get(0);
     const canvas = card.find('.visit-canvas').get(0);
     const kind = card.data('photo-kind');
-    const label = kind === 'front' ? 'tampak depan' : 'tampak dalam';
+    const label = kind === 'front' ? 'tampak depan' : 'etalase';
 
     try {
         await refreshVisitLocation('GPS diperbarui sesuai lokasi foto ' + label + '. Lokasi akan diverifikasi saat disimpan.');
@@ -363,8 +365,8 @@ $('#visit-form').on('submit', function(event) {
 
     if (!frontReady || !insideReady) {
         const missing = !frontReady && !insideReady
-            ? 'foto tampak depan dan tampak dalam'
-            : (!frontReady ? 'foto tampak depan' : 'foto tampak dalam');
+            ? 'foto tampak depan dan foto etalase'
+            : (!frontReady ? 'foto tampak depan' : 'foto etalase');
         Swal.fire({
             icon: 'warning',
             title: 'Foto Belum Lengkap',

@@ -336,7 +336,7 @@ SQL;
             ->whereNotNull('photo_inside_path')
             ->exists();
         if (! $approvedVisit && ! $isNonDigipos) {
-            return back()->withInput()->with('error', 'Lengkapi foto outlet tampak depan dan tampak dalam, lalu pastikan lokasi valid atau sudah disetujui admin.');
+            return back()->withInput()->with('error', 'Lengkapi foto tampak depan dan foto etalase, lalu pastikan lokasi valid atau sudah disetujui admin.');
         }
 
         try {

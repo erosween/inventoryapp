@@ -20,7 +20,7 @@
         <div class="alert alert-danger rounded-4 small"><i class="fas fa-location-dot me-2"></i>Lokasi tidak sesuai outlet ({{ number_format((float) request('distance'), 0) }} m). Foto visit akan menunggu konfirmasi admin.</div>
     @endif
     @if($visit?->gps_status === 'rejected')
-        <div class="alert alert-danger rounded-4 small"><i class="fas fa-circle-xmark me-2"></i>Foto visit ditolak admin. Ambil ulang foto tampak depan dan tampak dalam agar aktivitas dapat dilanjutkan.</div>
+        <div class="alert alert-danger rounded-4 small"><i class="fas fa-circle-xmark me-2"></i>Foto visit ditolak admin. Ambil ulang foto tampak depan dan foto etalase agar aktivitas dapat dilanjutkan.</div>
     @endif
     @if($photoDone && $visit->gps_status === 'pending_admin' && $visit->visit_type !== 'non_digipos')
         <div class="alert alert-warning rounded-4 small" id="visit-approval-alert">
