@@ -41,10 +41,12 @@ class MonitaDumaiController extends Controller
         abort_unless($this->hasSuryaAccess($request), 403);
 
         $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
+        $tapScopes = $this->suryaTapScopes();
         $rows = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
             ->whereDate('v.visited_at', $visitDate)
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderBy('v.idtap')
             ->orderBy('s.namasf')
             ->orderBy('v.visited_at')
@@ -94,6 +96,7 @@ class MonitaDumaiController extends Controller
             ->leftJoin('idsf as s', 's.idsf', '=', 'm.idsf')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'm.id_outlet')
             ->whereDate('m.tgl', $visitDate)
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
             ->get([
                 'm.tgl', 'm.idsf', 's.namasf', 'm.idtap', 'm.id_outlet', 'o.nama_outlet',
@@ -381,6 +384,38 @@ class MonitaDumaiController extends Controller
             'ROHIL', 'ROKAN_HILIR' => 'ROHIL',
             default => $suffix !== '' ? str_replace('_', ' ', $suffix) : null,
         };
+    }
+
+    /** Return null for unrestricted users, otherwise the exact tap list allowed in SURYA. */
+    private function suryaTapScopes(): ?array
+    {
+        $user = Auth::user();
+        $username = strtolower(trim((string) ($user?->username ?? '')));
+
+        if ($username === 'admin_super') {
+            return null;
+        }
+
+        if (str_starts_with($username, 'asmen_')) {
+            $tap = $this->suryaTapScope();
+            return $tap ? [$tap] : [];
+        }
+
+        $scope = strtoupper(trim((string) ($user?->level ?? '')));
+        $sessionTap = strtoupper(trim((string) session('idtap')));
+        if ($username === 'gm' || $scope === 'GM') {
+            return match ($sessionTap) {
+                'CLUSTER_DUMAI' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
+                'CLUSTER_ROHIL' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+                default => null,
+            };
+        }
+
+        if (in_array($scope, ['TAP', 'ADMIN TAP', 'ADMIN_TAP'], true) && $sessionTap !== '') {
+            return [$sessionTap];
+        }
+
+        return null;
     }
 
     private function visitPhotoUrl(?string $path, bool $thumbnail = false): ?string
