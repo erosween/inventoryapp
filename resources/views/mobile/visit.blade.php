@@ -4,18 +4,26 @@
 
 @section('content')
 @php($selectedOutlet = request('id_outlet') ? $outlets->firstWhere('id_outlet', request('id_outlet')) : null)
+@php($mode = $mode ?? request('mode', 'extra_call'))
 <div class="glass-card p-4">
     <div class="d-flex align-items-center gap-3 mb-3">
         <a href="{{ $selectedOutlet ? route('mobile.visit.menu', ['id_outlet' => $selectedOutlet->id_outlet]) : route('mobile.index') }}" class="visit-back-button" aria-label="Kembali">
             <i class="fas fa-arrow-left"></i>
         </a>
         <div class="rounded-4 p-3 text-white" style="background: var(--primary);"><i class="fas fa-location-dot"></i></div>
-        <div><h5 class="fw-bold mb-1">Visit PJP</h5><small class="text-muted">Foto wajib di lokasi outlet.</small></div>
+        <div><h5 class="fw-bold mb-1">{{ $mode === 'non_digipos' ? 'Outlet Non Digipos' : 'Extra Call' }}</h5><small class="text-muted">Foto wajib di lokasi outlet.</small></div>
     </div>
     <form method="POST" action="{{ route('mobile.visit.store') }}" enctype="multipart/form-data" id="visit-form">
         @csrf
-        <label class="form-label fw-bold">Outlet</label>
-        @if($selectedOutlet)
+        <input type="hidden" name="visit_type" value="{{ $mode }}">
+        <label class="form-label fw-bold">{{ $mode === 'non_digipos' ? 'Data Outlet Non Digipos' : 'Outlet Extra Call' }}</label>
+        @if($mode === 'non_digipos')
+            <input type="hidden" name="id_outlet" value="NON-DIGIPOS">
+            <input name="outlet_name" class="form-control mb-2" required placeholder="Nama toko">
+            <input name="owner_name" class="form-control mb-2" required placeholder="Nama owner">
+            <input name="phone_number" class="form-control mb-2" required inputmode="tel" placeholder="Nomor hape">
+            <textarea name="outlet_address" class="form-control mb-3" required rows="2" placeholder="Alamat toko"></textarea>
+        @elseif($selectedOutlet)
             <input type="hidden" name="id_outlet" id="visit-outlet" value="{{ $selectedOutlet->id_outlet }}">
             <div class="form-control mb-3 fw-bold bg-light">{{ $selectedOutlet->nama_outlet }} ({{ $selectedOutlet->id_outlet }})</div>
         @else

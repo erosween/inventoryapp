@@ -23,6 +23,13 @@ class SuryaVisitController extends Controller
         $outlet = $request->filled('id_outlet')
             ? $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first(['id_outlet', 'nama_outlet'])
             : null;
+        if (! $outlet && str_starts_with(strtoupper((string) $request->id_outlet), 'NON-DIGIPOS-')) {
+            $outlet = SuryaVisit::query()
+                ->where('idsf', session('mobile_sf_id'))
+                ->where('id_outlet', $request->id_outlet)
+                ->latest('visited_at')
+                ->first(['id_outlet', 'outlet_name as nama_outlet']);
+        }
         if ($request->filled('id_outlet')) {
             abort_unless($outlet, 404, 'Outlet tidak terdaftar pada Sales Force ini.');
         }
@@ -52,11 +59,13 @@ class SuryaVisitController extends Controller
             return $redirect;
         }
 
+        $mode = $request->input('mode', 'extra_call');
+        abort_unless(in_array($mode, ['extra_call', 'non_digipos'], true), 404);
         $outlets = $this->assignedOutlets()
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet', 'latitude', 'longitude']);
 
-        return view('mobile.visit', compact('outlets'));
+        return view('mobile.visit', compact('outlets', 'mode'));
     }
 
     public function status(Request $request)
@@ -120,6 +129,11 @@ class SuryaVisitController extends Controller
     {
         $request->validate([
             'id_outlet' => ['required'],
+            'visit_type' => ['required', 'in:extra_call,non_digipos'],
+            'outlet_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
+            'owner_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
+            'phone_number' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:40'],
+            'outlet_address' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:1000'],
             'latitude' => ['required', 'numeric'],
             'longitude' => ['required', 'numeric'],
             'accuracy' => ['nullable', 'numeric'],
@@ -136,7 +150,9 @@ class SuryaVisitController extends Controller
             return $redirect;
         }
 
-        $outlet = $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first();
+        $outlet = $request->visit_type === 'non_digipos'
+            ? (object) ['id_outlet' => 'NON-DIGIPOS-'.strtoupper(substr(md5(session('mobile_sf_id').'|'.$request->phone_number.'|'.microtime()), 0, 12)), 'nama_outlet' => $request->outlet_name, 'latitude' => null, 'longitude' => null]
+            : $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first();
         abort_unless($outlet, 404, 'Outlet tidak terdaftar pada Sales Force ini.');
 
         $currentLatitude = (float) $request->latitude;
@@ -179,6 +195,11 @@ class SuryaVisitController extends Controller
                 'id_outlet' => $outlet->id_outlet,
                 'idtap' => session('idtap'),
                 'idsf' => session('mobile_sf_id'),
+                'visit_type' => $request->visit_type,
+                'outlet_name' => $request->outlet_name ?: $outlet->nama_outlet,
+                'owner_name' => $request->owner_name,
+                'phone_number' => $request->phone_number,
+                'outlet_address' => $request->outlet_address,
                 'latitude' => $currentLatitude,
                 'longitude' => $currentLongitude,
                 'accuracy' => $request->accuracy,

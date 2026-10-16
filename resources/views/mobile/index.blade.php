@@ -517,13 +517,23 @@
 @push('modals')
 <!-- Modal Cari Outlet -->
 <div class="modal fade" id="searchOutletModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered mx-auto" style="max-width: 440px;">
+<div class="modal-dialog modal-dialog-centered mx-auto" style="max-width: 440px;">
         <div class="modal-content border-0" style="border-radius: 30px; overflow: hidden; background: #fff;">
             <div class="modal-header border-0 p-4 pb-2">
                 <h5 class="fw-800 mb-0">Cari Outlet</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 pt-2">
+                <div id="addVisitChoices">
+                    <p class="small text-muted fw-bold mb-3">Pilih jenis kunjungan tambahan.</p>
+                    <a href="{{ route('mobile.visit', ['mode' => 'extra_call']) }}" class="list-group-item list-group-item-action border rounded-4 mb-2 p-3">
+                        <strong><i class="fas fa-store text-warning me-2"></i>Extra Call</strong><small class="d-block text-muted mt-1">Pilih outlet mana saja yang terdaftar pada SF.</small>
+                    </a>
+                    <a href="{{ route('mobile.visit', ['mode' => 'non_digipos']) }}" class="list-group-item list-group-item-action border rounded-4 p-3">
+                        <strong><i class="fas fa-shop text-danger me-2"></i>Outlet Non Digipos</strong><small class="d-block text-muted mt-1">Tambah toko baru dengan data toko, owner, nomor hape, dan alamat.</small>
+                    </a>
+                </div>
+                <div id="extraCallSearch" class="d-none">
                 <p class="small text-muted fw-bold mb-3">Hanya outlet yang terdaftar untuk {{ session('mobile_sf_name') }}.</p>
                 <div class="glass-input-group mb-4">
                     <input type="text" id="outletSearchInput" class="glass-input" placeholder="Ketik nama atau ID outlet..." autocomplete="off">
@@ -534,6 +544,7 @@
                         <i class="fas fa-search fs-2 mb-2"></i>
                         <p class="small fw-bold">Memuat outlet Sales Force...</p>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
