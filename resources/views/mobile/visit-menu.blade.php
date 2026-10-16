@@ -22,7 +22,7 @@
     @if($visit?->gps_status === 'rejected')
         <div class="alert alert-danger rounded-4 small"><i class="fas fa-circle-xmark me-2"></i>Foto visit ditolak admin. Ambil ulang foto tampak depan dan tampak dalam agar aktivitas dapat dilanjutkan.</div>
     @endif
-    @if($photoDone && $visit->gps_status === 'pending_admin')
+    @if($photoDone && $visit->gps_status === 'pending_admin' && $visit->visit_type !== 'non_digipos')
         <div class="alert alert-warning rounded-4 small" id="visit-approval-alert">
             <div class="d-flex align-items-start gap-2">
                 <i class="fas fa-hourglass-half mt-1"></i>
@@ -37,7 +37,7 @@
     @endif
     @if($photoDone)
         <div class="visit-action visit-action-success" role="status">
-            <span class="visit-action-icon"><i class="fas fa-check"></i></span><span><strong>2 Foto Visit Sudah Diambil</strong><small>{{ $visit->gps_status === 'pending_admin' ? 'Lokasi berbeda, menunggu persetujuan admin' : 'Foto visit lengkap dan tidak dapat diubah' }}</small></span>
+            <span class="visit-action-icon"><i class="fas fa-check"></i></span><span><strong>2 Foto Visit Sudah Diambil</strong><small>{{ $visit->gps_status === 'pending_admin' && $visit->visit_type !== 'non_digipos' ? 'Lokasi berbeda, menunggu persetujuan admin' : 'Foto visit lengkap dan dapat lanjut input penjualan' }}</small></span>
         </div>
     @else
         <a href="{{ route('mobile.visit', $outlet ? ['id_outlet' => $outlet->id_outlet] : []) }}" class="visit-action visit-action-camera text-decoration-none">
@@ -206,7 +206,7 @@ document.querySelector('[data-checkout-form]')?.addEventListener('submit', funct
 @endpush
 @endif
 
-@if($photoDone && $visit->gps_status === 'pending_admin')
+@if($photoDone && $visit->gps_status === 'pending_admin' && $visit->visit_type !== 'non_digipos')
 @push('scripts')
 <script>
 document.getElementById('refresh-visit-status')?.addEventListener('click', async function () {

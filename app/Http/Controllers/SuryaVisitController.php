@@ -44,7 +44,7 @@ class SuryaVisitController extends Controller
             && $visit->gps_status !== 'rejected'
             && filled($visit->photo_front_path)
             && filled($visit->photo_inside_path);
-        $canSell = $photoDone && in_array($visit->gps_status, ['valid', 'approved'], true);
+        $canSell = $photoDone && ($visit->visit_type === 'non_digipos' || in_array($visit->gps_status, ['valid', 'approved'], true));
 
         return view('mobile.visit-menu', compact('outlet', 'visit', 'photoDone', 'canSell'));
     }
@@ -84,7 +84,7 @@ class SuryaVisitController extends Controller
         $photoDone = $visit->gps_status !== 'rejected'
             && filled($visit->photo_front_path)
             && filled($visit->photo_inside_path);
-        $canSell = $photoDone && in_array($visit->gps_status, ['valid', 'approved'], true);
+        $canSell = $photoDone && ($visit->visit_type === 'non_digipos' || in_array($visit->gps_status, ['valid', 'approved'], true));
 
         return response()->json([
             'gps_status' => $visit->gps_status,
@@ -168,9 +168,9 @@ class SuryaVisitController extends Controller
             );
         }
 
-        $gpsStatus = $distance !== null && $distance <= 10
+        $gpsStatus = $request->visit_type === 'non_digipos'
             ? 'valid'
-            : 'pending_admin';
+            : ($distance !== null && $distance <= 10 ? 'valid' : 'pending_admin');
 
         $frontPath = null;
         $insidePath = null;

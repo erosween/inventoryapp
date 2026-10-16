@@ -189,9 +189,15 @@ SQL;
                 ->first(['id_outlet', 'nama_outlet']);
 
             if (! $selected_outlet) {
-                return redirect()
-                    ->route('mobile.index')
-                    ->with('error', 'Outlet tidak terdaftar untuk Sales Force yang sedang login.');
+                $selected_outlet = DB::table('surya_visits')
+                    ->where('idsf', $idsf)
+                    ->where('id_outlet', strtoupper($pre_id_outlet))
+                    ->where('visit_type', 'non_digipos')
+                    ->latest('visited_at')
+                    ->first(['id_outlet', 'outlet_name as nama_outlet']);
+                if (! $selected_outlet) {
+                    return redirect()->route('mobile.index')->with('error', 'Outlet tidak terdaftar untuk Sales Force yang sedang login.');
+                }
             }
         }
         
@@ -290,7 +296,9 @@ SQL;
             ->where('id_outlet', $requestedOutlet)
             ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
             ->exists();
-        if (! $isAssignedOutlet) {
+        $isNonDigipos = str_starts_with($requestedOutlet, 'NON-DIGIPOS-') && DB::table('surya_visits')
+            ->where('idsf', $idsf)->where('id_outlet', $requestedOutlet)->where('visit_type', 'non_digipos')->exists();
+        if (! $isAssignedOutlet && ! $isNonDigipos) {
             return back()->withInput()->with('error', 'Outlet tidak terdaftar pada Sales Force ini.');
         }
 
@@ -327,7 +335,7 @@ SQL;
             ->whereNotNull('photo_front_path')
             ->whereNotNull('photo_inside_path')
             ->exists();
-        if (! $approvedVisit) {
+        if (! $approvedVisit && ! $isNonDigipos) {
             return back()->withInput()->with('error', 'Lengkapi foto outlet tampak depan dan tampak dalam, lalu pastikan lokasi valid atau sudah disetujui admin.');
         }
 
