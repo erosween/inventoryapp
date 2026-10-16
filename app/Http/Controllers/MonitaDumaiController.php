@@ -353,7 +353,7 @@ class MonitaDumaiController extends Controller
             ->orderByDesc('v.visited_at')
             ->get([
                 'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
-                'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path',
+                'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
                 'o.nama_outlet', 's.namasf',
             ])
             ->map(function ($visit) {
@@ -378,8 +378,8 @@ class MonitaDumaiController extends Controller
         return match ($suffix) {
             'DUMAI' => 'DUMAI',
             'BENGKALIS' => 'BENGKALIS',
-            'ROHIL', 'ROKAN_HILIR' => 'BAGAN BATU',
-            default => null,
+            'ROHIL', 'ROKAN_HILIR' => 'ROHIL',
+            default => $suffix !== '' ? str_replace('_', ' ', $suffix) : null,
         };
     }
 

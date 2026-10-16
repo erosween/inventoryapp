@@ -6,13 +6,18 @@ use Illuminate\Http\Request;
 use App\Models\MobilePenjualan;
 use App\Models\MobileSalesReceipt;
 use App\Models\SuryaVisit;
+use App\Services\OptimizedImageStorage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class MobileSalesController extends Controller
 {
+    public function __construct(private readonly OptimizedImageStorage $imageStorage)
+    {
+    }
     public function searchOutlet(Request $request)
     {
         $search = trim((string) $request->get('q', ''));
@@ -955,12 +960,18 @@ SQL;
         ]);
     }
 
-    public function confirmReceiptWhatsapp(MobileSalesReceipt $receipt)
+    public function confirmReceiptWhatsapp(Request $request, MobileSalesReceipt $receipt)
     {
         abort_unless($receipt->idsf === session('mobile_sf_id'), 403);
 
+        $request->validate([
+            'receipt_photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
+        ]);
+
+        $receiptPhoto = $this->imageStorage->store($request->file('receipt_photo'), 'surya-sales/receipts')['path'];
+
         try {
-            DB::transaction(function () use ($receipt) {
+            DB::transaction(function () use ($receipt, $receiptPhoto) {
                 $lockedReceipt = MobileSalesReceipt::query()->lockForUpdate()->findOrFail($receipt->id);
 
                 if ($lockedReceipt->whatsapp_shared_at) {
@@ -1019,9 +1030,10 @@ SQL;
                         'updated_at' => now(),
                     ]);
 
-                $lockedReceipt->update(['whatsapp_shared_at' => now()]);
+                $lockedReceipt->update(['receipt_photo_path' => $receiptPhoto, 'whatsapp_shared_at' => now()]);
             });
         } catch (\Throwable $e) {
+            Storage::disk('public')->delete([$receiptPhoto, OptimizedImageStorage::thumbnailPathFor($receiptPhoto)]);
             return back()->with('error', $e->getMessage());
         }
 

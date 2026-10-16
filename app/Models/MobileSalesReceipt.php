@@ -16,6 +16,7 @@ class MobileSalesReceipt extends Model
         'owner_whatsapp',
         'total_qty',
         'total_amount',
+        'receipt_photo_path',
         'whatsapp_opened_at',
         'whatsapp_shared_at',
     ];
