@@ -21,6 +21,10 @@ class AsmenAccess
             'home',
             'sisastock.index',
             'sisastock.data',
+            'surya.dashboard',
+            'surya.visits.export',
+            'surya.visits.report',
+            'surya.field-reports',
             'logout',
         ];
 
@@ -32,6 +36,10 @@ class AsmenAccess
             'sisastock',
             'sisastock/data',
             'chart/sales',
+            'surya',
+            'surya/export-visits',
+            'surya/visits',
+            'surya/field-reports',
             'logout',
         ];
 

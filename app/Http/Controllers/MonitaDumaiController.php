@@ -27,7 +27,10 @@ class MonitaDumaiController extends Controller
         $dashboard = $this->buildLeaderDashboard($visitDate);
 
         return response()
-            ->view('monitadumai.index', compact('dashboard', 'showLeaderDashboard', 'visitDate'))
+            ->view('monitadumai.index', array_merge(
+                compact('dashboard', 'showLeaderDashboard', 'visitDate'),
+                ['clusterCoverage' => $dashboard['clusterCoverage']['groups'] ?? [], 'summary' => $dashboard['summary'] ?? []]
+            ))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
