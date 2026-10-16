@@ -276,11 +276,11 @@
             },
             columns: [
                 { data: 'namasf', name: 's.namasf' },
-                { data: 'idtap', name: 'm.idtap', className: 'text-center' },
+                { data: 'idtap', name: 'x.idtap', className: 'text-center' },
                 { data: 'jenis_paket', name: 'jenis_paket', className: 'text-center fw-bold' },
                 { data: 'total_qty', name: 'total_qty', className: 'text-right fw-bold' },
                 { data: 'total_rupiah', name: 'total_rupiah', className: 'text-right fw-bold text-success' },
-                { data: 'status', name: 'm.status', className: 'text-center' },
+                { data: 'status', name: 'x.status', className: 'text-center' },
                 { data: 'action', name: 'action', className: 'text-center', orderable: false, searchable: false }
             ],
             order: [[0, 'asc']],

@@ -223,7 +223,7 @@ class MobileApprovalController extends Controller
         $status = $request->status;
         $selectedDate = $this->salesDate($request);
         
-        $query = DB::table('mobile_penjualan as m')
+        $categorizedSales = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
             ->join('idsf as s', 'm.idsf', '=', 's.idsf')
             ->select(
@@ -231,46 +231,38 @@ class MobileApprovalController extends Controller
                 's.namasf',
                 'm.idtap',
                 'm.status',
-                DB::raw("CASE WHEN MAX(CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 1 ELSE 0 END) = 1 THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
-                DB::raw('COUNT(m.id) as trans_count'),
-                DB::raw('SUM(m.qty) as total_qty'),
-                DB::raw('SUM(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_rupiah')
+                DB::raw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' THEN 'SA' ELSE 'VOUCHER FISIK' END as jenis_paket"),
+                'm.id',
+                'm.qty',
+                DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price')
             )
-            ->whereDate('m.tgl', $selectedDate)
-            // Keep the computed package type in GROUP BY as an expression.
-            // Some MySQL configurations reject SELECT aliases here, which
-            // makes DataTables receive a 500 response and show only "Ajax error".
-            ->groupBy(
-                'm.idsf',
-                's.namasf',
-                'm.idtap',
-                'm.status',
-            );
+            ->whereDate('m.tgl', $selectedDate);
+
+        $query = DB::query()->fromSub($categorizedSales, 'x')
+            ->select('x.idsf', 'x.namasf', 'x.idtap', 'x.status', 'x.jenis_paket')
+            ->selectRaw('COUNT(x.id) as trans_count')
+            ->selectRaw('SUM(x.qty) as total_qty')
+            ->selectRaw('SUM(x.qty * x.unit_price) as total_rupiah')
+            ->groupBy('x.idsf', 'x.namasf', 'x.idtap', 'x.status', 'x.jenis_paket');
 
         if ($idtap !== 'SBP_DUMAI') {
-            $query->where('m.idtap', $idtap);
+            $query->where('x.idtap', $idtap);
         }
 
         if ($idsf) {
-            $query->where('m.idsf', $idsf);
+            $query->where('x.idsf', $idsf);
         }
 
         if ($status) {
-            $query->where('m.status', $status);
+            $query->where('x.status', $status);
         }
 
         return DataTables::of($query)
             ->filterColumn('namasf', function($query, $keyword) {
-                $query->where('s.namasf', 'LIKE', "%{$keyword}%");
+                $query->where('x.namasf', 'LIKE', "%{$keyword}%");
             })
             ->filterColumn('jenis_paket', function ($query, $keyword) {
-                $query->where(function ($categoryQuery) use ($keyword) {
-                    if (stripos($keyword, 'SA') !== false && stripos($keyword, 'VOUCHER') === false) {
-                        $categoryQuery->whereRaw("UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA'");
-                    } elseif (stripos($keyword, 'VOUCHER') !== false) {
-                        $categoryQuery->whereRaw("UPPER(COALESCE(d.kategori_inject, '')) <> 'SA' AND UPPER(COALESCE(d.group_name, '')) <> 'SA'");
-                    }
-                });
+                $query->where('x.jenis_paket', 'LIKE', "%{$keyword}%");
             })
             ->filterColumn('total_qty', function ($query, $keyword) {
                 // Aggregate values are rendered after GROUP BY; do not let
