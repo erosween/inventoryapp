@@ -535,8 +535,13 @@
                 $.post("{{ route('admin.mobile-approval.reject') }}", { id: id }, function(response) {
                     if (response.success) {
                         Swal.fire('Berhasil', 'Transaksi outlet dibatalkan.', 'success').then(function() {
-                            $('#reviewModal').modal('hide');
-                            table.ajax.reload(null, false);
+                            // Keep the reviewer in the same sales/detail modal after
+                            // cancelling an outlet transaction. Refresh the list and
+                            // reopen the same sales/category automatically.
+                            table.ajax.reload(function() {
+                                var selector = '.tinjau-btn[data-idsf="' + currentModalSf + '"][data-idtap="' + currentModalIdtap + '"][data-jenis="' + currentModalJenis + '"]';
+                                $(selector).first().trigger('click');
+                            }, false);
                         });
                     } else {
                         Swal.fire('Gagal', response.message || 'Transaksi tidak dapat dibatalkan.', 'error');

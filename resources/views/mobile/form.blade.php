@@ -69,7 +69,7 @@
         @endphp
         <div class="consignment-shell mb-4">
             <button type="button" id="consignment-toggle" class="consignment-toggle" aria-expanded="{{ $consignmentOpen ? 'true' : 'false' }}" aria-controls="consignment-panel">
-                <span><i class="fas fa-sim-card me-2"></i>Konsinyasi SA</span>
+                        <span><i class="fas fa-sim-card me-2"></i>Konsinyasi (SA / Voucher Fisik)</span>
                 <span class="consignment-toggle-action"><i class="fas fa-plus me-1"></i> Isi nomor perdana</span>
             </button>
             <input type="hidden" name="consignment_enabled" id="consignment_enabled" value="{{ $consignmentOpen ? '1' : '0' }}">
@@ -81,7 +81,7 @@
                     </div>
                     <span id="consignment-count" class="consignment-count">0 nomor</span>
                 </div>
-                <textarea name="consignment_numbers" id="consignment_numbers" class="form-control consignment-textarea" rows="5" inputmode="tel" autocomplete="off" placeholder="081234567890&#10;081234567891">{{ old('consignment_numbers') }}</textarea>
+                <textarea name="consignment_numbers" id="consignment_numbers" class="form-control consignment-textarea" rows="5" inputmode="text" enterkeyhint="enter" autocomplete="off" placeholder="081234567890&#10;081234567891">{{ old('consignment_numbers') }}</textarea>
                 <div id="consignment-feedback" class="consignment-feedback mt-2"></div>
                 @error('consignment_numbers')
                     <div class="consignment-server-error mt-2"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</div>
