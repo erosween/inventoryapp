@@ -58,6 +58,7 @@ Route::get('/search', [searchController::class, 'search'])->name('search');
 
 // SURYA performance hub (formerly Monita Dumai)
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
+Route::get('/surya/export-visits', [MonitaDumaiController::class, 'exportVisits'])->name('surya.visits.export');
 Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
 Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
 Route::get('/surya/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('surya.leader.logout');

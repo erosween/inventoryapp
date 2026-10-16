@@ -306,9 +306,9 @@ class MobileApprovalController extends Controller
                     throw new \Exception('Transaksi ini bukan milik TAP Anda.');
                 }
 
-                // Transaksi baru sudah mereservasi stok saat e-Bon dikonfirmasi.
-                // Pending lama (sebelum fitur reservasi) tetap dipotong di sini
-                // agar deployment tidak mengubah perilaku data yang sudah ada.
+                // Stok fisik baru dipotong saat admin menyetujui penjualan.
+                // Marker lama tetap dihormati untuk transaksi transisi agar tidak
+                // terjadi pemotongan dua kali saat proses deployment berlangsung.
                 if (! $sale->stock_reserved_at) {
                     $denom = DB::table('denom')->where('iddenom', $sale->iddenom)->first();
                     $stockSf = DB::table('stockawalsf')
@@ -413,7 +413,7 @@ class MobileApprovalController extends Controller
 
         return response()->json([
             'success' => $results['success'] > 0,
-            'message' => "{$results['success']} transaksi ditolak; stok reservasi dikembalikan. {$results['failed']} gagal.",
+            'message' => "{$results['success']} transaksi ditolak; stok fisik tidak berubah. {$results['failed']} gagal.",
             'details' => $results,
         ]);
     }
@@ -425,7 +425,7 @@ class MobileApprovalController extends Controller
         try {
             $this->rejectSale((int) $id);
             
-            return response()->json(['success' => true, 'message' => 'Penjualan ditolak dan stok reservasi dikembalikan.']);
+            return response()->json(['success' => true, 'message' => 'Penjualan ditolak dan stok fisik tidak berubah.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }

@@ -2668,6 +2668,8 @@
         .visit-modal-body { max-height: calc(100vh - 130px); overflow: auto; padding: 14px 20px 22px; }
         .visit-refresh-button { margin-left: auto; min-height: 40px; padding: 0 15px; border: 1px solid #fecaca; border-radius: 11px; display: inline-flex; align-items: center; gap: 8px; color: #b91c1c; background: #fff7f7; font-size: 12px; font-weight: 800; text-decoration: none; }
         .visit-refresh-button:hover { background: #fee2e2; color: #991b1b; }
+        .visit-status-actions { display: flex; margin-left: auto; flex-wrap: wrap; gap: 7px; }
+        .visit-status-actions .visit-refresh-button { margin-left: 0; }
         .visit-outlet-row { display: grid; grid-template-columns: 72px minmax(180px,1fr) 150px repeat(3,90px); gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #edf0f4; }
         .visit-outlet-row strong,.visit-outlet-row small { display: block; }
         .visit-outlet-row small { margin-top: 3px; color: #64748b; }
@@ -3057,6 +3059,7 @@
             .visit-date-filter > div { flex-wrap: wrap; }
             .visit-date-filter button { width: 100%; justify-content: center; }
             .visit-refresh-button { width: 100%; margin-left: 0; justify-content: center; }
+            .visit-status-actions { width: 100%; margin-left: 0; }
         }
     </style>
 </head>
@@ -3684,7 +3687,7 @@
                     <div class="visit-module-tabs" role="tablist">
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'summary' ? 'active' : '' }}" data-visit-subtab="summary"><i class="fas fa-chart-column"></i> Rekap Visit</button>
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'approval' ? 'active' : '' }}" data-visit-subtab="approval"><i class="fas fa-camera"></i> Approval Visit</button>
-                        <a class="visit-refresh-button" href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a>
+                        <div class="visit-status-actions"><a class="visit-refresh-button" data-force-refresh href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a><a class="visit-refresh-button" href="{{ route('surya.visits.export', ['visit_date' => $visitDate]) }}"><i class="fas fa-file-excel"></i> Download Excel</a></div>
                     </div>
                     <div class="visit-subpanel" data-visit-subpanel="summary" @if($activeVisitTab !== 'summary') hidden @endif>
                     <div class="visit-summary-strip">
@@ -6255,6 +6258,13 @@
                     refresh.href = refreshUrl.toString();
                 }
             }));
+
+            document.querySelector('[data-force-refresh]')?.addEventListener('click', event => {
+                event.preventDefault();
+                const url = new URL(event.currentTarget.href);
+                url.searchParams.set('_refresh', Date.now().toString());
+                window.location.assign(url.toString());
+            });
 
             document.querySelectorAll('[data-visit-row]').forEach(button => button.addEventListener('click', () => {
                 const rowIndex = Number(button.dataset.visitRow);

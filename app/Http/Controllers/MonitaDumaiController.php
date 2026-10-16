@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\SuryaVisitExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Services\OptimizedImageStorage;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MonitaDumaiController extends Controller
 {
@@ -22,7 +24,58 @@ class MonitaDumaiController extends Controller
         $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
         $dashboard = $this->buildLeaderDashboard($visitDate);
 
-        return view('monitadumai.index', compact('dashboard', 'showLeaderDashboard', 'visitDate'));
+        return response()
+            ->view('monitadumai.index', compact('dashboard', 'showLeaderDashboard', 'visitDate'))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    }
+
+    public function exportVisits(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+
+        $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
+        $rows = DB::table('surya_visits as v')
+            ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
+            ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
+            ->whereDate('v.visited_at', $visitDate)
+            ->orderBy('v.idtap')
+            ->orderBy('s.namasf')
+            ->orderBy('v.visited_at')
+            ->get([
+                'v.visited_at', 'v.checkout_at', 'v.id_outlet', 'v.idtap', 'v.idsf',
+                'v.latitude as visit_latitude', 'v.longitude as visit_longitude',
+                'v.distance_meters', 'v.gps_status', 'v.checkout_reason',
+                'o.nama_outlet', 'o.latitude as outlet_latitude', 'o.longitude as outlet_longitude',
+                'o.pjp', 's.namasf',
+            ])
+            ->map(function ($row) {
+                $distance = $row->distance_meters !== null ? round((float) $row->distance_meters, 1) : null;
+
+                return [
+                    Carbon::parse($row->visited_at)->format('d/m/Y'),
+                    Carbon::parse($row->visited_at)->format('H:i:s'),
+                    $row->checkout_at ? Carbon::parse($row->checkout_at)->format('H:i:s') : null,
+                    $row->idsf,
+                    $row->namasf ?: $row->idsf,
+                    $row->idtap,
+                    $this->clusterForTap((string) $row->idtap),
+                    $row->id_outlet,
+                    $row->nama_outlet ?: $row->id_outlet,
+                    $row->pjp,
+                    $row->outlet_latitude,
+                    $row->outlet_longitude,
+                    $row->visit_latitude,
+                    $row->visit_longitude,
+                    $distance,
+                    $distance === null ? 'BELUM ADA KOORDINAT MASTER' : ($distance <= 10 ? 'SESUAI' : 'TIDAK SESUAI'),
+                    strtoupper(str_replace('_', ' ', (string) $row->gps_status)),
+                    $row->checkout_reason,
+                ];
+            });
+
+        return Excel::download(new SuryaVisitExport($rows), "surya-visit-{$visitDate}.xlsx");
     }
 
     public function showLeaderLogin()

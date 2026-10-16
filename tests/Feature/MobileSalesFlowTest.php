@@ -478,13 +478,16 @@ class MobileSalesFlowTest extends TestCase
             ->where('receipt_id', $receipt->id)
             ->where('status', 'consigned')
             ->count());
-        $this->assertNotNull(
+        $this->assertNull(
             DB::table('mobile_penjualan')->where('receipt_id', $receipt->id)->value('stock_reserved_at')
         );
-        $this->assertSame(17, (int) DB::table('stockawalsf')
+        $this->assertSame(20, (int) DB::table('stockawalsf')
             ->where('idsf', 'SF001')
             ->where('iddenom', 'D001')
             ->value('stock'));
+        $this->withSession($session)->get(route('mobile.stock'))
+            ->assertOk()
+            ->assertSee('17');
         $this->assertFalse(
             \App\Models\SuryaVisit::query()
                 ->inProgressForSalesForce('SF001', '2026-04-29')
@@ -1062,7 +1065,10 @@ class MobileSalesFlowTest extends TestCase
             'receipt_id' => $receiptId,
             'status' => 'pending',
         ]);
-        $this->assertSame(4, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'PV-1')->value('stock'));
+        $this->assertSame(10, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'PV-1')->value('stock'));
+        $this->withSession($session)->get(route('mobile.stock'))
+            ->assertOk()
+            ->assertSee('4');
     }
 
     public function test_admin_approval_updates_outlet_coordinates_and_unlocks_visit(): void
@@ -1160,6 +1166,44 @@ class MobileSalesFlowTest extends TestCase
             ->assertOk();
     }
 
+    public function test_surya_visit_page_is_not_cached_and_visit_export_is_downloadable(): void
+    {
+        Carbon::setTestNow('2026-10-16 11:00:00');
+        DB::table('idsf')->insert([
+            'idsf' => 'SF001', 'namasf' => 'Sales Test', 'idtap' => 'TAP001',
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-EXPORT', 'nama_outlet' => 'Outlet Export', 'sf' => 'Sales Test',
+            'pjp' => 'Jumat', 'latitude' => 1.00000000, 'longitude' => 101.00000000,
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(), 'id_outlet' => 'OUTLET-EXPORT', 'idtap' => 'TAP001', 'idsf' => 'SF001',
+            'latitude' => 1.10000000, 'longitude' => 101.10000000, 'distance_meters' => 15000,
+            'gps_status' => 'pending_admin', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $session = ['monita_leader_auth' => true];
+        $dashboardResponse = $this->withSession($session)
+            ->get(route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => '2026-10-16']))
+            ->assertOk()
+            ->assertSee('data-force-refresh', false)
+            ->assertSee('Download Excel');
+        $this->assertStringContainsString('no-store', (string) $dashboardResponse->headers->get('Cache-Control'));
+
+        \Maatwebsite\Excel\Facades\Excel::fake();
+        $this->withSession($session)
+            ->get(route('surya.visits.export', ['visit_date' => '2026-10-16']))
+            ->assertOk();
+
+        \Maatwebsite\Excel\Facades\Excel::assertDownloaded('surya-visit-2026-10-16.xlsx', function ($export) {
+            $row = $export->collection()->first();
+
+            return $row[7] === 'OUTLET-EXPORT'
+                && $row[15] === 'TIDAK SESUAI'
+                && $row[16] === 'PENDING ADMIN';
+        });
+    }
+
     public function test_sales_force_can_checkout_without_sale_and_continue_to_next_outlet(): void
     {
         Carbon::setTestNow('2026-10-15 10:00:00');
@@ -1198,7 +1242,7 @@ class MobileSalesFlowTest extends TestCase
         $this->assertFalse(\App\Models\SuryaVisit::query()->inProgressForSalesForce('SF001')->exists());
     }
 
-    public function test_admin_setoran_is_grouped_by_denom_and_reserved_stock_is_not_deducted_twice(): void
+    public function test_admin_setoran_is_grouped_and_stock_is_deducted_only_on_approval(): void
     {
         Carbon::setTestNow('2026-10-14 17:00:00');
         DB::table('idsf')->insert([
@@ -1208,18 +1252,18 @@ class MobileSalesFlowTest extends TestCase
             'iddenom' => 'D001', 'denom' => 'PV 5GB', 'group_name' => '1 HARI', 'harga_jual' => 0,
         ]);
         DB::table('stockawalsf')->insert([
-            'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 70,
+            'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 100,
         ]);
         DB::table('mobile_penjualan')->insert([
             [
                 'id' => 101, 'receipt_id' => 501, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
                 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 20, 'status' => 'pending',
-                'stock_reserved_at' => now(),
+                'stock_reserved_at' => null,
             ],
             [
                 'id' => 102, 'receipt_id' => 501, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-2', 'idtap' => 'TAP001',
                 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 10, 'status' => 'pending',
-                'stock_reserved_at' => now(),
+                'stock_reserved_at' => null,
             ],
         ]);
         DB::table('appsdumais')->insert([
@@ -1295,7 +1339,7 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString("d.date = selectedDate", $adminView);
     }
 
-    public function test_rejecting_pending_sale_returns_reserved_stock_to_sales_force(): void
+    public function test_rejecting_pending_sale_does_not_change_physical_stock(): void
     {
         DB::table('stockawalsf')->insert([
             'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 7,
@@ -1309,7 +1353,7 @@ class MobileSalesFlowTest extends TestCase
             [
                 'id' => 201, 'receipt_id' => 91, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
                 'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 3, 'unit_price' => 1000, 'status' => 'pending',
-                'stock_reserved_at' => now(),
+                'stock_reserved_at' => null,
             ],
             [
                 'id' => 202, 'receipt_id' => 91, 'tgl' => '2026-10-14', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
@@ -1328,7 +1372,7 @@ class MobileSalesFlowTest extends TestCase
             ->getData(true);
 
         $this->assertTrue($result['success'], json_encode($result));
-        $this->assertSame(10, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
+        $this->assertSame(7, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
         $this->assertDatabaseMissing('mobile_penjualan', ['id' => 201]);
         $this->assertDatabaseHas('mobile_penjualan', ['id' => 202, 'status' => 'pending']);
         $this->assertDatabaseHas('mobile_sales_receipts', ['id' => 91, 'total_qty' => 5, 'total_amount' => 10000]);
@@ -1341,6 +1385,25 @@ class MobileSalesFlowTest extends TestCase
         $this->assertTrue($secondResult['success'], json_encode($secondResult));
         $this->assertDatabaseMissing('mobile_sales_receipts', ['id' => 91]);
         $this->assertDatabaseMissing('surya_sa_consignment_numbers', ['receipt_id' => 91]);
+    }
+
+    public function test_stock_transition_releases_old_pending_physical_reservations_once(): void
+    {
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF001', 'iddenom' => 'D001', 'stock' => 7,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'tgl' => '2026-10-16', 'id_outlet' => 'OUTLET-1', 'idtap' => 'TAP001',
+            'idsf' => 'SF001', 'iddenom' => 'D001', 'qty' => 3, 'status' => 'pending',
+            'stock_reserved_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_10_16_000001_release_pending_mobile_stock_reservations.php');
+        $migration->up();
+        $migration->up();
+
+        $this->assertSame(10, (int) DB::table('stockawalsf')->where('idsf', 'SF001')->where('iddenom', 'D001')->value('stock'));
+        $this->assertNull(DB::table('mobile_penjualan')->value('stock_reserved_at'));
     }
 
     public function test_mobile_sales_update_removes_items_deleted_from_edit_form_and_updates_notes(): void

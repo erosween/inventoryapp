@@ -187,13 +187,23 @@ SQL;
             }
         }
         
+        $reserved = DB::table('mobile_penjualan')
+            ->select('idsf', 'iddenom', DB::raw('SUM(qty) as reserved_qty'))
+            ->where('idsf', $idsf)
+            ->whereIn('status', ['draft_wa', 'pending'])
+            ->groupBy('idsf', 'iddenom');
+
         $denoms = DB::table('denom')
             ->join('stockawalsf', function($join) use ($idsf) {
                 $join->on('denom.iddenom', '=', 'stockawalsf.iddenom')
                      ->where('stockawalsf.idsf', '=', $idsf);
             })
-            ->where('stockawalsf.stock', '>', 0)
-            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', DB::raw('stockawalsf.stock as stock_qty'))
+            ->leftJoinSub($reserved, 'reserved_sales', function ($join) {
+                $join->on('reserved_sales.idsf', '=', 'stockawalsf.idsf')
+                    ->on('reserved_sales.iddenom', '=', 'stockawalsf.iddenom');
+            })
+            ->whereRaw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) > 0')
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock_qty'))
             ->get()
             ->sortByDesc(fn($item) => strtoupper((string) $item->group_name) === 'SA' ? 1 : 0);
 
@@ -357,8 +367,14 @@ SQL;
                     // Ambil nama denom untuk pesan error yang jelas
                     $denomData = DB::table('denom')->where('iddenom', $iddenom)->first();
                     $denomName = $denomData->denom ?? $iddenom;
-                    if (($stockSf ?? 0) < $qty) {
-                        throw new \Exception("Stok {$denomName} tidak cukup! Sisa stok: " . number_format($stockSf ?? 0) . ", dibutuhkan: " . number_format($qty));
+                    $reservedQty = (int) DB::table('mobile_penjualan')
+                        ->where('idsf', $idsf)
+                        ->where('iddenom', $iddenom)
+                        ->whereIn('status', ['draft_wa', 'pending'])
+                        ->sum('qty');
+                    $availableStock = max(0, (int) ($stockSf ?? 0) - $reservedQty);
+                    if ($availableStock < $qty) {
+                        throw new \Exception("Stok {$denomName} tidak cukup! Stok tersedia di mobile: " . number_format($availableStock) . ", dibutuhkan: " . number_format($qty));
                     }
 
                     // ✅ Simpan data penjualan
@@ -685,11 +701,21 @@ SQL;
     {
         $idsf = session('mobile_sf_id');
 
+        $reserved = DB::table('mobile_penjualan')
+            ->select('idsf', 'iddenom', DB::raw('SUM(qty) as reserved_qty'))
+            ->where('idsf', $idsf)
+            ->whereIn('status', ['draft_wa', 'pending'])
+            ->groupBy('idsf', 'iddenom');
+
         $stocks = DB::table('stockawalsf')
             ->where('stockawalsf.idsf', $idsf)
-            ->where('stockawalsf.stock', '>', 0)
             ->leftJoin('denom', 'stockawalsf.iddenom', '=', 'denom.iddenom')
-            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'stockawalsf.stock')
+            ->leftJoinSub($reserved, 'reserved_sales', function ($join) {
+                $join->on('reserved_sales.idsf', '=', 'stockawalsf.idsf')
+                    ->on('reserved_sales.iddenom', '=', 'stockawalsf.iddenom');
+            })
+            ->whereRaw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) > 0')
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock'))
             ->orderBy('denom.group_name')
             ->orderBy('denom.denom')
             ->get();
@@ -919,22 +945,23 @@ SQL;
                         ->lockForUpdate()
                         ->first();
 
-                    if (! $stock || (int) $stock->stock < (int) $sale->qty) {
+                    $reservedQty = (int) DB::table('mobile_penjualan')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $sale->iddenom)
+                        ->where('status', 'pending')
+                        ->sum('qty');
+                    $availableStock = max(0, (int) ($stock->stock ?? 0) - $reservedQty);
+                    if (! $stock || $availableStock < (int) $sale->qty) {
                         $denomName = DB::table('denom')->where('iddenom', $sale->iddenom)->value('denom') ?: $sale->iddenom;
                         throw new \RuntimeException(
-                            "Stok {$denomName} tidak cukup. Sisa " . number_format((int) ($stock->stock ?? 0)) .
+                            "Stok {$denomName} tidak cukup. Stok tersedia di mobile " . number_format($availableStock) .
                             ', dibutuhkan ' . number_format((int) $sale->qty) . '.'
                         );
                     }
 
-                    DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
-                        ->where('iddenom', $sale->iddenom)
-                        ->decrement('stock', (int) $sale->qty);
-
                     $sale->update([
                         'status' => 'pending',
-                        'stock_reserved_at' => now(),
+                        'stock_reserved_at' => null,
                         'updated_at' => now(),
                     ]);
                 }
