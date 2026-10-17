@@ -561,7 +561,7 @@
                                             @endif
                                             <li class="nav-item {{ request()->is('injectvf') ? 'active' : '' }}">
                                                 <a href="{{ url('injectvf') }}">
-                                                    <span class="sub-item">Inject VF</span>
+                                                    <span class="sub-item">Inject Product</span>
                                                 </a>
                                             </li>
                                             <li class="nav-item {{ request()->is('vrusak') ? 'active' : '' }}">
