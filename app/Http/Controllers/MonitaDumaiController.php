@@ -384,6 +384,9 @@ class MonitaDumaiController extends Controller
         return match ($suffix) {
             'DUMAI' => 'DUMAI',
             'BENGKALIS' => 'BENGKALIS',
+            'BAGAN_BATU', 'BAGANBATU' => 'BAGAN BATU',
+            'BAGAN_SIAPI_API', 'BAGANSIAPI_API', 'BAGANSIAPIAPI' => 'BAGAN SIAPI-API',
+            'UJUNG_TANJUNG', 'UJUNGTANJUNG' => 'UJUNG TANJUNG',
             'ROHIL', 'ROKAN_HILIR' => 'ROHIL',
             default => $suffix !== '' ? str_replace('_', ' ', $suffix) : null,
         };
@@ -401,9 +404,6 @@ class MonitaDumaiController extends Controller
 
         if (str_starts_with($username, 'asmen_')) {
             $tap = $this->suryaTapScope();
-            if ($tap === 'ROHIL') {
-                return ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
-            }
             return $tap ? [$tap] : [];
         }
 
