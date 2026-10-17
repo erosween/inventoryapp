@@ -267,10 +267,10 @@
                         @php
                             // Separate special items to ensure they are at the TOP
                             $specialItems = $denoms->filter(function($d) {
-                                return strtoupper((string) $d->group_name) === 'SA';
+                                return strtoupper((string) ($d->product_group ?? 'PV')) === 'SP';
                             });
                             $otherItems = $denoms->reject(function($d) {
-                                return strtoupper((string) $d->group_name) === 'SA';
+                                return strtoupper((string) ($d->product_group ?? 'PV')) === 'SP';
                             });
                         @endphp
 

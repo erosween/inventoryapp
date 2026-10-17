@@ -222,9 +222,9 @@ SQL;
                     ->on('reserved_sales.iddenom', '=', 'stockawalsf.iddenom');
             })
             ->whereRaw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) > 0')
-            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock_qty'))
+            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'denom.product_group', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock_qty'))
             ->get()
-            ->sortByDesc(fn($item) => strtoupper((string) $item->group_name) === 'SA' ? 1 : 0);
+            ->sortByDesc(fn($item) => strtoupper((string) ($item->product_group ?? 'PV')) === 'SP' ? 1 : 0);
 
         return view('mobile.form', compact('denoms', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
     }
