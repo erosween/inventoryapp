@@ -166,7 +166,7 @@ class MonitaDumaiController extends Controller
 
     private function buildLeaderDashboard(string $visitDate): array
     {
-        $tapScope = $this->suryaTapScope();
+        $tapScopes = $this->suryaTapScopes();
         // Modul performa lama sengaja tidak dibaca lagi. Dashboard SURYA saat ini
         // hanya memakai master outlet, visit, dan transaksi dari SURYA Mobile.
         return [
@@ -181,24 +181,24 @@ class MonitaDumaiController extends Controller
             'coveragePoints' => [],
             'competitionPoints' => [],
             'monitoringUpdateDate' => null,
-            'visitDetails' => $this->buildVisitDetails($visitDate, $tapScope),
-            'approvalVisits' => $this->buildApprovalVisits($visitDate, $tapScope),
+            'visitDetails' => $this->buildVisitDetails($visitDate, $tapScopes),
+            'approvalVisits' => $this->buildApprovalVisits($visitDate, $tapScopes),
             'visitDate' => $visitDate,
         ];
     }
 
-    private function buildVisitDetails(string $visitDate, ?string $tapScope = null): array
+    private function buildVisitDetails(string $visitDate, ?array $tapScopes = null): array
     {
         $actualRows = DB::table('surya_visits')
             ->whereDate('visited_at', $visitDate)
-            ->when($tapScope, fn ($query) => $query->where('idtap', $tapScope))
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
             ->orderBy('visited_at')
             ->get(['id', 'visited_at', 'checkout_at', 'idsf', 'idtap', 'id_outlet', 'gps_status', 'checkout_reason', 'photo_front_path']);
 
         $salesRows = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->whereDate('m.tgl', $visitDate)
-            ->when($tapScope, fn ($query) => $query->where('m.idtap', $tapScope))
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->whereIn('m.status', ['pending', 'approved'])
             ->get([
                 'm.idsf',
@@ -212,7 +212,7 @@ class MonitaDumaiController extends Controller
         $consignmentRows = DB::table('surya_sa_consignment_numbers')
             ->whereDate('reported_at', $visitDate)
             ->where('status', 'consigned')
-            ->when($tapScope, fn ($query) => $query->where('idtap', $tapScope))
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
             ->get(['idsf', 'id_outlet', 'serial_number']);
 
         $activeSfIds = $actualRows->pluck('idsf')
@@ -345,13 +345,13 @@ class MonitaDumaiController extends Controller
             ->all();
     }
 
-    private function buildApprovalVisits(string $visitDate, ?string $tapScope = null): array
+    private function buildApprovalVisits(string $visitDate, ?array $tapScopes = null): array
     {
         return DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
             ->whereDate('v.visited_at', $visitDate)
-            ->when($tapScope, fn ($query) => $query->where('v.idtap', $tapScope))
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderByRaw("CASE WHEN v.gps_status = 'pending_admin' THEN 0 ELSE 1 END")
             ->orderByDesc('v.visited_at')
             ->get([
