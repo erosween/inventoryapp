@@ -38,11 +38,14 @@
                                         {{-- Kategori Segel --}}
                                         <div class="col-md-6">
                                             <div class="form-group">
-                                                <label>Kategori Segel</label>
+                                                <label>Kategori Produk</label>
                                                 <select name="kategorisegel" class="form-control select2" required>
                                                     <option></option>
-                                                    <option value="SEGEL">SEGEL</option>
-                                                    <option value="V33">BYU</option>
+                                                    <option value="SEGEL">PV SEGEL</option>
+                                                    <option value="V33">PV BYU SEGEL</option>
+                                                    <option value="SP6">PERDANA SEGEL SIMPATI</option>
+                                                    <option value="SP7">PERDANA SEGEL BYU</option>
+                                                    <option value="SP1">SA 3GB (PAKET LANGSUNG)</option>
                                                 </select>
                                             </div>
                                         </div>

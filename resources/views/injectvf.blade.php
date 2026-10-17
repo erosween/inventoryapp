@@ -33,7 +33,7 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                             <div>
                                 <h4 class="card-title mb-0 font-weight-bold text-indigo">
-                                    <i class="fas fa-syringe mr-2"></i>Inject Voucher Fisik
+                                    <i class="fas fa-syringe mr-2"></i>Inject Product
                                 </h4>
                                 <div class="text-muted small">Monitoring data aktivasi/inject voucher fisik segel</div>
                             </div>
@@ -65,10 +65,10 @@
                                         </button>
                                         <div class="dropdown-menu dropdown-menu-right shadow border-0">
                                             <a class="dropdown-item py-2" href="form/forminject">
-                                                <i class="fas fa-barcode mr-2 text-primary"></i> SEGEL
+                                                <i class="fas fa-barcode mr-2 text-primary"></i> PV SEGEL
                                             </a>
                                             <a class="dropdown-item py-2" href="form/forminjectbyu">
-                                                <i class="fas fa-mobile-alt mr-2 text-info"></i> SEGEL BYU
+                                                <i class="fas fa-mobile-alt mr-2 text-info"></i> PV BYU SEGEL
                                             </a>
                                         </div>
                                     </div>

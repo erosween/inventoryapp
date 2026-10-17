@@ -86,7 +86,7 @@ class FormInjectbyuController extends Controller
         foreach ($payload['items'] as $item) {
             if (! $allowedDenoms->has((string) $item['iddenom'])) {
                 throw ValidationException::withMessages([
-                    'items' => 'Terdapat denom yang tidak valid untuk Inject PV By.U.',
+                    'items' => 'Terdapat denom yang tidak valid untuk Inject Product PV By.U.',
                 ]);
             }
         }
