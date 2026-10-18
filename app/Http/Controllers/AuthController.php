@@ -45,6 +45,11 @@ class AuthController extends Controller
             return redirect()->route('surya.dashboard');
         }
 
+        $username = strtolower(trim((string) auth()->user()->username));
+        if ($username === 'admin_super' || str_starts_with($username, 'asmen_')) {
+            return redirect()->route('surya.dashboard');
+        }
+
         if (auth()->user()->idtap === 'SB DUMAI') {
             return redirect('/homenocan');
         } elseif (auth()->user()->idtap === 'SB SIDEMPUAN') {

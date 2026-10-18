@@ -23,6 +23,11 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
+                $username = strtolower(trim((string) Auth::guard($guard)->user()->username));
+                if ($username === 'admin_super' || str_starts_with($username, 'asmen_')) {
+                    return redirect()->route('surya.dashboard');
+                }
+
                 return redirect(RouteServiceProvider::HOME);
             }
         }
