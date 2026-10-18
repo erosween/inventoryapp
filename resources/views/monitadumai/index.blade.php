@@ -5916,12 +5916,21 @@
                     '<div class="map-detail-branding-copy"><div><strong>Branding / Tampak Luar Terbaru</strong><small>Visit ' + mapDetailDate(outlet.front_photo_visited_at) + '</small></div><i class="fas fa-up-right-from-square"></i></div>' +
                   '</div>'
                 : '<div class="map-detail-branding map-detail-branding-empty"><div><i class="fas fa-image"></i><br>Belum ada foto tampak luar dari check-in SF.</div></div>';
+            const receiptPhoto = outlet.receipt_thumbnail_url
+                ? '<div class="map-detail-branding map-detail-receipt">' +
+                    '<a href="' + escapeMapDetailHtml(outlet.receipt_photo_url || outlet.receipt_thumbnail_url) + '" target="_blank" rel="noopener noreferrer">' +
+                        '<img src="' + escapeMapDetailHtml(outlet.receipt_thumbnail_url) + '" alt="Foto nota bon outlet" loading="lazy">' +
+                    '</a>' +
+                    '<div class="map-detail-branding-copy"><div><strong>Foto Nota Bon Terbaru</strong><small>Transaksi ' + mapDetailDate(outlet.receipt_photo_date) + '</small></div><i class="fas fa-up-right-from-square"></i></div>' +
+                  '</div>'
+                : '<div class="map-detail-branding map-detail-branding-empty"><div><i class="fas fa-receipt"></i><br>Belum ada foto nota bon.</div></div>';
 
             document.getElementById('map-detail-title').textContent = outlet.nama_outlet || 'Detail Outlet';
             document.getElementById('map-detail-subtitle').textContent =
                 (outlet.id_outlet || '-') + ' • ' + (outlet.tap || '-');
             document.getElementById('map-detail-body').innerHTML =
                 brandingPhoto +
+                receiptPhoto +
                 '<div class="map-detail-profile">' +
                     '<div class="map-detail-profile-item"><small>ID Outlet</small><strong title="' + outletId + '">' + outletId + '</strong></div>' +
                     '<div class="map-detail-profile-item"><small>Sales Force</small><strong title="' + outletSf + '">' + outletSf + '</strong></div>' +

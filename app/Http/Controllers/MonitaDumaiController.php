@@ -1448,30 +1448,52 @@ class MonitaDumaiController extends Controller
         $keyword = $request->input('keyword');
         $tapScopes = $this->suryaTapScopes();
         $salesByOutlet = $this->mobileSalesByOutlet($tapScopes);
+        $latestMetricDates = DB::table('surya_daily_metrics')
+            ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
+            ->groupBy('id_outlet');
         $data = DB::table('appsdumais')
-            ->leftJoinSub(DB::table('surya_daily_metrics')->whereDate('metric_date', now('Asia/Jakarta')->toDateString()), 'dm', 'dm.id_outlet', '=', 'appsdumais.id_outlet')
+            ->leftJoinSub(
+                DB::table('surya_daily_metrics as dm')
+                    ->joinSub($latestMetricDates, 'latest_dm', function ($join) {
+                        $join->on('latest_dm.id_outlet', '=', 'dm.id_outlet')
+                            ->on('latest_dm.metric_date', '=', 'dm.metric_date');
+                    })
+                    ->select([
+                        'dm.id_outlet', 'dm.metric_date', 'dm.source_updated_at',
+                        'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m',
+                        'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m',
+                        'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m',
+                        'dm.insak_fm1', 'dm.insak_m1', 'dm.insak_m',
+                        'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m',
+                        'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m',
+                    ]),
+                'dm',
+                'dm.id_outlet',
+                '=',
+                'appsdumais.id_outlet'
+            )
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
-            ->select('appsdumais.*', 'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m', 'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m', 'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m', 'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m', 'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m')
+            ->select('appsdumais.*', 'dm.metric_date', 'dm.source_updated_at', 'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m', 'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m', 'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m', 'dm.insak_fm1', 'dm.insak_m1', 'dm.insak_m', 'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m', 'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m')
             ->where(function ($query) use ($keyword) {
                 $query->where('appsdumais.id_outlet', $keyword)
                     ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
             })
             ->get()
             ->map(function ($row) use ($salesByOutlet) {
+                // The uploaded workbook calls this metric `cvm`; the detail
+                // panel presents it as TRX DIGIPOS.
+                $row->fm1_digipos = (int) ($row->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($row->cvm_m1 ?? 0); $row->m_digipos = (int) ($row->cvm_m ?? 0);
+                $row->m_cvm = $row->m_digipos;
                 $row->fm1_super = (int) ($row->ss_fm1 ?? 0); $row->m1_super = (int) ($row->ss_m1 ?? 0); $row->m_super = (int) ($row->ss_m ?? 0);
                 $row->fm1_hot = (int) ($row->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($row->hot_promo_m1 ?? 0); $row->m_hot = (int) ($row->hot_promo_m ?? 0);
-                $row->fm1_cvm = (int) ($row->cvm_fm1 ?? 0); $row->m1_cvm = (int) ($row->cvm_m1 ?? 0); $row->m_cvm = (int) ($row->cvm_m ?? 0);
                 $row->fm1_comsak = (int) ($row->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($row->comsak_m1 ?? 0); $row->m_comsak = (int) ($row->comsak_m ?? 0);
                 $row->fm1_digital = (int) ($row->digital_fm1 ?? 0); $row->m1_digital = (int) ($row->digital_m1 ?? 0); $row->m_digital = (int) ($row->digital_m ?? 0);
+                $row->tgl_pack = $row->source_updated_at ?: $row->metric_date;
                 $sales = $salesByOutlet[(string) $row->id_outlet] ?? null;
                 $row->m_stsa = (int) ($sales->m_stsa ?? 0);
                 $row->m_stpv = (int) ($sales->m_stpv ?? 0);
-                $row->m_cvm = 0;
-                $row->m_digital = 0;
                 $row->mom_stsa = 'SA Surya Mobile';
                 $row->mom_stpv = 'PV Surya Mobile';
-                $row->mom_cvm = '—';
-                $row->mom_digital = '—';
                 return $this->decorateOutletVisitPhoto($row);
             });
 
@@ -1621,16 +1643,34 @@ class MonitaDumaiController extends Controller
         $path = $outlet->photo_front_path;
         $outlet->front_photo_url = null;
         $outlet->front_thumbnail_url = null;
+        $outlet->receipt_photo_url = null;
+        $outlet->receipt_thumbnail_url = null;
+        $outlet->receipt_photo_date = null;
 
-        if (! $path || ! Storage::disk('public')->exists($path)) {
-            return $outlet;
+        if ($path && Storage::disk('public')->exists($path)) {
+            $thumbnailPath = OptimizedImageStorage::thumbnailPathFor($path);
+            $outlet->front_photo_url = '/storage/'.ltrim($path, '/');
+            $outlet->front_thumbnail_url = Storage::disk('public')->exists($thumbnailPath)
+                ? '/storage/'.ltrim($thumbnailPath, '/')
+                : $outlet->front_photo_url;
         }
 
-        $thumbnailPath = OptimizedImageStorage::thumbnailPathFor($path);
-        $outlet->front_photo_url = '/storage/'.ltrim($path, '/');
-        $outlet->front_thumbnail_url = Storage::disk('public')->exists($thumbnailPath)
-            ? '/storage/'.ltrim($thumbnailPath, '/')
-            : $outlet->front_photo_url;
+        $latestReceipt = DB::table('mobile_sales_receipts')
+            ->where('id_outlet', $outlet->id_outlet)
+            ->whereNotNull('receipt_photo_path')
+            ->orderByDesc('tgl')
+            ->orderByDesc('id')
+            ->first(['receipt_photo_path', 'tgl']);
+
+        if ($latestReceipt?->receipt_photo_path && Storage::disk('public')->exists($latestReceipt->receipt_photo_path)) {
+            $receiptPath = $latestReceipt->receipt_photo_path;
+            $receiptThumbnailPath = OptimizedImageStorage::thumbnailPathFor($receiptPath);
+            $outlet->receipt_photo_url = '/storage/'.ltrim($receiptPath, '/');
+            $outlet->receipt_thumbnail_url = Storage::disk('public')->exists($receiptThumbnailPath)
+                ? '/storage/'.ltrim($receiptThumbnailPath, '/')
+                : $outlet->receipt_photo_url;
+            $outlet->receipt_photo_date = $latestReceipt->tgl;
+        }
 
         return $outlet;
     }
