@@ -1939,6 +1939,15 @@
             border-width: 3px;
             box-shadow: 0 3px 12px rgba(255, 193, 7, 0.65);
         }
+        .outlet-marker-visited .outlet-marker-pin {
+            background: #16a34a;
+            box-shadow: 0 2px 8px rgba(22, 163, 74, 0.48);
+        }
+        .outlet-marker-selected.outlet-marker-visited .outlet-marker-pin {
+            background: #16a34a;
+            color: #fff;
+            box-shadow: 0 3px 12px rgba(22, 163, 74, 0.62);
+        }
         .outlet-marker-photo {
             width: 36px; height: 36px; overflow: hidden; border: 3px solid #fff; border-radius: 11px;
             background: #fff; box-shadow: 0 3px 10px rgba(15,23,42,.38); position: relative;
@@ -5700,16 +5709,15 @@
         }
 
         function createOutletIcon(outlet = null, selected = false) {
-            const thumbnail = outlet?.front_thumbnail_url;
-            const content = thumbnail
-                ? `<div class="outlet-marker-photo"><img src="${escapeMapDetailHtml(thumbnail)}" alt="" loading="lazy"></div>`
-                : '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>';
+            const visited = Boolean(outlet?.has_front_photo || outlet?.front_photo_visited_at || outlet?.front_thumbnail_url);
+            const stateClass = visited ? ' outlet-marker-visited' : '';
+            const content = '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>';
             return L.divIcon({
-                className: selected ? 'outlet-marker-icon outlet-marker-selected' : 'outlet-marker-icon',
+                className: `outlet-marker-icon${selected ? ' outlet-marker-selected' : ''}${stateClass}`,
                 html: content,
-                iconSize: thumbnail ? (selected ? [46, 46] : [36, 36]) : (selected ? [38, 42] : [30, 34]),
-                iconAnchor: thumbnail ? (selected ? [23, 23] : [18, 18]) : (selected ? [19, 40] : [15, 32]),
-                popupAnchor: thumbnail ? [0, selected ? -25 : -20] : (selected ? [0, -38] : [0, -30])
+                iconSize: selected ? [38, 42] : [30, 34],
+                iconAnchor: selected ? [19, 40] : [15, 32],
+                popupAnchor: selected ? [0, -38] : [0, -30]
             });
         }
 
