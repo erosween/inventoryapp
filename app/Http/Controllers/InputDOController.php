@@ -149,11 +149,15 @@ class InputDOController extends Controller
             // 📝 LOG
             AuditLogger::log('INSERT', 'Input DO', $newId, null, $request->all());
 
-            // TAMBAH STOK SF
-            DB::table('stockawalsf')
-                ->where('idsf', $request->penerima)
-                ->where('iddenom', $request->kategorisegel)
-                ->increment('stock', $request->qty);
+            // SP1 adalah paket langsung: stok masuk ke TAP, bukan ke SF.
+            if ($this->isDirectPackage($request->kategorisegel)) {
+                $this->incrementTapStock($request->idtap, $request->kategorisegel, $request->qty);
+            } else {
+                DB::table('stockawalsf')
+                    ->where('idsf', $request->penerima)
+                    ->where('iddenom', $request->kategorisegel)
+                    ->increment('stock', $request->qty);
+            }
         });
 
         return redirect()
@@ -185,17 +189,18 @@ class InputDOController extends Controller
         DB::transaction(function () use ($request, $id) {
             $oldData = DB::table('masuk')->where('idmasuk', $id)->lockForUpdate()->first();
             
-            // 1. Rollback stok lama dari SF
-            DB::table('stockawalsf')
-                ->where('idsf', $oldData->penerima)
-                ->where('iddenom', $oldData->iddenom)
-                ->decrement('stock', $oldData->qty);
+            // 1. Rollback stok lama dari lokasi asalnya.
+            if ($this->isDirectPackage($oldData->iddenom)) {
+                DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
+            } else {
+                DB::table('stockawalsf')->where('idsf', $oldData->penerima)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
+            }
 
             // 2. Cek stok SF sekarang (untuk keamanan agar tidak minus setelah rollback)
             // Sebenarnya rollback di sini adalah mengurangi stok SF (karena DO adalah barang masuk).
             // Jadi kita harus pastikan stok SF mencukupi untuk dikurangi (dibatalkan masuknya).
-            $currentSfStock = DB::table('stockawalsf')
-                ->where('idsf', $oldData->penerima)
+            $currentSfStock = DB::table($this->isDirectPackage($oldData->iddenom) ? 'stockawaltap' : 'stockawalsf')
+                ->where($this->isDirectPackage($oldData->iddenom) ? 'idtap' : 'idsf', $this->isDirectPackage($oldData->iddenom) ? $oldData->idtap : $oldData->penerima)
                 ->where('iddenom', $oldData->iddenom)
                 ->lockForUpdate()
                 ->value('stock');
@@ -204,11 +209,12 @@ class InputDOController extends Controller
                  throw new \Exception('Gagal update: Stok SF akan menjadi negatif jika data lama dibatalkan');
             }
 
-            // 3. Tambahkan stok baru ke SF baru
-            DB::table('stockawalsf')
-                ->where('idsf', $request->penerima)
-                ->where('iddenom', $request->kategorisegel)
-                ->increment('stock', $request->qty);
+            // 3. Tambahkan stok baru ke TAP jika SP1, selain itu ke SF.
+            if ($this->isDirectPackage($request->kategorisegel)) {
+                $this->incrementTapStock($request->idtap, $request->kategorisegel, $request->qty);
+            } else {
+                DB::table('stockawalsf')->where('idsf', $request->penerima)->where('iddenom', $request->kategorisegel)->increment('stock', $request->qty);
+            }
 
             // 4. Update record
             DB::table('masuk')->where('idmasuk', $id)->update([
@@ -248,8 +254,9 @@ class InputDOController extends Controller
                 }
 
                 // ambil stok sekarang
-                $stokSekarang = DB::table('stockawalsf')
-                    ->where('idsf', $data->penerima)
+                $directPackage = $this->isDirectPackage($data->iddenom);
+                $stokSekarang = DB::table($directPackage ? 'stockawaltap' : 'stockawalsf')
+                    ->where($directPackage ? 'idtap' : 'idsf', $directPackage ? $data->idtap : $data->penerima)
                     ->where('iddenom', $data->iddenom)
                     ->lockForUpdate()
                     ->value('stock');
@@ -260,8 +267,8 @@ class InputDOController extends Controller
                 }
 
                 // balikin stok
-                DB::table('stockawalsf')
-                    ->where('idsf', $data->penerima)
+                DB::table($directPackage ? 'stockawaltap' : 'stockawalsf')
+                    ->where($directPackage ? 'idtap' : 'idsf', $directPackage ? $data->idtap : $data->penerima)
                     ->where('iddenom', $data->iddenom)
                     ->decrement('stock', $data->qty);
 
@@ -307,6 +314,19 @@ public function getTap(Request $request)
 
     return response($html);
 }
+
+    private function isDirectPackage(?string $iddenom): bool
+    {
+        return strtoupper((string) $iddenom) === 'SP1';
+    }
+
+    private function incrementTapStock(string $idtap, string $iddenom, int $qty): void
+    {
+        $updated = DB::table('stockawaltap')->where('idtap', $idtap)->where('iddenom', $iddenom)->increment('stock', $qty);
+        if ($updated === 0) {
+            DB::table('stockawaltap')->insert(['idtap' => $idtap, 'iddenom' => $iddenom, 'stock' => $qty]);
+        }
+    }
 
 
 

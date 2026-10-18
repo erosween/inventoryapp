@@ -333,6 +333,20 @@ $('.capture-photo').on('click', async function() {
         context.scale(-1, 1);
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const sample = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let darkPixels = 0;
+    const sampleStep = Math.max(4, Math.floor(sample.length / 2400));
+    let sampleCount = 0;
+    for (let index = 0; index < sample.length; index += sampleStep * 4) {
+        const luma = (0.299 * sample[index]) + (0.587 * sample[index + 1]) + (0.114 * sample[index + 2]);
+        if (luma < 10) darkPixels++;
+        sampleCount++;
+    }
+    if (sampleCount && darkPixels / sampleCount >= 0.92) {
+        card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').html('<i class="fas fa-circle-exclamation me-1"></i>Foto hitam atau terlalu gelap. Silakan ambil ulang.');
+        stopVisitCamera();
+        return;
+    }
     const usePhotoBlob = function(blob) {
         if (!blob) {
             card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').html('<i class="fas fa-circle-exclamation me-1"></i>Foto gagal dikompresi. Silakan buka kamera kembali.');

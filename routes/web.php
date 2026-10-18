@@ -58,6 +58,8 @@ Route::get('/search', [searchController::class, 'search'])->name('search');
 
 // SURYA performance hub (formerly Monita Dumai)
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
+Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
+Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
 Route::get('/surya/export-visits', [MonitaDumaiController::class, 'exportVisits'])->name('surya.visits.export');
 Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
 Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
@@ -261,6 +263,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	// mobile approval
 	Route::get('/mobile-approval', [\App\Http\Controllers\MobileApprovalController::class, 'index'])->name('admin.mobile-approval.index');
 	Route::get('/surya/visits', [\App\Http\Controllers\SuryaVisitReportController::class, 'index'])->name('surya.visits.report');
+	Route::match(['GET', 'POST'], '/surya/visits/auto-approve-pending', [\App\Http\Controllers\SuryaVisitReportController::class, 'autoApprovePending'])->name('surya.visits.auto-approve-pending');
 	Route::post('/surya/visits/{visit}/approve', [\App\Http\Controllers\SuryaVisitReportController::class, 'approve'])->name('surya.visits.approve');
 	Route::post('/surya/visits/{visit}/reject', [\App\Http\Controllers\SuryaVisitReportController::class, 'reject'])->name('surya.visits.reject');
 	Route::get('/surya/field-reports', [\App\Http\Controllers\SuryaFieldReportController::class, 'index'])->name('surya.field-reports');

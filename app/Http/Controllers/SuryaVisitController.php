@@ -175,6 +175,13 @@ class SuryaVisitController extends Controller
         $frontPath = null;
         $insidePath = null;
 
+        if ($this->imageStorage->isLikelyBlack($request->file('photo_front'))
+            || $this->imageStorage->isLikelyBlack($request->file('photo_inside'))) {
+            return back()->withInput()->withErrors([
+                'photo_front' => 'Foto terlalu gelap/hitam. Silakan ambil ulang foto dengan kamera dan pastikan preview terlihat jelas.',
+            ]);
+        }
+
         try {
             $frontPath = $this->imageStorage->store($request->file('photo_front'), 'surya-visits/front')['path'];
             $insidePath = $this->imageStorage->store($request->file('photo_inside'), 'surya-visits/inside')['path'];
@@ -299,9 +306,16 @@ class SuryaVisitController extends Controller
         $name = mb_strtoupper(trim((string) session('mobile_sf_name')));
         $idsf = mb_strtoupper(trim((string) session('mobile_sf_id')));
 
-        return DB::table('appsdumais')->where(function ($query) use ($name, $idsf) {
+        $assigned = DB::table('appsdumais')->where(function ($query) use ($name, $idsf) {
             $query->whereRaw('UPPER(TRIM(sf)) = ?', [$name])
                 ->orWhereRaw('UPPER(TRIM(sf)) = ?', [$idsf]);
         });
+
+        if ($assigned->exists()) {
+            return $assigned;
+        }
+
+        return DB::table('appsdumais')
+            ->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) session('idtap')))]);
     }
 }

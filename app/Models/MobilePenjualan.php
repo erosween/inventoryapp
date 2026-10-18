@@ -17,6 +17,7 @@ class MobilePenjualan extends Model
         'id_outlet',
         'idtap',
         'idsf',
+        'owner_idsf',
         'iddenom',
         'qty',
         'unit_price',

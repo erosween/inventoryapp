@@ -27,7 +27,7 @@ class SuryaSalesProductExport implements FromCollection, ShouldAutoSize, WithHea
     public function headings(): array
     {
         return [
-            'Tanggal', 'SF Code', 'Nama SF', 'TAP', 'ID Outlet', 'Nama Outlet',
+            'Tanggal', 'SF Code Pemilik Outlet', 'Nama SF Pemilik Outlet', 'Helper', 'TAP', 'ID Outlet', 'Nama Outlet',
             'Produk', 'Kategori', 'Qty', 'Harga Satuan', 'Total', 'Status Approval',
         ];
     }

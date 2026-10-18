@@ -27,6 +27,7 @@
                             <form action="{{ url('form/forminjectbyu') }}" method="POST" id="formInject">
 
                                 @csrf
+                                <input type="hidden" name="category" value="{{ $category }}">
 
                                 <div class="card-body">
                                     <div class="row">
@@ -57,7 +58,7 @@
                                         {{-- Stok TAP --}}
                                         <div class="col-md-12">
                                             <div class="form-group mb-1">
-                                                <label>Stok Segel BYU TAP</label>
+                                        <label>Stok {{ $config['label'] }} TAP</label>
                                                 <input type="text" id="stok_segel_info" class="form-control mb-1" readonly>
                                                 <div class="text-danger small d-none" id="stok_warning" style="font-weight: 600;">
                                                     <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -211,8 +212,9 @@
                 $('#stok_segel_info').val('Loading...');
                 validateBulkQty();
 
-                $.post('{{ route('ajax.get-stock-byu-tap') }}', {
-                        idtap
+                    $.post('{{ route('ajax.get-stock-byu-tap') }}', {
+                        idtap,
+                        category: '{{ $category }}'
                     })
                     .done(res => {
                         currentSegelStock = parseInt(res.stock) || 0;

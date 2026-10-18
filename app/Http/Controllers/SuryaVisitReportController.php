@@ -10,6 +10,36 @@ use Illuminate\Support\Facades\Storage;
 
 class SuryaVisitReportController extends Controller
 {
+    public function autoApprovePending(Request $request)
+    {
+        return response()->json(['approved' => $this->approveExpiredPendingVisits()]);
+    }
+
+    private function approveExpiredPendingVisits(): int
+    {
+        $visits = SuryaVisit::query()
+            ->where('gps_status', 'pending_admin')
+            ->when(session('idtap') && session('idtap') !== 'SBP_DUMAI', fn ($query) => $query->where('idtap', session('idtap')))
+            ->get()
+            ->filter(fn ($visit) => $visit->visited_at && $visit->visited_at->lte(now('Asia/Jakarta')->subSeconds(15)));
+        $approved = 0;
+
+        DB::transaction(function () use ($visits, &$approved) {
+            foreach ($visits as $visit) {
+                if (! SuryaVisit::query()->whereKey($visit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'approved'])) {
+                    continue;
+                }
+                DB::table('appsdumais')->where('id_outlet', $visit->id_outlet)->update([
+                    'latitude' => $visit->latitude,
+                    'longitude' => $visit->longitude,
+                ]);
+                $approved++;
+            }
+        });
+
+        return $approved;
+    }
+
     public function approve(SuryaVisit $visit)
     {
         abort_unless($visit->gps_status === 'pending_admin', 422, 'Visit ini tidak menunggu persetujuan.');

@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>SURYA Performance Hub</title>
     <script>
         (() => {
@@ -1646,7 +1647,9 @@
         }
 
         .history-item {
+            position: relative;
             padding: 12px 14px;
+            padding-right: 42px;
             border-radius: 10px;
             cursor: pointer;
             font-size: 14px;
@@ -1661,6 +1664,22 @@
             color: #d10000;
         }
 
+        .history-item-remove {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            transform: translateY(-50%);
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .history-item-remove:hover { background: #fee2e2; color: #b91c1c; }
+
         .suggestions-box li:hover,
         .suggestions-box li.active {
             background: #fdf2f2;
@@ -1673,14 +1692,23 @@
         }
 
         /* MAP */
+        #dashboard-panel-outlet { min-width: 0; overflow: visible; }
         #map {
+            position: relative;
             width: 100%;
-            height: 420px;
+            height: clamp(460px, calc(100vh - 250px), 760px);
+            min-height: 460px;
+            overflow: hidden;
             border-radius: 18px;
             margin-bottom: 20px;
             border: 2px solid #d10000;
             box-shadow: 0 8px 20px rgba(220, 0, 0, 0.1);
             z-index: 1;
+        }
+
+        #map.map-search-expanded {
+            min-height: min(760px, calc(100vh - 140px));
+            height: min(760px, calc(100vh - 140px));
         }
 
         body.map-fullscreen-open {
@@ -1699,6 +1727,16 @@
             z-index: 99999;
         }
 
+        /* Navigasi tetap bisa dipanggil ketika peta sedang fullscreen. */
+        body.map-fullscreen-open #sidebar-toggle {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 100002;
+            box-shadow: 0 4px 14px rgba(0,0,0,.22);
+        }
+        body.map-fullscreen-open .enterprise-sidebar { z-index: 100001; }
+
         .map-outlet-detail-panel {
             position: absolute;
             top: 18px;
@@ -1716,6 +1754,7 @@
         }
 
         .map-outlet-detail-panel.is-open { display: flex; }
+        #map .map-outlet-detail-panel { z-index: 1200; }
 
         .map-detail-header {
             display: flex;
@@ -2506,11 +2545,15 @@
         .sidebar-link:hover { background: rgba(255,255,255,.06); color: #fff; }
         .sidebar-link.active { background: var(--monita-red); color: #fff; box-shadow: 0 8px 20px rgba(215,25,32,.22); }
         .sidebar-foot { margin-top: auto; padding: 14px 8px 2px; border-top: 1px solid rgba(255,255,255,.09); }
+        .sidebar-logout { display:flex; align-items:center; gap:10px; margin-top:12px; padding:11px 14px; border-radius:10px; color:#fff; text-decoration:none; font-weight:700; font-size:13px; background:rgba(255,255,255,.08); }
+        .sidebar-logout:hover { background:rgba(255,255,255,.16); }
+        .sidebar-close { display:none; margin-left:auto; width:34px; height:34px; border:0; border-radius:9px; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
         .sidebar-user { display: flex; align-items: center; gap: 10px; }
         .sidebar-avatar { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #344054; }
         .sidebar-user strong { display: block; font-size: 12px; }
         .sidebar-user small { color: #667085; font-size: 10px; }
         .app-main { width: calc(100% - var(--sidebar-width)); min-width: 0; min-height: 100vh; margin-left: var(--sidebar-width); transition: width .22s ease, margin-left .22s ease; }
+        .app-main { overflow-x: hidden; }
         .app-shell.sidebar-collapsed .enterprise-sidebar { transform: translateX(calc(-100% + 12px)); }
         .app-shell.sidebar-collapsed .app-main { width: 100%; margin-left: 0; }
         .header {
@@ -3032,6 +3075,7 @@
         .pv-table .pv-grand-group { background: #eef2ff; color: #3730a3; }
 
         @media (max-width: 960px) {
+            .sidebar-close { display:grid; place-items:center; }
             .enterprise-sidebar { transform: translateX(-100%); transition: transform .25s ease; }
             .app-shell.sidebar-open .enterprise-sidebar { transform: translateX(0); }
             .app-main { width: 100%; margin-left: 0; }
@@ -3071,6 +3115,7 @@
         <div class="sidebar-brand">
             <div class="sidebar-logo"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA"></div>
             <div><strong>SURYA</strong><small>PERFORMANCE WOK</small></div>
+            <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Tutup menu"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="sidebar-label">WORKSPACE</div>
         <nav class="sidebar-nav">
@@ -3079,16 +3124,20 @@
             <?php $stockUser = strtolower((string) (auth()->user()->username ?? '')); ?>
             <?php $stockUrl = in_array($stockUser, ['gm', 'admin_super', 'admin_cluster'], true) || str_starts_with($stockUser, 'asmen_') ? url('/sisastock') : url('/stocktap'); ?>
             <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
+            @if(strtolower((string) (auth()->user()->username ?? '')) === 'admin_super')
+                <a href="{{ route('surya.transaction-upload') }}" class="sidebar-link"><i class="fas fa-file-arrow-up"></i><span>UPLOAD TRANSAKSI</span></a>
+            @endif
         </nav>
         <div class="sidebar-foot">
             <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>SURYA Leader</strong><small>Secure access</small></div></div>
+            <a href="{{ route('surya.leader.logout') }}" class="sidebar-logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Logout</span></a>
         </div>
     </aside>
     <div class="app-main">
     <header class="header">
         <button class="mobile-menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button>
         <div class="header-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div>
-        <div class="header-actions"><div class="header-status"><span class="status-dot"></span> Data terhubung</div><a href="{{ route('surya.leader.logout') }}" class="header-status" title="Logout"><i class="fas fa-arrow-right-from-bracket"></i></a></div>
+        <div class="header-actions"><div class="header-status"><span class="status-dot"></span> Data terhubung</div></div>
     </header>
 
     <main class="container">
@@ -3472,35 +3521,7 @@
             <span class="map-count" id="map-outlet-count">Memuat...</span>
         </div>
         <div id="map"></div>
-        <div class="stats-container" id="stats-container" style="display:none;"></div>
-        <div id="result" class="result-container"></div>
-
-        <!-- Empty State -->
-        <div id="empty-state" class="empty-state">
-            <p style="margin-top:15px; color:#aaa; font-size:13px;">Silakan cari outlet untuk melihat rinciannya</p>
-        </div>
-
-        <!-- Rincian Parameter Card -->
-        <div class="table-container" id="detail-table" style="display:none;">
-            <div class="table-header">
-                <h2>Rincian Parameter</h2>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Parameter</th>
-                            <th>FM-1</th>
-                            <th>M-1</th>
-                            <th>MTD</th>
-                            <th>MoM</th>
-                            <th>Update</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body"></tbody>
-                </table>
-            </div>
-        </div>
+        <div id="empty-state" class="empty-state" style="display:none;"></div>
             </div>
 
             @foreach($performanceModules as $monitoringKey => $module)
@@ -4982,7 +5003,9 @@
 
                 if (tab === 'outlet') {
                     if (!map) loadAllOutlets();
-                    else setTimeout(() => map.invalidateSize(), 100);
+                    else {
+                        [0, 120, 360, 700].forEach((delay) => setTimeout(() => map.invalidateSize({ pan: false, animate: false }), delay));
+                    }
                 } else if (leaderMap) {
                     setTimeout(() => leaderMap.invalidateSize(), 100);
                 }
@@ -5018,6 +5041,7 @@
             const shell = document.getElementById('app-shell');
             const toggle = document.getElementById('sidebar-toggle');
             if (!shell || !toggle) return;
+            const close = document.getElementById('sidebar-close');
 
             const isMobile = window.innerWidth <= 960;
             const collapsed = isMobile || localStorage.getItem('surya-sidebar-collapsed') === 'true';
@@ -5035,6 +5059,9 @@
                 toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
                 if (map) setTimeout(() => map.invalidateSize(), 240);
                 if (leaderMap) setTimeout(() => leaderMap.invalidateSize(), 240);
+            });
+            close?.addEventListener('click', () => {
+                shell.classList.remove('sidebar-open');
             });
         }
 
@@ -5273,6 +5300,11 @@
             bindPerformanceMonitoringTables();
         });
 
+        window.addEventListener('resize', () => {
+            if (map) map.invalidateSize({ pan: false, animate: false });
+            if (leaderMap) leaderMap.invalidateSize({ pan: false, animate: false });
+        });
+
         function handleKeyUp(e) {
             const val = e.target.value;
             // Ignore arrow keys, enter, escape in keyup to prevent double execution
@@ -5352,9 +5384,9 @@
             if (!keyword) return;
 
             // Start Loading State
-            resultDiv.innerHTML = '';
-            statsContainer.style.display = 'none';
-            detailTable.style.display = 'none';
+            if (resultDiv) resultDiv.innerHTML = '';
+            if (statsContainer) statsContainer.style.display = 'none';
+            if (detailTable) detailTable.style.display = 'none';
             emptyState.style.display = 'none';
             skeleton.style.display = 'block';
 
@@ -5365,7 +5397,7 @@
                 skeleton.style.display = 'none';
 
                 if (data.length === 0) {
-                    resultDiv.innerHTML =
+                    if (resultDiv) resultDiv.innerHTML =
                         '<div class="card" style="text-align:center; color:red;">Outlet tidak ditemukan</div>';
                     emptyState.style.display = 'block';
                     return;
@@ -5374,6 +5406,13 @@
                 const outlet = data[0];
                 saveToHistory(outlet.id_outlet, outlet.nama_outlet);
                 focusOutletOnMap(outlet);
+
+                // Detail outlet cukup dibuka dari popup peta. Jangan render kartu/detail
+                // panjang di bawah peta dan langsung perluas area peta saat pencarian.
+                expandOutletMapView();
+                document.getElementById('keyword').value = '';
+                document.getElementById('suggestions').style.display = 'none';
+                return;
 
                 resultDiv.innerHTML = `
                     <div class="outlet-profile-card">
@@ -5440,7 +5479,7 @@
 
             } catch (err) {
                 skeleton.style.display = 'none';
-                resultDiv.innerHTML = '<div class="card" style="color:red;">Error koneksi ke server.</div>';
+                if (resultDiv) resultDiv.innerHTML = '<div class="card" style="color:red;">Error koneksi ke server.</div>';
             }
             document.getElementById('keyword').value = '';
             document.getElementById('suggestions').style.display = 'none';
@@ -5595,31 +5634,44 @@
                     }
                 }
             }).addTo(map);
-            // Foto branding yang sudah tersedia selalu tampil langsung di peta.
-            // Hanya outlet tanpa foto yang dikelompokkan untuk menjaga performa.
-            outletVisitedLayer = L.layerGroup().addTo(map);
+            // Semua outlet masuk cluster. Menampilkan ratusan thumbnail sekaligus
+            // membuat browser lambat dan peta terasa belum selesai memuat.
+            outletVisitedLayer = L.layerGroup();
 
             const bounds = [];
-            const unvisitedMarkers = [];
+            const allMarkers = [];
             outlets.forEach(outlet => {
                 const marker = addOutletMarker(outlet, false);
                 if (!marker) return;
 
                 bounds.push(marker.getLatLng());
-                if (outlet.front_thumbnail_url) {
-                    outletVisitedLayer.addLayer(marker);
-                } else {
-                    unvisitedMarkers.push(marker);
-                }
+                allMarkers.push(marker);
             });
 
-            // Tambahkan sekaligus agar plugin dapat membagi pekerjaan rendering
-            // ke beberapa frame dan UI tidak membeku saat ribuan outlet dimuat.
-            outletClusterLayer.addLayers(unvisitedMarkers);
+            // Plugin membagi pekerjaan rendering ke beberapa frame; marker foto
+            // baru dirender individual ketika zoom sudah dekat.
+            outletClusterLayer.addLayers(allMarkers);
 
             if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
             addFullscreenControl();
             showUserLocation();
+
+            // Leaflet may initialize while this panel is still transitioning from
+            // hidden to visible. Recalculate the viewport after the layout settles
+            // so tiles and markers never leave a gray/empty section.
+            const refreshMapLayout = () => {
+                if (map) map.invalidateSize({ pan: false, animate: false });
+            };
+            requestAnimationFrame(() => {
+                refreshMapLayout();
+                requestAnimationFrame(refreshMapLayout);
+            });
+            [150, 400, 800].forEach((delay) => setTimeout(refreshMapLayout, delay));
+            if (window.ResizeObserver) {
+                const observer = new ResizeObserver(refreshMapLayout);
+                observer.observe(document.getElementById('map'));
+                map._suryaResizeObserver = observer;
+            }
 
         }
 
@@ -5655,11 +5707,7 @@
             markers.push(marker);
             outletMarkers.set(outletId, marker);
             if (addToCluster) {
-                if (outlet.front_thumbnail_url && outletVisitedLayer) {
-                    outletVisitedLayer.addLayer(marker);
-                } else if (outletClusterLayer) {
-                    outletClusterLayer.addLayer(marker);
-                }
+                outletClusterLayer?.addLayer(marker);
             }
             return marker;
         }
@@ -5884,6 +5932,21 @@
             pendingOutletFocus = null;
         }
 
+        function expandOutletMapView() {
+            const mapElement = document.getElementById('map');
+            if (!mapElement) return;
+            const shell = document.getElementById('app-shell');
+            if (window.innerWidth > 960 && shell && !shell.classList.contains('sidebar-collapsed')) {
+                shell.dataset.mapAutoCollapsed = '1';
+                shell.classList.add('sidebar-collapsed');
+                document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
+            }
+            // Gunakan mode yang sama persis dengan tombol ikon kotak di kanan atas.
+            if (!mapElement.classList.contains('map-fullscreen-active')) {
+                toggleMapFullscreen();
+            }
+        }
+
         function showUserLocation(focusAfter = false) {
             if (!navigator.geolocation) {
                 if (focusAfter) alert('GPS tidak tersedia di browser ini.');
@@ -5985,7 +6048,15 @@
             const mapElement = document.getElementById('map');
             const isFullscreen = mapElement.classList.toggle('map-fullscreen-active');
             document.body.classList.toggle('map-fullscreen-open', isFullscreen);
-            if (!isFullscreen) closeMapOutletDetail();
+            if (!isFullscreen) {
+                closeMapOutletDetail();
+                const shell = document.getElementById('app-shell');
+                if (shell?.dataset.mapAutoCollapsed === '1') {
+                    shell.classList.remove('sidebar-collapsed');
+                    delete shell.dataset.mapAutoCollapsed;
+                    document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'true');
+                }
+            }
 
             const icon = mapElement.querySelector('.map-fullscreen-button i');
             if (icon) icon.className = isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
@@ -6056,11 +6127,21 @@
             history.forEach(h => {
                 const d = document.createElement('div');
                 d.className = 'history-item';
-                d.innerHTML = `<i class="fas fa-clock-rotate-left"></i> <span>${h.name}</span>`;
+                d.innerHTML = `<i class="fas fa-clock-rotate-left"></i> <span>${escapeMapDetailHtml(h.name)}</span><button type="button" class="history-item-remove" aria-label="Hapus riwayat ${escapeMapDetailHtml(h.name)}"><i class="fas fa-xmark"></i></button>`;
                 d.onclick = () => {
                     document.getElementById('keyword').value = h.id;
                     searchOutlet();
                     hb.style.display = 'none';
+                };
+                d.querySelector('.history-item-remove').onclick = (event) => {
+                    event.stopPropagation();
+                    history = history.filter(item => item.id !== h.id);
+                    localStorage.setItem('monita_history', JSON.stringify(history));
+                    if (history.length === 0) {
+                        hb.style.display = 'none';
+                    } else {
+                        showHistory();
+                    }
                 };
                 hb.appendChild(d);
             });
@@ -6341,6 +6422,29 @@
                 cancelButtonColor: '#64748b',
             }).then((result) => { if (result.isConfirmed) form.submit(); });
         }));
+
+        // Fallback client-side: pending approval yang tampil akan disetujui
+        // otomatis 15 detik setelah halaman memuat jika tidak ditolak manual.
+        document.querySelectorAll('.visit-action-buttons form:not(.reject-photo-form)').forEach((form) => {
+            window.setTimeout(() => {
+                if (!form.isConnected || form.closest('tr')?.querySelector('.cluster-chip')?.textContent?.includes('APPROVED')) return;
+                form.submit();
+            }, 15000);
+        });
+
+        @if(request('panel') === 'visit-detail' && request('visit_tab') === 'approval')
+        setInterval(() => {
+            fetch(@json(route('surya.visits.auto-approve-pending')) + '?_=' + Date.now(), {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' },
+            }).then(response => response.ok ? response.json() : null)
+              .then(result => {
+                  if (result?.approved > 0) window.location.reload();
+              })
+              .catch(() => {});
+        }, 5000);
+        @endif
     </script>
 </body>
 

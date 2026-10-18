@@ -12,11 +12,14 @@ class FormInjectbyuController extends Controller
     public function index(Request $request)
     {
         $idtap = session('idtap');
+        $category = $request->query('category', 'V33');
+        $config = $this->categoryConfig($category);
 
         $denom = DB::table('denom')
                     ->select('iddenom', 'denom')
-                    ->where('kategori_inject','BYU')
-                    ->where('iddenom', '!=', 'V33')
+                    ->where('kategori_inject', $config['destination_category'])
+                    ->where('product_group', $config['product_group'])
+                    ->where('iddenom', '!=', $config['source_id'])
                     ->get();
 
         if($idtap == 'SBP_DUMAI'){
@@ -37,7 +40,7 @@ class FormInjectbyuController extends Controller
                     ->where('idtap',$idtap)
                     ->get();
         }
-        return view('form/forminjectbyu',compact('data','idtap','denom'));
+        return view('form/forminjectbyu', compact('data', 'idtap', 'denom', 'category', 'config'));
 
     }
 
@@ -55,6 +58,7 @@ class FormInjectbyuController extends Controller
         $payload = [
             'idtap' => $request->input('idtap'),
             'tgl' => $request->input('tgl'),
+            'category' => $request->input('category', 'V33'),
             'items' => array_values($items),
         ];
         Validator::make($payload, [
@@ -76,9 +80,11 @@ class FormInjectbyuController extends Controller
             abort(403, 'TAP tidak sesuai dengan akses pengguna.');
         }
 
+        $config = $this->categoryConfig($payload['category']);
         $allowedDenoms = DB::table('denom')
-            ->where('kategori_inject', 'BYU')
-            ->where('iddenom', '!=', 'V33')
+            ->where('kategori_inject', $config['destination_category'])
+            ->where('product_group', $config['product_group'])
+            ->where('iddenom', '!=', $config['source_id'])
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)
             ->flip();
@@ -91,12 +97,12 @@ class FormInjectbyuController extends Controller
             }
         }
 
-        DB::transaction(function () use ($payload) {
+        DB::transaction(function () use ($payload, $config) {
             $idtap = $payload['idtap'];
             $totalQty = collect($payload['items'])->sum(fn ($item) => (int) $item['qty']);
             $stokSegel = DB::table('stockawaltap')
                 ->where('idtap', $idtap)
-                ->where('iddenom', 'V33')
+                ->where('iddenom', $config['source_id'])
                 ->lockForUpdate()
                 ->value('stock');
 
@@ -129,12 +135,12 @@ class FormInjectbyuController extends Controller
                 'qty' => (int) $item['qty'],
                 'sn' => $item['sn'],
                 'tgl' => $payload['tgl'],
-                'kategori' => 'V33',
+                'kategori' => $config['source_id'],
             ])->all());
 
             DB::table('stockawaltap')
                 ->where('idtap', $idtap)
-                ->where('iddenom', 'V33')
+                ->where('iddenom', $config['source_id'])
                 ->decrement('stock', $totalQty);
 
             foreach ($totalsByDenom as $iddenom => $qty) {
@@ -148,12 +154,20 @@ class FormInjectbyuController extends Controller
         return redirect('injectvf')->with('status', count($payload['items']) . ' denom By.U berhasil di-inject dan stok diperbarui.');
     }
 
+    private function categoryConfig(string $category): array
+    {
+        return match (strtoupper($category)) {
+            'SP7' => ['label' => 'PERDANA SEGEL BYU', 'source_id' => 'SP7', 'destination_category' => 'SA', 'product_group' => 'SP'],
+            default => ['label' => 'PV BYU SEGEL', 'source_id' => 'V33', 'destination_category' => 'BYU', 'product_group' => null],
+        };
+    }
+
 
 public function getStockSegelTap(Request $request)
 {
     $stock = DB::table('stockawaltap')
         ->where('idtap', $request->idtap)
-        ->where('iddenom', 'V33') // BYU
+        ->where('iddenom', $request->input('category', 'V33'))
         ->value('stock') ?? 0;
 
     return response()->json(['stock' => $stock]);

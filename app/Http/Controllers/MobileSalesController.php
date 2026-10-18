@@ -24,11 +24,7 @@ class MobileSalesController extends Controller
         $namasf = trim((string) session('mobile_sf_name'));
         $idsf = trim((string) session('mobile_sf_id'));
 
-        $outlets = DB::table('appsdumais')
-            ->where(function ($sfQuery) use ($namasf, $idsf) {
-                $sfQuery->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($namasf)])
-                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper($idsf)]);
-            })
+        $outlets = $this->mobileOutletQuery()
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($searchQuery) use ($search) {
                     $searchQuery->where('nama_outlet', 'LIKE', "%{$search}%")
@@ -152,6 +148,27 @@ SQL;
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
+    }
+
+    private function mobileOutletQuery()
+    {
+        $name = mb_strtoupper(trim((string) session('mobile_sf_name')));
+        $idsf = mb_strtoupper(trim((string) session('mobile_sf_id')));
+        $tap = mb_strtoupper(trim((string) session('idtap')));
+
+        $sfQuery = DB::table('appsdumais')->where(function ($query) use ($name, $idsf) {
+            $query->whereRaw('UPPER(TRIM(sf)) = ?', [$name])
+                ->orWhereRaw('UPPER(TRIM(sf)) = ?', [$idsf]);
+        });
+
+        // Helper accounts do not have PJP/SF rows. Their Extra Call scope is
+        // all outlets belonging to their TAP, while regular SF stays scoped
+        // to the assigned outlet list above.
+        if ($sfQuery->exists()) {
+            return $sfQuery;
+        }
+
+        return DB::table('appsdumais')->whereRaw('UPPER(TRIM(tap)) = ?', [$tap]);
     }
 
     public function form(Request $request)
@@ -297,9 +314,20 @@ SQL;
         $salesDate = now()->toDateString();
         $requestedOutlet = strtoupper($request->id_outlet);
 
+        $hasAssignedSfOutlets = DB::table('appsdumais')
+            ->where(function ($query) use ($idsf) {
+                $query->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
+                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $idsf))]);
+            })->exists();
         $isAssignedOutlet = DB::table('appsdumais')
             ->where('id_outlet', $requestedOutlet)
-            ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
+            ->where(function ($query) use ($idsf, $hasAssignedSfOutlets) {
+                $query->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
+                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $idsf))]);
+                if (! $hasAssignedSfOutlets) {
+                    $query->orWhereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) session('idtap')))]);
+                }
+            })
             ->exists();
         $isNonDigipos = str_starts_with($requestedOutlet, 'NON-DIGIPOS-') && DB::table('surya_visits')
             ->where('idsf', $idsf)->where('id_outlet', $requestedOutlet)->where('visit_type', 'non_digipos')->exists();
@@ -345,7 +373,17 @@ SQL;
         }
 
         try {
-            $receipt = DB::transaction(function () use ($request, $idsf, $salesDate, $requestedOutlet, $consignmentNumbers) {
+            $ownerName = DB::table('appsdumais')
+                ->where('id_outlet', $requestedOutlet)
+                ->value('sf');
+            $ownerIdsf = $ownerName
+                ? DB::table('idsf')
+                    ->whereRaw("CONVERT(TRIM(namasf) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ownerName])
+                    ->value('idsf')
+                : null;
+            $ownerIdsf = $ownerIdsf ?: $idsf;
+
+            $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers) {
                 $products = collect($request->products)
                     ->groupBy('iddenom')
                     ->map(fn ($rows, $iddenom) => [
@@ -409,7 +447,7 @@ SQL;
 
                     // 🔒 Lock & cek stok SF
                     $stockSf = DB::table('stockawalsf')
-                        ->where('idsf', $idsf)
+                        ->where('idsf', $ownerIdsf)
                         ->where('iddenom', $iddenom)
                         ->lockForUpdate()
                         ->value('stock');
@@ -418,7 +456,7 @@ SQL;
                     $denomData = DB::table('denom')->where('iddenom', $iddenom)->first();
                     $denomName = $denomData->denom ?? $iddenom;
                     $reservedQty = (int) DB::table('mobile_penjualan')
-                        ->where('idsf', $idsf)
+                        ->where('idsf', $ownerIdsf)
                         ->where('iddenom', $iddenom)
                         ->whereIn('status', ['draft_wa', 'pending'])
                         ->sum('qty');
@@ -434,6 +472,7 @@ SQL;
                         'id_outlet' => $requestedOutlet,
                         'idtap' => session('idtap'),
                         'idsf' => $idsf,
+                        'owner_idsf' => $ownerIdsf,
                         'iddenom' => $iddenom,
                         'qty' => $qty,
                         'unit_price' => (int) $denoms[$iddenom]->harga_jual > 0
@@ -1031,6 +1070,20 @@ SQL;
                     ]);
 
                 $lockedReceipt->update(['receipt_photo_path' => $receiptPhoto, 'whatsapp_shared_at' => now()]);
+
+                // Submit penjualan adalah checkout resmi outlet. Menutup visit
+                // di transaksi yang sama membuat outlet berikutnya langsung
+                // terbuka dan tetap menyimpan jejak waktu checkout.
+                SuryaVisit::query()
+                    ->where('idsf', $lockedReceipt->idsf)
+                    ->where('id_outlet', $lockedReceipt->id_outlet)
+                    ->whereDate('visited_at', $lockedReceipt->tgl)
+                    ->whereNull('checkout_at')
+                    ->update([
+                        'checkout_at' => now(),
+                        'checkout_reason' => 'penjualan_selesai',
+                        'checkout_notes' => 'Checkout otomatis setelah submit penjualan.',
+                    ]);
             });
         } catch (\Throwable $e) {
             Storage::disk('public')->delete([$receiptPhoto, OptimizedImageStorage::thumbnailPathFor($receiptPhoto)]);

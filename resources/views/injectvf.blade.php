@@ -70,6 +70,12 @@
                                             <a class="dropdown-item py-2" href="form/forminjectbyu">
                                                 <i class="fas fa-mobile-alt mr-2 text-info"></i> PV BYU SEGEL
                                             </a>
+                                            <a class="dropdown-item py-2" href="form/forminject?category=SP6">
+                                                <i class="fas fa-sim-card mr-2 text-danger"></i> PERDANA SEGEL SIMPATI
+                                            </a>
+                                            <a class="dropdown-item py-2" href="form/forminjectbyu?category=SP7">
+                                                <i class="fas fa-sim-card mr-2 text-warning"></i> PERDANA SEGEL BYU
+                                            </a>
                                         </div>
                                     </div>
                                 </div>

@@ -53,6 +53,37 @@ class OptimizedImageStorage
         return ($directory === '.' ? '' : $directory.'/').'thumbnails/'.basename($path);
     }
 
+    public function isLikelyBlack(UploadedFile $file): bool
+    {
+        $bytes = file_get_contents($file->getRealPath());
+        if ($bytes === false) {
+            return true;
+        }
+
+        $image = @imagecreatefromstring($bytes);
+        if ($image === false) {
+            return false;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $dark = 0;
+        $samples = 0;
+        $stepX = max(1, (int) floor($width / 24));
+        $stepY = max(1, (int) floor($height / 24));
+        for ($y = 0; $y < $height; $y += $stepY) {
+            for ($x = 0; $x < $width; $x += $stepX) {
+                $rgb = imagecolorsforindex($image, imagecolorat($image, $x, $y));
+                $luma = (0.299 * $rgb['red']) + (0.587 * $rgb['green']) + (0.114 * $rgb['blue']);
+                $samples++;
+                if ($luma < 10) $dark++;
+            }
+        }
+        imagedestroy($image);
+
+        return $samples > 0 && ($dark / $samples) >= 0.92;
+    }
+
     /** @return array{string, string} */
     private function encodeWithImagick(UploadedFile $file): array
     {

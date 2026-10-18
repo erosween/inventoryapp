@@ -13,11 +13,14 @@ class FormInjectsegelController extends Controller
     public function index(Request $request)
     {
         $idtap = session('idtap');
+        $category = $request->query('category', 'SEGEL');
+        $config = $this->categoryConfig($category);
 
         $denom = DB::table('denom')
                     ->select('iddenom', 'denom')
-                    ->where('kategori_inject','SEGEL')
-                    ->where('iddenom', '!=', 'SEGEL')
+                    ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
+                    ->where('kategori_inject', $config['destination_category'])
+                    ->where('iddenom', '!=', $config['source_id'])
                     ->get();
 
         if($idtap == 'SBP_DUMAI'){
@@ -33,7 +36,7 @@ class FormInjectsegelController extends Controller
 
         }
 
-        return view('form/forminject',compact('data','idtap','denom'));
+        return view('form/forminject', compact('data', 'idtap', 'denom', 'category', 'config'));
 
     }
 
@@ -51,8 +54,10 @@ class FormInjectsegelController extends Controller
         $payload = [
             'idtap' => $request->input('idtap'),
             'tgl' => $request->input('tgl'),
+            'category' => $request->input('category', 'SEGEL'),
             'items' => array_values($items),
         ];
+        $config = $this->categoryConfig($payload['category']);
         Validator::make($payload, [
             'idtap' => ['required', 'string', 'exists:kodetap,idtap'],
             'tgl' => ['required', 'date', 'before_or_equal:today'],
@@ -73,8 +78,9 @@ class FormInjectsegelController extends Controller
         }
 
         $allowedDenoms = DB::table('denom')
-            ->where('kategori_inject', 'SEGEL')
-            ->where('iddenom', '!=', 'SEGEL')
+            ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
+            ->where('kategori_inject', $config['destination_category'])
+            ->where('iddenom', '!=', $config['source_id'])
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)
             ->flip();
@@ -82,22 +88,22 @@ class FormInjectsegelController extends Controller
         foreach ($payload['items'] as $item) {
             if (! $allowedDenoms->has((string) $item['iddenom'])) {
                 throw ValidationException::withMessages([
-                    'items' => 'Terdapat denom yang tidak valid untuk Inject Product PV.',
+                'items' => 'Terdapat denom yang tidak valid untuk kategori Inject Product yang dipilih.',
                 ]);
             }
         }
 
-        DB::transaction(function () use ($payload) {
+        DB::transaction(function () use ($payload, $config) {
             $idtap = $payload['idtap'];
             $totalQty = collect($payload['items'])->sum(fn ($item) => (int) $item['qty']);
             $stokSegel = DB::table('stockawaltap')
                 ->where('idtap', $idtap)
-                ->where('iddenom', 'SEGEL')
+                ->where('iddenom', $config['source_id'])
                 ->lockForUpdate()
                 ->value('stock');
 
             if ($stokSegel === null) {
-                throw ValidationException::withMessages(['items' => 'Stok Segel TAP tidak ditemukan.']);
+                throw ValidationException::withMessages(['items' => 'Stok sumber inject TAP tidak ditemukan.']);
             }
             if ((int) $stokSegel < $totalQty) {
                 throw ValidationException::withMessages([
@@ -125,12 +131,12 @@ class FormInjectsegelController extends Controller
                 'qty' => (int) $item['qty'],
                 'sn' => $item['sn'],
                 'tgl' => $payload['tgl'],
-                'kategori' => 'SEGEL',
+                'kategori' => $config['source_id'],
             ])->all());
 
             DB::table('stockawaltap')
                 ->where('idtap', $idtap)
-                ->where('iddenom', 'SEGEL')
+                ->where('iddenom', $config['source_id'])
                 ->decrement('stock', $totalQty);
 
             foreach ($totalsByDenom as $iddenom => $qty) {
@@ -144,6 +150,15 @@ class FormInjectsegelController extends Controller
         return redirect('injectvf')->with('status', count($payload['items']) . ' denom berhasil di-inject dan stok diperbarui.');
     }
 
+    private function categoryConfig(string $category): array
+    {
+        return match (strtoupper($category)) {
+            'SP6' => ['label' => 'PERDANA SEGEL SIMPATI', 'source_id' => 'SP6', 'destination_category' => 'SA', 'product_group' => 'SP'],
+            'SP7' => ['label' => 'PERDANA SEGEL BYU', 'source_id' => 'SP7', 'destination_category' => 'BYU', 'product_group' => 'SP'],
+            default => ['label' => 'PV SEGEL', 'source_id' => 'SEGEL', 'destination_category' => 'SEGEL', 'product_group' => null],
+        };
+    }
+
 
 public function getStockSegelTap(Request $request)
 {
@@ -153,7 +168,7 @@ public function getStockSegelTap(Request $request)
 
     $stock = DB::table('stockawaltap')
         ->where('idtap', $request->idtap)
-        ->where('iddenom', 'SEGEL')
+        ->where('iddenom', $request->input('category', 'SEGEL'))
         ->value('stock');
 
     return response()->json([

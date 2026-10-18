@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\OptimizedImageStorage;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class MonitaDumaiController extends Controller
 {
@@ -34,6 +36,80 @@ class MonitaDumaiController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
+    }
+
+    public function metricsUploadForm(Request $request)
+    {
+        abort_unless($this->isSuryaAdminSuper(), 403);
+
+        return view('monitadumai.metrics-upload');
+    }
+
+    public function metricsUpload(Request $request)
+    {
+        abort_unless($this->isSuryaAdminSuper(), 403);
+        $request->validate([
+            'metrics_file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:20480'],
+        ]);
+
+        $sheet = IOFactory::load($request->file('metrics_file')->getRealPath())->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true);
+        $header = array_shift($rows) ?: [];
+        $headers = collect($header)->mapWithKeys(function ($value, $key) {
+            $name = strtolower(trim((string) $value));
+            $name = preg_replace('/[^a-z0-9]+/', '_', $name);
+            return [$key => trim($name, '_')];
+        })->all();
+
+        $metrics = ['ss', 'hot_promo', 'cvm', 'insak', 'comsak', 'digital'];
+        $imported = 0;
+        $skipped = 0;
+        foreach ($rows as $row) {
+            $data = [];
+            foreach ($headers as $key => $name) {
+                if ($name !== '') $data[$name] = $row[$key] ?? null;
+            }
+
+            $idOutlet = trim((string) ($data['id_outlet'] ?? ''));
+            if ($idOutlet === '') {
+                $skipped++;
+                continue;
+            }
+
+            $metricDate = $this->parseMetricsDate($data['update'] ?? null);
+            $now = now();
+            $values = ['updated_at' => $now, 'created_at' => $now];
+            foreach ($metrics as $metric) {
+                foreach (['fm1', 'm1', 'm'] as $period) {
+                    $values["{$metric}_{$period}"] = max(0, (int) ($data["{$metric}_{$period}"] ?? 0));
+                }
+            }
+            $values['source_updated_at'] = $metricDate;
+            DB::table('surya_daily_metrics')->updateOrInsert(
+                ['id_outlet' => $idOutlet, 'metric_date' => $metricDate],
+                $values
+            );
+            $imported++;
+        }
+
+        return back()->with('success', "Upload berhasil: {$imported} outlet diproses, {$skipped} baris dilewati.");
+    }
+
+    private function parseMetricsDate($value): string
+    {
+        if (is_numeric($value)) {
+            try {
+                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                // Fallback to the application date below.
+            }
+        }
+
+        try {
+            return Carbon::parse((string) $value)->toDateString();
+        } catch (\Throwable $e) {
+            return now('Asia/Jakarta')->toDateString();
+        }
     }
 
     public function exportVisits(Request $request)
@@ -94,18 +170,20 @@ class MonitaDumaiController extends Controller
         $sales = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->leftJoin('idsf as s', 's.idsf', '=', 'm.idsf')
+            ->leftJoin('idsf as owner', 'owner.idsf', '=', DB::raw('COALESCE(m.owner_idsf, m.idsf)'))
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'm.id_outlet')
             ->whereDate('m.tgl', $visitDate)
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
             ->get([
-                'm.tgl', 'm.idsf', 's.namasf', 'm.idtap', 'm.id_outlet', 'o.nama_outlet',
+                'm.tgl', 'm.idsf', 's.namasf', 'm.owner_idsf', 'owner.namasf as owner_namasf', 'm.idtap', 'm.id_outlet', 'o.nama_outlet',
                 'd.denom', 'd.kategori_inject', 'm.qty',
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price'),
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total'),
                 'm.status',
             ])->map(fn ($row) => [
-                Carbon::parse($row->tgl)->format('d/m/Y'), $row->idsf, $row->namasf ?: $row->idsf,
+                Carbon::parse($row->tgl)->format('d/m/Y'), $row->owner_idsf ?: $row->idsf, $row->owner_namasf ?: ($row->namasf ?: $row->idsf),
+                (($row->idsf !== ($row->owner_idsf ?: $row->idsf)) ? ($row->namasf ?: $row->idsf) : ''),
                 $row->idtap, $row->id_outlet, $row->nama_outlet ?: $row->id_outlet,
                 $row->denom ?: $row->iddenom, $row->kategori_inject ?: '—', (int) $row->qty,
                 (float) $row->unit_price, (float) $row->total, strtoupper((string) $row->status),
@@ -164,13 +242,19 @@ class MonitaDumaiController extends Controller
             || str_starts_with($username, 'asmen_');
     }
 
+    private function isSuryaAdminSuper(): bool
+    {
+        return Auth::check()
+            && strtolower(trim((string) Auth::user()->username)) === 'admin_super';
+    }
+
     private function buildLeaderDashboard(string $visitDate): array
     {
         $tapScopes = $this->suryaTapScopes();
         // Modul performa lama sengaja tidak dibaca lagi. Dashboard SURYA saat ini
         // hanya memakai master outlet, visit, dan transaksi dari SURYA Mobile.
         return [
-            'summary' => [],
+            'summary' => $this->mobileSalesSummary($visitDate, $tapScopes),
             'areas' => [],
             'tapRows' => [],
             'riskTaps' => [],
@@ -187,6 +271,36 @@ class MonitaDumaiController extends Controller
         ];
     }
 
+    private function mobileSalesSummary(string $visitDate, ?array $tapScopes): array
+    {
+        $rows = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->whereDate('m.tgl', $visitDate)
+            ->where('m.status', 'approved')
+            ->when($tapScopes !== null, fn ($q) => $q->whereIn('m.idtap', $tapScopes))
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END), 0) AS st_sa")
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END), 0) AS st_pv")
+            ->first();
+
+        return ['st_sa' => (int) ($rows->st_sa ?? 0), 'st_pv' => (int) ($rows->st_pv ?? 0), 'trx_cvm' => 0];
+    }
+
+    private function mobileSalesByOutlet(?array $tapScopes): array
+    {
+        $rows = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->where('m.status', 'approved')
+            ->whereBetween('m.tgl', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+            ->when($tapScopes !== null, fn ($q) => $q->whereIn('m.idtap', $tapScopes))
+            ->groupBy('m.id_outlet')
+            ->select('m.id_outlet')
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END), 0) AS m_stsa")
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END), 0) AS m_stpv")
+            ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+
+        return $rows->all();
+    }
+
     private function buildVisitDetails(string $visitDate, ?array $tapScopes = null): array
     {
         $actualRows = DB::table('surya_visits')
@@ -201,7 +315,8 @@ class MonitaDumaiController extends Controller
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->whereIn('m.status', ['pending', 'approved'])
             ->get([
-                'm.idsf',
+                DB::raw('COALESCE(m.owner_idsf, m.idsf) as idsf'),
+                'm.idsf as helper_idsf',
                 'm.id_outlet',
                 'm.qty',
                 'm.iddenom',
@@ -347,6 +462,8 @@ class MonitaDumaiController extends Controller
 
     private function buildApprovalVisits(string $visitDate, ?array $tapScopes = null): array
     {
+        app(\App\Http\Controllers\SuryaVisitReportController::class)->autoApprovePending(request());
+
         return DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
@@ -1329,12 +1446,32 @@ class MonitaDumaiController extends Controller
         }
 
         $keyword = $request->input('keyword');
+        $tapScopes = $this->suryaTapScopes();
+        $salesByOutlet = $this->mobileSalesByOutlet($tapScopes);
         $data = DB::table('appsdumais')
-            ->select('appsdumais.*')
+            ->leftJoinSub(DB::table('surya_daily_metrics')->whereDate('metric_date', now('Asia/Jakarta')->toDateString()), 'dm', 'dm.id_outlet', '=', 'appsdumais.id_outlet')
+            ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
+            ->select('appsdumais.*', 'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m', 'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m', 'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m', 'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m', 'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m')
             ->where('appsdumais.id_outlet', $keyword)
             ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%')
             ->get()
-            ->map(fn ($row) => $this->decorateOutletVisitPhoto($row));
+            ->map(function ($row) use ($salesByOutlet) {
+                $row->fm1_super = (int) ($row->ss_fm1 ?? 0); $row->m1_super = (int) ($row->ss_m1 ?? 0); $row->m_super = (int) ($row->ss_m ?? 0);
+                $row->fm1_hot = (int) ($row->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($row->hot_promo_m1 ?? 0); $row->m_hot = (int) ($row->hot_promo_m ?? 0);
+                $row->fm1_cvm = (int) ($row->cvm_fm1 ?? 0); $row->m1_cvm = (int) ($row->cvm_m1 ?? 0); $row->m_cvm = (int) ($row->cvm_m ?? 0);
+                $row->fm1_comsak = (int) ($row->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($row->comsak_m1 ?? 0); $row->m_comsak = (int) ($row->comsak_m ?? 0);
+                $row->fm1_digital = (int) ($row->digital_fm1 ?? 0); $row->m1_digital = (int) ($row->digital_m1 ?? 0); $row->m_digital = (int) ($row->digital_m ?? 0);
+                $sales = $salesByOutlet[(string) $row->id_outlet] ?? null;
+                $row->m_stsa = (int) ($sales->m_stsa ?? 0);
+                $row->m_stpv = (int) ($sales->m_stpv ?? 0);
+                $row->m_cvm = 0;
+                $row->m_digital = 0;
+                $row->mom_stsa = 'SA Surya Mobile';
+                $row->mom_stpv = 'PV Surya Mobile';
+                $row->mom_cvm = '—';
+                $row->mom_digital = '—';
+                return $this->decorateOutletVisitPhoto($row);
+            });
 
         return response()->json($data);
     }
@@ -1363,6 +1500,7 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
+        $salesByOutlet = $this->mobileSalesByOutlet($tapScopes);
         $outlets = DB::table('appsdumais')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->whereNotNull('latitude')
@@ -1400,6 +1538,15 @@ class MonitaDumaiController extends Controller
             $outlet->photo_front_path = $latestPhoto->photo_front_path ?? null;
             $outlet->front_photo_visited_at = $latestPhoto->visited_at ?? null;
 
+            $sales = $salesByOutlet[(string) $outlet->id_outlet] ?? null;
+            $outlet->m_stsa = (int) ($sales->m_stsa ?? 0);
+            $outlet->m_stpv = (int) ($sales->m_stpv ?? 0);
+            $outlet->m_cvm = 0;
+            $outlet->m_digital = 0;
+            $outlet->mom_stsa = 'SA Surya Mobile';
+            $outlet->mom_stpv = 'PV Surya Mobile';
+            $outlet->mom_cvm = '—';
+            $outlet->mom_digital = '—';
             return $this->decorateOutletVisitPhoto($outlet);
         });
 
