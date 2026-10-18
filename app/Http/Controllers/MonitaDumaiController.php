@@ -1452,8 +1452,10 @@ class MonitaDumaiController extends Controller
             ->leftJoinSub(DB::table('surya_daily_metrics')->whereDate('metric_date', now('Asia/Jakarta')->toDateString()), 'dm', 'dm.id_outlet', '=', 'appsdumais.id_outlet')
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
             ->select('appsdumais.*', 'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m', 'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m', 'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m', 'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m', 'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m')
-            ->where('appsdumais.id_outlet', $keyword)
-            ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%')
+            ->where(function ($query) use ($keyword) {
+                $query->where('appsdumais.id_outlet', $keyword)
+                    ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
+            })
             ->get()
             ->map(function ($row) use ($salesByOutlet) {
                 $row->fm1_super = (int) ($row->ss_fm1 ?? 0); $row->m1_super = (int) ($row->ss_m1 ?? 0); $row->m_super = (int) ($row->ss_m ?? 0);
@@ -1484,8 +1486,10 @@ class MonitaDumaiController extends Controller
 
         $keyword = $request->input('keyword');
         $data = DB::table('appsdumais')
-            ->where('nama_outlet', 'like', '%' . $keyword . '%')
-            ->orWhere('id_outlet', 'like', '%' . $keyword . '%')
+            ->where(function ($query) use ($keyword) {
+                $query->where('nama_outlet', 'like', '%' . $keyword . '%')
+                    ->orWhere('id_outlet', 'like', '%' . $keyword . '%');
+            })
             ->select('id_outlet', 'nama_outlet', 'sf', 'tap')
             ->limit(10)
             ->get();
@@ -1520,24 +1524,18 @@ class MonitaDumaiController extends Controller
             )
             ->get();
 
-        $latestFrontPhotos = DB::table('surya_visits as v')
-            ->joinSub(
-                DB::table('surya_visits')
-                    ->whereNotNull('photo_front_path')
-                    ->select('id_outlet', DB::raw('MAX(id) as latest_visit_id'))
-                    ->groupBy('id_outlet'),
-                'latest_visit',
-                fn ($join) => $join->on('latest_visit.latest_visit_id', '=', 'v.id')
-            )
-            ->whereIn('v.id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
-            ->get(['v.id_outlet', 'v.photo_front_path', 'v.visited_at'])
-            ->keyBy(fn ($row) => (string) $row->id_outlet);
+        // The map only needs lightweight metadata for its first paint. Resolving
+        // storage paths and checking every thumbnail here made the initial map
+        // request needlessly expensive. Photo details are fetched on marker click.
+        $visitedOutletIds = DB::table('surya_visits')
+            ->whereNotNull('photo_front_path')
+            ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+            ->distinct()
+            ->pluck('id_outlet')
+            ->map(fn ($id) => (string) $id)
+            ->flip();
 
-        $data = $outlets->map(function ($outlet) use ($latestFrontPhotos) {
-            $latestPhoto = $latestFrontPhotos->get((string) $outlet->id_outlet);
-            $outlet->photo_front_path = $latestPhoto->photo_front_path ?? null;
-            $outlet->front_photo_visited_at = $latestPhoto->visited_at ?? null;
-
+        $data = $outlets->map(function ($outlet) use ($salesByOutlet, $visitedOutletIds) {
             $sales = $salesByOutlet[(string) $outlet->id_outlet] ?? null;
             $outlet->m_stsa = (int) ($sales->m_stsa ?? 0);
             $outlet->m_stpv = (int) ($sales->m_stpv ?? 0);
@@ -1547,7 +1545,8 @@ class MonitaDumaiController extends Controller
             $outlet->mom_stpv = 'PV Surya Mobile';
             $outlet->mom_cvm = '—';
             $outlet->mom_digital = '—';
-            return $this->decorateOutletVisitPhoto($outlet);
+            $outlet->has_front_photo = $visitedOutletIds->has((string) $outlet->id_outlet);
+            return $outlet;
         });
 
         return response()->json($data);

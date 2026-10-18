@@ -3897,12 +3897,17 @@
         let outletClusterLayer = null;
         let outletVisitedLayer = null;
         let outletMarkers = new Map();
+        const outletDetailsCache = new Map();
+        const outletDetailRequests = new Map();
         let selectedOutletMarker = null;
         let pendingOutletFocus = null;
         let userLocationMarker = null;
         let userLocationLatLng = null;
         let history = JSON.parse(localStorage.getItem('monita_history') || '[]');
         let selectedIndex = -1;
+        let suggestionTimer = null;
+        let suggestionAbortController = null;
+        const suggestionCache = new Map();
         const leaderAreas = @json($showLeaderDashboard ? $areas : []);
         const leaderOutletPoints = @json($showLeaderDashboard ? $dashboard['outletPoints'] ?? [] : []);
         const leaderCoveragePoints = @json($showLeaderDashboard ? $dashboard['coveragePoints'] ?? [] : []);
@@ -5311,7 +5316,8 @@
             if (["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(e.key)) return;
 
             hideHistory();
-            showSuggestions(val);
+            window.clearTimeout(suggestionTimer);
+            suggestionTimer = window.setTimeout(() => showSuggestions(val), 280);
         }
 
         function handleKeyDown(e) {
@@ -5608,7 +5614,7 @@
 
                 const outlets = await response.json();
                 initMap(outlets);
-                const visitedCount = outlets.filter(outlet => outlet.front_thumbnail_url).length;
+                const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
                 countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
             } catch (error) {
                 countEl.textContent = 'Gagal memuat';
@@ -5621,8 +5627,8 @@
 
             outletClusterLayer = L.markerClusterGroup({
                 chunkedLoading: true,
-                chunkInterval: 120,
-                chunkDelay: 30,
+                chunkInterval: 80,
+                chunkDelay: 16,
                 disableClusteringAtZoom: 16,
                 maxClusterRadius: 55,
                 removeOutsideVisibleBounds: true,
@@ -5638,23 +5644,17 @@
             // membuat browser lambat dan peta terasa belum selesai memuat.
             outletVisitedLayer = L.layerGroup();
 
-            const bounds = [];
-            const allMarkers = [];
-            outlets.forEach(outlet => {
-                const marker = addOutletMarker(outlet, false);
-                if (!marker) return;
-
-                bounds.push(marker.getLatLng());
-                allMarkers.push(marker);
-            });
-
-            // Plugin membagi pekerjaan rendering ke beberapa frame; marker foto
-            // baru dirender individual ketika zoom sudah dekat.
-            outletClusterLayer.addLayers(allMarkers);
+            // Fit the map from raw coordinates first. Marker construction is
+            // deliberately scheduled in small batches so tiles and controls
+            // become usable before thousands of marker objects are created.
+            const bounds = outlets
+                .map((outlet) => [Number(outlet.latitude), Number(outlet.longitude)])
+                .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && lat && lng);
 
             if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
             addFullscreenControl();
             showUserLocation();
+            queueOutletMarkers(outlets);
 
             // Leaflet may initialize while this panel is still transitioning from
             // hidden to visible. Recalculate the viewport after the layout settles
@@ -5673,6 +5673,30 @@
                 map._suryaResizeObserver = observer;
             }
 
+        }
+
+        function queueOutletMarkers(outlets) {
+            let cursor = 0;
+            const batchSize = 140;
+
+            const renderBatch = () => {
+                const batch = [];
+                const end = Math.min(cursor + batchSize, outlets.length);
+                for (; cursor < end; cursor++) {
+                    const marker = addOutletMarker(outlets[cursor], false);
+                    if (marker) batch.push(marker);
+                }
+
+                if (batch.length) outletClusterLayer?.addLayers(batch);
+
+                if (cursor < outlets.length) {
+                    (window.requestIdleCallback || window.requestAnimationFrame)(renderBatch);
+                } else if (pendingOutletFocus) {
+                    focusOutletOnMap(pendingOutletFocus);
+                }
+            };
+
+            renderBatch();
         }
 
         function createOutletIcon(outlet = null, selected = false) {
@@ -5702,7 +5726,8 @@
             });
 
             marker.outletData = outlet;
-            marker.bindPopup(() => buildOutletPopup(outlet, marker.getLatLng()));
+            marker.bindPopup(() => buildOutletPopup(marker.outletData, marker.getLatLng()));
+            marker.on('popupopen', () => loadOutletDetailsForMarker(marker));
 
             markers.push(marker);
             outletMarkers.set(outletId, marker);
@@ -5710,6 +5735,54 @@
                 outletClusterLayer?.addLayer(marker);
             }
             return marker;
+        }
+
+        async function loadOutletDetailsForMarker(marker) {
+            const outletId = String(marker.outletData?.id_outlet || '');
+            if (!outletId) return;
+
+            if (outletDetailsCache.has(outletId)) {
+                applyOutletDetailsToMarker(marker, outletDetailsCache.get(outletId));
+                return;
+            }
+
+            if (!outletDetailRequests.has(outletId)) {
+                const request = fetch('/surya/search?keyword=' + encodeURIComponent(outletId), {
+                    headers: { 'Accept': 'application/json' }
+                })
+                    .then((response) => {
+                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        return response.json();
+                    })
+                    .then((data) => {
+                        const detail = Array.isArray(data) ? data[0] : null;
+                        if (!detail) throw new Error('Outlet tidak ditemukan');
+                        outletDetailsCache.set(outletId, detail);
+                        return detail;
+                    })
+                    .finally(() => outletDetailRequests.delete(outletId));
+
+                outletDetailRequests.set(outletId, request);
+            }
+
+            try {
+                const detail = await outletDetailRequests.get(outletId);
+                applyOutletDetailsToMarker(marker, detail);
+            } catch (error) {
+                // The lightweight popup remains usable even if the optional
+                // detail/photo request fails.
+                if (marker.isPopupOpen()) marker.setPopupContent(buildOutletPopup(marker.outletData, marker.getLatLng()));
+            }
+        }
+
+        function applyOutletDetailsToMarker(marker, detail) {
+            marker.outletData = { ...marker.outletData, ...detail };
+            if (selectedOutletMarker === marker) {
+                marker.setIcon(createOutletIcon(marker.outletData, true));
+            }
+            if (marker.isPopupOpen()) {
+                marker.setPopupContent(buildOutletPopup(marker.outletData, marker.getLatLng()));
+            }
         }
 
         function buildOutletPopup(outlet, outletLatLng) {
@@ -5729,7 +5802,7 @@
 
             const photoHtml = outlet.front_thumbnail_url
                 ? `<a class="outlet-branding-photo" href="${escapeMapDetailHtml(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeMapDetailHtml(outlet.front_thumbnail_url)}" alt="Tampak luar ${escapeMapDetailHtml(outlet.nama_outlet)}" loading="lazy"></a><small style="display:block;margin:0 0 7px;color:#64748b">Foto visit: ${mapDetailDate(outlet.front_photo_visited_at)}</small>`
-                : '';
+                : '<div style="padding:7px 0;color:#64748b;font-size:11px">Memuat foto dan rincian outlet...</div>';
 
             return `
                 <b>${outlet.nama_outlet}</b><br>
@@ -6082,31 +6155,50 @@
                 box.style.display = 'none';
                 return;
             }
-            try {
-                const res = await fetch(`/surya/suggest?keyword=${q}`);
-                const data = await res.json();
-                box.innerHTML = '';
-                selectedIndex = -1; // Reset selection
 
-                if (data.length > 0) {
-                    data.forEach(item => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `
-                            <b>${item.nama_outlet}</b>
-                            <small>${item.id_outlet} • ${item.sf} • ${item.tap}</small>
-                        `;
-                        li.onclick = () => {
-                            document.getElementById('keyword').value = item.id_outlet;
-                            box.style.display = 'none';
-                            searchOutlet();
-                        };
-                        box.appendChild(li);
-                    });
-                    box.style.display = 'block';
-                } else {
-                    box.style.display = 'none';
-                }
-            } catch (e) {}
+            if (suggestionAbortController) suggestionAbortController.abort();
+            suggestionAbortController = new AbortController();
+
+            if (suggestionCache.has(q)) {
+                renderSuggestions(suggestionCache.get(q), box);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/surya/suggest?keyword=${encodeURIComponent(q)}`, {
+                    signal: suggestionAbortController.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                suggestionCache.set(q, data);
+                renderSuggestions(data, box);
+            } catch (e) {
+                if (e.name !== 'AbortError') box.style.display = 'none';
+            }
+        }
+
+        function renderSuggestions(data, box) {
+            box.innerHTML = '';
+            selectedIndex = -1;
+
+            if (data.length > 0) {
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <b>${escapeMapDetailHtml(item.nama_outlet)}</b>
+                        <small>${escapeMapDetailHtml(item.id_outlet)} • ${escapeMapDetailHtml(item.sf)} • ${escapeMapDetailHtml(item.tap)}</small>
+                    `;
+                    li.onclick = () => {
+                        document.getElementById('keyword').value = item.id_outlet;
+                        box.style.display = 'none';
+                        searchOutlet();
+                    };
+                    box.appendChild(li);
+                });
+                box.style.display = 'block';
+            } else {
+                box.style.display = 'none';
+            }
         }
 
         function saveToHistory(id, name) {
