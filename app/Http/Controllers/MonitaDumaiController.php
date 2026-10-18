@@ -1481,7 +1481,7 @@ class MonitaDumaiController extends Controller
             ->get()
             ->map(function ($row) use ($salesByOutlet) {
                 // The uploaded workbook calls this metric `cvm`; the detail
-                // panel presents it as TRX DIGIPOS.
+                // panel presents it as the first CVM row.
                 $row->fm1_digipos = (int) ($row->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($row->cvm_m1 ?? 0); $row->m_digipos = (int) ($row->cvm_m ?? 0);
                 $row->m_cvm = $row->m_digipos;
                 $row->fm1_super = (int) ($row->ss_fm1 ?? 0); $row->m1_super = (int) ($row->ss_m1 ?? 0); $row->m_super = (int) ($row->ss_m ?? 0);

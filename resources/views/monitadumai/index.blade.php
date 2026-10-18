@@ -5885,7 +5885,7 @@
 
         function renderMapOutletDetail(outlet) {
             const parameters = [
-                ['TRX DIGIPOS', outlet.fm1_digipos, outlet.m1_digipos, outlet.m_digipos, outlet.mom_digipos, outlet.tgl_pack],
+                ['CVM', outlet.fm1_digipos, outlet.m1_digipos, outlet.m_digipos, outlet.mom_digipos, outlet.tgl_pack],
                 ['SUPER SERU', outlet.fm1_super, outlet.m1_super, outlet.m_super, outlet.mom_super, outlet.tgl_pack],
                 ['HOT PROMO', outlet.fm1_hot, outlet.m1_hot, outlet.m_hot, outlet.mom_hot, outlet.tgl_pack],
                 ['COMSAK', outlet.fm1_comsak, outlet.m1_comsak, outlet.m_comsak, outlet.mom_comsak, outlet.tgl_pack],
