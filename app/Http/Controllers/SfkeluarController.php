@@ -43,10 +43,11 @@ use Illuminate\Validation\ValidationException;
             'f.qty',
             'f.idtap',
             'i.namasf',
+            'f.id_outlet',
             'f.tambahanket'
         );
 
-    TapFilter::apply($query, 'f.idtap');
+    if (! $this->isGlobalAdmin()) TapFilter::apply($query, 'f.idtap');
 
     // 🔥 DEFAULT: BULAN BERJALAN
     if ($daterange) {
@@ -105,7 +106,7 @@ use Illuminate\Validation\ValidationException;
         $denom = DB::table('denom')->get();
 
         $data = DB::table('kodetap')
-            ->when($idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
+            ->when(! $this->isGlobalAdmin() && $idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
                 $q->where('idtap', $idtap);
             })
             ->get();
@@ -137,9 +138,14 @@ use Illuminate\Validation\ValidationException;
         abort_unless($idtap, 422);
 
         return response()->json(DB::table('appsdumais')
-            ->where('idtap', $idtap)
+            ->when(! $this->isGlobalAdmin(), fn ($q) => $q->where('idtap', $idtap))
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet']));
+    }
+
+    private function isGlobalAdmin(): bool
+    {
+        return in_array(strtolower((string) auth()->user()?->username), ['admin_cluster', 'admin_super'], true);
     }
 
     /* =========================
@@ -573,7 +579,7 @@ public function updateSfKeluar(Request $request, $id)
     /* ===============================
        FILTER TAP
     =============================== */
-    TapFilter::apply($query, 'f.idtap');
+    if (! $this->isGlobalAdmin()) TapFilter::apply($query, 'f.idtap');
 
     /* ===============================
        FILTER DATE RANGE (PRIORITY)

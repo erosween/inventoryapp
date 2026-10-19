@@ -60,6 +60,7 @@
                                         <th class="text-end">Quantity</th>
                                         <th>TAP</th>
                                         <th>SF</th>
+                                        <th>ID Outlet</th>
                                         <th>Keterangan</th>
                                         <th width="130">Action</th>
                                     </tr>
