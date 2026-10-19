@@ -229,20 +229,34 @@ SQL;
             $this->grantSalesFormAccess($idsf, strtoupper((string) $selected_outlet->id_outlet));
         }
         
+        $stockOwnerIdsf = $idsf;
+        if ($this->isHelperAccount() && $selected_outlet) {
+            $stockOwnerIdsf = $this->resolveOutletOwnerIdsf((string) $selected_outlet->id_outlet);
+            if (! $stockOwnerIdsf) {
+                return redirect()
+                    ->route('mobile.visit.menu', ['id_outlet' => $selected_outlet->id_outlet])
+                    ->with('error', 'SF pemilik outlet belum terhubung. Hubungi admin sebelum input penjualan.');
+            }
+        }
+
         $reserved = DB::table('mobile_penjualan')
-            ->select('idsf', 'iddenom', DB::raw('SUM(qty) as reserved_qty'))
-            ->where('idsf', $idsf)
+            ->select('iddenom', DB::raw('SUM(qty) as reserved_qty'))
+            ->where(function ($query) use ($stockOwnerIdsf) {
+                $query->where('owner_idsf', $stockOwnerIdsf)
+                    ->orWhere(function ($legacy) use ($stockOwnerIdsf) {
+                        $legacy->whereNull('owner_idsf')->where('idsf', $stockOwnerIdsf);
+                    });
+            })
             ->whereIn('status', ['draft_wa', 'pending'])
-            ->groupBy('idsf', 'iddenom');
+            ->groupBy('iddenom');
 
         $denoms = DB::table('denom')
-            ->join('stockawalsf', function($join) use ($idsf) {
+            ->join('stockawalsf', function($join) use ($stockOwnerIdsf) {
                 $join->on('denom.iddenom', '=', 'stockawalsf.iddenom')
-                     ->where('stockawalsf.idsf', '=', $idsf);
+                     ->where('stockawalsf.idsf', '=', $stockOwnerIdsf);
             })
             ->leftJoinSub($reserved, 'reserved_sales', function ($join) {
-                $join->on('reserved_sales.idsf', '=', 'stockawalsf.idsf')
-                    ->on('reserved_sales.iddenom', '=', 'stockawalsf.iddenom');
+                $join->on('reserved_sales.iddenom', '=', 'stockawalsf.iddenom');
             })
             ->whereRaw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) > 0')
             ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'denom.product_group', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock_qty'))
@@ -368,14 +382,10 @@ SQL;
         }
 
         try {
-            $ownerName = DB::table('appsdumais')
-                ->where('id_outlet', $requestedOutlet)
-                ->value('sf');
-            $ownerIdsf = $ownerName
-                ? DB::table('idsf')
-                    ->whereRaw("CONVERT(TRIM(namasf) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ownerName])
-                    ->value('idsf')
-                : null;
+            $ownerIdsf = $this->resolveOutletOwnerIdsf($requestedOutlet);
+            if ($this->isHelperAccount() && ! $ownerIdsf) {
+                return back()->withInput()->with('error', 'SF pemilik outlet belum terhubung. Hubungi admin sebelum input penjualan.');
+            }
             $ownerIdsf = $ownerIdsf ?: $idsf;
 
             $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers) {
@@ -451,7 +461,12 @@ SQL;
                     $denomData = DB::table('denom')->where('iddenom', $iddenom)->first();
                     $denomName = $denomData->denom ?? $iddenom;
                     $reservedQty = (int) DB::table('mobile_penjualan')
-                        ->where('idsf', $ownerIdsf)
+                        ->where(function ($query) use ($ownerIdsf) {
+                            $query->where('owner_idsf', $ownerIdsf)
+                                ->orWhere(function ($legacy) use ($ownerIdsf) {
+                                    $legacy->whereNull('owner_idsf')->where('idsf', $ownerIdsf);
+                                });
+                        })
                         ->where('iddenom', $iddenom)
                         ->whereIn('status', ['draft_wa', 'pending'])
                         ->sum('qty');
@@ -530,6 +545,23 @@ SQL;
             mb_strtoupper(trim((string) session('mobile_sf_id'))),
             'HELPER'
         );
+    }
+
+    private function resolveOutletOwnerIdsf(string $idOutlet): ?string
+    {
+        $ownerName = DB::table('appsdumais')
+            ->where('id_outlet', $idOutlet)
+            ->value('sf');
+        if (! filled($ownerName)) {
+            return null;
+        }
+
+        $normalizedOwner = mb_strtoupper(trim((string) $ownerName));
+        $owner = DB::table('idsf')
+            ->get(['idsf', 'namasf'])
+            ->first(fn ($salesForce) => mb_strtoupper(trim((string) $salesForce->namasf)) === $normalizedOwner);
+
+        return $owner ? (string) $owner->idsf : null;
     }
 
     public function checkConsignmentNumbers(Request $request)

@@ -1094,10 +1094,43 @@ class MobileSalesFlowTest extends TestCase
 
     public function test_helper_can_search_all_outlets_in_their_tap(): void
     {
+        DB::table('idsf')->insert([
+            ['idsf' => 'SF-OWNER', 'namasf' => 'Sales Tester', 'idtap' => 'TAP001'],
+        ]);
+        DB::table('denom')->insert([
+            ['iddenom' => 'D-OWNER', 'denom' => 'Produk Pemilik Outlet', 'group_name' => '1 HARI'],
+            ['iddenom' => 'D-HELPER', 'denom' => 'Produk Pribadi Helper', 'group_name' => '1 HARI'],
+        ]);
+        DB::table('stockawalsf')->insert([
+            ['idsf' => 'SF-OWNER', 'iddenom' => 'D-OWNER', 'stock' => 9],
+            ['idsf' => 'HELPER7', 'iddenom' => 'D-HELPER', 'stock' => 20],
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'tgl' => now()->toDateString(),
+            'id_outlet' => 'HELPER-TAP-2',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER-LAIN',
+            'owner_idsf' => 'SF-OWNER',
+            'iddenom' => 'D-OWNER',
+            'qty' => 2,
+            'status' => 'pending',
+        ]);
         DB::table('appsdumais')->insert([
             ['id_outlet' => 'HELPER-TAP-1', 'nama_outlet' => 'Outlet TAP Helper', 'sf' => 'Sales Lain', 'tap' => 'TAP001'],
             ['id_outlet' => 'HELPER-TAP-2', 'nama_outlet' => 'Outlet TAP Lain', 'sf' => 'Sales Tester', 'tap' => 'TAP001'],
             ['id_outlet' => 'OTHER-TAP-1', 'nama_outlet' => 'Outlet TAP Berbeda', 'sf' => 'Sales Lain', 'tap' => 'TAP002'],
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(),
+            'id_outlet' => 'HELPER-TAP-2',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER7',
+            'latitude' => 1.1,
+            'longitude' => 101.1,
+            'photo_path' => 'front.webp',
+            'photo_front_path' => 'front.webp',
+            'photo_inside_path' => 'inside.webp',
+            'gps_status' => 'valid',
         ]);
 
         $session = [
@@ -1114,7 +1147,21 @@ class MobileSalesFlowTest extends TestCase
         $this->withSession($session)
             ->get(route('mobile.form', ['id_outlet' => 'HELPER-TAP-2']))
             ->assertOk()
-            ->assertSee('Outlet TAP Lain');
+            ->assertSee('Outlet TAP Lain')
+            ->assertViewHas('denoms', function ($denoms) {
+                $ownerProduct = $denoms->firstWhere('iddenom', 'D-OWNER');
+
+                return $denoms->count() === 1
+                    && $ownerProduct
+                    && (int) $ownerProduct->stock_qty === 7;
+            })
+            ->assertSee('Produk Pemilik Outlet')
+            ->assertDontSee('Produk Pribadi Helper');
+
+        $this->post(route('mobile.store'), [
+            'id_outlet' => 'HELPER-TAP-2',
+            'products' => [['iddenom' => 'D-OWNER', 'qty' => 8]],
+        ])->assertSessionHas('error', fn ($message) => str_contains($message, 'Stok tersedia di mobile: 7'));
     }
 
     public function test_sales_confirmation_hides_whatsapp_and_submits_pending_sale(): void
