@@ -27,8 +27,7 @@ class MonitaDumaiController extends Controller
             return redirect('/');
         }
 
-        $today = now('Asia/Jakarta')->toDateString();
-        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
+        $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
         $dashboard = $this->buildLeaderDashboard($visitDate);
 
         return response()
