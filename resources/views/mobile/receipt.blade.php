@@ -102,7 +102,31 @@ document.getElementById('confirm-sales-form')?.addEventListener('submit', async 
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        // Nota sering difoto di dalam ruangan. Naikkan exposure hanya bila
+        // memang gelap, supaya nota normal tidak menjadi terlalu putih.
+        const sample = context.getImageData(0, 0, canvas.width, canvas.height);
+        let luminance = 0;
+        const stride = Math.max(4, Math.floor(sample.data.length / 12000) * 4);
+        let count = 0;
+        for (let index = 0; index < sample.data.length; index += stride) {
+            luminance += (0.299 * sample.data[index]) + (0.587 * sample.data[index + 1]) + (0.114 * sample.data[index + 2]);
+            count++;
+        }
+
+        if (count && (luminance / count) < 125) {
+            const pixels = sample.data;
+            const brightness = (luminance / count) < 80 ? 1.42 : 1.24;
+            for (let index = 0; index < pixels.length; index += 4) {
+                pixels[index] = Math.min(255, pixels[index] * brightness);
+                pixels[index + 1] = Math.min(255, pixels[index + 1] * brightness);
+                pixels[index + 2] = Math.min(255, pixels[index + 2] * brightness);
+            }
+            context.putImageData(sample, 0, 0);
+        }
+
         canvas.toBlob((blob) => {
             if (!blob) return this.submit();
             const transfer = new DataTransfer();
@@ -110,7 +134,7 @@ document.getElementById('confirm-sales-form')?.addEventListener('submit', async 
             input.files = transfer.files;
             input.dataset.compressed = '1';
             this.requestSubmit();
-        }, 'image/jpeg', 0.72);
+        }, 'image/jpeg', 0.84);
     };
     image.onerror = () => this.submit();
     image.src = URL.createObjectURL(file);
