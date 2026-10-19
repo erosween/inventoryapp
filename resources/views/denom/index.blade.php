@@ -149,7 +149,7 @@
                             </div>
                             <div class="col-sm-12">
                                 <div class="form-group">
-                                    <label>Grup</label>
+                                    <label>Validity</label>
                                     <select name="group_name" class="form-control" required>
                                         @foreach ($groups as $g)
                                             <option value="{{ $g }}" {{ $g == 'LAINNYA' ? 'selected' : '' }}>
@@ -162,11 +162,16 @@
                                 <div class="form-group">
                                     <label>Kategori Inject</label>
                                     <select name="kategori_inject" class="form-control">
-                                        <option value="">- Tidak Ada -</option>
-                                        @foreach ($kategoriInjects as $ki)
-                                            <option value="{{ $ki }}">{{ $ki }}</option>
+                                        <option value="">- Non Inject -</option>
+                                        @foreach ($kategoriInjects as $kategori => $pilihan)
+                                            <optgroup label="{{ $kategori }}">
+                                                @foreach ($pilihan as $value => $label)
+                                                    <option value="{{ $value }}">{{ $label }}</option>
+                                                @endforeach
+                                            </optgroup>
                                         @endforeach
                                     </select>
+                                    <small class="form-text text-muted">Untuk denom Unlimited, pilih kategori BYU.</small>
                                 </div>
                             </div>
                             <div class="col-sm-12">
@@ -219,7 +224,7 @@
                                 </div>
                                 <div class="col-sm-12">
                                     <div class="form-group">
-                                        <label>Grup</label>
+                                        <label>Validity</label>
                                         <select name="group_name" class="form-control" required>
                                             @foreach ($groups as $g)
                                                 <option value="{{ $g }}"
@@ -233,13 +238,18 @@
                                     <div class="form-group">
                                         <label>Kategori Inject</label>
                                         <select name="kategori_inject" class="form-control">
-                                            <option value="">- Tidak Ada -</option>
-                                            @foreach ($kategoriInjects as $ki)
-                                                <option value="{{ $ki }}"
-                                                    {{ $denom->kategori_inject == $ki ? 'selected' : '' }}>
-                                                    {{ $ki }}</option>
+                                            <option value="">- Non Inject -</option>
+                                            @foreach ($kategoriInjects as $kategori => $pilihan)
+                                                <optgroup label="{{ $kategori }}">
+                                                    @foreach ($pilihan as $value => $label)
+                                                        <option value="{{ $value }}"
+                                                            {{ $denom->kategori_inject == $value ? 'selected' : '' }}>
+                                                            {{ $label }}</option>
+                                                    @endforeach
+                                                </optgroup>
                                             @endforeach
                                         </select>
+                                        <small class="form-text text-muted">Untuk denom Unlimited, pilih kategori BYU.</small>
                                     </div>
                                 </div>
                                 <div class="col-sm-12">

@@ -46,7 +46,20 @@ class DenomController extends Controller
             'VOICE',
             'LAINNYA',
         ];
-        $kategoriInjects = ['SEGEL', 'SA', 'BYU', 'ROAMAX'];
+        $kategoriInjects = [
+            'VOUCHER FISIK' => [
+                'SEGEL' => 'PV Reguler (SEGEL)',
+            ],
+            'VOUCHER BY.U' => [
+                'BYU' => 'BYU (termasuk Unlimited)',
+            ],
+            'STARTER PACK' => [
+                'SA' => 'Starter Pack / SA',
+            ],
+            'PRODUK LAIN' => [
+                'ROAMAX' => 'ROAMAX',
+            ],
+        ];
 
         return view('denom.index', compact('denoms', 'suggestedId', 'groups', 'kategoriInjects'));
     }
