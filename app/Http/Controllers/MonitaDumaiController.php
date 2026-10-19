@@ -27,6 +27,7 @@ class MonitaDumaiController extends Controller
             return redirect('/');
         }
 
+        $this->approveExpiredVisitCoordinates();
         $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
         $dashboard = $this->buildLeaderDashboard($visitDate);
 
@@ -38,6 +39,30 @@ class MonitaDumaiController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
+    }
+
+    private function approveExpiredVisitCoordinates(): void
+    {
+        $pendingVisits = DB::table('surya_visits')
+            ->where('gps_status', 'pending_admin')
+            ->whereNotNull('photo_front_path')
+            ->whereNotNull('photo_inside_path')
+            ->where('visited_at', '<=', now('Asia/Jakarta')->subSeconds(15))
+            ->get(['id', 'id_outlet', 'latitude', 'longitude']);
+
+        foreach ($pendingVisits as $visit) {
+            $updated = DB::table('surya_visits')
+                ->where('id', $visit->id)
+                ->where('gps_status', 'pending_admin')
+                ->update(['gps_status' => 'approved']);
+
+            if ($updated) {
+                DB::table('appsdumais')->where('id_outlet', $visit->id_outlet)->update([
+                    'latitude' => $visit->latitude,
+                    'longitude' => $visit->longitude,
+                ]);
+            }
+        }
     }
 
     public function metricsUploadForm(Request $request)
