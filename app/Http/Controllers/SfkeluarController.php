@@ -139,10 +139,19 @@ use Illuminate\Validation\ValidationException;
 
         $showAllOutlets = $this->isGlobalAdmin() || in_array((string) session('idtap'), ['DUMAI', 'SBP_DUMAI'], true);
 
-        return response()->json(DB::table('appsdumais')
+        $query = DB::table('appsdumais')
             ->when(! $showAllOutlets, fn ($q) => $q->where('idtap', $idtap))
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $term = trim((string) $request->input('q'));
+                $q->where(function ($sub) use ($term) {
+                    $sub->where('id_outlet', 'like', "%{$term}%")
+                        ->orWhere('nama_outlet', 'like', "%{$term}%");
+                });
+            })
             ->orderBy('nama_outlet')
-            ->get(['id_outlet', 'nama_outlet']));
+            ->limit(50);
+
+        return response()->json($query->get(['id_outlet', 'nama_outlet']));
     }
 
     private function isGlobalAdmin(): bool

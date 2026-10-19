@@ -70,8 +70,10 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>ID Outlet <small class="text-muted">(Opsional)</small></label>
-                                                <select name="id_outlet" id="id_outlet" class="form-control select2">
-                                                    <option value="">Pilih / Cari outlet</option>
+                                                <select name="id_outlet" id="id_outlet" class="form-control">
+                                                    @if($edit->id_outlet)
+                                                        <option value="{{ $edit->id_outlet }}" selected>{{ $edit->id_outlet }}</option>
+                                                    @endif
                                                 </select>
                                             </div>
                                         </div>
@@ -166,24 +168,32 @@
                 });
             });
 
+            $('#id_outlet').select2({
+                placeholder: 'Pilih / Cari outlet',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#id_outlet').closest('.card-body'),
+                ajax: {
+                    url: '{{ route('ajax.get-outlets-keluar') }}',
+                    type: 'POST',
+                    delay: 250,
+                    data: params => ({
+                        idtap: $('#kategoritap').val(),
+                        q: params.term || '',
+                        _token: '{{ csrf_token() }}'
+                    }),
+                    processResults: data => ({
+                        results: data.map(item => ({
+                            id: item.id_outlet,
+                            text: `${item.nama_outlet || item.id_outlet} (${item.id_outlet})`
+                        }))
+                    }),
+                    cache: true
+                }
+            });
+
             /* ================= INITIAL LOAD SF LIST ================= */
             const initialTap = $('#kategoritap').val();
-            function loadOutlets(idtap, selected = '') {
-                const $outlet = $('#id_outlet');
-                $outlet.prop('disabled', true).empty().append('<option value="">Pilih / Cari outlet</option>').trigger('change');
-                if (!idtap) return;
-
-                $.post('{{ route('ajax.get-outlets-keluar') }}', { idtap: idtap, _token: '{{ csrf_token() }}' })
-                    .done(res => {
-                        res.forEach(item => {
-                            const label = `${item.nama_outlet || item.id_outlet} (${item.id_outlet})`;
-                            $outlet.append(new Option(label, item.id_outlet, false, String(item.id_outlet) === String(selected)));
-                        });
-                        $outlet.prop('disabled', false).trigger('change');
-                    });
-            }
-
-            loadOutlets(initialTap, originalIdOutlet);
             if (initialTap) {
                 $.post('{{ route('ajax.get-sf-keluar') }}', {
                     idtap: initialTap,
@@ -202,7 +212,7 @@
                 const idtap = $(this).val();
                 const $sf = $('#idsf');
 
-                loadOutlets(idtap);
+                $('#id_outlet').val(null).trigger('change');
 
                 $sf.prop('disabled', true).empty().trigger('change');
 
