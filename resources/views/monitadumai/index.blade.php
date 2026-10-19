@@ -2674,8 +2674,9 @@
         .visit-date-filter input, .visit-date-filter button { min-height: 44px; border-radius: 10px; border: 1px solid #d8dee8; font: inherit; font-weight: 700; }
         .visit-date-filter input { flex: 1 1 170px; min-width: 0; padding: 0 13px; background: #fff; color: #111827; color-scheme: light; }
         .visit-date-filter button { flex: 0 0 auto; padding: 0 16px; border-color: #c9001d; background: #c9001d; color: #fff; cursor: pointer; white-space: nowrap; }
-        .visit-summary-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px,1fr)); gap: 10px; margin: 18px 0; }
-        .visit-summary-strip > div { padding: 16px 18px; border: 1px solid var(--monita-line); border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(15,23,42,.05); }
+        .visit-summary-strip { display: flex; flex-wrap: wrap; gap: 0; margin: 18px 0; padding: 4px 0; border-top: 1px solid var(--monita-line); border-bottom: 1px solid var(--monita-line); background: #fff; }
+        .visit-summary-strip > div { flex: 1 1 120px; min-width: 120px; padding: 12px 15px; border-right: 1px solid var(--monita-line); }
+        .visit-summary-strip > div:last-child { border-right: 0; }
         .visit-summary-strip small { display: block; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
         .visit-summary-strip strong { display: block; margin-top: 7px; color: #111827; font-size: 24px; }
         .visit-detail-card { min-width: 0; max-width: 100%; overflow: hidden; border: 1px solid var(--monita-line); border-radius: 16px; background: #fff; box-shadow: 0 10px 28px rgba(15,23,42,.05); }
@@ -2697,6 +2698,17 @@
         .metric-number.non-buying { background: #fef2f2; color: #b91c1c; }
         .metric-number.pv { background: #fff7ed; color: #c2410c; }
         .metric-number.sa { background: #fdf2f8; color: #be185d; }
+        .visit-percent { display: grid; gap: 5px; min-width: 105px; }
+        .visit-percent-value { color: #1d4ed8; font-weight: 900; }
+        .visit-progress { height: 6px; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
+        .visit-progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #60a5fa); }
+        .visit-table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 18px 0 10px; }
+        .visit-table-tools input, .visit-table-tools select { min-height: 38px; padding: 0 11px; border: 1px solid #d8dee8; border-radius: 9px; background: #fff; color: #334155; font: inherit; font-size: 12px; }
+        .visit-table-tools input { flex: 1 1 220px; }
+        .visit-table-tools select { flex: 0 1 170px; }
+        .visit-summary-table th[data-sort] { cursor: pointer; user-select: none; }
+        .visit-summary-table th[data-sort]::after { content: ' ↕'; color: #94a3b8; font-size: 11px; }
+        .visit-filter-empty { display: none; }
         .visit-empty { padding: 54px !important; text-align: center !important; color: #94a3b8 !important; }
         .visit-empty i, .visit-empty strong, .visit-empty span { display: block; }
         .visit-empty i { margin-bottom: 10px; font-size: 24px; }
@@ -3746,20 +3758,26 @@
                         <div><small>TOTAL PV</small><strong>{{ number_format(collect($visitDetails)->sum('total_pv'), 0, ',', '.') }}</strong></div>
                         <div><small>TOTAL SA</small><strong>{{ number_format(collect($visitDetails)->sum('total_sa'), 0, ',', '.') }}</strong></div>
                     </div>
+                    <div class="visit-table-tools" data-visit-tools>
+                        <input type="search" data-visit-search placeholder="Cari SF, kode, TAP, atau cluster..." aria-label="Cari rekap visit">
+                        <select data-visit-tap aria-label="Filter TAP"><option value="">Semua TAP</option>@foreach(collect($visitDetails)->pluck('tap')->filter()->unique()->sort() as $tap)<option value="{{ $tap }}">{{ $tap }}</option>@endforeach</select>
+                        <select data-visit-cluster aria-label="Filter cluster"><option value="">Semua Cluster</option>@foreach(collect($visitDetails)->pluck('cluster')->filter()->unique()->sort() as $cluster)<option value="{{ $cluster }}">{{ $cluster }}</option>@endforeach</select>
+                        <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="1-desc">Actual Call terbesar</option><option value="6-desc">% Visit terbesar</option><option value="4-desc">Total PJP terbesar</option><option value="10-desc">PV terbesar</option></select>
+                    </div>
                     <div class="visit-detail-card">
                         <div class="visit-detail-table-wrap">
                             <table class="visit-detail-table visit-summary-table" style="min-width:1450px">
-                                <thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th><th>Cluster</th><th>Total PJP</th><th>Actual Call</th><th>% Visit</th><th>Effective Call</th><th>Extra Call</th><th>Non Belanja</th><th>Total PV</th><th>Total SA</th></tr></thead>
+                                <thead><tr><th data-sort="0">SF Code</th><th data-sort="1">Nama SF</th><th data-sort="2">TAP</th><th data-sort="3">Cluster</th><th data-sort="4">Total PJP</th><th data-sort="5">Actual Call</th><th data-sort="6">% Visit</th><th data-sort="7">Effective Call</th><th data-sort="8">Extra Call</th><th data-sort="9">Non Belanja</th><th data-sort="10">Total PV</th><th data-sort="11">Total SA</th></tr></thead>
                                 <tbody>
                                     @forelse($visitDetails as $row)
-                                        <tr>
+                                        <tr data-visit-summary-row data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}">
                                             <td><span class="visit-code">{{ $row['sfcode'] }}</span></td>
                                             <td><strong>{{ $row['name'] }}</strong></td>
                                             <td>{{ $row['tap'] }}</td>
                                             <td><span class="cluster-chip">{{ $row['cluster'] }}</span></td>
                                             <td><span class="metric-number">{{ number_format($row['pjp_total'], 0, ',', '.') }}</span></td>
                                             <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0, ',', '.') }}</button></td>
-                                            <td><span class="metric-number actual">{{ number_format($row['visit_percentage'], 1, ',', '.') }}%</span></td>
+                                            <td><div class="visit-percent"><span class="visit-percent-value">{{ number_format($row['visit_percentage'], 1, ',', '.') }}%</span><span class="visit-progress"><span style="width: {{ min(100, max(0, $row['visit_percentage'])) }}%"></span></span></div></td>
                                             <td><button type="button" class="metric-number effective" data-visit-row="{{ $loop->index }}" data-visit-scope="effective">{{ number_format($row['effective_call'], 0, ',', '.') }}</button></td>
                                             <td><button type="button" class="metric-number non-pjp" data-visit-row="{{ $loop->index }}" data-visit-scope="non-pjp">{{ number_format($row['non_pjp'], 0, ',', '.') }}</button></td>
                                             <td><button type="button" class="metric-number non-buying" data-visit-row="{{ $loop->index }}" data-visit-scope="non-buying">{{ number_format($row['non_buying'], 0, ',', '.') }}</button></td>
@@ -6557,6 +6575,53 @@
               .catch(() => {});
         }, 5000);
         @endif
+
+        // Rekap visit: pencarian, filter, dan sorting berjalan di sisi browser
+        // agar tabel tetap responsif tanpa request ulang ke server.
+        (() => {
+            const table = document.querySelector('.visit-summary-table');
+            const tools = document.querySelector('[data-visit-tools]');
+            if (!table || !tools) return;
+            const body = table.tBodies[0];
+            const rows = Array.from(body.querySelectorAll('tr[data-visit-summary-row]'));
+            const originalOrder = [...rows];
+            const search = tools.querySelector('[data-visit-search]');
+            const tap = tools.querySelector('[data-visit-tap]');
+            const cluster = tools.querySelector('[data-visit-cluster]');
+            const sort = tools.querySelector('[data-visit-sort]');
+
+            const apply = () => {
+                const term = (search.value || '').trim().toLowerCase();
+                const tapValue = tap.value.toLowerCase();
+                const clusterValue = cluster.value.toLowerCase();
+                const visible = rows.filter(row => {
+                    const textMatch = !term || row.textContent.toLowerCase().includes(term);
+                    return textMatch && (!tapValue || row.dataset.tap.toLowerCase() === tapValue)
+                        && (!clusterValue || row.dataset.cluster.toLowerCase() === clusterValue);
+                });
+                const [column, direction] = (sort.value || '').split('-');
+                if (column) {
+                    visible.sort((a, b) => {
+                        const av = a.cells[Number(column)]?.textContent.trim() || '';
+                        const bv = b.cells[Number(column)]?.textContent.trim() || '';
+                        const an = Number(av.replace(/[^0-9,.-]/g, '').replace(',', '.'));
+                        const bn = Number(bv.replace(/[^0-9,.-]/g, '').replace(',', '.'));
+                        const comparison = Number.isNaN(an) || Number.isNaN(bn) ? av.localeCompare(bv) : an - bn;
+                        return direction === 'desc' ? -comparison : comparison;
+                    });
+                } else {
+                    visible.sort((a, b) => originalOrder.indexOf(a) - originalOrder.indexOf(b));
+                }
+                rows.forEach(row => { row.hidden = !visible.includes(row); body.appendChild(row); });
+            };
+            [search, tap, cluster, sort].forEach(control => control?.addEventListener(control.tagName === 'INPUT' ? 'input' : 'change', apply));
+            table.querySelectorAll('th[data-sort]').forEach(header => header.addEventListener('click', () => {
+                const index = header.dataset.sort;
+                const current = sort.value;
+                sort.value = current === `${index}-desc` ? `${index}-asc` : `${index}-desc`;
+                apply();
+            }));
+        })();
     </script>
 </body>
 
