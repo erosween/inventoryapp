@@ -26,7 +26,7 @@ class HomeController extends Controller
         };
 
         /* ================= DETECT CURRENT DATE IN SYSTEM ================= */
-        $latestRecord = DB::table('keluarsf')->max('tgl');
+        $latestRecord = $this->combinedSalesQuery()->max('tgl');
         $currentDate = $latestRecord ? Carbon::parse($latestRecord) : now();
 
         $request->validate([
@@ -84,13 +84,13 @@ class HomeController extends Controller
         $applyFilter($tapMasuk);
         $tapMasuk = $tapMasuk->pluck('last_masuk', 'idtap');
 
-        $tapKeluar = DB::table('keluarsf')
+        $tapKeluar = $this->combinedSalesQuery()
             ->selectRaw('idtap, MAX(tgl) AS last_keluar')
             ->groupBy('idtap');
         $applyFilter($tapKeluar);
         $tapKeluar = $tapKeluar->pluck('last_keluar', 'idtap');
 
-        $tapList = DB::table('keluarsf')
+        $tapList = $this->combinedSalesQuery()
             ->select('idtap')
             ->distinct()
             ->orderBy('idtap');
@@ -110,11 +110,11 @@ class HomeController extends Controller
         $applyFilter($qStokInject2, 'idsf.idtap');
         $stokInject = $qStokInject1->sum('stock') + $qStokInject2->sum('sf.stock');
 
-        $qSalesBulanIni = DB::table('keluarsf')->whereBetween('tgl', [$startThisMonth, $endThisMonth]);
+        $qSalesBulanIni = $this->combinedSalesQuery()->whereBetween('tgl', [$startThisMonth, $endThisMonth]);
         $applyFilter($qSalesBulanIni);
         $salesBulanIni = $qSalesBulanIni->sum('qty');
 
-        $qSalesPrev = DB::table('keluarsf')->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
+        $qSalesPrev = $this->combinedSalesQuery()->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
         $applyFilter($qSalesPrev);
         $salesPrev = $qSalesPrev->sum('qty');
 
@@ -158,7 +158,7 @@ class HomeController extends Controller
         $chartInject = $qChartInject->get();
 
         /* ================= MoM PER TAP (TANGGAL PILIHAN vs M-1) ================= */
-        $qMomTap = DB::table('keluarsf')
+        $qMomTap = $this->combinedSalesQuery()
             ->selectRaw("
                 idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
@@ -224,7 +224,7 @@ class HomeController extends Controller
 
         /* ================= MoM PER SF ================= */
         $qMomSf = DB::table('idsf as s')
-            ->leftJoin('keluarsf as k', 'k.idsf', '=', 's.idsf')
+            ->leftJoinSub($this->combinedSalesQuery(), 'k', 'k.idsf', '=', 's.idsf')
             ->selectRaw("
                 s.idtap, s.idsf, s.namasf,
                 SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS curr_qty,
@@ -249,7 +249,7 @@ class HomeController extends Controller
             });
 
         /* ================= MOM DAILY ================= */
-        $qMomDaily = DB::table('keluarsf')
+        $qMomDaily = $this->combinedSalesQuery()
             ->selectRaw("
                 DAY(tgl) AS day,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
@@ -307,7 +307,7 @@ class HomeController extends Controller
             });
         };
 
-        $qMomTapSales = DB::table('keluarsf')
+        $qMomTapSales = $this->combinedSalesQuery()
             ->selectRaw('idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty', [
@@ -326,7 +326,7 @@ class HomeController extends Controller
 
         $momClusterSales = [];
         foreach ($clusterMap as $key => $taps) {
-            $clusterSalesQuery = DB::table('keluarsf')
+            $clusterSalesQuery = $this->combinedSalesQuery()
                 ->selectRaw('SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty', [
                     $momStartThisMonth, $momSelectedDate,
@@ -658,5 +658,23 @@ class HomeController extends Controller
             'momClusterInject',
             'momGTInject'
         ));
+    }
+
+    /**
+     * Unified sales source for legacy SF stock-outs and approved Surya sales.
+     */
+    private function combinedSalesQuery()
+    {
+        $stockOut = DB::table('keluarsf')->select([
+            'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
+        ]);
+
+        $surya = DB::table('mobile_penjualan')
+            ->where('status', 'approved')
+            ->select([
+                'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
+            ]);
+
+        return DB::query()->fromSub($stockOut->unionAll($surya), 'combined_sales');
     }
 }
