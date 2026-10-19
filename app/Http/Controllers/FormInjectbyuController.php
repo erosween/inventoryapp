@@ -18,7 +18,7 @@ class FormInjectbyuController extends Controller
         $denom = DB::table('denom')
                     ->select('iddenom', 'denom')
                     ->where('kategori_inject', $config['destination_category'])
-                    ->where('product_group', $config['product_group'])
+                    ->where($this->productGroupFilter($config['product_group']))
                     ->where('iddenom', '!=', $config['source_id'])
                     ->get();
 
@@ -83,7 +83,7 @@ class FormInjectbyuController extends Controller
         $config = $this->categoryConfig($payload['category']);
         $allowedDenoms = DB::table('denom')
             ->where('kategori_inject', $config['destination_category'])
-            ->where('product_group', $config['product_group'])
+            ->where($this->productGroupFilter($config['product_group']))
             ->where('iddenom', '!=', $config['source_id'])
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)
@@ -159,6 +159,19 @@ class FormInjectbyuController extends Controller
         return match (strtoupper($category)) {
             'SP7' => ['label' => 'PERDANA SEGEL BYU', 'source_id' => 'SP7', 'destination_category' => 'SA', 'product_group' => 'SP'],
             default => ['label' => 'PV BYU SEGEL', 'source_id' => 'V33', 'destination_category' => 'BYU', 'product_group' => 'PV'],
+        };
+    }
+
+    private function productGroupFilter(string $productGroup): \Closure
+    {
+        return function ($query) use ($productGroup) {
+            $query->where('product_group', $productGroup);
+
+            // Legacy PV denom rows may predate product_group and remain blank.
+            if ($productGroup === 'PV') {
+                $query->orWhereNull('product_group')
+                    ->orWhere('product_group', '');
+            }
         };
     }
 
