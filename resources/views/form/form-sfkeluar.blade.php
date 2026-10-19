@@ -303,16 +303,6 @@
                                             </div>
                                         </div>
 
-                                        {{-- OUTLET --}}
-                                        <div class="sf-field">
-                                            <div class="form-group mb-1">
-                                                <label for="id_outlet"><i class="fas fa-store"></i>Outlet Tujuan</label>
-                                                <select name="id_outlet" id="id_outlet" class="form-control select2" disabled>
-                                                    <option value="">-- Pilih Outlet --</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
                                         {{-- TAP --}}
                                         <div class="sf-field">
                                             <div class="form-group mb-1">
@@ -334,6 +324,16 @@
                                                 <select name="idsf" id="idsf" class="form-control select2" disabled
                                                     required>
                                                     <option></option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {{-- OUTLET --}}
+                                        <div class="sf-field">
+                                            <div class="form-group mb-1">
+                                                <label for="id_outlet"><i class="fas fa-store"></i>ID Outlet (Opsional)</label>
+                                                <select name="id_outlet" id="id_outlet" class="form-control select2" disabled>
+                                                    <option value="">-- Pilih Outlet --</option>
                                                 </select>
                                             </div>
                                         </div>
