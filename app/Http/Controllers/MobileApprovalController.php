@@ -358,6 +358,7 @@ class MobileApprovalController extends Controller
                 DB::table('keluarsf')->insert([
                     'idtap' => $sale->idtap,
                     'idsf' => $sale->idsf,
+                    'id_outlet' => $sale->id_outlet,
                     'iddenom' => $sale->iddenom,
                     'qty' => $sale->qty,
                     'tgl' => $sale->tgl,

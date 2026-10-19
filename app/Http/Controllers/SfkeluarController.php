@@ -420,6 +420,7 @@ public function updateSfKeluar(Request $request, $id)
             'required',
             Rule::exists('idsf', 'idsf')->where(fn ($query) => $query->where('idtap', $request->idtap)),
         ],
+        'id_outlet' => 'nullable|exists:appsdumais,id_outlet',
         'iddenom' => 'required|exists:denom,iddenom',
         'qty' => 'required|integer|min:1',
         'tambahanket' => 'nullable|string|max:255',
@@ -433,6 +434,7 @@ public function updateSfKeluar(Request $request, $id)
         $newQty        = (int) $validated['qty'];
         $newTgl        = $validated['tgl'];
         $newKet        = $validated['tambahanket'] ?? null;
+        $newOutlet     = $validated['id_outlet'] ?? null;
 
         // 1. Lock Data Lama
         $old = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
@@ -480,6 +482,7 @@ public function updateSfKeluar(Request $request, $id)
                     'iddenom'     => $newIddenom,
                     'qty'         => $newQty,
                     'tgl'         => $newTgl,
+                    'id_outlet'   => $newOutlet,
                     'tambahanket' => $newKet
                 ]);
 
