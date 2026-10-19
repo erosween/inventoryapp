@@ -229,8 +229,23 @@ class MonitaDumaiController extends Controller
                 $row->notes,
             ]);
 
+        $consignmentMovements = DB::table('surya_sa_consignment_movements as h')
+            ->leftJoin('appsdumais as from_o', 'from_o.id_outlet', '=', 'h.from_id_outlet')
+            ->leftJoin('appsdumais as to_o', 'to_o.id_outlet', '=', 'h.to_id_outlet')
+            ->leftJoin('idsf as s', 's.idsf', '=', 'h.idsf')
+            ->whereBetween('h.moved_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('h.idtap', $tapScopes))
+            ->orderBy('h.moved_at')
+            ->get(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id'])
+            ->map(fn ($row) => [
+                Carbon::parse($row->moved_at)->format('d/m/Y H:i:s'), $row->serial_number,
+                $row->from_id_outlet ?: '—', $row->from_name ?: ($row->from_id_outlet ?: '—'),
+                $row->to_id_outlet, $row->to_name ?: $row->to_id_outlet, $row->idtap,
+                $row->idsf, $row->namasf ?: $row->idsf, $row->receipt_id ?: '—',
+            ]);
+
         return Excel::download(
-            new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments),
+            new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments, $consignmentMovements),
             "surya-penjualan-{$monthStart}-sampai-{$today}.xlsx"
         );
     }

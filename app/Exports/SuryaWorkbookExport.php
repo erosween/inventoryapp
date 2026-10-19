@@ -12,6 +12,7 @@ class SuryaWorkbookExport implements WithMultipleSheets
         private readonly Collection $salesRows,
         private readonly Collection $adminSalesRows,
         private readonly Collection $consignmentRows,
+        private readonly Collection $consignmentMovementRows,
     )
     {
     }
@@ -23,6 +24,7 @@ class SuryaWorkbookExport implements WithMultipleSheets
             new SuryaSalesProductExport($this->salesRows),
             new SuryaAdminSalesExport($this->adminSalesRows),
             new SuryaConsignmentExport($this->consignmentRows),
+            new SuryaConsignmentMovementExport($this->consignmentMovementRows),
         ];
     }
 }

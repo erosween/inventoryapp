@@ -489,6 +489,24 @@ SQL;
 
                 if ($consignmentNumbers !== []) {
                     $timestamp = now();
+                    $existingConsignments = DB::table('surya_sa_consignment_numbers')
+                        ->whereIn('serial_number', $consignmentNumbers)
+                        ->where('id_outlet', '<>', $requestedOutlet)
+                        ->whereNotNull('id_outlet')
+                        ->get(['serial_number', 'id_outlet']);
+                    foreach ($existingConsignments as $existing) {
+                        DB::table('surya_sa_consignment_movements')->insert([
+                            'serial_number' => $existing->serial_number,
+                            'from_id_outlet' => $existing->id_outlet,
+                            'to_id_outlet' => $requestedOutlet,
+                            'receipt_id' => $receipt->id,
+                            'idtap' => session('idtap'),
+                            'idsf' => $idsf,
+                            'moved_at' => $timestamp,
+                            'created_at' => $timestamp,
+                            'updated_at' => $timestamp,
+                        ]);
+                    }
                     DB::table('surya_sa_consignment_numbers')
                         ->whereIn('serial_number', $consignmentNumbers)
                         ->update([
