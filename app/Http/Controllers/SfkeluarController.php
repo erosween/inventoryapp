@@ -137,8 +137,10 @@ use Illuminate\Validation\ValidationException;
         $idtap = $request->input('idtap');
         abort_unless($idtap, 422);
 
+        $showAllOutlets = $this->isGlobalAdmin() || in_array((string) session('idtap'), ['DUMAI', 'SBP_DUMAI'], true);
+
         return response()->json(DB::table('appsdumais')
-            ->when(! $this->isGlobalAdmin(), fn ($q) => $q->where('idtap', $idtap))
+            ->when(! $showAllOutlets, fn ($q) => $q->where('idtap', $idtap))
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet']));
     }
@@ -166,7 +168,7 @@ use Illuminate\Validation\ValidationException;
         'tgl' => 'required|date|before_or_equal:today',
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
-        'id_outlet' => 'required|exists:appsdumais,id_outlet',
+        'id_outlet' => 'nullable|exists:appsdumais,id_outlet',
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
         'items.*.qty' => 'required|integer|min:1',

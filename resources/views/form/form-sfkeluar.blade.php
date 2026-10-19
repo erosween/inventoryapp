@@ -307,7 +307,7 @@
                                         <div class="sf-field">
                                             <div class="form-group mb-1">
                                                 <label for="id_outlet"><i class="fas fa-store"></i>Outlet Tujuan</label>
-                                                <select name="id_outlet" id="id_outlet" class="form-control select2" disabled required>
+                                                <select name="id_outlet" id="id_outlet" class="form-control select2" disabled>
                                                     <option value="">-- Pilih Outlet --</option>
                                                 </select>
                                             </div>
@@ -631,6 +631,8 @@
             }).on('input change', '.bulk-qty', function() {
                 validateBulkRows();
             });
+            // Load outlets immediately when the TAP is preselected (e.g. admin Dumai).
+            $('#kategoritap').trigger('change');
             $('#input_mode').trigger('change');
 
         });
