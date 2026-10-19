@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use App\Services\OptimizedImageStorage;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -488,6 +489,12 @@ class MonitaDumaiController extends Controller
     {
         app(\App\Http\Controllers\SuryaVisitReportController::class)->autoApprovePending(request());
 
+        // Keep the dashboard available during deployment if the optional
+        // receipt-photo migration has not been run on the production DB yet.
+        $receiptPhotoSelect = Schema::hasColumn('mobile_sales_receipts', 'receipt_photo_path')
+            ? DB::raw("(SELECT r.receipt_photo_path FROM mobile_sales_receipts r WHERE r.id_outlet = v.id_outlet AND r.idsf = v.idsf AND r.tgl = DATE(v.visited_at) AND r.receipt_photo_path IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS receipt_photo_path")
+            : DB::raw('NULL AS receipt_photo_path');
+
         return DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
@@ -498,7 +505,7 @@ class MonitaDumaiController extends Controller
             ->get([
                 'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
                 'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
-                DB::raw("(SELECT r.receipt_photo_path FROM mobile_sales_receipts r WHERE r.id_outlet = v.id_outlet AND r.idsf = v.idsf AND r.tgl = DATE(v.visited_at) AND r.receipt_photo_path IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS receipt_photo_path"),
+                $receiptPhotoSelect,
                 'o.nama_outlet', 's.namasf',
             ])
             ->map(function ($visit) {
