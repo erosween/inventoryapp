@@ -40,6 +40,8 @@ class SuryaVisitController extends Controller
             ->whereDate('visited_at', now()->toDateString())
             ->latest('visited_at')
             ->first() : null;
+        $this->autoApproveExpiredVisit($visit);
+        $visit?->refresh();
         $photoDone = $visit
             && $visit->gps_status !== 'rejected'
             && filled($visit->photo_front_path)
@@ -80,6 +82,9 @@ class SuryaVisitController extends Controller
             ->first();
 
         abort_unless($visit, 404, 'Visit tidak ditemukan.');
+
+        $this->autoApproveExpiredVisit($visit);
+        $visit->refresh();
 
         $photoDone = $visit->gps_status !== 'rejected'
             && filled($visit->photo_front_path)
@@ -123,6 +128,23 @@ class SuryaVisitController extends Controller
         return redirect()
             ->route('mobile.index')
             ->with('success', 'Visit ditutup tanpa penjualan dan tetap dihitung sebagai Actual Call.');
+    }
+
+    private function autoApproveExpiredVisit(?SuryaVisit $visit): void
+    {
+        if (! $visit
+            || $visit->gps_status !== 'pending_admin'
+            || ! $visit->visited_at
+            || $visit->visited_at->gt(now('Asia/Jakarta')->subSeconds(15))) {
+            return;
+        }
+
+        if (SuryaVisit::query()->whereKey($visit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'approved'])) {
+            DB::table('appsdumais')->where('id_outlet', $visit->id_outlet)->update([
+                'latitude' => $visit->latitude,
+                'longitude' => $visit->longitude,
+            ]);
+        }
     }
 
     public function store(Request $request)

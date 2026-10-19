@@ -370,6 +370,25 @@ SQL;
             ->whereNotNull('photo_inside_path')
             ->exists();
         if (! $approvedVisit && ! $isNonDigipos) {
+            $pendingVisit = DB::table('surya_visits')
+                ->where('idsf', $idsf)
+                ->where('id_outlet', $requestedOutlet)
+                ->whereDate('visited_at', $salesDate)
+                ->where('gps_status', 'pending_admin')
+                ->whereNotNull('photo_front_path')
+                ->whereNotNull('photo_inside_path')
+                ->where('visited_at', '<=', now('Asia/Jakarta')->subSeconds(15))
+                ->latest('visited_at')
+                ->first();
+            if ($pendingVisit && DB::table('surya_visits')->where('id', $pendingVisit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'approved'])) {
+                DB::table('appsdumais')->where('id_outlet', $requestedOutlet)->update([
+                    'latitude' => $pendingVisit->latitude,
+                    'longitude' => $pendingVisit->longitude,
+                ]);
+                $approvedVisit = true;
+            }
+        }
+        if (! $approvedVisit && ! $isNonDigipos) {
             return back()->withInput()->with('error', 'Lengkapi foto tampak depan dan foto etalase, lalu pastikan lokasi valid atau sudah disetujui admin.');
         }
 
