@@ -499,7 +499,9 @@
                     if (checking || !remote) {
                         state = 'checking'; message = 'Memeriksa ketersediaan…'; icon = 'fa-circle-notch fa-spin';
                     } else if (remote.available) {
-                        state = 'valid'; message = 'Nomor tersedia'; icon = 'fa-check-circle';
+                        state = 'valid';
+                        message = remote.will_move ? `Akan dipindahkan dari ${remote.nama_outlet || remote.id_outlet} ke outlet ini` : 'Nomor tersedia';
+                        icon = remote.will_move ? 'fa-right-left' : 'fa-check-circle';
                     } else {
                         state = 'invalid';
                         const outlet = remote.nama_outlet || remote.id_outlet || 'outlet lain';
@@ -539,7 +541,7 @@
             consignmentCheckRequest = $.ajax({
                 url: "{{ route('mobile.consignment.check') }}",
                 method: 'POST',
-                data: { _token: "{{ csrf_token() }}", numbers: result.numbers }
+                data: { _token: "{{ csrf_token() }}", numbers: result.numbers, id_outlet: $('#id_outlet').val() }
             }).done(response => {
                 consignmentAvailability = new Map((response.results || []).map(item => [String(item.number), item]));
                 checkedConsignmentKey = key;

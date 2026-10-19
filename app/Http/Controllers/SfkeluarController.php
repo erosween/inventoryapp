@@ -131,6 +131,17 @@ use Illuminate\Validation\ValidationException;
         return response()->json($sfData);
     }
 
+    public function getOutlets(Request $request)
+    {
+        $idtap = $request->input('idtap');
+        abort_unless($idtap, 422);
+
+        return response()->json(DB::table('appsdumais')
+            ->where('idtap', $idtap)
+            ->orderBy('nama_outlet')
+            ->get(['id_outlet', 'nama_outlet']));
+    }
+
     /* =========================
        PROSES KELUAR SF
     ========================= */
@@ -149,6 +160,7 @@ use Illuminate\Validation\ValidationException;
         'tgl' => 'required|date|before_or_equal:today',
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
+        'id_outlet' => 'required|exists:appsdumais,id_outlet',
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
         'items.*.qty' => 'required|integer|min:1',
@@ -205,6 +217,7 @@ use Illuminate\Validation\ValidationException;
             $newId = DB::table('keluarsf')->insertGetId([
                 'idtap' => $validated['idtap'],
                 'idsf' => $validated['idsf'],
+                'id_outlet' => $validated['id_outlet'] ?? null,
                 'iddenom' => $item['iddenom'],
                 'qty' => $item['qty'],
                 'tgl' => $validated['tgl'],

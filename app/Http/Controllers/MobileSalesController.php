@@ -312,16 +312,8 @@ SQL;
                 ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
                 ->whereIn('c.serial_number', $consignmentNumbers)
                 ->get(['c.serial_number', 'c.id_outlet', 'o.nama_outlet']);
-            if ($registered->isNotEmpty()) {
-                $locations = $registered->map(function ($row) {
-                    $outlet = $row->nama_outlet ?: $row->id_outlet;
-                    return "{$row->serial_number} di {$outlet}";
-                })->implode(', ');
-
-                return back()->withInput()->withErrors([
-                    'consignment_numbers' => 'Nomor sudah tercatat: '.$locations.'.',
-                ]);
-            }
+            // Existing numbers are allowed: they will be moved to the outlet
+            // currently selected in this transaction.
         }
 
         if ($products === [] && $consignmentNumbers === []) {
@@ -496,20 +488,20 @@ SQL;
                 }
 
                 if ($consignmentNumbers !== []) {
-                    $registeredNumbers = DB::table('surya_sa_consignment_numbers')
-                        ->whereIn('serial_number', $consignmentNumbers)
-                        ->lockForUpdate()
-                        ->pluck('serial_number')
-                        ->all();
-
-                    if ($registeredNumbers !== []) {
-                        throw ValidationException::withMessages([
-                            'consignment_numbers' => 'Nomor perdana baru saja tercatat di transaksi lain: '.implode(', ', array_slice($registeredNumbers, 0, 5)).'.',
-                        ]);
-                    }
-
                     $timestamp = now();
-                    DB::table('surya_sa_consignment_numbers')->insert(
+                    DB::table('surya_sa_consignment_numbers')
+                        ->whereIn('serial_number', $consignmentNumbers)
+                        ->update([
+                            'receipt_id' => $receipt->id,
+                            'reported_at' => $timestamp,
+                            'id_outlet' => $requestedOutlet,
+                            'idtap' => session('idtap'),
+                            'idsf' => $idsf,
+                            'status' => 'draft',
+                            'notes' => $request->keterangan,
+                            'updated_at' => $timestamp,
+                        ]);
+                    DB::table('surya_sa_consignment_numbers')->insertOrIgnore(
                         collect($consignmentNumbers)->map(fn (string $number) => [
                             'receipt_id' => $receipt->id,
                             'reported_at' => $timestamp,
@@ -569,6 +561,7 @@ SQL;
         $validated = $request->validate([
             'numbers' => ['required', 'array', 'max:100'],
             'numbers.*' => ['required', 'string', 'regex:/^\d{8,20}$/'],
+            'id_outlet' => ['nullable', 'string', 'max:100'],
         ]);
 
         $numbers = collect($validated['numbers'])->unique()->values();
@@ -578,13 +571,16 @@ SQL;
             ->get(['c.serial_number', 'c.id_outlet', 'c.status', 'o.nama_outlet'])
             ->keyBy('serial_number');
 
+        $targetOutlet = $validated['id_outlet'] ?? null;
+
         return response()->json([
             'results' => $numbers->map(function ($number) use ($registered) {
                 $match = $registered->get($number);
 
                 return [
                     'number' => $number,
-                    'available' => ! $match,
+                    'available' => ! $match || ($targetOutlet && $match->id_outlet !== $targetOutlet),
+                    'will_move' => (bool) ($targetOutlet && $match && $match->id_outlet !== $targetOutlet),
                     'id_outlet' => $match->id_outlet ?? null,
                     'nama_outlet' => $match->nama_outlet ?? null,
                 ];

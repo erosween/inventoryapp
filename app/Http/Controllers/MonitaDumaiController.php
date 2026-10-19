@@ -198,20 +198,39 @@ class MonitaDumaiController extends Controller
             ->whereBetween('k.tgl', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('k.idtap', $tapScopes))
             ->orderBy('k.tgl')->orderBy('k.idtap')->orderBy('s.namasf')
-            ->get(['k.tgl', 'k.idtap', 'k.idsf', 'k.iddenom', 's.namasf', 'k.tambahanket', 'd.denom', 'k.qty'])
+            ->get(['k.tgl', 'k.idtap', 'k.idsf', 'k.id_outlet', 'k.iddenom', 's.namasf', 'k.tambahanket', 'd.denom', 'k.qty'])
             ->map(fn ($row) => [
                 Carbon::parse($row->tgl)->format('d/m/Y'),
                 $row->idtap,
                 $row->idsf,
                 $row->namasf ?: $row->idsf,
-                $row->tambahanket ?: '—',
+                $row->id_outlet ?: ($row->tambahanket ?: '—'),
                 $row->denom ?: $row->iddenom,
                 (int) $row->qty,
                 $row->tambahanket,
             ]);
 
+        $consignments = DB::table('surya_sa_consignment_numbers as c')
+            ->leftJoin('idsf as s', 's.idsf', '=', 'c.idsf')
+            ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
+            ->whereBetween('c.reported_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('c.idtap', $tapScopes))
+            ->orderBy('c.reported_at')->orderBy('c.idtap')->orderBy('o.nama_outlet')
+            ->get(['c.reported_at', 'c.idtap', 'c.idsf', 's.namasf', 'c.id_outlet', 'o.nama_outlet', 'c.serial_number', 'c.status', 'c.notes'])
+            ->map(fn ($row) => [
+                Carbon::parse($row->reported_at)->format('d/m/Y H:i:s'),
+                $row->idtap,
+                $row->idsf,
+                $row->namasf ?: $row->idsf,
+                $row->id_outlet,
+                $row->nama_outlet ?: $row->id_outlet,
+                $row->serial_number,
+                strtoupper((string) $row->status),
+                $row->notes,
+            ]);
+
         return Excel::download(
-            new SuryaWorkbookExport($rows, $sales, $adminSales),
+            new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments),
             "surya-penjualan-{$monthStart}-sampai-{$today}.xlsx"
         );
     }

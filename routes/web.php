@@ -213,6 +213,8 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('form/form-sfkeluar', [SfkeluarController::class, 'formkeluarsf']);
 	Route::post('/ajax/get-sf-keluar', [SfkeluarController::class, 'getSf'])
 		->name('ajax.get-sf-keluar');
+	Route::post('/ajax/get-outlets-keluar', [SfkeluarController::class, 'getOutlets'])
+		->name('ajax.get-outlets-keluar');
 	Route::post('/ajax/get-stock', [SfkeluarController::class, 'getStock'])
 		->name('ajax.get-stock');
 	Route::post('/ajax/get-all-stock', [SfkeluarController::class, 'getAllStock'])

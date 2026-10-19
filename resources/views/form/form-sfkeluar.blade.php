@@ -303,6 +303,16 @@
                                             </div>
                                         </div>
 
+                                        {{-- OUTLET --}}
+                                        <div class="sf-field">
+                                            <div class="form-group mb-1">
+                                                <label for="id_outlet"><i class="fas fa-store"></i>Outlet Tujuan</label>
+                                                <select name="id_outlet" id="id_outlet" class="form-control select2" disabled required>
+                                                    <option value="">-- Pilih Outlet --</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         {{-- TAP --}}
                                         <div class="sf-field">
                                             <div class="form-group mb-1">
@@ -397,8 +407,10 @@
             $('#kategoritap').on('change', function() {
                 const idtap = $(this).val();
                 const $sf = $('#idsf');
+                const $outlet = $('#id_outlet');
 
                 $sf.prop('disabled', true).empty().trigger('change');
+                $outlet.prop('disabled', true).empty().append('<option value="">-- Pilih Outlet --</option>').trigger('change');
 
                 if (!idtap) return;
 
@@ -414,6 +426,13 @@
                         $sf.html(options)
                             .prop('disabled', false)
                             .trigger('change');
+                    });
+
+                $.post('{{ route('ajax.get-outlets-keluar') }}', { idtap, _token: '{{ csrf_token() }}' })
+                    .done(res => {
+                        let options = '<option value="">-- Pilih Outlet --</option>';
+                        res.forEach(item => { options += `<option value="${item.id_outlet}">${item.id_outlet} · ${item.nama_outlet || item.id_outlet}</option>`; });
+                        $outlet.html(options).prop('disabled', false).trigger('change');
                     });
             });
 
