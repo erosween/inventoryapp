@@ -3762,7 +3762,7 @@
                         <input type="search" data-visit-search placeholder="Cari SF, kode, TAP, atau cluster..." aria-label="Cari rekap visit">
                         <select data-visit-tap aria-label="Filter TAP"><option value="">Semua TAP</option>@foreach(collect($visitDetails)->pluck('tap')->filter()->unique()->sort() as $tap)<option value="{{ $tap }}">{{ $tap }}</option>@endforeach</select>
                         <select data-visit-cluster aria-label="Filter cluster"><option value="">Semua Cluster</option>@foreach(collect($visitDetails)->pluck('cluster')->filter()->unique()->sort() as $cluster)<option value="{{ $cluster }}">{{ $cluster }}</option>@endforeach</select>
-                        <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="1-desc">Actual Call terbesar</option><option value="6-desc">% Visit terbesar</option><option value="4-desc">Total PJP terbesar</option><option value="10-desc">PV terbesar</option></select>
+                        <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="5-desc">Actual Call terbesar</option><option value="6-desc">% Visit terbesar</option><option value="4-desc">Total PJP terbesar</option><option value="10-desc">PV terbesar</option></select>
                     </div>
                     <div class="visit-detail-card">
                         <div class="visit-detail-table-wrap">
@@ -6596,8 +6596,8 @@
                 const clusterValue = cluster.value.toLowerCase();
                 const visible = rows.filter(row => {
                     const textMatch = !term || row.textContent.toLowerCase().includes(term);
-                    return textMatch && (!tapValue || row.dataset.tap.toLowerCase() === tapValue)
-                        && (!clusterValue || row.dataset.cluster.toLowerCase() === clusterValue);
+                    return textMatch && (!tapValue || String(row.dataset.tap || '').toLowerCase() === tapValue)
+                        && (!clusterValue || String(row.dataset.cluster || '').toLowerCase() === clusterValue);
                 });
                 const [column, direction] = (sort.value || '').split('-');
                 if (column) {
@@ -6612,13 +6612,23 @@
                 } else {
                     visible.sort((a, b) => originalOrder.indexOf(a) - originalOrder.indexOf(b));
                 }
-                rows.forEach(row => { row.hidden = !visible.includes(row); body.appendChild(row); });
+                rows.forEach(row => {
+                    row.hidden = !visible.includes(row);
+                    row.style.display = visible.includes(row) ? '' : 'none';
+                    body.appendChild(row);
+                });
             };
-            [search, tap, cluster, sort].forEach(control => control?.addEventListener(control.tagName === 'INPUT' ? 'input' : 'change', apply));
+            [search, tap, cluster, sort].forEach(control => {
+                control?.addEventListener('input', apply);
+                control?.addEventListener('change', apply);
+            });
             table.querySelectorAll('th[data-sort]').forEach(header => header.addEventListener('click', () => {
                 const index = header.dataset.sort;
                 const current = sort.value;
                 sort.value = current === `${index}-desc` ? `${index}-asc` : `${index}-desc`;
+                if (!Array.from(sort.options).some(option => option.value === sort.value)) {
+                    sort.value = '';
+                }
                 apply();
             }));
         })();
