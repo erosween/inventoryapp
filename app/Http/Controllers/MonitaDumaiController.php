@@ -500,7 +500,10 @@ class MonitaDumaiController extends Controller
 
                 $nonPjp = collect($actualDetails)->where('is_pjp', false)->count();
                 $nonBuying = collect($actualDetails)->where('effective', false)->count();
-                $actualCall = $actual->pluck('id_outlet')->filter()->unique()->count();
+                // Actual Call untuk persentase visit hanya menghitung outlet
+                // yang memang masuk jadwal PJP. Extra Call ditampilkan
+                // terpisah dan tidak boleh menaikkan % Visit.
+                $actualCall = collect($actualDetails)->where('is_pjp', true)->count();
                 $pjpTotal = (int) $pjpCountsBySalesForce->get(mb_strtoupper(trim((string) $sf->namasf)), 0);
 
                 return [
