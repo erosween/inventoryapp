@@ -394,7 +394,7 @@ public function editSfKeluar($id)
 
     $denom = DB::table('denom')->get();
     $data  = DB::table('kodetap')
-        ->when($idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
+        ->when(! $this->isGlobalAdmin() && $idtap !== 'SBP_DUMAI', function ($q) use ($idtap) {
             $q->where('idtap', $idtap);
         })
         ->get();

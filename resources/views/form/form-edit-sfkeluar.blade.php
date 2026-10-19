@@ -66,6 +66,16 @@
                                             </div>
                                         </div>
 
+                                        {{-- ID Outlet --}}
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>ID Outlet <small class="text-muted">(Opsional)</small></label>
+                                                <select name="id_outlet" id="id_outlet" class="form-control select2">
+                                                    <option value="">Pilih / Cari outlet</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         {{-- Denom --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
@@ -144,6 +154,7 @@
             const originalIdSf = "{{ $edit->idsf }}";
             const originalIdDenom = "{{ $edit->iddenom }}";
             const originalQty = parseInt("{{ $edit->qty }}") || 0;
+            const originalIdOutlet = @json($edit->id_outlet ?? '');
 
             /* ================= SELECT2 ================= */
             $('.select2').each(function() {
@@ -157,6 +168,22 @@
 
             /* ================= INITIAL LOAD SF LIST ================= */
             const initialTap = $('#kategoritap').val();
+            function loadOutlets(idtap, selected = '') {
+                const $outlet = $('#id_outlet');
+                $outlet.prop('disabled', true).empty().append('<option value="">Pilih / Cari outlet</option>').trigger('change');
+                if (!idtap) return;
+
+                $.post('{{ route('ajax.get-outlets-keluar') }}', { idtap: idtap, _token: '{{ csrf_token() }}' })
+                    .done(res => {
+                        res.forEach(item => {
+                            const label = `${item.nama_outlet || item.id_outlet} (${item.id_outlet})`;
+                            $outlet.append(new Option(label, item.id_outlet, false, String(item.id_outlet) === String(selected)));
+                        });
+                        $outlet.prop('disabled', false).trigger('change');
+                    });
+            }
+
+            loadOutlets(initialTap, originalIdOutlet);
             if (initialTap) {
                 $.post('{{ route('ajax.get-sf-keluar') }}', {
                     idtap: initialTap,
@@ -174,6 +201,8 @@
             $('#kategoritap').on('change', function() {
                 const idtap = $(this).val();
                 const $sf = $('#idsf');
+
+                loadOutlets(idtap);
 
                 $sf.prop('disabled', true).empty().trigger('change');
 
