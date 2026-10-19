@@ -150,6 +150,11 @@
                         name: 'i.namasf'
                     },
                     {
+                        data: 'id_outlet',
+                        name: 'f.id_outlet',
+                        defaultContent: '—'
+                    },
+                    {
                         data: 'tambahanket',
                         name: 'f.tambahanket'
                     },
