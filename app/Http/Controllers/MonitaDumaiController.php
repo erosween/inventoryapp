@@ -227,6 +227,9 @@ class MonitaDumaiController extends Controller
                 $row->serial_number,
                 strtoupper((string) $row->status),
                 $row->notes,
+                'POSISI TERKINI',
+                '—',
+                $row->id_outlet,
             ]);
 
         $consignmentMovements = DB::table('surya_sa_consignment_movements as h')
@@ -238,14 +241,16 @@ class MonitaDumaiController extends Controller
             ->orderBy('h.moved_at')
             ->get(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id'])
             ->map(fn ($row) => [
-                Carbon::parse($row->moved_at)->format('d/m/Y H:i:s'), $row->serial_number,
-                $row->from_id_outlet ?: '—', $row->from_name ?: ($row->from_id_outlet ?: '—'),
-                $row->to_id_outlet, $row->to_name ?: $row->to_id_outlet, $row->idtap,
-                $row->idsf, $row->namasf ?: $row->idsf, $row->receipt_id ?: '—',
+                Carbon::parse($row->moved_at)->format('d/m/Y H:i:s'), $row->idtap, $row->idsf,
+                $row->namasf ?: $row->idsf, $row->to_id_outlet, $row->to_name ?: $row->to_id_outlet,
+                $row->serial_number, 'MIGRATED', 'Perpindahan konsinyasi', 'RIWAYAT MIGRASI',
+                $row->from_id_outlet ?: '—', $row->to_id_outlet,
             ]);
 
+        $consignments = $consignments->merge($consignmentMovements);
+
         return Excel::download(
-            new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments, $consignmentMovements),
+            new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments),
             "surya-penjualan-{$monthStart}-sampai-{$today}.xlsx"
         );
     }

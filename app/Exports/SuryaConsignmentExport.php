@@ -18,6 +18,6 @@ class SuryaConsignmentExport implements FromCollection, ShouldAutoSize, WithHead
 
     public function headings(): array
     {
-        return ['Tanggal Input', 'TAP', 'SF Code', 'Nama SF', 'ID Outlet', 'Nama Outlet', 'Serial Number', 'Status', 'Catatan'];
+        return ['Tanggal Input / Pindah', 'TAP', 'SF Code', 'Nama SF', 'ID Outlet', 'Nama Outlet', 'Serial Number', 'Status', 'Catatan', 'Jenis Data', 'Dari Outlet', 'Ke Outlet'];
     }
 }
