@@ -3770,7 +3770,7 @@
                                 <thead><tr><th data-sort="0">SF Code</th><th data-sort="1">Nama SF</th><th data-sort="2">TAP</th><th data-sort="3">Cluster</th><th data-sort="4">Total PJP</th><th data-sort="5">Actual Call</th><th data-sort="6">% Visit</th><th data-sort="7">Effective Call</th><th data-sort="8">Extra Call</th><th data-sort="9">Non Belanja</th><th data-sort="10">Total PV</th><th data-sort="11">Total SA</th></tr></thead>
                                 <tbody>
                                     @forelse($visitDetails as $row)
-                                        <tr data-visit-summary-row data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}">
+                                        <tr data-visit-summary-row data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}" data-pjp="{{ $row['pjp_total'] }}" data-actual="{{ $row['actual_call'] }}" data-visit-percent="{{ $row['visit_percentage'] }}" data-pv="{{ $row['total_pv'] }}">
                                             <td><span class="visit-code">{{ $row['sfcode'] }}</span></td>
                                             <td><strong>{{ $row['name'] }}</strong></td>
                                             <td>{{ $row['tap'] }}</td>
@@ -6658,13 +6658,13 @@
                             && (!tapValue || String(row.dataset.tap || '').toLowerCase() === tapValue)
                             && (!clusterValue || String(row.dataset.cluster || '').toLowerCase() === clusterValue);
                     });
-                    const [index, direction] = String(sort?.value || '').split('-');
-                    if (index) visible.sort((a, b) => {
-                        const av = a.cells[Number(index)]?.textContent || '';
-                        const bv = b.cells[Number(index)]?.textContent || '';
-                        const an = Number(av.replace(/[^0-9,.-]/g, '').replace(',', '.'));
-                        const bn = Number(bv.replace(/[^0-9,.-]/g, '').replace(',', '.'));
-                        const result = Number.isNaN(an) || Number.isNaN(bn) ? av.localeCompare(bv) : an - bn;
+                    const [sortKey, direction] = String(sort?.value || '').split('-');
+                    const sortFields = { '5': 'actual', '6': 'visitPercent', '4': 'pjp', '10': 'pv' };
+                    const field = sortFields[sortKey];
+                    if (field) visible.sort((a, b) => {
+                        const av = Number(a.dataset[field] || 0);
+                        const bv = Number(b.dataset[field] || 0);
+                        const result = av - bv;
                         return direction === 'desc' ? -result : result;
                     });
                     rows.forEach(row => {
