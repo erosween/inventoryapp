@@ -1021,6 +1021,31 @@ class MobileSalesFlowTest extends TestCase
             ->assertJsonMissing(['id_outlet' => 'OTHER-1']);
     }
 
+    public function test_helper_can_search_all_outlets_in_their_tap(): void
+    {
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'HELPER-TAP-1', 'nama_outlet' => 'Outlet TAP Helper', 'sf' => 'Sales Lain', 'tap' => 'TAP001'],
+            ['id_outlet' => 'HELPER-TAP-2', 'nama_outlet' => 'Outlet TAP Lain', 'sf' => 'Sales Tester', 'tap' => 'TAP001'],
+            ['id_outlet' => 'OTHER-TAP-1', 'nama_outlet' => 'Outlet TAP Berbeda', 'sf' => 'Sales Lain', 'tap' => 'TAP002'],
+        ]);
+
+        $session = [
+            'mobile_sf_id' => 'HELPER7', 'mobile_sf_name' => 'ARIF PUTRA GANDA', 'idtap' => 'TAP001',
+        ];
+
+        $this->withSession($session)->getJson(route('mobile.search-outlet'))
+            ->assertOk()
+            ->assertJsonCount(2)
+            ->assertJsonFragment(['id_outlet' => 'HELPER-TAP-1'])
+            ->assertJsonFragment(['id_outlet' => 'HELPER-TAP-2'])
+            ->assertJsonMissing(['id_outlet' => 'OTHER-TAP-1']);
+
+        $this->withSession($session)
+            ->get(route('mobile.form', ['id_outlet' => 'HELPER-TAP-2']))
+            ->assertOk()
+            ->assertSee('Outlet TAP Lain');
+    }
+
     public function test_sales_confirmation_hides_whatsapp_and_submits_pending_sale(): void
     {
         if (! extension_loaded('gd')) {
@@ -1485,6 +1510,7 @@ class MobileSalesFlowTest extends TestCase
             $table->string('iddenom')->primary();
             $table->string('denom');
             $table->string('group_name')->default('LAINNYA');
+            $table->string('product_group')->nullable();
             $table->string('kategori_inject')->nullable();
             $table->integer('harga_jual')->default(0);
         });
@@ -1545,6 +1571,7 @@ class MobileSalesFlowTest extends TestCase
             $table->string('id_outlet');
             $table->string('nama_outlet');
             $table->string('sf')->nullable();
+            $table->string('tap')->nullable();
             $table->string('pjp')->nullable();
             $table->decimal('latitude', 10, 8)->nullable();
             $table->decimal('longitude', 11, 8)->nullable();

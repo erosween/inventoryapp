@@ -156,14 +156,20 @@ SQL;
         $idsf = mb_strtoupper(trim((string) session('mobile_sf_id')));
         $tap = mb_strtoupper(trim((string) session('idtap')));
 
+        // Helper accounts work across every outlet in their TAP. They are not
+        // limited to the outlet owner recorded in appsdumais.sf.
+        if ($this->isHelperAccount()) {
+            return DB::table('appsdumais')
+                ->whereRaw('UPPER(TRIM(tap)) = ?', [$tap]);
+        }
+
         $sfQuery = DB::table('appsdumais')->where(function ($query) use ($name, $idsf) {
             $query->whereRaw('UPPER(TRIM(sf)) = ?', [$name])
                 ->orWhereRaw('UPPER(TRIM(sf)) = ?', [$idsf]);
         });
 
-        // Helper accounts do not have PJP/SF rows. Their Extra Call scope is
-        // all outlets belonging to their TAP, while regular SF stays scoped
-        // to the assigned outlet list above.
+        // Regular SF accounts stay scoped to their assigned outlet list. If
+        // no assignment exists, preserve the legacy TAP fallback.
         if ($sfQuery->exists()) {
             return $sfQuery;
         }
@@ -175,7 +181,6 @@ SQL;
     {
         $idtap = session('idtap');
         $idsf = session('mobile_sf_id');
-        $namasf = session('mobile_sf_name');
         $pre_id_outlet = $request->query('id_outlet');
 
         $activeVisit = SuryaVisit::query()
@@ -205,9 +210,8 @@ SQL;
 
         $selected_outlet = null;
         if ($pre_id_outlet) {
-            $selected_outlet = DB::table('appsdumais')
+            $selected_outlet = $this->mobileOutletQuery()
                 ->where('id_outlet', strtoupper($pre_id_outlet))
-                ->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $namasf))])
                 ->first(['id_outlet', 'nama_outlet']);
 
             if (! $selected_outlet) {
@@ -314,20 +318,8 @@ SQL;
         $salesDate = now()->toDateString();
         $requestedOutlet = strtoupper($request->id_outlet);
 
-        $hasAssignedSfOutlets = DB::table('appsdumais')
-            ->where(function ($query) use ($idsf) {
-                $query->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
-                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $idsf))]);
-            })->exists();
-        $isAssignedOutlet = DB::table('appsdumais')
+        $isAssignedOutlet = $this->mobileOutletQuery()
             ->where('id_outlet', $requestedOutlet)
-            ->where(function ($query) use ($idsf, $hasAssignedSfOutlets) {
-                $query->whereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) session('mobile_sf_name')))])
-                    ->orWhereRaw('UPPER(TRIM(sf)) = ?', [mb_strtoupper(trim((string) $idsf))]);
-                if (! $hasAssignedSfOutlets) {
-                    $query->orWhereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) session('idtap')))]);
-                }
-            })
             ->exists();
         $isNonDigipos = str_starts_with($requestedOutlet, 'NON-DIGIPOS-') && DB::table('surya_visits')
             ->where('idsf', $idsf)->where('id_outlet', $requestedOutlet)->where('visit_type', 'non_digipos')->exists();
@@ -527,6 +519,14 @@ SQL;
         } catch (\Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+    }
+
+    private function isHelperAccount(): bool
+    {
+        return str_starts_with(
+            mb_strtoupper(trim((string) session('mobile_sf_id'))),
+            'HELPER'
+        );
     }
 
     public function checkConsignmentNumbers(Request $request)

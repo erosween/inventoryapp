@@ -306,6 +306,12 @@ class SuryaVisitController extends Controller
         $name = mb_strtoupper(trim((string) session('mobile_sf_name')));
         $idsf = mb_strtoupper(trim((string) session('mobile_sf_id')));
 
+        // Helper accounts may visit and sell at any outlet in their TAP.
+        if (str_starts_with($idsf, 'HELPER')) {
+            return DB::table('appsdumais')
+                ->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) session('idtap')))]);
+        }
+
         $assigned = DB::table('appsdumais')->where(function ($query) use ($name, $idsf) {
             $query->whereRaw('UPPER(TRIM(sf)) = ?', [$name])
                 ->orWhereRaw('UPPER(TRIM(sf)) = ?', [$idsf]);

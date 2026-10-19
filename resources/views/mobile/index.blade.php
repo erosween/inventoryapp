@@ -534,7 +534,11 @@
                     </a>
                 </div>
                 <div id="extraCallSearch" class="d-none">
-                <p class="small text-muted fw-bold mb-3">Hanya outlet yang terdaftar untuk {{ session('mobile_sf_name') }}.</p>
+                <p class="small text-muted fw-bold mb-3">
+                    {{ str_starts_with(strtoupper((string) session('mobile_sf_id')), 'HELPER')
+                        ? 'Semua outlet yang terdaftar pada TAP '.session('idtap').'.'
+                        : 'Hanya outlet yang terdaftar untuk '.session('mobile_sf_name').'.' }}
+                </p>
                 <div class="glass-input-group mb-4">
                     <input type="text" id="outletSearchInput" class="glass-input" placeholder="Ketik nama atau ID outlet..." autocomplete="off">
                 </div>
