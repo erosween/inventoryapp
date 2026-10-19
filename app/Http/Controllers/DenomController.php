@@ -28,7 +28,24 @@ class DenomController extends Controller
             $suggestedId = 'V' . ($num + 1);
         }
 
-        $groups = ['SEGEL', 'SA', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE', 'LAINNYA'];
+        $groups = [
+            'SEGEL',
+            'SA',
+            'UNLIMITED 6 JAM',
+            'UNLIMITED 12 JAM',
+            'UNLIMITED 24 JAM',
+            'UNLIMITED 48 JAM',
+            '1 HARI',
+            '2 HARI',
+            '3 HARI',
+            '5 HARI',
+            '7 HARI',
+            '14 HARI',
+            '28 HARI',
+            '30 HARI',
+            'VOICE',
+            'LAINNYA',
+        ];
         $kategoriInjects = ['SEGEL', 'SA', 'BYU', 'ROAMAX'];
 
         return view('denom.index', compact('denoms', 'suggestedId', 'groups', 'kategoriInjects'));

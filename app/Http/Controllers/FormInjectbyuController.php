@@ -158,7 +158,7 @@ class FormInjectbyuController extends Controller
     {
         return match (strtoupper($category)) {
             'SP7' => ['label' => 'PERDANA SEGEL BYU', 'source_id' => 'SP7', 'destination_category' => 'SA', 'product_group' => 'SP'],
-            default => ['label' => 'PV BYU SEGEL', 'source_id' => 'V33', 'destination_category' => 'BYU', 'product_group' => null],
+            default => ['label' => 'PV BYU SEGEL', 'source_id' => 'V33', 'destination_category' => 'BYU', 'product_group' => 'PV'],
         };
     }
 
