@@ -6633,6 +6633,57 @@
             }));
         })();
     </script>
+    <script>
+        // Isolated visit-table controls: keep filtering independent from the
+        // other dashboard widgets and their optional integrations.
+        (() => {
+            const initVisitTableControls = () => {
+                const tools = document.querySelector('[data-visit-tools]');
+                const table = document.querySelector('.visit-summary-table');
+                const body = table?.tBodies?.[0];
+                if (!tools || !table || !body) return;
+
+                const rows = Array.from(body.querySelectorAll('tr[data-visit-summary-row]'));
+                const search = tools.querySelector('[data-visit-search]');
+                const tap = tools.querySelector('[data-visit-tap]');
+                const cluster = tools.querySelector('[data-visit-cluster]');
+                const sort = tools.querySelector('[data-visit-sort]');
+                const apply = () => {
+                    const term = String(search?.value || '').trim().toLowerCase();
+                    const tapValue = String(tap?.value || '').toLowerCase();
+                    const clusterValue = String(cluster?.value || '').toLowerCase();
+                    const visible = rows.filter(row => {
+                        const text = row.textContent.toLowerCase();
+                        return (!term || text.includes(term))
+                            && (!tapValue || String(row.dataset.tap || '').toLowerCase() === tapValue)
+                            && (!clusterValue || String(row.dataset.cluster || '').toLowerCase() === clusterValue);
+                    });
+                    const [index, direction] = String(sort?.value || '').split('-');
+                    if (index) visible.sort((a, b) => {
+                        const av = a.cells[Number(index)]?.textContent || '';
+                        const bv = b.cells[Number(index)]?.textContent || '';
+                        const an = Number(av.replace(/[^0-9,.-]/g, '').replace(',', '.'));
+                        const bn = Number(bv.replace(/[^0-9,.-]/g, '').replace(',', '.'));
+                        const result = Number.isNaN(an) || Number.isNaN(bn) ? av.localeCompare(bv) : an - bn;
+                        return direction === 'desc' ? -result : result;
+                    });
+                    rows.forEach(row => {
+                        const show = visible.includes(row);
+                        row.hidden = !show;
+                        row.style.display = show ? '' : 'none';
+                        body.appendChild(row);
+                    });
+                };
+                [search, tap, cluster, sort].forEach(control => {
+                    control?.addEventListener('input', apply);
+                    control?.addEventListener('change', apply);
+                });
+                apply();
+            };
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initVisitTableControls);
+            else initVisitTableControls();
+        })();
+    </script>
 </body>
 
 </html>
