@@ -118,7 +118,8 @@ class MonitaDumaiController extends Controller
     {
         abort_unless($this->hasSuryaAccess($request), 403);
 
-        $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
+        $today = now('Asia/Jakarta')->toDateString();
+        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
         $tapScopes = $this->suryaTapScopes();
         $rows = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
