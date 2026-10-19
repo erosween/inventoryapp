@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\SuryaSalesProductExport;
+use App\Exports\SuryaAdminSalesExport;
 use App\Exports\SuryaVisitExport;
 use App\Exports\SuryaWorkbookExport;
 use Illuminate\Http\Request;
@@ -25,7 +26,8 @@ class MonitaDumaiController extends Controller
             return redirect('/');
         }
 
-        $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
+        $today = now('Asia/Jakarta')->toDateString();
+        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
         $dashboard = $this->buildLeaderDashboard($visitDate);
 
         return response()
@@ -121,7 +123,7 @@ class MonitaDumaiController extends Controller
         $rows = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
-            ->whereDate('v.visited_at', $visitDate)
+            ->whereBetween('v.visited_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderBy('v.idtap')
             ->orderBy('s.namasf')
@@ -172,7 +174,7 @@ class MonitaDumaiController extends Controller
             ->leftJoin('idsf as s', 's.idsf', '=', 'm.idsf')
             ->leftJoin('idsf as owner', 'owner.idsf', '=', DB::raw('COALESCE(m.owner_idsf, m.idsf)'))
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'm.id_outlet')
-            ->whereDate('m.tgl', $visitDate)
+            ->whereBetween('m.tgl', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
             ->get([
@@ -189,7 +191,28 @@ class MonitaDumaiController extends Controller
                 (float) $row->unit_price, (float) $row->total, strtoupper((string) $row->status),
             ]);
 
-        return Excel::download(new SuryaWorkbookExport($rows, $sales), "surya-visit-{$visitDate}.xlsx");
+        $adminSales = DB::table('keluarsf as k')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->leftJoin('idsf as s', 's.idsf', '=', 'k.idsf')
+            ->whereBetween('k.tgl', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('k.idtap', $tapScopes))
+            ->orderBy('k.tgl')->orderBy('k.idtap')->orderBy('s.namasf')
+            ->get(['k.tgl', 'k.idtap', 'k.idsf', 'k.iddenom', 's.namasf', 'k.tambahanket', 'd.denom', 'k.qty'])
+            ->map(fn ($row) => [
+                Carbon::parse($row->tgl)->format('d/m/Y'),
+                $row->idtap,
+                $row->idsf,
+                $row->namasf ?: $row->idsf,
+                $row->tambahanket ?: '—',
+                $row->denom ?: $row->iddenom,
+                (int) $row->qty,
+                $row->tambahanket,
+            ]);
+
+        return Excel::download(
+            new SuryaWorkbookExport($rows, $sales, $adminSales),
+            "surya-penjualan-{$monthStart}-sampai-{$today}.xlsx"
+        );
     }
 
     public function showLeaderLogin()

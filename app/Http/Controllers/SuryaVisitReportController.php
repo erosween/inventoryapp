@@ -42,7 +42,12 @@ class SuryaVisitReportController extends Controller
 
     public function approve(SuryaVisit $visit)
     {
-        abort_unless($visit->gps_status === 'pending_admin', 422, 'Visit ini tidak menunggu persetujuan.');
+        // The approval poller and a user click can arrive at nearly the same
+        // time. Treat a visit that was already handled as a harmless repeat
+        // submission instead of showing the generic 422 error page.
+        if ($visit->gps_status !== 'pending_admin') {
+            return $this->approvalRedirect($visit, 'Visit ini sudah diproses sebelumnya.');
+        }
 
         DB::transaction(function () use ($visit) {
             $visit->update(['gps_status' => 'approved']);
@@ -71,7 +76,9 @@ class SuryaVisitReportController extends Controller
 
     public function reject(SuryaVisit $visit)
     {
-        abort_unless($visit->gps_status === 'pending_admin', 422, 'Visit ini tidak menunggu persetujuan.');
+        if ($visit->gps_status !== 'pending_admin') {
+            return $this->approvalRedirect($visit, 'Visit ini sudah diproses sebelumnya.');
+        }
 
         $visit->update(['gps_status' => 'rejected']);
 
@@ -87,6 +94,21 @@ class SuryaVisitReportController extends Controller
         }
 
         return back()->with('success', 'Foto visit ditolak. Sales Force dapat mengambil ulang foto pada outlet ini.');
+    }
+
+    private function approvalRedirect(SuryaVisit $visit, string $message)
+    {
+        if (request()->input('return_to') === 'visit-detail') {
+            $visitDate = request()->input('visit_date', $visit->visited_at?->toDateString() ?? now()->toDateString());
+
+            return redirect(route('surya.dashboard', [
+                'panel' => 'visit-detail',
+                'visit_date' => $visitDate,
+                'visit_tab' => 'approval',
+            ]).'#visit-detail')->with('info', $message);
+        }
+
+        return back()->with('info', $message);
     }
 
     public function index(Request $request)

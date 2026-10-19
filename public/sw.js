@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'inventory-msp-pwa-';
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const STATIC_CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 

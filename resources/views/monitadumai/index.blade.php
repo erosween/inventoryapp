@@ -6532,13 +6532,16 @@
             }).then((result) => { if (result.isConfirmed) form.submit(); });
         }));
 
-        // Fallback client-side: pending approval yang tampil akan disetujui
-        // otomatis 15 detik setelah halaman memuat jika tidak ditolak manual.
-        document.querySelectorAll('.visit-action-buttons form:not(.reject-photo-form)').forEach((form) => {
-            window.setTimeout(() => {
-                if (!form.isConnected || form.closest('tr')?.querySelector('.cluster-chip')?.textContent?.includes('APPROVED')) return;
-                form.submit();
-            }, 15000);
+        // Approval is handled by the server-side poller below. Prevent double
+        // clicks while the request is in flight, which also avoids stale-row
+        // submissions when the list is refreshed.
+        document.querySelectorAll('.visit-action-buttons form').forEach((form) => {
+            form.addEventListener('submit', () => {
+                form.querySelectorAll('button').forEach((button) => {
+                    button.disabled = true;
+                    button.textContent = 'Memproses...';
+                });
+            });
         });
 
         @if(request('panel') === 'visit-detail' && request('visit_tab') === 'approval')

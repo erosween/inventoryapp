@@ -506,7 +506,7 @@
                     Masuk <i class="fas fa-arrow-right ms-2"></i>
                 </button>
                 <button type="button" class="install-btn" data-pwa-install hidden>
-                    <i class="fas fa-download me-2"></i> Install Aplikasi SURYA
+                    <img src="/assets/pwa/surya/icon-72.png" width="28" height="28" alt="Logo SURYA" class="me-2" style="border-radius:7px;vertical-align:middle;"> Install Aplikasi SURYA
                 </button>
             </form>
         </section>

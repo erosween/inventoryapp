@@ -7,7 +7,11 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class SuryaWorkbookExport implements WithMultipleSheets
 {
-    public function __construct(private readonly Collection $visitRows, private readonly Collection $salesRows)
+    public function __construct(
+        private readonly Collection $visitRows,
+        private readonly Collection $salesRows,
+        private readonly Collection $adminSalesRows,
+    )
     {
     }
 
@@ -16,6 +20,7 @@ class SuryaWorkbookExport implements WithMultipleSheets
         return [
             new SuryaVisitExport($this->visitRows),
             new SuryaSalesProductExport($this->salesRows),
+            new SuryaAdminSalesExport($this->adminSalesRows),
         ];
     }
 }

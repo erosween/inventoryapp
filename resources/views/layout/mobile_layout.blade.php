@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- PWA Setup -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="/manifest.json?v=surya-1">
     <meta name="application-name" content="SURYA">
     <meta name="theme-color" content="#b40012" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#250006" media="(prefers-color-scheme: dark)">
@@ -654,7 +654,7 @@
                     <button type="button" class="soon-feature d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" disabled aria-disabled="true"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-chart-line"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Survey Kompetitor</div><div class="small text-muted">Pantau produk dan ketersediaan</div></div><span class="soon-badge">SOON</span></button>
                     <button type="button" class="soon-feature d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" disabled aria-disabled="true"><div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-signal"></i></div><div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Kondisi Network</div><div class="small text-muted">Laporkan kondisi sinyal</div></div><span class="soon-badge">SOON</span></button>
                     <button type="button" data-pwa-install hidden class="d-flex align-items-center py-3 text-start border-0 border-bottom bg-transparent w-100" style="color: var(--text-main);">
-                        <div class="bg-danger bg-opacity-10 p-3 rounded-4 me-3" style="color: var(--primary);"><i class="fas fa-download"></i></div>
+                        <div class="bg-danger bg-opacity-10 p-2 rounded-4 me-3" style="color: var(--primary);"><img src="/assets/pwa/surya/icon-72.png" width="40" height="40" alt="Logo SURYA" style="display:block;border-radius:10px;"></div>
                         <div class="flex-grow-1"><div class="fw-800" style="font-size: .9rem;">Install Aplikasi</div><div class="small text-muted">Pasang SURYA di perangkat ini</div></div>
                         <i class="fas fa-chevron-right text-muted opacity-50" style="font-size: .7rem;"></i>
                     </button>
