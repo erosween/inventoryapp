@@ -600,6 +600,77 @@ class MobileSalesFlowTest extends TestCase
             ->assertDontSee('Rp ');
     }
 
+    public function test_sales_form_access_does_not_revalidate_visit_photos_on_submit(): void
+    {
+        DB::table('denom')->insert([
+            'iddenom' => 'D-VISIT-ACCESS',
+            'denom' => 'Produk Izin Visit',
+            'group_name' => '1 HARI',
+            'harga_jual' => 10000,
+        ]);
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF001',
+            'iddenom' => 'D-VISIT-ACCESS',
+            'stock' => 10,
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-VISIT-ACCESS',
+            'nama_outlet' => 'Outlet Izin Visit',
+            'sf' => null,
+            'tap' => 'TAP001',
+        ]);
+        $visitId = DB::table('surya_visits')->insertGetId([
+            'visited_at' => now(),
+            'id_outlet' => 'OUTLET-VISIT-ACCESS',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'latitude' => 1.23456789,
+            'longitude' => 101.98765432,
+            'photo_path' => 'surya-visits/front/test.jpg',
+            'photo_front_path' => 'surya-visits/front/test.jpg',
+            'photo_inside_path' => 'surya-visits/inside/test.jpg',
+            'gps_status' => 'valid',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $session = [
+            'mobile_sf_id' => 'SF001',
+            'mobile_sf_name' => 'Sales Test',
+            'idtap' => 'TAP001',
+        ];
+
+        $this->withSession($session)
+            ->get(route('mobile.form', ['id_outlet' => 'OUTLET-VISIT-ACCESS']))
+            ->assertOk()
+            ->assertSessionHas('mobile_sales_visit_access.id_outlet', 'OUTLET-VISIT-ACCESS');
+
+        // Once the authorized sales form is open, transient photo/status
+        // changes must not force the Sales Force to take the photos again.
+        DB::table('surya_visits')->where('id', $visitId)->update([
+            'photo_front_path' => null,
+            'photo_inside_path' => null,
+            'gps_status' => 'rejected',
+        ]);
+
+        $response = $this->post(route('mobile.store'), [
+            'id_outlet' => 'OUTLET-VISIT-ACCESS',
+            'products' => [[
+                'iddenom' => 'D-VISIT-ACCESS',
+                'qty' => 1,
+            ]],
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertSessionMissing('error');
+        $receipt = \App\Models\MobileSalesReceipt::query()->firstOrFail();
+        $response->assertRedirect(route('mobile.receipt.show', $receipt));
+        $this->assertDatabaseHas('mobile_penjualan', [
+            'receipt_id' => $receipt->id,
+            'id_outlet' => 'OUTLET-VISIT-ACCESS',
+            'iddenom' => 'D-VISIT-ACCESS',
+            'qty' => 1,
+        ]);
+    }
+
     public function test_completed_visit_photos_cannot_be_opened_again_and_menu_is_not_clickable(): void
     {
         DB::table('appsdumais')->insert([
@@ -1543,6 +1614,7 @@ class MobileSalesFlowTest extends TestCase
             $table->string('id_outlet')->nullable();
             $table->string('idtap', 25);
             $table->string('idsf', 25);
+            $table->string('owner_idsf', 25)->nullable();
             $table->string('iddenom', 25);
             $table->integer('qty');
             $table->unsignedInteger('unit_price')->nullable();

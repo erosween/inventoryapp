@@ -225,6 +225,8 @@ SQL;
                     return redirect()->route('mobile.index')->with('error', 'Outlet tidak terdaftar untuk Sales Force yang sedang login.');
                 }
             }
+
+            $this->grantSalesFormAccess($idsf, strtoupper((string) $selected_outlet->id_outlet));
         }
         
         $reserved = DB::table('mobile_penjualan')
@@ -352,7 +354,8 @@ SQL;
                 ->with('error', 'Transaksi sudah tersimpan. Periksa detail lalu konfirmasi submit penjualan.');
         }
 
-        $approvedVisit = DB::table('surya_visits')
+        $approvedVisit = $this->hasSalesFormAccess($idsf, $requestedOutlet, $salesDate)
+            || DB::table('surya_visits')
             ->where('idsf', $idsf)
             ->where('id_outlet', $requestedOutlet)
             ->whereDate('visited_at', $salesDate)
@@ -1106,6 +1109,49 @@ SQL;
         } while (MobileSalesReceipt::query()->where('receipt_number', $number)->exists());
 
         return $number;
+    }
+
+    private function grantSalesFormAccess(string $idsf, string $idOutlet): void
+    {
+        $visit = DB::table('surya_visits')
+            ->where('idsf', $idsf)
+            ->where('id_outlet', $idOutlet)
+            ->whereDate('visited_at', now()->toDateString())
+            ->whereIn('gps_status', ['valid', 'approved'])
+            ->whereNotNull('photo_front_path')
+            ->whereNotNull('photo_inside_path')
+            ->latest('visited_at')
+            ->first(['id']);
+
+        if (! $visit) {
+            return;
+        }
+
+        session()->put('mobile_sales_visit_access', [
+            'visit_id' => (int) $visit->id,
+            'idsf' => $idsf,
+            'id_outlet' => $idOutlet,
+            'sales_date' => now()->toDateString(),
+        ]);
+    }
+
+    private function hasSalesFormAccess(string $idsf, string $idOutlet, string $salesDate): bool
+    {
+        $access = session('mobile_sales_visit_access');
+        if (! is_array($access)
+            || (string) ($access['idsf'] ?? '') !== $idsf
+            || (string) ($access['id_outlet'] ?? '') !== $idOutlet
+            || (string) ($access['sales_date'] ?? '') !== $salesDate
+            || empty($access['visit_id'])) {
+            return false;
+        }
+
+        return DB::table('surya_visits')
+            ->where('id', $access['visit_id'])
+            ->where('idsf', $idsf)
+            ->where('id_outlet', $idOutlet)
+            ->whereDate('visited_at', $salesDate)
+            ->exists();
     }
 
     private function normalizeWhatsappNumber(string $number): ?string
