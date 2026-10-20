@@ -11,6 +11,25 @@ class SuryaOutletListTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_surya_transaction_upload_uses_the_shared_workspace_shell(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin_super belum tersedia.');
+        }
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.transaction-upload'))
+            ->assertOk()
+            ->assertSee('id="sidebar-toggle"', false)
+            ->assertSee('id="sidebar-close"', false)
+            ->assertSee('PETA OUTLET')
+            ->assertSee('LIST OUTLET')
+            ->assertSee('class="active" href="'.route('surya.transaction-upload').'"', false)
+            ->assertSee('SURYA Leader')
+            ->assertSee('Upload Transaksi Outlet');
+    }
+
     public function test_surya_outlet_list_can_update_sf_and_pjp_day(): void
     {
         $admin = User::where('username', 'admin_super')->first();
