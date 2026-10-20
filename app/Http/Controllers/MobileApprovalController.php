@@ -336,10 +336,11 @@ class MobileApprovalController extends Controller
                 // Stok fisik baru dipotong saat admin menyetujui penjualan.
                 // Marker lama tetap dihormati untuk transaksi transisi agar tidak
                 // terjadi pemotongan dua kali saat proses deployment berlangsung.
+                $stockOwnerIdsf = $sale->owner_idsf ?: $sale->idsf;
                 if (! $sale->stock_reserved_at) {
                     $denom = DB::table('denom')->where('iddenom', $sale->iddenom)->first();
                     $stockSf = DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
+                        ->where('idsf', $stockOwnerIdsf)
                         ->where('iddenom', $sale->iddenom)
                         ->lockForUpdate()
                         ->first();
@@ -350,14 +351,14 @@ class MobileApprovalController extends Controller
                     }
 
                     DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
+                        ->where('idsf', $stockOwnerIdsf)
                         ->where('iddenom', $sale->iddenom)
                         ->decrement('stock', (int) $sale->qty);
                 }
 
                 DB::table('keluarsf')->insert([
                     'idtap' => $sale->idtap,
-                    'idsf' => $sale->idsf,
+                    'idsf' => $stockOwnerIdsf,
                     'id_outlet' => $sale->id_outlet,
                     'iddenom' => $sale->iddenom,
                     'qty' => $sale->qty,
@@ -472,20 +473,21 @@ class MobileApprovalController extends Controller
             }
 
             if ($sale->stock_reserved_at) {
+                $stockOwnerIdsf = $sale->owner_idsf ?: $sale->idsf;
                 $stock = DB::table('stockawalsf')
-                    ->where('idsf', $sale->idsf)
+                    ->where('idsf', $stockOwnerIdsf)
                     ->where('iddenom', $sale->iddenom)
                     ->lockForUpdate()
                     ->first();
 
                 if ($stock) {
                     DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
+                        ->where('idsf', $stockOwnerIdsf)
                         ->where('iddenom', $sale->iddenom)
                         ->increment('stock', (int) $sale->qty);
                 } else {
                     DB::table('stockawalsf')->insert([
-                        'idsf' => $sale->idsf,
+                        'idsf' => $stockOwnerIdsf,
                         'iddenom' => $sale->iddenom,
                         'stock' => (int) $sale->qty,
                     ]);

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class MobileSalesFlowTest extends TestCase
@@ -1176,6 +1177,56 @@ class MobileSalesFlowTest extends TestCase
         ])->assertSessionHas('error', fn ($message) => str_contains($message, 'Stok tersedia di mobile: 7'));
     }
 
+    public function test_helper_receipt_confirmation_uses_the_outlet_owner_stock(): void
+    {
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('GD is required for receipt image processing.');
+        }
+
+        Storage::fake('public');
+        DB::table('denom')->insert([
+            'iddenom' => 'D-OWNER', 'denom' => 'Produk Pemilik Outlet', 'group_name' => '1 HARI',
+        ]);
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF-OWNER', 'iddenom' => 'D-OWNER', 'stock' => 10,
+        ]);
+        $receiptId = DB::table('mobile_sales_receipts')->insertGetId([
+            'receipt_number' => 'SUR-HELPER-001',
+            'tgl' => now()->toDateString(),
+            'id_outlet' => 'HELPER-TAP-2',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER7',
+            'total_qty' => 6,
+            'total_amount' => 0,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'receipt_id' => $receiptId,
+            'tgl' => now()->toDateString(),
+            'id_outlet' => 'HELPER-TAP-2',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER7',
+            'owner_idsf' => 'SF-OWNER',
+            'iddenom' => 'D-OWNER',
+            'qty' => 6,
+            'status' => 'draft_wa',
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'HELPER7', 'mobile_sf_name' => 'ARIF PUTRA GANDA', 'idtap' => 'TAP001',
+        ])->post(route('mobile.receipt.confirm', $receiptId), [
+            'receipt_photo' => UploadedFile::fake()->image('receipt.jpg', 800, 1200),
+        ])->assertRedirect(route('mobile.history'));
+
+        $this->assertDatabaseHas('mobile_penjualan', [
+            'receipt_id' => $receiptId,
+            'idsf' => 'HELPER7',
+            'owner_idsf' => 'SF-OWNER',
+            'status' => 'pending',
+        ]);
+        $this->assertSame(10, (int) DB::table('stockawalsf')
+            ->where('idsf', 'SF-OWNER')->where('iddenom', 'D-OWNER')->value('stock'));
+    }
+
     public function test_sales_confirmation_hides_whatsapp_and_submits_pending_sale(): void
     {
         if (! extension_loaded('gd')) {
@@ -1458,6 +1509,48 @@ class MobileSalesFlowTest extends TestCase
         $this->assertSame(2, DB::table('surya_sa_consignment_numbers')->where('status', 'approved')->count());
     }
 
+    public function test_admin_approval_deducts_helper_sale_from_the_outlet_owner_stock(): void
+    {
+        DB::table('denom')->insert([
+            'iddenom' => 'D-OWNER', 'denom' => 'Produk Pemilik Outlet', 'group_name' => '1 HARI',
+        ]);
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF-OWNER', 'iddenom' => 'D-OWNER', 'stock' => 10,
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'id' => 601,
+            'tgl' => now()->toDateString(),
+            'id_outlet' => 'HELPER-TAP-2',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER7',
+            'owner_idsf' => 'SF-OWNER',
+            'iddenom' => 'D-OWNER',
+            'qty' => 6,
+            'status' => 'pending',
+        ]);
+        session(['idtap' => 'TAP001']);
+
+        $response = app(\App\Http\Controllers\MobileApprovalController::class)
+            ->approve(new Request(['id' => 601]))
+            ->getData(true);
+
+        $this->assertTrue($response['success'], $response['message']);
+        $this->assertSame(4, (int) DB::table('stockawalsf')
+            ->where('idsf', 'SF-OWNER')->where('iddenom', 'D-OWNER')->value('stock'));
+        $this->assertDatabaseHas('keluarsf', [
+            'idsf' => 'SF-OWNER',
+            'id_outlet' => 'HELPER-TAP-2',
+            'iddenom' => 'D-OWNER',
+            'qty' => 6,
+        ]);
+        $this->assertDatabaseHas('mobile_penjualan', [
+            'id' => 601,
+            'idsf' => 'HELPER7',
+            'owner_idsf' => 'SF-OWNER',
+            'status' => 'approved',
+        ]);
+    }
+
     public function test_admin_daily_recap_filters_sales_by_transaction_date(): void
     {
         DB::table('idsf')->insert([
@@ -1661,6 +1754,7 @@ class MobileSalesFlowTest extends TestCase
             $table->string('owner_whatsapp', 20)->nullable();
             $table->unsignedInteger('total_qty')->default(0);
             $table->unsignedBigInteger('total_amount')->default(0);
+            $table->string('receipt_photo_path')->nullable();
             $table->timestamp('whatsapp_opened_at')->nullable();
             $table->timestamp('whatsapp_shared_at')->nullable();
             $table->timestamps();
@@ -1742,6 +1836,7 @@ class MobileSalesFlowTest extends TestCase
             $table->date('tgl');
             $table->string('idtap')->nullable();
             $table->string('idsf');
+            $table->string('id_outlet')->nullable();
             $table->string('iddenom');
             $table->integer('qty')->default(0);
             $table->text('tambahanket')->nullable();

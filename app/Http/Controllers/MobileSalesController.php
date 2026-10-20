@@ -1108,14 +1108,20 @@ SQL;
                 }
 
                 foreach ($sales as $sale) {
+                    $stockOwnerIdsf = $sale->owner_idsf ?: $sale->idsf;
                     $stock = DB::table('stockawalsf')
-                        ->where('idsf', $sale->idsf)
+                        ->where('idsf', $stockOwnerIdsf)
                         ->where('iddenom', $sale->iddenom)
                         ->lockForUpdate()
                         ->first();
 
                     $reservedQty = (int) DB::table('mobile_penjualan')
-                        ->where('idsf', $sale->idsf)
+                        ->where(function ($query) use ($stockOwnerIdsf) {
+                            $query->where('owner_idsf', $stockOwnerIdsf)
+                                ->orWhere(function ($legacy) use ($stockOwnerIdsf) {
+                                    $legacy->whereNull('owner_idsf')->where('idsf', $stockOwnerIdsf);
+                                });
+                        })
                         ->where('iddenom', $sale->iddenom)
                         ->where('status', 'pending')
                         ->sum('qty');
