@@ -33,7 +33,10 @@ class SuryaOutletListTest extends TestCase
             ->assertOk()
             ->assertSee('LIST OUTLET')
             ->assertSee('Outlet Uji List')
-            ->assertSee('Edit PJP');
+            ->assertSee('Edit PJP')
+            ->assertSee('id="sidebar-toggle"', false)
+            ->assertSee('id="sidebar-close"', false)
+            ->assertSee('sidebar-collapsed');
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->put(route('surya.outlet-list.update', $idOutlet), [
