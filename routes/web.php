@@ -60,6 +60,8 @@ Route::get('/search', [searchController::class, 'search'])->name('search');
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
+Route::get('/surya/list-outlet', [MonitaDumaiController::class, 'outletList'])->name('surya.outlet-list');
+Route::put('/surya/list-outlet/{idOutlet}', [MonitaDumaiController::class, 'updateOutletPjp'])->name('surya.outlet-list.update');
 Route::get('/surya/export-visits', [MonitaDumaiController::class, 'exportVisits'])->name('surya.visits.export');
 Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
 Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);

@@ -72,6 +72,71 @@ class MonitaDumaiController extends Controller
         return view('monitadumai.metrics-upload');
     }
 
+    public function outletList(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+
+        $tapScopes = $this->suryaTapScopes();
+        $search = trim((string) $request->input('q'));
+        $selectedTap = trim((string) $request->input('tap'));
+        $selectedDay = trim((string) $request->input('pjp'));
+
+        $outlets = DB::table('appsdumais')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->when($selectedTap !== '', fn ($query) => $query->where('tap', $selectedTap))
+            ->when($selectedDay !== '', fn ($query) => $query->where('pjp', $selectedDay))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($filter) use ($search) {
+                    $filter->where('id_outlet', 'like', "%{$search}%")
+                        ->orWhere('nama_outlet', 'like', "%{$search}%")
+                        ->orWhere('sf', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('tap')
+            ->orderBy('nama_outlet')
+            ->paginate(30)
+            ->withQueryString();
+
+        $taps = DB::table('appsdumais')
+            ->whereNotNull('tap')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->distinct()->orderBy('tap')->pluck('tap');
+        $salesByTap = DB::table('idsf')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
+            ->orderBy('namasf')->get(['idsf', 'namasf', 'idtap'])->groupBy('idtap');
+        $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu', 'UNMAPPING'];
+
+        return response()->view('surya.outlet-list', compact('outlets', 'taps', 'salesByTap', 'days'))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    public function updateOutletPjp(Request $request, string $idOutlet)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+
+        $outlet = DB::table('appsdumais')->where('id_outlet', $idOutlet)->first();
+        abort_unless($outlet, 404);
+        $tapScopes = $this->suryaTapScopes();
+        abort_if($tapScopes !== null && ! in_array($outlet->tap, $tapScopes, true), 403);
+
+        $validated = $request->validate([
+            'sf' => ['required', 'string', 'max:150'],
+            'pjp' => ['required', 'in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu,UNMAPPING'],
+        ]);
+        $validSales = strtoupper($validated['sf']) === 'UNMAPPING'
+            || DB::table('idsf')->where('idtap', $outlet->tap)->where('namasf', $validated['sf'])->exists();
+        if (! $validSales) {
+            return back()->withErrors(['sf' => 'Sales Force tidak terdaftar pada TAP outlet tersebut.'])->withInput();
+        }
+
+        DB::table('appsdumais')->where('id_outlet', $idOutlet)->update([
+            'sf' => $validated['sf'],
+            'pjp' => $validated['pjp'],
+        ]);
+
+        return back()->with('success', "PJP outlet {$idOutlet} berhasil diperbarui.");
+    }
+
     public function metricsUpload(Request $request)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
