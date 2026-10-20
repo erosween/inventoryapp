@@ -1106,14 +1106,26 @@ class MobileSalesFlowTest extends TestCase
             ['idsf' => 'HELPER7', 'iddenom' => 'D-HELPER', 'stock' => 20],
         ]);
         DB::table('mobile_penjualan')->insert([
-            'tgl' => now()->toDateString(),
-            'id_outlet' => 'HELPER-TAP-2',
-            'idtap' => 'TAP001',
-            'idsf' => 'HELPER-LAIN',
-            'owner_idsf' => 'SF-OWNER',
-            'iddenom' => 'D-OWNER',
-            'qty' => 2,
-            'status' => 'pending',
+            [
+                'tgl' => now()->toDateString(),
+                'id_outlet' => 'HELPER-TAP-2',
+                'idtap' => 'TAP001',
+                'idsf' => 'HELPER-LAIN',
+                'owner_idsf' => 'SF-OWNER',
+                'iddenom' => 'D-OWNER',
+                'qty' => 2,
+                'status' => 'pending',
+            ],
+            [
+                'tgl' => now()->toDateString(),
+                'id_outlet' => 'HELPER-TAP-2',
+                'idtap' => 'TAP001',
+                'idsf' => 'HELPER7',
+                'owner_idsf' => 'SF-OWNER',
+                'iddenom' => 'D-OWNER',
+                'qty' => 100,
+                'status' => 'draft_wa',
+            ],
         ]);
         DB::table('appsdumais')->insert([
             ['id_outlet' => 'HELPER-TAP-1', 'nama_outlet' => 'Outlet TAP Helper', 'sf' => 'Sales Lain', 'tap' => 'TAP001'],

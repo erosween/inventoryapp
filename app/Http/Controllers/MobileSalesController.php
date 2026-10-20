@@ -481,7 +481,9 @@ SQL;
                                 });
                         })
                         ->where('iddenom', $iddenom)
-                        ->whereIn('status', ['draft_wa', 'pending'])
+                        // Keep submit validation consistent with the form stock.
+                        // A draft WhatsApp receipt has not reserved stock yet.
+                        ->where('status', 'pending')
                         ->sum('qty');
                     $availableStock = max(0, (int) ($stockSf ?? 0) - $reservedQty);
                     if ($availableStock < $qty) {
