@@ -16,7 +16,9 @@
     <nav class="sidebar-nav">
         <a href="{{ route('surya.dashboard', ['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'outlet' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="outlet" @endif><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
-        <a href="{{ route('surya.outlet-list') }}" class="sidebar-link {{ $sidebarPage === 'outlet-list' ? 'active' : '' }}"><i class="fas fa-list"></i><span>LIST OUTLET</span></a>
+        @if($sidebarUser === 'admin_super')
+            <a href="{{ route('surya.outlet-list') }}" class="sidebar-link {{ $sidebarPage === 'outlet-list' ? 'active' : '' }}"><i class="fas fa-list"></i><span>LIST OUTLET</span></a>
+        @endif
         <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
         @if($sidebarUser === 'admin_super')
             <a href="{{ route('surya.transaction-upload') }}" class="sidebar-link {{ $sidebarPage === 'transaction-upload' ? 'active' : '' }}"><i class="fas fa-file-arrow-up"></i><span>UPLOAD TRANSAKSI</span></a>

@@ -74,7 +74,7 @@ class MonitaDumaiController extends Controller
 
     public function outletList(Request $request)
     {
-        abort_unless($this->hasSuryaAccess($request), 403);
+        abort_unless($this->isSuryaAdminSuper(), 403);
 
         $tapScopes = $this->suryaTapScopes();
         $search = trim((string) $request->input('q'));
@@ -112,7 +112,7 @@ class MonitaDumaiController extends Controller
 
     public function updateOutletPjp(Request $request, string $idOutlet)
     {
-        abort_unless($this->hasSuryaAccess($request), 403);
+        abort_unless($this->isSuryaAdminSuper(), 403);
 
         $outlet = DB::table('appsdumais')->where('id_outlet', $idOutlet)->first();
         abort_unless($outlet, 404);

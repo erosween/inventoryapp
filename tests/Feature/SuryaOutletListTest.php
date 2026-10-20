@@ -78,4 +78,24 @@ class SuryaOutletListTest extends TestCase
             'pjp' => 'Rabu',
         ]);
     }
+
+    public function test_surya_outlet_list_is_hidden_and_forbidden_for_non_super_admins(): void
+    {
+        $admin = User::whereIn('username', ['gm', 'admin_cluster'])
+            ->orWhere('username', 'like', 'asmen\_%')
+            ->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture user SURYA non-admin_super belum tersedia.');
+        }
+
+        $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.outlet-list'))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->view('surya.partials.sidebar', ['activePage' => 'dashboard'])
+            ->assertDontSee('LIST OUTLET')
+            ->assertDontSee(route('surya.outlet-list'), false);
+    }
 }

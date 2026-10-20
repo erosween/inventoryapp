@@ -1068,7 +1068,7 @@ class MobileSalesFlowTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    public function test_completed_outlet_can_create_an_additional_transaction_and_locks_during_receipt_draft(): void
+    public function test_completed_outlet_can_repeat_the_same_denom_and_quantity_in_an_additional_transaction(): void
     {
         Carbon::setTestNow('2026-10-13 09:00:00');
         DB::table('denom')->insert([
@@ -1095,7 +1095,7 @@ class MobileSalesFlowTest extends TestCase
 
         $this->withSession($session)->post(route('mobile.store'), [
             'id_outlet' => 'OUTLET-ULANG',
-            'products' => [['iddenom' => 'PV-1', 'qty' => 4]],
+            'products' => [['iddenom' => 'PV-1', 'qty' => 2]],
         ])->assertRedirect();
 
         $this->assertSame(2, DB::table('mobile_penjualan')->where('id_outlet', 'OUTLET-ULANG')->count());

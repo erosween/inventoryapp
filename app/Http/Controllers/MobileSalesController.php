@@ -419,35 +419,6 @@ SQL;
                     return $product['qty'] * (int) ($denoms[$product['iddenom']]->harga_jual ?? 0);
                 });
 
-                // Prevent a repeated mobile submit from creating a second
-                // identical receipt for the same outlet/date. A different
-                // product or quantity is still allowed as a legitimate
-                // "Input Lagi" transaction.
-                $requestedSignature = $products
-                    ->mapWithKeys(fn ($product) => [(string) $product['iddenom'] => (int) $product['qty']])
-                    ->sortKeys()
-                    ->toJson();
-                $existingReceipts = DB::table('mobile_sales_receipts as r')
-                    ->join('mobile_penjualan as m', 'm.receipt_id', '=', 'r.id')
-                    ->where('r.idsf', $idsf)
-                    ->where('r.id_outlet', $requestedOutlet)
-                    ->whereDate('r.tgl', $salesDate)
-                    ->whereIn('m.status', ['draft_wa', 'pending', 'approved'])
-                    ->groupBy('r.id')
-                    ->get(['r.id']);
-                foreach ($existingReceipts as $existingReceipt) {
-                    $existingSignature = DB::table('mobile_penjualan')
-                        ->where('receipt_id', $existingReceipt->id)
-                        ->whereIn('status', ['draft_wa', 'pending', 'approved'])
-                        ->get(['iddenom', 'qty'])
-                        ->mapWithKeys(fn ($sale) => [(string) $sale->iddenom => (int) $sale->qty])
-                        ->sortKeys()
-                        ->toJson();
-                    if ($existingSignature === $requestedSignature) {
-                        throw new \RuntimeException('Penjualan dengan produk dan qty yang sama untuk outlet ini hari ini sudah pernah disubmit.');
-                    }
-                }
-
                 $receipt = MobileSalesReceipt::create([
                     'receipt_number' => $this->generateReceiptNumber(),
                     'tgl' => $salesDate,

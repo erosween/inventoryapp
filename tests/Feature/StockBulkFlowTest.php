@@ -35,6 +35,47 @@ class StockBulkFlowTest extends TestCase
         }
     }
 
+    public function test_sealed_starter_do_is_added_to_tap_stock_and_visible_to_intertap_transfer(): void
+    {
+        $tap = DB::table('kodetap')->value('idtap');
+        $recipient = DB::table('kategori_bo')->where('idtap', $tap)->value('namabo');
+        if (! $tap || ! $recipient) {
+            $this->markTestSkipped('Fixture TAP dan penerima DO belum tersedia.');
+        }
+
+        DB::table('denom')->updateOrInsert(['iddenom' => 'SP6'], [
+            'denom' => 'PERDANA SEGEL SIMPATI',
+            'group_name' => 'SEGEL',
+            'kategori_inject' => 'SA',
+            'product_group' => 'SP',
+            'harga_jual' => 0,
+        ]);
+        DB::table('stockawaltap')->updateOrInsert(
+            ['idtap' => $tap, 'iddenom' => 'SP6'],
+            ['stock' => 0]
+        );
+        $before = (int) DB::table('stockawaltap')->where('idtap', $tap)->where('iddenom', 'SP6')->value('stock');
+
+        session(['idtap' => $tap]);
+        app(\App\Http\Controllers\InputDOController::class)->masukProses(new \Illuminate\Http\Request([
+            'kategorisegel' => 'SP6',
+            'penerima' => $recipient,
+            'qty' => 7,
+            'sn' => 'SN-SP6-TEST',
+            'tgl' => now()->toDateString(),
+            'nomordo' => 'DO-SP6-TEST',
+            'week' => 'W'.now()->weekOfYear,
+            'idtap' => $tap,
+        ]));
+
+        $this->assertSame($before + 7, (int) DB::table('stockawaltap')
+            ->where('idtap', $tap)->where('iddenom', 'SP6')->value('stock'));
+
+        $response = app(\App\Http\Controllers\FormKeluartapController::class)
+            ->getAllStockTap(new \Illuminate\Http\Request(['idtap' => $tap]));
+        $this->assertSame($before + 7, (int) $response->getData(true)['SP6']);
+    }
+
     public function test_sf_keluar_outlets_are_scoped_to_the_admin_tap(): void
     {
         $admin = User::where('username', 'admin_bengkalis')->first();
@@ -670,6 +711,11 @@ class StockBulkFlowTest extends TestCase
         $admin = User::where('username', 'admin_super')->first();
         $allowedDenoms = DB::table('denom')
             ->where('kategori_inject', 'BYU')
+            ->where(function ($query) {
+                $query->where('product_group', 'PV')
+                    ->orWhereNull('product_group')
+                    ->orWhere('product_group', '');
+            })
             ->where('iddenom', '!=', 'V33')
             ->pluck('iddenom');
         $source = DB::table('stockawaltap')

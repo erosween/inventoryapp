@@ -149,7 +149,7 @@ class InputDOController extends Controller
             // 📝 LOG
             AuditLogger::log('INSERT', 'Input DO', $newId, null, $request->all());
 
-            // SP1 adalah paket langsung: stok masuk ke TAP, bukan ke SF.
+            // Semua paket/blank starter langsung menjadi stok TAP.
             if ($this->isDirectPackage($request->kategorisegel)) {
                 $this->incrementTapStock($request->idtap, $request->kategorisegel, $request->qty);
             } else {
@@ -209,7 +209,7 @@ class InputDOController extends Controller
                  throw new \Exception('Gagal update: Stok SF akan menjadi negatif jika data lama dibatalkan');
             }
 
-            // 3. Tambahkan stok baru ke TAP jika SP1, selain itu ke SF.
+            // 3. Tambahkan paket/blank starter langsung ke TAP, selain itu ke SF.
             if ($this->isDirectPackage($request->kategorisegel)) {
                 $this->incrementTapStock($request->idtap, $request->kategorisegel, $request->qty);
             } else {
@@ -317,7 +317,7 @@ public function getTap(Request $request)
 
     private function isDirectPackage(?string $iddenom): bool
     {
-        return strtoupper((string) $iddenom) === 'SP1';
+        return in_array(strtoupper((string) $iddenom), ['SP1', 'SP6', 'SP7'], true);
     }
 
     private function incrementTapStock(string $idtap, string $iddenom, int $qty): void
