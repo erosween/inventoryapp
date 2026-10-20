@@ -56,6 +56,7 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('pagination-summary')
             ->assertDontSee('Showing 1 to')
             ->assertSee('css/surya-sidebar.css', false)
+            ->assertSee('surya-sidebar-precollapsed')
             ->assertSee('class="enterprise-sidebar"', false)
             ->assertSee('id="sidebar-toggle"', false)
             ->assertSee('id="sidebar-close"', false)

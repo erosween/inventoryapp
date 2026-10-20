@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>SURYA Performance Hub</title>
+    @include('surya.partials.sidebar-boot')
     <script>
         (() => {
             const allowedTabs = new Set(['outlet', 'visit-detail']);
@@ -2564,7 +2565,7 @@
         .sidebar-user small { color: #667085; font-size: 10px; }
         .app-main { width: calc(100% - var(--sidebar-width)); min-width: 0; min-height: 100vh; margin-left: var(--sidebar-width); transition: width .22s ease, margin-left .22s ease; }
         .app-main { overflow-x: hidden; }
-        .app-shell.sidebar-collapsed .enterprise-sidebar { transform: translateX(calc(-100% + 12px)); }
+        .app-shell.sidebar-collapsed .enterprise-sidebar { transform: translateX(-100%); }
         .app-shell.sidebar-collapsed .app-main { width: 100%; margin-left: 0; }
         .header {
             position: sticky; top: 0; z-index: 1000; min-height: 72px; padding: 0 28px;
@@ -2753,13 +2754,6 @@
         .approval-visit-table th:nth-child(-n+4), .approval-visit-table td:nth-child(-n+4),
         .visit-summary-table th:nth-child(-n+4), .visit-summary-table td:nth-child(-n+4) { text-align: left !important; }
 
-        @media (min-width: 961px) {
-            .app-shell.sidebar-collapsed .enterprise-sidebar:hover,
-            .app-shell.sidebar-collapsed .enterprise-sidebar:focus-within {
-                transform: translateX(0);
-                box-shadow: 18px 0 38px rgba(15, 23, 42, .22);
-            }
-        }
         .outlet-branding-photo { display: block; width: 100%; height: 112px; margin: 8px 0; overflow: hidden; border-radius: 10px; background: #eef2f7; }
         .outlet-branding-photo img { width: 100%; height: 100%; object-fit: cover; }
         .map-detail-branding { margin-bottom: 14px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 13px; background: #f8fafc; }
@@ -5061,6 +5055,7 @@
             const isMobile = window.innerWidth <= 960;
             const collapsed = isMobile || localStorage.getItem('surya-sidebar-collapsed') === 'true';
             shell.classList.toggle('sidebar-collapsed', collapsed && !isMobile);
+            document.documentElement.classList.remove('surya-sidebar-precollapsed');
             shell.classList.remove('sidebar-open');
             toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
