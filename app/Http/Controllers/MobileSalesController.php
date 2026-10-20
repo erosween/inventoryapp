@@ -247,7 +247,9 @@ SQL;
                         $legacy->whereNull('owner_idsf')->where('idsf', $stockOwnerIdsf);
                     });
             })
-            ->whereIn('status', ['draft_wa', 'pending'])
+            // Draft WhatsApp rows are not stock reservations. They are only
+            // temporary client-side submissions until the receipt is sent.
+            ->where('status', 'pending')
             ->groupBy('iddenom');
 
         $denoms = DB::table('denom')
@@ -861,7 +863,9 @@ SQL;
         $reserved = DB::table('mobile_penjualan')
             ->select('idsf', 'iddenom', DB::raw('SUM(qty) as reserved_qty'))
             ->where('idsf', $idsf)
-            ->whereIn('status', ['draft_wa', 'pending'])
+            // Only pending sales reserve stock. Existing draft_wa rows are
+            // immediately available again in the mobile stock view.
+            ->where('status', 'pending')
             ->groupBy('idsf', 'iddenom');
 
         $stocks = DB::table('stockawalsf')
