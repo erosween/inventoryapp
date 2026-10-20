@@ -2709,6 +2709,9 @@
         .visit-table-tools select { flex: 0 1 170px; }
         .visit-summary-table th[data-sort] { cursor: pointer; user-select: none; }
         .visit-summary-table th[data-sort]::after { content: ' ↕'; color: #94a3b8; font-size: 11px; }
+        .visit-summary-table th[data-sort].sort-active { color: #c8102e; background: #fff7f8; }
+        .visit-summary-table th[data-sort].sort-active[data-direction="asc"]::after { content: ' ↑'; color: #c8102e; }
+        .visit-summary-table th[data-sort].sort-active[data-direction="desc"]::after { content: ' ↓'; color: #c8102e; }
         .visit-filter-empty { display: none; }
         .visit-empty { padding: 54px !important; text-align: center !important; color: #94a3b8 !important; }
         .visit-empty i, .visit-empty strong, .visit-empty span { display: block; }
@@ -3742,15 +3745,15 @@
                         <input type="search" data-visit-search placeholder="Cari SF, kode, TAP, atau cluster..." aria-label="Cari rekap visit">
                         <select data-visit-tap aria-label="Filter TAP"><option value="">Semua TAP</option>@foreach(collect($visitDetails)->pluck('tap')->filter()->unique()->sort() as $tap)<option value="{{ $tap }}">{{ $tap }}</option>@endforeach</select>
                         <select data-visit-cluster aria-label="Filter cluster"><option value="">Semua Cluster</option>@foreach(collect($visitDetails)->pluck('cluster')->filter()->unique()->sort() as $cluster)<option value="{{ $cluster }}">{{ $cluster }}</option>@endforeach</select>
-                        <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="5-desc">Actual Call terbesar</option><option value="6-desc">% Visit terbesar</option><option value="4-desc">Total PJP terbesar</option><option value="10-desc">PV terbesar</option></select>
+                        <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="actual-desc">Actual Call terbesar</option><option value="visitPercent-desc">% Visit terbesar</option><option value="pjp-desc">Total PJP terbesar</option><option value="pv-desc">PV terbesar</option><option value="effective-desc">Effective Call terbesar</option><option value="nonBuying-desc">Non Belanja terbesar</option></select>
                     </div>
                     <div class="visit-detail-card">
                         <div class="visit-detail-table-wrap">
                             <table class="visit-detail-table visit-summary-table" style="min-width:1450px">
-                                <thead><tr><th data-sort="0">SF Code</th><th data-sort="1">Nama SF</th><th data-sort="2">TAP</th><th data-sort="3">Cluster</th><th data-sort="4">Total PJP</th><th data-sort="5">Actual Call</th><th data-sort="6">% Visit</th><th data-sort="7">Effective Call</th><th data-sort="8">Extra Call</th><th data-sort="9">Non Belanja</th><th data-sort="10">Total PV</th><th data-sort="11">Total SA</th></tr></thead>
+                                <thead><tr><th data-sort="sfcode">SF Code</th><th data-sort="name">Nama SF</th><th data-sort="tap">TAP</th><th data-sort="cluster">Cluster</th><th data-sort="pjp">Total PJP</th><th data-sort="actual">Actual Call</th><th data-sort="visitPercent">% Visit</th><th data-sort="effective">Effective Call</th><th data-sort="nonPjp">Extra Call</th><th data-sort="nonBuying">Non Belanja</th><th data-sort="pv">Total PV</th><th data-sort="sa">Total SA</th></tr></thead>
                                 <tbody>
                                     @forelse($visitDetails as $row)
-                                        <tr data-visit-summary-row data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}" data-pjp="{{ $row['pjp_total'] }}" data-actual="{{ $row['actual_call'] }}" data-visit-percent="{{ $row['visit_percentage'] }}" data-pv="{{ $row['total_pv'] }}">
+                                        <tr data-visit-summary-row data-sfcode="{{ $row['sfcode'] }}" data-name="{{ $row['name'] }}" data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}" data-pjp="{{ $row['pjp_total'] }}" data-actual="{{ $row['actual_call'] }}" data-visit-percent="{{ $row['visit_percentage'] }}" data-effective="{{ $row['effective_call'] }}" data-non-pjp="{{ $row['non_pjp'] }}" data-non-buying="{{ $row['non_buying'] }}" data-pv="{{ $row['total_pv'] }}" data-sa="{{ $row['total_sa'] }}">
                                             <td><span class="visit-code">{{ $row['sfcode'] }}</span></td>
                                             <td><strong>{{ $row['name'] }}</strong></td>
                                             <td>{{ $row['tap'] }}</td>
@@ -6556,112 +6559,77 @@
         }, 5000);
         @endif
 
-        // Rekap visit: pencarian, filter, dan sorting berjalan di sisi browser
-        // agar tabel tetap responsif tanpa request ulang ke server.
+        // Satu controller untuk pencarian, filter, dropdown sort, dan sort header.
         (() => {
-            const table = document.querySelector('.visit-summary-table');
             const tools = document.querySelector('[data-visit-tools]');
-            if (!table || !tools) return;
-            const body = table.tBodies[0];
+            const table = document.querySelector('.visit-summary-table');
+            const body = table?.tBodies?.[0];
+            if (!tools || !table || !body) return;
+
             const rows = Array.from(body.querySelectorAll('tr[data-visit-summary-row]'));
-            const originalOrder = [...rows];
+            const originalIndex = new Map(rows.map((row, index) => [row, index]));
             const search = tools.querySelector('[data-visit-search]');
             const tap = tools.querySelector('[data-visit-tap]');
             const cluster = tools.querySelector('[data-visit-cluster]');
-            const sort = tools.querySelector('[data-visit-sort]');
+            const sortSelect = tools.querySelector('[data-visit-sort]');
+            const headers = Array.from(table.querySelectorAll('th[data-sort]'));
+            const numericFields = new Set(['pjp', 'actual', 'visitPercent', 'effective', 'nonPjp', 'nonBuying', 'pv', 'sa']);
+            const collator = new Intl.Collator('id', { numeric: true, sensitivity: 'base' });
+            let sortKey = '';
+            let sortDirection = 'asc';
+
+            const setHeaderState = () => headers.forEach(header => {
+                const active = header.dataset.sort === sortKey;
+                header.classList.toggle('sort-active', active);
+                header.dataset.direction = active ? sortDirection : '';
+                header.setAttribute('aria-sort', active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none');
+            });
+
+            const compareRows = (a, b) => {
+                if (!sortKey) return originalIndex.get(a) - originalIndex.get(b);
+                const av = a.dataset[sortKey] ?? '';
+                const bv = b.dataset[sortKey] ?? '';
+                const result = numericFields.has(sortKey)
+                    ? Number(av || 0) - Number(bv || 0)
+                    : collator.compare(String(av), String(bv));
+                return (sortDirection === 'desc' ? -result : result) || originalIndex.get(a) - originalIndex.get(b);
+            };
 
             const apply = () => {
-                const term = (search.value || '').trim().toLowerCase();
-                const tapValue = tap.value.toLowerCase();
-                const clusterValue = cluster.value.toLowerCase();
+                const term = String(search?.value || '').trim().toLocaleLowerCase('id');
+                const tapValue = String(tap?.value || '').toLocaleLowerCase('id');
+                const clusterValue = String(cluster?.value || '').toLocaleLowerCase('id');
                 const visible = rows.filter(row => {
-                    const textMatch = !term || row.textContent.toLowerCase().includes(term);
-                    return textMatch && (!tapValue || String(row.dataset.tap || '').toLowerCase() === tapValue)
-                        && (!clusterValue || String(row.dataset.cluster || '').toLowerCase() === clusterValue);
-                });
-                const [column, direction] = (sort.value || '').split('-');
-                if (column) {
-                    visible.sort((a, b) => {
-                        const av = a.cells[Number(column)]?.textContent.trim() || '';
-                        const bv = b.cells[Number(column)]?.textContent.trim() || '';
-                        const an = Number(av.replace(/[^0-9,.-]/g, '').replace(',', '.'));
-                        const bn = Number(bv.replace(/[^0-9,.-]/g, '').replace(',', '.'));
-                        const comparison = Number.isNaN(an) || Number.isNaN(bn) ? av.localeCompare(bv) : an - bn;
-                        return direction === 'desc' ? -comparison : comparison;
-                    });
-                } else {
-                    visible.sort((a, b) => originalOrder.indexOf(a) - originalOrder.indexOf(b));
-                }
-                rows.forEach(row => {
-                    row.hidden = !visible.includes(row);
-                    row.style.display = visible.includes(row) ? '' : 'none';
-                    body.appendChild(row);
-                });
+                    const text = row.textContent.toLocaleLowerCase('id');
+                    return (!term || text.includes(term))
+                        && (!tapValue || String(row.dataset.tap || '').toLocaleLowerCase('id') === tapValue)
+                        && (!clusterValue || String(row.dataset.cluster || '').toLocaleLowerCase('id') === clusterValue);
+                }).sort(compareRows);
+                const visibleSet = new Set(visible);
+                visible.forEach(row => { row.hidden = false; row.style.display = ''; body.appendChild(row); });
+                rows.filter(row => !visibleSet.has(row)).forEach(row => { row.hidden = true; row.style.display = 'none'; body.appendChild(row); });
+                setHeaderState();
             };
-            [search, tap, cluster, sort].forEach(control => {
+
+            [search, tap, cluster].forEach(control => {
                 control?.addEventListener('input', apply);
                 control?.addEventListener('change', apply);
             });
-            table.querySelectorAll('th[data-sort]').forEach(header => header.addEventListener('click', () => {
-                const index = header.dataset.sort;
-                const current = sort.value;
-                sort.value = current === `${index}-desc` ? `${index}-asc` : `${index}-desc`;
-                if (!Array.from(sort.options).some(option => option.value === sort.value)) {
-                    sort.value = '';
-                }
+            sortSelect?.addEventListener('change', () => {
+                const parts = String(sortSelect.value || '').split('-');
+                sortKey = parts[0] || '';
+                sortDirection = parts[1] || 'asc';
+                apply();
+            });
+            headers.forEach(header => header.addEventListener('click', () => {
+                const nextKey = header.dataset.sort;
+                sortDirection = sortKey === nextKey && sortDirection === 'asc' ? 'desc' : 'asc';
+                sortKey = nextKey;
+                const matchingOption = Array.from(sortSelect?.options || []).find(option => option.value === `${sortKey}-${sortDirection}`);
+                if (sortSelect) sortSelect.value = matchingOption ? matchingOption.value : '';
                 apply();
             }));
-        })();
-    </script>
-    <script>
-        // Isolated visit-table controls: keep filtering independent from the
-        // other dashboard widgets and their optional integrations.
-        (() => {
-            const initVisitTableControls = () => {
-                const tools = document.querySelector('[data-visit-tools]');
-                const table = document.querySelector('.visit-summary-table');
-                const body = table?.tBodies?.[0];
-                if (!tools || !table || !body) return;
-
-                const rows = Array.from(body.querySelectorAll('tr[data-visit-summary-row]'));
-                const search = tools.querySelector('[data-visit-search]');
-                const tap = tools.querySelector('[data-visit-tap]');
-                const cluster = tools.querySelector('[data-visit-cluster]');
-                const sort = tools.querySelector('[data-visit-sort]');
-                const apply = () => {
-                    const term = String(search?.value || '').trim().toLowerCase();
-                    const tapValue = String(tap?.value || '').toLowerCase();
-                    const clusterValue = String(cluster?.value || '').toLowerCase();
-                    const visible = rows.filter(row => {
-                        const text = row.textContent.toLowerCase();
-                        return (!term || text.includes(term))
-                            && (!tapValue || String(row.dataset.tap || '').toLowerCase() === tapValue)
-                            && (!clusterValue || String(row.dataset.cluster || '').toLowerCase() === clusterValue);
-                    });
-                    const [sortKey, direction] = String(sort?.value || '').split('-');
-                    const sortFields = { '5': 'actual', '6': 'visitPercent', '4': 'pjp', '10': 'pv' };
-                    const field = sortFields[sortKey];
-                    if (field) visible.sort((a, b) => {
-                        const av = Number(a.dataset[field] || 0);
-                        const bv = Number(b.dataset[field] || 0);
-                        const result = av - bv;
-                        return direction === 'desc' ? -result : result;
-                    });
-                    rows.forEach(row => {
-                        const show = visible.includes(row);
-                        row.hidden = !show;
-                        row.style.display = show ? '' : 'none';
-                        body.appendChild(row);
-                    });
-                };
-                [search, tap, cluster, sort].forEach(control => {
-                    control?.addEventListener('input', apply);
-                    control?.addEventListener('change', apply);
-                });
-                apply();
-            };
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initVisitTableControls);
-            else initVisitTableControls();
+            setHeaderState();
         })();
     </script>
 </body>
