@@ -551,7 +551,11 @@
                 if (status === 'abort') return;
                 checkedConsignmentKey = '';
                 consignmentAvailability = new Map();
-                $('#consignment-feedback').html('<div class="consignment-validation-row invalid"><i class="fas fa-times-circle"></i><div><strong>Validasi belum berhasil</strong><small>Periksa koneksi lalu coba lagi.</small></div></div>');
+                let message = 'Server belum dapat memvalidasi nomor. Coba beberapa saat lagi.';
+                if (xhr.status === 0) message = 'Koneksi ke server terputus. Periksa jaringan lalu coba lagi.';
+                else if (xhr.status === 419) message = 'Sesi login telah berakhir. Muat ulang halaman lalu login kembali.';
+                else if (xhr.status === 422) message = xhr.responseJSON?.message || 'Format nomor belum dapat divalidasi.';
+                $('#consignment-feedback').html(`<div class="consignment-validation-row invalid"><i class="fas fa-times-circle"></i><div><strong>Validasi belum berhasil</strong><small>${escapeHtml(message)}</small></div></div>`);
                 if (onComplete) onComplete(false, result);
             }).always(() => { consignmentCheckRequest = null; });
         }

@@ -624,7 +624,7 @@ SQL;
         $targetOutlet = $validated['id_outlet'] ?? null;
 
         return response()->json([
-            'results' => $numbers->map(function ($number) use ($registered) {
+            'results' => $numbers->map(function ($number) use ($registered, $targetOutlet) {
                 $match = $registered->get($number);
 
                 return [

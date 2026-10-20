@@ -323,6 +323,35 @@ class MobileSalesFlowTest extends TestCase
             ->assertJsonPath('results.1.available', true);
     }
 
+    public function test_consignment_live_check_can_move_number_to_selected_outlet(): void
+    {
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-CONSIGNMENT-SOURCE',
+            'nama_outlet' => 'Outlet Asal Konsinyasi',
+            'sf' => 'Sales Test',
+        ]);
+        DB::table('surya_sa_consignment_numbers')->insert([
+            'reported_at' => now(),
+            'id_outlet' => 'OUTLET-CONSIGNMENT-SOURCE',
+            'idtap' => 'TAP001',
+            'idsf' => 'SF001',
+            'serial_number' => '62858188795149',
+            'status' => 'consigned',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001',
+        ])->postJson(route('mobile.consignment.check'), [
+            'numbers' => ['62858188795149'],
+            'id_outlet' => 'OUTLET-CONSIGNMENT-TARGET',
+        ])->assertOk()
+            ->assertJsonPath('results.0.available', true)
+            ->assertJsonPath('results.0.will_move', true)
+            ->assertJsonPath('results.0.nama_outlet', 'Outlet Asal Konsinyasi');
+    }
+
     public function test_prefilled_outlet_on_sales_form_is_locked_and_shows_outlet_name(): void
     {
         DB::table('appsdumais')->insert([
