@@ -35,6 +35,49 @@ class StockBulkFlowTest extends TestCase
         }
     }
 
+    public function test_sf_keluar_outlets_are_scoped_to_the_admin_tap(): void
+    {
+        $admin = User::where('username', 'admin_bengkalis')->first();
+        $sales = DB::table('idsf')->where('idtap', 'BENGKALIS')->first();
+        $denom = DB::table('denom')->first();
+        $foreignOutlet = DB::table('appsdumais')->where('tap', '!=', 'BENGKALIS')->first();
+        if (! $admin || ! $sales || ! $denom || ! $foreignOutlet) {
+            $this->markTestSkipped('Fixture pembatasan outlet per TAP tidak tersedia.');
+        }
+
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'BENGKALIS'])
+            ->postJson(route('ajax.get-outlets-keluar'), ['idtap' => 'BENGKALIS'])
+            ->assertOk();
+
+        $outletIds = collect($response->json())->pluck('id_outlet');
+        $this->assertNotEmpty($outletIds);
+        $this->assertSame(
+            0,
+            DB::table('appsdumais')->whereIn('id_outlet', $outletIds)->where('tap', '!=', 'BENGKALIS')->count()
+        );
+
+        $this->actingAs($admin)
+            ->withSession(['idtap' => 'BENGKALIS'])
+            ->postJson(route('ajax.get-outlets-keluar'), ['idtap' => 'DURI'])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->withSession(['idtap' => 'BENGKALIS'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => now()->toDateString(),
+                'idtap' => 'BENGKALIS',
+                'idsf' => $sales->idsf,
+                'id_outlet' => $foreignOutlet->id_outlet,
+                'items' => [[
+                    'iddenom' => $denom->iddenom,
+                    'qty' => 1,
+                ]],
+            ])->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('id_outlet');
+    }
+
     public function test_bulk_inject_pv_converts_segel_into_multiple_denoms_atomically(): void
     {
         [$admin, $tap, $sourceStock, $destinations] = $this->injectPvFixture();

@@ -119,10 +119,7 @@ use Illuminate\Validation\ValidationException;
     ========================= */
     public function getSf(Request $request)
     {
-        $idtapsession = session('idtap');
-        // Jika admin, bebas pakai idtap apa aja. 
-        // Jika user TAP, prioritaskan idtap request (untuk edit) atau fallback ke session.
-        $idtap = ($idtapsession === 'SBP_DUMAI') ? ($request->idtap ?: $idtapsession) : ($request->idtap ?: $idtapsession);
+        $idtap = $this->requestedTap($request);
 
         $sfData = DB::table('idsf')
             ->where('idtap', $idtap)
@@ -134,13 +131,10 @@ use Illuminate\Validation\ValidationException;
 
     public function getOutlets(Request $request)
     {
-        $idtap = $request->input('idtap');
-        abort_unless($idtap, 422);
-
-        $showAllOutlets = $this->isGlobalAdmin() || in_array((string) session('idtap'), ['DUMAI', 'SBP_DUMAI'], true);
+        $idtap = $this->requestedTap($request);
 
         $query = DB::table('appsdumais')
-            ->when(! $showAllOutlets, fn ($q) => $q->where('idtap', $idtap))
+            ->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim($idtap))])
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = trim((string) $request->input('q'));
                 $q->where(function ($sub) use ($term) {
@@ -157,6 +151,23 @@ use Illuminate\Validation\ValidationException;
     private function isGlobalAdmin(): bool
     {
         return in_array(strtolower((string) auth()->user()?->username), ['admin_cluster', 'admin_super'], true);
+    }
+
+    private function requestedTap(Request $request): string
+    {
+        $requestedTap = trim((string) $request->input('idtap'));
+        abort_if($requestedTap === '', 422, 'TAP wajib dipilih.');
+
+        if (! $this->isGlobalAdmin()) {
+            $sessionTap = trim((string) session('idtap'));
+            abort_unless(strcasecmp($requestedTap, $sessionTap) === 0, 403, 'TAP tidak sesuai dengan akses admin.');
+
+            return $sessionTap;
+        }
+
+        abort_unless(DB::table('kodetap')->where('idtap', $requestedTap)->exists(), 422, 'TAP tidak valid.');
+
+        return $requestedTap;
     }
 
     /* =========================
@@ -177,7 +188,12 @@ use Illuminate\Validation\ValidationException;
         'tgl' => 'required|date|before_or_equal:today',
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
-        'id_outlet' => 'nullable|exists:appsdumais,id_outlet',
+        'id_outlet' => [
+            'nullable',
+            Rule::exists('appsdumais', 'id_outlet')->where(
+                fn ($query) => $query->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) $request->idtap))])
+            ),
+        ],
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
         'items.*.qty' => 'required|integer|min:1',
@@ -429,7 +445,12 @@ public function updateSfKeluar(Request $request, $id)
             'required',
             Rule::exists('idsf', 'idsf')->where(fn ($query) => $query->where('idtap', $request->idtap)),
         ],
-        'id_outlet' => 'nullable|exists:appsdumais,id_outlet',
+        'id_outlet' => [
+            'nullable',
+            Rule::exists('appsdumais', 'id_outlet')->where(
+                fn ($query) => $query->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) $request->idtap))])
+            ),
+        ],
         'iddenom' => 'required|exists:denom,iddenom',
         'qty' => 'required|integer|min:1',
         'tambahanket' => 'nullable|string|max:255',
