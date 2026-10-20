@@ -527,7 +527,10 @@
                 <div id="addVisitChoices">
                     <p class="small text-muted fw-bold mb-3">Pilih jenis kunjungan tambahan.</p>
                     <a href="{{ route('mobile.visit', ['mode' => 'extra_call']) }}" class="list-group-item list-group-item-action border rounded-4 mb-2 p-3">
-                        <strong><i class="fas fa-store text-warning me-2"></i>Extra Call</strong><small class="d-block text-muted mt-1">Pilih outlet mana saja yang terdaftar pada SF.</small>
+                        <strong><i class="fas fa-store text-warning me-2"></i>Extra Call (Outlet PJP)</strong><small class="d-block text-muted mt-1">Pilih outlet Digipos yang sudah memiliki SF/PJP.</small>
+                    </a>
+                    <a href="{{ route('mobile.visit', ['mode' => 'digipos_unmapped']) }}" class="list-group-item list-group-item-action border rounded-4 mb-2 p-3">
+                        <strong><i class="fas fa-map-pin text-primary me-2"></i>Outlet Digipos Unmapping</strong><small class="d-block text-muted mt-1">Pilih outlet Digipos yang belum memiliki SF/PJP.</small>
                     </a>
                     <a href="{{ route('mobile.visit', ['mode' => 'non_digipos']) }}" class="list-group-item list-group-item-action border rounded-4 p-3">
                         <strong><i class="fas fa-shop text-danger me-2"></i>Outlet Non Digipos</strong><small class="d-block text-muted mt-1">Tambah toko baru dengan data toko, owner, nomor hape, dan alamat.</small>

@@ -218,7 +218,6 @@ SQL;
                 $selected_outlet = DB::table('surya_visits')
                     ->where('idsf', $idsf)
                     ->where('id_outlet', strtoupper($pre_id_outlet))
-                    ->where('visit_type', 'non_digipos')
                     ->latest('visited_at')
                     ->first(['id_outlet', 'outlet_name as nama_outlet']);
                 if (! $selected_outlet) {
@@ -331,9 +330,9 @@ SQL;
         $isAssignedOutlet = $this->mobileOutletQuery()
             ->where('id_outlet', $requestedOutlet)
             ->exists();
-        $isNonDigipos = str_starts_with($requestedOutlet, 'NON-DIGIPOS-') && DB::table('surya_visits')
-            ->where('idsf', $idsf)->where('id_outlet', $requestedOutlet)->where('visit_type', 'non_digipos')->exists();
-        if (! $isAssignedOutlet && ! $isNonDigipos) {
+        $selectedVisit = DB::table('surya_visits')->where('idsf', $idsf)->where('id_outlet', $requestedOutlet)->whereDate('visited_at', $salesDate)->latest('visited_at')->first();
+        $isNonDigipos = $selectedVisit && $selectedVisit->visit_type === 'non_digipos';
+        if (! $isAssignedOutlet && ! $selectedVisit) {
             return back()->withInput()->with('error', 'Outlet tidak terdaftar pada Sales Force ini.');
         }
 
@@ -582,6 +581,16 @@ SQL;
 
     private function resolveOutletOwnerIdsf(string $idOutlet): ?string
     {
+        $visitOwner = DB::table('surya_visits')
+            ->where('idsf', session('mobile_sf_id'))
+            ->where('id_outlet', $idOutlet)
+            ->whereDate('visited_at', now()->toDateString())
+            ->latest('visited_at')
+            ->value('stock_owner_idsf');
+        if (filled($visitOwner)) {
+            return (string) $visitOwner;
+        }
+
         $ownerName = DB::table('appsdumais')
             ->where('id_outlet', $idOutlet)
             ->value('sf');

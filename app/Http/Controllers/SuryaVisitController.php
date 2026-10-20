@@ -23,7 +23,7 @@ class SuryaVisitController extends Controller
         $outlet = $request->filled('id_outlet')
             ? $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first(['id_outlet', 'nama_outlet'])
             : null;
-        if (! $outlet && str_starts_with(strtoupper((string) $request->id_outlet), 'NON-DIGIPOS-')) {
+        if (! $outlet) {
             $outlet = SuryaVisit::query()
                 ->where('idsf', session('mobile_sf_id'))
                 ->where('id_outlet', $request->id_outlet)
@@ -62,12 +62,18 @@ class SuryaVisitController extends Controller
         }
 
         $mode = $request->input('mode', 'extra_call');
-        abort_unless(in_array($mode, ['extra_call', 'non_digipos'], true), 404);
-        $outlets = $this->assignedOutlets()
+        abort_unless(in_array($mode, ['extra_call', 'digipos_unmapped', 'non_digipos'], true), 404);
+        $outletQuery = $mode === 'digipos_unmapped'
+            ? $this->tapOutlets()->whereRaw("UPPER(TRIM(COALESCE(sf, ''))) = 'UNMAPPING'")
+            : $this->assignedOutlets()->whereRaw("UPPER(TRIM(COALESCE(sf, ''))) <> 'UNMAPPING'");
+        $outlets = $outletQuery
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet', 'latitude', 'longitude']);
+        $stockOwners = $this->isHelperAccount() && $mode === 'digipos_unmapped'
+            ? DB::table('idsf')->where('idtap', session('idtap'))->where('idsf', 'not like', 'HELPER%')->orderBy('namasf')->get(['idsf', 'namasf'])
+            : collect();
 
-        return view('mobile.visit', compact('outlets', 'mode'));
+        return view('mobile.visit', compact('outlets', 'mode', 'stockOwners'));
     }
 
     public function status(Request $request)
@@ -151,7 +157,8 @@ class SuryaVisitController extends Controller
     {
         $request->validate([
             'id_outlet' => ['required'],
-            'visit_type' => ['required', 'in:extra_call,non_digipos'],
+            'visit_type' => ['required', 'in:extra_call,digipos_unmapped,non_digipos'],
+            'stock_owner_idsf' => ['nullable', 'string', 'max:25'],
             'outlet_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
             'owner_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
             'phone_number' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:40'],
@@ -174,8 +181,18 @@ class SuryaVisitController extends Controller
 
         $outlet = $request->visit_type === 'non_digipos'
             ? (object) ['id_outlet' => 'NON-DIGIPOS-'.strtoupper(substr(md5(session('mobile_sf_id').'|'.$request->phone_number.'|'.microtime()), 0, 12)), 'nama_outlet' => $request->outlet_name, 'latitude' => null, 'longitude' => null]
-            : $this->assignedOutlets()->where('id_outlet', $request->id_outlet)->first();
+            : ($request->visit_type === 'digipos_unmapped'
+                ? $this->tapOutlets()->whereRaw("UPPER(TRIM(COALESCE(sf, ''))) = 'UNMAPPING'")->where('id_outlet', $request->id_outlet)->first()
+                : $this->assignedOutlets()->whereRaw("UPPER(TRIM(COALESCE(sf, ''))) <> 'UNMAPPING'")->where('id_outlet', $request->id_outlet)->first());
         abort_unless($outlet, 404, 'Outlet tidak terdaftar pada Sales Force ini.');
+
+        $stockOwnerIdsf = null;
+        if ($request->visit_type === 'digipos_unmapped') {
+            $stockOwnerIdsf = $this->isHelperAccount()
+                ? trim((string) $request->stock_owner_idsf)
+                : (string) session('mobile_sf_id');
+            abort_unless($stockOwnerIdsf !== '' && DB::table('idsf')->where('idsf', $stockOwnerIdsf)->where('idtap', session('idtap'))->exists(), 422, 'Pilih SF pemilik stok yang sesuai TAP.');
+        }
 
         $currentLatitude = (float) $request->latitude;
         $currentLongitude = (float) $request->longitude;
@@ -225,6 +242,7 @@ class SuryaVisitController extends Controller
                 'idtap' => session('idtap'),
                 'idsf' => session('mobile_sf_id'),
                 'visit_type' => $request->visit_type,
+                'stock_owner_idsf' => $stockOwnerIdsf,
                 'outlet_name' => $request->outlet_name ?: $outlet->nama_outlet,
                 'owner_name' => $request->owner_name,
                 'phone_number' => $request->phone_number,
@@ -345,5 +363,16 @@ class SuryaVisitController extends Controller
 
         return DB::table('appsdumais')
             ->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) session('idtap')))]);
+    }
+
+    private function tapOutlets()
+    {
+        return DB::table('appsdumais')
+            ->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) session('idtap')))]);
+    }
+
+    private function isHelperAccount(): bool
+    {
+        return str_starts_with(mb_strtoupper(trim((string) session('mobile_sf_id'))), 'HELPER');
     }
 }

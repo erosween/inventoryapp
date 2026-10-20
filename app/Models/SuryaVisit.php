@@ -13,7 +13,7 @@ class SuryaVisit extends Model
     protected $fillable = [
         'visited_at', 'checkout_at', 'checkout_reason', 'checkout_notes',
         'id_outlet', 'idtap', 'idsf', 'latitude', 'longitude',
-        'visit_type', 'outlet_name', 'owner_name', 'phone_number', 'outlet_address',
+        'visit_type', 'stock_owner_idsf', 'outlet_name', 'owner_name', 'phone_number', 'outlet_address',
         'accuracy', 'distance_meters', 'photo_path', 'photo_front_path',
         'photo_inside_path', 'gps_status', 'notes',
     ];

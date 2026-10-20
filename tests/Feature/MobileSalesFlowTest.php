@@ -1227,6 +1227,49 @@ class MobileSalesFlowTest extends TestCase
             ->where('idsf', 'SF-OWNER')->where('iddenom', 'D-OWNER')->value('stock'));
     }
 
+    public function test_helper_selects_stock_owner_for_unmapped_digipos_outlet(): void
+    {
+        DB::table('idsf')->insert([
+            ['idsf' => 'SF-OWNER', 'namasf' => 'Sales Pemilik', 'idtap' => 'TAP001'],
+        ]);
+        DB::table('denom')->insert([
+            'iddenom' => 'D-OWNER', 'denom' => 'Produk Pemilik Outlet', 'group_name' => '1 HARI',
+        ]);
+        DB::table('stockawalsf')->insert([
+            'idsf' => 'SF-OWNER', 'iddenom' => 'D-OWNER', 'stock' => 12,
+        ]);
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'UNMAPPED-1', 'nama_outlet' => 'Outlet Belum Mapping', 'sf' => 'UNMAPPING', 'tap' => 'TAP001'],
+            ['id_outlet' => 'MAPPED-1', 'nama_outlet' => 'Outlet Sudah Mapping', 'sf' => 'Sales Pemilik', 'tap' => 'TAP001'],
+        ]);
+        $session = ['mobile_sf_id' => 'HELPER7', 'mobile_sf_name' => 'ARIF PUTRA GANDA', 'idtap' => 'TAP001'];
+
+        $this->withSession($session)->get(route('mobile.visit', ['mode' => 'digipos_unmapped']))
+            ->assertOk()
+            ->assertSee('Outlet Belum Mapping')
+            ->assertDontSee('Outlet Sudah Mapping')
+            ->assertSee('SF Pemilik Stok')
+            ->assertSee('Sales Pemilik');
+
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(),
+            'id_outlet' => 'UNMAPPED-1',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER7',
+            'visit_type' => 'digipos_unmapped',
+            'stock_owner_idsf' => 'SF-OWNER',
+            'latitude' => 1.1,
+            'longitude' => 101.1,
+            'photo_front_path' => 'front.webp',
+            'photo_inside_path' => 'inside.webp',
+            'gps_status' => 'valid',
+        ]);
+
+        $this->withSession($session)->get(route('mobile.form', ['id_outlet' => 'UNMAPPED-1']))
+            ->assertOk()
+            ->assertViewHas('denoms', fn ($denoms) => (int) $denoms->firstWhere('iddenom', 'D-OWNER')->stock_qty === 12);
+    }
+
     public function test_sales_confirmation_hides_whatsapp_and_submits_pending_sale(): void
     {
         if (! extension_loaded('gd')) {
@@ -1811,6 +1854,12 @@ class MobileSalesFlowTest extends TestCase
             $table->string('id_outlet');
             $table->string('idtap', 25);
             $table->string('idsf', 25);
+            $table->string('visit_type', 30)->default('pjp');
+            $table->string('stock_owner_idsf', 25)->nullable();
+            $table->string('outlet_name')->nullable();
+            $table->string('owner_name')->nullable();
+            $table->string('phone_number', 40)->nullable();
+            $table->text('outlet_address')->nullable();
             $table->decimal('latitude', 10, 8);
             $table->decimal('longitude', 11, 8);
             $table->decimal('accuracy', 8, 2)->nullable();
