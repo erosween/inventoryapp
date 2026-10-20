@@ -142,8 +142,7 @@ use Illuminate\Validation\ValidationException;
                         ->orWhere('nama_outlet', 'like', "%{$term}%");
                 });
             })
-            ->orderBy('nama_outlet')
-            ->limit(50);
+            ->orderBy('nama_outlet');
 
         return response()->json($query->get(['id_outlet', 'nama_outlet']));
     }

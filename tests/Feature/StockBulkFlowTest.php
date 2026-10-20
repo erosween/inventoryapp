@@ -53,6 +53,10 @@ class StockBulkFlowTest extends TestCase
         $outletIds = collect($response->json())->pluck('id_outlet');
         $this->assertNotEmpty($outletIds);
         $this->assertSame(
+            DB::table('appsdumais')->whereRaw('UPPER(TRIM(tap)) = ?', ['BENGKALIS'])->count(),
+            $outletIds->count()
+        );
+        $this->assertSame(
             0,
             DB::table('appsdumais')->whereIn('id_outlet', $outletIds)->where('tap', '!=', 'BENGKALIS')->count()
         );
