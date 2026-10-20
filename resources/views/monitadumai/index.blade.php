@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="{{ asset('static/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/@fontsource-variable/geist@5.2.8/index.css">
+    <link rel="stylesheet" href="{{ asset('css/surya-sidebar.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Leaflet Maps CSS -->
@@ -3132,29 +3133,7 @@
 
 <body>
     <div class="app-shell" id="app-shell">
-    <aside class="enterprise-sidebar" aria-label="Navigasi utama SURYA">
-        <div class="sidebar-brand">
-            <div class="sidebar-logo"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA"></div>
-            <div><strong>SURYA</strong><small>PERFORMANCE WOK</small></div>
-            <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Tutup menu"><i class="fas fa-xmark"></i></button>
-        </div>
-        <div class="sidebar-label">WORKSPACE</div>
-        <nav class="sidebar-nav">
-            <a href="{{ request()->fullUrlWithQuery(['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ request('panel') === 'visit-detail' ? '' : 'active' }}" data-dashboard-tab="outlet"><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
-            <a href="{{ request()->fullUrlWithQuery(['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ request('panel') === 'visit-detail' ? 'active' : '' }}" data-dashboard-tab="visit-detail"><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
-            <a href="{{ route('surya.outlet-list') }}" class="sidebar-link"><i class="fas fa-list"></i><span>LIST OUTLET</span></a>
-            <?php $stockUser = strtolower((string) (auth()->user()->username ?? '')); ?>
-            <?php $stockUrl = in_array($stockUser, ['gm', 'admin_super', 'admin_cluster'], true) || str_starts_with($stockUser, 'asmen_') ? url('/sisastock') : url('/stocktap'); ?>
-            <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
-            @if(strtolower((string) (auth()->user()->username ?? '')) === 'admin_super')
-                <a href="{{ route('surya.transaction-upload') }}" class="sidebar-link"><i class="fas fa-file-arrow-up"></i><span>UPLOAD TRANSAKSI</span></a>
-            @endif
-        </nav>
-        <div class="sidebar-foot">
-            <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div><strong>SURYA Leader</strong><small>Secure access</small></div></div>
-            <a href="{{ route('surya.leader.logout') }}" class="sidebar-logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Logout</span></a>
-        </div>
-    </aside>
+    @include('surya.partials.sidebar', ['activePage' => 'dashboard'])
     <div class="app-main">
     <header class="header">
         <button class="mobile-menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button>

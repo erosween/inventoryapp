@@ -25,7 +25,7 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('id="sidebar-close"', false)
             ->assertSee('PETA OUTLET')
             ->assertSee('LIST OUTLET')
-            ->assertSee('class="active" href="'.route('surya.transaction-upload').'"', false)
+            ->assertSee('sidebar-link active')
             ->assertSee('SURYA Leader')
             ->assertSee('Upload Transaksi Outlet');
     }
@@ -53,6 +53,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('LIST OUTLET')
             ->assertSee('Outlet Uji List')
             ->assertSee('Edit PJP')
+            ->assertSee('css/surya-sidebar.css', false)
+            ->assertSee('class="enterprise-sidebar"', false)
             ->assertSee('id="sidebar-toggle"', false)
             ->assertSee('id="sidebar-close"', false)
             ->assertSee('sidebar-collapsed')
