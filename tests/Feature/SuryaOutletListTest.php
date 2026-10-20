@@ -36,7 +36,9 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('Edit PJP')
             ->assertSee('id="sidebar-toggle"', false)
             ->assertSee('id="sidebar-close"', false)
-            ->assertSee('sidebar-collapsed');
+            ->assertSee('sidebar-collapsed')
+            ->assertSee('width:236px', false)
+            ->assertSee('SURYA Leader');
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->put(route('surya.outlet-list.update', $idOutlet), [
