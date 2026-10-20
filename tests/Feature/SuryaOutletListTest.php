@@ -53,6 +53,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('LIST OUTLET')
             ->assertSee('Outlet Uji List')
             ->assertSee('Edit PJP')
+            ->assertSee('pagination-summary')
+            ->assertDontSee('Showing 1 to')
             ->assertSee('css/surya-sidebar.css', false)
             ->assertSee('class="enterprise-sidebar"', false)
             ->assertSee('id="sidebar-toggle"', false)
