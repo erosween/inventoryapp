@@ -152,6 +152,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('serverSide:true', false)
             ->assertSee('ordering:false', false)
             ->assertSee('Export Excel')
+            ->assertSee('position:sticky;top:50px', false)
+            ->assertSee('position:sticky;left:130px', false)
             ->assertSee('detail-outlet\\/data', false);
 
         $dataResponse = $this->actingAs($admin)
