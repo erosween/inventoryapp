@@ -188,6 +188,6 @@ class SuryaOutletListTest extends TestCase
                 'order' => [['column' => 0, 'dir' => 'desc']],
             ]))
             ->assertOk()
-            ->assertJsonPath('data.0.cvm_gap', '1');
+            ->assertJsonPath('data.0.cvm_gap', 1);
     }
 }

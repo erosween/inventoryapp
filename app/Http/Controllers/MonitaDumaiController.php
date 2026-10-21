@@ -185,6 +185,15 @@ class MonitaDumaiController extends Controller
         $start = max(0, (int) $request->input('start', 0));
 
         $identityColumns = ['id_outlet', 'nama_outlet', 'kecamatan', 'sf', 'tap', 'pjp'];
+        // Sorting calculated metrics used to aggregate the complete keluarsf and
+        // mobile_penjualan tables before pagination. On production this can pin
+        // every PHP-FPM worker and make even /login unavailable. Keep ordering
+        // on indexed master-outlet fields; metric values are still hydrated for
+        // only the requested page below.
+        if (! in_array($orderKey, $identityColumns, true)) {
+            $orderKey = 'nama_outlet';
+        }
+
         if (in_array($orderKey, $identityColumns, true)) {
             $rows = (clone $base)
                 ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
