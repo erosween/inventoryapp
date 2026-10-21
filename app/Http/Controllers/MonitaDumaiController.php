@@ -213,12 +213,12 @@ class MonitaDumaiController extends Controller
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
         $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
             ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
             ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
             ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
@@ -565,7 +565,7 @@ class MonitaDumaiController extends Controller
             ->whereDate('m.tgl', $visitDate)
             ->where('m.status', 'approved')
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('m.idtap', $tapScopes))
-            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END), 0) AS st_sa")
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END), 0) AS st_sa")
             ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END), 0) AS st_pv")
             ->first();
 
@@ -581,7 +581,7 @@ class MonitaDumaiController extends Controller
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('m.idtap', $tapScopes))
             ->groupBy('m.id_outlet')
             ->select('m.id_outlet')
-            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END), 0) AS m_stsa")
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END), 0) AS m_stsa")
             ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END), 0) AS m_stpv")
             ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
 
