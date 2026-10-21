@@ -174,6 +174,7 @@ class HomeController extends Controller
 
         /* ================= MoM PER TAP (TANGGAL PILIHAN vs M-1) ================= */
         $qMomTap = $this->combinedSalesQuery()
+            ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
             ->selectRaw("
                 idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
@@ -238,22 +239,41 @@ class HomeController extends Controller
         }
 
         /* ================= MoM PER SF ================= */
-        $qMomSf = DB::table('idsf as s')
-            ->leftJoinSub($this->combinedSalesQuery(), 'k', 'k.idsf', '=', 's.idsf')
-            ->selectRaw("
-                s.idtap, s.idsf, s.namasf,
-                SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS prev_qty,
-                SUM(CASE WHEN k.tgl BETWEEN ? AND ? THEN k.qty ELSE 0 END) AS m2_qty
-            ", [
-                $momStartThisMonth, $momSelectedDate,
-                $momStartPrevMonth, $momEndPrevMonthPartial,
-                $momStartM2Month, $momEndM2MonthPartial
-            ])
-            ->groupBy('s.idtap', 's.idsf', 's.namasf');
-        $applyFilter($qMomSf, 's.idtap');
-        $momSf = $qMomSf->get()
-            ->map(function ($r) {
+        $buildMomSfSource = function (string $table) use (
+            $applyFilter, $momStartThisMonth, $momSelectedDate,
+            $momStartPrevMonth, $momEndPrevMonthPartial,
+            $momStartM2Month, $momEndM2MonthPartial
+        ) {
+            $query = DB::table($table)
+                ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
+                ->selectRaw("idsf,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty,
+                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_qty", [
+                    $momStartThisMonth, $momSelectedDate,
+                    $momStartPrevMonth, $momEndPrevMonthPartial,
+                    $momStartM2Month, $momEndM2MonthPartial,
+                ])
+                ->groupBy('idsf');
+            if ($table === 'mobile_penjualan') {
+                $query->where('status', 'approved');
+            }
+            $applyFilter($query);
+
+            return $query->get()->keyBy('idsf');
+        };
+
+        $legacyMomSf = $buildMomSfSource('keluarsf');
+        $mobileMomSf = $buildMomSfSource('mobile_penjualan');
+        $sfRoster = DB::table('idsf')->select('idtap', 'idsf', 'namasf');
+        $applyFilter($sfRoster);
+        $momSf = $sfRoster->get()
+            ->map(function ($r) use ($legacyMomSf, $mobileMomSf) {
+                $legacy = $legacyMomSf->get($r->idsf);
+                $mobile = $mobileMomSf->get($r->idsf);
+                $r->curr_qty = (int) ($legacy->curr_qty ?? 0) + (int) ($mobile->curr_qty ?? 0);
+                $r->prev_qty = (int) ($legacy->prev_qty ?? 0) + (int) ($mobile->prev_qty ?? 0);
+                $r->m2_qty = (int) ($legacy->m2_qty ?? 0) + (int) ($mobile->m2_qty ?? 0);
                 $r->mom = $r->prev_qty > 0
                     ? (($r->curr_qty - $r->prev_qty) / $r->prev_qty) * 100
                     : 0;
@@ -265,6 +285,7 @@ class HomeController extends Controller
 
         /* ================= MOM DAILY ================= */
         $qMomDaily = $this->combinedSalesQuery()
+            ->whereBetween('tgl', [$startPrevMonth, $fairCutoffThisMonth])
             ->selectRaw("
                 DAY(tgl) AS day,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
@@ -323,6 +344,7 @@ class HomeController extends Controller
         };
 
         $qMomTapSales = $this->combinedSalesQuery()
+            ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty', [
@@ -331,7 +353,7 @@ class HomeController extends Controller
             ])
             ->groupBy('idtap');
         $applyFilter($qMomTapSales);
-        $applyProductFilter($qMomTapSales, 'keluarsf', $salesProductFilter);
+        $applyProductFilter($qMomTapSales, 'combined_sales', $salesProductFilter);
         $momTapSales = $qMomTapSales->get()->map(function ($row) {
             $row->mom = $row->prev_partial_qty > 0
                 ? (($row->curr_qty - $row->prev_partial_qty) / $row->prev_partial_qty) * 100
@@ -342,6 +364,7 @@ class HomeController extends Controller
         $momClusterSales = [];
         foreach ($clusterMap as $key => $taps) {
             $clusterSalesQuery = $this->combinedSalesQuery()
+                ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
                 ->selectRaw('SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty', [
                     $momStartThisMonth, $momSelectedDate,
@@ -349,7 +372,7 @@ class HomeController extends Controller
                 ])
                 ->whereIn('idtap', $taps);
             $applyFilter($clusterSalesQuery);
-            $applyProductFilter($clusterSalesQuery, 'keluarsf', $salesProductFilter);
+            $applyProductFilter($clusterSalesQuery, 'combined_sales', $salesProductFilter);
             $clusterSales = $clusterSalesQuery->first();
             $momClusterSales[$key] = (int) $clusterSales->prev_qty > 0
                 ? (((int) $clusterSales->curr_qty - (int) $clusterSales->prev_qty) / (int) $clusterSales->prev_qty) * 100
@@ -457,6 +480,7 @@ class HomeController extends Controller
                 ->day(min($annualComparisonDay, $previousMonthStart->daysInMonth))
                 ->endOfDay();
             $comparisonQuery = DB::table('keluarsf')
+                ->whereBetween('tgl', [$previousYearStart, $currentPeriodEnd])
                 ->selectRaw('idtap,
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS current_month,
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_year_month,
@@ -498,6 +522,7 @@ class HomeController extends Controller
 
         /* ================= NEW: MoM INJECT PER TAP (FAIR CUTOFF) ================= */
         $qMomTapInject = DB::table('injectvf')
+            ->whereBetween('tgl', [$startPrevMonth, $fairCutoffThisMonth])
             ->selectRaw("
                 idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,

@@ -23,6 +23,13 @@ class StockVisibilityTest extends TestCase
             'mode' => 'all', 'date' => now()->toDateString(),
             'draw' => 1, 'start' => 0, 'length' => -1,
         ];
+        $this->actingAs($gm)->withSession(['idtap' => 'ALL TAP'])
+            ->get('/sisastock')
+            ->assertOk()
+            ->assertSee('DUMAI BENGKALIS')
+            ->assertSee('ROKAN HILIR')
+            ->assertSee('>TOTAL<', false);
+
         $gmResponse = $this->actingAs($gm)->withSession(['idtap' => 'ALL TAP'])
             ->postJson('/sisastock/data', $payload)->assertOk();
         $adminResponse = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
