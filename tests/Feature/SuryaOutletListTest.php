@@ -131,10 +131,12 @@ class SuryaOutletListTest extends TestCase
         DB::table('keluarsf')->insert([
             ['iddenom' => 'TEST-DETAIL-SA', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 2, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
             ['iddenom' => 'TEST-DETAIL-PV', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 3, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
+            ['iddenom' => 'TEST-DETAIL-PV', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 90, 'tgl' => '2026-09-20', 'idtap' => 'DUMAI'],
         ]);
         DB::table('mobile_penjualan')->insert([
             ['tgl' => '2026-10-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 5, 'status' => 'approved'],
             ['tgl' => '2026-10-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-PV', 'qty' => 11, 'status' => 'pending'],
+            ['tgl' => '2026-09-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 50, 'status' => 'approved'],
         ]);
         DB::table('surya_daily_metrics')->insert([
             ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 1, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 2, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 3, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 4],
@@ -186,6 +188,16 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(30, (int) $outlet->comsak_mtd);
         $this->assertSame(40, (int) $outlet->hot_promo_mtd);
 
+        $mapDetailResponse = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson('/surya/search?keyword='.$idOutlet);
+        $mapDetailResponse->assertOk()->assertJsonCount(1);
+        $this->assertSame(7, (int) $mapDetailResponse->json('0.m_stsa'));
+        $this->assertSame(3, (int) $mapDetailResponse->json('0.m_stpv'));
+        $this->assertNull($mapDetailResponse->json('0.fm1_stsa'));
+        $this->assertNull($mapDetailResponse->json('0.m1_stpv'));
+        $this->assertNull($mapDetailResponse->json('0.mom_stsa'));
+
         $exportResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
             ->get(route('surya.outlet-detail.export', ['q' => 'Outlet Uji Detail']))
@@ -202,6 +214,7 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame((string) $idOutlet, (string) $sheet->getCell('A2')->getValue());
         $this->assertSame('Outlet Uji Detail', $sheet->getCell('B2')->getValue());
         $this->assertSame(7, (int) $sheet->getCell('I2')->getValue());
+        $this->assertSame(3, (int) $sheet->getCell('N2')->getValue());
         $this->assertSame(10, (int) $sheet->getCell('S2')->getValue());
     }
 }

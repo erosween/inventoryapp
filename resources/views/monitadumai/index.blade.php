@@ -5399,7 +5399,9 @@
             if (statsContainer) statsContainer.style.display = 'none';
             if (detailTable) detailTable.style.display = 'none';
             emptyState.style.display = 'none';
-            skeleton.style.display = 'block';
+            // Kartu skeleton ini berasal dari detail outlet lama. Alur sekarang
+            // langsung memusatkan peta dan membuka panel detail marker.
+            skeleton.style.display = 'none';
 
             try {
                 const response = await fetch(`/surya/search?keyword=${encodeURIComponent(keyword)}`);
@@ -5870,6 +5872,7 @@
         }
 
         function mapDetailMom(value) {
+            if (value === null || value === undefined || value === '') return '<span class="mom-indicator mom-neutral">–</span>';
             const raw = String(value ?? '0').replace('%', '');
             const numeric = Number.parseFloat(raw) || 0;
             const cssClass = numeric > 0 ? 'mom-positive' : (numeric < 0 ? 'mom-negative' : 'mom-neutral');

@@ -211,12 +211,16 @@ class MonitaDumaiController extends Controller
     private function hydrateOutletDetailPage($rows)
     {
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
+        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
+        $today = now('Asia/Jakarta')->toDateString();
         $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->whereBetween('k.tgl', [$monthStart, $today])
             ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
             ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->whereBetween('m.tgl', [$monthStart, $today])
             ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
@@ -572,18 +576,42 @@ class MonitaDumaiController extends Controller
         return ['st_sa' => (int) ($rows->st_sa ?? 0), 'st_pv' => (int) ($rows->st_pv ?? 0), 'trx_cvm' => 0];
     }
 
-    private function mobileSalesByOutlet(?array $tapScopes): array
+    private function currentMonthSalesByOutlet(?array $tapScopes, $outletIds = null): array
     {
-        $rows = DB::table('mobile_penjualan as m')
+        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
+        $today = now('Asia/Jakarta')->toDateString();
+        $ids = $outletIds ? collect($outletIds)->map(fn ($id) => (string) $id)->all() : null;
+
+        $legacy = DB::table('keluarsf as k')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->whereBetween('k.tgl', [$monthStart, $today])
+            ->when($tapScopes !== null, fn ($q) => $q->whereIn('k.idtap', $tapScopes))
+            ->when($ids !== null, fn ($q) => $q->whereIn('k.id_outlet', $ids))
+            ->groupBy('k.id_outlet')
+            ->select('k.id_outlet')
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END), 0) AS m_stsa")
+            ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END), 0) AS m_stpv")
+            ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+
+        $approved = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->where('m.status', 'approved')
-            ->whereBetween('m.tgl', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+            ->whereBetween('m.tgl', [$monthStart, $today])
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('m.idtap', $tapScopes))
+            ->when($ids !== null, fn ($q) => $q->whereIn('m.id_outlet', $ids))
             ->groupBy('m.id_outlet')
             ->select('m.id_outlet')
             ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END), 0) AS m_stsa")
             ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END), 0) AS m_stpv")
             ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+
+        $rows = $legacy->union($approved)->map(function ($row, $id) use ($legacy, $approved) {
+            return (object) [
+                'id_outlet' => $id,
+                'm_stsa' => (int) ($legacy->get($id)->m_stsa ?? 0) + (int) ($approved->get($id)->m_stsa ?? 0),
+                'm_stpv' => (int) ($legacy->get($id)->m_stpv ?? 0) + (int) ($approved->get($id)->m_stpv ?? 0),
+            ];
+        });
 
         return $rows->all();
     }
@@ -1751,7 +1779,6 @@ class MonitaDumaiController extends Controller
 
         $keyword = $request->input('keyword');
         $tapScopes = $this->suryaTapScopes();
-        $salesByOutlet = $this->mobileSalesByOutlet($tapScopes);
         $latestMetricDates = DB::table('surya_daily_metrics')
             ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
             ->groupBy('id_outlet');
@@ -1782,8 +1809,9 @@ class MonitaDumaiController extends Controller
                 $query->where('appsdumais.id_outlet', $keyword)
                     ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
             })
-            ->get()
-            ->map(function ($row) use ($salesByOutlet) {
+            ->get();
+        $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $data->pluck('id_outlet'));
+        $data = $data->map(function ($row) use ($salesByOutlet) {
                 // The uploaded workbook calls this metric `cvm`; the detail
                 // panel presents it as the first CVM row.
                 $row->fm1_digipos = (int) ($row->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($row->cvm_m1 ?? 0); $row->m_digipos = (int) ($row->cvm_m ?? 0);
@@ -1794,10 +1822,16 @@ class MonitaDumaiController extends Controller
                 $row->fm1_digital = (int) ($row->digital_fm1 ?? 0); $row->m1_digital = (int) ($row->digital_m1 ?? 0); $row->m_digital = (int) ($row->digital_m ?? 0);
                 $row->tgl_pack = $row->source_updated_at ?: $row->metric_date;
                 $sales = $salesByOutlet[(string) $row->id_outlet] ?? null;
+                $row->fm1_stsa = null;
+                $row->m1_stsa = null;
                 $row->m_stsa = (int) ($sales->m_stsa ?? 0);
+                $row->fm1_stpv = null;
+                $row->m1_stpv = null;
                 $row->m_stpv = (int) ($sales->m_stpv ?? 0);
-                $row->mom_stsa = 'SA Surya Mobile';
-                $row->mom_stpv = 'PV Surya Mobile';
+                $row->mom_stsa = null;
+                $row->mom_stpv = null;
+                $row->tgl_sa = null;
+                $row->tgl_pv = null;
                 return $this->decorateOutletVisitPhoto($row);
             });
 
@@ -1832,7 +1866,6 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        $salesByOutlet = $this->mobileSalesByOutlet($tapScopes);
         $outlets = DB::table('appsdumais')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->whereNotNull('latitude')
@@ -1851,6 +1884,7 @@ class MonitaDumaiController extends Controller
                 'longitude'
             )
             ->get();
+        $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $outlets->pluck('id_outlet'));
 
         // The map only needs lightweight metadata for its first paint. Resolving
         // storage paths and checking every thumbnail here made the initial map
@@ -1869,8 +1903,8 @@ class MonitaDumaiController extends Controller
             $outlet->m_stpv = (int) ($sales->m_stpv ?? 0);
             $outlet->m_cvm = 0;
             $outlet->m_digital = 0;
-            $outlet->mom_stsa = 'SA Surya Mobile';
-            $outlet->mom_stpv = 'PV Surya Mobile';
+            $outlet->mom_stsa = 0;
+            $outlet->mom_stpv = 0;
             $outlet->mom_cvm = '—';
             $outlet->mom_digital = '—';
             $outlet->has_front_photo = $visitedOutletIds->has((string) $outlet->id_outlet);
