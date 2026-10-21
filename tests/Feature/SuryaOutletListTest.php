@@ -205,6 +205,17 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(50, (int) $outlet->biometrik_mtd);
         $this->assertSame(1, (int) $outlet->biometrik_gap);
 
+        $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson(route('surya.outlet-detail.data', [
+                'draw' => 3,
+                'start' => 0,
+                'length' => 25,
+                'sales_cutoff' => '2026-10-20',
+            ]))
+            ->assertOk()
+            ->assertJsonStructure(['draw', 'recordsTotal', 'recordsFiltered', 'data']);
+
         $customCutoffResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
             ->getJson(route('surya.outlet-detail.data', [

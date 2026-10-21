@@ -144,29 +144,46 @@ class MonitaDumaiController extends Controller
     {
         abort_unless($this->hasSuryaAccess($request), 403);
 
-        $tapScopes = $this->suryaTapScopes();
-        $selectedTap = trim((string) $request->input('tap'));
-        $search = trim((string) data_get($request->input('search'), 'value', ''));
-        $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search);
-        $recordsTotal = $this->outletDetailBaseQuery($tapScopes)->count();
-        $recordsFiltered = (clone $base)->count();
+        try {
+            $tapScopes = $this->suryaTapScopes();
+            $selectedTap = trim((string) $request->input('tap'));
+            $searchInput = $request->input('search', []);
+            $search = trim((string) (is_array($searchInput) ? ($searchInput['value'] ?? '') : $searchInput));
+            $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search);
+            $recordsTotal = $this->outletDetailBaseQuery($tapScopes)->count();
+            $recordsFiltered = (clone $base)->count();
 
-        $length = min(100, max(10, (int) $request->input('length', 25)));
-        $start = max(0, (int) $request->input('start', 0));
-        $rows = (clone $base)
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-            ->orderBy('outlet.nama_outlet')
-            ->offset($start)
-            ->limit($length)
-            ->get();
-        $rows = $this->hydrateOutletDetailPage($rows, $this->outletSalesCutoff($request));
+            $length = min(100, max(10, (int) $request->input('length', 25)));
+            $start = max(0, (int) $request->input('start', 0));
+            $rows = (clone $base)
+                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+                ->orderBy('outlet.nama_outlet')
+                ->offset($start)
+                ->limit($length)
+                ->get();
 
-        return response()->json([
-            'draw' => (int) $request->input('draw', 1),
-            'recordsTotal' => $recordsTotal,
-            'recordsFiltered' => $recordsFiltered,
-            'data' => $rows,
-        ]);
+            try {
+                $rows = $this->hydrateOutletDetailPage($rows, $this->outletSalesCutoff($request));
+            } catch (\Throwable $e) {
+                logger()->error('Detail Outlet hydration failed', ['exception' => $e]);
+            }
+
+            return response()->json([
+                'draw' => (int) $request->input('draw', 1),
+                'recordsTotal' => $recordsTotal,
+                'recordsFiltered' => $recordsFiltered,
+                'data' => $rows,
+            ]);
+        } catch (\Throwable $e) {
+            logger()->error('Detail Outlet Ajax failed', ['exception' => $e]);
+
+            return response()->json([
+                'draw' => (int) $request->input('draw', 1),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+            ]);
+        }
     }
 
     public function outletDetailExport(Request $request)
