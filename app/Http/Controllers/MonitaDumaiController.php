@@ -185,15 +185,6 @@ class MonitaDumaiController extends Controller
         $start = max(0, (int) $request->input('start', 0));
 
         $identityColumns = ['id_outlet', 'nama_outlet', 'kecamatan', 'sf', 'tap', 'pjp'];
-        // Sorting calculated metrics used to aggregate the complete keluarsf and
-        // mobile_penjualan tables before pagination. On production this can pin
-        // every PHP-FPM worker and make even /login unavailable. Keep ordering
-        // on indexed master-outlet fields; metric values are still hydrated for
-        // only the requested page below.
-        if (! in_array($orderKey, $identityColumns, true)) {
-            $orderKey = 'nama_outlet';
-        }
-
         if (in_array($orderKey, $identityColumns, true)) {
             $rows = (clone $base)
                 ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
@@ -201,45 +192,7 @@ class MonitaDumaiController extends Controller
                 ->offset($start)
                 ->limit($length)
                 ->get();
-            $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
-            $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
-                ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-            $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-                ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
-                ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-            $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
-                ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
-
-            $rows->transform(function ($row) use ($keluar, $mobile, $metrics) {
-                $id = (string) $row->id_outlet;
-                $legacy = $keluar->get($id);
-                $approved = $mobile->get($id);
-                $metric = $metrics->get($id);
-                foreach (['st_sa', 'st_pv'] as $stock) {
-                    $row->{$stock . '_fm1'} = null;
-                    $row->{$stock . '_m1'} = null;
-                    $row->{$stock . '_mtd'} = (int) ($legacy->{$stock} ?? 0) + (int) ($approved->{$stock} ?? 0);
-                    $row->{$stock . '_gap'} = null;
-                    $row->{$stock . '_mom_pct'} = null;
-                }
-                foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
-                    $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
-                    $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
-                    $mtd = (int) ($metric->{$column . '_m'} ?? 0);
-                    $row->{$alias . '_fm1'} = $fm1;
-                    $row->{$alias . '_m1'} = $m1;
-                    $row->{$alias . '_mtd'} = $mtd;
-                    $row->{$alias . '_gap'} = $mtd - $m1;
-                    $row->{$alias . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
-                }
-
-                return $row;
-            });
+            $rows = $this->hydrateOutletDetailPage($rows);
 
             return response()->json([
                 'draw' => (int) $request->input('draw', 1),
@@ -249,52 +202,56 @@ class MonitaDumaiController extends Controller
             ]);
         }
 
-        $keluarSfTotals = DB::table('keluarsf as k')
-            ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-            ->select('k.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
-            ->groupBy('k.id_outlet');
-        $mobileTotals = DB::table('mobile_penjualan as m')
-            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-            ->where('m.status', 'approved')
-            ->select('m.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
-            ->groupBy('m.id_outlet');
-        $latestMetricDates = DB::table('surya_daily_metrics')
-            ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
-            ->groupBy('id_outlet');
-        $latestMetrics = DB::table('surya_daily_metrics as metric')
-            ->joinSub($latestMetricDates, 'latest_metric', function ($join) {
-                $join->on('latest_metric.id_outlet', '=', 'metric.id_outlet')
-                    ->on('latest_metric.metric_date', '=', 'metric.metric_date');
-            })
-            ->select('metric.*');
-
-        $query = $base
-            ->leftJoinSub($keluarSfTotals, 'keluar_sf', 'keluar_sf.id_outlet', '=', 'outlet.id_outlet')
-            ->leftJoinSub($mobileTotals, 'mobile_sales', 'mobile_sales.id_outlet', '=', 'outlet.id_outlet')
-            ->leftJoinSub($latestMetrics, 'metrics', 'metrics.id_outlet', '=', 'outlet.id_outlet')
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-            ->selectRaw('NULL as st_sa_fm1, NULL as st_sa_m1')
-            ->selectRaw('COALESCE(keluar_sf.st_sa, 0) + COALESCE(mobile_sales.st_sa, 0) as st_sa_mtd')
-            ->selectRaw('NULL as st_sa_gap, NULL as st_sa_mom_pct')
-            ->selectRaw('NULL as st_pv_fm1, NULL as st_pv_m1')
-            ->selectRaw('COALESCE(keluar_sf.st_pv, 0) + COALESCE(mobile_sales.st_pv, 0) as st_pv_mtd');
-        $query->selectRaw('NULL as st_pv_gap, NULL as st_pv_mom_pct');
-
+        $uploadSorts = [];
         foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
-            $query->selectRaw("COALESCE(metrics.{$column}_fm1, 0) as {$alias}_fm1")
-                ->selectRaw("COALESCE(metrics.{$column}_m1, 0) as {$alias}_m1")
-                ->selectRaw("COALESCE(metrics.{$column}_m, 0) as {$alias}_mtd")
-                ->selectRaw("COALESCE(metrics.{$column}_m, 0) - COALESCE(metrics.{$column}_m1, 0) as {$alias}_gap")
-                ->selectRaw("CASE WHEN COALESCE(metrics.{$column}_m1, 0) = 0 THEN NULL ELSE ((metrics.{$column}_m / metrics.{$column}_m1) - 1) * 100 END as {$alias}_mom_pct");
+            $uploadSorts["{$alias}_fm1"] = "COALESCE(metrics.{$column}_fm1, 0)";
+            $uploadSorts["{$alias}_m1"] = "COALESCE(metrics.{$column}_m1, 0)";
+            $uploadSorts["{$alias}_mtd"] = "COALESCE(metrics.{$column}_m, 0)";
+            $uploadSorts["{$alias}_gap"] = "COALESCE(metrics.{$column}_m, 0) - COALESCE(metrics.{$column}_m1, 0)";
+            $uploadSorts["{$alias}_mom_pct"] = "CASE WHEN COALESCE(metrics.{$column}_m1, 0) = 0 THEN NULL ELSE ((metrics.{$column}_m / metrics.{$column}_m1) - 1) * 100 END";
         }
 
-        $query->orderBy($orderable[$orderKey] ?? 'outlet.nama_outlet', $direction);
+        if (isset($uploadSorts[$orderKey])) {
+            // Transaction metrics live in the compact upload table. Sort that
+            // table first, paginate, then hydrate sales totals for only 25 rows.
+            // This preserves numeric sorting without scanning the large sales
+            // transaction tables before pagination.
+            $latestMetricDates = DB::table('surya_daily_metrics')
+                ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
+                ->groupBy('id_outlet');
+            $latestMetrics = DB::table('surya_daily_metrics as metric')
+                ->joinSub($latestMetricDates, 'latest_metric', function ($join) {
+                    $join->on('latest_metric.id_outlet', '=', 'metric.id_outlet')
+                        ->on('latest_metric.metric_date', '=', 'metric.metric_date');
+                })
+                ->select('metric.*');
+            $rows = (clone $base)
+                ->leftJoinSub($latestMetrics, 'metrics', 'metrics.id_outlet', '=', 'outlet.id_outlet')
+                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+                ->orderByRaw($uploadSorts[$orderKey].' '.$direction)
+                ->orderBy('outlet.nama_outlet')
+                ->offset($start)
+                ->limit($length)
+                ->get();
+            $rows = $this->hydrateOutletDetailPage($rows);
 
-        $rows = $query->offset($start)->limit($length)->get();
+            return response()->json([
+                'draw' => (int) $request->input('draw', 1),
+                'recordsTotal' => $recordsTotal,
+                'recordsFiltered' => $recordsFiltered,
+                'data' => $rows,
+            ]);
+        }
+
+        // ST SA/PV are aggregated from large transaction tables. Until those
+        // totals are materialized, fall back to a safe indexed sort.
+        $rows = (clone $base)
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+            ->orderBy('outlet.nama_outlet')
+            ->offset($start)
+            ->limit($length)
+            ->get();
+        $rows = $this->hydrateOutletDetailPage($rows);
 
         return response()->json([
             'draw' => (int) $request->input('draw', 1),
@@ -302,6 +259,50 @@ class MonitaDumaiController extends Controller
             'recordsFiltered' => $recordsFiltered,
             'data' => $rows,
         ]);
+
+    }
+
+    private function hydrateOutletDetailPage($rows)
+    {
+        $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
+        $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
+            ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
+            ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
+            ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
+
+        return $rows->transform(function ($row) use ($keluar, $mobile, $metrics) {
+            $id = (string) $row->id_outlet;
+            $legacy = $keluar->get($id);
+            $approved = $mobile->get($id);
+            $metric = $metrics->get($id);
+            foreach (['st_sa', 'st_pv'] as $stock) {
+                $row->{$stock . '_fm1'} = null;
+                $row->{$stock . '_m1'} = null;
+                $row->{$stock . '_mtd'} = (int) ($legacy->{$stock} ?? 0) + (int) ($approved->{$stock} ?? 0);
+                $row->{$stock . '_gap'} = null;
+                $row->{$stock . '_mom_pct'} = null;
+            }
+            foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
+                $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
+                $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
+                $mtd = (int) ($metric->{$column . '_m'} ?? 0);
+                $row->{$alias . '_fm1'} = $fm1;
+                $row->{$alias . '_m1'} = $m1;
+                $row->{$alias . '_mtd'} = $mtd;
+                $row->{$alias . '_gap'} = $mtd - $m1;
+                $row->{$alias . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
+            }
+
+            return $row;
+        });
     }
 
     private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
