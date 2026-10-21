@@ -24,7 +24,7 @@ class sisaStockController extends Controller
             $date = date('Y-m-d');
         }
 
-        $denoms = $this->stockDenoms()->get();
+        $denoms = $this->loadStockDenoms();
         $groups = $this->buildDenomGroups($denoms);
 
         return view('sisastock', compact('idtap', 'date', 'groups', 'initialMode'));
@@ -248,7 +248,7 @@ class sisaStockController extends Controller
         // ============================================
         // 3. GENERATE DATATABLE FORMAT
         // ============================================
-        $denoms = $this->stockDenoms()->get();
+        $denoms = $this->loadStockDenoms();
         $denomGroups = $this->buildDenomGroups($denoms);
         $taps = DB::table('kodetap')
             ->when(true, fn($q) => $applyFilter($q))
@@ -391,7 +391,7 @@ class sisaStockController extends Controller
         $records = $payload['data'] ?? [];
         $activeDenoms = collect($payload['active_denoms'] ?? [])->map(fn ($id) => (string) $id)->flip();
 
-        $denoms = $this->stockDenoms()->get();
+        $denoms = $this->loadStockDenoms();
         $groups = $this->buildDenomGroups($denoms);
         $headings = ['NO', 'TAP'];
         if ($mode === 'sf') {
@@ -512,5 +512,16 @@ class sisaStockController extends Controller
             ->whereRaw('UPPER(COALESCE(group_name, ?)) <> ?', ['', 'VOICE'])
             ->whereRaw('UPPER(COALESCE(kategori_inject, ?)) <> ?', ['', 'ROAMAX'])
             ->orderBy('iddenom');
+    }
+
+    private function loadStockDenoms()
+    {
+        return $this->stockDenoms()->get()->unique(function ($denom) {
+            $category = strtoupper(trim((string) ($denom->kategori_inject ?: 'REGULER')));
+            $group = strtoupper(trim((string) ($denom->group_name ?: 'LAINNYA')));
+            $label = strtoupper(trim((string) $denom->denom));
+
+            return $category . '|' . $group . '|' . $label;
+        })->values();
     }
 }
