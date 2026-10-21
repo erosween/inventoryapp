@@ -6,10 +6,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 
 class HomeController extends Controller
 {
     public function index(Request $request)
+    {
+        $query = $request->query();
+        ksort($query);
+        $scope = strtoupper(trim((string) session('idtap')));
+        $cacheKey = 'home-dashboard:v1:'.sha1($scope.'|'.http_build_query($query));
+
+        $data = app()->environment('testing')
+            ? $this->dashboardData($request)
+            : Cache::remember($cacheKey, now()->addSeconds(60), fn () => $this->dashboardData($request));
+
+        return view('home', $data);
+    }
+
+    private function dashboardData(Request $request): array
     {
         /* ================= MODE ================= */
         $mode = $request->query('mode', 'daily');
@@ -608,7 +623,7 @@ class HomeController extends Controller
         $momGTInject = $prevGTInjectVal > 0 ? (($currGTInjectVal - $prevGTInjectVal) / $prevGTInjectVal) * 100 : 0;
 
 
-        return view('home', compact(
+        return compact(
             'mode',
             'selectedYear',
             'salesYear',
@@ -657,7 +672,7 @@ class HomeController extends Controller
             'momEndPrevMonthPartial',
             'momClusterInject',
             'momGTInject'
-        ));
+        );
     }
 
     /**

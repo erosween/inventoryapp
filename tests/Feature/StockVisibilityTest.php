@@ -11,6 +11,31 @@ class StockVisibilityTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_gm_cluster_receives_the_same_all_tap_stock_as_super_admin(): void
+    {
+        $gm = User::where('username', 'gm_cluster')->first();
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $gm || ! $admin) {
+            $this->markTestSkipped('Akun gm_cluster atau admin_super belum tersedia.');
+        }
+
+        $payload = [
+            'mode' => 'all', 'date' => now()->toDateString(),
+            'draw' => 1, 'start' => 0, 'length' => -1,
+        ];
+        $gmResponse = $this->actingAs($gm)->withSession(['idtap' => 'ALL TAP'])
+            ->postJson('/sisastock/data', $payload)->assertOk();
+        $adminResponse = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->postJson('/sisastock/data', $payload)->assertOk();
+
+        $this->assertSame($adminResponse->json('recordsTotal'), $gmResponse->json('recordsTotal'));
+        $this->assertSame(
+            (int) collect($adminResponse->json('data'))->sum('grand_total'),
+            (int) collect($gmResponse->json('data'))->sum('grand_total')
+        );
+        $this->assertGreaterThan(0, (int) collect($gmResponse->json('data'))->sum('grand_total'));
+    }
+
     public function test_admin_cluster_receives_cluster_footers_for_every_stock_mode(): void
     {
         $admin = User::where('username', 'admin_cluster')->first();

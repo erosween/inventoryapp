@@ -4,6 +4,8 @@
         \Illuminate\Support\Str::lower(auth()->user()->username),
         'asmen_'
     );
+    $isGmCluster = auth()->check()
+        && \Illuminate\Support\Str::lower(auth()->user()->username) === 'gm_cluster';
     $showDashboardMenu = auth()->check();
 @endphp
 
@@ -441,7 +443,7 @@
                                     </a>
                                 </li>
                             @endif
-                            @if (!$isAsmen && !in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
+                            @if (!$isAsmen && !$isGmCluster && !in_array(session('idtap'), ['CLUSTER_DUMAI', 'CLUSTER_ROHIL']) && auth()->user()->username !== 'sb_dumai')
                                 <li class="nav-item {{ request()->is('inbox') ? 'active' : '' }}">
                                     <a href="{{ url('inbox') }}" style="position: relative; display: inline-block;">
                                         <i class="fa fa-bell {{ (int) $notif > 0 ? 'notification-bell-active' : '' }}"></i>
@@ -476,7 +478,7 @@
                                     <p>SURYA</p>
                                 </a>
                             </li>
-                            @if (!$isAsmen)
+                            @if (!$isAsmen && !$isGmCluster)
                             <li class="nav-item {{ request()->is('stock-journey*') ? 'active' : '' }}">
                                 <a href="{{ route('stock-journey.index') }}">
                                     <i class="fas fa-route"></i>

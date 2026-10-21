@@ -144,5 +144,12 @@ class SuryaClusterAccessTest extends TestCase
             ->assertOk();
 
         $this->assertSame($expectedSealed, (int) $response->viewData('stokSegel'));
+        $response->assertSee('DASHBOARD')
+            ->assertSee('STOCK GUDANG')
+            ->assertSee('SURYA')
+            ->assertDontSee('KOTAK MASUK')
+            ->assertDontSee('STOCK MOVEMENT')
+            ->assertDontSee('INPUT STOK')
+            ->assertDontSee('SALES FORCE');
     }
 }
