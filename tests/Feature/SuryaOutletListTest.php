@@ -154,6 +154,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('Export Excel')
             ->assertSee('position:sticky;top:50px', false)
             ->assertSee('position:sticky;left:130px', false)
+            ->assertSee('max-height:clamp(600px', false)
+            ->assertSee("document.querySelector('.card').appendChild(footer)", false)
             ->assertSee('detail-outlet\\/data', false);
 
         $dataResponse = $this->actingAs($admin)
