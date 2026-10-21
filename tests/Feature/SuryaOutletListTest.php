@@ -117,6 +117,14 @@ class SuryaOutletListTest extends TestCase
             'nama_outlet' => 'Outlet Uji Detail',
             'kecamatan' => 'Kecamatan Uji',
             'tap' => 'DUMAI',
+            'pjp' => 'Senin',
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 990000003,
+            'nama_outlet' => 'Outlet Uji Unmapping',
+            'kecamatan' => 'Kecamatan Uji',
+            'tap' => 'DUMAI',
+            'pjp' => 'UNMAPPING',
         ]);
         DB::table('keluarsf')->insert([
             ['iddenom' => 'TEST-DETAIL-SA', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 2, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
@@ -133,12 +141,13 @@ class SuryaOutletListTest extends TestCase
 
         $response = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
-            ->get(route('surya.outlet-detail', ['q' => $idOutlet]));
+            ->get(route('surya.outlet-detail', ['q' => 'Outlet Uji']));
 
         $response->assertOk()
             ->assertSee('DETAIL OUTLET')
             ->assertSee('Outlet Uji Detail')
-            ->assertSee('Kecamatan Uji');
+            ->assertSee('Kecamatan Uji')
+            ->assertDontSee('Outlet Uji Unmapping');
 
         $outlet = $response->viewData('outlets')->first();
         $this->assertSame(7, (int) $outlet->st_sa);
