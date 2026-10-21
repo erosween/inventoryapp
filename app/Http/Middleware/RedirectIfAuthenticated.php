@@ -24,7 +24,8 @@ class RedirectIfAuthenticated
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
                 $username = strtolower(trim((string) Auth::guard($guard)->user()->username));
-                if ($username === 'admin_super' || str_starts_with($username, 'asmen_')) {
+                if (in_array($username, ['admin_super', 'gm_cluster', 'cluster_dumai', 'cluster_rohil'], true)
+                    || str_starts_with($username, 'asmen_')) {
                     return redirect()->route('surya.dashboard');
                 }
 

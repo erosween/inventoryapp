@@ -109,4 +109,40 @@ class SuryaClusterAccessTest extends TestCase
             ->assertDontSee('LIST OUTLET')
             ->assertDontSee('UPLOAD TRANSAKSI');
     }
+
+    public function test_authenticated_gm_cluster_is_redirected_from_login_page_to_surya(): void
+    {
+        $gm = User::where('username', 'gm_cluster')->first();
+        if (! $gm) {
+            $this->markTestSkipped('Fixture user gm_cluster belum tersedia.');
+        }
+
+        $this->actingAs($gm)
+            ->withSession(['idtap' => 'ALL TAP'])
+            ->get('/')
+            ->assertRedirect(route('surya.dashboard'));
+    }
+
+    public function test_gm_cluster_home_fallback_uses_all_tap_inventory(): void
+    {
+        $gm = User::where('username', 'gm_cluster')->first();
+        if (! $gm) {
+            $this->markTestSkipped('Fixture user gm_cluster belum tersedia.');
+        }
+
+        $expectedSealed = (int) DB::table('stockawaltap')
+            ->whereIn('iddenom', ['SEGEL', 'V16', 'V33'])
+            ->sum('stock')
+            + (int) DB::table('stockawalsf as sf')
+                ->join('idsf', 'sf.idsf', '=', 'idsf.idsf')
+                ->whereIn('sf.iddenom', ['SEGEL', 'V16', 'V33'])
+                ->sum('sf.stock');
+
+        $response = $this->actingAs($gm)
+            ->withSession(['idtap' => 'ALL TAP'])
+            ->get('/home')
+            ->assertOk();
+
+        $this->assertSame($expectedSealed, (int) $response->viewData('stokSegel'));
+    }
 }

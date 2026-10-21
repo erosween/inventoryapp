@@ -20,7 +20,7 @@ class HomeController extends Controller
                 $q->whereIn($col, ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING']);
             } elseif ($idtap === 'CLUSTER_ROHIL') {
                 $q->whereIn($col, ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG']);
-            } elseif ($idtap !== 'SBP_DUMAI') {
+            } elseif (! in_array($idtap, ['SBP_DUMAI', 'ALL TAP'], true)) {
                 $q->where($col, $idtap);
             }
         };
