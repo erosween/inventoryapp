@@ -6,6 +6,7 @@ use App\Exports\SuryaSalesProductExport;
 use App\Exports\SuryaAdminSalesExport;
 use App\Exports\SuryaVisitExport;
 use App\Exports\SuryaWorkbookExport;
+use App\Exports\SuryaOutletDetailExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -168,83 +169,8 @@ class MonitaDumaiController extends Controller
         $recordsTotal = $this->outletDetailBaseQuery($tapScopes)->count();
         $recordsFiltered = (clone $base)->count();
 
-        $orderable = [
-            'id_outlet' => 'outlet.id_outlet', 'nama_outlet' => 'outlet.nama_outlet',
-            'kecamatan' => 'outlet.kecamatan', 'sf' => 'outlet.sf', 'tap' => 'outlet.tap', 'pjp' => 'outlet.pjp',
-            'st_sa_mtd' => 'st_sa_mtd', 'st_pv_mtd' => 'st_pv_mtd',
-        ];
-        foreach (['cvm', 'super_seru', 'comsak', 'hot_promo'] as $metric) {
-            foreach (['fm1', 'm1', 'mtd', 'gap', 'mom_pct'] as $period) {
-                $orderable["{$metric}_{$period}"] = "{$metric}_{$period}";
-            }
-        }
-        $orderIndex = (int) data_get($request->input('order'), '0.column', 1);
-        $orderKey = (string) data_get($request->input('columns'), "{$orderIndex}.data", 'nama_outlet');
-        $direction = strtolower((string) data_get($request->input('order'), '0.dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $length = min(100, max(10, (int) $request->input('length', 25)));
         $start = max(0, (int) $request->input('start', 0));
-
-        $identityColumns = ['id_outlet', 'nama_outlet', 'kecamatan', 'sf', 'tap', 'pjp'];
-        if (in_array($orderKey, $identityColumns, true)) {
-            $rows = (clone $base)
-                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-                ->orderBy($orderable[$orderKey], $direction)
-                ->offset($start)
-                ->limit($length)
-                ->get();
-            $rows = $this->hydrateOutletDetailPage($rows);
-
-            return response()->json([
-                'draw' => (int) $request->input('draw', 1),
-                'recordsTotal' => $recordsTotal,
-                'recordsFiltered' => $recordsFiltered,
-                'data' => $rows,
-            ]);
-        }
-
-        $uploadSorts = [];
-        foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
-            $uploadSorts["{$alias}_fm1"] = "COALESCE(metrics.{$column}_fm1, 0)";
-            $uploadSorts["{$alias}_m1"] = "COALESCE(metrics.{$column}_m1, 0)";
-            $uploadSorts["{$alias}_mtd"] = "COALESCE(metrics.{$column}_m, 0)";
-            $uploadSorts["{$alias}_gap"] = "COALESCE(metrics.{$column}_m, 0) - COALESCE(metrics.{$column}_m1, 0)";
-            $uploadSorts["{$alias}_mom_pct"] = "CASE WHEN COALESCE(metrics.{$column}_m1, 0) = 0 THEN NULL ELSE ((metrics.{$column}_m / metrics.{$column}_m1) - 1) * 100 END";
-        }
-
-        if (isset($uploadSorts[$orderKey])) {
-            // Transaction metrics live in the compact upload table. Sort that
-            // table first, paginate, then hydrate sales totals for only 25 rows.
-            // This preserves numeric sorting without scanning the large sales
-            // transaction tables before pagination.
-            $latestMetricDates = DB::table('surya_daily_metrics')
-                ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
-                ->groupBy('id_outlet');
-            $latestMetrics = DB::table('surya_daily_metrics as metric')
-                ->joinSub($latestMetricDates, 'latest_metric', function ($join) {
-                    $join->on('latest_metric.id_outlet', '=', 'metric.id_outlet')
-                        ->on('latest_metric.metric_date', '=', 'metric.metric_date');
-                })
-                ->select('metric.*');
-            $rows = (clone $base)
-                ->leftJoinSub($latestMetrics, 'metrics', 'metrics.id_outlet', '=', 'outlet.id_outlet')
-                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-                ->orderByRaw($uploadSorts[$orderKey].' '.$direction)
-                ->orderBy('outlet.nama_outlet')
-                ->offset($start)
-                ->limit($length)
-                ->get();
-            $rows = $this->hydrateOutletDetailPage($rows);
-
-            return response()->json([
-                'draw' => (int) $request->input('draw', 1),
-                'recordsTotal' => $recordsTotal,
-                'recordsFiltered' => $recordsFiltered,
-                'data' => $rows,
-            ]);
-        }
-
-        // ST SA/PV are aggregated from large transaction tables. Until those
-        // totals are materialized, fall back to a safe indexed sort.
         $rows = (clone $base)
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
             ->orderBy('outlet.nama_outlet')
@@ -259,7 +185,27 @@ class MonitaDumaiController extends Controller
             'recordsFiltered' => $recordsFiltered,
             'data' => $rows,
         ]);
+    }
 
+    public function outletDetailExport(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+
+        $tapScopes = $this->suryaTapScopes();
+        $selectedTap = trim((string) $request->input('tap'));
+        $search = trim((string) $request->input('q'));
+        $rows = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+            ->orderBy('outlet.nama_outlet')
+            ->get()
+            ->chunk(200)
+            ->flatMap(fn ($chunk) => $this->hydrateOutletDetailPage($chunk))
+            ->values();
+
+        return Excel::download(
+            new SuryaOutletDetailExport($rows),
+            'surya-detail-outlet-'.now()->format('Y-m-d-His').'.xlsx'
+        );
     }
 
     private function hydrateOutletDetailPage($rows)

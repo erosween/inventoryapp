@@ -64,6 +64,7 @@ Route::get('/surya/list-outlet', [MonitaDumaiController::class, 'outletList'])->
 Route::put('/surya/list-outlet/{idOutlet}', [MonitaDumaiController::class, 'updateOutletPjp'])->name('surya.outlet-list.update');
 Route::get('/surya/detail-outlet', [MonitaDumaiController::class, 'outletDetail'])->name('surya.outlet-detail');
 Route::get('/surya/detail-outlet/data', [MonitaDumaiController::class, 'outletDetailData'])->name('surya.outlet-detail.data');
+Route::get('/surya/detail-outlet/export', [MonitaDumaiController::class, 'outletDetailExport'])->name('surya.outlet-detail.export');
 Route::get('/surya/export-visits', [MonitaDumaiController::class, 'exportVisits'])->name('surya.visits.export');
 Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
 Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
