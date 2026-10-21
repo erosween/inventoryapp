@@ -117,6 +117,7 @@ class SuryaOutletListTest extends TestCase
             'nama_outlet' => 'Outlet Uji Detail',
             'kecamatan' => 'Kecamatan Uji',
             'tap' => 'DUMAI',
+            'sf' => 'SF UJI DETAIL',
             'pjp' => 'Senin',
         ]);
         DB::table('appsdumais')->insert([
@@ -147,6 +148,9 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('DETAIL OUTLET')
             ->assertSee('Outlet Uji Detail')
             ->assertSee('Kecamatan Uji')
+            ->assertSee('SF UJI DETAIL')
+            ->assertSee('DUMAI')
+            ->assertSee('Senin')
             ->assertDontSee('Outlet Uji Unmapping');
 
         $outlet = $response->viewData('outlets')->first();

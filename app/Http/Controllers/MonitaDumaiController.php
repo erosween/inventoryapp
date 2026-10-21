@@ -158,7 +158,7 @@ class MonitaDumaiController extends Controller
                         ->orWhere('outlet.kecamatan', 'like', "%{$search}%");
                 });
             })
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan')
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
             ->orderBy('outlet.nama_outlet')
             ->paginate(30)
             ->withQueryString();
