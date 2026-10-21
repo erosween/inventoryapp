@@ -192,7 +192,13 @@ class MonitaDumaiController extends Controller
         $latestMetrics = DB::table('surya_daily_metrics')
             ->whereIn('id_outlet', $pageOutletIds)
             ->orderByDesc('metric_date')
-            ->get(['id_outlet', 'cvm_m', 'ss_m', 'comsak_m', 'hot_promo_m'])
+            ->get([
+                'id_outlet',
+                'cvm_fm1', 'cvm_m1', 'cvm_m',
+                'ss_fm1', 'ss_m1', 'ss_m',
+                'comsak_fm1', 'comsak_m1', 'comsak_m',
+                'hot_promo_fm1', 'hot_promo_m1', 'hot_promo_m',
+            ])
             ->unique(fn ($row) => (string) $row->id_outlet)
             ->keyBy(fn ($row) => (string) $row->id_outlet);
 
@@ -203,10 +209,15 @@ class MonitaDumaiController extends Controller
             $metric = $latestMetrics->get($id);
             $outlet->st_sa = (int) ($keluar->st_sa ?? 0) + (int) ($mobile->st_sa ?? 0);
             $outlet->st_pv = (int) ($keluar->st_pv ?? 0) + (int) ($mobile->st_pv ?? 0);
-            $outlet->cvm = (int) ($metric->cvm_m ?? 0);
-            $outlet->super_seru = (int) ($metric->ss_m ?? 0);
-            $outlet->comsak = (int) ($metric->comsak_m ?? 0);
-            $outlet->hot_promo = (int) ($metric->hot_promo_m ?? 0);
+            $outlet->st_sa_fm1 = null;
+            $outlet->st_sa_m1 = null;
+            $outlet->st_pv_fm1 = null;
+            $outlet->st_pv_m1 = null;
+            foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $property => $column) {
+                $outlet->{$property . '_fm1'} = (int) ($metric->{$column . '_fm1'} ?? 0);
+                $outlet->{$property . '_m1'} = (int) ($metric->{$column . '_m1'} ?? 0);
+                $outlet->{$property . '_mtd'} = (int) ($metric->{$column . '_m'} ?? 0);
+            }
 
             return $outlet;
         }));
