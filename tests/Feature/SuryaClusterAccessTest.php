@@ -147,8 +147,9 @@ class SuryaClusterAccessTest extends TestCase
             ->assertDontSee('LIST OUTLET')
             ->assertDontSee('UPLOAD TRANSAKSI');
 
-        $this->actingAs($branch)->get(route('surya.outlet-list'))->assertForbidden();
+        $this->actingAs($branch)->get('/surya/list-outlet')->assertNotFound();
         $this->actingAs($branch)->get(route('surya.transaction-upload'))->assertForbidden();
+        $this->assertTrue(Hash::check('123321', (string) DB::table('login')->where('username', 'branch_dumai')->value('password')));
     }
 
     public function test_authenticated_gm_cluster_is_redirected_from_login_page_to_surya(): void

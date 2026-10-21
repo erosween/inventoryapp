@@ -73,53 +73,29 @@ class MonitaDumaiController extends Controller
         return view('monitadumai.metrics-upload');
     }
 
-    public function outletList(Request $request)
+    public function outletProfile(string $idOutlet)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
 
-        $tapScopes = $this->suryaTapScopes();
-        $search = trim((string) $request->input('q'));
-        $selectedTap = trim((string) $request->input('tap'));
-        $selectedDay = trim((string) $request->input('pjp'));
+        $outlet = DB::table('appsdumais')
+            ->where('id_outlet', $idOutlet)
+            ->first(['id_outlet', 'nama_outlet', 'kecamatan', 'tap', 'sf', 'pjp']);
+        abort_unless($outlet, 404);
 
-        $outlets = DB::table('appsdumais')
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
-            ->when($selectedTap !== '', fn ($query) => $query->where('tap', $selectedTap))
-            ->when($selectedDay !== '', fn ($query) => $query->where('pjp', $selectedDay))
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($filter) use ($search) {
-                    $filter->where('id_outlet', 'like', "%{$search}%")
-                        ->orWhere('nama_outlet', 'like', "%{$search}%")
-                        ->orWhere('sf', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy('tap')
-            ->orderBy('nama_outlet')
-            ->paginate(30)
-            ->withQueryString();
-
-        $taps = DB::table('appsdumais')
-            ->whereNotNull('tap')
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
-            ->distinct()->orderBy('tap')->pluck('tap');
-        $salesByTap = DB::table('idsf')
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
-            ->orderBy('namasf')->get(['idsf', 'namasf', 'idtap'])->groupBy('idtap');
-        $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu', 'UNMAPPING'];
-
-        return response()->view('surya.outlet-list', compact('outlets', 'taps', 'salesByTap', 'days'))
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        return response()->json([
+            'outlet' => $outlet,
+            'sales' => DB::table('idsf')->where('idtap', $outlet->tap)
+                ->orderBy('namasf')->get(['idsf', 'namasf']),
+            'days' => ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu', 'UNMAPPING'],
+        ]);
     }
 
-    public function updateOutletPjp(Request $request, string $idOutlet)
+    public function updateOutletProfile(Request $request, string $idOutlet)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
 
         $outlet = DB::table('appsdumais')->where('id_outlet', $idOutlet)->first();
         abort_unless($outlet, 404);
-        $tapScopes = $this->suryaTapScopes();
-        abort_if($tapScopes !== null && ! in_array($outlet->tap, $tapScopes, true), 403);
-
         $validated = $request->validate([
             'sf' => ['required', 'string', 'max:150'],
             'pjp' => ['required', 'in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu,UNMAPPING'],
@@ -135,7 +111,7 @@ class MonitaDumaiController extends Controller
             'pjp' => $validated['pjp'],
         ]);
 
-        return back()->with('success', "PJP outlet {$idOutlet} berhasil diperbarui.");
+        return response()->json(['message' => "Profil outlet {$idOutlet} berhasil diperbarui."]);
     }
 
     public function outletDetail(Request $request)
@@ -154,7 +130,10 @@ class MonitaDumaiController extends Controller
             ->pluck('tap');
         $outletCount = $this->outletDetailBaseQuery($tapScopes)->count();
 
-        return response()->view('surya.outlet-detail', compact('taps', 'outletCount'))
+        $canEditOutlet = $this->isSuryaAdminSuper();
+        $salesCutoffDate = now('Asia/Jakarta')->subDay()->translatedFormat('d M Y');
+
+        return response()->view('surya.outlet-detail', compact('taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
@@ -211,34 +190,50 @@ class MonitaDumaiController extends Controller
     private function hydrateOutletDetailPage($rows)
     {
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
-        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
-        $today = now('Asia/Jakarta')->toDateString();
+        $cutoff = now('Asia/Jakarta')->subDay()->startOfDay();
+        $monthStart = $cutoff->copy()->startOfMonth();
+        $previousMonthStart = $monthStart->copy()->subMonth();
+        $previousMonthEnd = $previousMonthStart->copy()->endOfMonth();
+        $previousComparableEnd = $previousMonthStart->copy()
+            ->day(min($cutoff->day, $previousMonthEnd->day));
         $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-            ->whereBetween('k.tgl', [$monthStart, $today])
+            ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
             ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
             ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-            ->whereBetween('m.tgl', [$monthStart, $today])
+            ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
             ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
             ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        $history = DB::table('surya_outlet_sales_history')
+            ->whereIn('id_outlet', $pageIds)
+            ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
+            ->select('id_outlet')
+            ->selectRaw('SUM(sa) as sa_fm1, SUM(pv) as pv_fm1')
+            ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END) as sa_m1', [$previousComparableEnd->toDateString()])
+            ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END) as pv_m1', [$previousComparableEnd->toDateString()])
+            ->groupBy('id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
             ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
 
-        return $rows->transform(function ($row) use ($keluar, $mobile, $metrics) {
+        return $rows->transform(function ($row) use ($keluar, $mobile, $history, $metrics) {
             $id = (string) $row->id_outlet;
             $legacy = $keluar->get($id);
             $approved = $mobile->get($id);
+            $historical = $history->get($id);
             $metric = $metrics->get($id);
-            foreach (['st_sa', 'st_pv'] as $stock) {
-                $row->{$stock . '_fm1'} = null;
-                $row->{$stock . '_m1'} = null;
-                $row->{$stock . '_mtd'} = (int) ($legacy->{$stock} ?? 0) + (int) ($approved->{$stock} ?? 0);
-                $row->{$stock . '_gap'} = null;
-                $row->{$stock . '_mom_pct'} = null;
+            foreach (['st_sa' => 'sa', 'st_pv' => 'pv'] as $stock => $historyColumn) {
+                $fm1 = (int) ($historical->{$historyColumn . '_fm1'} ?? 0);
+                $m1 = (int) ($historical->{$historyColumn . '_m1'} ?? 0);
+                $mtd = (int) ($legacy->{$stock} ?? 0) + (int) ($approved->{$stock} ?? 0);
+                $row->{$stock . '_fm1'} = $fm1;
+                $row->{$stock . '_m1'} = $m1;
+                $row->{$stock . '_mtd'} = $mtd;
+                $row->{$stock . '_gap'} = $mtd - $m1;
+                $row->{$stock . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
             }
             foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo', 'biometrik' => 'bio'] as $alias => $column) {
                 $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
@@ -286,7 +281,10 @@ class MonitaDumaiController extends Controller
         $rows = $sheet->toArray(null, true, true, true);
         $header = array_shift($rows) ?: [];
         $headerValues = collect($header)->filter(fn ($value) => trim((string) $value) !== '')->values();
-        $isBiometricFile = $headerValues->count() === 4;
+        $firstDataRow = collect($rows)->first(fn ($row) => trim((string) ($row['A'] ?? '')) !== '');
+        $salesHistoryDate = $this->parseUploadedSalesDate($firstDataRow['A'] ?? null);
+        $isSalesHistoryFile = $headerValues->count() === 4 && $salesHistoryDate !== null;
+        $isBiometricFile = $headerValues->count() === 4 && ! $isSalesHistoryFile;
         $headers = collect($header)->mapWithKeys(function ($value, $key) {
             $name = strtolower(trim((string) $value));
             $name = preg_replace('/[^a-z0-9]+/', '_', $name);
@@ -297,6 +295,28 @@ class MonitaDumaiController extends Controller
         $imported = 0;
         $skipped = 0;
         foreach ($rows as $row) {
+            if ($isSalesHistoryFile) {
+                $transactionDate = $this->parseUploadedSalesDate($row['A'] ?? null);
+                $idOutlet = trim((string) ($row['B'] ?? ''));
+                if ($transactionDate === null || $idOutlet === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $now = now();
+                DB::table('surya_outlet_sales_history')->updateOrInsert(
+                    ['transaction_date' => $transactionDate, 'id_outlet' => $idOutlet],
+                    [
+                        'sa' => max(0, (int) ($row['C'] ?? 0)),
+                        'pv' => max(0, (int) ($row['D'] ?? 0)),
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+                $imported++;
+                continue;
+            }
+
             if ($isBiometricFile) {
                 $idOutlet = trim((string) ($row['A'] ?? ''));
                 if ($idOutlet === '') {
@@ -348,6 +368,44 @@ class MonitaDumaiController extends Controller
         }
 
         return back()->with('success', "Upload berhasil: {$imported} outlet diproses, {$skipped} baris dilewati.");
+    }
+
+    private function parseUploadedSalesDate($value): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            $serial = (float) $value;
+            if ($serial < 20000 || $serial > 80000) {
+                return null;
+            }
+
+            try {
+                return ExcelDate::excelToDateTimeObject($serial)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+
+        $text = trim((string) $value);
+        if (! preg_match('/^\d{1,4}[\/-]\d{1,2}[\/-]\d{1,4}$/', $text)) {
+            return null;
+        }
+
+        foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'Y/m/d'] as $format) {
+            try {
+                $date = Carbon::createFromFormat('!'.$format, $text);
+                if ($date && $date->format($format) === $text) {
+                    return $date->toDateString();
+                }
+            } catch (\Throwable $e) {
+                // Coba format tanggal berikutnya.
+            }
+        }
+
+        return null;
     }
 
     private function parseMetricsDate($value): string
@@ -603,13 +661,14 @@ class MonitaDumaiController extends Controller
 
     private function currentMonthSalesByOutlet(?array $tapScopes, $outletIds = null): array
     {
-        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
-        $today = now('Asia/Jakarta')->toDateString();
+        $cutoff = now('Asia/Jakarta')->subDay();
+        $monthStart = $cutoff->copy()->startOfMonth()->toDateString();
+        $cutoffDate = $cutoff->toDateString();
         $ids = $outletIds ? collect($outletIds)->map(fn ($id) => (string) $id)->all() : null;
 
         $legacy = DB::table('keluarsf as k')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-            ->whereBetween('k.tgl', [$monthStart, $today])
+            ->whereBetween('k.tgl', [$monthStart, $cutoffDate])
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('k.idtap', $tapScopes))
             ->when($ids !== null, fn ($q) => $q->whereIn('k.id_outlet', $ids))
             ->groupBy('k.id_outlet')
@@ -621,7 +680,7 @@ class MonitaDumaiController extends Controller
         $approved = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->where('m.status', 'approved')
-            ->whereBetween('m.tgl', [$monthStart, $today])
+            ->whereBetween('m.tgl', [$monthStart, $cutoffDate])
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('m.idtap', $tapScopes))
             ->when($ids !== null, fn ($q) => $q->whereIn('m.id_outlet', $ids))
             ->groupBy('m.id_outlet')

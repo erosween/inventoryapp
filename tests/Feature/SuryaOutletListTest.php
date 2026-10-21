@@ -27,14 +27,15 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('id="sidebar-toggle"', false)
             ->assertSee('id="sidebar-close"', false)
             ->assertSee('PETA OUTLET')
-            ->assertSee('LIST OUTLET')
+            ->assertDontSee('LIST OUTLET')
             ->assertSee('sidebar-link active')
             ->assertSee('SURYA Leader')
             ->assertSee('Upload Transaksi Outlet')
+            ->assertSee('Upload historis SA/PV')
             ->assertSee('Nama header bebas');
     }
 
-    public function test_surya_outlet_list_can_update_sf_and_pjp_day(): void
+    public function test_admin_super_can_update_outlet_profile_from_detail_outlet(): void
     {
         $admin = User::where('username', 'admin_super')->first();
         $sales = DB::table('idsf')->whereNotNull('idtap')->whereNotNull('namasf')->first();
@@ -52,29 +53,18 @@ class SuryaOutletListTest extends TestCase
         ]);
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
-            ->get(route('surya.outlet-list', ['q' => $idOutlet]))
+            ->get(route('surya.outlet-detail.profile', $idOutlet))
             ->assertOk()
-            ->assertSee('LIST OUTLET')
-            ->assertSee('Outlet Uji List')
-            ->assertSee('Edit PJP')
-            ->assertSee('pagination-summary')
-            ->assertDontSee('Showing 1 to')
-            ->assertSee('css/surya-sidebar.css', false)
-            ->assertSee('surya-sidebar-precollapsed')
-            ->assertSee('class="enterprise-sidebar"', false)
-            ->assertSee('id="sidebar-toggle"', false)
-            ->assertSee('id="sidebar-close"', false)
-            ->assertSee('sidebar-collapsed')
-            ->assertSee('width:236px', false)
-            ->assertSee('SURYA Leader');
+            ->assertJsonPath('outlet.nama_outlet', 'Outlet Uji List')
+            ->assertJsonPath('outlet.pjp', 'UNMAPPING');
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
-            ->put(route('surya.outlet-list.update', $idOutlet), [
+            ->putJson(route('surya.outlet-detail.profile.update', $idOutlet), [
                 'sf' => $sales->namasf,
                 'pjp' => 'Rabu',
             ])
-            ->assertRedirect()
-            ->assertSessionHas('success');
+            ->assertOk()
+            ->assertJsonPath('message', "Profil outlet {$idOutlet} berhasil diperbarui.");
 
         $this->assertDatabaseHas('appsdumais', [
             'id_outlet' => $idOutlet,
@@ -83,7 +73,7 @@ class SuryaOutletListTest extends TestCase
         ]);
     }
 
-    public function test_surya_outlet_list_is_hidden_and_forbidden_for_non_super_admins(): void
+    public function test_outlet_list_is_removed_and_profile_edit_is_forbidden_for_non_super_admins(): void
     {
         $admin = User::whereIn('username', ['gm', 'admin_cluster'])
             ->orWhere('username', 'like', 'asmen\_%')
@@ -94,13 +84,17 @@ class SuryaOutletListTest extends TestCase
 
         $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
-            ->get(route('surya.outlet-list'))
+            ->get('/surya/list-outlet')
+            ->assertNotFound();
+
+        $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.outlet-detail.profile', 1))
             ->assertForbidden();
 
         $this->actingAs($admin)
             ->view('surya.partials.sidebar', ['activePage' => 'dashboard'])
-            ->assertDontSee('LIST OUTLET')
-            ->assertDontSee(route('surya.outlet-list'), false);
+            ->assertDontSee('LIST OUTLET');
     }
 
     public function test_outlet_detail_combines_sales_and_uses_latest_uploaded_metrics(): void
@@ -134,16 +128,24 @@ class SuryaOutletListTest extends TestCase
         DB::table('keluarsf')->insert([
             ['iddenom' => 'TEST-DETAIL-SA', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 2, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
             ['iddenom' => 'TEST-DETAIL-PV', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 3, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
+            ['iddenom' => 'TEST-DETAIL-SA', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 500, 'tgl' => '2026-10-22', 'idtap' => 'DUMAI'],
             ['iddenom' => 'TEST-DETAIL-PV', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 90, 'tgl' => '2026-09-20', 'idtap' => 'DUMAI'],
         ]);
         DB::table('mobile_penjualan')->insert([
             ['tgl' => '2026-10-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 5, 'status' => 'approved'],
+            ['tgl' => '2026-10-22', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-PV', 'qty' => 700, 'status' => 'approved'],
             ['tgl' => '2026-10-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-PV', 'qty' => 11, 'status' => 'pending'],
             ['tgl' => '2026-09-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 50, 'status' => 'approved'],
         ]);
         DB::table('surya_daily_metrics')->insert([
             ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 1, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 2, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 3, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 4, 'bio_fm1' => 0, 'bio_m1' => 0, 'bio_m' => 0],
             ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-20', 'cvm_fm1' => 8, 'cvm_m1' => 9, 'cvm_m' => 10, 'ss_fm1' => 18, 'ss_m1' => 19, 'ss_m' => 20, 'comsak_fm1' => 28, 'comsak_m1' => 29, 'comsak_m' => 30, 'hot_promo_fm1' => 38, 'hot_promo_m1' => 39, 'hot_promo_m' => 40, 'bio_fm1' => 48, 'bio_m1' => 49, 'bio_m' => 50],
+        ]);
+        DB::table('surya_outlet_sales_history')->insert([
+            ['transaction_date' => '2026-09-01', 'id_outlet' => $idOutlet, 'sa' => 4, 'pv' => 6],
+            ['transaction_date' => '2026-09-21', 'id_outlet' => $idOutlet, 'sa' => 2, 'pv' => 3],
+            ['transaction_date' => '2026-09-22', 'id_outlet' => $idOutlet, 'sa' => 10, 'pv' => 20],
+            ['transaction_date' => '2026-09-30', 'id_outlet' => $idOutlet, 'sa' => 1, 'pv' => 2],
         ]);
 
         $response = $this->actingAs($admin)
@@ -157,6 +159,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('serverSide:true', false)
             ->assertSee('ordering:false', false)
             ->assertSee('Export Excel')
+            ->assertSee('id="profile-modal"', false)
+            ->assertSee('outlet-profile-link', false)
             ->assertSee('position:sticky;top:50px', false)
             ->assertSee('position:sticky;left:130px', false)
             ->assertSee('max-height:clamp(600px', false)
@@ -180,8 +184,12 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame('SF UJI DETAIL', $outlet->sf);
         $this->assertSame(7, (int) $outlet->st_sa_mtd);
         $this->assertSame(3, (int) $outlet->st_pv_mtd);
-        $this->assertNull($outlet->st_sa_fm1);
-        $this->assertNull($outlet->st_pv_m1);
+        $this->assertSame(17, (int) $outlet->st_sa_fm1);
+        $this->assertSame(6, (int) $outlet->st_sa_m1);
+        $this->assertSame(31, (int) $outlet->st_pv_fm1);
+        $this->assertSame(9, (int) $outlet->st_pv_m1);
+        $this->assertSame(1, (int) $outlet->st_sa_gap);
+        $this->assertSame(-6, (int) $outlet->st_pv_gap);
         $this->assertSame(8, (int) $outlet->cvm_fm1);
         $this->assertSame(9, (int) $outlet->cvm_m1);
         $this->assertSame(10, (int) $outlet->cvm_mtd);
@@ -222,6 +230,8 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame('Outlet Uji Detail', $sheet->getCell('B2')->getValue());
         $this->assertSame(7, (int) $sheet->getCell('I2')->getValue());
         $this->assertSame(3, (int) $sheet->getCell('N2')->getValue());
+        $this->assertSame(17, (int) $sheet->getCell('G2')->getValue());
+        $this->assertSame(6, (int) $sheet->getCell('H2')->getValue());
         $this->assertSame(10, (int) $sheet->getCell('S2')->getValue());
         $this->assertSame(48, (int) $sheet->getCell('AK2')->getValue());
         $this->assertSame(50, (int) $sheet->getCell('AM2')->getValue());
@@ -284,6 +294,42 @@ class SuryaOutletListTest extends TestCase
             $this->assertSame(10, (int) $response->json('data.0.biometrik_mtd'));
             $this->assertSame(2, (int) $response->json('data.0.biometrik_gap'));
             $this->assertEqualsWithDelta(25.0, (float) $response->json('data.0.biometrik_mom_pct'), 0.01);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_historical_sales_upload_uses_date_outlet_sa_pv_column_order(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin belum tersedia.');
+        }
+
+        $idOutlet = 990000005;
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray([
+            ['Tanggal Trx', 'ID Outlet', 'SA', 'PV'],
+            ['21/09/2026', $idOutlet, 14, 27],
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'surya-sales-');
+        IOFactory::createWriter($spreadsheet, 'Xlsx')->save($path);
+
+        try {
+            $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->post(route('surya.transaction-upload.store'), [
+                    'metrics_file' => new UploadedFile($path, 'historis-sa-pv.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+                ])
+                ->assertRedirect()
+                ->assertSessionHas('success');
+
+            $this->assertDatabaseHas('surya_outlet_sales_history', [
+                'transaction_date' => '2026-09-21',
+                'id_outlet' => $idOutlet,
+                'sa' => 14,
+                'pv' => 27,
+            ]);
         } finally {
             @unlink($path);
         }
