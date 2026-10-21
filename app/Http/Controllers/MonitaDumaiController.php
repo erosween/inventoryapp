@@ -208,14 +208,20 @@ class MonitaDumaiController extends Controller
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
             ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
             ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-        $history = DB::table('surya_outlet_sales_history')
-            ->whereIn('id_outlet', $pageIds)
-            ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
-            ->select('id_outlet')
-            ->selectRaw('SUM(sa) as sa_fm1, SUM(pv) as pv_fm1')
-            ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END) as sa_m1', [$previousComparableEnd->toDateString()])
-            ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END) as pv_m1', [$previousComparableEnd->toDateString()])
-            ->groupBy('id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        // Tetap layani Detail Outlet saat deployment aplikasi selesai lebih dulu
+        // daripada migrasi tabel histori. Setelah migrasi tersedia, FM1/M1 langsung
+        // dibaca tanpa perlu cache atau restart tambahan.
+        $history = collect();
+        if (Schema::hasTable('surya_outlet_sales_history')) {
+            $history = DB::table('surya_outlet_sales_history')
+                ->whereIn('id_outlet', $pageIds)
+                ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
+                ->select('id_outlet')
+                ->selectRaw('SUM(sa) as sa_fm1, SUM(pv) as pv_fm1')
+                ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END) as sa_m1', [$previousComparableEnd->toDateString()])
+                ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END) as pv_m1', [$previousComparableEnd->toDateString()])
+                ->groupBy('id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        }
         $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
             ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
 
