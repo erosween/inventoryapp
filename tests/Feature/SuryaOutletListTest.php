@@ -98,4 +98,54 @@ class SuryaOutletListTest extends TestCase
             ->assertDontSee('LIST OUTLET')
             ->assertDontSee(route('surya.outlet-list'), false);
     }
+
+    public function test_outlet_detail_combines_sales_and_uses_latest_uploaded_metrics(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin belum tersedia.');
+        }
+
+        DB::table('denom')->insert([
+            ['iddenom' => 'TEST-DETAIL-SA', 'denom' => 'Test Detail SA', 'group_name' => 'TEST', 'product_group' => 'SA'],
+            ['iddenom' => 'TEST-DETAIL-PV', 'denom' => 'Test Detail PV', 'group_name' => 'TEST', 'product_group' => 'PV'],
+        ]);
+
+        $idOutlet = 990000002;
+        DB::table('appsdumais')->insert([
+            'id_outlet' => $idOutlet,
+            'nama_outlet' => 'Outlet Uji Detail',
+            'kecamatan' => 'Kecamatan Uji',
+            'tap' => 'DUMAI',
+        ]);
+        DB::table('keluarsf')->insert([
+            ['iddenom' => 'TEST-DETAIL-SA', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 2, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
+            ['iddenom' => 'TEST-DETAIL-PV', 'idsf' => 'SF-TEST', 'id_outlet' => $idOutlet, 'qty' => 3, 'tgl' => '2026-10-20', 'idtap' => 'DUMAI'],
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['tgl' => '2026-10-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 5, 'status' => 'approved'],
+            ['tgl' => '2026-10-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-PV', 'qty' => 11, 'status' => 'pending'],
+        ]);
+        DB::table('surya_daily_metrics')->insert([
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_m' => 1, 'ss_m' => 2, 'comsak_m' => 3, 'hot_promo_m' => 4],
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-20', 'cvm_m' => 10, 'ss_m' => 20, 'comsak_m' => 30, 'hot_promo_m' => 40],
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.outlet-detail', ['q' => $idOutlet]));
+
+        $response->assertOk()
+            ->assertSee('DETAIL OUTLET')
+            ->assertSee('Outlet Uji Detail')
+            ->assertSee('Kecamatan Uji');
+
+        $outlet = $response->viewData('outlets')->first();
+        $this->assertSame(7, (int) $outlet->st_sa);
+        $this->assertSame(3, (int) $outlet->st_pv);
+        $this->assertSame(10, (int) $outlet->cvm);
+        $this->assertSame(20, (int) $outlet->super_seru);
+        $this->assertSame(30, (int) $outlet->comsak);
+        $this->assertSame(40, (int) $outlet->hot_promo);
+    }
 }

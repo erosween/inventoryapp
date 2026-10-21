@@ -19,6 +19,7 @@
         @if($sidebarUser === 'admin_super')
             <a href="{{ route('surya.outlet-list') }}" class="sidebar-link {{ $sidebarPage === 'outlet-list' ? 'active' : '' }}"><i class="fas fa-list"></i><span>LIST OUTLET</span></a>
         @endif
+        <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
         <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
         @if($sidebarUser === 'admin_super')
             <a href="{{ route('surya.transaction-upload') }}" class="sidebar-link {{ $sidebarPage === 'transaction-upload' ? 'active' : '' }}"><i class="fas fa-file-arrow-up"></i><span>UPLOAD TRANSAKSI</span></a>

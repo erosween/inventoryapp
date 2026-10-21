@@ -137,6 +137,78 @@ class MonitaDumaiController extends Controller
         return back()->with('success', "PJP outlet {$idOutlet} berhasil diperbarui.");
     }
 
+    public function outletDetail(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+
+        $tapScopes = $this->suryaTapScopes();
+        $search = trim((string) $request->input('q'));
+        $selectedTap = trim((string) $request->input('tap'));
+
+        $keluarSfTotals = DB::table('keluarsf as k')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->whereNotNull('k.id_outlet')
+            ->where('k.id_outlet', '<>', '')
+            ->select('k.id_outlet')
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
+            ->groupBy('k.id_outlet');
+
+        $mobileTotals = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->where('m.status', 'approved')
+            ->whereNotNull('m.id_outlet')
+            ->where('m.id_outlet', '<>', '')
+            ->select('m.id_outlet')
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
+            ->groupBy('m.id_outlet');
+
+        $latestMetricDates = DB::table('surya_daily_metrics')
+            ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
+            ->groupBy('id_outlet');
+        $latestMetrics = DB::table('surya_daily_metrics as metric')
+            ->joinSub($latestMetricDates, 'latest_metric', function ($join) {
+                $join->on('latest_metric.id_outlet', '=', 'metric.id_outlet')
+                    ->on('latest_metric.metric_date', '=', 'metric.metric_date');
+            })
+            ->select('metric.id_outlet', 'metric.metric_date', 'metric.cvm_m', 'metric.ss_m', 'metric.comsak_m', 'metric.hot_promo_m');
+
+        $outlets = DB::table('appsdumais as outlet')
+            ->leftJoinSub($keluarSfTotals, 'keluar_sf', 'keluar_sf.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($mobileTotals, 'mobile_sales', 'mobile_sales.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($latestMetrics, 'metrics', 'metrics.id_outlet', '=', 'outlet.id_outlet')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('outlet.tap', $tapScopes))
+            ->when($selectedTap !== '', fn ($query) => $query->where('outlet.tap', $selectedTap))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($filter) use ($search) {
+                    $filter->where('outlet.id_outlet', 'like', "%{$search}%")
+                        ->orWhere('outlet.nama_outlet', 'like', "%{$search}%")
+                        ->orWhere('outlet.kecamatan', 'like', "%{$search}%");
+                });
+            })
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan')
+            ->selectRaw('COALESCE(keluar_sf.st_sa, 0) + COALESCE(mobile_sales.st_sa, 0) as st_sa')
+            ->selectRaw('COALESCE(keluar_sf.st_pv, 0) + COALESCE(mobile_sales.st_pv, 0) as st_pv')
+            ->selectRaw('COALESCE(metrics.cvm_m, 0) as cvm')
+            ->selectRaw('COALESCE(metrics.ss_m, 0) as super_seru')
+            ->selectRaw('COALESCE(metrics.comsak_m, 0) as comsak')
+            ->selectRaw('COALESCE(metrics.hot_promo_m, 0) as hot_promo')
+            ->orderBy('outlet.nama_outlet')
+            ->paginate(30)
+            ->withQueryString();
+
+        $taps = DB::table('appsdumais')
+            ->whereNotNull('tap')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->distinct()
+            ->orderBy('tap')
+            ->pluck('tap');
+
+        return response()->view('surya.outlet-detail', compact('outlets', 'taps'))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
     public function metricsUpload(Request $request)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
