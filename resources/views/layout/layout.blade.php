@@ -5,7 +5,7 @@
         'asmen_'
     );
     $isGmCluster = auth()->check()
-        && \Illuminate\Support\Str::lower(auth()->user()->username) === 'gm_cluster';
+        && in_array(\Illuminate\Support\Str::lower(auth()->user()->username), ['gm_cluster', 'branch_dumai'], true);
     $showDashboardMenu = auth()->check();
 @endphp
 

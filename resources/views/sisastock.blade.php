@@ -3,7 +3,7 @@
 @php
     use Illuminate\Support\Str;
     $isCurrentStockPage = $isCurrentStockPage ?? false;
-    $showClusterFooters = in_array(auth()->user()?->username, ['admin_cluster', 'admin_super', 'gm_cluster'], true);
+    $showClusterFooters = in_array(auth()->user()?->username, ['admin_cluster', 'admin_super', 'gm_cluster', 'branch_dumai'], true);
     $initialMode = $initialMode ?? 'all';
     $dailyGroupMap = collect($groups)->flatMap(function ($validityGroups, $category) {
         return collect($validityGroups)->map(function ($items, $validity) use ($category) {

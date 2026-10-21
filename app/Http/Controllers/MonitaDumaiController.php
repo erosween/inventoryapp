@@ -240,7 +240,7 @@ class MonitaDumaiController extends Controller
                 $row->{$stock . '_gap'} = null;
                 $row->{$stock . '_mom_pct'} = null;
             }
-            foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
+            foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo', 'biometrik' => 'bio'] as $alias => $column) {
                 $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
                 $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
                 $mtd = (int) ($metric->{$column . '_m'} ?? 0);
@@ -285,6 +285,8 @@ class MonitaDumaiController extends Controller
         $sheet = IOFactory::load($request->file('metrics_file')->getRealPath())->getActiveSheet();
         $rows = $sheet->toArray(null, true, true, true);
         $header = array_shift($rows) ?: [];
+        $headerValues = collect($header)->filter(fn ($value) => trim((string) $value) !== '')->values();
+        $isBiometricFile = $headerValues->count() === 4;
         $headers = collect($header)->mapWithKeys(function ($value, $key) {
             $name = strtolower(trim((string) $value));
             $name = preg_replace('/[^a-z0-9]+/', '_', $name);
@@ -295,6 +297,29 @@ class MonitaDumaiController extends Controller
         $imported = 0;
         $skipped = 0;
         foreach ($rows as $row) {
+            if ($isBiometricFile) {
+                $idOutlet = trim((string) ($row['A'] ?? ''));
+                if ($idOutlet === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $now = now();
+                DB::table('surya_daily_metrics')->updateOrInsert(
+                    ['id_outlet' => $idOutlet, 'metric_date' => $now->toDateString()],
+                    [
+                        'bio_fm1' => max(0, (int) ($row['B'] ?? 0)),
+                        'bio_m1' => max(0, (int) ($row['C'] ?? 0)),
+                        'bio_m' => max(0, (int) ($row['D'] ?? 0)),
+                        'source_updated_at' => $now->toDateString(),
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+                $imported++;
+                continue;
+            }
+
             $data = [];
             foreach ($headers as $key => $name) {
                 if ($name !== '') $data[$name] = $row[$key] ?? null;
@@ -529,7 +554,7 @@ class MonitaDumaiController extends Controller
 
         $username = strtolower(trim((string) Auth::user()->username));
 
-        return in_array($username, ['gm', 'gm_cluster', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
+        return in_array($username, ['gm', 'gm_cluster', 'branch_dumai', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_');
     }
 
@@ -839,7 +864,7 @@ class MonitaDumaiController extends Controller
         $user = Auth::user();
         $username = strtolower(trim((string) ($user?->username ?? '')));
 
-        if (in_array($username, ['admin_super', 'gm_cluster'], true)) {
+        if (in_array($username, ['admin_super', 'gm_cluster', 'branch_dumai'], true)) {
             return null;
         }
 

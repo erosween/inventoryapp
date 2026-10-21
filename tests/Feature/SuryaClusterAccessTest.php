@@ -14,7 +14,7 @@ class SuryaClusterAccessTest extends TestCase
 
     public function test_cluster_users_are_redirected_to_surya_after_login(): void
     {
-        foreach (['cluster_dumai', 'cluster_rohil', 'gm_cluster'] as $username) {
+        foreach (['cluster_dumai', 'cluster_rohil', 'gm_cluster', 'branch_dumai'] as $username) {
             $user = User::where('username', $username)->first();
             if (! $user) {
                 $this->markTestSkipped("Fixture {$username} belum tersedia.");
@@ -108,6 +108,47 @@ class SuryaClusterAccessTest extends TestCase
             ->assertSee(route('sisastock.index'), false)
             ->assertDontSee('LIST OUTLET')
             ->assertDontSee('UPLOAD TRANSAKSI');
+    }
+
+    public function test_branch_dumai_uses_all_tap_surya_scope_with_restricted_sidebar(): void
+    {
+        $branch = User::where('username', 'branch_dumai')->first();
+        if (! $branch) {
+            $this->markTestSkipped('Fixture user branch_dumai belum tersedia.');
+        }
+
+        DB::table('appsdumais')->insert([
+            [
+                'id_outlet' => 990000105,
+                'nama_outlet' => 'Scope Branch Test Dumai',
+                'tap' => 'DUMAI',
+                'sf' => 'UNMAPPING',
+                'pjp' => 'UNMAPPING',
+            ],
+            [
+                'id_outlet' => 990000106,
+                'nama_outlet' => 'Scope Branch Test Rohil',
+                'tap' => 'UJUNG TANJUNG',
+                'sf' => 'UNMAPPING',
+                'pjp' => 'UNMAPPING',
+            ],
+        ]);
+
+        $this->actingAs($branch)
+            ->withSession(['idtap' => 'ALL TAP'])
+            ->get('/surya/suggest?keyword=Scope%20Branch%20Test')
+            ->assertOk()
+            ->assertJsonFragment(['id_outlet' => 990000105])
+            ->assertJsonFragment(['id_outlet' => 990000106]);
+
+        $this->actingAs($branch)
+            ->view('surya.partials.sidebar', ['activePage' => 'dashboard'])
+            ->assertSee(route('sisastock.index'), false)
+            ->assertDontSee('LIST OUTLET')
+            ->assertDontSee('UPLOAD TRANSAKSI');
+
+        $this->actingAs($branch)->get(route('surya.outlet-list'))->assertForbidden();
+        $this->actingAs($branch)->get(route('surya.transaction-upload'))->assertForbidden();
     }
 
     public function test_authenticated_gm_cluster_is_redirected_from_login_page_to_surya(): void

@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use Tests\TestCase;
 
 class SuryaOutletListTest extends TestCase
@@ -28,7 +30,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('LIST OUTLET')
             ->assertSee('sidebar-link active')
             ->assertSee('SURYA Leader')
-            ->assertSee('Upload Transaksi Outlet');
+            ->assertSee('Upload Transaksi Outlet')
+            ->assertSee('Nama header bebas');
     }
 
     public function test_surya_outlet_list_can_update_sf_and_pjp_day(): void
@@ -139,8 +142,8 @@ class SuryaOutletListTest extends TestCase
             ['tgl' => '2026-09-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 50, 'status' => 'approved'],
         ]);
         DB::table('surya_daily_metrics')->insert([
-            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 1, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 2, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 3, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 4],
-            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-20', 'cvm_fm1' => 8, 'cvm_m1' => 9, 'cvm_m' => 10, 'ss_fm1' => 18, 'ss_m1' => 19, 'ss_m' => 20, 'comsak_fm1' => 28, 'comsak_m1' => 29, 'comsak_m' => 30, 'hot_promo_fm1' => 38, 'hot_promo_m1' => 39, 'hot_promo_m' => 40],
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 1, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 2, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 3, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 4, 'bio_fm1' => 0, 'bio_m1' => 0, 'bio_m' => 0],
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-20', 'cvm_fm1' => 8, 'cvm_m1' => 9, 'cvm_m' => 10, 'ss_fm1' => 18, 'ss_m1' => 19, 'ss_m' => 20, 'comsak_fm1' => 28, 'comsak_m1' => 29, 'comsak_m' => 30, 'hot_promo_fm1' => 38, 'hot_promo_m1' => 39, 'hot_promo_m' => 40, 'bio_fm1' => 48, 'bio_m1' => 49, 'bio_m' => 50],
         ]);
 
         $response = $this->actingAs($admin)
@@ -187,6 +190,10 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(20, (int) $outlet->super_seru_mtd);
         $this->assertSame(30, (int) $outlet->comsak_mtd);
         $this->assertSame(40, (int) $outlet->hot_promo_mtd);
+        $this->assertSame(48, (int) $outlet->biometrik_fm1);
+        $this->assertSame(49, (int) $outlet->biometrik_m1);
+        $this->assertSame(50, (int) $outlet->biometrik_mtd);
+        $this->assertSame(1, (int) $outlet->biometrik_gap);
 
         $mapDetailResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
@@ -207,14 +214,78 @@ class SuryaOutletListTest extends TestCase
         $sheet = IOFactory::load($exportResponse->baseResponse->getFile()->getPathname())->getActiveSheet();
 
         $this->assertSame('Detail Outlet', $sheet->getTitle());
-        $this->assertSame('AJ', $sheet->getHighestColumn());
+        $this->assertSame('AO', $sheet->getHighestColumn());
         $this->assertSame(2, $sheet->getHighestRow());
         $this->assertSame('ID Outlet', $sheet->getCell('A1')->getValue());
-        $this->assertSame('Hot Promo %MoM', $sheet->getCell('AJ1')->getValue());
+        $this->assertSame('Biometrik %MoM', $sheet->getCell('AO1')->getValue());
         $this->assertSame((string) $idOutlet, (string) $sheet->getCell('A2')->getValue());
         $this->assertSame('Outlet Uji Detail', $sheet->getCell('B2')->getValue());
         $this->assertSame(7, (int) $sheet->getCell('I2')->getValue());
         $this->assertSame(3, (int) $sheet->getCell('N2')->getValue());
         $this->assertSame(10, (int) $sheet->getCell('S2')->getValue());
+        $this->assertSame(48, (int) $sheet->getCell('AK2')->getValue());
+        $this->assertSame(50, (int) $sheet->getCell('AM2')->getValue());
+    }
+
+    public function test_biometric_upload_uses_column_position_and_updates_outlet_detail(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin belum tersedia.');
+        }
+
+        $idOutlet = 990000004;
+        DB::table('appsdumais')->insert([
+            'id_outlet' => $idOutlet,
+            'nama_outlet' => 'Outlet Uji Biometrik',
+            'kecamatan' => 'Kecamatan Uji',
+            'tap' => 'DUMAI',
+            'sf' => 'SF UJI BIOMETRIK',
+            'pjp' => 'Selasa',
+        ]);
+
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray([
+            ['kolom bebas 1', 'kolom bebas 2', 'kolom bebas 3', 'kolom bebas 4'],
+            [$idOutlet, 12, 8, 10],
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'surya-bio-');
+        IOFactory::createWriter($spreadsheet, 'Xlsx')->save($path);
+
+        try {
+            $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->post(route('surya.transaction-upload.store'), [
+                    'metrics_file' => new UploadedFile($path, 'biometrik.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+                ])
+                ->assertRedirect()
+                ->assertSessionHas('success');
+
+            $this->assertDatabaseHas('surya_daily_metrics', [
+                'id_outlet' => $idOutlet,
+                'metric_date' => now()->toDateString(),
+                'bio_fm1' => 12,
+                'bio_m1' => 8,
+                'bio_m' => 10,
+            ]);
+
+            $response = $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->getJson(route('surya.outlet-detail.data', [
+                    'draw' => 1,
+                    'start' => 0,
+                    'length' => 25,
+                    'search' => ['value' => 'Outlet Uji Biometrik'],
+                ]))
+                ->assertOk();
+
+            $this->assertSame(12, (int) $response->json('data.0.biometrik_fm1'));
+            $this->assertSame(8, (int) $response->json('data.0.biometrik_m1'));
+            $this->assertSame(10, (int) $response->json('data.0.biometrik_mtd'));
+            $this->assertSame(2, (int) $response->json('data.0.biometrik_gap'));
+            $this->assertEqualsWithDelta(25.0, (float) $response->json('data.0.biometrik_mom_pct'), 0.01);
+        } finally {
+            @unlink($path);
+        }
     }
 }
