@@ -142,86 +142,6 @@ class MonitaDumaiController extends Controller
         abort_unless($this->hasSuryaAccess($request), 403);
 
         $tapScopes = $this->suryaTapScopes();
-        $search = trim((string) $request->input('q'));
-        $selectedTap = trim((string) $request->input('tap'));
-
-        $outlets = DB::table('appsdumais as outlet')
-            ->whereNotNull('outlet.pjp')
-            ->whereRaw("TRIM(outlet.pjp) <> ''")
-            ->whereRaw("UPPER(TRIM(outlet.pjp)) <> 'UNMAPPING'")
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('outlet.tap', $tapScopes))
-            ->when($selectedTap !== '', fn ($query) => $query->where('outlet.tap', $selectedTap))
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($filter) use ($search) {
-                    $filter->where('outlet.id_outlet', 'like', "%{$search}%")
-                        ->orWhere('outlet.nama_outlet', 'like', "%{$search}%")
-                        ->orWhere('outlet.kecamatan', 'like', "%{$search}%");
-                });
-            })
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-            ->orderBy('outlet.nama_outlet')
-            ->paginate(30)
-            ->withQueryString();
-
-        $pageOutletIds = $outlets->getCollection()
-            ->pluck('id_outlet')
-            ->map(fn ($id) => (string) $id)
-            ->values();
-
-        $keluarSfTotals = DB::table('keluarsf as k')
-            ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-            ->whereIn('k.id_outlet', $pageOutletIds)
-            ->select('k.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
-            ->groupBy('k.id_outlet')
-            ->get()
-            ->keyBy(fn ($row) => (string) $row->id_outlet);
-
-        $mobileTotals = DB::table('mobile_penjualan as m')
-            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-            ->where('m.status', 'approved')
-            ->whereIn('m.id_outlet', $pageOutletIds)
-            ->select('m.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
-            ->groupBy('m.id_outlet')
-            ->get()
-            ->keyBy(fn ($row) => (string) $row->id_outlet);
-
-        $latestMetrics = DB::table('surya_daily_metrics')
-            ->whereIn('id_outlet', $pageOutletIds)
-            ->orderByDesc('metric_date')
-            ->get([
-                'id_outlet',
-                'cvm_fm1', 'cvm_m1', 'cvm_m',
-                'ss_fm1', 'ss_m1', 'ss_m',
-                'comsak_fm1', 'comsak_m1', 'comsak_m',
-                'hot_promo_fm1', 'hot_promo_m1', 'hot_promo_m',
-            ])
-            ->unique(fn ($row) => (string) $row->id_outlet)
-            ->keyBy(fn ($row) => (string) $row->id_outlet);
-
-        $outlets->setCollection($outlets->getCollection()->map(function ($outlet) use ($keluarSfTotals, $mobileTotals, $latestMetrics) {
-            $id = (string) $outlet->id_outlet;
-            $keluar = $keluarSfTotals->get($id);
-            $mobile = $mobileTotals->get($id);
-            $metric = $latestMetrics->get($id);
-            $outlet->st_sa = (int) ($keluar->st_sa ?? 0) + (int) ($mobile->st_sa ?? 0);
-            $outlet->st_pv = (int) ($keluar->st_pv ?? 0) + (int) ($mobile->st_pv ?? 0);
-            $outlet->st_sa_fm1 = null;
-            $outlet->st_sa_m1 = null;
-            $outlet->st_pv_fm1 = null;
-            $outlet->st_pv_m1 = null;
-            foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $property => $column) {
-                $outlet->{$property . '_fm1'} = (int) ($metric->{$column . '_fm1'} ?? 0);
-                $outlet->{$property . '_m1'} = (int) ($metric->{$column . '_m1'} ?? 0);
-                $outlet->{$property . '_mtd'} = (int) ($metric->{$column . '_m'} ?? 0);
-            }
-
-            return $outlet;
-        }));
-
         $taps = DB::table('appsdumais')
             ->whereNotNull('tap')
             ->whereNotNull('pjp')
@@ -231,9 +151,168 @@ class MonitaDumaiController extends Controller
             ->distinct()
             ->orderBy('tap')
             ->pluck('tap');
+        $outletCount = $this->outletDetailBaseQuery($tapScopes)->count();
 
-        return response()->view('surya.outlet-detail', compact('outlets', 'taps'))
+        return response()->view('surya.outlet-detail', compact('taps', 'outletCount'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    public function outletDetailData(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+
+        $tapScopes = $this->suryaTapScopes();
+        $selectedTap = trim((string) $request->input('tap'));
+        $search = trim((string) data_get($request->input('search'), 'value', ''));
+        $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search);
+        $recordsTotal = $this->outletDetailBaseQuery($tapScopes)->count();
+        $recordsFiltered = (clone $base)->count();
+
+        $orderable = [
+            'id_outlet' => 'outlet.id_outlet', 'nama_outlet' => 'outlet.nama_outlet',
+            'kecamatan' => 'outlet.kecamatan', 'sf' => 'outlet.sf', 'tap' => 'outlet.tap', 'pjp' => 'outlet.pjp',
+            'st_sa_mtd' => 'st_sa_mtd', 'st_pv_mtd' => 'st_pv_mtd',
+        ];
+        foreach (['cvm', 'super_seru', 'comsak', 'hot_promo'] as $metric) {
+            foreach (['fm1', 'm1', 'mtd', 'gap', 'mom_pct'] as $period) {
+                $orderable["{$metric}_{$period}"] = "{$metric}_{$period}";
+            }
+        }
+        $orderIndex = (int) data_get($request->input('order'), '0.column', 1);
+        $orderKey = (string) data_get($request->input('columns'), "{$orderIndex}.data", 'nama_outlet');
+        $direction = strtolower((string) data_get($request->input('order'), '0.dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $length = min(100, max(10, (int) $request->input('length', 25)));
+        $start = max(0, (int) $request->input('start', 0));
+
+        $identityColumns = ['id_outlet', 'nama_outlet', 'kecamatan', 'sf', 'tap', 'pjp'];
+        if (in_array($orderKey, $identityColumns, true)) {
+            $rows = (clone $base)
+                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+                ->orderBy($orderable[$orderKey], $direction)
+                ->offset($start)
+                ->limit($length)
+                ->get();
+            $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
+            $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+                ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
+                ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+            $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+                ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
+                ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+            $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
+                ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
+
+            $rows->transform(function ($row) use ($keluar, $mobile, $metrics) {
+                $id = (string) $row->id_outlet;
+                $legacy = $keluar->get($id);
+                $approved = $mobile->get($id);
+                $metric = $metrics->get($id);
+                foreach (['st_sa', 'st_pv'] as $stock) {
+                    $row->{$stock . '_fm1'} = null;
+                    $row->{$stock . '_m1'} = null;
+                    $row->{$stock . '_mtd'} = (int) ($legacy->{$stock} ?? 0) + (int) ($approved->{$stock} ?? 0);
+                    $row->{$stock . '_gap'} = null;
+                    $row->{$stock . '_mom_pct'} = null;
+                }
+                foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
+                    $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
+                    $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
+                    $mtd = (int) ($metric->{$column . '_m'} ?? 0);
+                    $row->{$alias . '_fm1'} = $fm1;
+                    $row->{$alias . '_m1'} = $m1;
+                    $row->{$alias . '_mtd'} = $mtd;
+                    $row->{$alias . '_gap'} = $mtd - $m1;
+                    $row->{$alias . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
+                }
+
+                return $row;
+            });
+
+            return response()->json([
+                'draw' => (int) $request->input('draw', 1),
+                'recordsTotal' => $recordsTotal,
+                'recordsFiltered' => $recordsFiltered,
+                'data' => $rows,
+            ]);
+        }
+
+        $keluarSfTotals = DB::table('keluarsf as k')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->select('k.id_outlet')
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN k.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
+            ->groupBy('k.id_outlet');
+        $mobileTotals = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->where('m.status', 'approved')
+            ->select('m.id_outlet')
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'SA' THEN m.qty ELSE 0 END) as st_sa")
+            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
+            ->groupBy('m.id_outlet');
+        $latestMetricDates = DB::table('surya_daily_metrics')
+            ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
+            ->groupBy('id_outlet');
+        $latestMetrics = DB::table('surya_daily_metrics as metric')
+            ->joinSub($latestMetricDates, 'latest_metric', function ($join) {
+                $join->on('latest_metric.id_outlet', '=', 'metric.id_outlet')
+                    ->on('latest_metric.metric_date', '=', 'metric.metric_date');
+            })
+            ->select('metric.*');
+
+        $query = $base
+            ->leftJoinSub($keluarSfTotals, 'keluar_sf', 'keluar_sf.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($mobileTotals, 'mobile_sales', 'mobile_sales.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($latestMetrics, 'metrics', 'metrics.id_outlet', '=', 'outlet.id_outlet')
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+            ->selectRaw('NULL as st_sa_fm1, NULL as st_sa_m1')
+            ->selectRaw('COALESCE(keluar_sf.st_sa, 0) + COALESCE(mobile_sales.st_sa, 0) as st_sa_mtd')
+            ->selectRaw('NULL as st_sa_gap, NULL as st_sa_mom_pct')
+            ->selectRaw('NULL as st_pv_fm1, NULL as st_pv_m1')
+            ->selectRaw('COALESCE(keluar_sf.st_pv, 0) + COALESCE(mobile_sales.st_pv, 0) as st_pv_mtd');
+        $query->selectRaw('NULL as st_pv_gap, NULL as st_pv_mom_pct');
+
+        foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
+            $query->selectRaw("COALESCE(metrics.{$column}_fm1, 0) as {$alias}_fm1")
+                ->selectRaw("COALESCE(metrics.{$column}_m1, 0) as {$alias}_m1")
+                ->selectRaw("COALESCE(metrics.{$column}_m, 0) as {$alias}_mtd")
+                ->selectRaw("COALESCE(metrics.{$column}_m, 0) - COALESCE(metrics.{$column}_m1, 0) as {$alias}_gap")
+                ->selectRaw("CASE WHEN COALESCE(metrics.{$column}_m1, 0) = 0 THEN NULL ELSE ((metrics.{$column}_m / metrics.{$column}_m1) - 1) * 100 END as {$alias}_mom_pct");
+        }
+
+        $query->orderBy($orderable[$orderKey] ?? 'outlet.nama_outlet', $direction);
+
+        $rows = $query->offset($start)->limit($length)->get();
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $rows,
+        ]);
+    }
+
+    private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
+    {
+        return DB::table('appsdumais as outlet')
+            ->whereNotNull('outlet.pjp')
+            ->whereRaw("TRIM(outlet.pjp) <> ''")
+            ->whereRaw("UPPER(TRIM(outlet.pjp)) <> 'UNMAPPING'")
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('outlet.tap', $tapScopes))
+            ->when($selectedTap !== '', fn ($query) => $query->where('outlet.tap', $selectedTap))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($filter) use ($search) {
+                    $filter->where('outlet.id_outlet', 'like', "%{$search}%")
+                        ->orWhere('outlet.nama_outlet', 'like', "%{$search}%")
+                        ->orWhere('outlet.kecamatan', 'like', "%{$search}%")
+                        ->orWhere('outlet.sf', 'like', "%{$search}%")
+                        ->orWhere('outlet.tap', 'like', "%{$search}%")
+                        ->orWhere('outlet.pjp', 'like', "%{$search}%");
+                });
+            });
     }
 
     public function metricsUpload(Request $request)

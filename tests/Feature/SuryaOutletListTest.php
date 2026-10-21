@@ -142,27 +142,52 @@ class SuryaOutletListTest extends TestCase
 
         $response = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
-            ->get(route('surya.outlet-detail', ['q' => 'Outlet Uji']));
+            ->get(route('surya.outlet-detail'));
 
         $response->assertOk()
             ->assertSee('DETAIL OUTLET')
-            ->assertSee('Outlet Uji Detail')
-            ->assertSee('Kecamatan Uji')
-            ->assertSee('SF UJI DETAIL')
-            ->assertSee('DUMAI')
-            ->assertSee('Senin')
-            ->assertDontSee('Outlet Uji Unmapping');
+            ->assertSee('Gap MoM')
+            ->assertSee('%MoM')
+            ->assertSee('serverSide:true', false)
+            ->assertSee('detail-outlet\\/data', false);
 
-        $outlet = $response->viewData('outlets')->first();
-        $this->assertSame(7, (int) $outlet->st_sa);
-        $this->assertSame(3, (int) $outlet->st_pv);
+        $dataResponse = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson(route('surya.outlet-detail.data', [
+                'draw' => 1,
+                'start' => 0,
+                'length' => 25,
+                'search' => ['value' => 'Outlet Uji'],
+                'columns' => [['data' => 'nama_outlet']],
+                'order' => [['column' => 0, 'dir' => 'asc']],
+            ]));
+
+        $dataResponse->assertOk()->assertJsonCount(1, 'data');
+        $outlet = (object) $dataResponse->json('data.0');
+        $this->assertSame('Outlet Uji Detail', $outlet->nama_outlet);
+        $this->assertSame('SF UJI DETAIL', $outlet->sf);
+        $this->assertSame(7, (int) $outlet->st_sa_mtd);
+        $this->assertSame(3, (int) $outlet->st_pv_mtd);
         $this->assertNull($outlet->st_sa_fm1);
         $this->assertNull($outlet->st_pv_m1);
         $this->assertSame(8, (int) $outlet->cvm_fm1);
         $this->assertSame(9, (int) $outlet->cvm_m1);
         $this->assertSame(10, (int) $outlet->cvm_mtd);
+        $this->assertSame(1, (int) $outlet->cvm_gap);
+        $this->assertEqualsWithDelta(11.111, (float) $outlet->cvm_mom_pct, 0.01);
         $this->assertSame(20, (int) $outlet->super_seru_mtd);
         $this->assertSame(30, (int) $outlet->comsak_mtd);
         $this->assertSame(40, (int) $outlet->hot_promo_mtd);
+
+        $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson(route('surya.outlet-detail.data', [
+                'draw' => 2, 'start' => 0, 'length' => 10,
+                'search' => ['value' => 'Outlet Uji'],
+                'columns' => [['data' => 'cvm_gap']],
+                'order' => [['column' => 0, 'dir' => 'desc']],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.0.cvm_gap', '1');
     }
 }
