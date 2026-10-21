@@ -350,64 +350,44 @@
                 ],
                 footerCallback: function (row, data, start, end, display) {
                     var api = this.api();
-                    
-                    @foreach ($groups as $category => $validityGroups)
-                        @foreach ($validityGroups as $groupName => $items)
-                            @foreach ($items as $d)
-                                @php $jsVarId = 'v_' . str_replace('-', '_', Str::slug($d->iddenom)); @endphp
-                                var total_{{ $jsVarId }} = api
-                                    .column("{{ $d->iddenom }}:name", { page: 'current' })
-                                    .data()
-                                    .reduce(function (a, b) {
-                                        return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
-                                    }, 0);
 
-                                $(api.column("{{ $d->iddenom }}:name").footer()).html(
-                                    $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $jsVarId }})
-                                );
-                            @endforeach
-                            @php $validityColumn = 'validity_' . md5($category . '|' . $groupName); @endphp
-                            var total_{{ $validityColumn }} = api
-                                .column("{{ $validityColumn }}:name", { page: 'current' })
-                                .data()
-                                .reduce(function(a, b) {
-                                    return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
-                                }, 0);
-                            $(api.column("{{ $validityColumn }}:name").footer()).html(
-                                $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $validityColumn }})
-                            );
-                        @endforeach
-                    @endforeach
-
-                    var grand_total_pv_all = api
-                        .column("grand_total_pv:name", { page: 'current' })
-                        .data()
-                        .reduce(function (a, b) {
+                    // Hitung berdasarkan urutan kolom aktual, bukan selector
+                    // `name`. Selector bisa menunjuk ke kolom legacy yang sedang
+                    // hidden dan membuat footer bergeser satu kolom.
+                    var footerColumnIndex = 3;
+                    var formatTotal = $.fn.dataTable.render.number(',', '.', 0);
+                    var sumColumn = function(index) {
+                        return api.column(index, { page: 'current' }).data().reduce(function(a, b) {
                             return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
                         }, 0);
-                    
-                    $(api.column("grand_total_pv:name").footer()).html(
-                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_pv_all)
-                    );
+                    };
 
-                    var grand_total_sa_all = api.column("grand_total_sa:name", { page: 'current' }).data()
-                        .reduce(function (a, b) { return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0); }, 0);
-                    $(api.column("grand_total_sa:name").footer()).html(
-                        $.fn.dataTable.render.number(',', '.', 0).display(grand_total_sa_all)
-                    );
-
-                    @foreach ($dailySummaryMap as $summary)
-                        @php $summaryColumn = 'summary_' . $summary['key']; @endphp
-                        var total_{{ $summaryColumn }} = api
-                            .column("{{ $summaryColumn }}:name", { page: 'current' })
-                            .data()
-                            .reduce(function(a, b) {
-                                return (parseInt(a, 10) || 0) + (parseInt(b, 10) || 0);
-                            }, 0);
-                        $(api.column("{{ $summaryColumn }}:name").footer()).html(
-                            $.fn.dataTable.render.number(',', '.', 0).display(total_{{ $summaryColumn }})
+                    dailyGroups.forEach(function(group) {
+                        group.denoms.forEach(function() {
+                            $(api.column(footerColumnIndex).footer()).html(
+                                formatTotal.display(sumColumn(footerColumnIndex))
+                            );
+                            footerColumnIndex++;
+                        });
+                        $(api.column(footerColumnIndex).footer()).html(
+                            formatTotal.display(sumColumn(footerColumnIndex))
                         );
-                    @endforeach
+                        footerColumnIndex++;
+                    });
+
+                    dailySummaries.forEach(function() {
+                        $(api.column(footerColumnIndex).footer()).html(
+                            formatTotal.display(sumColumn(footerColumnIndex))
+                        );
+                        footerColumnIndex++;
+                    });
+
+                    [ 'grand_total_pv', 'grand_total_sa' ].forEach(function() {
+                        $(api.column(footerColumnIndex).footer()).html(
+                            formatTotal.display(sumColumn(footerColumnIndex))
+                        );
+                        footerColumnIndex++;
+                    });
 
                 },
                 drawCallback: function(settings) {
