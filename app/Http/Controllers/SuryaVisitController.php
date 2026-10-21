@@ -46,9 +46,18 @@ class SuryaVisitController extends Controller
             && $visit->gps_status !== 'rejected'
             && filled($visit->photo_front_path)
             && filled($visit->photo_inside_path);
-        $canSell = $photoDone && ($visit->visit_type === 'non_digipos' || in_array($visit->gps_status, ['valid', 'approved'], true));
+        $needsStockOwner = $visit
+            && $this->isHelperAccount()
+            && in_array($visit->visit_type, ['digipos_unmapped', 'non_digipos'], true)
+            && blank($visit->stock_owner_idsf);
+        $stockOwners = $needsStockOwner
+            ? DB::table('idsf')->where('idtap', session('idtap'))->where('idsf', 'not like', 'HELPER%')->orderBy('namasf')->get(['idsf', 'namasf'])
+            : collect();
+        $canSell = ! $needsStockOwner
+            && $photoDone
+            && ($visit->visit_type === 'non_digipos' || in_array($visit->gps_status, ['valid', 'approved'], true));
 
-        return view('mobile.visit-menu', compact('outlet', 'visit', 'photoDone', 'canSell'));
+        return view('mobile.visit-menu', compact('outlet', 'visit', 'photoDone', 'canSell', 'needsStockOwner', 'stockOwners'));
     }
 
     public function create(Request $request)
@@ -69,7 +78,7 @@ class SuryaVisitController extends Controller
         $outlets = $outletQuery
             ->orderBy('nama_outlet')
             ->get(['id_outlet', 'nama_outlet', 'latitude', 'longitude']);
-        $stockOwners = $this->isHelperAccount() && $mode === 'digipos_unmapped'
+        $stockOwners = $this->isHelperAccount() && in_array($mode, ['digipos_unmapped', 'non_digipos'], true)
             ? DB::table('idsf')->where('idtap', session('idtap'))->where('idsf', 'not like', 'HELPER%')->orderBy('namasf')->get(['idsf', 'namasf'])
             : collect();
 
@@ -136,6 +145,36 @@ class SuryaVisitController extends Controller
             ->with('success', 'Visit ditutup tanpa penjualan dan tetap dihitung sebagai Actual Call.');
     }
 
+    public function assignStockOwner(Request $request)
+    {
+        abort_unless($this->isHelperAccount(), 403);
+        $validated = $request->validate([
+            'id_outlet' => ['required', 'string'],
+            'stock_owner_idsf' => ['required', 'string', 'max:25'],
+        ]);
+
+        $validOwner = DB::table('idsf')
+            ->where('idsf', $validated['stock_owner_idsf'])
+            ->where('idtap', session('idtap'))
+            ->where('idsf', 'not like', 'HELPER%')
+            ->exists();
+        abort_unless($validOwner, 422, 'Pilih SF pemilik stok yang sesuai TAP.');
+
+        $visit = SuryaVisit::query()
+            ->where('idsf', session('mobile_sf_id'))
+            ->where('id_outlet', $validated['id_outlet'])
+            ->whereDate('visited_at', now()->toDateString())
+            ->whereNull('checkout_at')
+            ->whereIn('visit_type', ['digipos_unmapped', 'non_digipos'])
+            ->latest('visited_at')
+            ->firstOrFail();
+        $visit->update(['stock_owner_idsf' => $validated['stock_owner_idsf']]);
+
+        return redirect()
+            ->route('mobile.visit.menu', ['id_outlet' => $visit->id_outlet])
+            ->with('success', 'SF pemilik stok berhasil dipilih. Input penjualan sudah dapat dilanjutkan.');
+    }
+
     private function autoApproveExpiredVisit(?SuryaVisit $visit): void
     {
         if (! $visit
@@ -187,11 +226,15 @@ class SuryaVisitController extends Controller
         abort_unless($outlet, 404, 'Outlet tidak terdaftar pada Sales Force ini.');
 
         $stockOwnerIdsf = null;
-        if ($request->visit_type === 'digipos_unmapped') {
+        if (in_array($request->visit_type, ['digipos_unmapped', 'non_digipos'], true)) {
             $stockOwnerIdsf = $this->isHelperAccount()
                 ? trim((string) $request->stock_owner_idsf)
                 : (string) session('mobile_sf_id');
-            abort_unless($stockOwnerIdsf !== '' && DB::table('idsf')->where('idsf', $stockOwnerIdsf)->where('idtap', session('idtap'))->exists(), 422, 'Pilih SF pemilik stok yang sesuai TAP.');
+            abort_unless($stockOwnerIdsf !== '' && DB::table('idsf')
+                ->where('idsf', $stockOwnerIdsf)
+                ->where('idtap', session('idtap'))
+                ->where('idsf', 'not like', 'HELPER%')
+                ->exists(), 422, 'Pilih SF pemilik stok yang sesuai TAP.');
         }
 
         $currentLatitude = (float) $request->latitude;

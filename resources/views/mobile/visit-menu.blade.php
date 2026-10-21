@@ -22,6 +22,21 @@
     @if($visit?->gps_status === 'rejected')
         <div class="alert alert-danger rounded-4 small"><i class="fas fa-circle-xmark me-2"></i>Foto visit ditolak admin. Ambil ulang foto tampak depan dan foto etalase agar aktivitas dapat dilanjutkan.</div>
     @endif
+    @if($needsStockOwner ?? false)
+        <form method="POST" action="{{ route('mobile.visit.stock-owner') }}" class="visit-stock-owner-panel">
+            @csrf
+            <input type="hidden" name="id_outlet" value="{{ $outlet->id_outlet }}">
+            <label for="visit-stock-owner"><i class="fas fa-boxes-stacked me-2"></i>SF Pemilik Stok</label>
+            <select id="visit-stock-owner" name="stock_owner_idsf" required>
+                <option value="">Pilih SF yang stoknya akan dipotong</option>
+                @foreach($stockOwners as $stockOwner)
+                    <option value="{{ $stockOwner->idsf }}">{{ $stockOwner->namasf }} ({{ $stockOwner->idsf }})</option>
+                @endforeach
+            </select>
+            <small>Wajib dipilih sebelum input penjualan. Hanya SF dari TAP {{ session('idtap') }} yang tersedia.</small>
+            <button type="submit"><i class="fas fa-check me-1"></i>Gunakan Stok SF Ini</button>
+        </form>
+    @endif
     @if($photoDone && $visit->gps_status === 'pending_admin' && $visit->visit_type !== 'non_digipos')
         <div class="alert alert-warning rounded-4 small" id="visit-approval-alert">
             <div class="d-flex align-items-start gap-2">
@@ -125,6 +140,12 @@
         font-size: .68rem;
         line-height: 1.5;
     }
+    .visit-stock-owner-panel { margin-bottom: 12px; padding: 14px; border: 1px solid #fde68a; border-radius: 16px; background: #fffbeb; }
+    .visit-stock-owner-panel label, .visit-stock-owner-panel small { display: block; }
+    .visit-stock-owner-panel label { margin-bottom: 8px; color: #92400e; font-size: .72rem; font-weight: 900; }
+    .visit-stock-owner-panel select { width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid #fcd34d; border-radius: 12px; background: #fff; font-size: .72rem; font-weight: 700; }
+    .visit-stock-owner-panel small { margin-top: 7px; color: #78716c; font-size: .6rem; font-weight: 700; line-height: 1.45; }
+    .visit-stock-owner-panel button { width: 100%; margin-top: 11px; padding: 10px 12px; border: 0; border-radius: 999px; background: #b45309; color: #fff; font-size: .68rem; font-weight: 900; }
     .visit-action {
         display: grid;
         grid-template-columns: 38px minmax(0, 1fr) auto;

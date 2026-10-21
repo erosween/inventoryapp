@@ -1299,6 +1299,53 @@ class MobileSalesFlowTest extends TestCase
             ->assertViewHas('denoms', fn ($denoms) => (int) $denoms->firstWhere('iddenom', 'D-OWNER')->stock_qty === 12);
     }
 
+    public function test_helper_must_select_stock_owner_for_non_digipos_outlet(): void
+    {
+        DB::table('idsf')->insert([
+            ['idsf' => 'SF-OWNER', 'namasf' => 'Sales Pemilik', 'idtap' => 'TAP001'],
+            ['idsf' => 'SF-OTHER-TAP', 'namasf' => 'Sales TAP Lain', 'idtap' => 'TAP002'],
+        ]);
+        $session = ['mobile_sf_id' => 'HELPER7', 'mobile_sf_name' => 'ARIF PUTRA GANDA', 'idtap' => 'TAP001'];
+
+        $this->withSession($session)->get(route('mobile.visit', ['mode' => 'non_digipos']))
+            ->assertOk()
+            ->assertSee('SF Pemilik Stok')
+            ->assertSee('Pilih SF yang stoknya akan dipotong')
+            ->assertSee('Sales Pemilik')
+            ->assertDontSee('Sales TAP Lain');
+
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(),
+            'id_outlet' => 'NON-DIGIPOS-EXISTING',
+            'idtap' => 'TAP001',
+            'idsf' => 'HELPER7',
+            'visit_type' => 'non_digipos',
+            'stock_owner_idsf' => null,
+            'outlet_name' => 'Outlet Lama Helper',
+            'latitude' => 1.1,
+            'longitude' => 101.1,
+            'photo_front_path' => 'front.webp',
+            'photo_inside_path' => 'inside.webp',
+            'gps_status' => 'valid',
+        ]);
+
+        $this->withSession($session)->get(route('mobile.visit.menu', ['id_outlet' => 'NON-DIGIPOS-EXISTING']))
+            ->assertOk()
+            ->assertSee('Gunakan Stok SF Ini')
+            ->assertSee('Input Penjualan Terkunci');
+
+        $this->withSession($session)->post(route('mobile.visit.stock-owner'), [
+            'id_outlet' => 'NON-DIGIPOS-EXISTING',
+            'stock_owner_idsf' => 'SF-OWNER',
+        ])->assertRedirect(route('mobile.visit.menu', ['id_outlet' => 'NON-DIGIPOS-EXISTING']));
+
+        $this->assertDatabaseHas('surya_visits', [
+            'id_outlet' => 'NON-DIGIPOS-EXISTING',
+            'idsf' => 'HELPER7',
+            'stock_owner_idsf' => 'SF-OWNER',
+        ]);
+    }
+
     public function test_sales_confirmation_hides_whatsapp_and_submits_pending_sale(): void
     {
         if (! extension_loaded('gd')) {

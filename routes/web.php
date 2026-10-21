@@ -294,6 +294,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/visit-menu', [\App\Http\Controllers\SuryaVisitController::class, 'menu'])->name('visit.menu');
         Route::get('/visit-status', [\App\Http\Controllers\SuryaVisitController::class, 'status'])->name('visit.status');
         Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
+        Route::post('/visit-stock-owner', [\App\Http\Controllers\SuryaVisitController::class, 'assignStockOwner'])->name('visit.stock-owner');
         Route::post('/visit-checkout', [\App\Http\Controllers\SuryaVisitController::class, 'checkout'])->name('visit.checkout');
         Route::get('/consignment', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'consignment'])->name('surya.consignment');
         Route::get('/survey', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'survey'])->name('surya.survey');

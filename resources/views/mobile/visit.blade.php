@@ -42,10 +42,10 @@
                 </div>
             </div>
         @endif
-        @if($mode === 'digipos_unmapped' && $isHelper)
+        @if(in_array($mode, ['digipos_unmapped', 'non_digipos'], true) && $isHelper)
             <label class="form-label fw-bold">SF Pemilik Stok</label>
             <select name="stock_owner_idsf" class="form-select mb-3" required>
-                <option value="">Pilih SF sesuai outlet</option>
+                <option value="">Pilih SF yang stoknya akan dipotong</option>
                 @foreach($stockOwners as $stockOwner)
                     <option value="{{ $stockOwner->idsf }}" @selected(old('stock_owner_idsf') === $stockOwner->idsf)>{{ $stockOwner->namasf }} ({{ $stockOwner->idsf }})</option>
                 @endforeach
