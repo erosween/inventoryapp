@@ -391,7 +391,7 @@ class MonitaDumaiController extends Controller
 
         $username = strtolower(trim((string) Auth::user()->username));
 
-        return in_array($username, ['gm', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
+        return in_array($username, ['gm', 'gm_cluster', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_');
     }
 
@@ -677,7 +677,7 @@ class MonitaDumaiController extends Controller
         $user = Auth::user();
         $username = strtolower(trim((string) ($user?->username ?? '')));
 
-        if ($username === 'admin_super') {
+        if (in_array($username, ['admin_super', 'gm_cluster'], true)) {
             return null;
         }
 

@@ -1,7 +1,7 @@
 @php
     $sidebarPage = $activePage ?? 'dashboard';
     $sidebarUser = strtolower((string) (auth()->user()->username ?? ''));
-    $stockUrl = in_array($sidebarUser, ['gm', 'admin_super', 'admin_cluster'], true) || str_starts_with($sidebarUser, 'asmen_')
+    $stockUrl = in_array($sidebarUser, ['gm', 'gm_cluster', 'admin_super', 'admin_cluster'], true) || str_starts_with($sidebarUser, 'asmen_')
         ? url('/sisastock')
         : url('/stocktap');
     $dashboardPanel = request('panel') === 'visit-detail' ? 'visit-detail' : 'outlet';

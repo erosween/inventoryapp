@@ -14,7 +14,7 @@ class SuryaClusterAccessTest extends TestCase
 
     public function test_cluster_users_are_redirected_to_surya_after_login(): void
     {
-        foreach (['cluster_dumai', 'cluster_rohil'] as $username) {
+        foreach (['cluster_dumai', 'cluster_rohil', 'gm_cluster'] as $username) {
             $user = User::where('username', $username)->first();
             if (! $user) {
                 $this->markTestSkipped("Fixture {$username} belum tersedia.");
@@ -70,5 +70,43 @@ class SuryaClusterAccessTest extends TestCase
             ->assertOk()
             ->assertJsonFragment(['id_outlet' => 990000102])
             ->assertJsonMissing(['id_outlet' => 990000101]);
+    }
+
+    public function test_gm_cluster_can_receive_outlets_from_every_tap(): void
+    {
+        $gm = User::where('username', 'gm_cluster')->first();
+        if (! $gm) {
+            $this->markTestSkipped('Fixture user gm_cluster belum tersedia.');
+        }
+
+        DB::table('appsdumais')->insert([
+            [
+                'id_outlet' => 990000103,
+                'nama_outlet' => 'Scope GM Test Dumai',
+                'tap' => 'DUMAI',
+                'sf' => 'UNMAPPING',
+                'pjp' => 'UNMAPPING',
+            ],
+            [
+                'id_outlet' => 990000104,
+                'nama_outlet' => 'Scope GM Test Rohil',
+                'tap' => 'UJUNG TANJUNG',
+                'sf' => 'UNMAPPING',
+                'pjp' => 'UNMAPPING',
+            ],
+        ]);
+
+        $this->actingAs($gm)
+            ->withSession(['idtap' => 'ALL TAP'])
+            ->get('/surya/suggest?keyword=Scope%20GM%20Test')
+            ->assertOk()
+            ->assertJsonFragment(['id_outlet' => 990000103])
+            ->assertJsonFragment(['id_outlet' => 990000104]);
+
+        $this->actingAs($gm)
+            ->view('surya.partials.sidebar', ['activePage' => 'dashboard'])
+            ->assertSee(route('sisastock.index'), false)
+            ->assertDontSee('LIST OUTLET')
+            ->assertDontSee('UPLOAD TRANSAKSI');
     }
 }
