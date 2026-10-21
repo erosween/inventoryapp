@@ -159,6 +159,8 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('serverSide:true', false)
             ->assertSee('ordering:false', false)
             ->assertSee('Export Excel')
+            ->assertSee('id="sales-cutoff"', false)
+            ->assertSee('value="2026-10-20"', false)
             ->assertSee('id="profile-modal"', false)
             ->assertSee('outlet-profile-link', false)
             ->assertSee('position:sticky;top:50px', false)
@@ -185,11 +187,11 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(7, (int) $outlet->st_sa_mtd);
         $this->assertSame(3, (int) $outlet->st_pv_mtd);
         $this->assertSame(17, (int) $outlet->st_sa_fm1);
-        $this->assertSame(6, (int) $outlet->st_sa_m1);
+        $this->assertSame(4, (int) $outlet->st_sa_m1);
         $this->assertSame(31, (int) $outlet->st_pv_fm1);
-        $this->assertSame(9, (int) $outlet->st_pv_m1);
-        $this->assertSame(1, (int) $outlet->st_sa_gap);
-        $this->assertSame(-6, (int) $outlet->st_pv_gap);
+        $this->assertSame(6, (int) $outlet->st_pv_m1);
+        $this->assertSame(3, (int) $outlet->st_sa_gap);
+        $this->assertSame(-3, (int) $outlet->st_pv_gap);
         $this->assertSame(8, (int) $outlet->cvm_fm1);
         $this->assertSame(9, (int) $outlet->cvm_m1);
         $this->assertSame(10, (int) $outlet->cvm_mtd);
@@ -202,6 +204,19 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(49, (int) $outlet->biometrik_m1);
         $this->assertSame(50, (int) $outlet->biometrik_mtd);
         $this->assertSame(1, (int) $outlet->biometrik_gap);
+
+        $customCutoffResponse = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson(route('surya.outlet-detail.data', [
+                'draw' => 2,
+                'start' => 0,
+                'length' => 25,
+                'sales_cutoff' => '2026-10-21',
+                'search' => ['value' => 'Outlet Uji'],
+            ]))
+            ->assertOk();
+        $this->assertSame(6, (int) $customCutoffResponse->json('data.0.st_sa_m1'));
+        $this->assertSame(9, (int) $customCutoffResponse->json('data.0.st_pv_m1'));
 
         $mapDetailResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
@@ -231,7 +246,7 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(7, (int) $sheet->getCell('I2')->getValue());
         $this->assertSame(3, (int) $sheet->getCell('N2')->getValue());
         $this->assertSame(17, (int) $sheet->getCell('G2')->getValue());
-        $this->assertSame(6, (int) $sheet->getCell('H2')->getValue());
+        $this->assertSame(4, (int) $sheet->getCell('H2')->getValue());
         $this->assertSame(10, (int) $sheet->getCell('S2')->getValue());
         $this->assertSame(48, (int) $sheet->getCell('AK2')->getValue());
         $this->assertSame(50, (int) $sheet->getCell('AM2')->getValue());

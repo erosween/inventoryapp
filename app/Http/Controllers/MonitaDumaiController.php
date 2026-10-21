@@ -131,9 +131,12 @@ class MonitaDumaiController extends Controller
         $outletCount = $this->outletDetailBaseQuery($tapScopes)->count();
 
         $canEditOutlet = $this->isSuryaAdminSuper();
-        $salesCutoffDate = now('Asia/Jakarta')->subDay()->translatedFormat('d M Y');
+        $salesCutoff = $this->outletSalesCutoff($request);
+        $salesCutoffDate = $salesCutoff->translatedFormat('d M Y');
+        $salesCutoffValue = $salesCutoff->toDateString();
+        $salesCutoffMax = now('Asia/Jakarta')->toDateString();
 
-        return response()->view('surya.outlet-detail', compact('taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate'))
+        return response()->view('surya.outlet-detail', compact('taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate', 'salesCutoffValue', 'salesCutoffMax'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
@@ -156,7 +159,7 @@ class MonitaDumaiController extends Controller
             ->offset($start)
             ->limit($length)
             ->get();
-        $rows = $this->hydrateOutletDetailPage($rows);
+        $rows = $this->hydrateOutletDetailPage($rows, $this->outletSalesCutoff($request));
 
         return response()->json([
             'draw' => (int) $request->input('draw', 1),
@@ -173,12 +176,13 @@ class MonitaDumaiController extends Controller
         $tapScopes = $this->suryaTapScopes();
         $selectedTap = trim((string) $request->input('tap'));
         $search = trim((string) $request->input('q'));
+        $salesCutoff = $this->outletSalesCutoff($request);
         $rows = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
             ->orderBy('outlet.nama_outlet')
             ->get()
             ->chunk(200)
-            ->flatMap(fn ($chunk) => $this->hydrateOutletDetailPage($chunk))
+            ->flatMap(fn ($chunk) => $this->hydrateOutletDetailPage($chunk, $salesCutoff))
             ->values();
 
         return Excel::download(
@@ -187,10 +191,10 @@ class MonitaDumaiController extends Controller
         );
     }
 
-    private function hydrateOutletDetailPage($rows)
+    private function hydrateOutletDetailPage($rows, Carbon $cutoff)
     {
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
-        $cutoff = now('Asia/Jakarta')->subDay()->startOfDay();
+        $cutoff = $cutoff->copy()->startOfDay();
         $monthStart = $cutoff->copy()->startOfMonth();
         $previousMonthStart = $monthStart->copy()->subMonth();
         $previousMonthEnd = $previousMonthStart->copy()->endOfMonth();
@@ -256,6 +260,25 @@ class MonitaDumaiController extends Controller
         });
     }
 
+    private function outletSalesCutoff(Request $request): Carbon
+    {
+        $default = now('Asia/Jakarta')->subDays(2)->startOfDay();
+        $value = trim((string) $request->input('sales_cutoff'));
+        if ($value === '') {
+            return $default;
+        }
+
+        try {
+            $selected = Carbon::createFromFormat('!Y-m-d', $value, 'Asia/Jakarta');
+        } catch (\Throwable $e) {
+            return $default;
+        }
+
+        $today = now('Asia/Jakarta')->startOfDay();
+
+        return $selected->greaterThan($today) ? $today : $selected;
+    }
+
     private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
     {
         return DB::table('appsdumais as outlet')
@@ -283,11 +306,28 @@ class MonitaDumaiController extends Controller
             'metrics_file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:20480'],
         ]);
 
-        $sheet = IOFactory::load($request->file('metrics_file')->getRealPath())->getActiveSheet();
-        $rows = $sheet->toArray(null, true, true, true);
-        $header = array_shift($rows) ?: [];
+        try {
+            $reader = IOFactory::createReaderForFile($request->file('metrics_file')->getRealPath());
+            $reader->setReadDataOnly(true);
+            $sheet = $reader->load($request->file('metrics_file')->getRealPath())->getActiveSheet();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors([
+                'metrics_file' => 'File Excel tidak dapat dibaca. Pastikan file tidak rusak dan formatnya XLSX, XLS, atau CSV.',
+            ]);
+        }
+
+        $highestDataRow = $sheet->getHighestDataRow();
+        $highestDataColumn = $sheet->getHighestDataColumn();
+        $headerRows = $sheet->rangeToArray("A1:{$highestDataColumn}1", null, true, true, true);
+        $header = $headerRows[1] ?? [];
         $headerValues = collect($header)->filter(fn ($value) => trim((string) $value) !== '')->values();
-        $firstDataRow = collect($rows)->first(fn ($row) => trim((string) ($row['A'] ?? '')) !== '');
+        $sampleEnd = min($highestDataRow, 30);
+        $sampleRows = $sampleEnd >= 2
+            ? $sheet->rangeToArray("A2:D{$sampleEnd}", null, true, true, true)
+            : [];
+        $firstDataRow = collect($sampleRows)->first(fn ($row) => trim((string) ($row['A'] ?? '')) !== '');
         $salesHistoryDate = $this->parseUploadedSalesDate($firstDataRow['A'] ?? null);
         $isSalesHistoryFile = $headerValues->count() === 4 && $salesHistoryDate !== null;
         $isBiometricFile = $headerValues->count() === 4 && ! $isSalesHistoryFile;
@@ -300,29 +340,61 @@ class MonitaDumaiController extends Controller
         $metrics = ['ss', 'hot_promo', 'cvm', 'insak', 'comsak', 'digital'];
         $imported = 0;
         $skipped = 0;
-        foreach ($rows as $row) {
-            if ($isSalesHistoryFile) {
-                $transactionDate = $this->parseUploadedSalesDate($row['A'] ?? null);
-                $idOutlet = trim((string) ($row['B'] ?? ''));
-                if ($transactionDate === null || $idOutlet === '') {
-                    $skipped++;
-                    continue;
-                }
-
-                $now = now();
-                DB::table('surya_outlet_sales_history')->updateOrInsert(
-                    ['transaction_date' => $transactionDate, 'id_outlet' => $idOutlet],
-                    [
-                        'sa' => max(0, (int) ($row['C'] ?? 0)),
-                        'pv' => max(0, (int) ($row['D'] ?? 0)),
-                        'updated_at' => $now,
-                        'created_at' => $now,
-                    ]
-                );
-                $imported++;
-                continue;
+        if ($isSalesHistoryFile) {
+            if (! Schema::hasTable('surya_outlet_sales_history')) {
+                return back()->withErrors([
+                    'metrics_file' => 'Tabel histori SA/PV belum tersedia. Jalankan php artisan migrate --force lalu upload ulang.',
+                ]);
             }
 
+            try {
+                $now = now();
+                for ($startRow = 2; $startRow <= $highestDataRow; $startRow += 500) {
+                    $endRow = min($startRow + 499, $highestDataRow);
+                    $chunkRows = $sheet->rangeToArray("A{$startRow}:D{$endRow}", null, true, true, true);
+                    $batch = [];
+
+                    foreach ($chunkRows as $row) {
+                        $transactionDate = $this->parseUploadedSalesDate($row['A'] ?? null);
+                        $idOutlet = trim((string) ($row['B'] ?? ''));
+                        if ($transactionDate === null || $idOutlet === '') {
+                            $skipped++;
+                            continue;
+                        }
+
+                        $batch[$transactionDate.'|'.$idOutlet] = [
+                            'transaction_date' => $transactionDate,
+                            'id_outlet' => $idOutlet,
+                            'sa' => max(0, (int) ($row['C'] ?? 0)),
+                            'pv' => max(0, (int) ($row['D'] ?? 0)),
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                        $imported++;
+                    }
+
+                    if ($batch !== []) {
+                        DB::table('surya_outlet_sales_history')->upsert(
+                            array_values($batch),
+                            ['transaction_date', 'id_outlet'],
+                            ['sa', 'pv', 'updated_at']
+                        );
+                    }
+                }
+            } catch (\Throwable $e) {
+                report($e);
+
+                return back()->withErrors([
+                    'metrics_file' => 'Upload histori SA/PV gagal diproses. Periksa isi tanggal dan ID outlet, lalu coba kembali.',
+                ]);
+            }
+
+            return back()->with('success', "Upload historis SA/PV berhasil: {$imported} baris diproses, {$skipped} baris dilewati.");
+        }
+
+        $rows = $sheet->toArray(null, true, true, true);
+        array_shift($rows);
+        foreach ($rows as $row) {
             if ($isBiometricFile) {
                 $idOutlet = trim((string) ($row['A'] ?? ''));
                 if ($idOutlet === '') {
