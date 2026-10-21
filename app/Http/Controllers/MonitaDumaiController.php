@@ -391,7 +391,7 @@ class MonitaDumaiController extends Controller
 
         $username = strtolower(trim((string) Auth::user()->username));
 
-        return in_array($username, ['gm', 'admin_super', 'admin_cluster'], true)
+        return in_array($username, ['gm', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_');
     }
 
@@ -679,6 +679,14 @@ class MonitaDumaiController extends Controller
 
         if ($username === 'admin_super') {
             return null;
+        }
+
+        $clusterScopes = [
+            'cluster_dumai' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+            'cluster_rohil' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+        ];
+        if (isset($clusterScopes[$username])) {
+            return $clusterScopes[$username];
         }
 
         if (str_starts_with($username, 'asmen_')) {
@@ -1669,7 +1677,9 @@ class MonitaDumaiController extends Controller
         }
 
         $keyword = $request->input('keyword');
+        $tapScopes = $this->suryaTapScopes();
         $data = DB::table('appsdumais')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->where(function ($query) use ($keyword) {
                 $query->where('nama_outlet', 'like', '%' . $keyword . '%')
                     ->orWhere('id_outlet', 'like', '%' . $keyword . '%');
@@ -1742,6 +1752,7 @@ class MonitaDumaiController extends Controller
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
+        $tapScopes = $this->suryaTapScopes();
         $lat = $request->input('latitude');
         $long = $request->input('longitude');
         $radius = $request->input('radius', 0.3);
@@ -1758,6 +1769,7 @@ class MonitaDumaiController extends Controller
 
         // Haversine formula to find outlets within preferred radius
         $data = DB::table('appsdumais')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->whereBetween('latitude', [$lat - $lat_delta, $lat + $lat_delta])
             ->whereBetween('longitude', [$long - $lon_delta, $long + $lon_delta])
             ->select('appsdumais.*')
@@ -1782,6 +1794,15 @@ class MonitaDumaiController extends Controller
         }
 
         $id_outlet = $request->input('id_outlet');
+        $tapScopes = $this->suryaTapScopes();
+        $canViewOutlet = DB::table('appsdumais')
+            ->where('id_outlet', $id_outlet)
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->exists();
+        if (! $canViewOutlet) {
+            return response()->json(['message' => 'Outlet tidak tersedia untuk cluster ini.'], 404);
+        }
+
         $data = DB::table('outlet_performance')
             ->where('id_outlet', $id_outlet)
             ->first();
