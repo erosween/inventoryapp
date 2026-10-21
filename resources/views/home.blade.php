@@ -498,7 +498,7 @@
                                     @endforeach
                                 </tbody>
                                 <tfoot class="font-weight-bold">
-                                    @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
+                                    @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                                     @php
                                         $clusterDumaiTotal = array_sum($annualClusterDumaiValues);
                                         $clusterDumaiPreviousYtd = $calculateAnnualYtd($annualClusterDumaiCurrentYtd, $annualPreviousYear);
@@ -518,7 +518,7 @@
                                         <td class="{{ is_null($clusterDumaiMom) ? 'text-muted' : ($clusterDumaiMom >= 0 ? 'text-success' : 'text-danger') }}">{{ is_null($clusterDumaiMom) ? '-' : (($clusterDumaiMom >= 0 ? '▲ ' : '▼ ').number_format(abs($clusterDumaiMom), 1).'%') }}</td>
                                     </tr>
                                     @endif
-                                    @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
+                                    @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
                                     @php
                                         $clusterRohilTotal = array_sum($annualClusterRohilValues);
                                         $clusterRohilPreviousYtd = $calculateAnnualYtd($annualClusterRohilCurrentYtd, $annualPreviousYear);
@@ -714,7 +714,7 @@
                                 @endphp
                                 
                                 {{-- FOOTER CLUSTER DUMAI BENGKALIS --}}
-                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
+                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
@@ -807,7 +807,7 @@
 
                                 @endif
 
-                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
+                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
                                 {{-- FOOTER CLUSTER ROKAN HILIR --}}
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
@@ -901,7 +901,7 @@
 
                                 @endif
 
-                                @if(session('idtap') == 'SBP_DUMAI')
+                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP']))
                                 {{-- GRAND TOTAL KESELURUHAN --}}
                                 <tr style="background-color: #e3f2fd; color: #0d47a1;">
                                     <td class="text-left border-0 font-weight-bold sticky-tap-col">
@@ -1163,7 +1163,7 @@
                                     </tr>
                                 @endforeach
                                       {{-- FOOTER CLUSTER DUMAI BENGKALIS --}}
-                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
+                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
@@ -1256,7 +1256,7 @@
 
                                 @endif
 
-                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
+                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
                                 {{-- FOOTER CLUSTER ROKAN HILIR --}}
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
@@ -1350,7 +1350,7 @@
 
                                 @endif
 
-                                @if(session('idtap') == 'SBP_DUMAI')
+                                @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP']))
                                 {{-- GRAND TOTAL KESELURUHAN --}}
                                 <tr style="background-color: #e8f5e9; color: #1b5e20;">
                                     <td class="text-left border-0 font-weight-bold sticky-tap-col">
@@ -1665,7 +1665,7 @@
                         </tbody>
 
                         <tfoot class="bg-light text-dark font-weight-bold" style="border-top: 2px solid #ddd">
-                            @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_DUMAI']))
+                            @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                             <tr>
                                 <td class="border-0"><span class="badge badge-secondary mr-2">CLUSTER</span> Dumai Bengkalis</td>
                                 <td class="text-right border-0">{{ number_format($momCluster['dumai_bengkalis']->curr_qty) }}</td>
@@ -1680,7 +1680,7 @@
                                 </td> -->
                             </tr>
                             @endif
-                            @if(in_array(session('idtap'), ['SBP_DUMAI', 'CLUSTER_ROHIL']))
+                            @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
                             <tr>
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
                                 <td class="text-right border-0">{{ number_format($momCluster['rokan_hilir']->curr_qty) }}</td>
@@ -1695,7 +1695,7 @@
                                 </td> -->
                             </tr>
                             @endif
-                            @if(session('idtap') == 'SBP_DUMAI')
+                            @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP']))
                             @php
                                 $grandCurr = $momCluster['dumai_bengkalis']->curr_qty + $momCluster['rokan_hilir']->curr_qty;
                                 $grandPrevPart = $momCluster['dumai_bengkalis']->prev_partial_qty + $momCluster['rokan_hilir']->prev_partial_qty;
