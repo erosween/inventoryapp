@@ -1630,6 +1630,9 @@ class MobileSalesFlowTest extends TestCase
 
     public function test_admin_approval_deducts_helper_sale_from_the_outlet_owner_stock(): void
     {
+        DB::table('idsf')->insert([
+            'idsf' => 'SF-OWNER', 'namasf' => 'Sales Pemilik Stok', 'idtap' => 'TAP001',
+        ]);
         DB::table('denom')->insert([
             'iddenom' => 'D-OWNER', 'denom' => 'Produk Pemilik Outlet', 'group_name' => '1 HARI',
         ]);
@@ -1649,9 +1652,27 @@ class MobileSalesFlowTest extends TestCase
         ]);
         session(['idtap' => 'TAP001']);
 
-        $response = app(\App\Http\Controllers\MobileApprovalController::class)
-            ->approve(new Request(['id' => 601]))
-            ->getData(true);
+        $controller = app(\App\Http\Controllers\MobileApprovalController::class);
+        $table = $controller->data(new Request([
+            'date' => now()->toDateString(),
+            'status' => 'pending',
+        ]))->getData(true);
+        $this->assertCount(1, $table['data']);
+        $this->assertStringContainsString('SALES PEMILIK STOK', $table['data'][0]['namasf']);
+        $this->assertStringNotContainsString('HELPER', $table['data'][0]['namasf']);
+
+        $details = $controller->getSfDetails(new Request([
+            'idsf' => 'SF-OWNER',
+            'status' => 'pending',
+            'idtap' => 'TAP001',
+            'jenis' => 'VOUCHER FISIK',
+            'date' => now()->toDateString(),
+        ]))->getData(true);
+        $this->assertSame('Sales Pemilik Stok', $details['sf_name']);
+        $this->assertSame(1, $details['transaction_count']);
+        $this->assertSame([601], $details['items'][0]['ids']);
+
+        $response = $controller->approve(new Request(['id' => 601]))->getData(true);
 
         $this->assertTrue($response['success'], $response['message']);
         $this->assertSame(4, (int) DB::table('stockawalsf')

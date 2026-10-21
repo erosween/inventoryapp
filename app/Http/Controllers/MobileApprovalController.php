@@ -42,7 +42,9 @@ class MobileApprovalController extends Controller
         $topSfQuery = MobilePenjualan::where('mobile_penjualan.status', 'approved')
             ->whereDate('mobile_penjualan.tgl', $selected_date)
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
-            ->join('idsf', 'mobile_penjualan.idsf', '=', 'idsf.idsf')
+            ->join('idsf', function ($join) {
+                $join->on('idsf.idsf', '=', DB::raw('COALESCE(mobile_penjualan.owner_idsf, mobile_penjualan.idsf)'));
+            })
             ->select('idsf.namasf', DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'))
             ->groupBy('idsf.namasf')
             ->orderBy('total', 'desc')
@@ -51,7 +53,7 @@ class MobileApprovalController extends Controller
         $top_sf_today = $topSfQuery->first();
 
         // 5. List of SFs for Focus Mode
-        $sfListQuery = DB::table('idsf')->orderBy('namasf');
+        $sfListQuery = DB::table('idsf')->where('idsf', 'not like', 'HELPER%')->orderBy('namasf');
         if ($idtap !== 'SBP_DUMAI') $sfListQuery->where('idtap', $idtap);
         $sf_list = $sfListQuery->get();
 
@@ -75,7 +77,7 @@ class MobileApprovalController extends Controller
         // 1. Pending Count
         $pendingQuery = MobilePenjualan::where('status', 'pending')->whereDate('tgl', $selectedDate);
         if ($idtap !== 'SBP_DUMAI') $pendingQuery->where('idtap', $idtap);
-        if ($idsf) $pendingQuery->where('idsf', $idsf);
+        if ($idsf) $pendingQuery->whereRaw('COALESCE(owner_idsf, idsf) = ?', [$idsf]);
         $count = $pendingQuery->count();
 
         // 2. Pending Amount
@@ -84,7 +86,7 @@ class MobileApprovalController extends Controller
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $pendingAmountQuery->where('mobile_penjualan.idtap', $idtap);
-        if ($idsf) $pendingAmountQuery->where('mobile_penjualan.idsf', $idsf);
+        if ($idsf) $pendingAmountQuery->whereRaw('COALESCE(mobile_penjualan.owner_idsf, mobile_penjualan.idsf) = ?', [$idsf]);
         $pending_amount = $pendingAmountQuery->first()->total ?? 0;
 
         // 3. Approved Today
@@ -93,7 +95,7 @@ class MobileApprovalController extends Controller
             ->leftJoin('denom', 'mobile_penjualan.iddenom', '=', 'denom.iddenom')
             ->select(DB::raw('SUM(mobile_penjualan.qty * COALESCE(mobile_penjualan.unit_price, denom.harga_jual, 0)) as total'));
         if ($idtap !== 'SBP_DUMAI') $approvedTodayQuery->where('mobile_penjualan.idtap', $idtap);
-        if ($idsf) $approvedTodayQuery->where('mobile_penjualan.idsf', $idsf);
+        if ($idsf) $approvedTodayQuery->whereRaw('COALESCE(mobile_penjualan.owner_idsf, mobile_penjualan.idsf) = ?', [$idsf]);
         $approved_amount = $approvedTodayQuery->first()->total ?? 0;
 
         return response()->json([
@@ -116,7 +118,9 @@ class MobileApprovalController extends Controller
 
         $query = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
-            ->join('idsf as s', 'm.idsf', '=', 's.idsf')
+            ->join('idsf as s', function ($join) {
+                $join->on('s.idsf', '=', DB::raw('COALESCE(m.owner_idsf, m.idsf)'));
+            })
             ->leftJoin('appsdumais as o', 'm.id_outlet', '=', 'o.id_outlet')
             ->select(
                 'm.id',
@@ -131,7 +135,7 @@ class MobileApprovalController extends Controller
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as harga_jual'),
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total_setoran')
             )
-            ->where('m.idsf', $idsf)
+            ->whereRaw('COALESCE(m.owner_idsf, m.idsf) = ?', [$idsf])
             ->whereDate('m.tgl', $selectedDate);
 
         if ($idtap_session !== 'SBP_DUMAI') $query->where('m.idtap', $idtap_session);
@@ -158,7 +162,6 @@ class MobileApprovalController extends Controller
             : DB::table('surya_sa_consignment_numbers as c')
                 ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
                 ->whereIn('c.receipt_id', $receiptIds)
-                ->where('c.idsf', $idsf)
                 ->whereNotIn('c.status', ['draft'])
                 ->when($idtap_session !== 'SBP_DUMAI', fn ($consignmentQuery) => $consignmentQuery->where('c.idtap', $idtap_session))
                 ->when($idtap_filter, fn ($consignmentQuery) => $consignmentQuery->where('c.idtap', $idtap_filter))
@@ -225,9 +228,11 @@ class MobileApprovalController extends Controller
         
         $categorizedSales = DB::table('mobile_penjualan as m')
             ->join('denom as d', 'm.iddenom', '=', 'd.iddenom')
-            ->join('idsf as s', 'm.idsf', '=', 's.idsf')
+            ->join('idsf as s', function ($join) {
+                $join->on('s.idsf', '=', DB::raw('COALESCE(m.owner_idsf, m.idsf)'));
+            })
             ->select(
-                'm.idsf',
+                DB::raw('COALESCE(m.owner_idsf, m.idsf) as idsf'),
                 's.namasf',
                 'm.idtap',
                 'm.status',
