@@ -200,34 +200,42 @@ class MonitaDumaiController extends Controller
         $previousMonthEnd = $previousMonthStart->copy()->endOfMonth();
         $previousComparableEnd = $previousMonthStart->copy()
             ->day(min($cutoff->day, $previousMonthEnd->day));
-        $keluar = DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-            ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
-            ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
-            ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-        $mobile = DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-            ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
-            ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
-            ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
-            ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        $keluar = $this->safeOutletDetailSource('keluarsf', function () use ($monthStart, $cutoff, $pageIds) {
+            return DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+                ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
+                ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
+                ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        });
+        $mobile = $this->safeOutletDetailSource('mobile_penjualan', function () use ($monthStart, $cutoff, $pageIds) {
+            return DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+                ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
+                ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
+                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
+                ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        });
         // Tetap layani Detail Outlet saat deployment aplikasi selesai lebih dulu
         // daripada migrasi tabel histori. Setelah migrasi tersedia, FM1/M1 langsung
         // dibaca tanpa perlu cache atau restart tambahan.
         $history = collect();
         if (Schema::hasTable('surya_outlet_sales_history')) {
-            $history = DB::table('surya_outlet_sales_history')
-                ->whereIn('id_outlet', $pageIds)
-                ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
-                ->select('id_outlet')
-                ->selectRaw('SUM(sa) as sa_fm1, SUM(pv) as pv_fm1')
-                ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END) as sa_m1', [$previousComparableEnd->toDateString()])
-                ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END) as pv_m1', [$previousComparableEnd->toDateString()])
-                ->groupBy('id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+            $history = $this->safeOutletDetailSource('surya_outlet_sales_history', function () use ($pageIds, $previousMonthStart, $previousMonthEnd, $previousComparableEnd) {
+                return DB::table('surya_outlet_sales_history')
+                    ->whereIn('id_outlet', $pageIds)
+                    ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
+                    ->select('id_outlet')
+                    ->selectRaw('SUM(sa) as sa_fm1, SUM(pv) as pv_fm1')
+                    ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END) as sa_m1', [$previousComparableEnd->toDateString()])
+                    ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END) as pv_m1', [$previousComparableEnd->toDateString()])
+                    ->groupBy('id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+            });
         }
-        $metrics = DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
-            ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
+        $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds) {
+            return DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
+                ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
+        });
 
         return $rows->transform(function ($row) use ($keluar, $mobile, $history, $metrics) {
             $id = (string) $row->id_outlet;
@@ -260,6 +268,20 @@ class MonitaDumaiController extends Controller
         });
     }
 
+    private function safeOutletDetailSource(string $source, callable $query)
+    {
+        try {
+            return $query();
+        } catch (\Throwable $e) {
+            logger()->error('Detail Outlet metric source failed', [
+                'source' => $source,
+                'exception' => $e,
+            ]);
+
+            return collect();
+        }
+    }
+
     private function outletSalesCutoff(Request $request): Carbon
     {
         $default = now('Asia/Jakarta')->subDays(2)->startOfDay();
@@ -276,7 +298,7 @@ class MonitaDumaiController extends Controller
 
         $today = now('Asia/Jakarta')->startOfDay();
 
-        return $selected->greaterThan($today) ? $today : $selected;
+        return ! $selected || $selected->greaterThan($today) ? $today : $selected;
     }
 
     private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
