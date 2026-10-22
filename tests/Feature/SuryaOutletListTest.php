@@ -279,6 +279,14 @@ class SuryaOutletListTest extends TestCase
             'sf' => 'SF UJI BIOMETRIK',
             'pjp' => 'Selasa',
         ]);
+        DB::table('surya_daily_metrics')->insert([
+            'id_outlet' => $idOutlet,
+            'metric_date' => now()->subDay()->toDateString(),
+            'cvm_fm1' => 21,
+            'cvm_m1' => 13,
+            'cvm_m' => 17,
+            'uploaded_metrics' => 'cvm',
+        ]);
 
         $spreadsheet = new Spreadsheet();
         $spreadsheet->getActiveSheet()->fromArray([
@@ -320,6 +328,84 @@ class SuryaOutletListTest extends TestCase
             $this->assertSame(10, (int) $response->json('data.0.biometrik_mtd'));
             $this->assertSame(2, (int) $response->json('data.0.biometrik_gap'));
             $this->assertEqualsWithDelta(25.0, (float) $response->json('data.0.biometrik_mom_pct'), 0.01);
+            $this->assertSame(21, (int) $response->json('data.0.cvm_fm1'));
+            $this->assertSame(13, (int) $response->json('data.0.cvm_m1'));
+            $this->assertSame(17, (int) $response->json('data.0.cvm_mtd'));
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_partial_transaction_upload_preserves_other_metrics_and_is_visible_in_detail(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin belum tersedia.');
+        }
+
+        $idOutlet = 990000006;
+        DB::table('appsdumais')->insert([
+            'id_outlet' => $idOutlet,
+            'nama_outlet' => 'Outlet Uji Upload Parsial',
+            'kecamatan' => 'Kecamatan Uji',
+            'tap' => 'DUMAI',
+            'sf' => 'SF UJI PARSIAL',
+            'pjp' => 'Rabu',
+        ]);
+        DB::table('surya_daily_metrics')->insert([
+            'id_outlet' => $idOutlet,
+            'metric_date' => '2026-10-20',
+            'ss_fm1' => 30,
+            'ss_m1' => 20,
+            'ss_m' => 25,
+            'uploaded_metrics' => 'ss',
+        ]);
+
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getActiveSheet()->fromArray([
+            ['id_outlet', 'cvm_fm1', 'cvm_m1', 'cvm_m', 'update'],
+            [$idOutlet, 12, 8, 10, '2026-10-20'],
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'surya-cvm-');
+        IOFactory::createWriter($spreadsheet, 'Xlsx')->save($path);
+
+        try {
+            $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->post(route('surya.transaction-upload.store'), [
+                    'metrics_file' => new UploadedFile($path, 'cvm.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+                ])
+                ->assertRedirect()
+                ->assertSessionHas('success');
+
+            $this->assertDatabaseHas('surya_daily_metrics', [
+                'id_outlet' => $idOutlet,
+                'metric_date' => '2026-10-20',
+                'ss_m' => 25,
+                'cvm_m' => 10,
+                'uploaded_metrics' => 'ss,cvm',
+            ]);
+
+            $response = $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->getJson(route('surya.outlet-detail.data', [
+                    'draw' => 1,
+                    'start' => 0,
+                    'length' => 25,
+                    'search' => ['value' => 'Outlet Uji Upload Parsial'],
+                ]))
+                ->assertOk();
+
+            $this->assertSame(25, (int) $response->json('data.0.super_seru_mtd'));
+            $this->assertSame(10, (int) $response->json('data.0.cvm_mtd'));
+
+            $export = $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->get(route('surya.outlet-detail.export', ['q' => 'Outlet Uji Upload Parsial']))
+                ->assertOk();
+            $sheet = IOFactory::load($export->baseResponse->getFile()->getPathname())->getActiveSheet();
+            $this->assertSame(10, (int) $sheet->getCell('S2')->getValue());
+            $this->assertSame(25, (int) $sheet->getCell('X2')->getValue());
         } finally {
             @unlink($path);
         }

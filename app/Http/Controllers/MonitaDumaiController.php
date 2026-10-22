@@ -251,7 +251,7 @@ class MonitaDumaiController extends Controller
         }
         $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds) {
             return DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
-                ->unique(fn ($row) => (string) $row->id_outlet)->keyBy(fn ($row) => (string) $row->id_outlet);
+                ->groupBy(fn ($row) => (string) $row->id_outlet);
         });
 
         return $rows->transform(function ($row) use ($keluar, $mobile, $history, $metrics) {
@@ -259,7 +259,7 @@ class MonitaDumaiController extends Controller
             $legacy = $keluar->get($id);
             $approved = $mobile->get($id);
             $historical = $history->get($id);
-            $metric = $metrics->get($id);
+            $outletMetrics = $metrics->get($id, collect());
             foreach (['st_sa' => 'sa', 'st_pv' => 'pv'] as $stock => $historyColumn) {
                 $fm1 = (int) ($historical->{$historyColumn . '_fm1'} ?? 0);
                 $m1 = (int) ($historical->{$historyColumn . '_m1'} ?? 0);
@@ -271,6 +271,11 @@ class MonitaDumaiController extends Controller
                 $row->{$stock . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
             }
             foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo', 'biometrik' => 'bio'] as $alias => $column) {
+                $metric = $outletMetrics->first(function ($candidate) use ($column) {
+                    $uploaded = array_filter(explode(',', (string) ($candidate->uploaded_metrics ?? '')));
+
+                    return $uploaded === [] || in_array($column, $uploaded, true);
+                });
                 $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
                 $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
                 $mtd = (int) ($metric->{$column . '_m'} ?? 0);
@@ -442,6 +447,11 @@ class MonitaDumaiController extends Controller
                 }
 
                 $now = now();
+                $existing = DB::table('surya_daily_metrics')
+                    ->where('id_outlet', $idOutlet)
+                    ->where('metric_date', $now->toDateString())
+                    ->first();
+                $uploadedMetrics = $this->mergeUploadedMetrics($existing->uploaded_metrics ?? null, ['bio']);
                 DB::table('surya_daily_metrics')->updateOrInsert(
                     ['id_outlet' => $idOutlet, 'metric_date' => $now->toDateString()],
                     [
@@ -449,6 +459,7 @@ class MonitaDumaiController extends Controller
                         'bio_m1' => max(0, (int) ($row['C'] ?? 0)),
                         'bio_m' => max(0, (int) ($row['D'] ?? 0)),
                         'source_updated_at' => $now->toDateString(),
+                        'uploaded_metrics' => $uploadedMetrics,
                         'updated_at' => $now,
                         'created_at' => $now,
                     ]
@@ -468,14 +479,29 @@ class MonitaDumaiController extends Controller
                 continue;
             }
 
+            $presentMetrics = collect($metrics)->filter(function ($metric) use ($data) {
+                return collect(['fm1', 'm1', 'm'])->contains(fn ($period) => array_key_exists("{$metric}_{$period}", $data));
+            })->values()->all();
+            if ($presentMetrics === []) {
+                $skipped++;
+                continue;
+            }
+
             $metricDate = $this->parseMetricsDate($data['update'] ?? null);
             $now = now();
             $values = ['updated_at' => $now, 'created_at' => $now];
-            foreach ($metrics as $metric) {
+            foreach ($presentMetrics as $metric) {
                 foreach (['fm1', 'm1', 'm'] as $period) {
-                    $values["{$metric}_{$period}"] = max(0, (int) ($data["{$metric}_{$period}"] ?? 0));
+                    if (array_key_exists("{$metric}_{$period}", $data)) {
+                        $values["{$metric}_{$period}"] = max(0, (int) ($data["{$metric}_{$period}"] ?? 0));
+                    }
                 }
             }
+            $existing = DB::table('surya_daily_metrics')
+                ->where('id_outlet', $idOutlet)
+                ->where('metric_date', $metricDate)
+                ->first();
+            $values['uploaded_metrics'] = $this->mergeUploadedMetrics($existing->uploaded_metrics ?? null, $presentMetrics);
             $values['source_updated_at'] = $metricDate;
             DB::table('surya_daily_metrics')->updateOrInsert(
                 ['id_outlet' => $idOutlet, 'metric_date' => $metricDate],
@@ -485,6 +511,15 @@ class MonitaDumaiController extends Controller
         }
 
         return back()->with('success', "Upload berhasil: {$imported} outlet diproses, {$skipped} baris dilewati.");
+    }
+
+    private function mergeUploadedMetrics(?string $existing, array $metrics): string
+    {
+        return collect(array_merge(explode(',', (string) $existing), $metrics))
+            ->map(fn ($metric) => trim((string) $metric))
+            ->filter()
+            ->unique()
+            ->implode(',');
     }
 
     private function parseUploadedSalesDate($value): ?string
