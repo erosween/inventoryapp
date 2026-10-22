@@ -25,7 +25,6 @@ return new class extends Migration {
         ];
 
         DB::table('surya_daily_metrics')->orderBy('id')->chunkById(500, function ($rows) use ($metricColumns) {
-            $updates = [];
             foreach ($rows as $row) {
                 $uploaded = [];
                 foreach ($metricColumns as $metric => $columns) {
@@ -43,13 +42,10 @@ return new class extends Migration {
                     $uploaded = array_keys($metricColumns);
                 }
 
-                $updates[] = [
-                    'id' => $row->id,
-                    'uploaded_metrics' => implode(',', $uploaded),
-                ];
+                DB::table('surya_daily_metrics')
+                    ->where('id', $row->id)
+                    ->update(['uploaded_metrics' => implode(',', $uploaded)]);
             }
-
-            DB::table('surya_daily_metrics')->upsert($updates, ['id'], ['uploaded_metrics']);
         });
     }
 
