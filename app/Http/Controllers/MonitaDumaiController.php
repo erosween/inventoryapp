@@ -129,14 +129,29 @@ class MonitaDumaiController extends Controller
             ->orderBy('tap')
             ->pluck('tap');
         $outletCount = $this->outletDetailBaseQuery($tapScopes)->count();
+        $selectedTap = trim((string) $request->input('tap'));
+        $search = trim((string) $request->input('q'));
+        $perPage = (int) $request->input('per_page', 25);
+        if (! in_array($perPage, [10, 25, 50, 100], true)) {
+            $perPage = 25;
+        }
 
         $canEditOutlet = $this->isSuryaAdminSuper();
         $salesCutoff = $this->outletSalesCutoff($request);
         $salesCutoffDate = $salesCutoff->translatedFormat('d M Y');
         $salesCutoffValue = $salesCutoff->toDateString();
         $salesCutoffMax = now('Asia/Jakarta')->toDateString();
+        $outlets = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+            ->orderBy('outlet.nama_outlet')
+            ->paginate($perPage)
+            ->withQueryString();
+        $outlets->setCollection($this->hydrateOutletDetailPage($outlets->getCollection(), $salesCutoff));
 
-        return response()->view('surya.outlet-detail', compact('taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate', 'salesCutoffValue', 'salesCutoffMax'))
+        return response()->view('surya.outlet-detail', compact(
+            'taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate', 'salesCutoffValue',
+            'salesCutoffMax', 'outlets', 'selectedTap', 'search', 'perPage'
+        ))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 

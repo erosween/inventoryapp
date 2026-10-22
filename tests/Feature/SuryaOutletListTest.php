@@ -150,14 +150,14 @@ class SuryaOutletListTest extends TestCase
 
         $response = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
-            ->get(route('surya.outlet-detail'));
+            ->get(route('surya.outlet-detail', ['q' => 'Outlet Uji Detail']));
 
         $response->assertOk()
             ->assertSee('DETAIL OUTLET')
             ->assertSee('Gap MoM')
             ->assertSee('%MoM')
-            ->assertSee('serverSide:true', false)
-            ->assertSee('ordering:false', false)
+            ->assertSee('Outlet Uji Detail')
+            ->assertSee('Menampilkan 1–1 dari 1 outlet')
             ->assertSee('Export Excel')
             ->assertSee('id="sales-cutoff"', false)
             ->assertSee('value="2026-10-20"', false)
@@ -165,9 +165,9 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('outlet-profile-link', false)
             ->assertSee('position:sticky;top:50px', false)
             ->assertSee('position:sticky;left:130px', false)
-            ->assertSee('max-height:clamp(600px', false)
-            ->assertSee("document.querySelector('.card').appendChild(footer)", false)
-            ->assertSee('detail-outlet\\/data', false);
+            ->assertSee('min-height:610px', false)
+            ->assertDontSee('DataTable(', false)
+            ->assertDontSee('detail-outlet\\/data', false);
 
         $dataResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])
