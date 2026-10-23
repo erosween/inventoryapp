@@ -31,17 +31,11 @@ class FormKeluartapController extends Controller
 
         $denom = DB::table('denom')
                 ->select('*')
-                ->get();
-        $duplicateNames = $denom
-            ->groupBy(fn ($item) => mb_strtoupper(trim((string) $item->denom)))
-            ->filter(fn ($items) => $items->count() > 1)
-            ->keys();
-        $denom->each(function ($item) use ($duplicateNames) {
-            $normalized = mb_strtoupper(trim((string) $item->denom));
-            $item->display_name = $duplicateNames->contains($normalized)
-                ? "{$item->denom} [{$item->iddenom}]"
-                : $item->denom;
-        });
+                ->orderByRaw("CASE iddenom WHEN 'SP6' THEN 0 WHEN 'SP7' THEN 1 WHEN 'SEGEL' THEN 2 WHEN 'V33' THEN 3 ELSE 10 END")
+                ->orderBy('denom')
+                ->get()
+                ->unique(fn ($item) => mb_strtoupper(trim((string) $item->denom)))
+                ->values();
 
         return view('form/formkeluartap',compact('data','idtap','denom','tappenerima'));
     }

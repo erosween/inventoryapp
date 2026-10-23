@@ -120,6 +120,38 @@ class StockBulkFlowTest extends TestCase
             ->count());
     }
 
+    public function test_intertap_form_only_lists_one_option_for_duplicate_denom_names(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Akun admin_super belum tersedia.');
+        }
+
+        DB::table('denom')->updateOrInsert(['iddenom' => 'SP6'], [
+            'denom' => 'PERDANA SEGEL SIMPATI',
+            'group_name' => 'SEGEL',
+            'kategori_inject' => 'SA',
+            'product_group' => 'SP',
+            'harga_jual' => 0,
+        ]);
+        DB::table('denom')->insert([
+            'iddenom' => 'SP6-DUP-TEST',
+            'denom' => '  perdana segel simpati  ',
+            'group_name' => 'SEGEL',
+            'kategori_inject' => 'SA',
+            'product_group' => 'SP',
+            'harga_jual' => 0,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get('/form/formkeluartap')
+            ->assertOk();
+
+        $this->assertSame(1, substr_count($response->getContent(), '"name":"PERDANA SEGEL SIMPATI"'));
+        $response->assertDontSee('SP6-DUP-TEST', false);
+    }
+
     public function test_sf_keluar_outlets_are_scoped_to_the_admin_tap(): void
     {
         $admin = User::where('username', 'admin_bengkalis')->first();

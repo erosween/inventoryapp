@@ -280,7 +280,7 @@
             }
         });
 
-        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->display_name])->values());
+        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
         let bulkIndex = 0;
 
         function initBulkDenomSelect(select) {
