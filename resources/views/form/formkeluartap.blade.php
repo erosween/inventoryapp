@@ -260,6 +260,12 @@
                     Swal.fire({ icon: 'error', title: 'Periksa Daftar Denom', text: 'Pastikan denom, qty, SN, dan stok setiap baris valid.' });
                     return false;
                 }
+                if ($(this).data('submitting')) {
+                    e.preventDefault();
+                    return false;
+                }
+                $(this).data('submitting', true);
+                $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...');
                 return true;
             }
             const qty = parseInt($('#qty').val()) || 0;
@@ -274,7 +280,7 @@
             }
         });
 
-        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
+        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->display_name])->values());
         let bulkIndex = 0;
 
         function initBulkDenomSelect(select) {

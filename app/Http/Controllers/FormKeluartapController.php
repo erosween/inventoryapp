@@ -32,6 +32,16 @@ class FormKeluartapController extends Controller
         $denom = DB::table('denom')
                 ->select('*')
                 ->get();
+        $duplicateNames = $denom
+            ->groupBy(fn ($item) => mb_strtoupper(trim((string) $item->denom)))
+            ->filter(fn ($items) => $items->count() > 1)
+            ->keys();
+        $denom->each(function ($item) use ($duplicateNames) {
+            $normalized = mb_strtoupper(trim((string) $item->denom));
+            $item->display_name = $duplicateNames->contains($normalized)
+                ? "{$item->denom} [{$item->iddenom}]"
+                : $item->denom;
+        });
 
         return view('form/formkeluartap',compact('data','idtap','denom','tappenerima'));
     }
@@ -104,13 +114,32 @@ public function proseskeluartapform(Request $request)
         }
 
         foreach ($validated['items'] as $item) {
+            $denomName = DB::table('denom')->where('iddenom', $item['iddenom'])->value('denom');
+            $duplicatePending = DB::table('keluar as k')
+                ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+                ->where('k.tgl', $validated['tgl'])
+                ->where('k.pengirim', $validated['pengirim'])
+                ->where('k.penerima', $validated['penerima'])
+                ->where('k.qty', $item['qty'])
+                ->where('k.sn', trim($item['sn']))
+                ->where('k.status', 1)
+                ->whereRaw('UPPER(TRIM(d.denom)) = ?', [mb_strtoupper(trim((string) $denomName))])
+                ->lockForUpdate()
+                ->exists();
+
+            if ($duplicatePending) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => "Pengiriman {$denomName} dengan SN yang sama sudah menunggu approval. Data tidak disimpan ulang.",
+                ]);
+            }
+
             DB::table('keluar')->insert([
                 'iddenom' => $item['iddenom'],
                 'pengirim' => $validated['pengirim'],
                 'penerima' => $validated['penerima'],
                 'qty' => $item['qty'],
                 'tgl' => $validated['tgl'],
-                'sn' => $item['sn'],
+                'sn' => trim($item['sn']),
                 'tambahanket' => $validated['tambahket'] ?? null,
                 'idtap' => $validated['pengirim'],
                 'status' => 1,

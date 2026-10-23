@@ -76,6 +76,50 @@ class StockBulkFlowTest extends TestCase
         $this->assertSame($before + 7, (int) $response->getData(true)['SP6']);
     }
 
+    public function test_identical_pending_intertap_transfer_cannot_be_submitted_twice(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        $taps = DB::table('kodetap')->pluck('idtap')->unique()->values();
+        $denom = DB::table('denom')->first();
+        if (! $admin || $taps->count() < 2 || ! $denom) {
+            $this->markTestSkipped('Fixture transfer antar-TAP belum tersedia.');
+        }
+
+        $sender = (string) $taps[0];
+        $recipient = (string) $taps[1];
+        DB::table('stockawaltap')->updateOrInsert(
+            ['idtap' => $sender, 'iddenom' => $denom->iddenom],
+            ['stock' => 10]
+        );
+        $sn = 'ANTI-DUPLIKAT-'.Str::random(12);
+        $payload = [
+            'tgl' => now()->toDateString(),
+            'pengirim' => $sender,
+            'penerima' => $recipient,
+            'items' => [[
+                'iddenom' => $denom->iddenom,
+                'qty' => 2,
+                'sn' => $sn,
+            ]],
+        ];
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->post('/form/formkeluartap', $payload + ['_idempotency_key' => (string) Str::uuid()])
+            ->assertRedirect('keluar');
+
+        $this->from('/form/formkeluartap')
+            ->post('/form/formkeluartap', $payload + ['_idempotency_key' => (string) Str::uuid()])
+            ->assertRedirect('/form/formkeluartap')
+            ->assertSessionHasErrors('items');
+
+        $this->assertSame(1, DB::table('keluar')
+            ->where('pengirim', $sender)
+            ->where('penerima', $recipient)
+            ->where('sn', $sn)
+            ->where('status', 1)
+            ->count());
+    }
+
     public function test_sf_keluar_outlets_are_scoped_to_the_admin_tap(): void
     {
         $admin = User::where('username', 'admin_bengkalis')->first();
