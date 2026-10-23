@@ -466,7 +466,7 @@ class MonitaDumaiController extends Controller
                     ->where('id_outlet', $idOutlet)
                     ->where('metric_date', $now->toDateString())
                     ->first();
-                $uploadedMetrics = $this->mergeUploadedMetrics($existing->uploaded_metrics ?? null, ['bio']);
+                $uploadedMetrics = $this->mergeUploadedMetrics($existing, ['bio']);
                 DB::table('surya_daily_metrics')->updateOrInsert(
                     ['id_outlet' => $idOutlet, 'metric_date' => $now->toDateString()],
                     [
@@ -516,7 +516,7 @@ class MonitaDumaiController extends Controller
                 ->where('id_outlet', $idOutlet)
                 ->where('metric_date', $metricDate)
                 ->first();
-            $values['uploaded_metrics'] = $this->mergeUploadedMetrics($existing->uploaded_metrics ?? null, $presentMetrics);
+            $values['uploaded_metrics'] = $this->mergeUploadedMetrics($existing, $presentMetrics);
             $values['source_updated_at'] = $metricDate;
             DB::table('surya_daily_metrics')->updateOrInsert(
                 ['id_outlet' => $idOutlet, 'metric_date' => $metricDate],
@@ -528,11 +528,40 @@ class MonitaDumaiController extends Controller
         return back()->with('success', "Upload berhasil: {$imported} outlet diproses, {$skipped} baris dilewati.");
     }
 
-    private function mergeUploadedMetrics(?string $existing, array $metrics): string
+    private function mergeUploadedMetrics(?object $existing, array $metrics): string
     {
-        return collect(array_merge(explode(',', (string) $existing), $metrics))
+        $metricColumns = [
+            'ss' => ['ss_fm1', 'ss_m1', 'ss_m'],
+            'hot_promo' => ['hot_promo_fm1', 'hot_promo_m1', 'hot_promo_m'],
+            'cvm' => ['cvm_fm1', 'cvm_m1', 'cvm_m'],
+            'insak' => ['insak_fm1', 'insak_m1', 'insak_m'],
+            'comsak' => ['comsak_fm1', 'comsak_m1', 'comsak_m'],
+            'digital' => ['digital_fm1', 'digital_m1', 'digital_m'],
+            'bio' => ['bio_fm1', 'bio_m1', 'bio_m'],
+        ];
+        $existingMetrics = collect(explode(',', (string) ($existing->uploaded_metrics ?? '')))
             ->map(fn ($metric) => trim((string) $metric))
             ->filter()
+            ->unique();
+
+        // Migrasi awal menandai row nol yang ambigu sebagai seluruh KPI. Saat file
+        // biometrik masuk ke row tersebut, marker legacy itu membuat Detail Outlet
+        // menganggap nilai transaksi nol sebagai upload terbaru dan menutupi histori.
+        // Marker eksplisit parsial tetap dipertahankan, sedangkan marker kosong/penuh
+        // dinormalisasi dari kolom yang benar-benar berisi data sebelum KPI baru digabung.
+        $allMetrics = collect(array_keys($metricColumns));
+        if ($existing && ($existingMetrics->isEmpty() || $allMetrics->diff($existingMetrics)->isEmpty())) {
+            $existingMetrics = $allMetrics->filter(function ($metric) use ($existing, $metricColumns) {
+                return collect($metricColumns[$metric])->contains(
+                    fn ($column) => (int) ($existing->{$column} ?? 0) !== 0
+                );
+            });
+        }
+
+        return $existingMetrics
+            ->concat($metrics)
+            ->map(fn ($metric) => trim((string) $metric))
+            ->filter(fn ($metric) => array_key_exists($metric, $metricColumns))
             ->unique()
             ->implode(',');
     }

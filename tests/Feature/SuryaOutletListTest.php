@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -99,6 +100,7 @@ class SuryaOutletListTest extends TestCase
 
     public function test_outlet_detail_combines_sales_and_uses_latest_uploaded_metrics(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-10-22 12:00:00', 'Asia/Jakarta'));
         $admin = User::where('username', 'admin_super')->first();
         if (! $admin) {
             $this->markTestSkipped('Fixture admin belum tersedia.');
@@ -261,6 +263,7 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(10, (int) $sheet->getCell('S2')->getValue());
         $this->assertSame(48, (int) $sheet->getCell('AK2')->getValue());
         $this->assertSame(50, (int) $sheet->getCell('AM2')->getValue());
+        Carbon::setTestNow();
     }
 
     public function test_biometric_upload_uses_column_position_and_updates_outlet_detail(): void
@@ -285,7 +288,21 @@ class SuryaOutletListTest extends TestCase
             'cvm_fm1' => 21,
             'cvm_m1' => 13,
             'cvm_m' => 17,
-            'uploaded_metrics' => 'cvm',
+            'ss_fm1' => 31,
+            'ss_m1' => 23,
+            'ss_m' => 27,
+            'comsak_fm1' => 41,
+            'comsak_m1' => 33,
+            'comsak_m' => 37,
+            'hot_promo_fm1' => 51,
+            'hot_promo_m1' => 43,
+            'hot_promo_m' => 47,
+            'uploaded_metrics' => 'cvm,ss,comsak,hot_promo',
+        ]);
+        DB::table('surya_daily_metrics')->insert([
+            'id_outlet' => $idOutlet,
+            'metric_date' => now()->toDateString(),
+            'uploaded_metrics' => 'ss,hot_promo,cvm,insak,comsak,digital,bio',
         ]);
 
         $spreadsheet = new Spreadsheet();
@@ -311,6 +328,7 @@ class SuryaOutletListTest extends TestCase
                 'bio_fm1' => 12,
                 'bio_m1' => 8,
                 'bio_m' => 10,
+                'uploaded_metrics' => 'bio',
             ]);
 
             $response = $this->actingAs($admin)
@@ -331,6 +349,20 @@ class SuryaOutletListTest extends TestCase
             $this->assertSame(21, (int) $response->json('data.0.cvm_fm1'));
             $this->assertSame(13, (int) $response->json('data.0.cvm_m1'));
             $this->assertSame(17, (int) $response->json('data.0.cvm_mtd'));
+            $this->assertSame(27, (int) $response->json('data.0.super_seru_mtd'));
+            $this->assertSame(37, (int) $response->json('data.0.comsak_mtd'));
+            $this->assertSame(47, (int) $response->json('data.0.hot_promo_mtd'));
+
+            $export = $this->actingAs($admin)
+                ->withSession(['idtap' => 'SBP_DUMAI'])
+                ->get(route('surya.outlet-detail.export', ['q' => 'Outlet Uji Biometrik']))
+                ->assertOk();
+            $sheet = IOFactory::load($export->baseResponse->getFile()->getPathname())->getActiveSheet();
+            $this->assertSame(17, (int) $sheet->getCell('S2')->getValue());
+            $this->assertSame(27, (int) $sheet->getCell('X2')->getValue());
+            $this->assertSame(37, (int) $sheet->getCell('AC2')->getValue());
+            $this->assertSame(47, (int) $sheet->getCell('AH2')->getValue());
+            $this->assertSame(10, (int) $sheet->getCell('AM2')->getValue());
         } finally {
             @unlink($path);
         }
