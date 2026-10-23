@@ -312,6 +312,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
         Route::get('/history/details', [\App\Http\Controllers\MobileSalesController::class, 'getVisitDetails'])->name('history.details');
         Route::get('/search-outlet', [\App\Http\Controllers\MobileSalesController::class, 'searchOutlet'])->name('search-outlet');
+        Route::get('/outlet-performance/{id_outlet}', [\App\Http\Controllers\MobileSalesController::class, 'outletPerformance'])->name('outlet-performance');
         Route::get('/edit/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'edit'])->name('edit');
         Route::put('/update/{id_outlet}/{tgl}', [\App\Http\Controllers\MobileSalesController::class, 'update'])->name('update');
         Route::get('/stock', [\App\Http\Controllers\MobileSalesController::class, 'stock'])->name('stock');

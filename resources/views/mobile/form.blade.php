@@ -44,6 +44,12 @@
                             </div>
                         </div>
                     </div>
+                    <div class="d-flex justify-content-end mt-2">
+                        <button type="button" id="outlet-performance-toggle" class="outlet-performance-toggle" aria-expanded="false" {{ $selected_outlet ? '' : 'disabled' }}>
+                            <i class="fas fa-chart-line me-1"></i><span>Lihat performansi</span><i class="fas fa-chevron-down ms-1 performance-chevron"></i>
+                        </button>
+                    </div>
+                    <div id="outlet-performance-panel" class="outlet-performance-panel d-none" aria-live="polite"></div>
                 </div>
             </div>
         </div>
@@ -164,6 +170,19 @@
     .outlet-inline-option small { display: block; }
     .outlet-inline-option strong { font-size: .72rem; }
     .outlet-inline-option small { color: #64748b; font-size: .6rem; font-weight: 700; }
+    .outlet-performance-toggle { display:inline-flex;align-items:center;min-height:30px;padding:6px 10px;border:0;border-radius:999px;background:rgba(220,38,38,.08);color:var(--primary);font-size:.61rem;font-weight:800; }
+    .outlet-performance-toggle:disabled { opacity:.45; }
+    .outlet-performance-toggle[aria-expanded="true"] .performance-chevron { transform:rotate(180deg); }
+    .performance-chevron { transition:transform .2s ease; }
+    .outlet-performance-panel { margin-top:10px;padding:12px;border:1px solid #e5e7eb;border-radius:15px;background:#f8fafc; }
+    .performance-head { display:flex;justify-content:space-between;gap:10px;margin-bottom:9px;color:#64748b;font-size:.58rem;font-weight:800; }
+    .performance-grid { display:grid;grid-template-columns:1.35fr repeat(4,.75fr);align-items:center; }
+    .performance-cell { padding:7px 4px;border-top:1px solid #e8edf3;text-align:right;color:#334155;font-size:.6rem;font-weight:750;font-variant-numeric:tabular-nums; }
+    .performance-cell.label { text-align:left;color:#111827;font-weight:850; }
+    .performance-cell.heading { padding-top:2px;border-top:0;color:#94a3b8;font-size:.52rem;text-transform:uppercase; }
+    .performance-cell.positive { color:#059669; }.performance-cell.negative { color:#dc2626; }
+    .performance-loading,.performance-error { padding:12px;text-align:center;color:#64748b;font-size:.62rem;font-weight:750; }
+    .performance-error { color:#dc2626; }
     .consignment-shell {
         border-radius: 18px;
         background: #fff;
@@ -370,8 +389,43 @@
             $('#outlet-search-inline').val(String(outlet.id_outlet || '').toUpperCase());
             $('#selected-outlet-name').text(outlet.nama_outlet || 'Outlet belum ditemukan');
             $('#outlet-inline-results').addClass('d-none').empty();
+            resetOutletPerformance();
             saveFormState();
         }
+
+        let performanceRequest = null;
+        function resetOutletPerformance() {
+            if (performanceRequest) performanceRequest.abort();
+            performanceRequest = null;
+            $('#outlet-performance-panel').addClass('d-none').empty();
+            $('#outlet-performance-toggle').prop('disabled', !$('#id_outlet').val()).attr('aria-expanded', 'false');
+            $('#outlet-performance-toggle span').text('Lihat performansi');
+        }
+        function metricValue(value) { return Number(value || 0).toLocaleString('id-ID'); }
+        function renderOutletPerformance(response) {
+            const rows = (response.metrics || []).map(metric => {
+                const mom = metric.mom === null ? '–' : `${metric.mom > 0 ? '+' : ''}${Number(metric.mom).toLocaleString('id-ID', {maximumFractionDigits:1})}%`;
+                const tone = metric.mom === null ? '' : (metric.mom >= 0 ? 'positive' : 'negative');
+                return `<div class="performance-cell label">${escapeHtml(metric.label)}</div><div class="performance-cell">${metricValue(metric.fm1)}</div><div class="performance-cell">${metricValue(metric.m1)}</div><div class="performance-cell">${metricValue(metric.mtd)}</div><div class="performance-cell ${tone}">${mom}</div>`;
+            }).join('');
+            return `<div class="performance-head"><span>PERFORMANSI OUTLET</span><span>Cutoff ${escapeHtml(response.cutoff || '–')}</span></div><div class="performance-grid"><div class="performance-cell heading label">Parameter</div><div class="performance-cell heading">FM-1</div><div class="performance-cell heading">M-1</div><div class="performance-cell heading">MTD</div><div class="performance-cell heading">MoM</div>${rows}</div>`;
+        }
+        $('#outlet-performance-toggle').on('click', function() {
+            const panel = $('#outlet-performance-panel');
+            if ($(this).attr('aria-expanded') === 'true') {
+                $(this).attr('aria-expanded', 'false').find('span').text('Lihat performansi');
+                panel.addClass('d-none');
+                return;
+            }
+            const outletId = $('#id_outlet').val();
+            if (!outletId) return;
+            $(this).attr('aria-expanded', 'true').find('span').text('Sembunyikan');
+            panel.removeClass('d-none').html('<div class="performance-loading"><i class="fas fa-circle-notch fa-spin me-1"></i> Memuat performansi...</div>');
+            performanceRequest = $.get("{{ route('mobile.outlet-performance', ['id_outlet' => '__OUTLET__']) }}".replace('__OUTLET__', encodeURIComponent(outletId)))
+                .done(response => panel.html(renderOutletPerformance(response)))
+                .fail((xhr, status) => { if (status !== 'abort') panel.html('<div class="performance-error">Performansi belum dapat dimuat. Coba lagi.</div>'); })
+                .always(() => { performanceRequest = null; });
+        });
 
         function loadOutletOptions(query) {
             clearTimeout(outletSearchTimer);
@@ -402,6 +456,7 @@
         $('#outlet-search-inline').on('input', function() {
             $('#id_outlet').val('');
             $('#selected-outlet-name').text('Pilih outlet dari hasil pencarian');
+            resetOutletPerformance();
             loadOutletOptions($(this).val());
         });
 

@@ -8,6 +8,7 @@ use App\Models\MobileSalesReceipt;
 use App\Models\SuryaVisit;
 use App\Services\OptimizedImageStorage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,90 @@ class MobileSalesController extends Controller
             ->get(['id_outlet', 'nama_outlet']);
 
         return response()->json($outlets);
+    }
+
+    public function outletPerformance(string $id_outlet)
+    {
+        $idOutlet = strtoupper(trim($id_outlet));
+        $idsf = trim((string) session('mobile_sf_id'));
+        $allowed = $this->mobileOutletQuery()->where('id_outlet', $idOutlet)->exists()
+            || DB::table('surya_visits')->where('idsf', $idsf)->where('id_outlet', $idOutlet)->exists();
+        abort_unless($allowed, 403, 'Outlet tidak tersedia untuk Sales Force ini.');
+
+        $cutoff = now('Asia/Jakarta')->subDay()->startOfDay();
+        $monthStart = $cutoff->copy()->startOfMonth();
+        $previousMonthStart = $cutoff->copy()->subMonthNoOverflow()->startOfMonth();
+        $previousMonthEnd = $previousMonthStart->copy()->endOfMonth();
+        $previousComparableEnd = $previousMonthStart->copy()
+            ->day(min($cutoff->day, $previousMonthEnd->day));
+
+        $sumSales = function (string $table, string $alias, bool $approvedOnly = false) use ($idOutlet, $monthStart, $cutoff) {
+            $query = DB::table("{$table} as {$alias}")
+                ->leftJoin('denom as d', 'd.iddenom', '=', "{$alias}.iddenom")
+                ->where("{$alias}.id_outlet", $idOutlet)
+                ->whereBetween("{$alias}.tgl", [$monthStart->toDateString(), $cutoff->toDateString()]);
+            if ($approvedOnly) $query->where("{$alias}.status", 'approved');
+
+            return $query
+                ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN {$alias}.qty ELSE 0 END), 0) AS sa")
+                ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN {$alias}.qty ELSE 0 END), 0) AS pv")
+                ->first();
+        };
+        $legacy = $sumSales('keluarsf', 'k');
+        $approved = $sumSales('mobile_penjualan', 'm', true);
+        $history = Schema::hasTable('surya_outlet_sales_history')
+            ? DB::table('surya_outlet_sales_history')
+                ->where('id_outlet', $idOutlet)
+                ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
+                ->selectRaw('COALESCE(SUM(sa), 0) AS sa_fm1, COALESCE(SUM(pv), 0) AS pv_fm1')
+                ->selectRaw('COALESCE(SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END), 0) AS sa_m1', [$previousComparableEnd->toDateString()])
+                ->selectRaw('COALESCE(SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END), 0) AS pv_m1', [$previousComparableEnd->toDateString()])
+                ->first()
+            : null;
+        $metricRows = Schema::hasTable('surya_daily_metrics')
+            ? DB::table('surya_daily_metrics')
+                ->where('id_outlet', $idOutlet)
+                ->orderByDesc('metric_date')
+                ->get()
+            : collect();
+
+        $makeMetric = function (string $label, string $column) use ($metricRows) {
+            $row = $metricRows->first(function ($candidate) use ($column) {
+                $uploaded = array_filter(explode(',', (string) ($candidate->uploaded_metrics ?? '')));
+                return $uploaded === [] || in_array($column, $uploaded, true);
+            });
+            return $this->mobilePerformanceMetric(
+                $label,
+                (int) ($row->{$column.'_fm1'} ?? 0),
+                (int) ($row->{$column.'_m1'} ?? 0),
+                (int) ($row->{$column.'_m'} ?? 0)
+            );
+        };
+
+        $saMtd = (int) ($legacy->sa ?? 0) + (int) ($approved->sa ?? 0);
+        $pvMtd = (int) ($legacy->pv ?? 0) + (int) ($approved->pv ?? 0);
+        return response()->json([
+            'cutoff' => $cutoff->translatedFormat('d M Y'),
+            'metrics' => [
+                $makeMetric('CVM', 'cvm'),
+                $makeMetric('Super Seru', 'ss'),
+                $makeMetric('Hot Promo', 'hot_promo'),
+                $makeMetric('Biometrik', 'bio'),
+                $this->mobilePerformanceMetric('ST SA', (int) ($history->sa_fm1 ?? 0), (int) ($history->sa_m1 ?? 0), $saMtd),
+                $this->mobilePerformanceMetric('ST PV', (int) ($history->pv_fm1 ?? 0), (int) ($history->pv_m1 ?? 0), $pvMtd),
+            ],
+        ]);
+    }
+
+    private function mobilePerformanceMetric(string $label, int $fm1, int $m1, int $mtd): array
+    {
+        return [
+            'label' => $label,
+            'fm1' => $fm1,
+            'm1' => $m1,
+            'mtd' => $mtd,
+            'mom' => $m1 === 0 ? null : round((($mtd / $m1) - 1) * 100, 1),
+        ];
     }
 
     public function index()

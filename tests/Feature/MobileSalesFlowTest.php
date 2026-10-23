@@ -371,7 +371,59 @@ class MobileSalesFlowTest extends TestCase
             ->assertSee('name="id_outlet"', false)
             ->assertSee('disabled', false)
             ->assertSee('Nama Outlet')
-            ->assertSee('ELLY PONSEL');
+            ->assertSee('ELLY PONSEL')
+            ->assertSee('Lihat performansi')
+            ->assertSee('outlet-performance-panel', false);
+    }
+
+    public function test_mobile_outlet_performance_uses_shared_metrics_and_approved_sales_only(): void
+    {
+        Carbon::setTestNow('2026-10-23 12:00:00');
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'OUTLET-PERFORMANCE', 'nama_outlet' => 'Outlet Performance', 'sf' => 'Sales Test'],
+            ['id_outlet' => 'OUTLET-OTHER', 'nama_outlet' => 'Outlet Other', 'sf' => 'Sales Lain'],
+        ]);
+        DB::table('denom')->insert([
+            ['iddenom' => 'SA-PERF', 'denom' => 'Segel Perdana', 'group_name' => 'SA', 'product_group' => 'SA', 'harga_jual' => 0],
+            ['iddenom' => 'PV-PERF', 'denom' => 'Voucher Fisik', 'group_name' => 'PV', 'product_group' => 'PV', 'harga_jual' => 0],
+        ]);
+        DB::table('keluarsf')->insert([
+            ['tgl' => '2026-10-20', 'idsf' => 'SF001', 'id_outlet' => 'OUTLET-PERFORMANCE', 'iddenom' => 'SA-PERF', 'qty' => 3],
+            ['tgl' => '2026-10-20', 'idsf' => 'SF001', 'id_outlet' => 'OUTLET-PERFORMANCE', 'iddenom' => 'PV-PERF', 'qty' => 4],
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['tgl' => '2026-10-21', 'id_outlet' => 'OUTLET-PERFORMANCE', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'SA-PERF', 'qty' => 2, 'status' => 'approved'],
+            ['tgl' => '2026-10-21', 'id_outlet' => 'OUTLET-PERFORMANCE', 'idtap' => 'TAP001', 'idsf' => 'SF001', 'iddenom' => 'PV-PERF', 'qty' => 99, 'status' => 'pending'],
+        ]);
+        DB::table('surya_outlet_sales_history')->insert([
+            ['transaction_date' => '2026-09-10', 'id_outlet' => 'OUTLET-PERFORMANCE', 'sa' => 5, 'pv' => 8],
+            ['transaction_date' => '2026-09-28', 'id_outlet' => 'OUTLET-PERFORMANCE', 'sa' => 7, 'pv' => 9],
+        ]);
+        DB::table('surya_daily_metrics')->insert([
+            'metric_date' => '2026-10-22', 'id_outlet' => 'OUTLET-PERFORMANCE',
+            'cvm_fm1' => 10, 'cvm_m1' => 4, 'cvm_m' => 6,
+            'ss_fm1' => 8, 'ss_m1' => 3, 'ss_m' => 5,
+            'hot_promo_fm1' => 7, 'hot_promo_m1' => 2, 'hot_promo_m' => 1,
+            'bio_fm1' => 9, 'bio_m1' => 5, 'bio_m' => 5,
+            'uploaded_metrics' => 'cvm,ss,hot_promo,bio',
+        ]);
+
+        $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
+        $this->withSession($session)
+            ->getJson(route('mobile.outlet-performance', ['id_outlet' => 'OUTLET-PERFORMANCE']))
+            ->assertOk()
+            ->assertJsonPath('metrics.0.label', 'CVM')
+            ->assertJsonPath('metrics.0.mtd', 6)
+            ->assertJsonPath('metrics.4.label', 'ST SA')
+            ->assertJsonPath('metrics.4.fm1', 12)
+            ->assertJsonPath('metrics.4.m1', 5)
+            ->assertJsonPath('metrics.4.mtd', 5)
+            ->assertJsonPath('metrics.5.label', 'ST PV')
+            ->assertJsonPath('metrics.5.mtd', 4);
+
+        $this->withSession($session)
+            ->getJson(route('mobile.outlet-performance', ['id_outlet' => 'OUTLET-OTHER']))
+            ->assertForbidden();
     }
 
     public function test_password_form_shows_live_confirmation_feedback(): void
@@ -1992,6 +2044,26 @@ class MobileSalesFlowTest extends TestCase
             $table->id();
             $table->string('penerima')->nullable();
             $table->integer('status')->default(0);
+        });
+
+        Schema::create('surya_outlet_sales_history', function ($table) {
+            $table->id();
+            $table->date('transaction_date');
+            $table->string('id_outlet');
+            $table->integer('sa')->default(0);
+            $table->integer('pv')->default(0);
+        });
+
+        Schema::create('surya_daily_metrics', function ($table) {
+            $table->id();
+            $table->date('metric_date');
+            $table->string('id_outlet');
+            foreach (['cvm', 'ss', 'hot_promo', 'bio'] as $metric) {
+                $table->integer("{$metric}_fm1")->default(0);
+                $table->integer("{$metric}_m1")->default(0);
+                $table->integer("{$metric}_m")->default(0);
+            }
+            $table->string('uploaded_metrics')->nullable();
         });
     }
 }
