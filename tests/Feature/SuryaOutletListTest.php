@@ -46,6 +46,20 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('Owner ND')->assertSee('SA Non Digipos')->assertSee('PV Non Digipos');
         $this->assertStringContainsString('value="non-digipos"', $response->getContent());
 
+        \Maatwebsite\Excel\Facades\Excel::fake();
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.visits.export'))
+            ->assertOk();
+        \Maatwebsite\Excel\Facades\Excel::assertDownloaded(
+            'surya-penjualan-2026-10-01-sampai-2026-10-23.xlsx',
+            function ($export) {
+                $salesSheet = $export->sheets()[1];
+                $row = $salesSheet->collection()->first(fn (array $row) => $row[5] === 'NON-DIGIPOS-VISIT01');
+
+                return $row !== null && $row[6] === 'Outlet ND Visit';
+            }
+        );
+
         $source = collect([
             ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'nama outlet', 'Produk', 1, 'keterangan asli'],
             ['23/10/2026', 'DUMAI', 'SF1', 'Sales', '1200012345', 'Produk', 1, 'tetap tidak diekspor'],

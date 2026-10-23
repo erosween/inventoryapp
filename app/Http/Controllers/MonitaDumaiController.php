@@ -739,16 +739,26 @@ class MonitaDumaiController extends Controller
                 ];
             });
 
+        $latestNonDigiposVisits = DB::table('surya_visits')
+            ->selectRaw('MAX(id) as id')
+            ->where('visit_type', 'non_digipos')
+            ->groupBy('id_outlet');
+        $nonDigiposOutlets = DB::table('surya_visits as sv')
+            ->joinSub($latestNonDigiposVisits, 'latest_visit', 'latest_visit.id', '=', 'sv.id')
+            ->select('sv.id_outlet', 'sv.outlet_name');
+
         $sales = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->leftJoin('idsf as s', 's.idsf', '=', 'm.idsf')
             ->leftJoin('idsf as owner', 'owner.idsf', '=', DB::raw('COALESCE(m.owner_idsf, m.idsf)'))
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'm.id_outlet')
+            ->leftJoinSub($nonDigiposOutlets, 'non_digipos', 'non_digipos.id_outlet', '=', 'm.id_outlet')
             ->whereBetween('m.tgl', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
             ->get([
-                'm.tgl', 'm.idsf', 's.namasf', 'm.owner_idsf', 'owner.namasf as owner_namasf', 'm.idtap', 'm.id_outlet', 'o.nama_outlet',
+                'm.tgl', 'm.idsf', 's.namasf', 'm.owner_idsf', 'owner.namasf as owner_namasf', 'm.idtap', 'm.id_outlet',
+                DB::raw('COALESCE(o.nama_outlet, non_digipos.outlet_name) as nama_outlet'),
                 'd.denom', 'd.kategori_inject', 'm.qty',
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price'),
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total'),
