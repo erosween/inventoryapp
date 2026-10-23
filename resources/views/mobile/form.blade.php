@@ -402,11 +402,12 @@
         }
         function addConsignmentRow(iddenom = '', numbers = '') {
             const index = consignmentRowIndex++;
+            const disabled = $('#consignment_enabled').val() === '1' ? '' : 'disabled';
             $('#consignment-rows').append(`<div class="consignment-denom-row">
                 <button type="button" class="remove-consignment-row" aria-label="Hapus denom"><i class="fas fa-times"></i></button>
-                <select name="consignments[${index}][iddenom]" class="form-select consignment-denom-select" required>${consignmentOptions(iddenom)}</select>
+                <select name="consignments[${index}][iddenom]" class="form-select consignment-denom-select" required ${disabled}>${consignmentOptions(iddenom)}</select>
                 <div class="d-flex justify-content-between mb-1"><small class="fw-bold text-muted">Nomor perdana — satu nomor per baris</small><span class="consignment-row-count">0 nomor</span></div>
-                <textarea name="consignments[${index}][numbers]" class="form-control consignment-textarea consignment-row-numbers" rows="4" inputmode="text" enterkeyhint="enter" autocomplete="off" required placeholder="081234567890&#10;081234567891">${escapeHtml(numbers)}</textarea>
+                <textarea name="consignments[${index}][numbers]" class="form-control consignment-textarea consignment-row-numbers" rows="4" inputmode="text" enterkeyhint="enter" autocomplete="off" required ${disabled} placeholder="081234567890&#10;081234567891">${escapeHtml(numbers)}</textarea>
             </div>`);
             syncConsignmentRows();
         }
@@ -661,6 +662,7 @@
         function setConsignmentOpen(open) {
             $('#consignment_enabled').val(open ? '1' : '0');
             $('#consignment-panel').toggleClass('d-none', !open);
+            $('#consignment-rows').find('.consignment-denom-select, .consignment-row-numbers').prop('disabled', !open);
             $('#consignment-toggle').attr('aria-expanded', open ? 'true' : 'false');
             $('#consignment-toggle .consignment-toggle-action i').toggleClass('fa-plus', !open).toggleClass('fa-chevron-up', open);
             if (open) updateConsignmentSummary();

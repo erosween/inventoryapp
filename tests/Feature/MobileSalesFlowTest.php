@@ -185,6 +185,7 @@ class MobileSalesFlowTest extends TestCase
         $this->assertStringContainsString('id="consignment-toggle"', $form);
         $this->assertStringContainsString('id="consignment-add-denom"', $form);
         $this->assertStringContainsString('consignment-row-numbers', $form);
+        $this->assertStringContainsString(".prop('disabled', !open)", $form);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.consignment') }}\"", $layout);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.survey') }}\"", $layout);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.network') }}\"", $layout);
