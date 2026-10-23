@@ -773,7 +773,7 @@ class MonitaDumaiController extends Controller
                 $row->idtap,
                 $row->idsf,
                 $row->namasf ?: $row->idsf,
-                $row->id_outlet ?: ($row->tambahanket ?: '—'),
+                $row->id_outlet,
                 $row->denom ?: $row->iddenom,
                 (int) $row->qty,
                 $row->tambahanket,

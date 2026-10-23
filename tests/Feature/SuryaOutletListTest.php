@@ -51,6 +51,8 @@ class SuryaOutletListTest extends TestCase
             ['23/10/2026', 'DUMAI', 'SF1', 'Sales', '1200012345', 'Produk', 1, 'tetap tidak diekspor'],
             ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'NON-DIGIPOS-01', 'Produk', 1, ''],
             ['23/10/2026', 'DUMAI', 'SF1', 'Sales', '-', 'Produk', 1, ''],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', null, 'Produk', 1, ''],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', '0', 'Produk', 1, ''],
         ]);
         $export = new \App\Exports\SuryaAdminSalesExport($source);
         $exported = $export->collection();
@@ -58,6 +60,8 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame('1200012345', $exported[1][4]);
         $this->assertSame('NON-DIGIPOS-01', $exported[2][4]);
         $this->assertSame('-', $exported[3][4]);
+        $this->assertNull($exported[4][4]);
+        $this->assertSame('0', $exported[5][4]);
         $this->assertCount(7, $exported[0]);
         $this->assertCount(7, $export->headings());
         $this->assertSame('nama outlet', $source[0][4]);

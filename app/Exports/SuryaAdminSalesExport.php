@@ -21,7 +21,9 @@ class SuryaAdminSalesExport implements FromCollection, ShouldAutoSize, WithHeadi
             $outletId = trim((string) ($values[4] ?? ''));
             $isNumericOutlet = preg_match('/^\d+$/', $outletId) === 1;
             $isNonDigiposOutlet = str_starts_with(strtoupper($outletId), 'NON-DIGIPOS');
-            if (! $isNumericOutlet && $outletId !== '-' && ! $isNonDigiposOutlet) {
+            $isBlankOutlet = $outletId === '';
+            $isDashOutlet = preg_match('/^[-–—]+$/u', $outletId) === 1;
+            if (! $isNumericOutlet && ! $isBlankOutlet && ! $isDashOutlet && ! $isNonDigiposOutlet) {
                 $values[4] = 'NON ID / PLAYER';
             }
 
