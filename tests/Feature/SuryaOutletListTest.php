@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use Tests\TestCase;
@@ -14,6 +15,68 @@ use Tests\TestCase;
 class SuryaOutletListTest extends TestCase
 {
     use DatabaseTransactions;
+
+    public function test_helper_visit_keeps_actual_and_sales_on_helper_and_shows_all_receipt_photos(): void
+    {
+        Storage::fake('public');
+        Carbon::setTestNow(Carbon::parse('2026-10-23 17:00:00', 'Asia/Jakarta'));
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin belum tersedia.');
+        }
+
+        DB::table('idsf')->insert([
+            ['idsf' => 'HELPER-REKAP', 'namasf' => 'Helper Rekap', 'idtap' => 'DUMAI'],
+            ['idsf' => 'OWNER-REKAP', 'namasf' => 'Owner Rekap', 'idtap' => 'DUMAI'],
+        ]);
+        DB::table('denom')->insert([
+            ['iddenom' => 'REKAP-SA', 'denom' => 'Rekap SA', 'group_name' => 'SA', 'product_group' => 'SA'],
+            ['iddenom' => 'REKAP-PV', 'denom' => 'Rekap PV', 'group_name' => 'PV', 'product_group' => 'PV'],
+        ]);
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 990000099, 'nama_outlet' => 'Outlet Helper Rekap',
+            'tap' => 'DUMAI', 'sf' => 'Owner Rekap', 'pjp' => 'Jumat',
+            'latitude' => 1.5, 'longitude' => 101.5,
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(), 'id_outlet' => '990000099', 'idtap' => 'DUMAI',
+            'idsf' => 'HELPER-REKAP', 'latitude' => 1.5, 'longitude' => 101.5,
+            'photo_path' => 'visits/front.webp', 'photo_front_path' => 'visits/front.webp',
+            'photo_inside_path' => 'visits/inside.webp', 'gps_status' => 'valid',
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['tgl' => now()->toDateString(), 'id_outlet' => '990000099', 'idtap' => 'DUMAI', 'idsf' => 'HELPER-REKAP', 'owner_idsf' => 'OWNER-REKAP', 'iddenom' => 'REKAP-SA', 'qty' => 4, 'status' => 'pending'],
+            ['tgl' => now()->toDateString(), 'id_outlet' => '990000099', 'idtap' => 'DUMAI', 'idsf' => 'HELPER-REKAP', 'owner_idsf' => 'OWNER-REKAP', 'iddenom' => 'REKAP-PV', 'qty' => 6, 'status' => 'pending'],
+        ]);
+        Storage::disk('public')->put('receipts/first.webp', 'first');
+        Storage::disk('public')->put('receipts/second.webp', 'second');
+        DB::table('mobile_sales_receipts')->insert([
+            ['receipt_number' => 'HELPER-BON-1', 'tgl' => now()->toDateString(), 'id_outlet' => '990000099', 'idtap' => 'DUMAI', 'idsf' => 'HELPER-REKAP', 'total_qty' => 4, 'total_amount' => 0, 'receipt_photo_path' => 'receipts/first.webp'],
+            ['receipt_number' => 'HELPER-BON-2', 'tgl' => now()->toDateString(), 'id_outlet' => '990000099', 'idtap' => 'DUMAI', 'idsf' => 'HELPER-REKAP', 'total_qty' => 6, 'total_amount' => 0, 'receipt_photo_path' => 'receipts/second.webp'],
+        ]);
+
+        $controller = app(\App\Http\Controllers\MonitaDumaiController::class);
+        $visitMethod = new \ReflectionMethod($controller, 'buildVisitDetails');
+        $visitDetails = collect($visitMethod->invoke($controller, now()->toDateString(), null));
+        $helper = $visitDetails->firstWhere('sfcode', 'HELPER-REKAP');
+        $this->assertNotNull($helper);
+        $this->assertSame(1, $helper['actual_call']);
+        $this->assertSame(4, $helper['total_sa']);
+        $this->assertSame(6, $helper['total_pv']);
+        $this->assertNull($visitDetails->firstWhere('sfcode', 'OWNER-REKAP'));
+
+        $approvalMethod = new \ReflectionMethod($controller, 'buildApprovalVisits');
+        $approvalVisits = collect($approvalMethod->invoke($controller, now()->toDateString(), null));
+        $approvalVisit = $approvalVisits->firstWhere('id_outlet', '990000099');
+        $this->assertNotNull($approvalVisit);
+        $this->assertCount(2, $approvalVisit->receipt_photos);
+
+        $mapResponse = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson('/surya/search?keyword=990000099')
+            ->assertOk();
+        $this->assertCount(2, $mapResponse->json('0.receipt_photos'));
+        Carbon::setTestNow();
+    }
 
     public function test_surya_transaction_upload_uses_the_shared_workspace_shell(): void
     {
@@ -140,8 +203,9 @@ class SuryaOutletListTest extends TestCase
             ['tgl' => '2026-09-20', 'id_outlet' => $idOutlet, 'idtap' => 'DUMAI', 'idsf' => 'SF-TEST', 'iddenom' => 'TEST-DETAIL-SA', 'qty' => 50, 'status' => 'approved'],
         ]);
         DB::table('surya_daily_metrics')->insert([
-            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 1, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 2, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 3, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 4, 'bio_fm1' => 0, 'bio_m1' => 0, 'bio_m' => 0],
-            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-20', 'cvm_fm1' => 8, 'cvm_m1' => 9, 'cvm_m' => 10, 'ss_fm1' => 18, 'ss_m1' => 19, 'ss_m' => 20, 'comsak_fm1' => 28, 'comsak_m1' => 29, 'comsak_m' => 30, 'hot_promo_fm1' => 38, 'hot_promo_m1' => 39, 'hot_promo_m' => 40, 'bio_fm1' => 48, 'bio_m1' => 49, 'bio_m' => 50],
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-19', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 1, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 2, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 3, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 4, 'bio_fm1' => 0, 'bio_m1' => 0, 'bio_m' => 0, 'uploaded_metrics' => null],
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-20', 'cvm_fm1' => 8, 'cvm_m1' => 9, 'cvm_m' => 10, 'ss_fm1' => 18, 'ss_m1' => 19, 'ss_m' => 20, 'comsak_fm1' => 28, 'comsak_m1' => 29, 'comsak_m' => 30, 'hot_promo_fm1' => 38, 'hot_promo_m1' => 39, 'hot_promo_m' => 40, 'bio_fm1' => 0, 'bio_m1' => 0, 'bio_m' => 0, 'uploaded_metrics' => 'cvm,ss,comsak,hot_promo'],
+            ['id_outlet' => $idOutlet, 'metric_date' => '2026-10-21', 'cvm_fm1' => 0, 'cvm_m1' => 0, 'cvm_m' => 0, 'ss_fm1' => 0, 'ss_m1' => 0, 'ss_m' => 0, 'comsak_fm1' => 0, 'comsak_m1' => 0, 'comsak_m' => 0, 'hot_promo_fm1' => 0, 'hot_promo_m1' => 0, 'hot_promo_m' => 0, 'bio_fm1' => 48, 'bio_m1' => 49, 'bio_m' => 50, 'uploaded_metrics' => 'bio'],
         ]);
         DB::table('surya_outlet_sales_history')->insert([
             ['transaction_date' => '2026-09-01', 'id_outlet' => $idOutlet, 'sa' => 4, 'pv' => 6],
@@ -240,6 +304,12 @@ class SuryaOutletListTest extends TestCase
         $this->assertNull($mapDetailResponse->json('0.fm1_stsa'));
         $this->assertNull($mapDetailResponse->json('0.m1_stpv'));
         $this->assertNull($mapDetailResponse->json('0.mom_stsa'));
+        $this->assertSame(8, (int) $mapDetailResponse->json('0.fm1_digipos'));
+        $this->assertSame(9, (int) $mapDetailResponse->json('0.m1_digipos'));
+        $this->assertSame(10, (int) $mapDetailResponse->json('0.m_digipos'));
+        $this->assertSame(20, (int) $mapDetailResponse->json('0.m_super'));
+        $this->assertSame(30, (int) $mapDetailResponse->json('0.m_comsak'));
+        $this->assertSame(40, (int) $mapDetailResponse->json('0.m_hot'));
 
         $exportResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])

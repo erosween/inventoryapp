@@ -910,8 +910,11 @@ class MonitaDumaiController extends Controller
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->whereIn('m.status', ['pending', 'approved'])
             ->get([
-                DB::raw('COALESCE(m.owner_idsf, m.idsf) as idsf'),
-                'm.idsf as helper_idsf',
+                // Rekap SURYA mengikuti petugas yang benar-benar melakukan
+                // visit/input. owner_idsf hanya menentukan stok dan grouping
+                // approval mobile, bukan pemilik aktivitas lapangan.
+                'm.idsf',
+                'm.owner_idsf',
                 'm.id_outlet',
                 'm.qty',
                 'm.iddenom',
@@ -1062,13 +1065,7 @@ class MonitaDumaiController extends Controller
     {
         app(\App\Http\Controllers\SuryaVisitReportController::class)->autoApprovePending(request());
 
-        // Keep the dashboard available during deployment if the optional
-        // receipt-photo migration has not been run on the production DB yet.
-        $receiptPhotoSelect = Schema::hasColumn('mobile_sales_receipts', 'receipt_photo_path')
-            ? DB::raw("(SELECT r.receipt_photo_path FROM mobile_sales_receipts r WHERE r.id_outlet = v.id_outlet AND r.idsf = v.idsf AND r.tgl = DATE(v.visited_at) AND r.receipt_photo_path IS NOT NULL ORDER BY r.id DESC LIMIT 1) AS receipt_photo_path")
-            : DB::raw('NULL AS receipt_photo_path');
-
-        return DB::table('surya_visits as v')
+        $visits = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
             ->whereDate('v.visited_at', $visitDate)
@@ -1078,16 +1075,48 @@ class MonitaDumaiController extends Controller
             ->get([
                 'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
                 'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
-                $receiptPhotoSelect,
                 'o.nama_outlet', 's.namasf',
-            ])
+            ]);
+
+        $receiptPhotos = collect();
+        if (Schema::hasColumn('mobile_sales_receipts', 'receipt_photo_path') && $visits->isNotEmpty()) {
+            $receiptPhotos = DB::table('mobile_sales_receipts')
+                ->whereDate('tgl', $visitDate)
+                ->whereIn('id_outlet', $visits->pluck('id_outlet')->filter()->unique()->all())
+                ->whereNotNull('receipt_photo_path')
+                ->orderBy('id')
+                ->get(['id', 'id_outlet', 'idsf', 'tgl', 'receipt_photo_path'])
+                ->groupBy(fn ($receipt) => implode('|', [
+                    (string) $receipt->id_outlet,
+                    (string) $receipt->idsf,
+                    Carbon::parse($receipt->tgl)->toDateString(),
+                ]));
+        }
+
+        return $visits
             ->map(function ($visit) {
                 $visit->front_photo_url = $this->visitPhotoUrl($visit->photo_front_path);
                 $visit->front_thumbnail_url = $this->visitPhotoUrl($visit->photo_front_path, true);
                 $visit->inside_photo_url = $this->visitPhotoUrl($visit->photo_inside_path);
                 $visit->inside_thumbnail_url = $this->visitPhotoUrl($visit->photo_inside_path, true);
-                $visit->receipt_photo_url = $this->visitPhotoUrl($visit->receipt_photo_path);
-                $visit->receipt_thumbnail_url = $this->visitPhotoUrl($visit->receipt_photo_path, true);
+
+                return $visit;
+            })
+            ->map(function ($visit) use ($receiptPhotos) {
+                $key = implode('|', [
+                    (string) $visit->id_outlet,
+                    (string) $visit->idsf,
+                    Carbon::parse($visit->visited_at)->toDateString(),
+                ]);
+                $visit->receipt_photos = $receiptPhotos->get($key, collect())
+                    ->map(fn ($receipt) => [
+                        'id' => (int) $receipt->id,
+                        'url' => $this->visitPhotoUrl($receipt->receipt_photo_path),
+                        'thumbnail_url' => $this->visitPhotoUrl($receipt->receipt_photo_path, true),
+                    ])
+                    ->filter(fn ($photo) => $photo['url'] !== null)
+                    ->values()
+                    ->all();
 
                 return $visit;
             })
@@ -2059,48 +2088,47 @@ class MonitaDumaiController extends Controller
 
         $keyword = $request->input('keyword');
         $tapScopes = $this->suryaTapScopes();
-        $latestMetricDates = DB::table('surya_daily_metrics')
-            ->select('id_outlet', DB::raw('MAX(metric_date) as metric_date'))
-            ->groupBy('id_outlet');
         $data = DB::table('appsdumais')
-            ->leftJoinSub(
-                DB::table('surya_daily_metrics as dm')
-                    ->joinSub($latestMetricDates, 'latest_dm', function ($join) {
-                        $join->on('latest_dm.id_outlet', '=', 'dm.id_outlet')
-                            ->on('latest_dm.metric_date', '=', 'dm.metric_date');
-                    })
-                    ->select([
-                        'dm.id_outlet', 'dm.metric_date', 'dm.source_updated_at',
-                        'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m',
-                        'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m',
-                        'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m',
-                        'dm.insak_fm1', 'dm.insak_m1', 'dm.insak_m',
-                        'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m',
-                        'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m',
-                    ]),
-                'dm',
-                'dm.id_outlet',
-                '=',
-                'appsdumais.id_outlet'
-            )
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
-            ->select('appsdumais.*', 'dm.metric_date', 'dm.source_updated_at', 'dm.ss_fm1', 'dm.ss_m1', 'dm.ss_m', 'dm.hot_promo_fm1', 'dm.hot_promo_m1', 'dm.hot_promo_m', 'dm.cvm_fm1', 'dm.cvm_m1', 'dm.cvm_m', 'dm.insak_fm1', 'dm.insak_m1', 'dm.insak_m', 'dm.comsak_fm1', 'dm.comsak_m1', 'dm.comsak_m', 'dm.digital_fm1', 'dm.digital_m1', 'dm.digital_m')
+            ->select('appsdumais.*')
             ->where(function ($query) use ($keyword) {
                 $query->where('appsdumais.id_outlet', $keyword)
                     ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
             })
             ->get();
         $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $data->pluck('id_outlet'));
-        $data = $data->map(function ($row) use ($salesByOutlet) {
+        $metricRowsByOutlet = DB::table('surya_daily_metrics')
+            ->whereIn('id_outlet', $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+            ->orderByDesc('metric_date')
+            ->get()
+            ->groupBy(fn ($row) => (string) $row->id_outlet);
+        $data = $data->map(function ($row) use ($salesByOutlet, $metricRowsByOutlet) {
+                $metricRows = $metricRowsByOutlet->get((string) $row->id_outlet, collect());
+                $metric = function (string $name) use ($metricRows) {
+                    return $metricRows->first(function ($candidate) use ($name) {
+                        $uploaded = array_filter(explode(',', (string) ($candidate->uploaded_metrics ?? '')));
+
+                        return $uploaded === [] || in_array($name, $uploaded, true);
+                    });
+                };
+                $cvm = $metric('cvm');
+                $super = $metric('ss');
+                $hot = $metric('hot_promo');
+                $comsak = $metric('comsak');
+                $digital = $metric('digital');
                 // The uploaded workbook calls this metric `cvm`; the detail
                 // panel presents it as the first CVM row.
-                $row->fm1_digipos = (int) ($row->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($row->cvm_m1 ?? 0); $row->m_digipos = (int) ($row->cvm_m ?? 0);
+                $row->fm1_digipos = (int) ($cvm->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($cvm->cvm_m1 ?? 0); $row->m_digipos = (int) ($cvm->cvm_m ?? 0);
                 $row->m_cvm = $row->m_digipos;
-                $row->fm1_super = (int) ($row->ss_fm1 ?? 0); $row->m1_super = (int) ($row->ss_m1 ?? 0); $row->m_super = (int) ($row->ss_m ?? 0);
-                $row->fm1_hot = (int) ($row->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($row->hot_promo_m1 ?? 0); $row->m_hot = (int) ($row->hot_promo_m ?? 0);
-                $row->fm1_comsak = (int) ($row->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($row->comsak_m1 ?? 0); $row->m_comsak = (int) ($row->comsak_m ?? 0);
-                $row->fm1_digital = (int) ($row->digital_fm1 ?? 0); $row->m1_digital = (int) ($row->digital_m1 ?? 0); $row->m_digital = (int) ($row->digital_m ?? 0);
-                $row->tgl_pack = $row->source_updated_at ?: $row->metric_date;
+                $row->fm1_super = (int) ($super->ss_fm1 ?? 0); $row->m1_super = (int) ($super->ss_m1 ?? 0); $row->m_super = (int) ($super->ss_m ?? 0);
+                $row->fm1_hot = (int) ($hot->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($hot->hot_promo_m1 ?? 0); $row->m_hot = (int) ($hot->hot_promo_m ?? 0);
+                $row->fm1_comsak = (int) ($comsak->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($comsak->comsak_m1 ?? 0); $row->m_comsak = (int) ($comsak->comsak_m ?? 0);
+                $row->fm1_digital = (int) ($digital->digital_fm1 ?? 0); $row->m1_digital = (int) ($digital->digital_m1 ?? 0); $row->m_digital = (int) ($digital->digital_m ?? 0);
+                $row->mom_digipos = $this->metricMom($row->m_digipos, $row->m1_digipos);
+                $row->mom_super = $this->metricMom($row->m_super, $row->m1_super);
+                $row->mom_hot = $this->metricMom($row->m_hot, $row->m1_hot);
+                $row->mom_comsak = $this->metricMom($row->m_comsak, $row->m1_comsak);
+                $row->tgl_pack = $cvm->source_updated_at ?? $cvm->metric_date ?? null;
                 $sales = $salesByOutlet[(string) $row->id_outlet] ?? null;
                 $row->fm1_stsa = null;
                 $row->m1_stsa = null;
@@ -2115,7 +2143,14 @@ class MonitaDumaiController extends Controller
                 return $this->decorateOutletVisitPhoto($row);
             });
 
-        return response()->json($data);
+        return response()->json($data)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
+    }
+
+    private function metricMom(int $mtd, int $m1): ?float
+    {
+        return $m1 === 0 ? null : round((($mtd / $m1) - 1) * 100, 1);
     }
 
     public function suggest(Request $request)
@@ -2277,6 +2312,7 @@ class MonitaDumaiController extends Controller
         $outlet->receipt_photo_url = null;
         $outlet->receipt_thumbnail_url = null;
         $outlet->receipt_photo_date = null;
+        $outlet->receipt_photos = [];
 
         if ($path && Storage::disk('public')->exists($path)) {
             $thumbnailPath = OptimizedImageStorage::thumbnailPathFor($path);
@@ -2286,21 +2322,34 @@ class MonitaDumaiController extends Controller
                 : $outlet->front_photo_url;
         }
 
-        $latestReceipt = DB::table('mobile_sales_receipts')
+        $latestReceiptDate = DB::table('mobile_sales_receipts')
             ->where('id_outlet', $outlet->id_outlet)
             ->whereNotNull('receipt_photo_path')
             ->orderByDesc('tgl')
             ->orderByDesc('id')
-            ->first(['receipt_photo_path', 'tgl']);
+            ->value('tgl');
+        $latestReceipts = $latestReceiptDate
+            ? DB::table('mobile_sales_receipts')
+                ->where('id_outlet', $outlet->id_outlet)
+                ->whereDate('tgl', Carbon::parse($latestReceiptDate)->toDateString())
+                ->whereNotNull('receipt_photo_path')
+                ->orderBy('id')
+                ->get(['id', 'receipt_photo_path', 'tgl'])
+            : collect();
 
-        if ($latestReceipt?->receipt_photo_path && Storage::disk('public')->exists($latestReceipt->receipt_photo_path)) {
-            $receiptPath = $latestReceipt->receipt_photo_path;
-            $receiptThumbnailPath = OptimizedImageStorage::thumbnailPathFor($receiptPath);
-            $outlet->receipt_photo_url = '/storage/'.ltrim($receiptPath, '/');
-            $outlet->receipt_thumbnail_url = Storage::disk('public')->exists($receiptThumbnailPath)
-                ? '/storage/'.ltrim($receiptThumbnailPath, '/')
-                : $outlet->receipt_photo_url;
-            $outlet->receipt_photo_date = $latestReceipt->tgl;
+        foreach ($latestReceipts as $receipt) {
+            if (! Storage::disk('public')->exists($receipt->receipt_photo_path)) continue;
+            $receiptPath = $receipt->receipt_photo_path;
+            $photo = [
+                'id' => (int) $receipt->id,
+                'url' => '/storage/'.ltrim($receiptPath, '/'),
+                'thumbnail_url' => $this->visitPhotoUrl($receiptPath, true),
+                'date' => $receipt->tgl,
+            ];
+            $outlet->receipt_photos[] = $photo;
+            $outlet->receipt_photo_url = $photo['url'];
+            $outlet->receipt_thumbnail_url = $photo['thumbnail_url'];
+            $outlet->receipt_photo_date = $photo['date'];
         }
 
         return $outlet;

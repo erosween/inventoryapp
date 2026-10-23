@@ -3780,7 +3780,7 @@
                                 <td>{{ $visit->distance_meters !== null ? number_format($visit->distance_meters,0).' m' : '—' }}</td><td>{{ $visit->notes ?: '—' }}</td>
                                 <td>@if($visit->front_photo_url)<a href="{{ $visit->front_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->front_thumbnail_url }}" loading="lazy" alt="Tampak depan"></a>@else — @endif</td>
                                 <td>@if($visit->inside_photo_url)<a href="{{ $visit->inside_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->inside_thumbnail_url }}" loading="lazy" alt="Foto etalase"></a>@else — @endif</td>
-                                <td>@if($visit->receipt_photo_url)<a href="{{ $visit->receipt_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->receipt_thumbnail_url }}" loading="lazy" alt="Foto nota bon"></a>@else — @endif</td>
+                                <td>@forelse($visit->receipt_photos ?? [] as $index => $photo)<a href="{{ $photo['url'] }}" target="_blank" title="Foto nota bon {{ $index + 1 }}"><img class="visit-photo-thumb" src="{{ $photo['thumbnail_url'] }}" loading="lazy" alt="Foto nota bon {{ $index + 1 }}"></a>@empty — @endforelse</td>
                                 <td>@if($visit->gps_status === 'pending_admin')<div class="visit-action-buttons"><form method="POST" action="{{ route('surya.visits.approve',$visit->id) }}">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-approve-btn">Setujui Koordinat</button></form><form method="POST" action="{{ route('surya.visits.reject',$visit->id) }}" class="reject-photo-form">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button type="submit" class="visit-reject-btn">Tolak Foto</button></form></div>@else — @endif</td>
                             </tr>
                         @empty
@@ -5915,13 +5915,14 @@
                     '<div class="map-detail-branding-copy"><div><strong>Branding / Tampak Luar Terbaru</strong><small>Visit ' + mapDetailDate(outlet.front_photo_visited_at) + '</small></div><i class="fas fa-up-right-from-square"></i></div>' +
                   '</div>'
                 : '<div class="map-detail-branding map-detail-branding-empty"><div><i class="fas fa-image"></i><br>Belum ada foto tampak luar dari check-in SF.</div></div>';
-            const receiptPhoto = outlet.receipt_thumbnail_url
-                ? '<div class="map-detail-branding map-detail-receipt">' +
-                    '<a href="' + escapeMapDetailHtml(outlet.receipt_photo_url || outlet.receipt_thumbnail_url) + '" target="_blank" rel="noopener noreferrer">' +
-                        '<img src="' + escapeMapDetailHtml(outlet.receipt_thumbnail_url) + '" alt="Foto nota bon outlet" loading="lazy">' +
+            const receiptPhotos = Array.isArray(outlet.receipt_photos) ? outlet.receipt_photos : [];
+            const receiptPhoto = receiptPhotos.length
+                ? receiptPhotos.map((photo, index) => '<div class="map-detail-branding map-detail-receipt">' +
+                    '<a href="' + escapeMapDetailHtml(photo.url || photo.thumbnail_url) + '" target="_blank" rel="noopener noreferrer">' +
+                        '<img src="' + escapeMapDetailHtml(photo.thumbnail_url || photo.url) + '" alt="Foto nota bon outlet ' + (index + 1) + '" loading="lazy">' +
                     '</a>' +
-                    '<div class="map-detail-branding-copy"><div><strong>Foto Nota Bon Terbaru</strong><small>Transaksi ' + mapDetailDate(outlet.receipt_photo_date) + '</small></div><i class="fas fa-up-right-from-square"></i></div>' +
-                  '</div>'
+                    '<div class="map-detail-branding-copy"><div><strong>Foto Nota Bon ' + (index + 1) + '</strong><small>Transaksi ' + mapDetailDate(photo.date) + '</small></div><i class="fas fa-up-right-from-square"></i></div>' +
+                  '</div>').join('')
                 : '<div class="map-detail-branding map-detail-branding-empty"><div><i class="fas fa-receipt"></i><br>Belum ada foto nota bon.</div></div>';
 
             document.getElementById('map-detail-title').textContent = outlet.nama_outlet || 'Detail Outlet';
