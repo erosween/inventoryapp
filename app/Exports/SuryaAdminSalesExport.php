@@ -18,12 +18,12 @@ class SuryaAdminSalesExport implements FromCollection, ShouldAutoSize, WithHeadi
     {
         return $this->rows->map(function ($row) {
             $values = is_array($row) ? $row : (array) $row;
-            $note = trim((string) ($values[7] ?? ''));
-            if ($note !== '' && preg_match('/^\d+$/', $note) !== 1) {
-                $values[7] = 'NON ID/PLAYER';
+            $outletId = trim((string) ($values[4] ?? ''));
+            if (preg_match('/^\d+$/', $outletId) !== 1) {
+                $values[4] = 'NON ID/PLAYER';
             }
 
-            return $values;
+            return array_slice($values, 0, 7);
         });
     }
 
@@ -36,7 +36,7 @@ class SuryaAdminSalesExport implements FromCollection, ShouldAutoSize, WithHeadi
     {
         return [
             'Tanggal', 'TAP', 'SF Code', 'Nama SF', 'ID/Detail Outlet',
-            'Produk', 'Qty', 'Keterangan',
+            'Produk', 'Qty',
         ];
     }
 }

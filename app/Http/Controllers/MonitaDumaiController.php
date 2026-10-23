@@ -238,7 +238,13 @@ class MonitaDumaiController extends Controller
 
     private function nonDigiposOutletBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
     {
+        $latestVisits = DB::table('surya_visits')
+            ->selectRaw('MAX(id) as id')
+            ->where('visit_type', 'non_digipos')
+            ->groupBy('id_outlet');
+
         return DB::table('surya_visits as v')
+            ->joinSub($latestVisits, 'latest_visit', 'latest_visit.id', '=', 'v.id')
             ->leftJoin('idsf as sf', 'sf.idsf', '=', 'v.idsf')
             ->leftJoin('idsf as owner_sf', 'owner_sf.idsf', '=', 'v.stock_owner_idsf')
             ->where('v.visit_type', 'non_digipos')
@@ -261,20 +267,19 @@ class MonitaDumaiController extends Controller
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->whereIn('m.id_outlet', $ids)
             ->where('m.status', '!=', 'draft_wa')
-            ->get(['m.id_outlet', 'm.iddenom', 'm.qty', 'm.status', 'm.unit_price', 'd.denom', 'd.harga_jual'])
+            ->get(['m.id_outlet', 'm.iddenom', 'm.qty', 'd.product_group', 'd.group_name'])
             ->groupBy(fn ($row) => (string) $row->id_outlet);
 
         return $rows->transform(function ($row) use ($sales) {
             $items = $sales->get((string) $row->id_outlet, collect());
-            $row->product_count = $items->pluck('iddenom')->filter()->unique()->count();
-            $row->total_qty = (int) $items->sum('qty');
-            $row->total_amount = (float) $items->sum(fn ($item) => (int) $item->qty * (float) ($item->unit_price ?? $item->harga_jual ?? 0));
-            $row->product_summary = $items->groupBy('iddenom')->map(function ($productRows) {
-                $first = $productRows->first();
-                return ($first->denom ?: $first->iddenom).' ('.number_format($productRows->sum('qty'), 0, ',', '.').' pcs)';
-            })->values()->implode('; ');
-            $statuses = $items->pluck('status')->filter()->map(fn ($status) => strtoupper((string) $status))->unique()->values();
-            $row->sales_status = $statuses->isEmpty() ? null : $statuses->implode(', ');
+            $row->total_sa = (int) $items->filter(function ($item) {
+                $group = strtoupper(trim((string) ($item->product_group ?: $item->group_name)));
+                return in_array($group, ['SA', 'SP'], true) || str_starts_with(strtoupper((string) $item->iddenom), 'SA_');
+            })->sum('qty');
+            $row->total_pv = (int) $items->reject(function ($item) {
+                $group = strtoupper(trim((string) ($item->product_group ?: $item->group_name)));
+                return in_array($group, ['SA', 'SP'], true) || str_starts_with(strtoupper((string) $item->iddenom), 'SA_');
+            })->sum('qty');
 
             return $row;
         });

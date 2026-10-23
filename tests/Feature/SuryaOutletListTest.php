@@ -16,7 +16,7 @@ class SuryaOutletListTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_detail_visit_separates_non_digipos_and_admin_export_masks_text_notes_only(): void
+    public function test_detail_visit_separates_non_digipos_and_admin_export_masks_invalid_outlet_ids_only(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-23 20:00:00', 'Asia/Jakarta'));
         $admin = User::where('username', 'admin_super')->first();
@@ -47,15 +47,21 @@ class SuryaOutletListTest extends TestCase
         $this->assertStringContainsString('value="non-digipos"', $response->getContent());
 
         $source = collect([
-            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'OUT1', 'Produk', 1, 'nama player'],
-            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'OUT2', 'Produk', 1, '1200012345'],
-            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'OUT3', 'Produk', 1, ''],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'nama outlet', 'Produk', 1, 'keterangan asli'],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', '1200012345', 'Produk', 1, 'tetap tidak diekspor'],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'NON-DIGIPOS-01', 'Produk', 1, ''],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', '-', 'Produk', 1, ''],
         ]);
-        $exported = (new \App\Exports\SuryaAdminSalesExport($source))->collection();
-        $this->assertSame('NON ID/PLAYER', $exported[0][7]);
-        $this->assertSame('1200012345', $exported[1][7]);
-        $this->assertSame('', $exported[2][7]);
-        $this->assertSame('nama player', $source[0][7]);
+        $export = new \App\Exports\SuryaAdminSalesExport($source);
+        $exported = $export->collection();
+        $this->assertSame('NON ID/PLAYER', $exported[0][4]);
+        $this->assertSame('1200012345', $exported[1][4]);
+        $this->assertSame('NON ID/PLAYER', $exported[2][4]);
+        $this->assertSame('NON ID/PLAYER', $exported[3][4]);
+        $this->assertCount(7, $exported[0]);
+        $this->assertCount(7, $export->headings());
+        $this->assertSame('nama outlet', $source[0][4]);
+        $this->assertSame('keterangan asli', $source[0][7]);
         Carbon::setTestNow();
     }
 
@@ -94,7 +100,8 @@ class SuryaOutletListTest extends TestCase
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->get(route('surya.outlet-detail', ['tab' => 'non-digipos', 'q' => 'Toko Non Digipos Test']))
             ->assertOk()->assertSee('Toko Non Digipos Test')->assertSee('Owner Test')
-            ->assertSee('Produk Non Digipos')->assertSee('75.000');
+            ->assertSee('SF Non Digipos Test')->assertSee('08123456789')
+            ->assertDontSee('Pemilik Stok Test')->assertDontSee('Produk Non Digipos')->assertDontSee('75.000');
 
         $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->get(route('surya.outlet-detail.export', ['q' => 'Toko Non Digipos Test']))
@@ -102,9 +109,13 @@ class SuryaOutletListTest extends TestCase
         $workbook = IOFactory::load($response->baseResponse->getFile()->getPathname());
         $sheet = $workbook->getSheetByName('Outlet Non Digipos');
         $this->assertNotNull($sheet);
-        $this->assertSame('Toko Non Digipos Test', $sheet->getCell('C2')->getValue());
-        $this->assertSame(3, (int) $sheet->getCell('K2')->getValue());
-        $this->assertSame(75000, (int) $sheet->getCell('L2')->getValue());
+        $this->assertSame(['Outlet', 'Owner', 'Contact', 'Alamat', 'SF', 'TAP', 'SA', 'PV'], $sheet->rangeToArray('A1:H1')[0]);
+        $this->assertSame('Toko Non Digipos Test', $sheet->getCell('A2')->getValue());
+        $this->assertSame('Owner Test', $sheet->getCell('B2')->getValue());
+        $this->assertSame('08123456789', $sheet->getCell('C2')->getValue());
+        $this->assertSame('SF Non Digipos Test', $sheet->getCell('E2')->getValue());
+        $this->assertSame(0, (int) $sheet->getCell('G2')->getValue());
+        $this->assertSame(3, (int) $sheet->getCell('H2')->getValue());
         Carbon::setTestNow();
     }
 

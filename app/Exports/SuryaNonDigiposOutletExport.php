@@ -20,26 +20,20 @@ class SuryaNonDigiposOutletExport implements FromCollection, ShouldAutoSize, Wit
     public function map($row): array
     {
         return [
-            $row->visited_at ? \Carbon\Carbon::parse($row->visited_at)->format('d/m/Y H:i') : null,
-            (string) $row->id_outlet,
             $row->outlet_name,
             $row->owner_name,
             $row->phone_number,
             $row->outlet_address,
             $row->namasf ?: $row->idsf,
-            $row->stock_owner_name ?: ($row->stock_owner_idsf ?: '—'),
             $row->idtap,
-            (int) $row->product_count,
-            (int) $row->total_qty,
-            (float) $row->total_amount,
-            $row->product_summary ?: '—',
-            $row->sales_status ?: 'BELUM ADA PENJUALAN',
+            (int) $row->total_sa,
+            (int) $row->total_pv,
         ];
     }
 
     public function headings(): array
     {
-        return ['Tanggal Visit', 'ID Outlet', 'Nama Outlet', 'Nama Owner', 'Nomor HP', 'Alamat', 'SF Penginput', 'SF Pemilik Stok', 'TAP', 'Jumlah Produk', 'Total Qty', 'Total Belanja', 'Rincian Belanja', 'Status'];
+        return ['Outlet', 'Owner', 'Contact', 'Alamat', 'SF', 'TAP', 'SA', 'PV'];
     }
 
     public function title(): string { return 'Outlet Non Digipos'; }
@@ -47,16 +41,15 @@ class SuryaNonDigiposOutletExport implements FromCollection, ShouldAutoSize, Wit
     public function styles(Worksheet $sheet): array
     {
         $lastRow = max(1, $this->rows->count() + 1);
-        $sheet->freezePane('C2');
-        $sheet->setAutoFilter("A1:N{$lastRow}");
-        $sheet->getStyle('A1:N1')->applyFromArray([
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter("A1:H{$lastRow}");
+        $sheet->getStyle('A1:H1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C8102E']],
             'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
         ]);
-        $sheet->getStyle("L2:L{$lastRow}")->getNumberFormat()->setFormatCode('#,##0');
-        $sheet->getColumnDimension('F')->setWidth(42);
-        $sheet->getColumnDimension('M')->setWidth(48);
+        $sheet->getStyle("G2:H{$lastRow}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getColumnDimension('D')->setWidth(42);
 
         return [];
     }
