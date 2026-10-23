@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\MasukExport;
 use App\Helpers\AuditLogger;
+use App\Support\IntertapTransferKey;
 
 class MasukController extends Controller
 {
@@ -152,6 +153,27 @@ class MasukController extends Controller
 
                 if ($data->status == 0) {
                     throw new \Exception('Data sudah pernah disetujui');
+                }
+
+                $denomName = DB::table('denom')->where('iddenom', $data->iddenom)->value('denom') ?: $data->iddenom;
+                $transferKey = IntertapTransferKey::make(
+                    $data->tgl, $data->pengirim, $data->penerima, $denomName, $data->qty, $data->sn
+                );
+                $alreadyApproved = DB::table('keluar as duplicate')
+                    ->join('denom as d', 'd.iddenom', '=', 'duplicate.iddenom')
+                    ->where('duplicate.idkeluar', '<>', $data->idkeluar)
+                    ->where('duplicate.status', 0)
+                    ->where('duplicate.tgl', $data->tgl)
+                    ->where('duplicate.pengirim', $data->pengirim)
+                    ->where('duplicate.penerima', $data->penerima)
+                    ->where('duplicate.qty', $data->qty)
+                    ->lockForUpdate()
+                    ->get(['duplicate.tgl', 'duplicate.pengirim', 'duplicate.penerima', 'duplicate.qty', 'duplicate.sn', 'd.denom'])
+                    ->contains(fn ($row) => IntertapTransferKey::make(
+                        $row->tgl, $row->pengirim, $row->penerima, $row->denom, $row->qty, $row->sn
+                    ) === $transferKey);
+                if ($alreadyApproved) {
+                    throw new \Exception('Transaksi duplikat terdeteksi. Approval ditolak dan stok tidak dipotong lagi. Silakan batalkan baris duplikat ini.');
                 }
 
                 $sender = $data->idtap;

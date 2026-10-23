@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\IntertapTransferKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -109,31 +110,21 @@ public function proseskeluartapform(Request $request)
 
         foreach ($validated['items'] as $item) {
             $denomName = DB::table('denom')->where('iddenom', $item['iddenom'])->value('denom');
-            $normalizedDenom = mb_strtoupper(preg_replace('/\s+/', ' ', trim((string) $denomName)));
-            $normalizedSn = mb_strtoupper(preg_replace('/\s+/', '', trim((string) $item['sn'])));
-            $fingerprint = hash('sha256', implode('|', [
-                $validated['tgl'],
-                mb_strtoupper(trim($validated['pengirim'])),
-                mb_strtoupper(trim($validated['penerima'])),
-                $normalizedDenom,
-                (int) $item['qty'],
-                $normalizedSn,
-            ]));
+            $fingerprint = IntertapTransferKey::make(
+                $validated['tgl'], $validated['pengirim'], $validated['penerima'],
+                $denomName, $item['qty'], $item['sn']
+            );
             $duplicateTransfer = DB::table('keluar as k')
                 ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                ->where(function ($query) use ($fingerprint, $validated, $item, $normalizedDenom, $normalizedSn) {
-                    $query->where('k.request_fingerprint', $fingerprint)
-                        ->orWhere(function ($legacy) use ($validated, $item, $normalizedDenom, $normalizedSn) {
-                            $legacy->where('k.tgl', $validated['tgl'])
-                                ->where('k.pengirim', $validated['pengirim'])
-                                ->where('k.penerima', $validated['penerima'])
-                                ->where('k.qty', $item['qty'])
-                                ->whereRaw("UPPER(REPLACE(TRIM(k.sn), ' ', '')) = ?", [$normalizedSn])
-                                ->whereRaw("UPPER(TRIM(d.denom)) = ?", [$normalizedDenom]);
-                        });
-                })
+                ->where('k.tgl', $validated['tgl'])
+                ->where('k.pengirim', $validated['pengirim'])
+                ->where('k.penerima', $validated['penerima'])
+                ->where('k.qty', $item['qty'])
                 ->lockForUpdate()
-                ->exists();
+                ->get(['k.tgl', 'k.pengirim', 'k.penerima', 'k.qty', 'k.sn', 'd.denom'])
+                ->contains(fn ($row) => IntertapTransferKey::make(
+                    $row->tgl, $row->pengirim, $row->penerima, $row->denom, $row->qty, $row->sn
+                ) === $fingerprint);
 
             if ($duplicateTransfer) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
@@ -152,6 +143,7 @@ public function proseskeluartapform(Request $request)
                 'idtap' => $validated['pengirim'],
                 'status' => 1,
                 'request_fingerprint' => $fingerprint,
+                'canonical_fingerprint' => $fingerprint,
             ]);
             if ($inserted !== 1) {
                 throw \Illuminate\Validation\ValidationException::withMessages([

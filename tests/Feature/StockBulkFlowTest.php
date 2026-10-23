@@ -109,8 +109,11 @@ class StockBulkFlowTest extends TestCase
 
         DB::table('keluar')->where('sn', $sn)->update(['status' => 0]);
 
+        $duplicatePayload = $payload;
+        $duplicatePayload['items'][0]['sn'] = str_replace('-', ' . ', $sn);
+
         $this->from('/form/formkeluartap')
-            ->post('/form/formkeluartap', $payload + ['_idempotency_key' => (string) Str::uuid()])
+            ->post('/form/formkeluartap', $duplicatePayload + ['_idempotency_key' => (string) Str::uuid()])
             ->assertRedirect('/form/formkeluartap')
             ->assertSessionHasErrors('items');
 
@@ -119,6 +122,70 @@ class StockBulkFlowTest extends TestCase
             ->where('penerima', $recipient)
             ->where('sn', $sn)
             ->count());
+    }
+
+    public function test_duplicate_intertap_transfer_cannot_move_stock_twice_during_approval(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        $taps = DB::table('kodetap')->pluck('idtap')->unique()->values();
+        $denom = DB::table('denom')->first();
+        if (! $admin || $taps->count() < 2 || ! $denom) {
+            $this->markTestSkipped('Fixture transfer antar-TAP belum tersedia.');
+        }
+
+        $sender = (string) $taps[0];
+        $recipient = (string) $taps[1];
+        $serial = 'APPROVAL-DUPLIKAT-'.Str::random(12);
+        $date = now()->toDateString();
+        $key = \App\Support\IntertapTransferKey::make(
+            $date, $sender, $recipient, $denom->denom, 2, $serial
+        );
+
+        DB::table('stockawaltap')->updateOrInsert(
+            ['idtap' => $sender, 'iddenom' => $denom->iddenom],
+            ['stock' => 10]
+        );
+        DB::table('stockawaltap')->updateOrInsert(
+            ['idtap' => $recipient, 'iddenom' => $denom->iddenom],
+            ['stock' => 3]
+        );
+
+        DB::table('keluar')->insert([
+            'tgl' => $date,
+            'pengirim' => $sender,
+            'penerima' => $recipient,
+            'iddenom' => $denom->iddenom,
+            'qty' => 2,
+            'sn' => $serial,
+            'idtap' => $sender,
+            'status' => 0,
+            'request_fingerprint' => $key,
+            'canonical_fingerprint' => $key,
+        ]);
+        $duplicateId = DB::table('keluar')->insertGetId([
+            'tgl' => $date,
+            'pengirim' => $sender,
+            'penerima' => $recipient,
+            'iddenom' => $denom->iddenom,
+            'qty' => 2,
+            'sn' => str_replace('-', ' ', $serial),
+            'idtap' => $sender,
+            'status' => 1,
+            'request_fingerprint' => null,
+            'canonical_fingerprint' => null,
+        ]);
+
+        $this->actingAs($admin)->withSession(['idtap' => $recipient])
+            ->post(route('masuk.approve', $duplicateId), [
+                '_idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertSessionHas('error');
+
+        $this->assertSame(10, (int) DB::table('stockawaltap')
+            ->where('idtap', $sender)->where('iddenom', $denom->iddenom)->value('stock'));
+        $this->assertSame(3, (int) DB::table('stockawaltap')
+            ->where('idtap', $recipient)->where('iddenom', $denom->iddenom)->value('stock'));
+        $this->assertSame(1, (int) DB::table('keluar')->where('idkeluar', $duplicateId)->value('status'));
     }
 
     public function test_intertap_form_only_lists_one_option_for_duplicate_denom_names(): void
