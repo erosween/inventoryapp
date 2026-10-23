@@ -482,8 +482,9 @@
                         const receiptButton = outlet.receipt_url
                             ? `<a href="${escapeHtml(outlet.receipt_url)}" class="btn btn-danger btn-sm rounded-pill w-100 mt-2 fw-bold"><i class="fas fa-check-circle me-1"></i>Lanjutkan Konfirmasi</a>`
                             : '';
-                        const consignmentNumbers = (outlet.consignment_numbers || []).map(number =>
-                            `<span class="badge rounded-pill text-bg-light border text-dark me-1 mb-1">${escapeHtml(number)}</span>`
+                        const consignmentItems = outlet.consignment_items || (outlet.consignment_numbers || []).map(number => ({number, denom: ''}));
+                        const consignmentNumbers = consignmentItems.map(item =>
+                            `<span class="badge rounded-pill text-bg-light border text-dark me-1 mb-1">${item.denom ? `${escapeHtml(item.denom)} · ` : ''}${escapeHtml(item.number)}</span>`
                         ).join('');
                         const consignmentBlock = Number(outlet.consignment_qty || 0) > 0
                             ? `<div class="history-outlet-item align-items-start">

@@ -87,9 +87,11 @@
                     </div>
                     <span id="consignment-count" class="consignment-count">0 nomor</span>
                 </div>
-                <textarea name="consignment_numbers" id="consignment_numbers" class="form-control consignment-textarea" rows="5" inputmode="text" enterkeyhint="enter" autocomplete="off" placeholder="081234567890&#10;081234567891">{{ old('consignment_numbers') }}</textarea>
+                <div id="consignment-rows"></div>
+                <button type="button" id="consignment-add-denom" class="consignment-add-denom"><i class="fas fa-plus me-1"></i> Tambah denom</button>
+                <textarea id="consignment_numbers" class="d-none" tabindex="-1" aria-hidden="true"></textarea>
                 <div id="consignment-feedback" class="consignment-feedback mt-2"></div>
-                @error('consignment_numbers')
+                @error('consignments')
                     <div class="consignment-server-error mt-2"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</div>
                 @enderror
                 <button type="button" id="consignment-clear" class="btn btn-link text-danger text-decoration-none fw-bold p-0 mt-3" style="font-size: .66rem;">
@@ -237,6 +239,12 @@
         line-height: 1.65;
         resize: vertical;
     }
+    .consignment-denom-row { position:relative;margin-bottom:10px;padding:12px;border:1px solid #e2e8f0;border-radius:15px;background:#fff; }
+    .consignment-denom-row select { min-height:42px;margin-bottom:9px;font-size:.7rem;font-weight:800!important; }
+    .consignment-denom-row .consignment-textarea { min-height:96px; }
+    .consignment-row-count { color:#059669;font-size:.58rem;font-weight:850; }
+    .remove-consignment-row { position:absolute;top:7px;right:8px;z-index:2;width:27px;height:27px;border:0;border-radius:50%;background:#fee2e2;color:#dc2626; }
+    .consignment-add-denom { width:100%;min-height:36px;border:1px dashed #fca5a5;border-radius:12px;background:#fff7f7;color:var(--primary);font-size:.64rem;font-weight:850; }
     .consignment-feedback,
     .consignment-server-error {
         color: #dc2626;
@@ -382,7 +390,38 @@
         });
         let activeRow = null;
         const stockMap = {!! json_encode($denoms->pluck('stock_qty', 'iddenom')) !!};
+        const consignmentDenoms = @json($denoms->map(fn($denom) => ['id' => $denom->iddenom, 'name' => $denom->denom])->values());
+        const oldConsignments = @json(old('consignments', []));
+        let consignmentRowIndex = 0;
         let outletSearchTimer = null;
+
+        function consignmentOptions(selected = '') {
+            return '<option value="">Pilih denom konsinyasi...</option>' + consignmentDenoms.map(denom =>
+                `<option value="${escapeHtml(denom.id)}" ${String(denom.id) === String(selected) ? 'selected' : ''}>${escapeHtml(denom.name)}</option>`
+            ).join('');
+        }
+        function addConsignmentRow(iddenom = '', numbers = '') {
+            const index = consignmentRowIndex++;
+            $('#consignment-rows').append(`<div class="consignment-denom-row">
+                <button type="button" class="remove-consignment-row" aria-label="Hapus denom"><i class="fas fa-times"></i></button>
+                <select name="consignments[${index}][iddenom]" class="form-select consignment-denom-select" required>${consignmentOptions(iddenom)}</select>
+                <div class="d-flex justify-content-between mb-1"><small class="fw-bold text-muted">Nomor perdana — satu nomor per baris</small><span class="consignment-row-count">0 nomor</span></div>
+                <textarea name="consignments[${index}][numbers]" class="form-control consignment-textarea consignment-row-numbers" rows="4" inputmode="text" enterkeyhint="enter" autocomplete="off" required placeholder="081234567890&#10;081234567891">${escapeHtml(numbers)}</textarea>
+            </div>`);
+            syncConsignmentRows();
+        }
+        function syncConsignmentRows() {
+            const values = [];
+            let total = 0;
+            $('.consignment-row-numbers').each(function() {
+                const result = parseConsignmentNumbers($(this).val());
+                $(this).closest('.consignment-denom-row').find('.consignment-row-count').text(`${result.numbers.length} nomor`);
+                values.push($(this).val());
+                total += result.numbers.length;
+            });
+            $('#consignment_numbers').val(values.join('\n'));
+            $('#consignment-count').text(`${total.toLocaleString('id-ID')} nomor`);
+        }
 
         function selectOutlet(outlet) {
             $('#id_outlet').val(String(outlet.id_outlet || '').toUpperCase());
@@ -485,7 +524,10 @@
                 id_outlet: $('#id_outlet').val(),
                 keterangan: $('#keterangan').val(),
                 consignment_enabled: $('#consignment_enabled').val() === '1',
-                consignment_numbers: $('#consignment_numbers').val(),
+                consignments: $('.consignment-denom-row').map(function() { return {
+                    iddenom: $(this).find('.consignment-denom-select').val(),
+                    numbers: $(this).find('.consignment-row-numbers').val()
+                }; }).get(),
                 products: []
             };
             $('#product-container .glass-card').each(function() {
@@ -570,6 +612,7 @@
         }
 
         function updateConsignmentSummary() {
+            syncConsignmentRows();
             const result = parseConsignmentNumbers($('#consignment_numbers').val());
             $('#consignment-count').text(`${result.numbers.length.toLocaleString('id-ID')} nomor`);
             renderConsignmentValidation(result, false);
@@ -627,7 +670,7 @@
             setConsignmentOpen($('#consignment_enabled').val() !== '1');
             saveFormState();
         });
-        $('#consignment_numbers').on('input', function() {
+        $('#consignment-rows').on('input change', '.consignment-row-numbers, .consignment-denom-select', function() {
             checkedConsignmentKey = '';
             consignmentAvailability = new Map();
             const result = updateConsignmentSummary();
@@ -641,7 +684,7 @@
         // iOS Safari can treat Enter in a form textarea as the form's next
         // action instead of inserting a line break. Force the expected
         // one-number-per-line behaviour while preserving the caret position.
-        $('#consignment_numbers').on('keydown', function(event) {
+        $('#consignment-rows').on('keydown', '.consignment-row-numbers', function(event) {
             if (event.key !== 'Enter') return;
             event.preventDefault();
             const start = this.selectionStart;
@@ -652,7 +695,8 @@
             $(this).trigger('input');
         });
         $('#consignment-clear').on('click', function() {
-            $('#consignment_numbers').val('');
+            $('#consignment-rows').empty();
+            addConsignmentRow();
             setConsignmentOpen(false);
             updateConsignmentSummary();
             saveFormState();
@@ -672,7 +716,9 @@
                     });
                 }
                 $('#keterangan').val(data.keterangan || '');
-                $('#consignment_numbers').val(data.consignment_numbers || '');
+                $('#consignment-rows').empty();
+                (data.consignments?.length ? data.consignments : [{ iddenom: '', numbers: '' }])
+                    .forEach(row => addConsignmentRow(row.iddenom || '', row.numbers || ''));
                 setConsignmentOpen(Boolean(data.consignment_enabled));
                 if (data.products && data.products.length > 0) {
                     $('#product-container').empty();
@@ -690,6 +736,16 @@
                 }
             } catch (e) { console.error(e); }
         }
+
+        $('#consignment-add-denom').on('click', function() { addConsignmentRow(); saveFormState(); });
+        $('#consignment-rows').on('click', '.remove-consignment-row', function() {
+            $(this).closest('.consignment-denom-row').remove();
+            if (!$('#consignment-rows .consignment-denom-row').length) addConsignmentRow();
+            updateConsignmentSummary();
+            saveFormState();
+        });
+        (oldConsignments.length ? oldConsignments : [{ iddenom: '', numbers: '' }])
+            .forEach(row => addConsignmentRow(row.iddenom || '', row.numbers || ''));
 
         function addProductRow(id = '', name = 'Select item...', qty = '') {
             const rowId = Date.now() + Math.random().toString(36).substr(2, 5);
@@ -831,10 +887,23 @@
             }
             if ($('#consignment_enabled').val() === '1') {
                 const consignment = updateConsignmentSummary();
+                let consignmentRowsValid = true;
+                const selectedConsignmentDenoms = new Set();
+                $('.consignment-denom-row').each(function() {
+                    const denom = $(this).find('.consignment-denom-select').val();
+                    const rowNumbers = parseConsignmentNumbers($(this).find('.consignment-row-numbers').val());
+                    if (!denom || !rowNumbers.numbers.length || selectedConsignmentDenoms.has(denom)) consignmentRowsValid = false;
+                    if (denom) selectedConsignmentDenoms.add(denom);
+                });
+                if (!consignmentRowsValid) {
+                    e.preventDefault();
+                    Swal.fire({ icon: 'warning', title: 'Lengkapi Konsinyasi', text: 'Pilih denom yang berbeda pada setiap baris dan isi minimal satu nomor.', confirmButtonColor: 'var(--primary)' });
+                    return;
+                }
                 if (!consignment.numbers.length || consignment.invalid.length || consignment.duplicates.length) {
                     e.preventDefault();
                     renderConsignmentValidation(consignment, false);
-                    $('#consignment_numbers').trigger('focus');
+                    $('.consignment-row-numbers').first().trigger('focus');
                     return;
                 }
                 const key = consignment.numbers.join('|');
@@ -843,17 +912,16 @@
                     e.preventDefault();
                     checkConsignmentAvailability((available) => {
                         if (available) $('#sales-form').trigger('submit');
-                        else $('#consignment_numbers').trigger('focus');
+                        else $('.consignment-row-numbers').first().trigger('focus');
                     });
                     return;
                 }
                 if (consignment.numbers.some(number => !consignmentAvailability.get(number)?.available)) {
                     e.preventDefault();
                     renderConsignmentValidation(consignment, false);
-                    $('#consignment_numbers').trigger('focus');
+                    $('.consignment-row-numbers').first().trigger('focus');
                     return;
                 }
-                $('#consignment_numbers').val(consignment.numbers.join('\n'));
             }
             const requested = {};
             let duplicateDenom = false;

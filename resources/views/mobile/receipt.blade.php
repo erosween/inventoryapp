@@ -34,7 +34,7 @@
                     <div class="confirmation-qty">{{ $consignments->count() }} <small>NOMOR</small></div>
                 </div>
                 <div class="consignment-number-list">
-                    @foreach($consignments as $number)<span><i class="fas fa-check-circle"></i>{{ $number }}</span>@endforeach
+                    @foreach($consignments as $consignment)<span><i class="fas fa-check-circle"></i><span>{{ $consignment->serial_number }}<small class="d-block text-muted">{{ $consignment->denom ?: ($consignment->iddenom ?: 'Denom lama belum tercatat') }}</small></span></span>@endforeach
                 </div>
             @endif
         </div>

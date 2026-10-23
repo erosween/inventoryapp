@@ -183,8 +183,8 @@ class MobileSalesFlowTest extends TestCase
         $this->assertSame(2, substr_count($layout, 'class="soon-badge">SOON'));
         $this->assertStringNotContainsString('Konsinyasi SA', $layout);
         $this->assertStringContainsString('id="consignment-toggle"', $form);
-        $this->assertStringContainsString('name="consignment_numbers"', $form);
-        $this->assertStringContainsString('consignment_numbers: $(\'#consignment_numbers\').val()', $form);
+        $this->assertStringContainsString('id="consignment-add-denom"', $form);
+        $this->assertStringContainsString('consignment-row-numbers', $form);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.consignment') }}\"", $layout);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.survey') }}\"", $layout);
         $this->assertStringNotContainsString("href=\"{{ route('mobile.surya.network') }}\"", $layout);
@@ -235,12 +235,12 @@ class MobileSalesFlowTest extends TestCase
 
         $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $payload)
             ->assertRedirect(route('mobile.form'))
-            ->assertSessionHasErrors('consignment_numbers');
+            ->assertSessionHasErrors('consignments');
 
         $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $payload + [
-            'consignment_numbers' => "081234567890\n+62 812-3456-7890",
+            'consignments' => [['iddenom' => 'SA-VALIDATION', 'numbers' => "081234567890\n+62 812-3456-7890"]],
         ])->assertRedirect(route('mobile.form'))
-            ->assertSessionHasErrors('consignment_numbers');
+            ->assertSessionHasErrors('consignments.0.numbers');
 
         $this->assertDatabaseCount('mobile_sales_receipts', 0);
         $this->assertDatabaseCount('surya_sa_consignment_numbers', 0);
@@ -248,6 +248,9 @@ class MobileSalesFlowTest extends TestCase
 
     public function test_sales_force_can_submit_consignment_without_sales_product(): void
     {
+        DB::table('denom')->insert([
+            'iddenom' => 'SA-CONSIGN', 'denom' => 'SA Konsinyasi', 'group_name' => 'SA', 'harga_jual' => 0,
+        ]);
         DB::table('appsdumais')->insert([
             'id_outlet' => 'OUTLET-CONSIGN-ONLY',
             'nama_outlet' => 'Outlet Konsinyasi Saja',
@@ -273,7 +276,7 @@ class MobileSalesFlowTest extends TestCase
             'id_outlet' => 'OUTLET-CONSIGN-ONLY',
             'products' => [],
             'consignment_enabled' => '1',
-            'consignment_numbers' => "081299900001\n081299900002",
+            'consignments' => [['iddenom' => 'SA-CONSIGN', 'numbers' => "081299900001\n081299900002"]],
         ]);
 
         $receipt = \App\Models\MobileSalesReceipt::query()->firstOrFail();
@@ -282,6 +285,7 @@ class MobileSalesFlowTest extends TestCase
         $this->assertDatabaseHas('surya_sa_consignment_numbers', [
             'receipt_id' => $receipt->id,
             'serial_number' => '6281299900001',
+            'iddenom' => 'SA-CONSIGN',
             'status' => 'draft',
         ]);
 
@@ -491,7 +495,7 @@ class MobileSalesFlowTest extends TestCase
                 ],
             ],
             'consignment_enabled' => '1',
-            'consignment_numbers' => "081234567890\n+62 812-3456-7891",
+            'consignments' => [['iddenom' => 'D001', 'numbers' => "081234567890\n+62 812-3456-7891"]],
             'latitude' => -6.20000000,
             'longitude' => 106.81666600,
         ]);
@@ -1978,6 +1982,7 @@ class MobileSalesFlowTest extends TestCase
             $table->string('id_outlet', 100);
             $table->string('idtap', 25);
             $table->string('idsf', 25);
+            $table->string('iddenom', 25)->nullable();
             $table->string('serial_number', 30);
             $table->string('status', 20)->default('consigned');
             $table->text('notes')->nullable();

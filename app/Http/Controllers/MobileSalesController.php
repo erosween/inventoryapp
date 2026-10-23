@@ -366,31 +366,40 @@ SQL;
             'products.*.iddenom' => 'required|distinct|exists:denom,iddenom',
             'products.*.qty' => 'required|integer|min:1',
             'consignment_enabled' => 'nullable|boolean',
-            'consignment_numbers' => 'nullable|string|max:10000',
+            'consignments' => 'nullable|array|max:20',
+            'consignments.*.iddenom' => 'required_with:consignments|string|distinct|exists:denom,iddenom',
+            'consignments.*.numbers' => 'required_with:consignments|string|max:10000',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'keterangan' => 'nullable|string|max:1000',
         ]);
 
         $consignmentNumbers = [];
+        $consignmentDenomByNumber = [];
         if ($request->boolean('consignment_enabled')) {
-            [$consignmentNumbers, $invalidNumbers, $duplicateNumbers] = $this->parseConsignmentNumbers(
-                $request->input('consignment_numbers')
-            );
+            foreach (collect($request->input('consignments', []))->values() as $index => $consignment) {
+                [$rowNumbers, $invalidNumbers, $duplicateNumbers] = $this->parseConsignmentNumbers($consignment['numbers'] ?? null);
+                if ($rowNumbers === []) {
+                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Masukkan minimal satu nomor untuk denom ini.']);
+                }
+                if ($invalidNumbers !== []) {
+                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Format nomor tidak valid: '.implode(', ', array_slice($invalidNumbers, 0, 5)).'.']);
+                }
+                if ($duplicateNumbers !== []) {
+                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Nomor duplikat pada denom ini: '.implode(', ', array_slice($duplicateNumbers, 0, 5)).'.']);
+                }
+                foreach ($rowNumbers as $number) {
+                    if (isset($consignmentDenomByNumber[$number])) {
+                        return back()->withInput()->withErrors(['consignments' => "Nomor {$number} tercantum pada lebih dari satu denom."]);
+                    }
+                    $consignmentNumbers[] = $number;
+                    $consignmentDenomByNumber[$number] = (string) ($consignment['iddenom'] ?? '');
+                }
+            }
 
             if ($consignmentNumbers === []) {
                 return back()->withInput()->withErrors([
-                    'consignment_numbers' => 'Masukkan minimal satu nomor perdana SA.',
-                ]);
-            }
-            if ($invalidNumbers !== []) {
-                return back()->withInput()->withErrors([
-                    'consignment_numbers' => 'Format nomor tidak valid: '.implode(', ', array_slice($invalidNumbers, 0, 5)).'.',
-                ]);
-            }
-            if ($duplicateNumbers !== []) {
-                return back()->withInput()->withErrors([
-                    'consignment_numbers' => 'Nomor duplikat pada isian: '.implode(', ', array_slice($duplicateNumbers, 0, 5)).'.',
+                    'consignments' => 'Tambahkan minimal satu denom dan isi nomor perdananya.',
                 ]);
             }
 
@@ -485,7 +494,7 @@ SQL;
             }
             $ownerIdsf = $ownerIdsf ?: $idsf;
 
-            $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers) {
+            $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers, $consignmentDenomByNumber) {
                 $products = collect($request->products)
                     ->groupBy('iddenom')
                     ->map(fn ($rows, $iddenom) => [
@@ -587,16 +596,20 @@ SQL;
                     }
                     DB::table('surya_sa_consignment_numbers')
                         ->whereIn('serial_number', $consignmentNumbers)
-                        ->update([
-                            'receipt_id' => $receipt->id,
-                            'reported_at' => $timestamp,
-                            'id_outlet' => $requestedOutlet,
-                            'idtap' => session('idtap'),
-                            'idsf' => $idsf,
-                            'status' => 'draft',
-                            'notes' => $request->keterangan,
-                            'updated_at' => $timestamp,
-                        ]);
+                        ->get(['id', 'serial_number'])
+                        ->each(function ($existing) use ($receipt, $timestamp, $requestedOutlet, $idsf, $request, $consignmentDenomByNumber) {
+                            DB::table('surya_sa_consignment_numbers')->where('id', $existing->id)->update([
+                                'receipt_id' => $receipt->id,
+                                'reported_at' => $timestamp,
+                                'id_outlet' => $requestedOutlet,
+                                'idtap' => session('idtap'),
+                                'idsf' => $idsf,
+                                'iddenom' => $consignmentDenomByNumber[$existing->serial_number] ?? null,
+                                'status' => 'draft',
+                                'notes' => $request->keterangan,
+                                'updated_at' => $timestamp,
+                            ]);
+                        });
                     DB::table('surya_sa_consignment_numbers')->insertOrIgnore(
                         collect($consignmentNumbers)->map(fn (string $number) => [
                             'receipt_id' => $receipt->id,
@@ -604,6 +617,7 @@ SQL;
                             'id_outlet' => $requestedOutlet,
                             'idtap' => session('idtap'),
                             'idsf' => $idsf,
+                            'iddenom' => $consignmentDenomByNumber[$number] ?? null,
                             'serial_number' => $number,
                             'status' => 'draft',
                             'notes' => $request->keterangan,
@@ -975,11 +989,12 @@ SQL;
 
         $consignments = DB::table('surya_sa_consignment_numbers as c')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'c.iddenom')
             ->where('c.idsf', $idsf)
             ->whereDate('c.reported_at', $tgl)
             ->where('c.status', 'consigned')
             ->orderBy('c.id')
-            ->get(['c.id_outlet', 'c.serial_number', 'o.nama_outlet']);
+            ->get(['c.id_outlet', 'c.serial_number', 'c.iddenom', 'd.denom', 'o.nama_outlet']);
 
         if ($sales->isEmpty() && $consignments->isEmpty()) {
             return response()->json(['success' => false, 'message' => 'Data tidak ditemukan']);
@@ -1017,6 +1032,10 @@ SQL;
                         ])->values(),
                         'consignment_qty' => $outletConsignments->count(),
                         'consignment_numbers' => $outletConsignments->pluck('serial_number')->filter()->values(),
+                        'consignment_items' => $outletConsignments->map(fn ($item) => [
+                            'number' => $item->serial_number,
+                            'denom' => $item->denom ?: $item->iddenom,
+                        ])->values(),
                     ];
                 })
                 ->values(),
@@ -1044,9 +1063,10 @@ SQL;
             ]);
 
         $consignments = DB::table('surya_sa_consignment_numbers')
+            ->leftJoin('denom', 'denom.iddenom', '=', 'surya_sa_consignment_numbers.iddenom')
             ->where('receipt_id', $receipt->id)
-            ->orderBy('id')
-            ->pluck('serial_number');
+            ->orderBy('surya_sa_consignment_numbers.id')
+            ->get(['surya_sa_consignment_numbers.serial_number', 'surya_sa_consignment_numbers.iddenom', 'denom.denom']);
 
         return view('mobile.receipt', compact('receipt', 'outlet', 'items', 'consignments'));
     }
