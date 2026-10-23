@@ -76,7 +76,7 @@ class StockBulkFlowTest extends TestCase
         $this->assertSame($before + 7, (int) $response->getData(true)['SP6']);
     }
 
-    public function test_identical_pending_intertap_transfer_cannot_be_submitted_twice(): void
+    public function test_identical_intertap_transfer_cannot_be_submitted_twice_even_after_approval(): void
     {
         $admin = User::where('username', 'admin_super')->first();
         $taps = DB::table('kodetap')->pluck('idtap')->unique()->values();
@@ -107,6 +107,8 @@ class StockBulkFlowTest extends TestCase
             ->post('/form/formkeluartap', $payload + ['_idempotency_key' => (string) Str::uuid()])
             ->assertRedirect('keluar');
 
+        DB::table('keluar')->where('sn', $sn)->update(['status' => 0]);
+
         $this->from('/form/formkeluartap')
             ->post('/form/formkeluartap', $payload + ['_idempotency_key' => (string) Str::uuid()])
             ->assertRedirect('/form/formkeluartap')
@@ -116,7 +118,6 @@ class StockBulkFlowTest extends TestCase
             ->where('pengirim', $sender)
             ->where('penerima', $recipient)
             ->where('sn', $sn)
-            ->where('status', 1)
             ->count());
     }
 

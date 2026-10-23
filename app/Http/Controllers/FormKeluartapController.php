@@ -109,25 +109,39 @@ public function proseskeluartapform(Request $request)
 
         foreach ($validated['items'] as $item) {
             $denomName = DB::table('denom')->where('iddenom', $item['iddenom'])->value('denom');
-            $duplicatePending = DB::table('keluar as k')
+            $normalizedDenom = mb_strtoupper(preg_replace('/\s+/', ' ', trim((string) $denomName)));
+            $normalizedSn = mb_strtoupper(preg_replace('/\s+/', '', trim((string) $item['sn'])));
+            $fingerprint = hash('sha256', implode('|', [
+                $validated['tgl'],
+                mb_strtoupper(trim($validated['pengirim'])),
+                mb_strtoupper(trim($validated['penerima'])),
+                $normalizedDenom,
+                (int) $item['qty'],
+                $normalizedSn,
+            ]));
+            $duplicateTransfer = DB::table('keluar as k')
                 ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                ->where('k.tgl', $validated['tgl'])
-                ->where('k.pengirim', $validated['pengirim'])
-                ->where('k.penerima', $validated['penerima'])
-                ->where('k.qty', $item['qty'])
-                ->where('k.sn', trim($item['sn']))
-                ->where('k.status', 1)
-                ->whereRaw('UPPER(TRIM(d.denom)) = ?', [mb_strtoupper(trim((string) $denomName))])
+                ->where(function ($query) use ($fingerprint, $validated, $item, $normalizedDenom, $normalizedSn) {
+                    $query->where('k.request_fingerprint', $fingerprint)
+                        ->orWhere(function ($legacy) use ($validated, $item, $normalizedDenom, $normalizedSn) {
+                            $legacy->where('k.tgl', $validated['tgl'])
+                                ->where('k.pengirim', $validated['pengirim'])
+                                ->where('k.penerima', $validated['penerima'])
+                                ->where('k.qty', $item['qty'])
+                                ->whereRaw("UPPER(REPLACE(TRIM(k.sn), ' ', '')) = ?", [$normalizedSn])
+                                ->whereRaw("UPPER(TRIM(d.denom)) = ?", [$normalizedDenom]);
+                        });
+                })
                 ->lockForUpdate()
                 ->exists();
 
-            if ($duplicatePending) {
+            if ($duplicateTransfer) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'items' => "Pengiriman {$denomName} dengan SN yang sama sudah menunggu approval. Data tidak disimpan ulang.",
+                    'items' => "Pengiriman {$denomName} dengan tanggal, qty, dan SN yang sama sudah tercatat. Data tidak disimpan ulang.",
                 ]);
             }
 
-            DB::table('keluar')->insert([
+            $inserted = DB::table('keluar')->insertOrIgnore([
                 'iddenom' => $item['iddenom'],
                 'pengirim' => $validated['pengirim'],
                 'penerima' => $validated['penerima'],
@@ -137,7 +151,13 @@ public function proseskeluartapform(Request $request)
                 'tambahanket' => $validated['tambahket'] ?? null,
                 'idtap' => $validated['pengirim'],
                 'status' => 1,
+                'request_fingerprint' => $fingerprint,
             ]);
+            if ($inserted !== 1) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => "Pengiriman {$denomName} yang sama sedang atau sudah diproses. Data tidak disimpan ulang.",
+                ]);
+            }
         }
     });
 
