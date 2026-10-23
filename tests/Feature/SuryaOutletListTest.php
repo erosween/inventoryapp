@@ -16,6 +16,55 @@ class SuryaOutletListTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_detail_outlet_has_non_digipos_tab_summary_and_export_sheet(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-23 19:00:00', 'Asia/Jakarta'));
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin_super belum tersedia.');
+        }
+
+        DB::table('idsf')->insert([
+            ['idsf' => 'SF-NONDIGI-TEST', 'namasf' => 'SF Non Digipos Test', 'idtap' => 'DUMAI'],
+            ['idsf' => 'OWNER-NONDIGI', 'namasf' => 'Pemilik Stok Test', 'idtap' => 'DUMAI'],
+        ]);
+        DB::table('denom')->insert([
+            'iddenom' => 'NONDIGI-PRODUCT', 'denom' => 'Produk Non Digipos', 'group_name' => 'PV', 'harga_jual' => 25000,
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(), 'id_outlet' => 'NON-DIGIPOS-TEST001', 'idtap' => 'DUMAI',
+            'idsf' => 'SF-NONDIGI-TEST', 'stock_owner_idsf' => 'OWNER-NONDIGI', 'visit_type' => 'non_digipos',
+            'outlet_name' => 'Toko Non Digipos Test', 'owner_name' => 'Owner Test', 'phone_number' => '08123456789',
+            'outlet_address' => 'Jl. Pengujian No. 1', 'latitude' => 1.5, 'longitude' => 101.5, 'gps_status' => 'valid',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            'tgl' => now()->toDateString(), 'id_outlet' => 'NON-DIGIPOS-TEST001', 'idtap' => 'DUMAI',
+            'idsf' => 'SF-NONDIGI-TEST', 'owner_idsf' => 'OWNER-NONDIGI', 'iddenom' => 'NONDIGI-PRODUCT',
+            'qty' => 3, 'unit_price' => 25000, 'status' => 'approved',
+        ]);
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.outlet-detail'))
+            ->assertOk()->assertSee('Outlet Digipos')->assertSee('Outlet Non-Digipos');
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.outlet-detail', ['tab' => 'non-digipos', 'q' => 'Toko Non Digipos Test']))
+            ->assertOk()->assertSee('Toko Non Digipos Test')->assertSee('Owner Test')
+            ->assertSee('Produk Non Digipos')->assertSee('75.000');
+
+        $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.outlet-detail.export', ['q' => 'Toko Non Digipos Test']))
+            ->assertOk();
+        $workbook = IOFactory::load($response->baseResponse->getFile()->getPathname());
+        $sheet = $workbook->getSheetByName('Outlet Non Digipos');
+        $this->assertNotNull($sheet);
+        $this->assertSame('Toko Non Digipos Test', $sheet->getCell('C2')->getValue());
+        $this->assertSame(3, (int) $sheet->getCell('K2')->getValue());
+        $this->assertSame(75000, (int) $sheet->getCell('L2')->getValue());
+        Carbon::setTestNow();
+    }
+
     public function test_visit_workbook_includes_selected_consignment_denomination(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-23 18:00:00', 'Asia/Jakarta'));

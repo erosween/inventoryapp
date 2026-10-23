@@ -9,7 +9,7 @@
 <aside class="enterprise-sidebar" aria-label="Navigasi utama SURYA">
     <div class="sidebar-brand">
         <div class="sidebar-logo"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA"></div>
-        <div class="sidebar-brand-copy"><strong>SURYA</strong><small>PERFORMANCE WOK</small></div>
+        <div class="sidebar-brand-copy"><strong>SURYA</strong><small>PERFORMANCE WORKSPACE</small></div>
         <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Tutup menu"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="sidebar-label">WORKSPACE</div>

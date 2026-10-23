@@ -6,7 +6,7 @@ use App\Exports\SuryaSalesProductExport;
 use App\Exports\SuryaAdminSalesExport;
 use App\Exports\SuryaVisitExport;
 use App\Exports\SuryaWorkbookExport;
-use App\Exports\SuryaOutletDetailExport;
+use App\Exports\SuryaOutletWorkbookExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -128,7 +128,9 @@ class MonitaDumaiController extends Controller
             ->distinct()
             ->orderBy('tap')
             ->pluck('tap');
+        $activeTab = $request->input('tab') === 'non-digipos' ? 'non-digipos' : 'digipos';
         $outletCount = $this->outletDetailBaseQuery($tapScopes)->count();
+        $nonDigiposCount = $this->nonDigiposOutletBaseQuery($tapScopes)->count();
         $selectedTap = trim((string) $request->input('tap'));
         $search = trim((string) $request->input('q'));
         $perPage = (int) $request->input('per_page', 25);
@@ -141,16 +143,23 @@ class MonitaDumaiController extends Controller
         $salesCutoffDate = $salesCutoff->translatedFormat('d M Y');
         $salesCutoffValue = $salesCutoff->toDateString();
         $salesCutoffMax = now('Asia/Jakarta')->toDateString();
-        $outlets = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-            ->orderBy('outlet.nama_outlet')
-            ->paginate($perPage)
-            ->withQueryString();
-        $outlets->setCollection($this->hydrateOutletDetailPage($outlets->getCollection(), $salesCutoff));
+        $outlets = null;
+        $nonDigiposOutlets = null;
+        if ($activeTab === 'digipos') {
+            $outlets = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
+                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+                ->orderBy('outlet.nama_outlet')->paginate($perPage)->withQueryString();
+            $outlets->setCollection($this->hydrateOutletDetailPage($outlets->getCollection(), $salesCutoff));
+        } else {
+            $nonDigiposOutlets = $this->nonDigiposOutletBaseQuery($tapScopes, $selectedTap, $search)
+                ->orderByDesc('v.visited_at')->paginate($perPage)->withQueryString();
+            $nonDigiposOutlets->setCollection($this->hydrateNonDigiposOutlets($nonDigiposOutlets->getCollection()));
+        }
 
         return response()->view('surya.outlet-detail', compact(
             'taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate', 'salesCutoffValue',
-            'salesCutoffMax', 'outlets', 'selectedTap', 'search', 'perPage'
+            'salesCutoffMax', 'outlets', 'nonDigiposOutlets', 'selectedTap', 'search', 'perPage',
+            'activeTab', 'nonDigiposCount'
         ))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
@@ -217,10 +226,58 @@ class MonitaDumaiController extends Controller
             ->flatMap(fn ($chunk) => $this->hydrateOutletDetailPage($chunk, $salesCutoff))
             ->values();
 
+        $nonDigiposRows = $this->hydrateNonDigiposOutlets(
+            $this->nonDigiposOutletBaseQuery($tapScopes, $selectedTap, $search)->orderByDesc('v.visited_at')->get()
+        );
+
         return Excel::download(
-            new SuryaOutletDetailExport($rows),
+            new SuryaOutletWorkbookExport($rows, $nonDigiposRows),
             'surya-detail-outlet-'.now()->format('Y-m-d-His').'.xlsx'
         );
+    }
+
+    private function nonDigiposOutletBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
+    {
+        return DB::table('surya_visits as v')
+            ->leftJoin('idsf as sf', 'sf.idsf', '=', 'v.idsf')
+            ->leftJoin('idsf as owner_sf', 'owner_sf.idsf', '=', 'v.stock_owner_idsf')
+            ->where('v.visit_type', 'non_digipos')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
+            ->when($selectedTap !== '', fn ($query) => $query->where('v.idtap', $selectedTap))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($filter) use ($search) {
+                    foreach (['v.id_outlet', 'v.outlet_name', 'v.owner_name', 'v.phone_number', 'v.outlet_address', 'v.idsf', 'sf.namasf', 'v.idtap'] as $column) {
+                        $filter->orWhere($column, 'like', "%{$search}%");
+                    }
+                });
+            })
+            ->select('v.id', 'v.visited_at', 'v.id_outlet', 'v.outlet_name', 'v.owner_name', 'v.phone_number', 'v.outlet_address', 'v.idtap', 'v.idsf', 'sf.namasf', 'v.stock_owner_idsf', 'owner_sf.namasf as stock_owner_name');
+    }
+
+    private function hydrateNonDigiposOutlets($rows)
+    {
+        $ids = $rows->pluck('id_outlet')->filter()->map(fn ($id) => (string) $id)->unique()->values();
+        $sales = $ids->isEmpty() ? collect() : DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->whereIn('m.id_outlet', $ids)
+            ->where('m.status', '!=', 'draft_wa')
+            ->get(['m.id_outlet', 'm.iddenom', 'm.qty', 'm.status', 'm.unit_price', 'd.denom', 'd.harga_jual'])
+            ->groupBy(fn ($row) => (string) $row->id_outlet);
+
+        return $rows->transform(function ($row) use ($sales) {
+            $items = $sales->get((string) $row->id_outlet, collect());
+            $row->product_count = $items->pluck('iddenom')->filter()->unique()->count();
+            $row->total_qty = (int) $items->sum('qty');
+            $row->total_amount = (float) $items->sum(fn ($item) => (int) $item->qty * (float) ($item->unit_price ?? $item->harga_jual ?? 0));
+            $row->product_summary = $items->groupBy('iddenom')->map(function ($productRows) {
+                $first = $productRows->first();
+                return ($first->denom ?: $first->iddenom).' ('.number_format($productRows->sum('qty'), 0, ',', '.').' pcs)';
+            })->values()->implode('; ');
+            $statuses = $items->pluck('status')->filter()->map(fn ($status) => strtoupper((string) $status))->unique()->values();
+            $row->sales_status = $statuses->isEmpty() ? null : $statuses->implode(', ');
+
+            return $row;
+        });
     }
 
     private function hydrateOutletDetailPage($rows, Carbon $cutoff)
