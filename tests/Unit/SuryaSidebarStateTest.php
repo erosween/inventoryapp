@@ -16,9 +16,13 @@ class SuryaSidebarStateTest extends TestCase
         $this->assertStringContainsString("root.classList.add('surya-sidebar-precollapsed')", $boot);
         $this->assertStringContainsString("root.classList.add('surya-sidebar-initializing')", $boot);
         $this->assertStringContainsString("root.classList.remove('surya-sidebar-initializing')", $boot);
+        $this->assertStringContainsString('window.innerWidth > 1100', $boot);
         $this->assertStringContainsString('html.surya-sidebar-precollapsed .enterprise-sidebar{transform:translateX(-100%)}', $css);
         $this->assertStringContainsString('html.surya-sidebar-precollapsed .app-main,html.surya-sidebar-precollapsed .main{width:100%;margin-left:0}', $css);
         $this->assertStringContainsString('html.surya-sidebar-initializing .enterprise-sidebar', $css);
+        $this->assertStringContainsString('height:100svh', $css);
+        $this->assertStringContainsString('@media(max-width:1100px)', $css);
+        $this->assertStringContainsString('background:linear-gradient(180deg,#3a000a 0%,#970017 52%,#d10b20 100%)!important', $css);
         $this->assertStringNotContainsString('sidebar-collapsed .enterprise-sidebar:hover', $css);
     }
 }

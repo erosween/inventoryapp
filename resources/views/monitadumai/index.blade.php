@@ -3093,7 +3093,7 @@
         .pv-table thead tr:nth-child(2) th { background: #fff; }
         .pv-table .pv-grand-group { background: #eef2ff; color: #3730a3; }
 
-        @media (max-width: 960px) {
+        @media (max-width: 1100px) {
             .sidebar-close { display:grid; place-items:center; }
             .enterprise-sidebar { transform: translateX(-100%); transition: transform .25s ease; }
             .app-shell.sidebar-open .enterprise-sidebar { transform: translateX(0); }
@@ -4997,7 +4997,7 @@
             const shell = document.getElementById('app-shell');
             if (!shell) return;
 
-            if (window.innerWidth <= 960) shell.classList.remove('sidebar-open');
+            if (window.innerWidth <= 1100) shell.classList.remove('sidebar-open');
         }
 
         function bindDashboardMenu() {
@@ -5070,7 +5070,7 @@
             if (!shell || !toggle) return;
             const close = document.getElementById('sidebar-close');
 
-            const isMobile = window.innerWidth <= 960;
+            const isMobile = window.innerWidth <= 1100;
             const collapsed = isMobile || localStorage.getItem('surya-sidebar-collapsed') === 'true';
             shell.classList.toggle('sidebar-collapsed', collapsed && !isMobile);
             document.documentElement.classList.remove('surya-sidebar-precollapsed');
@@ -5078,7 +5078,7 @@
             toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
             toggle.addEventListener('click', () => {
-                if (window.innerWidth <= 960) {
+                if (window.innerWidth <= 1100) {
                     shell.classList.toggle('sidebar-open');
                     return;
                 }
@@ -6043,7 +6043,7 @@
             const mapElement = document.getElementById('map');
             if (!mapElement) return;
             const shell = document.getElementById('app-shell');
-            if (window.innerWidth > 960 && shell && !shell.classList.contains('sidebar-collapsed')) {
+            if (window.innerWidth > 1100 && shell && !shell.classList.contains('sidebar-collapsed')) {
                 shell.dataset.mapAutoCollapsed = '1';
                 shell.classList.add('sidebar-collapsed');
                 document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
