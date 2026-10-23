@@ -718,12 +718,13 @@ class MonitaDumaiController extends Controller
             ]);
 
         $consignments = DB::table('surya_sa_consignment_numbers as c')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'c.iddenom')
             ->leftJoin('idsf as s', 's.idsf', '=', 'c.idsf')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
             ->whereBetween('c.reported_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('c.idtap', $tapScopes))
             ->orderBy('c.reported_at')->orderBy('c.idtap')->orderBy('o.nama_outlet')
-            ->get(['c.reported_at', 'c.idtap', 'c.idsf', 's.namasf', 'c.id_outlet', 'o.nama_outlet', 'c.serial_number', 'c.status', 'c.notes'])
+            ->get(['c.reported_at', 'c.idtap', 'c.idsf', 's.namasf', 'c.id_outlet', 'o.nama_outlet', 'c.iddenom', 'd.denom', 'c.serial_number', 'c.status', 'c.notes'])
             ->map(fn ($row) => [
                 Carbon::parse($row->reported_at)->format('d/m/Y H:i:s'),
                 $row->idtap,
@@ -731,6 +732,7 @@ class MonitaDumaiController extends Controller
                 $row->namasf ?: $row->idsf,
                 $row->id_outlet,
                 $row->nama_outlet ?: $row->id_outlet,
+                $row->denom ?: ($row->iddenom ?: '—'),
                 $row->serial_number,
                 strtoupper((string) $row->status),
                 $row->notes,
@@ -739,18 +741,25 @@ class MonitaDumaiController extends Controller
                 $row->id_outlet,
             ]);
 
+        $currentConsignmentDenoms = DB::table('surya_sa_consignment_numbers')
+            ->select('serial_number')
+            ->selectRaw('MAX(iddenom) as iddenom')
+            ->groupBy('serial_number');
+
         $consignmentMovements = DB::table('surya_sa_consignment_movements as h')
+            ->leftJoinSub($currentConsignmentDenoms, 'current_c', 'current_c.serial_number', '=', 'h.serial_number')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'current_c.iddenom')
             ->leftJoin('appsdumais as from_o', 'from_o.id_outlet', '=', 'h.from_id_outlet')
             ->leftJoin('appsdumais as to_o', 'to_o.id_outlet', '=', 'h.to_id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'h.idsf')
             ->whereBetween('h.moved_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('h.idtap', $tapScopes))
             ->orderBy('h.moved_at')
-            ->get(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id'])
+            ->get(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id', 'current_c.iddenom', 'd.denom'])
             ->map(fn ($row) => [
                 Carbon::parse($row->moved_at)->format('d/m/Y H:i:s'), $row->idtap, $row->idsf,
                 $row->namasf ?: $row->idsf, $row->to_id_outlet, $row->to_name ?: $row->to_id_outlet,
-                $row->serial_number, 'MIGRATED', 'Perpindahan konsinyasi', 'RIWAYAT MIGRASI',
+                $row->denom ?: ($row->iddenom ?: '—'), $row->serial_number, 'MIGRATED', 'Perpindahan konsinyasi', 'RIWAYAT MIGRASI',
                 $row->from_id_outlet ?: '—', $row->to_id_outlet,
             ]);
 

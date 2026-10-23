@@ -16,6 +16,51 @@ class SuryaOutletListTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_visit_workbook_includes_selected_consignment_denomination(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-23 18:00:00', 'Asia/Jakarta'));
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin_super belum tersedia.');
+        }
+
+        DB::table('denom')->insert([
+            'iddenom' => 'CONS-EXPORT-TEST',
+            'denom' => 'Perdana Konsinyasi Export',
+            'group_name' => 'SA',
+        ]);
+        DB::table('surya_sa_consignment_numbers')->insert([
+            'reported_at' => now(),
+            'id_outlet' => 'CONS-OUTLET-TEST',
+            'idtap' => 'DUMAI',
+            'idsf' => 'CONS-SF-TEST',
+            'iddenom' => 'CONS-EXPORT-TEST',
+            'serial_number' => '6281234500999',
+            'status' => 'consigned',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \Maatwebsite\Excel\Facades\Excel::fake();
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.visits.export'))
+            ->assertOk();
+
+        \Maatwebsite\Excel\Facades\Excel::assertDownloaded(
+            'surya-penjualan-2026-10-01-sampai-2026-10-23.xlsx',
+            function ($export) {
+                $sheet = $export->sheets()[3];
+                $row = $sheet->collection()->first(fn (array $row) => $row[7] === '6281234500999');
+
+                return $sheet->headings()[6] === 'Denom Konsinyasi'
+                    && $row !== null
+                    && $row[6] === 'Perdana Konsinyasi Export';
+            }
+        );
+
+        Carbon::setTestNow();
+    }
+
     public function test_helper_visit_keeps_actual_and_sales_on_helper_and_shows_all_receipt_photos(): void
     {
         Storage::fake('public');
