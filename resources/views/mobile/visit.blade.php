@@ -4,9 +4,9 @@
 
 @section('content')
 @php($selectedOutlet = request('id_outlet') ? $outlets->firstWhere('id_outlet', request('id_outlet')) : null)
-@php($mode = $mode ?? request('mode', 'extra_call'))
+@php($mode = $mode ?? request('mode', request()->filled('id_outlet') ? 'pjp' : 'extra_call'))
 @php($isHelper = str_starts_with(strtoupper((string) session('mobile_sf_id')), 'HELPER'))
-@php($modeTitle = match($mode) { 'non_digipos' => 'Outlet Non Digipos', 'digipos_unmapped' => 'Outlet Digipos Unmapping', default => 'Extra Call (Outlet PJP)' })
+@php($modeTitle = match($mode) { 'pjp' => 'Visit PJP', 'non_digipos' => 'Outlet Non Digipos', 'digipos_unmapped' => 'Outlet Digipos Unmapping', default => 'Extra Call (Outlet PJP)' })
 <div class="glass-card p-4">
     <div class="d-flex align-items-center gap-3 mb-3">
         <a href="{{ $selectedOutlet ? route('mobile.visit.menu', ['id_outlet' => $selectedOutlet->id_outlet]) : route('mobile.index') }}" class="visit-back-button" aria-label="Kembali">

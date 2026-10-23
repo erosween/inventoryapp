@@ -817,6 +817,24 @@ class MobileSalesFlowTest extends TestCase
             ->assertSee('aria-label="Kembali"', false);
     }
 
+    public function test_scheduled_outlet_photo_page_is_labeled_and_submitted_as_pjp(): void
+    {
+        DB::table('appsdumais')->insert([
+            'id_outlet' => 'OUTLET-PJP-LABEL',
+            'nama_outlet' => 'Outlet PJP Label',
+            'sf' => 'Sales Test',
+            'pjp' => 'Jumat',
+        ]);
+
+        $this->withSession([
+            'mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001',
+        ])->get(route('mobile.visit', ['id_outlet' => 'OUTLET-PJP-LABEL']))
+            ->assertOk()
+            ->assertSee('Visit PJP')
+            ->assertDontSee('Extra Call (Outlet PJP)')
+            ->assertSee('name="visit_type" value="pjp"', false);
+    }
+
     public function test_visit_camera_buttons_are_compact_consistent_and_switchable(): void
     {
         DB::table('appsdumais')->insert([

@@ -70,8 +70,8 @@ class SuryaVisitController extends Controller
             return $redirect;
         }
 
-        $mode = $request->input('mode', 'extra_call');
-        abort_unless(in_array($mode, ['extra_call', 'digipos_unmapped', 'non_digipos'], true), 404);
+        $mode = $request->input('mode', $request->filled('id_outlet') ? 'pjp' : 'extra_call');
+        abort_unless(in_array($mode, ['pjp', 'extra_call', 'digipos_unmapped', 'non_digipos'], true), 404);
         $outletQuery = $mode === 'digipos_unmapped'
             ? $this->tapOutlets()->whereRaw("UPPER(TRIM(COALESCE(sf, ''))) = 'UNMAPPING'")
             : $this->assignedOutlets()->whereRaw("UPPER(TRIM(COALESCE(sf, ''))) <> 'UNMAPPING'");
@@ -196,7 +196,7 @@ class SuryaVisitController extends Controller
     {
         $request->validate([
             'id_outlet' => ['required'],
-            'visit_type' => ['required', 'in:extra_call,digipos_unmapped,non_digipos'],
+            'visit_type' => ['required', 'in:pjp,extra_call,digipos_unmapped,non_digipos'],
             'stock_owner_idsf' => ['nullable', 'string', 'max:25'],
             'outlet_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
             'owner_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
