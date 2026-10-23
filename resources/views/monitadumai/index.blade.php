@@ -3153,6 +3153,7 @@
             $clusterCoverage = $dashboard['clusterCoverage']['groups'] ?? [];
             $monitoringUpdateDate = $dashboard['monitoringUpdateDate'] ?? null;
             $visitDetails = $dashboard['visitDetails'] ?? [];
+            $nonDigiposVisitDetails = $dashboard['nonDigiposVisitDetails'] ?? [];
             $approvalVisits = $dashboard['approvalVisits'] ?? [];
             $emptyMonitoring = [
                 'categories' => [],
@@ -3703,17 +3704,18 @@
                         </div>
                         <form class="visit-date-filter" method="GET" action="{{ route('surya.dashboard') }}#visit-detail">
                             <input type="hidden" name="panel" value="visit-detail">
-                            <input type="hidden" name="visit_tab" id="visit-tab-filter" value="{{ request('visit_tab') === 'approval' ? 'approval' : 'summary' }}">
+                            <input type="hidden" name="visit_tab" id="visit-tab-filter" value="{{ in_array(request('visit_tab'), ['approval', 'non-digipos'], true) ? request('visit_tab') : 'summary' }}">
                             <label for="visit-date">Tanggal Visit</label>
                             <div><input id="visit-date" type="date" name="visit_date" value="{{ $visitDate }}"><button type="submit"><i class="fas fa-filter"></i> Tampilkan</button></div>
                         </form>
                     </div>
                     @if(session('success'))<div class="notice"><i class="fas fa-circle-check"></i> {{ session('success') }}</div>@endif
                     @php
-                        $activeVisitTab = request('visit_tab') === 'approval' ? 'approval' : 'summary';
+                        $activeVisitTab = in_array(request('visit_tab'), ['approval', 'non-digipos'], true) ? request('visit_tab') : 'summary';
                     @endphp
                     <div class="visit-module-tabs" role="tablist">
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'summary' ? 'active' : '' }}" data-visit-subtab="summary"><i class="fas fa-chart-column"></i> Rekap Visit</button>
+                        <button type="button" class="visit-module-tab {{ $activeVisitTab === 'non-digipos' ? 'active' : '' }}" data-visit-subtab="non-digipos"><i class="fas fa-shop"></i> Non-Digipos</button>
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'approval' ? 'active' : '' }}" data-visit-subtab="approval"><i class="fas fa-camera"></i> Approval Visit</button>
                         <div class="visit-status-actions"><a class="visit-refresh-button" data-force-refresh href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a><a class="visit-refresh-button" href="{{ route('surya.visits.export', ['visit_date' => $visitDate]) }}"><i class="fas fa-file-excel"></i> Download Excel</a></div>
                     </div>
@@ -3768,6 +3770,22 @@
                             </table>
                         </div>
                     </div>
+                    </div>
+                    <div class="visit-subpanel" data-visit-subpanel="non-digipos" @if($activeVisitTab !== 'non-digipos') hidden @endif>
+                        @php($nonDigiposRows = collect($nonDigiposVisitDetails))
+                        <div class="visit-summary-strip">
+                            <div><small>TOTAL VISIT</small><strong>{{ number_format($nonDigiposRows->count(), 0, ',', '.') }}</strong></div>
+                            <div><small>SF AKTIF</small><strong>{{ number_format($nonDigiposRows->pluck('idsf')->unique()->count(), 0, ',', '.') }}</strong></div>
+                            <div><small>TOTAL PV</small><strong>{{ number_format($nonDigiposRows->sum('total_pv'), 0, ',', '.') }}</strong></div>
+                            <div><small>TOTAL SA</small><strong>{{ number_format($nonDigiposRows->sum('total_sa'), 0, ',', '.') }}</strong></div>
+                        </div>
+                        <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table" style="min-width:1680px"><thead><tr><th>Waktu Visit</th><th>Outlet</th><th>Owner / Kontak</th><th>Alamat</th><th>SF yang Visit</th><th>SF Pemilik Stok</th><th>TAP</th><th>Checkout</th><th>Total Qty</th><th>PV</th><th>SA</th><th>Rincian Produk</th><th>Status</th></tr></thead><tbody>
+                        @forelse($nonDigiposVisitDetails as $visit)
+                            <tr><td><strong>{{ \Carbon\Carbon::parse($visit['visited_at'])->format('d M Y H:i') }}</strong></td><td><strong>{{ $visit['outlet_name'] }}</strong><small style="display:block;color:#94a3b8">{{ $visit['id_outlet'] }}</small></td><td><strong>{{ $visit['owner_name'] ?: '—' }}</strong><small style="display:block;color:#94a3b8">{{ $visit['phone_number'] ?: '—' }}</small></td><td style="white-space:normal;min-width:240px">{{ $visit['outlet_address'] ?: '—' }}</td><td><span class="visit-code">{{ $visit['idsf'] }}</span><small style="display:block;color:#64748b">{{ $visit['sf_name'] }}</small></td><td>{{ $visit['stock_owner'] }}</td><td>{{ $visit['tap'] }}</td><td>{{ $visit['checkout_at'] ? \Carbon\Carbon::parse($visit['checkout_at'])->format('d M Y H:i') : 'Belum checkout' }}</td><td><span class="metric-number">{{ number_format($visit['total_qty'],0,',','.') }}</span></td><td><span class="metric-number pv">{{ number_format($visit['total_pv'],0,',','.') }}</span></td><td><span class="metric-number sa">{{ number_format($visit['total_sa'],0,',','.') }}</span></td><td style="white-space:normal;min-width:260px">@forelse($visit['products'] as $product)<span class="cluster-chip" style="margin:2px">{{ $product['name'] }} · {{ number_format($product['qty'],0,',','.') }}</span>@empty — @endforelse</td><td><span class="cluster-chip">{{ $visit['gps_status'] }}</span></td></tr>
+                        @empty
+                            <tr><td colspan="13" class="visit-empty"><i class="fas fa-shop-slash"></i><strong>Belum ada visit non-Digipos</strong><span>Tidak ada outlet non-Digipos yang divisit pada tanggal ini.</span></td></tr>
+                        @endforelse
+                        </tbody></table></div></div>
                     </div>
                     <div class="visit-subpanel" data-visit-subpanel="approval" @if($activeVisitTab !== 'approval') hidden @endif>
                         <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1360px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status</th><th>Jarak</th><th>Notes</th><th>Tampak Depan</th><th>Foto Etalase</th><th>Foto Nota Bon</th><th>Aksi</th></tr></thead><tbody>

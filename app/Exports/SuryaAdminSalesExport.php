@@ -16,7 +16,15 @@ class SuryaAdminSalesExport implements FromCollection, ShouldAutoSize, WithHeadi
 
     public function collection(): Collection
     {
-        return $this->rows;
+        return $this->rows->map(function ($row) {
+            $values = is_array($row) ? $row : (array) $row;
+            $note = trim((string) ($values[7] ?? ''));
+            if ($note !== '' && preg_match('/^\d+$/', $note) !== 1) {
+                $values[7] = 'NON ID/PLAYER';
+            }
+
+            return $values;
+        });
     }
 
     public function title(): string

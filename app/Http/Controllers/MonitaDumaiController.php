@@ -902,6 +902,7 @@ class MonitaDumaiController extends Controller
             'competitionPoints' => [],
             'monitoringUpdateDate' => null,
             'visitDetails' => $this->buildVisitDetails($visitDate, $tapScopes),
+            'nonDigiposVisitDetails' => $this->buildNonDigiposVisitDetails($visitDate, $tapScopes),
             'approvalVisits' => $this->buildApprovalVisits($visitDate, $tapScopes),
             'visitDate' => $visitDate,
         ];
@@ -966,6 +967,7 @@ class MonitaDumaiController extends Controller
     {
         $actualRows = DB::table('surya_visits')
             ->whereDate('visited_at', $visitDate)
+            ->where('visit_type', '!=', 'non_digipos')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
             ->orderBy('visited_at')
             ->get(['id', 'visited_at', 'checkout_at', 'idsf', 'idtap', 'id_outlet', 'gps_status', 'checkout_reason', 'photo_front_path']);
@@ -1125,6 +1127,69 @@ class MonitaDumaiController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    private function buildNonDigiposVisitDetails(string $visitDate, ?array $tapScopes = null): array
+    {
+        $visits = DB::table('surya_visits as v')
+            ->leftJoin('idsf as sf', 'sf.idsf', '=', 'v.idsf')
+            ->leftJoin('idsf as owner_sf', 'owner_sf.idsf', '=', 'v.stock_owner_idsf')
+            ->whereDate('v.visited_at', $visitDate)
+            ->where('v.visit_type', 'non_digipos')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
+            ->orderByDesc('v.visited_at')
+            ->get([
+                'v.id', 'v.visited_at', 'v.checkout_at', 'v.id_outlet', 'v.outlet_name', 'v.owner_name',
+                'v.phone_number', 'v.outlet_address', 'v.idtap', 'v.idsf', 'sf.namasf',
+                'v.stock_owner_idsf', 'owner_sf.namasf as stock_owner_name', 'v.gps_status',
+            ]);
+
+        if ($visits->isEmpty()) {
+            return [];
+        }
+
+        $sales = DB::table('mobile_penjualan as m')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            ->whereDate('m.tgl', $visitDate)
+            ->whereIn('m.id_outlet', $visits->pluck('id_outlet')->unique())
+            ->whereIn('m.status', ['pending', 'approved'])
+            ->get(['m.id_outlet', 'm.qty', 'm.iddenom', 'm.status', 'd.denom', 'd.product_group', 'd.group_name'])
+            ->groupBy(fn ($row) => (string) $row->id_outlet);
+
+        return $visits->map(function ($visit) use ($sales) {
+            $items = $sales->get((string) $visit->id_outlet, collect());
+            $saItems = $items->filter(function ($item) {
+                $group = strtoupper(trim((string) ($item->product_group ?: $item->group_name)));
+                return in_array($group, ['SA', 'SP'], true) || str_starts_with(strtoupper((string) $item->iddenom), 'SA_');
+            });
+            $pvItems = $items->reject(function ($item) {
+                $group = strtoupper(trim((string) ($item->product_group ?: $item->group_name)));
+                return in_array($group, ['SA', 'SP'], true) || str_starts_with(strtoupper((string) $item->iddenom), 'SA_');
+            });
+
+            return [
+                'id' => $visit->id,
+                'visited_at' => $visit->visited_at,
+                'checkout_at' => $visit->checkout_at,
+                'id_outlet' => $visit->id_outlet,
+                'outlet_name' => $visit->outlet_name ?: $visit->id_outlet,
+                'owner_name' => $visit->owner_name,
+                'phone_number' => $visit->phone_number,
+                'outlet_address' => $visit->outlet_address,
+                'idsf' => $visit->idsf,
+                'sf_name' => $visit->namasf ?: $visit->idsf,
+                'stock_owner' => $visit->stock_owner_name ?: ($visit->stock_owner_idsf ?: '—'),
+                'tap' => $visit->idtap,
+                'gps_status' => strtoupper(str_replace('_', ' ', (string) $visit->gps_status)),
+                'total_sa' => (int) $saItems->sum('qty'),
+                'total_pv' => (int) $pvItems->sum('qty'),
+                'total_qty' => (int) $items->sum('qty'),
+                'products' => $items->groupBy('iddenom')->map(function ($rows) {
+                    $first = $rows->first();
+                    return ['name' => $first->denom ?: $first->iddenom, 'qty' => (int) $rows->sum('qty')];
+                })->values()->all(),
+            ];
+        })->values()->all();
     }
 
     private function buildApprovalVisits(string $visitDate, ?array $tapScopes = null): array

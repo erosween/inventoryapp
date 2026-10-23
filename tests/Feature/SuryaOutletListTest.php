@@ -16,6 +16,49 @@ class SuryaOutletListTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_detail_visit_separates_non_digipos_and_admin_export_masks_text_notes_only(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-23 20:00:00', 'Asia/Jakarta'));
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin_super belum tersedia.');
+        }
+
+        DB::table('idsf')->insert(['idsf' => 'SF-NDV-TEST', 'namasf' => 'SF Visit Non Digipos', 'idtap' => 'DUMAI']);
+        DB::table('denom')->insert([
+            ['iddenom' => 'NDV-SA', 'denom' => 'SA Non Digipos', 'group_name' => 'SA', 'product_group' => 'SA'],
+            ['iddenom' => 'NDV-PV', 'denom' => 'PV Non Digipos', 'group_name' => 'PV', 'product_group' => 'PV'],
+        ]);
+        DB::table('surya_visits')->insert([
+            'visited_at' => now(), 'id_outlet' => 'NON-DIGIPOS-VISIT01', 'idtap' => 'DUMAI', 'idsf' => 'SF-NDV-TEST',
+            'visit_type' => 'non_digipos', 'stock_owner_idsf' => 'SF-NDV-TEST', 'outlet_name' => 'Outlet ND Visit',
+            'owner_name' => 'Owner ND', 'phone_number' => '081200001', 'outlet_address' => 'Alamat ND',
+            'latitude' => 1.5, 'longitude' => 101.5, 'gps_status' => 'valid', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('mobile_penjualan')->insert([
+            ['tgl' => now()->toDateString(), 'id_outlet' => 'NON-DIGIPOS-VISIT01', 'idtap' => 'DUMAI', 'idsf' => 'SF-NDV-TEST', 'iddenom' => 'NDV-SA', 'qty' => 2, 'status' => 'approved'],
+            ['tgl' => now()->toDateString(), 'id_outlet' => 'NON-DIGIPOS-VISIT01', 'idtap' => 'DUMAI', 'idsf' => 'SF-NDV-TEST', 'iddenom' => 'NDV-PV', 'qty' => 5, 'status' => 'approved'],
+        ]);
+
+        $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->get(route('surya.dashboard', ['panel' => 'visit-detail', 'visit_tab' => 'non-digipos', 'visit_date' => now()->toDateString()]))
+            ->assertOk()->assertSee('Non-Digipos')->assertSee('Outlet ND Visit')->assertSee('SF Visit Non Digipos')
+            ->assertSee('Owner ND')->assertSee('SA Non Digipos')->assertSee('PV Non Digipos');
+        $this->assertStringContainsString('value="non-digipos"', $response->getContent());
+
+        $source = collect([
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'OUT1', 'Produk', 1, 'nama player'],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'OUT2', 'Produk', 1, '1200012345'],
+            ['23/10/2026', 'DUMAI', 'SF1', 'Sales', 'OUT3', 'Produk', 1, ''],
+        ]);
+        $exported = (new \App\Exports\SuryaAdminSalesExport($source))->collection();
+        $this->assertSame('NON ID/PLAYER', $exported[0][7]);
+        $this->assertSame('1200012345', $exported[1][7]);
+        $this->assertSame('', $exported[2][7]);
+        $this->assertSame('nama player', $source[0][7]);
+        Carbon::setTestNow();
+    }
+
     public function test_detail_outlet_has_non_digipos_tab_summary_and_export_sheet(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-23 19:00:00', 'Asia/Jakarta'));
