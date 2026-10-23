@@ -105,12 +105,9 @@ class HomeController extends Controller
         $applyFilter($tapKeluar);
         $tapKeluar = $tapKeluar->pluck('last_keluar', 'idtap');
 
-        $tapList = $this->combinedSalesQuery()
-            ->select('idtap')
-            ->distinct()
-            ->orderBy('idtap');
-        $applyFilter($tapList);
-        $tapList = $tapList->pluck('idtap');
+        // Sumber dan cakupannya sama dengan $tapKeluar, jadi tidak perlu scan UNION
+        // penjualan sekali lagi hanya untuk mengambil daftar TAP.
+        $tapList = $tapKeluar->keys()->sort()->values();
 
         /* ================= KPI ================= */
         $qStokSegel1 = DB::table('stockawaltap')->whereIn('iddenom', ['SEGEL', 'V16', 'V33']);
@@ -209,24 +206,33 @@ class HomeController extends Controller
             'rokan_hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
         ];
 
+        // Satu agregasi menggantikan 5 query per cluster (10 query total).
+        $clusterTapMetrics = DB::table('keluarsf')
+            ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
+            ->selectRaw('idtap,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_partial_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_full_qty', [
+                $momStartThisMonth, $momSelectedDate,
+                $momStartPrevMonth, $momEndPrevMonthPartial,
+                $momStartPrevMonth, $momEndPrevMonthFull,
+                $momStartM2Month, $momEndM2MonthPartial,
+                $momStartM2Month, $momEndM2MonthFull,
+            ])
+            ->groupBy('idtap')
+            ->get()
+            ->keyBy('idtap');
+
         $momCluster = collect();
-
         foreach ($clusterMap as $key => $taps) {
-            $curr = DB::table('keluarsf')->whereIn('idtap', $taps)
-                ->whereBetween('tgl', [$momStartThisMonth, $momSelectedDate])->sum('qty');
-
-            $prevPartial = DB::table('keluarsf')->whereIn('idtap', $taps)
-                ->whereBetween('tgl', [$momStartPrevMonth, $momEndPrevMonthPartial])->sum('qty');
-
-            $prevFull = DB::table('keluarsf')->whereIn('idtap', $taps)
-                ->whereBetween('tgl', [$momStartPrevMonth, $momEndPrevMonthFull])->sum('qty');
-
-            $m2Partial = DB::table('keluarsf')->whereIn('idtap', $taps)
-                ->whereBetween('tgl', [$momStartM2Month, $momEndM2MonthPartial])->sum('qty');
-
-            $m2Full = DB::table('keluarsf')->whereIn('idtap', $taps)
-                ->whereBetween('tgl', [$momStartM2Month, $momEndM2MonthFull])->sum('qty');
-
+            $clusterRows = $clusterTapMetrics->only($taps);
+            $curr = (int) $clusterRows->sum('curr_qty');
+            $prevPartial = (int) $clusterRows->sum('prev_partial_qty');
+            $prevFull = (int) $clusterRows->sum('prev_full_qty');
+            $m2Partial = (int) $clusterRows->sum('m2_partial_qty');
+            $m2Full = (int) $clusterRows->sum('m2_full_qty');
             $momCluster[$key] = (object) [
                 'curr_qty' => $curr,
                 'prev_partial_qty' => $prevPartial,
@@ -363,19 +369,11 @@ class HomeController extends Controller
 
         $momClusterSales = [];
         foreach ($clusterMap as $key => $taps) {
-            $clusterSalesQuery = $this->combinedSalesQuery()
-                ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
-                ->selectRaw('SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
-                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty', [
-                    $momStartThisMonth, $momSelectedDate,
-                    $momStartPrevMonth, $momEndPrevMonthPartial,
-                ])
-                ->whereIn('idtap', $taps);
-            $applyFilter($clusterSalesQuery);
-            $applyProductFilter($clusterSalesQuery, 'combined_sales', $salesProductFilter);
-            $clusterSales = $clusterSalesQuery->first();
-            $momClusterSales[$key] = (int) $clusterSales->prev_qty > 0
-                ? (((int) $clusterSales->curr_qty - (int) $clusterSales->prev_qty) / (int) $clusterSales->prev_qty) * 100
+            $clusterSales = $momTapSales->whereIn('idtap', $taps);
+            $currQty = (int) $clusterSales->sum('curr_qty');
+            $prevQty = (int) $clusterSales->sum('prev_partial_qty');
+            $momClusterSales[$key] = $prevQty > 0
+                ? (($currQty - $prevQty) / $prevQty) * 100
                 : 0;
         }
         $annualCutoff = $request->query('sales_annual_cutoff', 'full');
@@ -537,7 +535,8 @@ class HomeController extends Controller
             ->orderBy('idtap');
         $applyFilter($qMomTapInject);
         $applyProductFilter($qMomTapInject, 'injectvf', $injectProductFilter);
-        $momTapInject = $qMomTapInject->get()
+        $momTapInjectRows = $qMomTapInject->get();
+        $momTapInject = $momTapInjectRows
             ->mapWithKeys(function ($r) {
                 $mom = $r->prev_partial_qty > 0
                     ? (($r->curr_qty - $r->prev_partial_qty) / $r->prev_partial_qty) * 100
@@ -625,26 +624,13 @@ class HomeController extends Controller
         /* ================= NEW: MoM INJECT SUMMARY (CLUSTER & GT) ================= */
         $momClusterInject = [];
         foreach ($clusterMap as $key => $taps) {
-            $currQuery = DB::table('injectvf')->whereIn('idtap', $taps)->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth]);
-            $prevQuery = DB::table('injectvf')->whereIn('idtap', $taps)->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
-            $applyFilter($currQuery);
-            $applyFilter($prevQuery);
-            $applyProductFilter($currQuery, 'injectvf', $injectProductFilter);
-            $applyProductFilter($prevQuery, 'injectvf', $injectProductFilter);
-            $curr = $currQuery->sum('qty');
-            $prev = $prevQuery->sum('qty');
+            $clusterInject = $momTapInjectRows->whereIn('idtap', $taps);
+            $curr = (int) $clusterInject->sum('curr_qty');
+            $prev = (int) $clusterInject->sum('prev_partial_qty');
             $momClusterInject[$key] = $prev > 0 ? (($curr - $prev) / $prev) * 100 : 0;
         }
-
-        $currGTInject = DB::table('injectvf')->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth]);
-        $applyFilter($currGTInject);
-        $applyProductFilter($currGTInject, 'injectvf', $injectProductFilter);
-        $currGTInjectVal = $currGTInject->sum('qty');
-
-        $prevGTInject = DB::table('injectvf')->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
-        $applyFilter($prevGTInject);
-        $applyProductFilter($prevGTInject, 'injectvf', $injectProductFilter);
-        $prevGTInjectVal = $prevGTInject->sum('qty');
+        $currGTInjectVal = (int) $momTapInjectRows->sum('curr_qty');
+        $prevGTInjectVal = (int) $momTapInjectRows->sum('prev_partial_qty');
         $momGTInject = $prevGTInjectVal > 0 ? (($currGTInjectVal - $prevGTInjectVal) / $prevGTInjectVal) * 100 : 0;
 
 
