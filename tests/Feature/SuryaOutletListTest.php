@@ -54,10 +54,10 @@ class SuryaOutletListTest extends TestCase
         ]);
         $export = new \App\Exports\SuryaAdminSalesExport($source);
         $exported = $export->collection();
-        $this->assertSame('NON ID/PLAYER', $exported[0][4]);
+        $this->assertSame('NON ID / PLAYER', $exported[0][4]);
         $this->assertSame('1200012345', $exported[1][4]);
-        $this->assertSame('NON ID/PLAYER', $exported[2][4]);
-        $this->assertSame('NON ID/PLAYER', $exported[3][4]);
+        $this->assertSame('NON-DIGIPOS-01', $exported[2][4]);
+        $this->assertSame('-', $exported[3][4]);
         $this->assertCount(7, $exported[0]);
         $this->assertCount(7, $export->headings());
         $this->assertSame('nama outlet', $source[0][4]);
