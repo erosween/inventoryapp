@@ -2115,6 +2115,7 @@ class MonitaDumaiController extends Controller
                 $super = $metric('ss');
                 $hot = $metric('hot_promo');
                 $comsak = $metric('comsak');
+                $bio = $metric('bio');
                 $digital = $metric('digital');
                 // The uploaded workbook calls this metric `cvm`; the detail
                 // panel presents it as the first CVM row.
@@ -2123,12 +2124,15 @@ class MonitaDumaiController extends Controller
                 $row->fm1_super = (int) ($super->ss_fm1 ?? 0); $row->m1_super = (int) ($super->ss_m1 ?? 0); $row->m_super = (int) ($super->ss_m ?? 0);
                 $row->fm1_hot = (int) ($hot->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($hot->hot_promo_m1 ?? 0); $row->m_hot = (int) ($hot->hot_promo_m ?? 0);
                 $row->fm1_comsak = (int) ($comsak->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($comsak->comsak_m1 ?? 0); $row->m_comsak = (int) ($comsak->comsak_m ?? 0);
+                $row->fm1_bio = (int) ($bio->bio_fm1 ?? 0); $row->m1_bio = (int) ($bio->bio_m1 ?? 0); $row->m_bio = (int) ($bio->bio_m ?? 0);
                 $row->fm1_digital = (int) ($digital->digital_fm1 ?? 0); $row->m1_digital = (int) ($digital->digital_m1 ?? 0); $row->m_digital = (int) ($digital->digital_m ?? 0);
                 $row->mom_digipos = $this->metricMom($row->m_digipos, $row->m1_digipos);
                 $row->mom_super = $this->metricMom($row->m_super, $row->m1_super);
                 $row->mom_hot = $this->metricMom($row->m_hot, $row->m1_hot);
                 $row->mom_comsak = $this->metricMom($row->m_comsak, $row->m1_comsak);
+                $row->mom_bio = $this->metricMom($row->m_bio, $row->m1_bio);
                 $row->tgl_pack = $cvm->source_updated_at ?? $cvm->metric_date ?? null;
+                $row->tgl_bio = $bio->source_updated_at ?? $bio->metric_date ?? null;
                 $sales = $salesByOutlet[(string) $row->id_outlet] ?? null;
                 $row->fm1_stsa = null;
                 $row->m1_stsa = null;

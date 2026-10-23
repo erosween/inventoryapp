@@ -105,9 +105,10 @@ class MobileSalesController extends Controller
                 $makeMetric('CVM', 'cvm'),
                 $makeMetric('Super Seru', 'ss'),
                 $makeMetric('Hot Promo', 'hot_promo'),
-                $makeMetric('Biometrik', 'bio'),
+                $makeMetric('Comsak', 'comsak'),
                 $this->mobilePerformanceMetric('ST SA', (int) ($history->sa_fm1 ?? 0), (int) ($history->sa_m1 ?? 0), $saMtd),
                 $this->mobilePerformanceMetric('ST PV', (int) ($history->pv_fm1 ?? 0), (int) ($history->pv_m1 ?? 0), $pvMtd),
+                $makeMetric('Biometrik', 'bio'),
             ],
         ]);
     }

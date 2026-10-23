@@ -5890,8 +5890,7 @@
                 ['COMSAK', outlet.fm1_comsak, outlet.m1_comsak, outlet.m_comsak, outlet.mom_comsak, outlet.tgl_pack],
                 ['ST SA', outlet.fm1_stsa, outlet.m1_stsa, outlet.m_stsa, outlet.mom_stsa, outlet.tgl_sa],
                 ['ST PV', outlet.fm1_stpv, outlet.m1_stpv, outlet.m_stpv, outlet.mom_stpv, outlet.tgl_pv],
-                ['SO SA', outlet.fm1_sosa, outlet.m1_sosa, outlet.m_sosa, outlet.mom_sosa, outlet.tgl_sa],
-                ['SO PV', outlet.fm1_sopv, outlet.m1_sopv, outlet.m_sopv, outlet.mom_sopv, outlet.tgl_pv]
+                ['BIOMETRIK', outlet.fm1_bio, outlet.m1_bio, outlet.m_bio, outlet.mom_bio, outlet.tgl_bio]
             ];
             const number = value => Number(value || 0).toLocaleString('id-ID');
             const rows = parameters.map(parameter =>

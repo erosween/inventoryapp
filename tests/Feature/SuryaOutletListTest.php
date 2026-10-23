@@ -310,6 +310,9 @@ class SuryaOutletListTest extends TestCase
         $this->assertSame(20, (int) $mapDetailResponse->json('0.m_super'));
         $this->assertSame(30, (int) $mapDetailResponse->json('0.m_comsak'));
         $this->assertSame(40, (int) $mapDetailResponse->json('0.m_hot'));
+        $this->assertSame(48, (int) $mapDetailResponse->json('0.fm1_bio'));
+        $this->assertSame(49, (int) $mapDetailResponse->json('0.m1_bio'));
+        $this->assertSame(50, (int) $mapDetailResponse->json('0.m_bio'));
 
         $exportResponse = $this->actingAs($admin)
             ->withSession(['idtap' => 'SBP_DUMAI'])

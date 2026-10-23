@@ -409,8 +409,9 @@ class MobileSalesFlowTest extends TestCase
             'cvm_fm1' => 10, 'cvm_m1' => 4, 'cvm_m' => 6,
             'ss_fm1' => 8, 'ss_m1' => 3, 'ss_m' => 5,
             'hot_promo_fm1' => 7, 'hot_promo_m1' => 2, 'hot_promo_m' => 1,
+            'comsak_fm1' => 11, 'comsak_m1' => 6, 'comsak_m' => 7,
             'bio_fm1' => 9, 'bio_m1' => 5, 'bio_m' => 5,
-            'uploaded_metrics' => 'cvm,ss,hot_promo,bio',
+            'uploaded_metrics' => 'cvm,ss,hot_promo,comsak,bio',
         ]);
 
         $session = ['mobile_sf_id' => 'SF001', 'mobile_sf_name' => 'Sales Test', 'idtap' => 'TAP001'];
@@ -419,12 +420,16 @@ class MobileSalesFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('metrics.0.label', 'CVM')
             ->assertJsonPath('metrics.0.mtd', 6)
+            ->assertJsonPath('metrics.3.label', 'Comsak')
+            ->assertJsonPath('metrics.3.mtd', 7)
             ->assertJsonPath('metrics.4.label', 'ST SA')
             ->assertJsonPath('metrics.4.fm1', 12)
             ->assertJsonPath('metrics.4.m1', 5)
             ->assertJsonPath('metrics.4.mtd', 5)
             ->assertJsonPath('metrics.5.label', 'ST PV')
-            ->assertJsonPath('metrics.5.mtd', 4);
+            ->assertJsonPath('metrics.5.mtd', 4)
+            ->assertJsonPath('metrics.6.label', 'Biometrik')
+            ->assertJsonPath('metrics.6.mtd', 5);
 
         $this->withSession($session)
             ->getJson(route('mobile.outlet-performance', ['id_outlet' => 'OUTLET-OTHER']))
@@ -2082,7 +2087,7 @@ class MobileSalesFlowTest extends TestCase
             $table->id();
             $table->date('metric_date');
             $table->string('id_outlet');
-            foreach (['cvm', 'ss', 'hot_promo', 'bio'] as $metric) {
+            foreach (['cvm', 'ss', 'hot_promo', 'comsak', 'bio'] as $metric) {
                 $table->integer("{$metric}_fm1")->default(0);
                 $table->integer("{$metric}_m1")->default(0);
                 $table->integer("{$metric}_m")->default(0);
