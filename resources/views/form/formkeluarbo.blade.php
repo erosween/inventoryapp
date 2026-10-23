@@ -39,12 +39,14 @@
                                         {{-- KATEGORI --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-2">
-                                                <label>Kategori Segel</label>
+                                                <label>Kategori Produk</label>
                                                 <select name="iddenom" class="form-control select2" required>
                                                     <option></option>
-                                                    <option value="SEGEL">SEGEL</option>
-                                                    {{-- <option value="V16">SEGEL ROAMAX</option> --}}
-                                                    <option value="V33">BYU</option>
+                                                    @foreach ($packages as $idDenom => $label)
+                                                        <option value="{{ $idDenom }}" @selected(old('iddenom') === $idDenom)>
+                                                            {{ $label }}
+                                                        </option>
+                                                    @endforeach
                                                 </select>
                                             </div>
                                         </div>

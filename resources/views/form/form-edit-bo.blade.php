@@ -71,12 +71,11 @@
                                             <div class="form-group mb-1">
                                                 <label>Denom</label>
                                                 <select name="iddenom" class="form-control select2" required>
-                                                    <option value="1" {{ $edit->iddenom == 1 ? 'selected' : '' }}>5K</option>
-                                                    <option value="2" {{ $edit->iddenom == 2 ? 'selected' : '' }}>10K</option>
-                                                    <option value="3" {{ $edit->iddenom == 3 ? 'selected' : '' }}>20K</option>
-                                                    <option value="4" {{ $edit->iddenom == 4 ? 'selected' : '' }}>25K</option>
-                                                    <option value="5" {{ $edit->iddenom == 5 ? 'selected' : '' }}>50K</option>
-                                                    <option value="6" {{ $edit->iddenom == 6 ? 'selected' : '' }}>100K</option>
+                                                    @foreach ($packages as $idDenom => $label)
+                                                        <option value="{{ $idDenom }}" @selected(old('iddenom', $edit->iddenom) === $idDenom)>
+                                                            {{ $label }}
+                                                        </option>
+                                                    @endforeach
                                                 </select>
                                             </div>
                                         </div>

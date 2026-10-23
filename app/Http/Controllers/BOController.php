@@ -104,7 +104,9 @@ class BOController extends Controller
             ->when($idtap !== 'SBP_DUMAI', fn($q) => $q->where('idtap', $idtap))
             ->get();
 
-        return view('form/formkeluarbo', compact('data','idtap'));
+        $packages = $this->returnablePackages();
+
+        return view('form/formkeluarbo', compact('data', 'idtap', 'packages'));
     }
 
     // get Tap
@@ -139,9 +141,18 @@ public function getTap(Request $request)
     ========================= */
     public function proseskeluarboform(Request $request)
 {
-    $data = $request->only([
-        'pengirim','penerima','qty','iddenom','sn','tambahanket','tgl'
+    $data = $request->validate([
+        'pengirim' => ['required', 'string'],
+        'penerima' => ['required', 'string'],
+        'qty' => ['required', 'integer', 'min:1'],
+        'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
+        'sn' => ['nullable', 'string'],
+        'tambahanket' => ['nullable', 'string'],
+        'tgl' => ['required', 'date'],
     ]);
+    $data = collect($data)->only([
+        'pengirim','penerima','qty','iddenom','sn','tambahanket','tgl'
+    ])->all();
 
     return DB::transaction(function () use ($data) {
 
@@ -179,10 +190,7 @@ public function getTap(Request $request)
             ->where('iddenom', $data['iddenom'])
             ->decrement('stock', $data['qty']);
 
-        DB::table('stockawaltap')
-            ->where('idtap', $data['penerima'])
-            ->where('iddenom', $data['iddenom'])
-            ->increment('stock', $data['qty']);
+        $this->incrementTapStock($data['penerima'], $data['iddenom'], (int) $data['qty']);
 
         return redirect('bo')->with('success', 'Data berhasil ditambahkan');
     });
@@ -203,12 +211,24 @@ public function getTap(Request $request)
             ->when($idtap_session !== 'SBP_DUMAI', fn($q) => $q->where('idtap', $idtap_session))
             ->get();
 
-        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session'));
+        $packages = $this->returnablePackages();
+
+        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages'));
     }
 
     public function update(Request $request, $id)
     {
-        DB::transaction(function () use ($request, $id) {
+        $validated = $request->validate([
+            'pengirim' => ['required', 'string'],
+            'penerima' => ['required', 'string'],
+            'qty' => ['required', 'integer', 'min:1'],
+            'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
+            'sn' => ['nullable', 'string'],
+            'tambahanket' => ['nullable', 'string'],
+            'tgl' => ['required', 'date'],
+        ]);
+
+        DB::transaction(function () use ($validated, $id) {
             $oldData = DB::table('keluar')->where('idkeluar', $id)->lockForUpdate()->first();
             
             // Rollback stok lama
@@ -216,30 +236,30 @@ public function getTap(Request $request)
             DB::table('stockawaltap')->where('idtap', $oldData->penerima)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
 
             // Terapkan stok baru
-            $stokBo = DB::table('stockawalsf')->where('idsf', $request->pengirim)->where('iddenom', $request->iddenom)->lockForUpdate()->value('stock');
+            $stokBo = DB::table('stockawalsf')->where('idsf', $validated['pengirim'])->where('iddenom', $validated['iddenom'])->lockForUpdate()->value('stock');
 
-            if ($stokBo < $request->qty) {
+            if ($stokBo === null || $stokBo < $validated['qty']) {
                 throw new \Exception('Stok BO tidak mencukupi untuk update ini');
             }
 
             // Kurangi BO, Tambah TAP
-            DB::table('stockawalsf')->where('idsf', $request->pengirim)->where('iddenom', $request->iddenom)->decrement('stock', $request->qty);
-            DB::table('stockawaltap')->where('idtap', $request->penerima)->where('iddenom', $request->iddenom)->increment('stock', $request->qty);
+            DB::table('stockawalsf')->where('idsf', $validated['pengirim'])->where('iddenom', $validated['iddenom'])->decrement('stock', $validated['qty']);
+            $this->incrementTapStock($validated['penerima'], $validated['iddenom'], (int) $validated['qty']);
 
             // Update record
             DB::table('keluar')->where('idkeluar', $id)->update([
-                'iddenom' => $request->iddenom,
-                'pengirim' => $request->pengirim,
-                'penerima' => $request->penerima,
-                'qty' => $request->qty,
-                'tgl' => $request->tgl,
-                'sn' => $request->sn,
-                'tambahanket' => $request->tambahanket,
-                'idtap' => $request->penerima
+                'iddenom' => $validated['iddenom'],
+                'pengirim' => $validated['pengirim'],
+                'penerima' => $validated['penerima'],
+                'qty' => $validated['qty'],
+                'tgl' => $validated['tgl'],
+                'sn' => $validated['sn'] ?? null,
+                'tambahanket' => $validated['tambahanket'] ?? null,
+                'idtap' => $validated['penerima']
             ]);
 
             // 📝 LOG
-            AuditLogger::log('UPDATE', 'BO / Retur', $id, (array)$oldData, $request->all());
+            AuditLogger::log('UPDATE', 'BO / Retur', $id, (array)$oldData, $validated);
         });
 
         return redirect('bo')->with('success', 'Data berhasil diperbarui');
@@ -337,5 +357,31 @@ public function getTap(Request $request)
         "RETUR_BO_{$start}_sd_{$end}.xlsx"
     );
 }
+
+    private function returnablePackages(): array
+    {
+        return [
+            'SEGEL' => 'PV SEGEL',
+            'V33' => 'PV BYU SEGEL',
+            'SP6' => 'PERDANA SEGEL SIMPATI',
+            'SP7' => 'PERDANA SEGEL BYU',
+        ];
+    }
+
+    private function incrementTapStock(string $idtap, string $iddenom, int $qty): void
+    {
+        $updated = DB::table('stockawaltap')
+            ->where('idtap', $idtap)
+            ->where('iddenom', $iddenom)
+            ->increment('stock', $qty);
+
+        if ($updated === 0) {
+            DB::table('stockawaltap')->insert([
+                'idtap' => $idtap,
+                'iddenom' => $iddenom,
+                'stock' => $qty,
+            ]);
+        }
+    }
 
 }
