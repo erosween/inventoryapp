@@ -20,6 +20,7 @@ class FormInjectbyuController extends Controller
                     ->select('iddenom', 'denom')
                     ->where('kategori_inject', $config['destination_category'])
                     ->where($this->productGroupFilter($config['product_group']))
+                    ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
                     ->where('iddenom', '!=', $config['source_id'])
                     ->get();
 
@@ -85,6 +86,7 @@ class FormInjectbyuController extends Controller
         $allowedDenoms = DB::table('denom')
             ->where('kategori_inject', $config['destination_category'])
             ->where($this->productGroupFilter($config['product_group']))
+            ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
             ->where('iddenom', '!=', $config['source_id'])
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)

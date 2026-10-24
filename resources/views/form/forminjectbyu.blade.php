@@ -7,7 +7,7 @@
 
                 {{-- Header --}}
                 <div class="page-header">
-                    <h4 class="page-title">Input Inject Voucher Fisik Byu</h4>
+                        <h4 class="page-title">Input Inject {{ $config['label'] }}</h4>
                     <div class="text-muted">
                         Inject VF akan mengurangi stok segel TAP
                     </div>
@@ -18,7 +18,7 @@
 
                         <div class="card shadow-sm">
                             <div class="card-header">
-                                <strong>Form Inject VF</strong>
+                                <strong>Form Inject {{ $config['label'] }}</strong>
                                 <div class="text-muted small">
                                     Pastikan qty sesuai stok segel TAP
                                 </div>

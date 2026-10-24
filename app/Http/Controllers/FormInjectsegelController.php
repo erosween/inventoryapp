@@ -21,6 +21,8 @@ class FormInjectsegelController extends Controller
                     ->select('iddenom', 'denom')
                     ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
                     ->where('kategori_inject', $config['destination_category'])
+                    ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
+                    ->when($config['destination_name_exclude'], fn ($q, $exclude) => $q->where('denom', 'not like', $exclude))
                     ->where('iddenom', '!=', $config['source_id'])
                     ->get();
 
@@ -81,6 +83,8 @@ class FormInjectsegelController extends Controller
         $allowedDenoms = DB::table('denom')
             ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
             ->where('kategori_inject', $config['destination_category'])
+            ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
+            ->when($config['destination_name_exclude'], fn ($q, $exclude) => $q->where('denom', 'not like', $exclude))
             ->where('iddenom', '!=', $config['source_id'])
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)
