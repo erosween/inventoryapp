@@ -74,12 +74,15 @@ class DenomController extends Controller
 
         DB::beginTransaction();
         try {
+            $productGroup = $this->productGroupForCategory($request->kategori_inject);
+
             // 1. Simpan ke tabel master denom
             DB::table('denom')->insert([
                 'iddenom' => $request->iddenom,
                 'denom' => $request->denom,
                 'group_name' => $request->group_name,
                 'kategori_inject' => $request->kategori_inject,
+                'product_group' => $productGroup,
                 'harga_jual' => $request->harga_jual ?? 0
             ]);
 
@@ -128,10 +131,13 @@ class DenomController extends Controller
 
         DB::beginTransaction();
         try {
+            $productGroup = $this->productGroupForCategory($request->kategori_inject);
+
             DB::table('denom')->where('iddenom', $iddenom)->update([
                 'denom' => $request->denom,
                 'group_name' => $request->group_name,
                 'kategori_inject' => $request->kategori_inject,
+                'product_group' => $productGroup,
                 'harga_jual' => $request->harga_jual ?? 0
             ]);
 
@@ -153,5 +159,15 @@ class DenomController extends Controller
     {
         $exists = DB::table('denom')->where('iddenom', $id)->exists();
         return response()->json(['exists' => $exists]);
+    }
+
+    private function productGroupForCategory(?string $category): string
+    {
+        return match (strtoupper(trim((string) $category))) {
+            'SA' => 'SA',
+            'BYU' => 'PV',
+            'SEGEL' => 'PV',
+            default => 'PV',
+        };
     }
 }

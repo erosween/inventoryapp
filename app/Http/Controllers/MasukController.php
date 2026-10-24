@@ -66,7 +66,10 @@ class MasukController extends Controller
             ->select('iddenom', DB::raw('MAX(denom) as denom'))
             ->groupBy('iddenom');
 
-        $query = DB::table('keluar as k')
+        $transferLookup = $this->incomingTransferLookup($start, $end, $kategoribo);
+
+        $query = DB::query()
+            ->fromSub($transferLookup, 'k')
             ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'k.iddenom')
             ->select(
                 'k.idkeluar',
@@ -130,7 +133,10 @@ class MasukController extends Controller
             ->select('iddenom', DB::raw('MAX(denom) as denom'))
             ->groupBy('iddenom');
 
-        $query = DB::table('keluar as k')
+        $transferLookup = $this->incomingTransferLookup($start, $end, $kategoribo);
+
+        $query = DB::query()
+            ->fromSub($transferLookup, 'k')
             ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'k.iddenom')
             ->select('d.denom', DB::raw('SUM(k.qty) as qty'))
             ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
@@ -270,7 +276,10 @@ class MasukController extends Controller
             ->select('iddenom', DB::raw('MAX(denom) as denom'))
             ->groupBy('iddenom');
 
-        $query = DB::table('keluar as k')
+        $transferLookup = $this->incomingTransferLookup($start, $end, $kategoribo);
+
+        $query = DB::query()
+            ->fromSub($transferLookup, 'k')
             ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'k.iddenom')
             ->select(
                 'k.tgl',
@@ -289,5 +298,20 @@ class MasukController extends Controller
         $filename = 'STOK_MASUK_' . now()->format('Ymd_His') . '.xlsx';
 
         return Excel::download(new MasukExport($query->get()), $filename);
+    }
+
+    /**
+     * Collapse duplicate transfer rows before they reach the inbox, summary,
+     * or export. The source table has no reliable idempotency key, so the
+     * transfer payload is used as the business key and the oldest row remains
+     * available for approval.
+     */
+    private function incomingTransferLookup(string $start, string $end, array $kategoribo)
+    {
+        return DB::table('keluar')
+            ->selectRaw('MIN(idkeluar) as idkeluar, tgl, idtap, penerima, pengirim, iddenom, qty, sn, status')
+            ->whereBetween('tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
+            ->whereNotIn('pengirim', $kategoribo)
+            ->groupBy('tgl', 'idtap', 'penerima', 'pengirim', 'iddenom', 'qty', 'sn', 'status');
     }
 }
