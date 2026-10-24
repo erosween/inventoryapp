@@ -2011,6 +2011,7 @@
         .branding-chip.tsel { background:#fff1f2; color:#be123c; }
         .branding-chip.io { background:#fff7ed; color:#c2410c; }
         .branding-chip.xl { background:#ecfdf5; color:#047857; }
+        .branding-chip.none { background:#f1f5f9; color:#475569; }
         @media (max-width: 680px) { .branding-kpi-grid { grid-template-columns:1fr; } .branding-insight-head { align-items:flex-start; flex-direction:column; } .branding-insight-total { white-space:normal; } }
         .map-mobile-tabs { display:none; }
         @media (max-width: 680px) {
@@ -5685,18 +5686,19 @@
             const total = outlets.length;
             const visited = outlets.filter(outlet => outlet.has_front_photo).length;
             const pct = (value, base) => base ? `${((value / base) * 100).toFixed(1)}%` : '0.0%';
-            const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart'];
+            const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'];
             const brandingLogos = {
                 'Tsel': ['/static/images/operators/telkomsel.svg'],
                 'Indosat-Tri': ['/static/images/operators/indosat.svg', '/static/images/operators/tri.svg'],
-                'XL-Smart': ['/static/images/operators/xl.svg', '/static/images/operators/smartfren.svg']
+                'XL-Smart': ['/static/images/operators/xl.svg', '/static/images/operators/smartfren.svg'],
+                'No Branding': []
             };
             const tapCards = taps.map(tap => {
                 const rows = byTap[tap];
                 const tapVisited = rows.filter(outlet => outlet.has_front_photo).length;
                 const brandingRows = brandingNames.map(name => {
                     const qty = rows.filter(outlet => outlet.branding_dominance === name).length;
-                    const chipClass = name === 'Tsel' ? 'tsel' : (name === 'Indosat-Tri' ? 'io' : 'xl');
+                    const chipClass = name === 'Tsel' ? 'tsel' : (name === 'Indosat-Tri' ? 'io' : (name === 'XL-Smart' ? 'xl' : 'none'));
                     const logos = brandingLogos[name].map(src => `<img src="${src}" alt="" loading="lazy">`).join('');
                     return `<span class="branding-chip ${chipClass}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, tapVisited)}</span>`;
                 }).join('');

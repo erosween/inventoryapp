@@ -207,8 +207,8 @@ class SuryaVisitController extends Controller
             'accuracy' => ['nullable', 'numeric'],
             'photo_front' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
             'photo_inside' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
-            'branding_dominance' => ['required', 'in:Tsel,Indosat-Tri,XL-Smart'],
-            'branding_quality' => ['required', 'in:Bagus,Kurang Bagus,Tidak Bagus'],
+            'branding_dominance' => ['required', 'in:Tsel,Indosat-Tri,XL-Smart,No Branding'],
+            'branding_quality' => ['required_unless:branding_dominance,No Branding', 'nullable', 'in:Bagus,Kurang Bagus,Tidak Bagus'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -301,7 +301,7 @@ class SuryaVisitController extends Controller
                 'photo_front_path' => $frontPath,
                 'photo_inside_path' => $insidePath,
                 'branding_dominance' => $request->branding_dominance,
-                'branding_quality' => $request->branding_quality,
+                'branding_quality' => $request->branding_dominance === 'No Branding' ? null : $request->branding_quality,
                 'gps_status' => $gpsStatus,
                 'notes' => $request->notes,
                 'checkout_at' => null,

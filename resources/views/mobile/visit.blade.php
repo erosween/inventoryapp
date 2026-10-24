@@ -83,8 +83,8 @@
                 <div class="branding-survey-title"><i class="fas fa-tags"></i><span>Survey Branding <small>Wajib diisi</small></span></div>
                 <div class="branding-question">
                     <div class="branding-label">Dominasi Branding</div>
-                    <div class="branding-options">
-                        @foreach(['Tsel', 'Indosat-Tri', 'XL-Smart'] as $branding)
+                    <div class="branding-options branding-dominance-options">
+                        @foreach(['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'] as $branding)
                             <label class="branding-option">
                                 <input type="radio" name="branding_dominance" value="{{ $branding }}" @checked(old('branding_dominance') === $branding) required>
                                 <span>{{ $branding }}</span>
@@ -92,7 +92,7 @@
                         @endforeach
                     </div>
                 </div>
-                <div class="branding-question">
+                <div class="branding-question branding-quality-question" id="branding-quality-question">
                     <div class="branding-label">Kelayakan Branding</div>
                     <div class="branding-options">
                         @foreach(['Bagus', 'Kurang Bagus', 'Tidak Bagus'] as $quality)
@@ -156,6 +156,8 @@
     .branding-option span { min-height: 43px; display: flex; align-items: center; justify-content: center; padding: 7px 5px; border: 1px solid #e2e8f0; border-radius: 12px; color: #64748b; background: #fff; font-size: .66rem; font-weight: 800; line-height: 1.15; text-align: center; transition: .16s ease; }
     .branding-option input:checked + span { border-color: #ec2028; color: #991b1b; background: #fff1f2; box-shadow: 0 0 0 2px rgba(236,32,40,.12); }
     .branding-option input:focus-visible + span { outline: 3px solid rgba(59,130,246,.25); outline-offset: 2px; }
+    .branding-dominance-options .branding-option:last-child span { color:#64748b; background:#f1f5f9; }
+    .branding-dominance-options .branding-option:last-child input:checked + span { border-color:#64748b; color:#334155; background:#e2e8f0; box-shadow:0 0 0 2px rgba(100,116,139,.14); }
     .outlet-picker { position: relative; z-index: 20; }
     .outlet-picker-button { width: 100%; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; color: #334155; padding: 13px 14px; font: inherit; font-size: .78rem; font-weight: 800; text-align: left; }
     .outlet-picker-button.is-selected { border-color: #fecaca; color: #991b1b; background: #fffafa; }
@@ -239,6 +241,25 @@
 @endpush
 
 @push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const qualityQuestion = document.getElementById('branding-quality-question');
+        const qualityInputs = qualityQuestion?.querySelectorAll('input[name="branding_quality"]') || [];
+        const dominanceInputs = document.querySelectorAll('input[name="branding_dominance"]');
+        const syncBrandingQuality = () => {
+            const noBranding = document.querySelector('input[name="branding_dominance"]:checked')?.value === 'No Branding';
+            if (!qualityQuestion) return;
+            qualityQuestion.classList.toggle('d-none', noBranding);
+            qualityInputs.forEach(input => {
+                input.required = !noBranding;
+                if (noBranding) input.checked = false;
+            });
+        };
+        dominanceInputs.forEach(input => input.addEventListener('change', syncBrandingQuality));
+        syncBrandingQuality();
+    });
+</script>
+@endpush
 <script>
 function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan dengan koordinat outlet.') {
     return new Promise(function(resolve, reject) {
