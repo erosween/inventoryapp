@@ -13,6 +13,7 @@ final class InjectProductConfig
                 'destination_category' => 'BYU',
                 'product_group' => 'PV',
                 'destination_name_prefix' => null,
+                'destination_name_exclude' => null,
             ],
             'SP6' => [
                 'label' => 'PERDANA SEGEL SIMPATI',
@@ -28,6 +29,7 @@ final class InjectProductConfig
                 'destination_category' => 'SA',
                 'product_group' => null,
                 'destination_name_prefix' => 'SA BYU%',
+                'destination_name_exclude' => null,
             ],
             default => [
                 'label' => 'PV SEGEL',
@@ -35,6 +37,7 @@ final class InjectProductConfig
                 'destination_category' => 'SEGEL',
                 'product_group' => null,
                 'destination_name_prefix' => null,
+                'destination_name_exclude' => null,
             ],
         };
     }
