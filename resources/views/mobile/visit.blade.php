@@ -259,7 +259,6 @@
         syncBrandingQuality();
     });
 </script>
-@endpush
 <script>
 function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan dengan koordinat outlet.') {
     return new Promise(function(resolve, reject) {
