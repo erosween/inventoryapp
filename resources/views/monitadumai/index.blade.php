@@ -1984,17 +1984,41 @@
             font-weight: 800;
         }
 
-        .branding-insights { display: grid; gap: 10px; margin: 0 8px 14px; }
-        .branding-insight-loading { padding: 14px; border: 1px solid #e5e7eb; border-radius: 14px; color: #64748b; background: #fff; font-size: 12px; }
-        .branding-insight-card { padding: 14px; border: 1px solid #e5e7eb; border-radius: 14px; background: #fff; box-shadow: 0 5px 18px rgba(15,23,42,.05); }
-        .branding-insight-card h4 { margin: 0 0 10px; color: #202b3c; font-size: 13px; font-weight: 900; }
-        .branding-insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
-        .branding-insight-tap { padding: 10px; border-radius: 11px; background: #f8fafc; }
-        .branding-insight-tap strong { display: block; margin-bottom: 7px; color: #334155; font-size: 11px; }
+        .branding-insights { margin: 0 8px 16px; }
+        .branding-insight-loading { padding: 18px; border: 1px solid #e5e7eb; border-radius: 18px; color: #64748b; background: #fff; font-size: 12px; }
+        .branding-insight-card { padding: 18px; border: 1px solid rgba(226,232,240,.9); border-radius: 20px; background: linear-gradient(145deg,#fff 0%,#fbfdff 100%); box-shadow: 0 12px 30px rgba(15,23,42,.06); }
+        .branding-insight-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+        .branding-insight-card h4 { margin: 0; color: #172033; font-size: 15px; font-weight: 900; }
+        .branding-insight-card h4 i { color:#d10000; }
+        .branding-insight-subtitle { margin-top:4px; color:#94a3b8; font-size:10px; font-weight:700; }
+        .branding-insight-total { color:#d10000; font-size:11px; font-weight:900; white-space:nowrap; }
+        .branding-kpi-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin-bottom:14px; }
+        .branding-kpi { padding:12px 13px; border:1px solid #edf1f5; border-radius:15px; background:#fff; }
+        .branding-kpi small { display:block; color:#94a3b8; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+        .branding-kpi strong { display:block; margin-top:4px; color:#172033; font-size:18px; font-weight:950; }
+        .branding-kpi.visit strong { color:#159669; }
+        .branding-kpi.pending strong { color:#d97706; }
+        .branding-insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .branding-insight-tap { padding: 13px; border:1px solid #edf1f5; border-radius:16px; background: #f8fafc; }
+        .branding-insight-tap strong { display: block; margin-bottom: 8px; color: #334155; font-size: 12px; font-weight:900; }
         .branding-insight-line { display: flex; justify-content: space-between; gap: 8px; color: #64748b; font-size: 10px; line-height: 1.8; }
         .branding-insight-line b { color: #1e293b; }
-        .branding-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
-        .branding-chip { padding: 4px 7px; border-radius: 999px; color: #475569; background: #eef2ff; font-size: 10px; font-weight: 800; }
+        .branding-chip-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top:8px; }
+        .branding-chip { display:inline-flex; align-items:center; gap:5px; padding: 5px 7px; border-radius: 8px; color: #475569; background: #eef2ff; font-size: 9px; font-weight: 850; }
+        .branding-chip img { width:18px; height:18px; padding:2px; border-radius:5px; background:#fff; object-fit:contain; }
+        .branding-logos { display:inline-flex; gap:2px; }
+        .branding-logos img { width:17px; height:17px; }
+        .branding-chip.tsel { background:#fff1f2; color:#be123c; }
+        .branding-chip.io { background:#fff7ed; color:#c2410c; }
+        .branding-chip.xl { background:#ecfdf5; color:#047857; }
+        @media (max-width: 680px) { .branding-kpi-grid { grid-template-columns:1fr; } .branding-insight-head { align-items:flex-start; flex-direction:column; } .branding-insight-total { white-space:normal; } }
+        .map-mobile-tabs { display:none; }
+        @media (max-width: 680px) {
+            .map-mobile-tabs { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:0 8px 12px; padding:4px; border:1px solid #e2e8f0; border-radius:13px; background:#f8fafc; }
+            .map-mobile-tab { border:0; border-radius:10px; padding:10px 8px; color:#64748b; background:transparent; font-size:11px; font-weight:900; }
+            .map-mobile-tab.active { color:#fff; background:#d10000; box-shadow:0 5px 12px rgba(209,0,0,.2); }
+            .map-mobile-panel.is-hidden { display:none !important; }
+        }
 
         .map-fullscreen-button,
         .map-locate-button {
@@ -3531,10 +3555,14 @@
             <h3><i class="fas fa-map-marked-alt"></i> Semua Outlet</h3>
             <span class="map-count" id="map-outlet-count">Memuat...</span>
         </div>
-        <div id="branding-insights" class="branding-insights" aria-live="polite">
+        <div class="map-mobile-tabs" role="tablist" aria-label="Peta dan insight outlet">
+            <button type="button" class="map-mobile-tab active" data-map-panel="map" role="tab"><i class="fas fa-map me-1"></i>Peta</button>
+            <button type="button" class="map-mobile-tab" data-map-panel="insight" role="tab"><i class="fas fa-chart-pie me-1"></i>Insight</button>
+        </div>
+        <div id="branding-insights" class="branding-insights map-mobile-panel is-hidden" aria-live="polite">
             <div class="branding-insight-loading">Memuat insight visit & branding...</div>
         </div>
-        <div id="map"></div>
+        <div id="map" class="map-mobile-panel"></div>
         <div id="empty-state" class="empty-state" style="display:none;"></div>
             </div>
 
@@ -5658,16 +5686,35 @@
             const visited = outlets.filter(outlet => outlet.has_front_photo).length;
             const pct = (value, base) => base ? `${((value / base) * 100).toFixed(1)}%` : '0.0%';
             const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart'];
+            const brandingLogos = {
+                'Tsel': ['/static/images/operators/telkomsel.svg'],
+                'Indosat-Tri': ['/static/images/operators/indosat.svg', '/static/images/operators/tri.svg'],
+                'XL-Smart': ['/static/images/operators/xl.svg', '/static/images/operators/smartfren.svg']
+            };
             const tapCards = taps.map(tap => {
                 const rows = byTap[tap];
                 const tapVisited = rows.filter(outlet => outlet.has_front_photo).length;
                 const brandingRows = brandingNames.map(name => {
                     const qty = rows.filter(outlet => outlet.branding_dominance === name).length;
-                    return `<span class="branding-chip">${name}: ${qty} (${pct(qty, tapVisited)})</span>`;
+                    const chipClass = name === 'Tsel' ? 'tsel' : (name === 'Indosat-Tri' ? 'io' : 'xl');
+                    const logos = brandingLogos[name].map(src => `<img src="${src}" alt="" loading="lazy">`).join('');
+                    return `<span class="branding-chip ${chipClass}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, tapVisited)}</span>`;
                 }).join('');
-                return `<div class="branding-insight-tap"><strong>${tap} · ${rows.length} outlet</strong><div class="branding-insight-line"><span>Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></div><div class="branding-insight-line"><span>Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></div><div class="branding-chip-row">${brandingRows}</div></div>`;
+                return `<div class="branding-insight-tap"><strong>${tap} <span style="color:#94a3b8;font-weight:700">· ${rows.length} outlet</span></strong><div class="branding-insight-line"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></div><div class="branding-insight-line"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></div><div class="branding-chip-row">${brandingRows}</div></div>`;
             }).join('');
-            container.innerHTML = `<div class="branding-insight-card"><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-line"><span>Total outlet</span><b>${total.toLocaleString()} · Sudah visit ${visited.toLocaleString()} (${pct(visited, total)}) · Belum visit ${(total - visited).toLocaleString()} (${pct(total - visited, total)})</b></div><div class="branding-insight-grid mt-2">${tapCards}</div></div>`;
+            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">Ringkasan coverage outlet dan branding terbaru per TAP</div></div><div class="branding-insight-total">${total.toLocaleString()} outlet terdata</div></div><div class="branding-kpi-grid"><div class="branding-kpi"><small>Total outlet</small><strong>${total.toLocaleString()}</strong></div><div class="branding-kpi visit"><small>Sudah visit</small><strong>${visited.toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></div><div class="branding-kpi pending"><small>Belum visit</small><strong>${(total - visited).toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(total - visited, total)})</small></strong></div></div><div class="branding-insight-grid">${tapCards}</div></div>`;
+        }
+
+        function setupMapMobileTabs() {
+            document.querySelectorAll('[data-map-panel]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const panel = button.dataset.mapPanel;
+                    document.querySelectorAll('[data-map-panel]').forEach(tab => tab.classList.toggle('active', tab === button));
+                    document.getElementById('branding-insights')?.classList.toggle('is-hidden', panel !== 'insight');
+                    document.getElementById('map')?.classList.toggle('is-hidden', panel !== 'map');
+                    if (panel === 'map' && map) setTimeout(() => map.invalidateSize(), 80);
+                });
+            });
         }
 
         async function loadAllOutlets() {
@@ -5678,6 +5725,7 @@
                 if (!response.ok) throw new Error('Gagal memuat outlet');
 
                 const outlets = await response.json();
+                setupMapMobileTabs();
                 initMap(outlets);
                 renderBrandingInsights(outlets);
                 const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
