@@ -10,20 +10,25 @@ class InboxController extends Controller
     public function index()
     {
         $idtap = session('idtap');
-        
-        if($idtap == 'SBP_DUMAI'){
-            $data = DB::table('keluar as k')
-                    ->join('denom as d','k.iddenom', '=','d.iddenom')
-                    ->where('k.status',1)
-                    ->get();
-        }else{
-            $data = DB::table('keluar as k')
-                    ->join('denom as d','k.iddenom', '=','d.iddenom')
-                    ->where('k.status',1)
-                    ->where('k.penerima', $idtap)
-                    ->get();  
 
-        }
+        $denomLookup = DB::table('denom')
+            ->select('iddenom', DB::raw('MAX(denom) as denom'))
+            ->groupBy('iddenom');
+
+        // Inbox previously read raw keluar rows, so a duplicated transfer
+        // produced duplicated inbox entries. Keep the oldest ID for approval.
+        $transferLookup = DB::table('keluar')
+            ->selectRaw('MIN(idkeluar) as idkeluar, tgl, idtap, penerima, pengirim, iddenom, qty, sn, status')
+            ->where('status', 1)
+            ->when($idtap !== 'SBP_DUMAI', fn ($query) => $query->where('penerima', $idtap))
+            ->groupBy('tgl', 'idtap', 'penerima', 'pengirim', 'iddenom', 'qty', 'sn', 'status');
+
+        $data = DB::query()
+            ->fromSub($transferLookup, 'k')
+            ->joinSub($denomLookup, 'd', 'k.iddenom', '=', 'd.iddenom')
+            ->select('k.*', 'd.denom')
+            ->get();
+
         return view('inbox', compact('data','idtap'));
     }
 
