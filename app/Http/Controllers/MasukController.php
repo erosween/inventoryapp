@@ -62,8 +62,12 @@ class MasukController extends Controller
             'BO BAGAN SIAPI-API'
         ];
 
+        $denomLookup = DB::table('denom')
+            ->select('iddenom', DB::raw('MAX(denom) as denom'))
+            ->groupBy('iddenom');
+
         $query = DB::table('keluar as k')
-            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'k.iddenom')
             ->select(
                 'k.idkeluar',
                 'k.tgl',
@@ -122,8 +126,12 @@ class MasukController extends Controller
             'BO BAGAN SIAPI-API'
         ];
 
+        $denomLookup = DB::table('denom')
+            ->select('iddenom', DB::raw('MAX(denom) as denom'))
+            ->groupBy('iddenom');
+
         $query = DB::table('keluar as k')
-            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'k.iddenom')
             ->select('d.denom', DB::raw('SUM(k.qty) as qty'))
             ->whereBetween('k.tgl', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->whereNotIn('k.pengirim', $kategoribo)
@@ -159,8 +167,11 @@ class MasukController extends Controller
                 $transferKey = IntertapTransferKey::make(
                     $data->tgl, $data->pengirim, $data->penerima, $denomName, $data->qty, $data->sn
                 );
+                $denomLookup = DB::table('denom')
+                    ->select('iddenom', DB::raw('MAX(denom) as denom'))
+                    ->groupBy('iddenom');
                 $alreadyApproved = DB::table('keluar as duplicate')
-                    ->join('denom as d', 'd.iddenom', '=', 'duplicate.iddenom')
+                    ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'duplicate.iddenom')
                     ->where('duplicate.idkeluar', '<>', $data->idkeluar)
                     ->where('duplicate.status', 0)
                     ->where('duplicate.tgl', $data->tgl)
@@ -255,8 +266,12 @@ class MasukController extends Controller
             'BO BAGAN SIAPI-API'
         ];
 
+        $denomLookup = DB::table('denom')
+            ->select('iddenom', DB::raw('MAX(denom) as denom'))
+            ->groupBy('iddenom');
+
         $query = DB::table('keluar as k')
-            ->join('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            ->joinSub($denomLookup, 'd', 'd.iddenom', '=', 'k.iddenom')
             ->select(
                 'k.tgl',
                 'k.sn',
