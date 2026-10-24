@@ -353,11 +353,8 @@
                                 <input type="hidden" name="sales_period" id="monthly-sales-period" value="{{ $salesPeriod }}">
                                 <input type="hidden" name="inject_product" value="{{ $injectProductFilter }}">
                                 <select name="sales_product" id="monthly-sales-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk penjualan">
-                                    <option value="all" {{ $salesProductFilter === 'all' ? 'selected' : '' }}>ALL</option>
-                                    <option value="reg" {{ $salesProductFilter === 'reg' ? 'selected' : '' }}>REGULER</option>
-                                    <option value="byu" {{ $salesProductFilter === 'byu' ? 'selected' : '' }}>By.U</option>
-                                    <option value="sa_simpati" {{ $salesProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option>
-                                    <option value="sa_byu" {{ $salesProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option>
+                                    <optgroup label="PV"><option value="pv_all" {{ $salesProductFilter === 'pv_all' ? 'selected' : '' }}>ALL PV</option><option value="pv_reg" {{ $salesProductFilter === 'pv_reg' ? 'selected' : '' }}>PV Reguler</option><option value="pv_byu" {{ $salesProductFilter === 'pv_byu' ? 'selected' : '' }}>PV By.U</option></optgroup>
+                                    <optgroup label="SA"><option value="sa_all" {{ $salesProductFilter === 'sa_all' ? 'selected' : '' }}>ALL SA</option><option value="sa_simpati" {{ $salesProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option><option value="sa_byu" {{ $salesProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option></optgroup>
                                 </select>
                                 <div class="monthly-sales-view-toggle" role="group" aria-label="Pilih periode penjualan">
                                     <button type="button" class="btn btn-sm monthly-sales-view-btn sales-period-btn {{ $salesPeriod === 'monthly' ? 'active' : '' }}" data-period="monthly">Bulanan</button>
@@ -1036,11 +1033,8 @@
                                 <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
                                 <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
                                 <select name="inject_product" id="monthly-inject-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk inject">
-                                    <option value="all" {{ $injectProductFilter === 'all' ? 'selected' : '' }}>ALL</option>
-                                    <option value="reg" {{ $injectProductFilter === 'reg' ? 'selected' : '' }}>REGULER</option>
-                                    <option value="byu" {{ $injectProductFilter === 'byu' ? 'selected' : '' }}>By.U</option>
-                                    <option value="sa_simpati" {{ $injectProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option>
-                                    <option value="sa_byu" {{ $injectProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option>
+                                    <optgroup label="PV"><option value="pv_all" {{ $injectProductFilter === 'pv_all' ? 'selected' : '' }}>ALL PV</option><option value="pv_reg" {{ $injectProductFilter === 'pv_reg' ? 'selected' : '' }}>PV Reguler</option><option value="pv_byu" {{ $injectProductFilter === 'pv_byu' ? 'selected' : '' }}>PV By.U</option></optgroup>
+                                    <optgroup label="SA"><option value="sa_all" {{ $injectProductFilter === 'sa_all' ? 'selected' : '' }}>ALL SA</option><option value="sa_simpati" {{ $injectProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option><option value="sa_byu" {{ $injectProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option></optgroup>
                                 </select>
                             </form>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-copy-btn" title="Copy heatmap inject sebagai gambar" style="gap:6px;">

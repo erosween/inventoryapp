@@ -327,9 +327,9 @@ class HomeController extends Controller
         }
         $salesView = $request->query('sales_view') === 'chart' ? 'chart' : 'table';
         $salesPeriod = $request->query('sales_period') === 'annual' ? 'annual' : 'monthly';
-        $productFilterOptions = ['all', 'reg', 'byu', 'sa_simpati', 'sa_byu'];
-        $salesProductFilter = strtolower((string) $request->query('sales_product', 'all'));
-        $injectProductFilter = strtolower((string) $request->query('inject_product', 'all'));
+        $productFilterOptions = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
+        $salesProductFilter = strtolower((string) $request->query('sales_product', 'pv_all'));
+        $injectProductFilter = strtolower((string) $request->query('inject_product', 'pv_all'));
         if (!in_array($salesProductFilter, $productFilterOptions, true)) $salesProductFilter = 'all';
         if (!in_array($injectProductFilter, $productFilterOptions, true)) $injectProductFilter = 'all';
 
@@ -341,24 +341,31 @@ class HomeController extends Controller
                     ->from('denom as product_denom')
                     ->whereColumn('product_denom.iddenom', $table.'.iddenom');
 
-                if ($filter === 'byu') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'BYU'");
-                } elseif ($filter === 'sa_simpati') {
-                    if ($table === 'injectvf') {
-                        $denomQuery->whereRaw("UPPER(COALESCE({$table}.kategori, '')) = 'SP6'");
-                    } else {
-                        $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
-                            ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) NOT LIKE 'SA BYU%'");
-                    }
-                } elseif ($filter === 'sa_byu') {
-                    if ($table === 'injectvf') {
-                        $denomQuery->whereRaw("UPPER(COALESCE({$table}.kategori, '')) = 'SP7'");
-                    } else {
-                        $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
-                            ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) LIKE 'SA BYU%'");
-                    }
-                } else { // REGULER = seluruh produk selain By.U dan SA, termasuk VOICE dan RoaMAX.
+                if ($table === 'injectvf') {
+                    $sourceCategories = match ($filter) {
+                        'pv_all' => ['SEGEL', 'V33'],
+                        'pv_reg' => ['SEGEL'],
+                        'pv_byu' => ['V33'],
+                        'sa_all' => ['SP6', 'SP7'],
+                        'sa_simpati' => ['SP6'],
+                        'sa_byu' => ['SP7'],
+                        default => [],
+                    };
+                    $denomQuery->whereIn($table.'.kategori', $sourceCategories);
+                } elseif ($filter === 'pv_all') {
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) <> 'SA'");
+                } elseif ($filter === 'pv_reg') {
                     $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) NOT IN ('BYU', 'SA')");
+                } elseif ($filter === 'pv_byu') {
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'BYU'");
+                } elseif ($filter === 'sa_all') {
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'");
+                } elseif ($filter === 'sa_simpati') {
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
+                        ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) NOT LIKE 'SA BYU%'");
+                } elseif ($filter === 'sa_byu') {
+                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
+                        ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) LIKE 'SA BYU%'");
                 }
             });
         };
