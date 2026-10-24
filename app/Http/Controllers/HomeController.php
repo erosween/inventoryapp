@@ -327,7 +327,7 @@ class HomeController extends Controller
         }
         $salesView = $request->query('sales_view') === 'chart' ? 'chart' : 'table';
         $salesPeriod = $request->query('sales_period') === 'annual' ? 'annual' : 'monthly';
-        $productFilterOptions = ['all', 'reg', 'byu'];
+        $productFilterOptions = ['all', 'reg', 'byu', 'sa_simpati', 'sa_byu'];
         $salesProductFilter = strtolower((string) $request->query('sales_product', 'all'));
         $injectProductFilter = strtolower((string) $request->query('inject_product', 'all'));
         if (!in_array($salesProductFilter, $productFilterOptions, true)) $salesProductFilter = 'all';
@@ -343,6 +343,20 @@ class HomeController extends Controller
 
                 if ($filter === 'byu') {
                     $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'BYU'");
+                } elseif ($filter === 'sa_simpati') {
+                    if ($table === 'injectvf') {
+                        $denomQuery->whereRaw("UPPER(COALESCE({$table}.kategori, '')) = 'SP6'");
+                    } else {
+                        $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
+                            ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) NOT LIKE 'SA BYU%'");
+                    }
+                } elseif ($filter === 'sa_byu') {
+                    if ($table === 'injectvf') {
+                        $denomQuery->whereRaw("UPPER(COALESCE({$table}.kategori, '')) = 'SP7'");
+                    } else {
+                        $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
+                            ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) LIKE 'SA BYU%'");
+                    }
                 } else { // REGULER = seluruh produk selain By.U dan SA, termasuk VOICE dan RoaMAX.
                     $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) NOT IN ('BYU', 'SA')");
                 }

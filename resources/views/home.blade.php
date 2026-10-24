@@ -356,6 +356,8 @@
                                     <option value="all" {{ $salesProductFilter === 'all' ? 'selected' : '' }}>ALL</option>
                                     <option value="reg" {{ $salesProductFilter === 'reg' ? 'selected' : '' }}>REGULER</option>
                                     <option value="byu" {{ $salesProductFilter === 'byu' ? 'selected' : '' }}>By.U</option>
+                                    <option value="sa_simpati" {{ $salesProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option>
+                                    <option value="sa_byu" {{ $salesProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option>
                                 </select>
                                 <div class="monthly-sales-view-toggle" role="group" aria-label="Pilih periode penjualan">
                                     <button type="button" class="btn btn-sm monthly-sales-view-btn sales-period-btn {{ $salesPeriod === 'monthly' ? 'active' : '' }}" data-period="monthly">Bulanan</button>
@@ -1037,6 +1039,8 @@
                                     <option value="all" {{ $injectProductFilter === 'all' ? 'selected' : '' }}>ALL</option>
                                     <option value="reg" {{ $injectProductFilter === 'reg' ? 'selected' : '' }}>REGULER</option>
                                     <option value="byu" {{ $injectProductFilter === 'byu' ? 'selected' : '' }}>By.U</option>
+                                    <option value="sa_simpati" {{ $injectProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option>
+                                    <option value="sa_byu" {{ $injectProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option>
                                 </select>
                             </form>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-copy-btn" title="Copy heatmap inject sebagai gambar" style="gap:6px;">
@@ -3107,9 +3111,9 @@
         });
     
         // ================= INTERACTIVE TOGGLES ================= 
-        document.querySelectorAll('.toggle-validity').forEach(btn => {
-            btn.addEventListener('click', function() {
+        $(document).off('click.dashboardToggle', '.toggle-validity').on('click.dashboardToggle', '.toggle-validity', function() {
                 const target = document.getElementById(this.dataset.target);
+                if (!target) return;
                 if (target.classList.contains('d-none')) {
                     target.classList.remove('d-none');
                     this.innerText = '-';
@@ -3119,7 +3123,6 @@
                     this.innerText = '+';
                     this.classList.remove('bg-secondary', 'text-white');
                 }
-            });
         });
     
         // Logic for toggling rincian sub-sections (SF vs Validity)
