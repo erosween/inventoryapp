@@ -17,7 +17,18 @@ class MobileSFAccess
     public function handle(Request $request, Closure $next): Response
     {
         if (!Session::has('mobile_sf_id')) {
-            return redirect()->route('mobile.login')->with('error', 'Silakan login terlebih dahulu.');
+            if ($request->isMethodSafe()) {
+                $request->session()->put('url.intended', $request->fullUrl());
+            }
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Sesi SURYA telah berakhir. Silakan login kembali.',
+                    'redirect' => route('mobile.login', ['timeout' => 1]),
+                ], 401);
+            }
+
+            return redirect()->route('mobile.login', ['timeout' => 1]);
         }
 
         $response = $next($request);

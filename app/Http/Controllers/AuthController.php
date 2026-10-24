@@ -42,13 +42,13 @@ class AuthController extends Controller
             $request->session()->put('monita_leader_auth', true);
             $request->session()->put('monita_leader_login_at', now()->toDateTimeString());
 
-            return redirect()->route('surya.dashboard');
+            return redirect()->intended(route('surya.dashboard'));
         }
 
         $username = strtolower(trim((string) auth()->user()->username));
         if (in_array($username, ['admin_super', 'gm_cluster', 'branch_dumai', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_')) {
-            return redirect()->route('surya.dashboard');
+            return redirect()->intended(route('surya.dashboard'));
         }
 
         if (auth()->user()->idtap === 'SB DUMAI') {

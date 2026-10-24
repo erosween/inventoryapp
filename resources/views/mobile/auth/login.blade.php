@@ -471,6 +471,12 @@
                 </div>
             @endif
 
+            @if (!empty($sessionExpired))
+                <div class="alert-premium" role="alert">
+                    <i class="fas fa-clock me-2"></i>Sesi Anda telah berakhir karena tidak ada aktivitas. Silakan login kembali.
+                </div>
+            @endif
+
             <form action="{{ route('mobile.login.post') }}" method="POST">
                 @csrf
                 <div class="field-group">

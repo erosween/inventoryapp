@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Session\TokenMismatchException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -26,5 +27,21 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+    }
+
+    public function render($request, Throwable $e)
+    {
+        if ($e instanceof TokenMismatchException && $request->is('mobile/*')) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Sesi atau halaman telah kedaluwarsa. Silakan login kembali.',
+                    'redirect' => route('mobile.login', ['timeout' => 1]),
+                ], 419);
+            }
+
+            return redirect()->route('mobile.login', ['timeout' => 1]);
+        }
+
+        return parent::render($request, $e);
     }
 }

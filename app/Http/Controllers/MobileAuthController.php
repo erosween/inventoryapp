@@ -15,7 +15,9 @@ class MobileAuthController extends Controller
         if (Session::has('mobile_sf_id')) {
             return redirect()->route('mobile.index');
         }
-        return view('mobile.auth.login');
+        return view('mobile.auth.login', [
+            'sessionExpired' => request()->boolean('timeout'),
+        ]);
     }
 
     public function login(Request $request)
@@ -43,7 +45,7 @@ class MobileAuthController extends Controller
                 Cookie::queue('mobile_remember_id', $sf->idsf, 43200);
             }
 
-            return redirect()->route('mobile.index');
+            return redirect()->intended(route('mobile.index'));
         }
 
         return back()->withInput()->with('error', 'Login Code atau Password salah!');

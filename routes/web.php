@@ -57,6 +57,7 @@ Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan.jual');
 Route::get('/search', [searchController::class, 'search'])->name('search');
 
 // SURYA performance hub (formerly Monita Dumai)
+Route::middleware('surya.web')->group(function () {
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
@@ -74,6 +75,7 @@ Route::get('/surya/suggest', [MonitaDumaiController::class, 'suggest']);
 Route::get('/surya/outlets', [MonitaDumaiController::class, 'outlets']);
 Route::get('/surya/nearby', [MonitaDumaiController::class, 'nearby']);
 Route::get('/surya/performance', [MonitaDumaiController::class, 'performance']);
+});
 
 Route::redirect('/monitadumai', '/surya', 301);
 Route::redirect('/monitadumai/leader-login', '/surya/leader-login', 301);
