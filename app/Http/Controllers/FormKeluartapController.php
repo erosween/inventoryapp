@@ -35,7 +35,7 @@ class FormKeluartapController extends Controller
                 ->orderByRaw("CASE iddenom WHEN 'SP6' THEN 0 WHEN 'SP7' THEN 1 WHEN 'SEGEL' THEN 2 WHEN 'V33' THEN 3 ELSE 10 END")
                 ->orderBy('denom')
                 ->get()
-                ->unique(fn ($item) => mb_strtoupper(trim((string) $item->denom)))
+                ->unique('iddenom')
                 ->values();
 
         return view('form/formkeluartap',compact('data','idtap','denom','tappenerima'));

@@ -35,8 +35,12 @@ class KeluarController extends Controller
 
         [$start, $end] = explode(' - ', $request->daterange);
 
+        $denomLookup = DB::table('denom')
+            ->select('iddenom', DB::raw('MAX(denom) as denom'))
+            ->groupBy('iddenom');
+
         $query = DB::table('keluar as k')
-            ->join('denom as d','k.iddenom','=','d.iddenom')
+            ->joinSub($denomLookup, 'd', 'k.iddenom', '=', 'd.iddenom')
             ->select(
                 'k.idkeluar',
                 'k.tgl',
@@ -110,8 +114,12 @@ class KeluarController extends Controller
         [$start, $end] = explode(' - ', $request->daterange);
         $idtap = session('idtap');
 
+        $denomLookup = DB::table('denom')
+            ->select('iddenom', DB::raw('MAX(denom) as denom'))
+            ->groupBy('iddenom');
+
         $query = DB::table('keluar as k')
-            ->join('denom as d','k.iddenom','=','d.iddenom')
+            ->joinSub($denomLookup, 'd', 'k.iddenom', '=', 'd.iddenom')
             ->select(
                 'k.tgl',
                 'k.sn',
