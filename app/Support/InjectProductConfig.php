@@ -19,6 +19,7 @@ final class InjectProductConfig
                 'source_id' => 'SP6',
                 'destination_category' => 'SA',
                 'product_group' => null,
+                'destination_name_prefix' => null,
                 'destination_name_exclude' => 'SA BYU%',
             ],
             'SP7' => [
