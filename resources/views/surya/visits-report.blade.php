@@ -614,6 +614,8 @@
                                     <th>Visit Terakhir</th>
                                     <th>Status GPS</th>
                                     <th>Jarak</th>
+                                    <th>Dominasi Branding</th>
+                                    <th>Kelayakan Branding</th>
                                     <th>Tampak Depan</th>
                                     <th>Tampak Dalam</th>
                                     <th>Aksi</th>
@@ -633,6 +635,8 @@
                                         </td>
                                         <td>{{ $visit->distance_meters !== null ? number_format($visit->distance_meters, 0) . ' m' : '—' }}
                                         </td>
+                                        <td>{{ $visit->branding_dominance ?: '—' }}</td>
+                                        <td>{{ $visit->branding_quality ?: '—' }}</td>
                                         <td>
                                             @if ($visit->front_photo_url)
                                                 <button type="button" class="photo-open"
@@ -670,7 +674,7 @@
                                         </td>
                                     </tr>
                                 @empty<tr>
-                                        <td colspan="9" class="empty">Belum ada data visit.</td>
+                                        <td colspan="11" class="empty">Belum ada data visit.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

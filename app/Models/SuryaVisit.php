@@ -15,7 +15,7 @@ class SuryaVisit extends Model
         'id_outlet', 'idtap', 'idsf', 'latitude', 'longitude',
         'visit_type', 'stock_owner_idsf', 'outlet_name', 'owner_name', 'phone_number', 'outlet_address',
         'accuracy', 'distance_meters', 'photo_path', 'photo_front_path',
-        'photo_inside_path', 'gps_status', 'notes',
+        'photo_inside_path', 'branding_dominance', 'branding_quality', 'gps_status', 'notes',
     ];
 
     protected $casts = [

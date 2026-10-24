@@ -690,6 +690,16 @@ class MonitaDumaiController extends Controller
         $today = now('Asia/Jakarta')->toDateString();
         $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
         $tapScopes = $this->suryaTapScopes();
+        $visitSelects = [
+            'v.visited_at', 'v.checkout_at', 'v.id_outlet', 'v.idtap', 'v.idsf',
+            'v.latitude as visit_latitude', 'v.longitude as visit_longitude',
+            'v.distance_meters', 'v.gps_status', 'v.checkout_reason',
+        ];
+        if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
+            $visitSelects[] = 'v.branding_dominance';
+            $visitSelects[] = 'v.branding_quality';
+        }
+
         $rows = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
@@ -698,13 +708,10 @@ class MonitaDumaiController extends Controller
             ->orderBy('v.idtap')
             ->orderBy('s.namasf')
             ->orderBy('v.visited_at')
-            ->get([
-                'v.visited_at', 'v.checkout_at', 'v.id_outlet', 'v.idtap', 'v.idsf',
-                'v.latitude as visit_latitude', 'v.longitude as visit_longitude',
-                'v.distance_meters', 'v.gps_status', 'v.checkout_reason',
+            ->get(array_merge($visitSelects, [
                 'o.nama_outlet', 'o.latitude as outlet_latitude', 'o.longitude as outlet_longitude',
                 'o.pjp', 's.namasf',
-            ])
+            ]))
             ->map(function ($row) {
                 $distance = null;
                 if ($row->visit_latitude !== null && $row->visit_longitude !== null
@@ -736,6 +743,8 @@ class MonitaDumaiController extends Controller
                     $distance === null ? 'BELUM ADA KOORDINAT MASTER' : ($distance <= 10 ? 'SESUAI' : 'TIDAK SESUAI'),
                     strtoupper(str_replace('_', ' ', (string) $row->gps_status)),
                     $row->checkout_reason,
+                    $row->branding_dominance ?? null,
+                    $row->branding_quality ?? null,
                 ];
             });
 
@@ -1146,6 +1155,15 @@ class MonitaDumaiController extends Controller
 
     private function buildNonDigiposVisitDetails(string $visitDate, ?array $tapScopes = null): array
     {
+        $approvalSelects = [
+            'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
+            'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
+        ];
+        if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
+            $approvalSelects[] = 'v.branding_dominance';
+            $approvalSelects[] = 'v.branding_quality';
+        }
+
         $visits = DB::table('surya_visits as v')
             ->leftJoin('idsf as sf', 'sf.idsf', '=', 'v.idsf')
             ->leftJoin('idsf as owner_sf', 'owner_sf.idsf', '=', 'v.stock_owner_idsf')
@@ -1211,6 +1229,15 @@ class MonitaDumaiController extends Controller
     {
         app(\App\Http\Controllers\SuryaVisitReportController::class)->autoApprovePending(request());
 
+        $approvalSelects = [
+            'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
+            'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
+        ];
+        if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
+            $approvalSelects[] = 'v.branding_dominance';
+            $approvalSelects[] = 'v.branding_quality';
+        }
+
         $visits = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
@@ -1218,11 +1245,9 @@ class MonitaDumaiController extends Controller
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderByRaw("CASE WHEN v.gps_status = 'pending_admin' THEN 0 ELSE 1 END")
             ->orderByDesc('v.visited_at')
-            ->get([
-                'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
-                'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
+            ->get(array_merge($approvalSelects, [
                 'o.nama_outlet', 's.namasf',
-            ]);
+            ]));
 
         $receiptPhotos = collect();
         if (Schema::hasColumn('mobile_sales_receipts', 'receipt_photo_path') && $visits->isNotEmpty()) {
@@ -2362,7 +2387,17 @@ class MonitaDumaiController extends Controller
             ->map(fn ($id) => (string) $id)
             ->flip();
 
-        $data = $outlets->map(function ($outlet) use ($salesByOutlet, $visitedOutletIds) {
+        $latestBrandingByOutlet = collect();
+        if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
+            $latestBrandingByOutlet = DB::table('surya_visits')
+                ->whereNotNull('photo_front_path')
+                ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+                ->orderByDesc('visited_at')->orderByDesc('id')
+                ->get(['id_outlet', 'branding_dominance', 'branding_quality', 'visited_at'])
+                ->unique('id_outlet')->keyBy(fn ($visit) => (string) $visit->id_outlet);
+        }
+
+        $data = $outlets->map(function ($outlet) use ($salesByOutlet, $visitedOutletIds, $latestBrandingByOutlet) {
             $sales = $salesByOutlet[(string) $outlet->id_outlet] ?? null;
             $outlet->m_stsa = (int) ($sales->m_stsa ?? 0);
             $outlet->m_stpv = (int) ($sales->m_stpv ?? 0);
@@ -2373,6 +2408,9 @@ class MonitaDumaiController extends Controller
             $outlet->mom_cvm = '—';
             $outlet->mom_digital = '—';
             $outlet->has_front_photo = $visitedOutletIds->has((string) $outlet->id_outlet);
+            $branding = $latestBrandingByOutlet->get((string) $outlet->id_outlet);
+            $outlet->branding_dominance = $branding->branding_dominance ?? null;
+            $outlet->branding_quality = $branding->branding_quality ?? null;
             return $outlet;
         });
 
@@ -2446,14 +2484,21 @@ class MonitaDumaiController extends Controller
     private function decorateOutletVisitPhoto(object $outlet): object
     {
         if (! isset($outlet->photo_front_path)) {
+            $photoColumns = ['photo_front_path', 'visited_at'];
+            if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
+                $photoColumns[] = 'branding_dominance';
+                $photoColumns[] = 'branding_quality';
+            }
             $latestPhoto = DB::table('surya_visits')
                 ->where('id_outlet', $outlet->id_outlet)
                 ->whereNotNull('photo_front_path')
                 ->orderByDesc('visited_at')
                 ->orderByDesc('id')
-                ->first(['photo_front_path', 'visited_at']);
+                ->first($photoColumns);
             $outlet->photo_front_path = $latestPhoto->photo_front_path ?? null;
             $outlet->front_photo_visited_at = $latestPhoto->visited_at ?? null;
+            $outlet->branding_dominance = $latestPhoto->branding_dominance ?? null;
+            $outlet->branding_quality = $latestPhoto->branding_quality ?? null;
         }
 
         $path = $outlet->photo_front_path;

@@ -1984,6 +1984,18 @@
             font-weight: 800;
         }
 
+        .branding-insights { display: grid; gap: 10px; margin: 0 8px 14px; }
+        .branding-insight-loading { padding: 14px; border: 1px solid #e5e7eb; border-radius: 14px; color: #64748b; background: #fff; font-size: 12px; }
+        .branding-insight-card { padding: 14px; border: 1px solid #e5e7eb; border-radius: 14px; background: #fff; box-shadow: 0 5px 18px rgba(15,23,42,.05); }
+        .branding-insight-card h4 { margin: 0 0 10px; color: #202b3c; font-size: 13px; font-weight: 900; }
+        .branding-insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+        .branding-insight-tap { padding: 10px; border-radius: 11px; background: #f8fafc; }
+        .branding-insight-tap strong { display: block; margin-bottom: 7px; color: #334155; font-size: 11px; }
+        .branding-insight-line { display: flex; justify-content: space-between; gap: 8px; color: #64748b; font-size: 10px; line-height: 1.8; }
+        .branding-insight-line b { color: #1e293b; }
+        .branding-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .branding-chip { padding: 4px 7px; border-radius: 999px; color: #475569; background: #eef2ff; font-size: 10px; font-weight: 800; }
+
         .map-fullscreen-button,
         .map-locate-button {
             width: 36px;
@@ -3518,6 +3530,9 @@
         <div class="map-heading">
             <h3><i class="fas fa-map-marked-alt"></i> Semua Outlet</h3>
             <span class="map-count" id="map-outlet-count">Memuat...</span>
+        </div>
+        <div id="branding-insights" class="branding-insights" aria-live="polite">
+            <div class="branding-insight-loading">Memuat insight visit & branding...</div>
         </div>
         <div id="map"></div>
         <div id="empty-state" class="empty-state" style="display:none;"></div>
@@ -5630,6 +5645,31 @@
             });
         }
 
+        function renderBrandingInsights(outlets) {
+            const container = document.getElementById('branding-insights');
+            if (!container) return;
+            const byTap = outlets.reduce((groups, outlet) => {
+                const tap = outlet.tap || 'Tanpa TAP';
+                (groups[tap] ||= []).push(outlet);
+                return groups;
+            }, {});
+            const taps = Object.keys(byTap).sort();
+            const total = outlets.length;
+            const visited = outlets.filter(outlet => outlet.has_front_photo).length;
+            const pct = (value, base) => base ? `${((value / base) * 100).toFixed(1)}%` : '0.0%';
+            const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart'];
+            const tapCards = taps.map(tap => {
+                const rows = byTap[tap];
+                const tapVisited = rows.filter(outlet => outlet.has_front_photo).length;
+                const brandingRows = brandingNames.map(name => {
+                    const qty = rows.filter(outlet => outlet.branding_dominance === name).length;
+                    return `<span class="branding-chip">${name}: ${qty} (${pct(qty, tapVisited)})</span>`;
+                }).join('');
+                return `<div class="branding-insight-tap"><strong>${tap} · ${rows.length} outlet</strong><div class="branding-insight-line"><span>Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></div><div class="branding-insight-line"><span>Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></div><div class="branding-chip-row">${brandingRows}</div></div>`;
+            }).join('');
+            container.innerHTML = `<div class="branding-insight-card"><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-line"><span>Total outlet</span><b>${total.toLocaleString()} · Sudah visit ${visited.toLocaleString()} (${pct(visited, total)}) · Belum visit ${(total - visited).toLocaleString()} (${pct(total - visited, total)})</b></div><div class="branding-insight-grid mt-2">${tapCards}</div></div>`;
+        }
+
         async function loadAllOutlets() {
             const countEl = document.getElementById('map-outlet-count');
 
@@ -5639,6 +5679,7 @@
 
                 const outlets = await response.json();
                 initMap(outlets);
+                renderBrandingInsights(outlets);
                 const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
                 countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
             } catch (error) {
@@ -5825,7 +5866,7 @@
             }
 
             const photoHtml = outlet.front_thumbnail_url
-                ? `<a class="outlet-branding-photo" href="${escapeMapDetailHtml(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeMapDetailHtml(outlet.front_thumbnail_url)}" alt="Tampak luar ${escapeMapDetailHtml(outlet.nama_outlet)}" loading="lazy"></a><small style="display:block;margin:0 0 7px;color:#64748b">Foto visit: ${mapDetailDate(outlet.front_photo_visited_at)}</small>`
+                ? `<a class="outlet-branding-photo" href="${escapeMapDetailHtml(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeMapDetailHtml(outlet.front_thumbnail_url)}" alt="Tampak luar ${escapeMapDetailHtml(outlet.nama_outlet)}" loading="lazy"></a><small style="display:block;margin:0 0 7px;color:#64748b">Foto visit: ${mapDetailDate(outlet.front_photo_visited_at)}</small><div class="small text-muted">Dominasi: <strong>${escapeMapDetailHtml(outlet.branding_dominance || '—')}</strong> · Kelayakan: <strong>${escapeMapDetailHtml(outlet.branding_quality || '—')}</strong></div>`
                 : '<div style="padding:7px 0;color:#64748b;font-size:11px">Memuat foto dan rincian outlet...</div>';
 
             return `

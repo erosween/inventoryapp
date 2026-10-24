@@ -79,6 +79,31 @@
                 <button type="button" class="capture-photo camera-action btn btn-danger rounded-pill fw-bold d-none"><i class="fas fa-circle-dot me-2"></i>Ambil Foto</button>
             </div>
             <div class="visit-photo-status small text-muted"><i class="fas fa-circle me-1"></i> Foto tampak depan belum diambil</div>
+            <div class="branding-survey mt-3">
+                <div class="branding-survey-title"><i class="fas fa-tags"></i><span>Survey Branding <small>Wajib diisi</small></span></div>
+                <div class="branding-question">
+                    <div class="branding-label">Dominasi Branding</div>
+                    <div class="branding-options">
+                        @foreach(['Tsel', 'Indosat-Tri', 'XL-Smart'] as $branding)
+                            <label class="branding-option">
+                                <input type="radio" name="branding_dominance" value="{{ $branding }}" @checked(old('branding_dominance') === $branding) required>
+                                <span>{{ $branding }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="branding-question">
+                    <div class="branding-label">Kelayakan Branding</div>
+                    <div class="branding-options">
+                        @foreach(['Bagus', 'Kurang Bagus', 'Tidak Bagus'] as $quality)
+                            <label class="branding-option">
+                                <input type="radio" name="branding_quality" value="{{ $quality }}" @checked(old('branding_quality') === $quality) required>
+                                <span>{{ $quality }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="visit-photo-card mb-3" data-photo-kind="inside">
@@ -119,6 +144,18 @@
         border-radius: 22px;
         background: #f8fafc;
     }
+    .branding-survey { padding: 15px; border: 1px solid #fecaca; border-radius: 18px; background: #fff7f7; }
+    .branding-survey-title { display: flex; align-items: center; gap: 9px; color: #991b1b; font-size: .78rem; font-weight: 900; }
+    .branding-survey-title i { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; color: #fff; background: #ec2028; }
+    .branding-survey-title small { display: block; margin-top: 2px; color: #b45309; font-size: .62rem; font-weight: 800; }
+    .branding-question { margin-top: 14px; }
+    .branding-label { margin-bottom: 7px; color: #334155; font-size: .7rem; font-weight: 900; }
+    .branding-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    .branding-option { position: relative; cursor: pointer; }
+    .branding-option input { position: absolute; opacity: 0; pointer-events: none; }
+    .branding-option span { min-height: 43px; display: flex; align-items: center; justify-content: center; padding: 7px 5px; border: 1px solid #e2e8f0; border-radius: 12px; color: #64748b; background: #fff; font-size: .66rem; font-weight: 800; line-height: 1.15; text-align: center; transition: .16s ease; }
+    .branding-option input:checked + span { border-color: #ec2028; color: #991b1b; background: #fff1f2; box-shadow: 0 0 0 2px rgba(236,32,40,.12); }
+    .branding-option input:focus-visible + span { outline: 3px solid rgba(59,130,246,.25); outline-offset: 2px; }
     .outlet-picker { position: relative; z-index: 20; }
     .outlet-picker-button { width: 100%; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; color: #334155; padding: 13px 14px; font: inherit; font-size: .78rem; font-weight: 800; text-align: left; }
     .outlet-picker-button.is-selected { border-color: #fecaca; color: #991b1b; background: #fffafa; }

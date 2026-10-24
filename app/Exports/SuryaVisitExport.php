@@ -27,7 +27,7 @@ class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, 
             'Tanggal Visit', 'Check In', 'Check Out', 'SF Code', 'Nama SF', 'TAP', 'Cluster',
             'ID Outlet', 'Nama Outlet', 'Hari PJP', 'Latitude Master', 'Longitude Master',
             'Latitude Visit', 'Longitude Visit', 'Jarak (Meter)', 'Kesesuaian Longlat',
-            'Status Approval', 'Alasan Check-out',
+            'Status Approval', 'Alasan Check-out', 'Dominasi Branding', 'Kelayakan Branding',
         ];
     }
 
@@ -40,8 +40,8 @@ class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, 
     {
         $lastRow = max(1, $this->rows->count() + 1);
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter("A1:R{$lastRow}");
-        $sheet->getStyle('A1:R1')->applyFromArray([
+        $sheet->setAutoFilter("A1:T{$lastRow}");
+        $sheet->getStyle('A1:T1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C8102E']],
             'alignment' => ['vertical' => 'center'],
@@ -50,7 +50,7 @@ class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, 
 
         for ($row = 2; $row <= $lastRow; $row++) {
             if ($sheet->getCell("P{$row}")->getValue() === 'TIDAK SESUAI') {
-                $sheet->getStyle("A{$row}:R{$row}")->getFill()
+                $sheet->getStyle("A{$row}:T{$row}")->getFill()
                     ->setFillType('solid')
                     ->getStartColor()->setRGB('FEE2E2');
             }
