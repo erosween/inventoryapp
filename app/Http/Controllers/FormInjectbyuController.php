@@ -21,7 +21,7 @@ class FormInjectbyuController extends Controller
                     ->where('kategori_inject', $config['destination_category'])
                     ->where($this->productGroupFilter($config['product_group']))
                     ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-                    ->where('iddenom', '!=', $config['source_id'])
+                    ->whereNotIn('iddenom', $config['excluded_source_ids'])
                     ->get();
 
         if($idtap == 'SBP_DUMAI'){
@@ -87,7 +87,7 @@ class FormInjectbyuController extends Controller
             ->where('kategori_inject', $config['destination_category'])
             ->where($this->productGroupFilter($config['product_group']))
             ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-            ->where('iddenom', '!=', $config['source_id'])
+            ->whereNotIn('iddenom', $config['excluded_source_ids'])
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)
             ->flip();

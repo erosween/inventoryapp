@@ -13,6 +13,8 @@ final class InjectProductConfig
                 'destination_category' => 'BYU',
                 'product_group' => 'PV',
                 'destination_name_prefix' => null,
+                'destination_name_excludes' => [],
+                'excluded_source_ids' => ['V33', 'SEGEL', 'SP6', 'SP7'],
                 'destination_name_exclude' => null,
             ],
             'SP6' => [
@@ -21,7 +23,8 @@ final class InjectProductConfig
                 'destination_category' => 'SA',
                 'product_group' => null,
                 'destination_name_prefix' => null,
-                'destination_name_exclude' => 'SA BYU%',
+                'destination_name_excludes' => ['SA BYU%', 'PERDANA SEGEL BYU%'],
+                'excluded_source_ids' => ['SP6', 'SP7'],
             ],
             'SP7' => [
                 'label' => 'PERDANA SEGEL BYU',
@@ -29,7 +32,8 @@ final class InjectProductConfig
                 'destination_category' => 'SA',
                 'product_group' => null,
                 'destination_name_prefix' => 'SA BYU%',
-                'destination_name_exclude' => null,
+                'destination_name_excludes' => [],
+                'excluded_source_ids' => ['SP6', 'SP7'],
             ],
             default => [
                 'label' => 'PV SEGEL',
@@ -37,7 +41,8 @@ final class InjectProductConfig
                 'destination_category' => 'SEGEL',
                 'product_group' => null,
                 'destination_name_prefix' => null,
-                'destination_name_exclude' => null,
+                'destination_name_excludes' => [],
+                'excluded_source_ids' => ['SEGEL', 'V33', 'SP6', 'SP7'],
             ],
         };
     }

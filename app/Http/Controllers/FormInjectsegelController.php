@@ -22,8 +22,12 @@ class FormInjectsegelController extends Controller
                     ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
                     ->where('kategori_inject', $config['destination_category'])
                     ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-                    ->when($config['destination_name_exclude'], fn ($q, $exclude) => $q->where('denom', 'not like', $exclude))
-                    ->where('iddenom', '!=', $config['source_id'])
+                    ->whereNotIn('iddenom', $config['excluded_source_ids'])
+                    ->when($config['destination_name_excludes'], function ($q, $patterns) {
+                        foreach ($patterns as $pattern) {
+                            $q->where('denom', 'not like', $pattern);
+                        }
+                    })
                     ->get();
 
         if($idtap == 'SBP_DUMAI'){
@@ -84,8 +88,12 @@ class FormInjectsegelController extends Controller
             ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
             ->where('kategori_inject', $config['destination_category'])
             ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-            ->when($config['destination_name_exclude'], fn ($q, $exclude) => $q->where('denom', 'not like', $exclude))
-            ->where('iddenom', '!=', $config['source_id'])
+            ->whereNotIn('iddenom', $config['excluded_source_ids'])
+            ->when($config['destination_name_excludes'], function ($q, $patterns) {
+                foreach ($patterns as $pattern) {
+                    $q->where('denom', 'not like', $pattern);
+                }
+            })
             ->pluck('iddenom')
             ->map(fn ($id) => (string) $id)
             ->flip();
