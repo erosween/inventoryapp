@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Support\InjectProductConfig;
 
 class FormInjectsegelController extends Controller
 {
@@ -152,11 +153,7 @@ class FormInjectsegelController extends Controller
 
     private function categoryConfig(string $category): array
     {
-        return match (strtoupper($category)) {
-            'SP6' => ['label' => 'PERDANA SEGEL SIMPATI', 'source_id' => 'SP6', 'destination_category' => 'SA', 'product_group' => 'SP'],
-            'SP7' => ['label' => 'PERDANA SEGEL BYU', 'source_id' => 'SP7', 'destination_category' => 'BYU', 'product_group' => 'SP'],
-            default => ['label' => 'PV SEGEL', 'source_id' => 'SEGEL', 'destination_category' => 'SEGEL', 'product_group' => null],
-        };
+        return InjectProductConfig::for($category);
     }
 
 

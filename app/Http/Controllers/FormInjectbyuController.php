@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Support\InjectProductConfig;
 
 class FormInjectbyuController extends Controller
 {   
@@ -156,18 +157,16 @@ class FormInjectbyuController extends Controller
 
     private function categoryConfig(string $category): array
     {
-        return match (strtoupper($category)) {
-            // BY.U sealed starter injects into SA denominations. Keep this
-            // category-based so older SA denoms created before product_group
-            // was introduced remain available as valid destinations.
-            'SP7' => ['label' => 'PERDANA SEGEL BYU', 'source_id' => 'SP7', 'destination_category' => 'SA', 'product_group' => null],
-            default => ['label' => 'PV BYU SEGEL', 'source_id' => 'V33', 'destination_category' => 'BYU', 'product_group' => 'PV'],
-        };
+        return InjectProductConfig::for($category);
     }
 
-    private function productGroupFilter(string $productGroup): \Closure
+    private function productGroupFilter(?string $productGroup): \Closure
     {
         return function ($query) use ($productGroup) {
+            if ($productGroup === null) {
+                return $query;
+            }
+
             $query->where('product_group', $productGroup);
 
             // Legacy PV denom rows may predate product_group and remain blank.
