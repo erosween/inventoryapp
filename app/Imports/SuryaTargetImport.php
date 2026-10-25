@@ -12,14 +12,19 @@ class SuryaTargetImport implements ToCollection, WithHeadingRow
     public function collection(Collection $rows): void
     {
         foreach ($rows as $row) {
-            $idsf = trim((string) ($row['sfcode'] ?? $row['idsf'] ?? ''));
+            $idsf = trim((string) ($row['sf_code'] ?? $row['sfcode'] ?? $row['idsf'] ?? ''));
             if ($idsf === '') continue;
 
             foreach ($row as $heading => $value) {
                 $key = strtolower(str_replace([' ', '-', '.'], '_', (string) $heading));
-                if (! str_starts_with($key, 'target_')) continue;
-
-                [$target, $family, $validity] = array_pad(explode('_', $key, 3), 3, null);
+                $key = preg_replace('/_+/', '_', trim($key, '_'));
+                if (str_starts_with($key, 'target_')) {
+                    [, $family, $validity] = array_pad(explode('_', $key, 3), 3, null);
+                } elseif (preg_match('/^(pv|sa)_(.+)$/', $key, $match)) {
+                    [, $family, $validity] = $match;
+                } else {
+                    continue;
+                }
                 if (! in_array($family, ['pv', 'sa'], true) || ! $validity) continue;
 
                 $normalizedValidity = strtoupper(str_replace('_', ' ', $validity));
