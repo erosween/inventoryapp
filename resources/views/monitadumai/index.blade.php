@@ -1986,6 +1986,9 @@
 
         .branding-insights { margin: 0 8px 16px; }
         .branding-insight-loading { padding: 18px; border: 1px solid #e5e7eb; border-radius: 18px; color: #64748b; background: #fff; font-size: 12px; }
+        .branding-insight-error { padding: 18px; border: 1px solid #fecdd3; border-radius: 18px; color: #b42318; background: #fff7f8; font-size: 12px; font-weight: 700; }
+        #map.map-load-error { display: grid; place-items: center; min-height: 260px; border: 1px dashed #fecdd3; border-radius: 18px; background: #fff7f8; color: #b42318; }
+        #map.map-load-error::before { content: 'Peta belum dapat dimuat. Silakan muat ulang halaman.'; padding: 18px; text-align: center; font-size: 12px; font-weight: 700; }
         .branding-insight-card { padding: 18px; border: 1px solid rgba(226,232,240,.9); border-radius: 20px; background: linear-gradient(145deg,#fff 0%,#fbfdff 100%); box-shadow: 0 12px 30px rgba(15,23,42,.06); }
         .branding-insight-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
         .branding-insight-card h4 { margin: 0; color: #172033; font-size: 15px; font-weight: 900; }
@@ -5360,15 +5363,31 @@
         }
 
         window.addEventListener('load', () => {
-            bindLeaderThresholds();
-            initLeaderMap();
-            bindLeaderMapToggles();
-            bindFbShareToggles();
-            bindLeaderMapZoom();
-            bindActiveTableViewToggles();
-            bindSidebarToggle();
-            bindDashboardMenu();
-            bindPerformanceMonitoringTables();
+            // Dashboard modules are independent. One optional chart/map must
+            // never prevent the outlet map or the navigation from starting.
+            const safeInit = (name, callback) => {
+                try {
+                    callback();
+                } catch (error) {
+                    console.error(`SURYA ${name} gagal diinisialisasi:`, error);
+                }
+            };
+
+            safeInit('threshold', bindLeaderThresholds);
+            safeInit('leader map', initLeaderMap);
+            safeInit('leader map toggle', bindLeaderMapToggles);
+            safeInit('share toggle', bindFbShareToggles);
+            safeInit('leader map zoom', bindLeaderMapZoom);
+            safeInit('active table', bindActiveTableViewToggles);
+            safeInit('sidebar', bindSidebarToggle);
+            safeInit('dashboard menu', bindDashboardMenu);
+            safeInit('performance tables', bindPerformanceMonitoringTables);
+
+            // Keep the outlet map independent from the rest of the dashboard.
+            // This also covers a partial failure in an optional leader module.
+            if (document.getElementById('dashboard-panel-outlet')?.classList.contains('active')) {
+                loadAllOutlets();
+            }
         });
 
         window.addEventListener('resize', () => {
@@ -5718,22 +5737,41 @@
             });
         }
 
+        let outletLoadPromise = null;
+
         async function loadAllOutlets() {
+            if (map || outletLoadPromise) return outletLoadPromise;
+
             const countEl = document.getElementById('map-outlet-count');
+            const insightEl = document.getElementById('branding-insights');
+            outletLoadPromise = (async () => {
+                try {
+                    const response = await fetch('/surya/outlets', {
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-store'
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-            try {
-                const response = await fetch('/surya/outlets');
-                if (!response.ok) throw new Error('Gagal memuat outlet');
+                    const outlets = await response.json();
+                    if (!Array.isArray(outlets)) throw new Error('Format data outlet tidak valid');
 
-                const outlets = await response.json();
-                setupMapMobileTabs();
-                initMap(outlets);
-                renderBrandingInsights(outlets);
-                const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
-                countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
-            } catch (error) {
-                countEl.textContent = 'Gagal memuat';
-            }
+                    setupMapMobileTabs();
+                    initMap(outlets);
+                    renderBrandingInsights(outlets);
+                    const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
+                    if (countEl) countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
+                } catch (error) {
+                    console.error('SURYA map gagal dimuat:', error);
+                    if (countEl) countEl.textContent = 'Gagal memuat peta';
+                    if (insightEl) insightEl.innerHTML = '<div class="branding-insight-error">Data peta belum dapat dimuat. Muat ulang halaman untuk mencoba lagi.</div>';
+                    document.getElementById('map')?.classList.add('map-load-error');
+                } finally {
+                    outletLoadPromise = null;
+                }
+            })();
+
+            return outletLoadPromise;
         }
 
         function initMap(outlets) {

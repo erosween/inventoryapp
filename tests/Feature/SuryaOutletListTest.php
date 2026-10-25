@@ -717,4 +717,44 @@ class SuryaOutletListTest extends TestCase
             @unlink($path);
         }
     }
+
+    public function test_outlet_map_prefers_the_latest_approved_visit_coordinates(): void
+    {
+        $admin = User::where('username', 'admin_super')->first();
+        if (! $admin) {
+            $this->markTestSkipped('Fixture admin belum tersedia.');
+        }
+
+        $idOutlet = 990000006;
+        DB::table('appsdumais')->insert([
+            'id_outlet' => $idOutlet,
+            'nama_outlet' => 'Outlet Koordinat Visit Test',
+            'sf' => 'SF-MAP-TEST',
+            'tap' => 'BENGKALIS',
+            'latitude' => 0.512345,
+            'longitude' => 101.445678,
+        ]);
+        DB::table('surya_visits')->insert([
+            [
+                'visited_at' => now()->subDay(), 'id_outlet' => $idOutlet, 'idtap' => 'BENGKALIS',
+                'idsf' => 'SF-MAP-TEST', 'latitude' => 1.470001, 'longitude' => 102.120001,
+                'gps_status' => 'approved', 'created_at' => now()->subDay(), 'updated_at' => now()->subDay(),
+            ],
+            [
+                'visited_at' => now(), 'id_outlet' => $idOutlet, 'idtap' => 'BENGKALIS',
+                'idsf' => 'SF-MAP-TEST', 'latitude' => 1.470002, 'longitude' => 102.120002,
+                'gps_status' => 'valid', 'created_at' => now(), 'updated_at' => now(),
+            ],
+        ]);
+
+        $response = $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->getJson('/surya/outlets')
+            ->assertOk();
+
+        $row = collect($response->json())->firstWhere('id_outlet', $idOutlet);
+
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(1.470002, (float) $row['latitude'], 0.0000001);
+        $this->assertEqualsWithDelta(102.120002, (float) $row['longitude'], 0.0000001);
+    }
 }

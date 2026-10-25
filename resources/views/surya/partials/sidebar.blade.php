@@ -4,7 +4,9 @@
     $stockUrl = in_array($sidebarUser, ['gm', 'gm_cluster', 'branch_dumai', 'admin_super', 'admin_cluster'], true) || str_starts_with($sidebarUser, 'asmen_')
         ? url('/sisastock')
         : url('/stocktap');
-    $dashboardPanel = request('panel') === 'visit-detail' ? 'visit-detail' : 'outlet';
+    $dashboardPanel = in_array($sidebarPage, ['visit-detail', 'visit-report'], true) || request('panel') === 'visit-detail'
+        ? 'visit-detail'
+        : 'outlet';
 @endphp
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/@fontsource-variable/geist@5.2.8/index.css">
@@ -24,7 +26,7 @@
     <div class="sidebar-label">WORKSPACE</div>
     <nav class="sidebar-nav">
         <a href="{{ route('surya.dashboard', ['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'outlet' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="outlet" @endif><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
-        <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
+        <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ in_array($sidebarPage, ['dashboard', 'visit-detail', 'visit-report'], true) && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
         <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
         <a href="{{ $stockUrl }}" class="sidebar-link"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
         <a href="{{ route('surya.stock-on-hand') }}" class="sidebar-link {{ $sidebarPage === 'stock-on-hand' ? 'active' : '' }}"><i class="fas fa-boxes-stacked"></i><span>STOCK ON HAND</span></a>
@@ -41,5 +43,21 @@
     </div>
 </aside>
 <script>
-document.addEventListener('DOMContentLoaded',()=>{const shell=document.querySelector('.shell');if(!shell||document.getElementById('sidebar-toggle'))return;const button=document.createElement('button');button.id='sidebar-toggle';button.className='surya-sidebar-toggle';button.innerHTML='<i class="fas fa-bars"></i>';button.setAttribute('aria-label','Buka menu');document.body.appendChild(button);button.addEventListener('click',()=>shell.classList.toggle('sidebar-open'));});
+document.addEventListener('DOMContentLoaded',()=>{
+    const shell=document.querySelector('.shell');
+    if(!shell)return;
+    const existing=document.querySelector('[data-surya-sidebar-toggle]');
+    if(existing){
+        existing.addEventListener('click',()=>shell.classList.toggle('sidebar-open'));
+        return;
+    }
+    if(document.getElementById('sidebar-toggle'))return;
+    const button=document.createElement('button');
+    button.id='sidebar-toggle';
+    button.className='surya-sidebar-toggle';
+    button.innerHTML='<i class="fas fa-bars"></i>';
+    button.setAttribute('aria-label','Buka menu');
+    document.body.appendChild(button);
+    button.addEventListener('click',()=>shell.classList.toggle('sidebar-open'));
+});
 </script>

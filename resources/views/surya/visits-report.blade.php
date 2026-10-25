@@ -10,6 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    @include('surya.partials.sidebar-boot')
+    <link rel="stylesheet" href="{{ asset('css/surya-sidebar.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/surya-shell.css') }}">
     <style>
         :root {
             --red: #d10b20;
@@ -31,7 +34,7 @@
         body {
             margin: 0;
             min-height: 100%;
-            font-family: Inter, system-ui, sans-serif;
+            font-family: "Geist Variable", Geist, Inter, system-ui, sans-serif;
             color: var(--ink)
         }
 
@@ -553,40 +556,13 @@
 
 <body>
     <div class="shell" id="surya-shell">
-        <aside class="sidebar">
-            <div class="brand"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA">
-                <div><strong>SURYA</strong><small>PERFORMANCE</small></div>
-            </div>
-            <div class="nav-label">WORKSPACE</div>
-            <nav class="nav">
-                <a href="{{ route('surya.dashboard') }}#leader"><i class="fas fa-table-cells-large"></i>Dashboard</a>
-                <a href="{{ route('surya.dashboard') }}#ngrs"><i class="fas fa-tower-broadcast"></i>NGRS</a>
-                <a href="{{ route('surya.dashboard') }}#cvm"><i class="fas fa-chart-simple"></i>CVM</a>
-                <a href="{{ route('surya.dashboard') }}#pv"><i class="fas fa-bolt"></i>PV</a>
-                <a href="{{ route('surya.dashboard') }}#sa"><i class="fas fa-sim-card"></i>SA</a>
-                <a href="{{ route('surya.dashboard') }}#digipos"><i class="fas fa-box-open"></i>DIGIPOS PACKAGE</a>
-                <a class="active" href="{{ route('surya.visits.report') }}"><i class="fas fa-camera"></i>DETAIL
-                    VISIT</a>
-            </nav>
-            <div class="sidebar-foot">
-                <div class="sidebar-user">
-                    <div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div>
-                    <div><strong>SURYA Leader</strong><small>Secure access</small></div>
-                </div>
-            </div>
-        </aside>
+        @include('surya.partials.sidebar', ['activePage' => 'visit-report'])
         <div class="main">
-            <header class="topbar"><button class="menu-button" type="button"
-                    onclick="document.getElementById('surya-shell').classList.toggle('menu-open')"><i
-                        class="fas fa-bars"></i></button>
+            <header class="surya-system-headerbar"><button class="surya-header-menu" id="sidebar-toggle" data-surya-sidebar-toggle type="button"
+                    aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button>
                 <div>
                     <h1>Monitoring & Performance</h1>
                     <p>Cluster Dumai, Bengkalis & Rokan Hilir</p>
-                </div>
-                <div class="top-actions">
-                    <a class="logout"
-                        href="{{ route('surya.leader.logout') }}" title="Logout"><i
-                            class="fas fa-arrow-right-from-bracket"></i></a>
                 </div>
             </header>
             <main class="content">
@@ -695,6 +671,13 @@
         <div class="viewer-stage"><img id="viewer-image" class="viewer-image" alt="Foto visit"></div>
     </div>
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const shell = document.getElementById('surya-shell');
+            const close = document.getElementById('sidebar-close');
+            if (!shell) return;
+            close?.addEventListener('click', () => shell.classList.remove('sidebar-open'));
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
             const viewer = document.getElementById('visit-photo-viewer'),
                 image = document.getElementById('viewer-image'),
