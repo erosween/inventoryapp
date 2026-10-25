@@ -22,6 +22,7 @@ class AsmenAccess
             'sisastock.index',
             'sisastock.data',
             'surya.dashboard',
+            'surya.inventory-dashboard',
             'surya.outlet-detail',
             'surya.outlet-detail.data',
             'surya.outlet-detail.export',

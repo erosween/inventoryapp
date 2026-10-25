@@ -1,4 +1,4 @@
-@extends('layout.layout')
+@extends(request()->routeIs('surya.inventory-dashboard') ? 'surya.layouts.inventory-dashboard' : 'layout.layout')
 
 @section('content')
 <style>
@@ -244,6 +244,11 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="font-weight-bold mb-0 text-dark">Executive Summary</h4>
                 <form action="" method="GET" class="d-flex shadow-sm rounded">
+                    @if(request()->routeIs('surya.inventory-dashboard'))
+                    <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
+                    <input type="hidden" name="inject_product" value="{{ $injectProductFilter }}">
+                    <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
+                    @endif
                     <input type="hidden" name="sales_year" value="{{ $salesYear }}">
                     <input type="hidden" name="sales_view" value="{{ $salesView }}">
                     <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
@@ -345,7 +350,7 @@
                             <small class="text-muted">{{ $salesPeriod === 'annual' ? 'Perbandingan total penjualan setiap TAP per tahun · '.$annualCutoffLabel : 'Transaksi bulanan per TAP' }}</small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
-                            <form method="GET" action="{{ url('home') }}#heatmap-sales-card" class="monthly-sales-filter-form mb-0" id="monthly-sales-filter-form">
+                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-sales-card" class="monthly-sales-filter-form mb-0" id="monthly-sales-filter-form">
                                 <input type="hidden" name="year" value="{{ $selectedYear }}">
                                 <input type="hidden" name="mode" value="{{ $mode }}">
                                 <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
@@ -1023,7 +1028,7 @@
                             <small class="text-muted">Inject per TAP</small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
-                            <form method="GET" action="{{ url('home') }}#heatmap-inject-card" class="mb-0" id="monthly-inject-filter-form">
+                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-inject-card" class="mb-0" id="monthly-inject-filter-form">
                                 <input type="hidden" name="year" value="{{ $selectedYear }}">
                                 <input type="hidden" name="mode" value="{{ $mode }}">
                                 <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
@@ -1554,8 +1559,12 @@
                             </small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
-                            <form method="GET" action="{{ url('home') }}#mom-cluster-card"
+                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#mom-cluster-card"
                                 class="d-flex align-items-center mb-0">
+                                @if(request()->routeIs('surya.inventory-dashboard'))
+                                <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
+                                <input type="hidden" name="inject_product" value="{{ $injectProductFilter }}">
+                                @endif
                                 <input type="hidden" name="year" value="{{ $selectedYear }}">
                                 <input type="hidden" name="sales_year" value="{{ $salesYear }}">
                                 <input type="hidden" name="sales_view" value="{{ $salesView }}">

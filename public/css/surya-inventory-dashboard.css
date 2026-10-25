@@ -1,0 +1,59 @@
+/* Inventory calculations and widgets are shared; only the SURYA presentation differs. */
+.surya-inventory-dashboard-page > .main-panel {
+    position: static; float: none; width: 100%; min-width: 0;
+    min-height: 0 !important; margin: 0; padding: 0;
+}
+.surya-inventory-dashboard-page .main-panel > .content,
+.surya-inventory-dashboard-page .page-inner { margin: 0; padding: 0; }
+.surya-inventory-dashboard-page .card {
+    min-width: 0; border: 1px solid #dce4eb; border-radius: 16px;
+    box-shadow: 0 6px 20px rgba(15,23,42,.035); background: #fff;
+}
+.surya-inventory-dashboard-page .card-header { border-radius: 16px 16px 0 0; }
+.surya-inventory-dashboard-page .kpi-card {
+    border-top: 3px solid #c8102e; background: #fff !important;
+    color: #172033 !important; box-shadow: 0 6px 20px rgba(15,23,42,.035) !important;
+}
+.surya-inventory-dashboard-page .kpi-card:hover { transform: none; }
+.surya-inventory-dashboard-page .kpi-card h2 { text-shadow: none !important; font-variant-numeric: tabular-nums; }
+.surya-inventory-dashboard-page .kpi-card .w-100 { flex: 1; min-width: 0; width: auto !important; }
+.surya-inventory-dashboard-page .kpi-card .icon-bg { flex-shrink: 0; }
+.surya-inventory-dashboard-page .kpi-card h2 { font-size: clamp(22px, 2vw, 32px) !important; }
+.surya-inventory-dashboard-page .kpi-card small { color: #667085; }
+.surya-inventory-dashboard-page .kpi-card .icon-bg { color: #c8102e; background: #fff1f3; }
+.surya-inventory-dashboard-page .card-header h6 { color: #172033 !important; font-size: 14px; line-height: 1.5; }
+.surya-inventory-dashboard-page .monthly-sales-view-btn.active {
+    background: #c8102e !important; color: #fff !important;
+    box-shadow: 0 3px 8px rgba(200,16,46,.16) !important;
+}
+.surya-inventory-dashboard-page .monthly-sales-filter-form { flex-wrap: wrap; }
+.surya-inventory-dashboard-page .export-actions { min-width: 0; max-width: 100%; }
+.surya-inventory-dashboard-page .form-control { font-size: 12px; border-color: #dce4eb; border-radius: 8px; }
+.surya-inventory-dashboard-page .table-scroll-heatmap {
+    position: relative; isolation: isolate; width: 100%; max-height: 68vh; overflow: auto;
+}
+.surya-inventory-dashboard-page .table-scroll-heatmap table { min-width: 1100px; }
+.surya-inventory-dashboard-page .table-scroll-heatmap th,
+.surya-inventory-dashboard-page .table-scroll-heatmap td { font-variant-numeric: tabular-nums; }
+.surya-inventory-dashboard-page #monthly-sales-chart-wrap { overflow: hidden; }
+.surya-inventory-dashboard-page .page-inner > .d-flex { flex-wrap: wrap; gap: 12px; }
+.surya-inventory-dashboard-page .page-inner > .d-flex form { flex-wrap: wrap; max-width: 100%; gap: 8px; box-shadow: none !important; }
+.surya-inventory-dashboard-page .page-inner > .d-flex form select { width: auto; }
+.surya-inventory-dashboard-page .card-header .d-flex { flex-wrap: wrap; }
+@media (min-width: 768px) and (max-width: 1399px) {
+    .surya-inventory-dashboard-page .page-inner > .row > .col-md-3 { flex: 0 0 50%; max-width: 50%; }
+}
+@media (max-width: 1100px) {
+    .surya-inventory-dashboard-page .card-header .export-actions { flex-basis: 100%; }
+}
+@media (max-width: 640px) {
+    .surya-inventory-dashboard-page .page-inner > .row > [class*="col-"] { margin-bottom: 16px; }
+    .surya-inventory-dashboard-page .card-header { padding: 18px 16px !important; }
+    .surya-inventory-dashboard-page .card-body { padding: 16px; }
+    .surya-inventory-dashboard-page .monthly-sales-filter-form { width: 100%; gap: 8px; }
+    .surya-inventory-dashboard-page .monthly-sales-year-select { min-width: 0; }
+    .surya-inventory-dashboard-page .monthly-sales-view-toggle { flex-wrap: wrap; }
+    .surya-inventory-dashboard-page .export-action-btn { min-width: 62px; padding: 8px 12px !important; }
+    .surya-inventory-dashboard-page .sticky-tap-col,
+    .surya-inventory-dashboard-page .sticky-validity-col { width: 180px !important; min-width: 180px !important; }
+}

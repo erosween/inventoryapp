@@ -10,7 +10,7 @@ html { color-scheme: light; scrollbar-gutter: stable; overflow-y: scroll; }
 body { margin: 0; background: #edf2f7; color: var(--surya-ink); font-family: var(--surya-font); font-size: 13px; }
 [data-surya-workspace], [data-surya-workspace] input, [data-surya-workspace] button,
 [data-surya-workspace] select, [data-surya-workspace] textarea { font-family: var(--surya-font); }
-[data-surya-workspace] { display: flex; min-height: 100vh; color: var(--surya-ink); font-size: 13px; }
+[data-surya-workspace] { --app-font: var(--surya-font); display: flex; min-height: 100vh; color: var(--surya-ink); font-size: 13px; }
 [data-surya-workspace] *, [data-surya-workspace] *::before, [data-surya-workspace] *::after { box-sizing: border-box; }
 [data-surya-workspace] [hidden] { display: none !important; }
 [data-surya-workspace] > .surya-workspace-main {

@@ -14,6 +14,7 @@
     </div>
     <div class="sidebar-label">WORKSPACE</div>
     <nav class="sidebar-nav">
+        <a href="{{ route('surya.inventory-dashboard') }}" class="sidebar-link {{ $sidebarPage === 'inventory-dashboard' ? 'active' : '' }}"><i class="fas fa-chart-line"></i><span>DASHBOARD INVENTORY</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'outlet' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="outlet" @endif><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ in_array($sidebarPage, ['dashboard', 'visit-detail', 'visit-report', 'field-reports'], true) && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
         <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>

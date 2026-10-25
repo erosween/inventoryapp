@@ -17,6 +17,7 @@ class SuryaWorkspaceTest extends TestCase
     public static function pages(): array
     {
         return [
+            'inventory-dashboard' => ['/surya/dashboard', 'Dashboard Inventory'],
             'map' => ['/surya?panel=outlet', 'Peta Outlet'],
             'visits' => ['/surya?panel=visit-detail', 'Detail Visit'],
             'outlets' => ['/surya/detail-outlet', 'Detail Outlet'],
@@ -51,7 +52,7 @@ class SuryaWorkspaceTest extends TestCase
         $this->assertSame(1, $xpath->query('//*[@data-surya-sidebar-toggle]')->length);
         $this->assertSame(1, $xpath->query('//header//following-sibling::main')->length);
         $this->assertSame(1, $xpath->query('//h1[normalize-space()="'.$title.'"]')->length);
-        $this->assertSame(7, $xpath->query('//*[@class="sidebar-nav"]/a')->length);
+        $this->assertSame(8, $xpath->query('//*[@class="sidebar-nav"]/a')->length);
         $this->assertSame(1, $xpath->query('//a[contains(concat(" ", @class, " "), " sidebar-link ") and contains(concat(" ", @class, " "), " active ")]')->length);
         $response->assertDontSee('Data terhubung')->assertDontSee('INVENTORY MSP');
     }

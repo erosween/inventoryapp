@@ -60,6 +60,7 @@ Route::get('/search', [searchController::class, 'search'])->name('search');
 // SURYA performance hub (formerly Monita Dumai)
 Route::middleware('surya.web')->group(function () {
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
+Route::get('/surya/dashboard', [HomeController::class, 'index'])->middleware(['auth', 'asmen.access'])->name('surya.inventory-dashboard');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
 Route::get('/surya/stock-on-hand', [SuryaStockController::class, 'stock'])->name('surya.stock-on-hand');
