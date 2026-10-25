@@ -3172,7 +3172,6 @@
     <header class="header">
         <button class="mobile-menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button>
         <div class="header-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div>
-        <div class="header-actions"><div class="header-status"><span class="status-dot"></span> Data terhubung</div></div>
     </header>
 
     <main class="container">

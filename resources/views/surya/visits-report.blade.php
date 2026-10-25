@@ -584,7 +584,7 @@
                     <p>Cluster Dumai, Bengkalis & Rokan Hilir</p>
                 </div>
                 <div class="top-actions">
-                    <div class="connected"><span></span>Data terhubung</div><a class="logout"
+                    <a class="logout"
                         href="{{ route('surya.leader.logout') }}" title="Logout"><i
                             class="fas fa-arrow-right-from-bracket"></i></a>
                 </div>

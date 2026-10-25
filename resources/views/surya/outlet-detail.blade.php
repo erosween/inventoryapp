@@ -17,7 +17,7 @@
 @include('surya.partials.sidebar', ['activePage' => 'outlet-detail'])
 <div class="side-overlay" id="sidebar-overlay"></div>
 <div class="main">
-    <header class="top"><button class="menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button><div class="top-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div><div class="status">Data terhubung</div></header>
+    <header class="top"><button class="menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button><div class="top-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div></header>
     <main class="content">
         <div class="hero"><div><h2>Detail Outlet</h2><p>{{ $activeTab === 'digipos' ? 'Ringkasan sell-through dan transaksi outlet Digipos.' : 'Ringkasan visit dan belanja outlet non-Digipos dari Surya Mobile.' }} @if($activeTab === 'digipos') Cutoff ST SA/PV: <strong>{{ $salesCutoffDate }}</strong>. @endif</p></div><div class="count">{{ number_format($activeTab === 'digipos' ? $outletCount : $nonDigiposCount) }} outlet</div></div>
         <nav class="outlet-tabs" aria-label="Jenis outlet"><a class="outlet-tab {{ $activeTab === 'digipos' ? 'active' : '' }}" href="{{ route('surya.outlet-detail', ['tab' => 'digipos']) }}"><i class="fas fa-store"></i> Outlet Digipos <span>{{ number_format($outletCount) }}</span></a><a class="outlet-tab {{ $activeTab === 'non-digipos' ? 'active' : '' }}" href="{{ route('surya.outlet-detail', ['tab' => 'non-digipos']) }}"><i class="fas fa-shop"></i> Outlet Non-Digipos <span>{{ number_format($nonDigiposCount) }}</span></a></nav>

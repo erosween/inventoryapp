@@ -15,7 +15,7 @@ body{background:#edf2f7}.side{background:linear-gradient(180deg,#3a000a 0%,#9700
 <body><div class="shell" id="app-shell">
 @include('surya.partials.sidebar', ['activePage' => 'transaction-upload'])
 <div class="side-overlay" id="sidebar-overlay"></div>
-<div class="main"><header class="top"><button class="menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button><div class="top-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div><div class="status">Data terhubung</div></header><main class="content">
+<div class="main"><header class="top"><button class="menu" id="sidebar-toggle" type="button" aria-label="Tampilkan atau sembunyikan menu"><i class="fas fa-bars"></i></button><div class="top-copy"><h1>Monitoring & Performance</h1><p>Cluster Dumai, Bengkalis & Rokan Hilir</p></div></header><main class="content">
 <div class="hero"><h2>Upload Transaksi</h2><p>Kelola pembaruan transaksi outlet dari satu workspace SURYA.</p></div>
 @if(session('success'))<div class="alert"><i class="fa fa-check-circle"></i> {{ session('success') }}</div>@endif
 <section class="upload-card"><div class="eyebrow">SURYA DATA MANAGEMENT</div><h3>Upload Transaksi Outlet</h3><p class="muted">Upload file Excel manual untuk memperbarui transaksi CVM, Super Seru, Hot Promo, Comsak, Insak, dan Digital.</p>
