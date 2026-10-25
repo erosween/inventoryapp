@@ -53,7 +53,8 @@ class SuryaStockController extends Controller
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
         $targets = DB::table('surya_sf_targets')->join('idsf', 'idsf.idsf', '=', 'surya_sf_targets.idsf')->select('surya_sf_targets.*', 'idsf.namasf', 'idsf.idtap')->orderBy('idsf.namasf')->orderBy('product_family')->orderBy('validity')->get();
-        return view('surya.input-target', compact('targets'));
+        $sfs = DB::table('idsf')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
+        return view('surya.input-target', compact('targets', 'sfs'));
     }
 
     public function upload(Request $request)

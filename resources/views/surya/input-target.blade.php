@@ -2,9 +2,11 @@
 @if(session('success'))<div class="alert success">{{ session('success') }}</div>@endif
 <form method="POST" action="{{ route('surya.input-target.upload') }}" enctype="multipart/form-data" class="upload-form">@csrf<label>Upload Excel target</label><input type="file" name="target_file" accept=".xlsx,.xls,.csv" required><button>Upload</button><small>Header: sfcode, target_pv_1d, target_pv_2d, target_sa_3gb, target_sa_5gb, dst.</small></form>
 @php
-    $columns = $targets->map(fn($t) => $t->product_family.'|'.$t->validity)->unique()->values();
+    $defaultColumns = collect(['1 HARI','2 HARI','3 HARI','5 HARI','7 HARI','14 HARI','28 HARI','30 HARI'])->map(fn($v) => 'PV|'.$v)
+        ->merge(collect(['3GB','5GB','7GB','10GB'])->map(fn($v) => 'SA|'.$v));
+    $columns = $defaultColumns->merge($targets->map(fn($t) => $t->product_family.'|'.$t->validity))->unique()->values();
     $bySf = $targets->groupBy('idsf');
 @endphp
 <div class="table-wrap"><table><thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th>@foreach($columns as $column) @php([$family, $validity] = explode('|', $column, 2))<th>Target {{ $family }} {{ $validity }}</th>@endforeach</tr></thead><tbody>
-@forelse($bySf as $idsf => $sfTargets)<tr><td><strong>{{ $idsf }}</strong></td><td>{{ $sfTargets->first()->namasf }}</td><td>{{ $sfTargets->first()->idtap }}</td>@foreach($columns as $column) @php($target = $sfTargets->firstWhere(fn($t) => $t->product_family.'|'.$t->validity === $column))<td>@if($target)<form method="POST" action="{{ route('surya.input-target.update', $target->id) }}" class="target-inline-form">@csrf @method('PATCH')<input type="number" name="target_qty" min="0" value="{{ $target->target_qty }}"><button title="Simpan target"><i class="fas fa-save"></i></button></form>@else<span class="text-muted">-</span>@endif</td>@endforeach</tr>@empty<tr><td colspan="{{ 3 + $columns->count() }}">Belum ada target.</td></tr>@endforelse</tbody></table></div></div>
+@forelse($sfs as $sf)<tr><td><strong>{{ $sf->idsf }}</strong></td><td>{{ $sf->namasf }}</td><td>{{ $sf->idtap }}</td>@foreach($columns as $column) @php($target = $bySf->get($sf->idsf, collect())->firstWhere(fn($t) => $t->product_family.'|'.$t->validity === $column))<td>@if($target)<form method="POST" action="{{ route('surya.input-target.update', $target->id) }}" class="target-inline-form">@csrf @method('PATCH')<input type="number" name="target_qty" min="0" value="{{ $target->target_qty }}"><button title="Simpan target"><i class="fas fa-save"></i></button></form>@else<span class="text-muted">0</span>@endif</td>@endforeach</tr>@empty<tr><td colspan="{{ 3 + $columns->count() }}">Belum ada SF.</td></tr>@endforelse</tbody></table></div></div>
 </main></div></body></html>
