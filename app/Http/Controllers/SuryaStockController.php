@@ -20,7 +20,7 @@ class SuryaStockController extends Controller
         $family = strtoupper($request->query('family', 'PV')) === 'SA' ? 'SA' : 'PV';
         $today = now();
         $daysLeft = max(1, collect(range($today->day, $today->daysInMonth))->filter(fn ($day) => ! $today->copy()->day($day)->isWeekend())->count());
-        $sfRows = DB::table('idsf')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
+        $sfRows = DB::table('idsf')->where('idsf', 'like', 'SF%')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
         $targets = DB::table('surya_sf_targets')->where('product_family', $family)->get()->groupBy('idsf');
         $denoms = DB::table('denom')->where(function ($q) use ($family) {
             if ($family === 'SA') $q->where('kategori_inject', 'SA');
@@ -53,7 +53,7 @@ class SuryaStockController extends Controller
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
         $targets = DB::table('surya_sf_targets')->join('idsf', 'idsf.idsf', '=', 'surya_sf_targets.idsf')->select('surya_sf_targets.*', 'idsf.namasf', 'idsf.idtap')->orderBy('idsf.namasf')->orderBy('product_family')->orderBy('validity')->get();
-        $sfs = DB::table('idsf')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
+        $sfs = DB::table('idsf')->where('idsf', 'like', 'SF%')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
         return view('surya.input-target', compact('targets', 'sfs'));
     }
 

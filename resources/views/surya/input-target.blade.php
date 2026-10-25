@@ -7,6 +7,6 @@
     $columns = $defaultColumns->merge($targets->map(fn($t) => $t->product_family.'|'.$t->validity))->unique()->values();
     $bySf = $targets->groupBy('idsf');
 @endphp
-<div class="table-wrap"><table><thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th>@foreach($columns as $column) @php([$family, $validity] = explode('|', $column, 2))<th>Target {{ $family }} {{ $validity }}</th>@endforeach</tr></thead><tbody>
+<div class="table-wrap"><table><thead><tr><th>SF Code</th><th>Nama SF</th><th>TAP</th>@foreach($columns as $column) @php([$family, $validity] = explode('|', $column, 2)) @php($shortValidity = $family === 'PV' ? preg_replace('/\s*HARI$/i', 'D', $validity) : $validity)<th>{{ $family }} {{ $shortValidity }}</th>@endforeach</tr></thead><tbody>
 @forelse($sfs as $sf)<tr><td><strong>{{ $sf->idsf }}</strong></td><td>{{ $sf->namasf }}</td><td>{{ $sf->idtap }}</td>@foreach($columns as $column) @php($target = $bySf->get($sf->idsf, collect())->firstWhere(fn($t) => $t->product_family.'|'.$t->validity === $column))<td>@if($target)<form method="POST" action="{{ route('surya.input-target.update', $target->id) }}" class="target-inline-form">@csrf @method('PATCH')<input type="number" name="target_qty" min="0" value="{{ $target->target_qty }}"><button title="Simpan target"><i class="fas fa-save"></i></button></form>@else<span class="text-muted">0</span>@endif</td>@endforeach</tr>@empty<tr><td colspan="{{ 3 + $columns->count() }}">Belum ada SF.</td></tr>@endforelse</tbody></table></div></div>
 </main></div></body></html>

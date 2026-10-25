@@ -22,8 +22,13 @@ class SuryaTargetImport implements ToCollection, WithHeadingRow
                 [$target, $family, $validity] = array_pad(explode('_', $key, 3), 3, null);
                 if (! in_array($family, ['pv', 'sa'], true) || ! $validity) continue;
 
+                $normalizedValidity = strtoupper(str_replace('_', ' ', $validity));
+                if ($family === 'pv' && preg_match('/^(\d+)D$/', $normalizedValidity, $match)) {
+                    $normalizedValidity = $match[1] . ' HARI';
+                }
+
                 DB::table('surya_sf_targets')->updateOrInsert(
-                    ['idsf' => $idsf, 'product_family' => strtoupper($family), 'validity' => strtoupper(str_replace('_', ' ', $validity))],
+                    ['idsf' => $idsf, 'product_family' => strtoupper($family), 'validity' => $normalizedValidity],
                     ['target_qty' => max(0, (int) $value), 'updated_at' => now(), 'created_at' => now()]
                 );
             }
