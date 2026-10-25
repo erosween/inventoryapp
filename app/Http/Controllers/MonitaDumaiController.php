@@ -124,7 +124,7 @@ class MonitaDumaiController extends Controller
             ->whereNotNull('pjp')
             ->whereRaw("TRIM(pjp) <> ''")
             ->whereRaw("UPPER(TRIM(pjp)) <> 'UNMAPPING'")
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
             ->distinct()
             ->orderBy('tap')
             ->pluck('tap');
@@ -239,7 +239,7 @@ class MonitaDumaiController extends Controller
     private function nonDigiposOutletBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
     {
         $latestVisits = DB::table('surya_visits')
-            ->selectRaw('MAX(id) as id')
+            ->selectRaw('id_outlet, MAX(id) as id')
             ->where('visit_type', 'non_digipos')
             ->groupBy('id_outlet');
 
@@ -2356,23 +2356,31 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        $outlets = DB::table('appsdumais')
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+        $latestApprovedVisit = DB::table('surya_visits')
+            ->selectRaw('id_outlet, MAX(id) as id')
+            ->whereIn('gps_status', ['valid', 'approved'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
-            ->where('latitude', '!=', '')
-            ->where('longitude', '!=', '')
-            ->where('sf', '!=', 'UNMAPPING')
-            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [0, 3])
-            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [100, 102.5])
+            ->groupBy('id_outlet');
+
+        $outlets = DB::table('appsdumais as o')
+            ->leftJoinSub($latestApprovedVisit, 'latest_visit', 'latest_visit.id_outlet', '=', 'o.id_outlet')
+            ->leftJoin('surya_visits as v', 'v.id', '=', 'latest_visit.id')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
+            ->where('o.sf', '!=', 'UNMAPPING')
+            ->whereRaw("COALESCE(v.latitude, o.latitude) IS NOT NULL")
+            ->whereRaw("COALESCE(v.longitude, o.longitude) IS NOT NULL")
+            ->whereRaw("COALESCE(v.latitude, o.latitude) <> ''")
+            ->whereRaw("COALESCE(v.longitude, o.longitude) <> ''")
+            ->whereBetween(DB::raw('CAST(COALESCE(v.latitude, o.latitude) AS DECIMAL(12,8))'), [0, 3])
+            ->whereBetween(DB::raw('CAST(COALESCE(v.longitude, o.longitude) AS DECIMAL(12,8))'), [100, 102.5])
             ->select(
-                'id_outlet',
-                'nama_outlet',
-                'sf',
-                'tap',
-                'latitude',
-                'longitude'
+                'o.id_outlet',
+                'o.nama_outlet',
+                'o.sf',
+                'o.tap'
             )
+            ->selectRaw('COALESCE(v.latitude, o.latitude) as latitude, COALESCE(v.longitude, o.longitude) as longitude')
             ->get();
         $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $outlets->pluck('id_outlet'));
 
