@@ -12,6 +12,24 @@ class SuryaStockScopeTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_pv_validities_are_ordered_by_duration_regardless_of_target_insertion_order(): void
+    {
+        $admin = User::where('username', 'admin_super')->firstOrFail();
+        DB::table('idsf')->insert(['idsf' => 'SF-VALIDITY-ORDER', 'namasf' => 'VALIDITY ORDER TEST', 'idtap' => 'DUMAI']);
+        foreach ([28, 7, 1, 5, 3, 2] as $days) {
+            DB::table('surya_sf_targets')->insert([
+                'idsf' => 'SF-VALIDITY-ORDER', 'product_family' => 'PV', 'validity' => $days.' HARI',
+                'target_qty' => $days * 100, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->withSession(['idtap' => $admin->idtap])
+            ->get(route('surya.stock-on-hand', ['family' => 'PV']))->assertOk();
+        $items = $response->viewData('rows')->firstWhere('idsf', 'SF-VALIDITY-ORDER')['items'];
+        $this->assertSame(['1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '28 HARI'], $items->pluck('validity')->all());
+        $this->assertSame([100, 200, 300, 500, 700, 2800], $items->pluck('target')->all());
+    }
+
     #[DataProviderExternal(SuryaOutletScopeTest::class, 'users')]
     public function test_stock_taps_and_sales_follow_detail_outlet_scope_for_both_product_tabs(string $username, array $allowedTaps): void
     {

@@ -52,7 +52,7 @@ class SuryaWorkspaceTest extends TestCase
         $this->assertSame(1, $xpath->query('//*[@data-surya-sidebar-toggle]')->length);
         $this->assertSame(1, $xpath->query('//header//following-sibling::main')->length);
         $this->assertSame(1, $xpath->query('//h1[normalize-space()="'.$title.'"]')->length);
-        $this->assertSame(8, $xpath->query('//*[@class="sidebar-nav"]/a')->length);
+        $this->assertSame(9, $xpath->query('//*[@class="sidebar-nav"]/a')->length);
         $this->assertSame(1, $xpath->query('//a[contains(concat(" ", @class, " "), " sidebar-link ") and contains(concat(" ", @class, " "), " active ")]')->length);
         $response->assertDontSee('Data terhubung')->assertDontSee('INVENTORY MSP');
     }
@@ -84,5 +84,19 @@ class SuryaWorkspaceTest extends TestCase
             ->assertOk()->assertSee('Header SURYA')->assertDontSee('INPUT TARGET')->assertDontSee('UPLOAD TRANSAKSI');
         $this->get('/surya/input-target')->assertForbidden();
         $this->get('/surya/transaction-upload')->assertForbidden();
+    }
+
+    public function test_only_super_admin_has_a_shortcut_to_the_inventory_web(): void
+    {
+        foreach (['admin_super', 'asmen_dumai', 'cluster_dumai', 'cluster_rohil', 'gm_cluster', 'branch_dumai'] as $username) {
+            $user = User::where('username', $username)->firstOrFail();
+            $sidebar = $this->actingAs($user)->view('surya.partials.sidebar', ['activePage' => 'stock-on-hand']);
+            if ($username === 'admin_super') {
+                $sidebar->assertSee('WEB INVENTORY')->assertSee('href="'.route('home').'"', false);
+                $this->withSession(['idtap' => $user->idtap])->get(route('home'))->assertOk()->assertSee('INVENTORY MSP');
+            } else {
+                $sidebar->assertDontSee('WEB INVENTORY')->assertDontSee('href="'.route('home').'"', false);
+            }
+        }
     }
 }

@@ -25,6 +25,7 @@
         @endif
         @if($sidebarUser === 'admin_super')
             <a href="{{ route('surya.transaction-upload') }}" class="sidebar-link {{ $sidebarPage === 'transaction-upload' ? 'active' : '' }}"><i class="fas fa-file-arrow-up"></i><span>UPLOAD TRANSAKSI</span></a>
+            <a href="{{ route('home') }}" class="sidebar-link"><i class="fas fa-arrow-up-right-from-square"></i><span>WEB INVENTORY</span></a>
         @endif
     </nav>
     <div class="sidebar-foot">

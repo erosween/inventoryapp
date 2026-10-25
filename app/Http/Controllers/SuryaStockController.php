@@ -45,6 +45,9 @@ class SuryaStockController extends Controller
 
         $rows = $sfRows->map(function ($sf) use ($targets, $denomKeys, $stock, $sales, $daysLeft, $family) {
             $targetRows = $targets->get($sf->idsf, collect())->keyBy('validity');
+            if ($family === 'PV') {
+                $targetRows = $targetRows->sortKeys(SORT_NATURAL);
+            }
             $stockRows = $stock->get($sf->idsf, collect())->keyBy('iddenom');
             $salesRows = $sales->get($sf->idsf, collect())->groupBy('iddenom')->map(fn ($r) => $r->sum('qty'));
             $items = $targetRows->map(function ($target, $validity) use ($denomKeys, $stockRows, $salesRows, $daysLeft) {
