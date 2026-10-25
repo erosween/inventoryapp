@@ -26,7 +26,7 @@ class SuryaStockController extends Controller
             if ($family === 'SA') $q->where('kategori_inject', 'SA');
             else $q->where('kategori_inject', '!=', 'SA')->where('group_name', '!=', 'LAINNYA');
         })->get(['iddenom', 'denom', 'group_name']);
-        $denomKeys = $denoms->mapWithKeys(fn ($d) => [$family === 'PV' ? strtoupper($d->group_name) : strtoupper(preg_replace('/^SA\s+/i', '', $d->denom)) => $d->iddenom]);
+        $denomKeys = $denoms->groupBy(fn ($d) => $family === 'PV' ? strtoupper($d->group_name) : strtoupper(preg_replace('/^SA\s+/i', '', $d->denom)))->map(fn ($rows) => $rows->pluck('iddenom')->values());
         $stock = DB::table('stockawalsf')->whereIn('iddenom', $denoms->pluck('iddenom'))->get()->groupBy('idsf');
         $sales = DB::table('keluarsf')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
         $mobileSales = DB::table('mobile_penjualan')->where('status', 'approved')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
@@ -37,10 +37,10 @@ class SuryaStockController extends Controller
             $stockRows = $stock->get($sf->idsf, collect())->keyBy('iddenom');
             $salesRows = $sales->get($sf->idsf, collect())->groupBy('iddenom')->map(fn ($r) => $r->sum('qty'));
             $items = $targetRows->map(function ($target, $validity) use ($denomKeys, $stockRows, $salesRows, $daysLeft) {
-                $iddenom = $denomKeys->get($validity);
-                $actual = (int) $salesRows->get($iddenom, 0);
+                $iddenoms = $denomKeys->get($validity, collect());
+                $actual = (int) $salesRows->only($iddenoms->all())->sum();
                 $daily = (int) ceil(max(0, $target->target_qty - $actual) / $daysLeft);
-                $onHand = (int) optional($stockRows->get($iddenom))->stock;
+                $onHand = (int) $stockRows->only($iddenoms->all())->sum('stock');
                 return ['validity' => $validity, 'target' => (int) $target->target_qty, 'daily' => $daily, 'actual' => $actual, 'stock' => $onHand, 'recommendation' => max(0, $daily - $onHand), 'status' => $onHand >= $daily ? 'Stock Aman' : 'Stock Kurang'];
             })->values();
             return ['idsf' => $sf->idsf, 'namasf' => $sf->namasf, 'idtap' => $sf->idtap, 'cluster' => $this->clusterFor($sf->idtap), 'items' => $items];
