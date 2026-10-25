@@ -124,7 +124,7 @@ class MonitaDumaiController extends Controller
             ->whereNotNull('pjp')
             ->whereRaw("TRIM(pjp) <> ''")
             ->whereRaw("UPPER(TRIM(pjp)) <> 'UNMAPPING'")
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->distinct()
             ->orderBy('tap')
             ->pluck('tap');
