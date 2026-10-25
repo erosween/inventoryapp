@@ -114,6 +114,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
     Route::post('/sf/{idsf}', [SfController::class, 'destroy']);
     Route::get('/ajax/check-sf/{id}', [SfController::class, 'checkId'])->name('ajax.check-sf');
     Route::get('/sf/sync-login', [SfController::class, 'syncLogin'])->name('sf.sync-login');
+    Route::get('/sf/export', [SfController::class, 'export'])->name('sf.export');
 
     // Denom Management
     Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');

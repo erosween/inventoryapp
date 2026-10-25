@@ -44,6 +44,12 @@
                                          <i class="fas fa-sync-alt"></i>
                                          Sinkronkan Login SF
                                      </a>
+                                     @if(auth()->user()?->isSuperAdmin())
+                                         <a href="{{ route('sf.export') }}" class="btn btn-success btn-round ml-2">
+                                             <i class="fas fa-download"></i>
+                                             Download SF
+                                         </a>
+                                     @endif
                                  </div>
                              </div>
                             <div class="card-body">

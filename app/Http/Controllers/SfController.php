@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SfMasterExport;
 
 class SfController extends Controller
 {
@@ -121,5 +123,12 @@ class SfController extends Controller
         }
 
         return redirect()->back()->with('success', $count . ' SF berhasil di-sinkronisasi data login-nya (Password Default: 123).');
+    }
+
+    public function export()
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+        $sfs = DB::table('idsf')->orderBy('idtap')->orderBy('idsf')->get();
+        return Excel::download(new SfMasterExport($sfs), 'MASTER_SF_' . now()->format('Ymd_His') . '.xlsx');
     }
 }
