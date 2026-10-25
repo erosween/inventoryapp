@@ -17,14 +17,15 @@ class SuryaStockController extends Controller
 
     public function stock(Request $request)
     {
-        $family = strtoupper($request->query('family', 'PV')) === 'SA' ? 'SA' : 'PV';
+        // Stock on Hand and achievement currently cover PV Reguler only.
+        $family = 'PV';
         $today = now();
         $daysLeft = max(1, collect(range($today->day, $today->daysInMonth))->filter(fn ($day) => ! $today->copy()->day($day)->isWeekend())->count());
         $sfRows = DB::table('idsf')->where('idsf', 'like', 'SF%')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
         $targets = DB::table('surya_sf_targets')->where('product_family', $family)->get()->groupBy('idsf');
         $denoms = DB::table('denom')->where(function ($q) use ($family) {
             if ($family === 'SA') $q->where('kategori_inject', 'SA');
-            else $q->where('kategori_inject', '!=', 'SA')->where('group_name', '!=', 'LAINNYA');
+            else $q->whereNotIn('kategori_inject', ['BYU', 'SA'])->where('group_name', '!=', 'LAINNYA');
         })->get(['iddenom', 'denom', 'group_name']);
         $denomKeys = $denoms->groupBy(fn ($d) => $family === 'PV' ? strtoupper($d->group_name) : strtoupper(preg_replace('/^SA\s+/i', '', $d->denom)))->map(fn ($rows) => $rows->pluck('iddenom')->values());
         $stock = DB::table('stockawalsf')->whereIn('iddenom', $denoms->pluck('iddenom'))->get()->groupBy('idsf');
