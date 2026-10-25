@@ -1,4 +1,4 @@
-@extends('layout.layout')
+@extends(request()->routeIs('surya.stock-gudang') ? 'surya.layouts.inventory-stock' : 'layout.layout')
 
 @php
     use Illuminate\Support\Str;
@@ -36,10 +36,12 @@
                     <div class="card-header bg-white border-bottom">
                         <form id="filter_form" class="row align-items-center">
                             <div class="col-md-4 col-sm-12">
+                                @unless(request()->routeIs('surya.stock-gudang'))
                                 <h4 class="card-title mb-0 font-weight-bold text-indigo">
                                     <i class="fas fa-warehouse mr-2"></i>Stock Gudang
                                 </h4>
                                 <div class="text-muted small">Monitoring stok aktif dan histori harian dalam satu tampilan</div>
+                                @endunless
                             </div>
                             <div class="col-md-8 col-sm-12 d-flex flex-wrap align-items-center justify-content-md-end justify-content-start mt-3 mt-md-0">
                                 <div class="daily-mode-toggle mr-2" role="group" aria-label="Perspektif stok">

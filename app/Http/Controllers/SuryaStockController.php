@@ -70,7 +70,9 @@ class SuryaStockController extends Controller
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
         $data = $request->validate(['target_qty' => ['required', 'integer', 'min:0']]);
-        DB::table('surya_sf_targets')->whereKey($target)->update(['target_qty' => $data['target_qty'], 'updated_at' => now()]);
+        $query = DB::table('surya_sf_targets')->where('id', $target);
+        abort_unless($query->exists(), 404);
+        $query->update(['target_qty' => $data['target_qty'], 'updated_at' => now()]);
         return back()->with('success', 'Target diperbarui.');
     }
 

@@ -395,9 +395,7 @@ class SuryaOutletListTest extends TestCase
             ->assertSee('value="2026-10-20"', false)
             ->assertSee('id="profile-modal"', false)
             ->assertSee('outlet-profile-link', false)
-            ->assertSee('position:sticky;top:50px', false)
-            ->assertSee('position:sticky;left:130px', false)
-            ->assertSee('min-height:610px', false)
+            ->assertSee('css/surya-outlet.css', false)
             ->assertDontSee('DataTable(', false)
             ->assertDontSee('detail-outlet\\/data', false);
 

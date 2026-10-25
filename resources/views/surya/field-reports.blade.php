@@ -1,7 +1,30 @@
-@extends('layout.layout')
+@extends('surya.layouts.workspace')
+@section('title', 'Laporan Lapangan')
+@section('active-page', 'field-reports')
+@section('description', 'Pantau konsinyasi SA, survei kompetitor, dan kondisi jaringan outlet.')
 @section('content')
-<div class="main-panel"><div class="content"><div class="page-inner"><div class="card premium-card">
-<div class="card-header bg-white d-flex justify-content-between align-items-center"><div><h4 class="card-title mb-1 fw-bold">SURYA · Field Reports</h4><small class="text-muted">Monitoring data lapangan sales</small></div><form><select name="type" class="form-control form-control-sm" onchange="this.form.submit()"><option value="consignment" @selected($type === 'consignment')>Konsinyasi SA</option><option value="survey" @selected($type === 'survey')>Survey Kompetitor</option><option value="network" @selected($type === 'network')>Network</option></select></form></div>
-<div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Waktu</th><th>Outlet</th><th>SF</th><th>Detail</th><th>Catatan</th></tr></thead><tbody>@forelse($rows as $row)<tr><td>{{ \Carbon\Carbon::parse($row->reported_at)->format('d M Y H:i') }}</td><td>{{ $row->nama_outlet ?? $row->id_outlet }}</td><td>{{ $row->namasf ?? $row->idsf }}</td><td>@if($type === 'consignment'){{ $row->serial_number }} · {{ $row->status }}@elseif($type === 'survey'){{ $row->operator }} · {{ $row->product ?: '-' }} · Rp {{ number_format($row->price ?? 0, 0, ',', '.') }}@else{{ $row->operator }} · Sinyal: {{ $row->signal_status }} · Data: {{ $row->data_status ?: '-' }}@endif</td><td>{{ $row->notes ?: '-' }}</td></tr>@empty<tr><td colspan="5" class="text-center py-5 text-muted">Belum ada data.</td></tr>@endforelse</tbody></table></div></div><div class="card-footer bg-white">{{ $rows->links() }}</div>
-</div></div></div></div>
+<section class="surya-card">
+    <form class="surya-report-filters" method="get">
+        <label for="report-type">Jenis laporan</label>
+        <select id="report-type" name="type" onchange="this.form.submit()">
+            <option value="consignment" @selected($type === 'consignment')>Konsinyasi SA</option>
+            <option value="survey" @selected($type === 'survey')>Survei Kompetitor</option>
+            <option value="network" @selected($type === 'network')>Jaringan</option>
+        </select>
+    </form>
+    <div class="surya-report-scroll"><table class="surya-report-table">
+        <thead><tr><th>Waktu</th><th>Outlet</th><th>SF</th><th>Detail</th><th>Catatan</th></tr></thead>
+        <tbody>
+        @forelse($rows as $row)
+        <tr>
+            <td>{{ \Carbon\Carbon::parse($row->reported_at)->format('d M Y H:i') }}</td>
+            <td>{{ $row->nama_outlet ?? $row->id_outlet }}</td><td>{{ $row->namasf ?? $row->idsf }}</td>
+            <td>@if($type === 'consignment'){{ $row->serial_number }} · {{ $row->status }}@elseif($type === 'survey'){{ $row->operator }} · {{ $row->product ?: '—' }} · Rp {{ number_format($row->price ?? 0, 0, ',', '.') }}@else{{ $row->operator }} · Sinyal: {{ $row->signal_status }} · Data: {{ $row->data_status ?: '—' }}@endif</td>
+            <td>{{ $row->notes ?: '—' }}</td>
+        </tr>
+        @empty<tr><td colspan="5" class="surya-table-empty">Belum ada data.</td></tr>@endforelse
+        </tbody>
+    </table></div>
+    @include('surya.partials.pagination', ['paginator' => $rows])
+</section>
 @endsection

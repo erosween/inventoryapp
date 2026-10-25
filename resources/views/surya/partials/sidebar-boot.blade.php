@@ -9,9 +9,6 @@
         } catch (error) {}
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.enterprise-sidebar a').forEach((link) => {
-                link.addEventListener('click', () => root.classList.add('surya-sidebar-initializing'));
-            });
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 root.classList.remove('surya-sidebar-initializing');
                 root.classList.add('surya-sidebar-ready');

@@ -63,6 +63,7 @@ Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashb
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
 Route::get('/surya/stock-on-hand', [SuryaStockController::class, 'stock'])->name('surya.stock-on-hand');
+Route::get('/surya/stock-gudang', [sisaStockController::class, 'index'])->middleware('auth')->name('surya.stock-gudang');
 Route::get('/surya/input-target', [SuryaStockController::class, 'targets'])->name('surya.input-target');
 Route::post('/surya/input-target/upload', [SuryaStockController::class, 'upload'])->name('surya.input-target.upload');
 Route::patch('/surya/input-target/{target}', [SuryaStockController::class, 'update'])->name('surya.input-target.update');

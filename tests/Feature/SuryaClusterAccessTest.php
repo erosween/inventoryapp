@@ -105,7 +105,7 @@ class SuryaClusterAccessTest extends TestCase
 
         $this->actingAs($gm)
             ->view('surya.partials.sidebar', ['activePage' => 'dashboard'])
-            ->assertSee(route('sisastock.index'), false)
+            ->assertSee(route('surya.stock-gudang'), false)
             ->assertDontSee('LIST OUTLET')
             ->assertDontSee('UPLOAD TRANSAKSI');
     }
@@ -143,7 +143,7 @@ class SuryaClusterAccessTest extends TestCase
 
         $this->actingAs($branch)
             ->view('surya.partials.sidebar', ['activePage' => 'dashboard'])
-            ->assertSee(route('sisastock.index'), false)
+            ->assertSee(route('surya.stock-gudang'), false)
             ->assertDontSee('LIST OUTLET')
             ->assertDontSee('UPLOAD TRANSAKSI');
 
