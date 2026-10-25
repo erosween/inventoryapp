@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Imports\SuryaTargetImport;
+use App\Support\SuryaTapScope;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,20 +18,29 @@ class SuryaStockController extends Controller
 
     public function stock(Request $request)
     {
-        // Stock on Hand and achievement currently cover PV Reguler only.
+        // The PV tab covers regular vouchers only.
         $family = strtoupper((string) $request->query('family', 'PV')) === 'SA' ? 'SA' : 'PV';
         $today = now();
         $daysLeft = max(1, collect(range($today->day, $today->daysInMonth))->filter(fn ($day) => ! $today->copy()->day($day)->isWeekend())->count());
-        $sfRows = DB::table('idsf')->where('idsf', 'like', 'SF%')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
-        $targets = DB::table('surya_sf_targets')->where('product_family', $family)->get()->groupBy('idsf');
+        $tapScopes = SuryaTapScope::forUser($request->user(), $request->session()->get('idtap'));
+        $selectedTap = trim((string) $request->query('tap'));
+        $search = trim((string) $request->query('q'));
+        $sfQuery = DB::table('idsf')->where('idsf', 'like', 'SF%')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes));
+        $taps = (clone $sfQuery)->whereNotNull('idtap')->whereRaw("TRIM(idtap) <> ''")
+            ->distinct()->orderBy('idtap')->pluck('idtap');
+        $sfRows = $sfQuery->when($selectedTap !== '', fn ($query) => $query->where('idtap', $selectedTap))
+            ->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
+        $sfIds = $sfRows->pluck('idsf');
+        $targets = DB::table('surya_sf_targets')->whereIn('idsf', $sfIds)->where('product_family', $family)->get()->groupBy('idsf');
         $denoms = DB::table('denom')->where(function ($q) use ($family) {
             if ($family === 'SA') $q->where('kategori_inject', 'SA');
             else $q->whereNotIn('kategori_inject', ['BYU', 'SA'])->where('group_name', '!=', 'LAINNYA');
         })->get(['iddenom', 'denom', 'group_name']);
         $denomKeys = $denoms->groupBy(fn ($d) => $family === 'PV' ? strtoupper($d->group_name) : strtoupper(preg_replace('/^SA\s+/i', '', $d->denom)))->map(fn ($rows) => $rows->pluck('iddenom')->values());
-        $stock = DB::table('stockawalsf')->whereIn('iddenom', $denoms->pluck('iddenom'))->get()->groupBy('idsf');
-        $sales = DB::table('keluarsf')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
-        $mobileSales = DB::table('mobile_penjualan')->where('status', 'approved')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
+        $stock = DB::table('stockawalsf')->whereIn('idsf', $sfIds)->whereIn('iddenom', $denoms->pluck('iddenom'))->get()->groupBy('idsf');
+        $sales = DB::table('keluarsf')->whereIn('idsf', $sfIds)->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
+        $mobileSales = DB::table('mobile_penjualan')->whereIn('idsf', $sfIds)->where('status', 'approved')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
         $sales = $sales->concat($mobileSales)->groupBy('idsf');
 
         $rows = $sfRows->map(function ($sf) use ($targets, $denomKeys, $stock, $sales, $daysLeft, $family) {
@@ -47,7 +57,7 @@ class SuryaStockController extends Controller
             return ['idsf' => $sf->idsf, 'namasf' => $sf->namasf, 'idtap' => $sf->idtap, 'cluster' => $this->clusterFor($sf->idtap), 'items' => $items];
         })->filter(fn ($row) => $row['items']->isNotEmpty());
 
-        return view('surya.stock-on-hand', compact('family', 'rows', 'daysLeft'));
+        return view('surya.stock-on-hand', compact('family', 'rows', 'daysLeft', 'taps', 'selectedTap', 'search'));
     }
 
     public function targets()

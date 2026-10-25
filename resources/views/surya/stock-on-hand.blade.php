@@ -8,13 +8,21 @@
 @endpush
 @section('content')
 <nav class="tabs" aria-label="Produk Stock on Hand">
-    <a class="{{ $family === 'PV' ? 'active' : '' }}" @if($family === 'PV') aria-current="page" @endif href="{{ route('surya.stock-on-hand', ['family' => 'PV']) }}">PV REGULER</a>
-    <a class="{{ $family === 'SA' ? 'active' : '' }}" @if($family === 'SA') aria-current="page" @endif href="{{ route('surya.stock-on-hand', ['family' => 'SA']) }}">SA</a>
+    <a data-stock-family="PV" class="{{ $family === 'PV' ? 'active' : '' }}" @if($family === 'PV') aria-current="page" @endif href="{{ route('surya.stock-on-hand', ['family' => 'PV', 'tap' => $selectedTap, 'q' => $search]) }}">PV REGULER</a>
+    <a data-stock-family="SA" class="{{ $family === 'SA' ? 'active' : '' }}" @if($family === 'SA') aria-current="page" @endif href="{{ route('surya.stock-on-hand', ['family' => 'SA', 'tap' => $selectedTap, 'q' => $search]) }}">SA</a>
 </nav>
+<form class="stock-filters" method="get" action="{{ route('surya.stock-on-hand') }}">
+    <input type="hidden" name="family" value="{{ $family }}">
+    <input class="stock-filter-input" id="sf-search" name="q" type="search" value="{{ $search }}" aria-label="Cari sales force" placeholder="Cari SF code, nama, TAP, atau cluster...">
+    <select class="stock-filter-input" id="stock-tap" name="tap" aria-label="Filter TAP">
+        <option value="">Semua TAP</option>
+        @foreach($taps as $tap)<option value="{{ $tap }}" @selected($selectedTap === $tap)>{{ $tap }}</option>@endforeach
+    </select>
+    <button class="stock-filter-button" type="submit"><i class="fas fa-magnifying-glass" aria-hidden="true"></i> Tampilkan</button>
+</form>
 <section class="surya-card">
     <div class="stock-toolbar">
         <p class="muted">Target harian = sisa target bulanan ÷ sisa hari kerja ({{ $daysLeft }} hari).</p>
-        <label class="search-box"><i class="fas fa-search" aria-hidden="true"></i><input id="sf-search" type="search" aria-label="Cari sales force" placeholder="Cari SF code, nama, TAP, atau cluster..."></label>
     </div>
     <div class="table-wrap stock-table-wrap" tabindex="0" role="region" aria-label="Tabel Stock on Hand">
         <table class="stock-table">
@@ -45,6 +53,7 @@
 @push('scripts')
 <script>
 const search = document.getElementById('sf-search');
+const tapFilter = document.getElementById('stock-tap');
 const allRows = [...document.querySelectorAll('.stock-row')];
 const empty = document.getElementById('sf-empty');
 const pager = document.getElementById('stock-pagination');
@@ -97,7 +106,16 @@ function renderStock() {
     });
     pager.append(pageButton('›', page === pages, () => goTo(page + 1), {label: 'Halaman berikutnya'}));
 }
-search.addEventListener('input', () => { page = 1; renderStock(); });
+function syncProductLinks() {
+    document.querySelectorAll('[data-stock-family]').forEach(link => {
+        const url = new URL(link.href);
+        url.searchParams.set('tap', tapFilter.value);
+        url.searchParams.set('q', search.value);
+        link.href = url.toString();
+    });
+}
+search.addEventListener('input', () => { page = 1; renderStock(); syncProductLinks(); });
+tapFilter.addEventListener('change', syncProductLinks);
 renderStock();
 </script>
 @endpush

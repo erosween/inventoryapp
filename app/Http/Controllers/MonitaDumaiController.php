@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use App\Services\OptimizedImageStorage;
+use App\Support\SuryaTapScope;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -1294,63 +1295,10 @@ class MonitaDumaiController extends Controller
             ->all();
     }
 
-    private function suryaTapScope(): ?string
-    {
-        $username = strtolower(trim((string) Auth::user()?->username));
-        if (! str_starts_with($username, 'asmen_')) {
-            return null;
-        }
-
-        $suffix = strtoupper(substr($username, 6));
-        return match ($suffix) {
-            'DUMAI' => 'DUMAI',
-            'BENGKALIS' => 'BENGKALIS',
-            'BAGAN_BATU', 'BAGANBATU' => 'BAGAN BATU',
-            'BAGAN_SIAPI_API', 'BAGANSIAPI_API', 'BAGANSIAPIAPI' => 'BAGAN SIAPI-API',
-            'UJUNG_TANJUNG', 'UJUNGTANJUNG' => 'UJUNG TANJUNG',
-            'ROHIL', 'ROKAN_HILIR' => 'ROHIL',
-            default => $suffix !== '' ? str_replace('_', ' ', $suffix) : null,
-        };
-    }
-
     /** Return null for unrestricted users, otherwise the exact tap list allowed in SURYA. */
     private function suryaTapScopes(): ?array
     {
-        $user = Auth::user();
-        $username = strtolower(trim((string) ($user?->username ?? '')));
-
-        if (in_array($username, ['admin_super', 'gm_cluster', 'branch_dumai'], true)) {
-            return null;
-        }
-
-        $clusterScopes = [
-            'cluster_dumai' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
-            'cluster_rohil' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
-        ];
-        if (isset($clusterScopes[$username])) {
-            return $clusterScopes[$username];
-        }
-
-        if (str_starts_with($username, 'asmen_')) {
-            $tap = $this->suryaTapScope();
-            return $tap ? [$tap] : [];
-        }
-
-        $scope = strtoupper(trim((string) ($user?->level ?? '')));
-        $sessionTap = strtoupper(trim((string) session('idtap')));
-        if ($username === 'gm' || $scope === 'GM') {
-            return match ($sessionTap) {
-                'CLUSTER_DUMAI' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
-                'CLUSTER_ROHIL' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
-                default => null,
-            };
-        }
-
-        if (in_array($scope, ['TAP', 'ADMIN TAP', 'ADMIN_TAP'], true) && $sessionTap !== '') {
-            return [$sessionTap];
-        }
-
-        return null;
+        return SuryaTapScope::forUser(Auth::user(), session('idtap'));
     }
 
     private function visitPhotoUrl(?string $path, bool $thumbnail = false): ?string
