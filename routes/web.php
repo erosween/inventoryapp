@@ -33,6 +33,7 @@ use App\Http\Controllers\searchController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockJourneyController;
+use App\Http\Controllers\SuryaStockController;
 use App\Http\Controllers\MonitaDumaiController;
 use App\Http\Controllers\Api\SalesChartController;
 use App\Http\Controllers\DenomController;
@@ -61,6 +62,10 @@ Route::middleware('surya.web')->group(function () {
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
+Route::get('/surya/stock-on-hand', [SuryaStockController::class, 'stock'])->name('surya.stock-on-hand');
+Route::get('/surya/input-target', [SuryaStockController::class, 'targets'])->name('surya.input-target');
+Route::post('/surya/input-target/upload', [SuryaStockController::class, 'upload'])->name('surya.input-target.upload');
+Route::patch('/surya/input-target/{target}', [SuryaStockController::class, 'update'])->name('surya.input-target.update');
 Route::get('/surya/detail-outlet', [MonitaDumaiController::class, 'outletDetail'])->name('surya.outlet-detail');
 Route::get('/surya/detail-outlet/data', [MonitaDumaiController::class, 'outletDetailData'])->name('surya.outlet-detail.data');
 Route::get('/surya/detail-outlet/export', [MonitaDumaiController::class, 'outletDetailExport'])->name('surya.outlet-detail.export');
