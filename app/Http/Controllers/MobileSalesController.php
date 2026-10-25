@@ -7,6 +7,7 @@ use App\Models\MobilePenjualan;
 use App\Models\MobileSalesReceipt;
 use App\Models\SuryaVisit;
 use App\Services\OptimizedImageStorage;
+use App\Services\SuryaOutletCoordinates;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -476,11 +477,7 @@ SQL;
                 ->where('visited_at', '<=', now('Asia/Jakarta')->subSeconds(15))
                 ->latest('visited_at')
                 ->first();
-            if ($pendingVisit && DB::table('surya_visits')->where('id', $pendingVisit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'approved'])) {
-                DB::table('appsdumais')->where('id_outlet', $requestedOutlet)->update([
-                    'latitude' => $pendingVisit->latitude,
-                    'longitude' => $pendingVisit->longitude,
-                ]);
+            if ($pendingVisit && app(SuryaOutletCoordinates::class)->approveVisit($pendingVisit->id, true)) {
                 $approvedVisit = true;
             }
         }

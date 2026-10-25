@@ -2714,7 +2714,7 @@
 
             const lat = Number(outlet.latitude);
             const lon = Number(outlet.longitude);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon) || !lat || !lon) return null;
+            if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || (lat === 0 && lon === 0)) return null;
 
             const marker = L.marker([lat, lon], {
                 icon: createOutletIcon(outlet)
@@ -2736,14 +2736,16 @@
             const outletId = String(marker.outletData?.id_outlet || '');
             if (!outletId) return;
 
-            if (outletDetailsCache.has(outletId)) {
-                applyOutletDetailsToMarker(marker, outletDetailsCache.get(outletId));
+            const cached = outletDetailsCache.get(outletId);
+            if (cached && cached.expires > Date.now()) {
+                applyOutletDetailsToMarker(marker, cached.detail);
                 return;
             }
 
             if (!outletDetailRequests.has(outletId)) {
                 const request = fetch('/surya/search?keyword=' + encodeURIComponent(outletId), {
-                    headers: { 'Accept': 'application/json' }
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
                 })
                     .then((response) => {
                         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -2752,7 +2754,7 @@
                     .then((data) => {
                         const detail = Array.isArray(data) ? data[0] : null;
                         if (!detail) throw new Error('Outlet tidak ditemukan');
-                        outletDetailsCache.set(outletId, detail);
+                        outletDetailsCache.set(outletId, {detail, expires: Date.now() + 30000});
                         return detail;
                     })
                     .finally(() => outletDetailRequests.delete(outletId));
@@ -2772,6 +2774,20 @@
 
         function applyOutletDetailsToMarker(marker, detail) {
             marker.outletData = { ...marker.outletData, ...detail };
+            const lat = Number(detail.latitude), lng = Number(detail.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0)) {
+                const previous = marker.getLatLng();
+                if (previous.lat !== lat || previous.lng !== lng) {
+                    // Reinsert so marker clustering follows the new location too.
+                    const wasOpen = marker.isPopupOpen();
+                    const clustered = outletClusterLayer?.hasLayer(marker);
+                    if (clustered) outletClusterLayer.removeLayer(marker);
+                    marker.setLatLng([lat, lng]);
+                    if (clustered) outletClusterLayer.addLayer(marker);
+                    if (wasOpen && clustered) outletClusterLayer.zoomToShowLayer(marker, () => marker.openPopup());
+                    else if (wasOpen) marker.openPopup();
+                }
+            }
             if (selectedOutletMarker === marker) {
                 marker.setIcon(createOutletIcon(marker.outletData, true));
             }
@@ -2797,7 +2813,7 @@
 
             const photoHtml = outlet.front_thumbnail_url
                 ? `<a class="outlet-branding-photo" href="${escapeMapDetailHtml(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeMapDetailHtml(outlet.front_thumbnail_url)}" alt="Tampak luar ${escapeMapDetailHtml(outlet.nama_outlet)}" loading="lazy"></a><small style="display:block;margin:0 0 7px;color:#64748b">Foto visit: ${mapDetailDate(outlet.front_photo_visited_at)}</small><div class="small text-muted">Dominasi: <strong>${escapeMapDetailHtml(outlet.branding_dominance || '—')}</strong> · Kelayakan: <strong>${escapeMapDetailHtml(outlet.branding_quality || '—')}</strong></div>`
-                : '<div style="padding:7px 0;color:#64748b;font-size:11px">Memuat foto dan rincian outlet...</div>';
+                : `<div style="padding:7px 0;color:#64748b;font-size:11px">${Object.prototype.hasOwnProperty.call(outlet, 'front_photo_url') ? 'Foto visit belum tersedia.' : 'Memuat foto dan rincian outlet...'}</div>`;
 
             return `
                 <b>${outlet.nama_outlet}</b><br>
@@ -2986,6 +3002,11 @@
 
             if (!marker) {
                 return;
+            }
+
+            if (typeof outlet === 'object') {
+                outletDetailsCache.delete(outletId);
+                applyOutletDetailsToMarker(marker, outlet);
             }
 
             if (selectedOutletMarker && selectedOutletMarker !== marker) {

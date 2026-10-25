@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SuryaVisit;
 use App\Services\OptimizedImageStorage;
+use App\Services\SuryaOutletCoordinates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -177,18 +178,11 @@ class SuryaVisitController extends Controller
 
     private function autoApproveExpiredVisit(?SuryaVisit $visit): void
     {
-        if (! $visit
-            || $visit->gps_status !== 'pending_admin'
-            || ! $visit->visited_at
-            || $visit->visited_at->gt(now('Asia/Jakarta')->subSeconds(15))) {
-            return;
-        }
-
-        if (SuryaVisit::query()->whereKey($visit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'approved'])) {
-            DB::table('appsdumais')->where('id_outlet', $visit->id_outlet)->update([
-                'latitude' => $visit->latitude,
-                'longitude' => $visit->longitude,
-            ]);
+        if ($visit) {
+            app(SuryaOutletCoordinates::class)->approveVisit($visit->id, true);
+            if (in_array($visit->gps_status, ['valid', 'approved'], true)) {
+                app(SuryaOutletCoordinates::class)->syncOutlet((string) $visit->id_outlet);
+            }
         }
     }
 
@@ -202,8 +196,8 @@ class SuryaVisitController extends Controller
             'owner_name' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:150'],
             'phone_number' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:40'],
             'outlet_address' => ['required_if:visit_type,non_digipos', 'nullable', 'string', 'max:1000'],
-            'latitude' => ['required', 'numeric'],
-            'longitude' => ['required', 'numeric'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
             'accuracy' => ['nullable', 'numeric'],
             'photo_front' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
             'photo_inside' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
@@ -309,13 +303,20 @@ class SuryaVisitController extends Controller
                 'checkout_notes' => null,
             ];
 
+            DB::transaction(function () use ($rejectedVisit, $visitData) {
+                if ($rejectedVisit) {
+                    $rejectedVisit->update($visitData);
+                } else {
+                    SuryaVisit::create($visitData);
+                }
+                if ($visitData['gps_status'] === 'valid') {
+                    app(SuryaOutletCoordinates::class)->syncOutlet((string) $visitData['id_outlet']);
+                }
+            });
             if ($rejectedVisit) {
-                $rejectedVisit->update($visitData);
                 foreach (array_unique($oldPaths) as $path) {
                     Storage::disk('public')->delete([$path, OptimizedImageStorage::thumbnailPathFor($path)]);
                 }
-            } else {
-                SuryaVisit::create($visitData);
             }
         } catch (\Throwable $exception) {
             foreach (array_filter([$frontPath, $insidePath]) as $path) {

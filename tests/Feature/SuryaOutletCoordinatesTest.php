@@ -1,0 +1,168 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Controllers\SuryaVisitReportController;
+use App\Models\SuryaVisit;
+use App\Models\User;
+use App\Services\OptimizedImageStorage;
+use App\Services\SuryaOutletCoordinates;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class SuryaOutletCoordinatesTest extends TestCase
+{
+    use DatabaseTransactions;
+
+    private function outlet(int $id): void
+    {
+        DB::table('appsdumais')->updateOrInsert(['id_outlet' => $id], [
+            'nama_outlet' => 'GPS Regression '.$id, 'tap' => 'BENGKALIS',
+            'sf' => 'GPS SALES TEST', 'pjp' => 'Senin',
+            'latitude' => 0.53449532, 'longitude' => 101.42113987,
+        ]);
+    }
+
+    private function visit(int $id, array $attributes = []): int
+    {
+        return DB::table('surya_visits')->insertGetId(array_merge([
+            'id_outlet' => (string) $id, 'idtap' => 'BENGKALIS', 'idsf' => 'SF-GPS-TEST',
+            'visited_at' => now()->subMinute(), 'latitude' => 1.470001, 'longitude' => 102.120001,
+            'gps_status' => 'approved', 'visit_type' => 'pjp',
+            'photo_front_path' => 'surya-visits/front/gps.webp', 'photo_inside_path' => 'surya-visits/inside/gps.webp',
+            'created_at' => now(), 'updated_at' => now(),
+        ], $attributes));
+    }
+
+    private function admin(): void
+    {
+        $this->actingAs(User::where('username', 'admin_super')->firstOrFail())
+            ->withSession(['idtap' => 'SBP_DUMAI']);
+    }
+
+    public function test_all_map_and_search_results_use_visit_time_and_the_backfill_repairs_every_outlet_idempotently(): void
+    {
+        $this->freezeTime();
+        $ids = [1201073824, 1201142452, 990011003];
+        foreach ($ids as $index => $id) {
+            $this->outlet($id);
+            $this->visit($id, ['latitude' => 1.47 + $index / 100, 'longitude' => 102.6]);
+            // An old imported visit with a higher ID must never win.
+            $this->visit($id, ['visited_at' => now()->subDays(3), 'latitude' => 0.5, 'longitude' => 101.4]);
+            $this->visit($id, ['visited_at' => now(), 'gps_status' => 'rejected', 'latitude' => 0.6]);
+            $this->visit($id, ['visited_at' => now(), 'gps_status' => 'pending_admin', 'latitude' => 0.7]);
+            $this->visit($id, ['visited_at' => now(), 'gps_status' => 'valid', 'latitude' => 91]);
+            $this->visit($id, ['visited_at' => now(), 'gps_status' => 'approved', 'latitude' => 0, 'longitude' => 0]);
+        }
+        $this->admin();
+        $map = collect($this->getJson('/surya/outlets')->assertOk()->json())->keyBy('id_outlet');
+        foreach ($ids as $index => $id) {
+            $expected = 1.47 + $index / 100;
+            $this->assertEqualsWithDelta($expected, $map[$id]['latitude'], 0.00000001);
+            $this->assertEqualsWithDelta(102.6, $map[$id]['longitude'], 0.00000001);
+            $search = $this->getJson('/surya/search?keyword='.$id)->assertOk()->json('0');
+            $this->assertEqualsWithDelta($expected, $search['latitude'], 0.00000001);
+            $this->assertEqualsWithDelta(102.6, $search['longitude'], 0.00000001);
+        }
+
+        $this->artisan('surya:sync-outlet-coordinates', ['--dry-run' => true, '--outlet' => $ids])->assertExitCode(0);
+        foreach ($ids as $id) {
+            $this->assertEqualsWithDelta(0.53449532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        }
+        $this->artisan('surya:sync-outlet-coordinates', ['--outlet' => $ids])->assertExitCode(0);
+        foreach ($ids as $index => $id) {
+            $this->assertEqualsWithDelta(1.47 + $index / 100, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        }
+        $this->assertSame(0, app(SuryaOutletCoordinates::class)->synchronize(false, $ids)['changed']);
+    }
+
+    public function test_auto_approval_of_an_older_visit_cannot_rewind_a_newer_confirmed_location(): void
+    {
+        $this->freezeTime();
+        $id = 990011004;
+        $this->outlet($id);
+        $pending = $this->visit($id, ['visited_at' => now()->subHour(), 'gps_status' => 'pending_admin', 'latitude' => 0.5]);
+        $this->visit($id, ['gps_status' => 'valid', 'latitude' => 1.48]);
+        $this->admin();
+        $this->getJson('/surya/outlets')->assertOk();
+        $this->assertDatabaseHas('surya_visits', ['id' => $pending, 'gps_status' => 'approved']);
+        $this->assertEqualsWithDelta(1.48, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+    }
+
+    public function test_equal_visit_times_use_the_latest_id_and_outlets_without_visits_keep_their_master(): void
+    {
+        $this->freezeTime();
+        $this->outlet(990011009);
+        $this->outlet(990011010);
+        $this->visit(990011009, ['latitude' => 1.4]);
+        $this->visit(990011009, ['latitude' => 1.5]);
+        app(SuryaOutletCoordinates::class)->synchronize(false, ['990011009', '990011010']);
+        $this->assertEqualsWithDelta(1.5, DB::table('appsdumais')->where('id_outlet', 990011009)->value('latitude'), 0.00000001);
+        $this->assertEqualsWithDelta(0.53449532, DB::table('appsdumais')->where('id_outlet', 990011010)->value('latitude'), 0.00000001);
+    }
+
+    public function test_all_auto_approval_paths_require_complete_photos_timeout_and_valid_coordinates(): void
+    {
+        $this->freezeTime();
+        $this->outlet(990011005);
+        $incomplete = $this->visit(990011005, ['gps_status' => 'pending_admin', 'photo_inside_path' => null]);
+        $recent = $this->visit(990011005, ['gps_status' => 'pending_admin', 'visited_at' => now()]);
+        $invalid = $this->visit(990011005, ['gps_status' => 'pending_admin', 'latitude' => 91]);
+        $rejected = $this->visit(990011005, ['gps_status' => 'rejected']);
+        $this->admin();
+        $this->getJson(route('surya.visits.auto-approve-pending'))->assertOk();
+        foreach ([$incomplete, $recent, $invalid] as $id) {
+            $this->assertDatabaseHas('surya_visits', ['id' => $id, 'gps_status' => 'pending_admin']);
+        }
+        $this->assertDatabaseHas('surya_visits', ['id' => $rejected, 'gps_status' => 'rejected']);
+        $this->assertFalse(app(SuryaOutletCoordinates::class)->syncOutlet('990011005'));
+    }
+
+    public function test_mobile_status_approves_and_synchronizes_the_outlet(): void
+    {
+        $this->freezeTime();
+        $id = 990011006;
+        $this->outlet($id);
+        $visit = $this->visit($id, ['gps_status' => 'pending_admin']);
+        $this->withSession(['mobile_sf_id' => 'SF-GPS-TEST', 'mobile_sf_name' => 'GPS SALES TEST', 'idtap' => 'BENGKALIS'])
+            ->getJson(route('mobile.visit.status', ['id_outlet' => (string) $id]))
+            ->assertOk()->assertJson(['gps_status' => 'approved', 'can_sell' => true]);
+        $this->assertDatabaseHas('surya_visits', ['id' => $visit, 'gps_status' => 'approved']);
+        $this->assertEqualsWithDelta(1.470001, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+    }
+
+    public function test_stale_admin_approval_does_not_override_a_rejection_or_move_the_outlet(): void
+    {
+        $id = 990011007;
+        $this->outlet($id);
+        $visitId = $this->visit($id, ['gps_status' => 'pending_admin']);
+        $stale = SuryaVisit::findOrFail($visitId);
+        DB::table('surya_visits')->where('id', $visitId)->update(['gps_status' => 'rejected']);
+        app(SuryaVisitReportController::class)->approve($stale);
+        $this->assertDatabaseHas('surya_visits', ['id' => $visitId, 'gps_status' => 'rejected']);
+        $this->assertEqualsWithDelta(0.53449532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+    }
+
+    public function test_saving_a_valid_visit_immediately_updates_master_to_its_measured_gps(): void
+    {
+        $this->freezeTime();
+        $id = 990011008;
+        $this->outlet($id);
+        $this->mock(OptimizedImageStorage::class, function ($mock) {
+            $mock->shouldReceive('isLikelyBlack')->andReturn(false);
+            $mock->shouldReceive('store')->twice()->andReturn(['path' => 'surya-visits/gps-test.webp']);
+        });
+        $this->withSession(['mobile_sf_id' => 'SF-GPS-TEST', 'mobile_sf_name' => 'GPS SALES TEST', 'idtap' => 'BENGKALIS'])
+            ->post(route('mobile.visit.store'), [
+                'id_outlet' => (string) $id, 'visit_type' => 'pjp',
+                'latitude' => 0.53450532, 'longitude' => 101.42113987, 'accuracy' => 5,
+                'photo_front' => UploadedFile::fake()->image('front.jpg'),
+                'photo_inside' => UploadedFile::fake()->image('inside.jpg'),
+                'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus',
+            ])->assertSessionHasNoErrors()->assertRedirect(route('mobile.visit.menu', ['id_outlet' => $id]));
+        $this->assertDatabaseHas('surya_visits', ['id_outlet' => (string) $id, 'gps_status' => 'valid']);
+        $this->assertEqualsWithDelta(0.53450532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+    }
+}

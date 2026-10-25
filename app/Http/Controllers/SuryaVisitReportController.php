@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\SuryaVisit;
 use App\Services\OptimizedImageStorage;
+use App\Services\SuryaOutletCoordinates;
+use App\Support\SuryaTapScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,27 +19,9 @@ class SuryaVisitReportController extends Controller
 
     private function approveExpiredPendingVisits(): int
     {
-        $visits = SuryaVisit::query()
-            ->where('gps_status', 'pending_admin')
-            ->when(session('idtap') && session('idtap') !== 'SBP_DUMAI', fn ($query) => $query->where('idtap', session('idtap')))
-            ->get()
-            ->filter(fn ($visit) => $visit->visited_at && $visit->visited_at->lte(now('Asia/Jakarta')->subSeconds(15)));
-        $approved = 0;
-
-        DB::transaction(function () use ($visits, &$approved) {
-            foreach ($visits as $visit) {
-                if (! SuryaVisit::query()->whereKey($visit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'approved'])) {
-                    continue;
-                }
-                DB::table('appsdumais')->where('id_outlet', $visit->id_outlet)->update([
-                    'latitude' => $visit->latitude,
-                    'longitude' => $visit->longitude,
-                ]);
-                $approved++;
-            }
-        });
-
-        return $approved;
+        return app(SuryaOutletCoordinates::class)->approveExpiredVisits(
+            SuryaTapScope::forUser(auth()->user(), session('idtap'))
+        );
     }
 
     public function approve(SuryaVisit $visit)
@@ -46,19 +30,19 @@ class SuryaVisitReportController extends Controller
         // time. Treat a visit that was already handled as a harmless repeat
         // submission instead of showing the generic 422 error page.
         if ($visit->gps_status !== 'pending_admin') {
+            if (in_array($visit->gps_status, ['valid', 'approved'], true)) {
+                app(SuryaOutletCoordinates::class)->syncOutlet((string) $visit->id_outlet);
+            }
             return $this->approvalRedirect($visit, 'Visit ini sudah diproses sebelumnya.');
         }
 
-        DB::transaction(function () use ($visit) {
-            $visit->update(['gps_status' => 'approved']);
-
-            DB::table('appsdumais')
-                ->where('id_outlet', $visit->id_outlet)
-                ->update([
-                    'latitude' => $visit->latitude,
-                    'longitude' => $visit->longitude,
-                ]);
-        });
+        if (! app(SuryaOutletCoordinates::class)->approveVisit($visit->id)) {
+            $visit->refresh();
+            if ($visit->gps_status === 'pending_admin') {
+                return back()->with('error', 'GPS visit tidak valid. Minta SF mengambil ulang lokasi sebelum disetujui.');
+            }
+            return $this->approvalRedirect($visit, 'Visit ini sudah diproses sebelumnya.');
+        }
 
         if (request()->input('return_to') === 'visit-detail') {
             $visitDate = request()->input('visit_date', $visit->visited_at?->toDateString() ?? now()->toDateString());
@@ -80,7 +64,10 @@ class SuryaVisitReportController extends Controller
             return $this->approvalRedirect($visit, 'Visit ini sudah diproses sebelumnya.');
         }
 
-        $visit->update(['gps_status' => 'rejected']);
+        if (! SuryaVisit::query()->whereKey($visit->id)->where('gps_status', 'pending_admin')->update(['gps_status' => 'rejected'])) {
+            $visit->refresh();
+            return $this->approvalRedirect($visit, 'Visit ini sudah diproses sebelumnya.');
+        }
 
         if (request()->input('return_to') === 'visit-detail') {
             $visitDate = request()->input('visit_date', $visit->visited_at?->toDateString() ?? now()->toDateString());

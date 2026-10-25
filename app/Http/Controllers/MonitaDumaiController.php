@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use App\Services\OptimizedImageStorage;
+use App\Services\SuryaOutletCoordinates;
 use App\Support\SuryaTapScope;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -45,26 +46,7 @@ class MonitaDumaiController extends Controller
 
     private function approveExpiredVisitCoordinates(): void
     {
-        $pendingVisits = DB::table('surya_visits')
-            ->where('gps_status', 'pending_admin')
-            ->whereNotNull('photo_front_path')
-            ->whereNotNull('photo_inside_path')
-            ->where('visited_at', '<=', now('Asia/Jakarta')->subSeconds(15))
-            ->get(['id', 'id_outlet', 'latitude', 'longitude']);
-
-        foreach ($pendingVisits as $visit) {
-            $updated = DB::table('surya_visits')
-                ->where('id', $visit->id)
-                ->where('gps_status', 'pending_admin')
-                ->update(['gps_status' => 'approved']);
-
-            if ($updated) {
-                DB::table('appsdumais')->where('id_outlet', $visit->id_outlet)->update([
-                    'latitude' => $visit->latitude,
-                    'longitude' => $visit->longitude,
-                ]);
-            }
-        }
+        app(SuryaOutletCoordinates::class)->approveExpiredVisits($this->suryaTapScopes());
     }
 
     public function metricsUploadForm(Request $request)
@@ -1736,7 +1718,7 @@ class MonitaDumaiController extends Controller
             return [];
         }
 
-        $outletCoordinates = DB::table('appsdumais')
+        $outletCoordinates = app(SuryaOutletCoordinates::class)->outlets()
             ->whereIn('tap', $competitionRows->pluck('tap')->filter()->unique()->values()->all())
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
@@ -2094,7 +2076,7 @@ class MonitaDumaiController extends Controller
         $previousExpr = $this->appsdumaiTransactionExpression('m1_');
         $taps = $tapAreaMap->keys()->all();
 
-        $outlets = DB::table('appsdumais')
+        $outlets = app(SuryaOutletCoordinates::class)->outlets()
             ->whereIn('tap', $taps)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
@@ -2207,7 +2189,8 @@ class MonitaDumaiController extends Controller
 
         $keyword = $request->input('keyword');
         $tapScopes = $this->suryaTapScopes();
-        $data = DB::table('appsdumais')
+        app(SuryaOutletCoordinates::class)->approveExpiredVisits($tapScopes);
+        $data = app(SuryaOutletCoordinates::class)->outlets()
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
             ->select('appsdumais.*')
             ->where(function ($query) use ($keyword) {
@@ -2304,31 +2287,22 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        $latestApprovedVisit = DB::table('surya_visits')
-            ->selectRaw('id_outlet, MAX(id) as id')
-            ->whereIn('gps_status', ['valid', 'approved'])
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->groupBy('id_outlet');
-
-        $outlets = DB::table('appsdumais as o')
-            ->leftJoinSub($latestApprovedVisit, 'latest_visit', 'latest_visit.id_outlet', '=', 'o.id_outlet')
-            ->leftJoin('surya_visits as v', 'v.id', '=', 'latest_visit.id')
+        app(SuryaOutletCoordinates::class)->approveExpiredVisits($tapScopes);
+        $outlets = app(SuryaOutletCoordinates::class)->outlets('o')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
             ->where('o.sf', '!=', 'UNMAPPING')
-            ->whereRaw("COALESCE(v.latitude, o.latitude) IS NOT NULL")
-            ->whereRaw("COALESCE(v.longitude, o.longitude) IS NOT NULL")
-            ->whereRaw("COALESCE(v.latitude, o.latitude) <> ''")
-            ->whereRaw("COALESCE(v.longitude, o.longitude) <> ''")
-            ->whereBetween(DB::raw('CAST(COALESCE(v.latitude, o.latitude) AS DECIMAL(12,8))'), [0, 3])
-            ->whereBetween(DB::raw('CAST(COALESCE(v.longitude, o.longitude) AS DECIMAL(12,8))'), [100, 102.5])
+            ->whereNotNull('o.latitude')->whereNotNull('o.longitude')
+            ->whereRaw("TRIM(o.latitude) <> ''")->whereRaw("TRIM(o.longitude) <> ''")
+            ->whereBetween(DB::raw('CAST(o.latitude AS DECIMAL(12,8))'), [-90, 90])
+            ->whereBetween(DB::raw('CAST(o.longitude AS DECIMAL(12,8))'), [-180, 180])
+            ->where(fn ($query) => $query->where('o.latitude', '!=', 0)->orWhere('o.longitude', '!=', 0))
             ->select(
                 'o.id_outlet',
                 'o.nama_outlet',
                 'o.sf',
                 'o.tap'
             )
-            ->selectRaw('COALESCE(v.latitude, o.latitude) as latitude, COALESCE(v.longitude, o.longitude) as longitude')
+            ->addSelect('o.latitude', 'o.longitude')
             ->get();
         $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $outlets->pluck('id_outlet'));
 
@@ -2395,7 +2369,7 @@ class MonitaDumaiController extends Controller
         $lon_delta = $radius / (111.0 * cos(deg2rad($lat)));
 
         // Haversine formula to find outlets within preferred radius
-        $data = DB::table('appsdumais')
+        $data = app(SuryaOutletCoordinates::class)->outlets()
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->whereBetween('latitude', [$lat - $lat_delta, $lat + $lat_delta])
             ->whereBetween('longitude', [$long - $lon_delta, $long + $lon_delta])
