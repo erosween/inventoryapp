@@ -8,6 +8,7 @@
 @endphp
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <style>.surya-sidebar-toggle{display:none;position:fixed;right:16px;bottom:16px;z-index:1200;width:46px;height:46px;border:0;border-radius:50%;background:#c8102e;color:#fff;box-shadow:0 8px 20px #17203335;font-size:18px}@media(max-width:1100px){.surya-sidebar-toggle{display:grid;place-items:center}}</style>
+<style>.target-inline-form{display:flex;align-items:center;gap:5px}.target-inline-form input{width:86px!important}.target-inline-form button{padding:7px 9px!important;font-size:11px}</style>
 <aside class="enterprise-sidebar" aria-label="Navigasi utama SURYA">
     <div class="sidebar-brand">
         <div class="sidebar-logo"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA"></div>
