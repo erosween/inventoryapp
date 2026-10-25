@@ -18,7 +18,7 @@ class SuryaStockController extends Controller
     public function stock(Request $request)
     {
         // Stock on Hand and achievement currently cover PV Reguler only.
-        $family = 'PV';
+        $family = strtoupper((string) $request->query('family', 'PV')) === 'SA' ? 'SA' : 'PV';
         $today = now();
         $daysLeft = max(1, collect(range($today->day, $today->daysInMonth))->filter(fn ($day) => ! $today->copy()->day($day)->isWeekend())->count());
         $sfRows = DB::table('idsf')->where('idsf', 'like', 'SF%')->select('idsf', 'namasf', 'idtap')->orderBy('idtap')->orderBy('namasf')->get();
