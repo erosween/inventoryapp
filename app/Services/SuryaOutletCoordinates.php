@@ -43,9 +43,9 @@ class SuryaOutletCoordinates
     }
 
     /** Every map/search reader gets the same coordinates, even before a backfill. */
-    public function outlets(string $alias = 'appsdumais'): Builder
+    public function outlets(string $alias = 'appsdumais', ?array $selectedColumns = null): Builder
     {
-        $columns = collect(DB::getSchemaBuilder()->getColumnListing('appsdumais'))
+        $columns = collect($selectedColumns ?? DB::getSchemaBuilder()->getColumnListing('appsdumais'))
             ->reject(fn ($column) => in_array($column, ['latitude', 'longitude'], true))
             ->map(fn ($column) => 'outlet_master.'.$column)->all();
         $resolved = DB::table('appsdumais as outlet_master')
@@ -63,10 +63,9 @@ class SuryaOutletCoordinates
     {
         if ($outlets->isEmpty()) return $outlets;
 
-        $latest = DB::table('surya_visits')->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
-            ->orderByDesc('visited_at')->orderByDesc('id')
+        $latest = $this->latestVisitRecords($outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
             ->get(['id', 'id_outlet', 'visited_at', 'gps_status', 'latitude', 'longitude', 'accuracy', 'photo_front_path', 'photo_inside_path'])
-            ->unique('id_outlet')->keyBy(fn ($visit) => (string) $visit->id_outlet);
+            ->keyBy(fn ($visit) => (string) $visit->id_outlet);
 
         return $outlets->map(function ($outlet) use ($latest) {
             $visit = $latest->get((string) $outlet->id_outlet);
@@ -87,6 +86,28 @@ class SuryaOutletCoordinates
 
             return $outlet;
         });
+    }
+
+    /** Fetch one latest record per outlet in SQL, rather than loading all history. */
+    public function latestVisitRecords(array $outletIds, bool $withFrontPhoto = false): Builder
+    {
+        return DB::table('surya_visits as record')->whereIn('record.id_outlet', $outletIds)
+            ->when($withFrontPhoto, fn ($query) => $query->whereNotNull('record.photo_front_path'))
+            ->whereNotExists(function ($newer) use ($withFrontPhoto) {
+                $newer->selectRaw('1')->from('surya_visits as newer_record')
+                    ->whereColumn('newer_record.id_outlet', 'record.id_outlet')
+                    ->when($withFrontPhoto, fn ($query) => $query->whereNotNull('newer_record.photo_front_path'))
+                    ->where(function ($order) {
+                        $order->whereColumn('newer_record.visited_at', '>', 'record.visited_at')
+                            ->orWhere(fn ($query) => $query->whereNull('record.visited_at')->whereNotNull('newer_record.visited_at'))
+                            ->orWhere(function ($tie) {
+                                $tie->whereColumn('newer_record.id', '>', 'record.id')->where(function ($time) {
+                                    $time->whereColumn('newer_record.visited_at', 'record.visited_at')
+                                        ->orWhere(fn ($query) => $query->whereNull('record.visited_at')->whereNull('newer_record.visited_at'));
+                                });
+                            });
+                    });
+            });
     }
 
     public function syncOutlet(string $idOutlet): bool

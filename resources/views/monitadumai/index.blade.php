@@ -27,8 +27,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
-    <!-- Telegram WebApp SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="{{ asset('css/surya-dashboard.css') }}?v={{ filemtime(public_path('css/surya-dashboard.css')) }}">
     @include('surya.partials.assets')
 </head>
@@ -1911,12 +1909,21 @@
         }
 
         function bindDashboardMenu() {
+            const loadedPanel = @json($dashboard['loadedPanel'] ?? null);
             const buttons = document.querySelectorAll('[data-dashboard-tab]');
             if (!buttons.length) return;
 
             const availableTabs = new Set(Array.from(buttons).map((button) => button.dataset.dashboardTab));
             const activateTab = (requestedTab) => {
                 const tab = availableTabs.has(requestedTab) ? requestedTab : 'outlet';
+                if (loadedPanel && tab !== loadedPanel) {
+                    const target = new URL(window.location.href);
+                    target.searchParams.set('panel', tab);
+                    target.hash = tab;
+                    window.history.replaceState(null, '', target);
+                    window.location.reload();
+                    return;
+                }
                 document.title = `${tab === 'visit-detail' ? 'Detail Visit' : 'Peta Outlet'} · SURYA`;
 
                 if (requestedTab !== tab) {
@@ -1943,7 +1950,7 @@
                 document.getElementById('dashboard-boot-panel-style')?.remove();
 
                 if (tab === 'outlet') {
-                    if (!map) loadAllOutlets();
+                    if (!outletDataLoaded) loadAllOutlets();
                     else {
                         [0, 120, 360, 700].forEach((delay) => setTimeout(() => map.invalidateSize({ pan: false, animate: false }), delay));
                     }
@@ -2253,6 +2260,11 @@
             const box = document.getElementById('suggestions');
             const items = box.querySelectorAll('li');
 
+            if (e.key === 'Enter' && (box.style.display === 'none' || items.length === 0)) {
+                e.preventDefault();
+                searchOutlet();
+                return;
+            }
             if (box.style.display === 'none' || items.length === 0) return;
 
             if (e.key === "ArrowDown") {
@@ -2582,12 +2594,18 @@
         }
 
         let outletLoadPromise = null;
+        let outletDataLoaded = false;
 
         async function loadAllOutlets() {
-            if (map || outletLoadPromise) return outletLoadPromise;
+            if (outletDataLoaded || outletLoadPromise) return outletLoadPromise;
 
             const countEl = document.getElementById('map-outlet-count');
             const insightEl = document.getElementById('branding-insights');
+            // Tiles and controls can start while the outlet metadata is in flight.
+            if (!map) {
+                setupMapMobileTabs();
+                initMap([]);
+            }
             outletLoadPromise = (async () => {
                 try {
                     const response = await fetch('/surya/outlets', {
@@ -2600,9 +2618,10 @@
                     const outlets = await response.json();
                     if (!Array.isArray(outlets)) throw new Error('Format data outlet tidak valid');
 
-                    setupMapMobileTabs();
                     initMap(outlets);
                     renderBrandingInsights(outlets);
+                    outletDataLoaded = true;
+                    document.getElementById('map')?.classList.remove('map-load-error');
                     const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
                     if (countEl) countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
                 } catch (error) {
@@ -2619,12 +2638,16 @@
         }
 
         function initMap(outlets) {
+            if (map) {
+                fitAndQueueOutletMarkers(outlets);
+                return;
+            }
             map = L.map('map').setView([1.75, 101.05], 8);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
             outletClusterLayer = L.markerClusterGroup({
                 chunkedLoading: true,
-                chunkInterval: 80,
+                chunkInterval: 16,
                 chunkDelay: 16,
                 disableClusteringAtZoom: 16,
                 maxClusterRadius: 55,
@@ -2644,14 +2667,9 @@
             // Fit the map from raw coordinates first. Marker construction is
             // deliberately scheduled in small batches so tiles and controls
             // become usable before thousands of marker objects are created.
-            const bounds = outlets
-                .map((outlet) => [Number(outlet.latitude), Number(outlet.longitude)])
-                .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && lat && lng);
-
-            if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
             addFullscreenControl();
             showUserLocation();
-            queueOutletMarkers(outlets);
+            fitAndQueueOutletMarkers(outlets);
 
             // Leaflet may initialize while this panel is still transitioning from
             // hidden to visible. Recalculate the viewport after the layout settles
@@ -2672,9 +2690,16 @@
 
         }
 
+        function fitAndQueueOutletMarkers(outlets) {
+            const bounds = outlets.map(outlet => [Number(outlet.latitude), Number(outlet.longitude)])
+                .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+            if (bounds.length && !selectedOutletMarker) map.fitBounds(bounds, {padding: [24, 24]});
+            queueOutletMarkers(outlets);
+        }
+
         function queueOutletMarkers(outlets) {
             let cursor = 0;
-            const batchSize = 140;
+            const batchSize = 80;
 
             const renderBatch = () => {
                 const batch = [];
@@ -2687,7 +2712,9 @@
                 if (batch.length) outletClusterLayer?.addLayers(batch);
 
                 if (cursor < outlets.length) {
-                    (window.requestIdleCallback || window.requestAnimationFrame)(renderBatch);
+                    // An idle callback without a deadline can starve while map
+                    // tiles are loading or the user is moving the map.
+                    window.requestAnimationFrame(renderBatch);
                 } else if (pendingOutletFocus) {
                     focusOutletOnMap(pendingOutletFocus);
                 }
@@ -2798,9 +2825,10 @@
 
         function buildOutletPopup(outlet, outletLatLng) {
             const destination = `${outletLatLng.lat},${outletLatLng.lng}`;
-            const cvm = Number(outlet.m_cvm || 0).toLocaleString('id-ID');
-            const sa = Number(outlet.m_stsa || 0).toLocaleString('id-ID');
-            const pv = Number(outlet.m_stpv || 0).toLocaleString('id-ID');
+            const metric = value => value === undefined || value === null ? '…' : Number(value).toLocaleString('id-ID');
+            const cvm = metric(outlet.m_cvm);
+            const sa = metric(outlet.m_stsa);
+            const pv = metric(outlet.m_stpv);
             const gpsLabels = {verified: 'Visit disetujui', rejected: 'Foto visit ditolak', pending: 'Menunggu persetujuan', unverified: 'GPS/foto perlu diperiksa', unvisited: 'Belum ada visit'};
             const gpsState = outlet.map_visit_state || 'unvisited';
             const gpsSource = outlet.coordinate_source === 'visit' ? 'Titik dari GPS visit valid/disetujui' : 'Titik dari master outlet';
@@ -3005,9 +3033,6 @@
 
             if (!marker && typeof outlet === 'object') {
                 marker = addOutletMarker(outlet);
-                if (marker) {
-                    document.getElementById('map-outlet-count').textContent = `${markers.length.toLocaleString()} outlet`;
-                }
             }
 
             if (!marker) {

@@ -326,4 +326,49 @@ class SuryaOutletCoordinatesTest extends TestCase
             ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('photo_front');
         $this->assertDatabaseMissing('surya_visits', ['id_outlet' => (string) $id]);
     }
+
+    public function test_map_boot_does_not_build_hidden_reports_or_compute_all_outlets_sales(): void
+    {
+        $this->admin();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            $page = $this->get('/surya?panel=outlet')->assertOk()->assertDontSee('telegram-web-app.js');
+            $this->assertSame('outlet', $page->viewData('dashboard')['loadedPanel']);
+            $this->assertArrayNotHasKey('visitDetails', $page->viewData('dashboard'));
+            $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => preg_match('/from [`"]?(surya_visits|mobile_penjualan|keluarsf|mobile_sales_receipts)/i', $query['query'])));
+            DB::flushQueryLog();
+            $this->getJson('/surya/outlets')->assertOk()->assertHeader('Server-Timing');
+            $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => preg_match('/from [`"]?(mobile_penjualan|keluarsf)/i', $query['query'])));
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+        $visitPage = $this->get('/surya?panel=visit-detail')->assertOk();
+        $this->assertSame('visit-detail', $visitPage->viewData('dashboard')['loadedPanel']);
+        $this->assertArrayHasKey('visitDetails', $visitPage->viewData('dashboard'));
+    }
+
+    public function test_latest_history_lookup_returns_only_latest_rows_and_keeps_photo_history_separate(): void
+    {
+        $this->freezeTime();
+        $id = 990011018;
+        $other = 990011019;
+        $oldPhoto = $this->visit($id, ['visited_at' => now()->subHours(3), 'branding_dominance' => 'Tsel']);
+        $latestPhoto = $this->visit($id, ['visited_at' => now()->subHour(), 'branding_dominance' => 'XL-Smart']);
+        $noPhoto = $this->visit($id, ['visited_at' => now(), 'photo_front_path' => null]);
+        // A backdated import with a larger ID must not become the latest record.
+        $this->visit($id, ['visited_at' => now()->subHours(2), 'branding_dominance' => 'Indosat-Tri']);
+        $tie = $this->visit($other, ['visited_at' => now()->subMinute()]);
+        $latestTie = $this->visit($other, ['visited_at' => now()->subMinute()]);
+        $service = app(SuryaOutletCoordinates::class);
+        $all = $service->latestVisitRecords([(string) $id, (string) $other])->get()->keyBy('id_outlet');
+        $this->assertCount(2, $all);
+        $this->assertSame($noPhoto, $all[$id]->id);
+        $this->assertSame($latestTie, $all[$other]->id);
+        $photos = $service->latestVisitRecords([(string) $id], true)->get();
+        $this->assertCount(1, $photos);
+        $this->assertSame($latestPhoto, $photos->first()->id);
+        $this->assertSame('XL-Smart', $photos->first()->branding_dominance);
+    }
 }

@@ -30,9 +30,17 @@ class MonitaDumaiController extends Controller
             return redirect('/');
         }
 
-        $this->approveExpiredVisitCoordinates();
         $visitDate = $request->date('visit_date')?->toDateString() ?? now()->toDateString();
-        $dashboard = $this->buildLeaderDashboard($visitDate);
+        $loadedPanel = $request->input('panel') === 'visit-detail' ? 'visit-detail' : 'outlet';
+        // The map loads its own fresh approval/GPS metadata via /surya/outlets.
+        // Do not build sales reports and receipt/photo lists behind a hidden tab.
+        if ($loadedPanel === 'visit-detail') {
+            $this->approveExpiredVisitCoordinates();
+            $dashboard = $this->buildLeaderDashboard($visitDate);
+        } else {
+            $dashboard = [];
+        }
+        $dashboard['loadedPanel'] = $loadedPanel;
 
         return response()
             ->view('monitadumai.index', array_merge(
@@ -2283,13 +2291,14 @@ class MonitaDumaiController extends Controller
 
     public function outlets(Request $request)
     {
+        $started = microtime(true);
         if (!$this->hasSuryaAccess($request)) {
             return response()->json(['message' => 'Akses dashboard diperlukan.'], 403);
         }
 
         $tapScopes = $this->suryaTapScopes();
         app(SuryaOutletCoordinates::class)->approveExpiredVisits($tapScopes);
-        $outlets = app(SuryaOutletCoordinates::class)->outlets('o')
+        $outlets = app(SuryaOutletCoordinates::class)->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
             ->where('o.sf', '!=', 'UNMAPPING')
             ->whereNotNull('o.latitude')->whereNotNull('o.longitude')
@@ -2306,47 +2315,31 @@ class MonitaDumaiController extends Controller
             ->addSelect('o.latitude', 'o.longitude', 'o.coordinate_source', 'o.coordinate_visit_id', 'o.coordinate_visited_at')
             ->get();
         $outlets = app(SuryaOutletCoordinates::class)->withVisitState($outlets);
-        $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $outlets->pluck('id_outlet'));
 
         // The map only needs lightweight metadata for its first paint. Resolving
         // storage paths and checking every thumbnail here made the initial map
         // request needlessly expensive. Photo details are fetched on marker click.
-        $visitedOutletIds = DB::table('surya_visits')
-            ->whereNotNull('photo_front_path')
-            ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
-            ->distinct()
-            ->pluck('id_outlet')
-            ->map(fn ($id) => (string) $id)
-            ->flip();
-
-        $latestBrandingByOutlet = collect();
+        $photoColumns = ['id_outlet', 'visited_at'];
         if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
-            $latestBrandingByOutlet = DB::table('surya_visits')
-                ->whereNotNull('photo_front_path')
-                ->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
-                ->orderByDesc('visited_at')->orderByDesc('id')
-                ->get(['id_outlet', 'branding_dominance', 'branding_quality', 'visited_at'])
-                ->unique('id_outlet')->keyBy(fn ($visit) => (string) $visit->id_outlet);
+            $photoColumns = array_merge($photoColumns, ['branding_dominance', 'branding_quality']);
         }
+        $latestBrandingByOutlet = app(SuryaOutletCoordinates::class)
+            ->latestVisitRecords($outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all(), true)
+            ->get($photoColumns)->keyBy(fn ($visit) => (string) $visit->id_outlet);
 
-        $data = $outlets->map(function ($outlet) use ($salesByOutlet, $visitedOutletIds, $latestBrandingByOutlet) {
-            $sales = $salesByOutlet[(string) $outlet->id_outlet] ?? null;
-            $outlet->m_stsa = (int) ($sales->m_stsa ?? 0);
-            $outlet->m_stpv = (int) ($sales->m_stpv ?? 0);
-            $outlet->m_cvm = 0;
-            $outlet->m_digital = 0;
-            $outlet->mom_stsa = 0;
-            $outlet->mom_stpv = 0;
-            $outlet->mom_cvm = '—';
-            $outlet->mom_digital = '—';
-            $outlet->has_front_photo = $visitedOutletIds->has((string) $outlet->id_outlet);
+        $data = $outlets->map(function ($outlet) use ($latestBrandingByOutlet) {
+            $outlet->has_front_photo = $latestBrandingByOutlet->has((string) $outlet->id_outlet);
             $branding = $latestBrandingByOutlet->get((string) $outlet->id_outlet);
             $outlet->branding_dominance = $branding->branding_dominance ?? null;
             $outlet->branding_quality = $branding->branding_quality ?? null;
-            return $outlet;
+            // Absent details are loaded on click; do not transmit dozens of
+            // repeated zero/null fields for every unvisited outlet.
+            return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
         });
 
-        return response()->json($data);
+        return response()->json($data)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Server-Timing', 'outlets;dur='.round((microtime(true) - $started) * 1000));
     }
 
     public function nearby(Request $request)

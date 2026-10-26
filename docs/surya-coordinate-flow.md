@@ -121,3 +121,26 @@ koordinat baru berdasarkan TAP.
   request tidak termasuk durasi ini; progres browser membantu membedakannya.
 - Deploy memerlukan `php artisan migrate --force` dan `php artisan optimize:clear`
   (jalankan sebagai user aplikasi, biasanya `www-data`).
+
+## Pemuatan Peta Outlet
+
+- Halaman Peta tidak lagi menyiapkan rekap penjualan/visit, daftar approval, atau
+  foto nota yang berada di panel Detail Visit. Perpindahan antarpanel memuat
+  halaman panel tujuan agar datanya tetap lengkap dan terbaru.
+- `/surya/outlets` hanya mengirim identitas, koordinat, status GPS dan metadata
+  branding. Penjualan serta foto rinci tetap dibaca melalui `/surya/search` saat
+  outlet diklik. Angka popup menampilkan `…` sampai detail diterima, bukan nol
+  yang belum dikonfirmasi. Header no-store mencegah pemakaian GPS cache lama.
+- Status terakhir dan foto/branding terakhir dipilih per outlet di SQL, memakai
+  waktu visit lalu ID sebagai pembeda, bukan menarik seluruh riwayat ke PHP.
+  Indeks `surya_visits_outlet_time_id_idx` mendukung pencarian ini.
+- Tile/alat peta dimulai sebelum unduhan metadata selesai. Pembuatan marker
+  memakai batch 80 pada animation frame berikutnya. Fokus pencarian cepat tidak
+  ditimpa fitBounds ketika metadata menyusul. Enter juga dapat mencari langsung
+  walaupun autocomplete belum selesai. SDK Telegram yang tidak digunakan dihapus
+  agar tidak menahan parser HTML melalui permintaan eksternal.
+- Pengukuran lokal dengan 3.319 outlet: JSON awal 1.946.500 → 759.318 byte
+  (sekitar 61% lebih kecil), 9 → 5 query endpoint outlet, dan 18 → 7 query boot
+  halaman. Satu pengukuran endpoint 257 → 88 ms; ini bukan pengukuran jaringan
+  atau beban VPS produksi. Respons outlet menyediakan header Server-Timing.
+- Deploy: jalankan migration untuk indeks riwayat lalu optimize:clear.
