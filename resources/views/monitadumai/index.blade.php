@@ -28,6 +28,8 @@
     <link rel="stylesheet" href="{{ asset('vendor/leaflet-markercluster/MarkerCluster.Default.css') }}?v=1.5.3" />
 
 <link rel="stylesheet" href="{{ asset('css/surya-dashboard.css') }}?v={{ filemtime(public_path('css/surya-dashboard.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/surya-branding-insights.css') }}?v={{ filemtime(public_path('css/surya-branding-insights.css')) }}">
+<script src="{{ asset('js/surya-branding-insights.js') }}?v={{ filemtime(public_path('js/surya-branding-insights.js')) }}" defer></script>
     @include('surya.partials.assets')
 </head>
 
@@ -797,6 +799,7 @@
     </div>
 
     <!-- Leaflet Maps JS -->
+    @include('surya.partials.branding-outlet-dialog')
     <script src="{{ asset('vendor/leaflet/leaflet.js') }}?v=1.9.4"></script>
     <script src="{{ asset('vendor/leaflet-markercluster/leaflet.markercluster.js') }}?v=1.5.3"></script>
 
@@ -2555,6 +2558,14 @@
         function renderBrandingInsights(outlets) {
             const container = document.getElementById('branding-insights');
             if (!container) return;
+            window.SuryaBrandingInsights?.setOutlets(outlets, outlet => {
+                document.querySelector('[data-map-panel="map"]')?.click();
+                expandOutletMapView();
+                requestAnimationFrame(() => {
+                    map.invalidateSize({pan: false, animate: false});
+                    focusOutletOnMap(outlet);
+                });
+            });
             const byTap = outlets.reduce((groups, outlet) => {
                 const tap = outlet.tap || 'Tanpa TAP';
                 (groups[tap] ||= []).push(outlet);
@@ -2578,11 +2589,12 @@
                     const qty = rows.filter(outlet => outlet.branding_dominance === name).length;
                     const chipClass = name === 'Tsel' ? 'tsel' : (name === 'Indosat-Tri' ? 'io' : (name === 'XL-Smart' ? 'xl' : 'none'));
                     const logos = brandingLogos[name].map(src => `<img src="${src}" alt="" loading="lazy">`).join('');
-                    return `<span class="branding-chip ${chipClass}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, tapVisited)}</span>`;
+                    return `<button type="button" class="branding-chip ${chipClass}" data-insight-open data-tap="${escapeMapDetailHtml(tap)}" data-brand="${escapeMapDetailHtml(name)}" aria-label="Lihat outlet dominan ${escapeMapDetailHtml(name)} di ${escapeMapDetailHtml(tap)}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, tapVisited)}</button>`;
                 }).join('');
-                return `<div class="branding-insight-tap"><strong>${tap} <span style="color:#94a3b8;font-weight:700">· ${rows.length} outlet</span></strong><div class="branding-insight-line"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></div><div class="branding-insight-line"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></div><div class="branding-chip-row">${brandingRows}</div></div>`;
+                const tapAttr = escapeMapDetailHtml(tap);
+                return `<div class="branding-insight-tap"><button type="button" class="branding-tap-open" data-insight-open data-tap="${tapAttr}" aria-label="Lihat semua outlet di ${tapAttr}">${tapAttr} <span>· ${rows.length} outlet</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="visited" aria-label="Lihat outlet sudah visit di ${tapAttr}"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="unvisited" aria-label="Lihat outlet belum visit di ${tapAttr}"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></button><div class="branding-chip-row">${brandingRows}</div></div>`;
             }).join('');
-            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">Ringkasan coverage outlet dan branding terbaru per TAP</div></div><div class="branding-insight-total">${total.toLocaleString()} outlet terdata</div></div><div class="branding-kpi-grid"><div class="branding-kpi"><small>Total outlet</small><strong>${total.toLocaleString()}</strong></div><div class="branding-kpi visit"><small>Sudah visit</small><strong>${visited.toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></div><div class="branding-kpi pending"><small>Belum visit</small><strong>${(total - visited).toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(total - visited, total)})</small></strong></div></div><div class="branding-insight-grid">${tapCards}</div></div>`;
+            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">Klik angka visit atau operator untuk melihat daftar outlet per TAP</div></div><div class="branding-insight-total">${total.toLocaleString()} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total outlet</small><strong>${total.toLocaleString()}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Sudah visit</small><strong>${visited.toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${(total - visited).toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(total - visited, total)})</small></strong></button></div><div class="branding-insight-grid">${tapCards}</div></div>`;
         }
 
         function setupMapMobileTabs() {
