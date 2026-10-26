@@ -50,3 +50,33 @@ test('opening filtered lists does not mutate the shared map data', () => {
     assert.deepEqual(Array.from(selectOutlets([],{})),[]);
 });
 
+test('photo metadata is requested once per visible batch and reused briefly across filters', async () => {
+    let calls = 0, time = 100;
+    const loader = context.SuryaBrandingInsights.createPhotoLoader(async ids => {
+        calls++;
+        assert.deepEqual(Array.from(ids), calls === 1 ? ['1','2'] : ['1']);
+        return {'1':{url:'/storage/front/1.webp'}};
+    }, () => time);
+    const first = await loader(['1','1','2']);
+    assert.equal(first['1'].url, '/storage/front/1.webp');
+    assert.equal(first['2'],null);
+    await loader(['1','2']);
+    assert.equal(calls,1);
+    time += 30001;
+    await loader(['1']);
+    assert.equal(calls,2);
+});
+test('failed or cancelled photo batches do not poison the retry cache', async () => {
+    let calls = 0;
+    const loader = context.SuryaBrandingInsights.createPhotoLoader(async () => {
+        calls++;
+        if (calls === 1) throw new Error('offline');
+        return {'1':{url:'/storage/front/new.webp'}};
+    });
+    await assert.rejects(loader(['1']), /offline/);
+    await assert.rejects(loader(['1'],{aborted:true}), /Aborted/);
+    assert.equal((await loader(['1']))['1'].url, '/storage/front/new.webp');
+    assert.equal(calls,3);
+    await loader(['1'],undefined,true);
+    assert.equal(calls,4);
+});

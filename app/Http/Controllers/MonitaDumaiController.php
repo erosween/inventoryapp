@@ -2125,6 +2125,33 @@ class MonitaDumaiController extends Controller
             ->header('Server-Timing', 'outlets;dur='.round((microtime(true) - $started) * 1000));
     }
 
+    public function outletBrandingPhotos(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+        $validated = $request->validate([
+            'outlets' => ['required', 'array', 'min:1', 'max:100'],
+            'outlets.*' => ['required', 'string', 'regex:/^[0-9]{1,20}$/'],
+        ]);
+        $scopes = $this->suryaTapScopes();
+        $ids = DB::table('appsdumais')->whereIn('id_outlet', $validated['outlets'])
+            ->when($scopes !== null, fn ($query) => $query->whereIn('tap', $scopes))
+            ->where('sf', '!=', 'UNMAPPING')->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+        $photos = [];
+        // Only the current dialog page is requested. Keep file checks and photo
+        // metadata out of the initial all-outlets map payload.
+        foreach (app(SuryaOutletCoordinates::class)->latestVisitRecords($ids, true)
+            ->get(['id_outlet', 'photo_front_path', 'visited_at']) as $visit) {
+            $url = $this->visitPhotoUrl($visit->photo_front_path);
+            if ($url === null) continue;
+            $photos[(string) $visit->id_outlet] = [
+                'url' => $url,
+                'thumbnail_url' => $this->visitPhotoUrl($visit->photo_front_path, true),
+                'visited_at' => $visit->visited_at,
+            ];
+        }
+        return response()->json(['photos' => $photos])->header('Cache-Control', 'no-store');
+    }
+
     public function nearby(Request $request)
     {
         if (!$this->hasSuryaAccess($request)) {

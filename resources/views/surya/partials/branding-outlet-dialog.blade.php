@@ -1,4 +1,4 @@
-<dialog id="branding-outlet-dialog" class="branding-outlet-dialog" aria-labelledby="branding-outlet-title" aria-describedby="branding-outlet-description">
+<dialog id="branding-outlet-dialog" class="branding-outlet-dialog" aria-labelledby="branding-outlet-title" aria-describedby="branding-outlet-description" data-photo-url="{{ route('surya.outlet-branding-photos', [], false) }}">
     <div class="insight-outlet-header">
         <div><h2 id="branding-outlet-title" data-insight-title>Daftar Outlet</h2><p id="branding-outlet-description" data-insight-description></p></div>
         <button type="button" class="insight-outlet-close" data-insight-close aria-label="Tutup daftar outlet"><i class="fas fa-times" aria-hidden="true"></i></button>
@@ -12,7 +12,7 @@
     </div>
     <div class="insight-outlet-caption"><strong data-insight-count aria-live="polite"></strong><span>Sudah visit berdasarkan foto yang diunggah; persetujuan ditampilkan terpisah.</span></div>
     <div class="insight-outlet-table-wrap">
-        <table class="insight-outlet-table"><thead><tr><th scope="col">OUTLET</th><th scope="col">SALES FORCE</th><th scope="col">TAP</th><th scope="col">VISIT</th><th scope="col">DOMINAN BRANDING</th><th scope="col">KELAYAKAN</th><th scope="col">LOKASI</th></tr></thead><tbody></tbody></table>
+        <table class="insight-outlet-table"><thead><tr><th scope="col">OUTLET</th><th scope="col">FOTO BRANDING</th><th scope="col">SALES FORCE</th><th scope="col">TAP</th><th scope="col">VISIT</th><th scope="col">DOMINAN BRANDING</th><th scope="col">KELAYAKAN</th><th scope="col">LOKASI</th></tr></thead><tbody></tbody></table>
         <div class="insight-outlet-empty" data-insight-empty hidden><i class="fas fa-magnifying-glass" aria-hidden="true"></i><strong>Tidak ada outlet sesuai filter</strong><p>Coba ubah pencarian atau pilihan filter.</p></div>
     </div>
     <div class="insight-outlet-footer">
@@ -20,4 +20,9 @@
         <label>Per halaman <select data-insight-size aria-label="Jumlah outlet per halaman"><option>20</option><option>50</option><option>100</option></select></label>
         <nav aria-label="Halaman daftar outlet"><button type="button" data-insight-previous aria-label="Halaman sebelumnya"><i class="fas fa-chevron-left" aria-hidden="true"></i></button><span data-insight-page></span><button type="button" data-insight-next aria-label="Halaman berikutnya"><i class="fas fa-chevron-right" aria-hidden="true"></i></button></nav>
     </div>
+</dialog>
+<dialog id="branding-photo-dialog" class="branding-photo-dialog" aria-labelledby="branding-photo-title">
+    <div class="insight-outlet-header"><div><h2 id="branding-photo-title">Foto Branding</h2><p data-photo-description></p></div><button type="button" class="insight-outlet-close" data-photo-close aria-label="Tutup foto branding"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+    <div class="branding-photo-stage"><img data-photo-image alt=""><p data-photo-status role="status">Memuat foto…</p></div>
+    <div class="branding-photo-footer"><span>Foto tampak depan terbaru</span><a data-photo-original target="_blank" rel="noopener noreferrer">Buka Foto Asli <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div>
 </dialog>

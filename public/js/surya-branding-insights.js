@@ -18,7 +18,21 @@
         }).sort((a, b) => String(a.nama_outlet || '').localeCompare(String(b.nama_outlet || ''), 'id-ID')
             || String(a.id_outlet).localeCompare(String(b.id_outlet)));
     }
-    root.SuryaBrandingInsights = { selectOutlets, qualityOf };
+    function createPhotoLoader(request, now = Date.now) {
+        const cache = new Map();
+        return async function (ids, signal, refresh = false) {
+            ids = [...new Set(ids.map(String))];
+            if (refresh) ids.forEach(id => cache.delete(id));
+            const missing = ids.filter(id => !cache.has(id) || cache.get(id).expires <= now());
+            if (missing.length) {
+                const photos = await request(missing, signal);
+                if (signal?.aborted) throw Object.assign(new Error('Aborted'), {name:'AbortError'});
+                missing.forEach(id => cache.set(id, {photo:photos[id] || null, expires:now() + 30000}));
+            }
+            return Object.fromEntries(ids.map(id => [id, cache.get(id)?.photo || null]));
+        };
+    }
+    root.SuryaBrandingInsights = { selectOutlets, qualityOf, createPhotoLoader };
     if (!root.document) return;
 
     const dialog = document.getElementById('branding-outlet-dialog');
@@ -36,9 +50,87 @@
     const next = dialog.querySelector('[data-insight-next]');
     const size = dialog.querySelector('[data-insight-size]');
     const empty = dialog.querySelector('[data-insight-empty]');
+    const photoDialog = document.getElementById('branding-photo-dialog');
+    const previewImage = photoDialog.querySelector('[data-photo-image]');
+    const previewStatus = photoDialog.querySelector('[data-photo-status]');
     const number = value => value.toLocaleString('id-ID');
     let outlets = [], filtered = [], page = 1, onMapSelect = null;
     let pageLock = null;
+    let photoController = null, photoVersion = 0;
+    const displayedPhotos = new Map();
+    const loadPhotoData = createPhotoLoader(async (ids, signal) => {
+        const query = new URLSearchParams();
+        ids.forEach(id => query.append('outlets[]', id));
+        const response = await fetch(dialog.dataset.photoUrl + '?' + query, {
+            credentials:'same-origin', headers:{Accept:'application/json'}, cache:'no-store', signal
+        });
+        if (!response.ok) throw new Error('Photo request failed: ' + response.status);
+        return (await response.json()).photos || {};
+    });
+
+    function photoPlaceholder(slot, text) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'insight-branding-placeholder';
+        placeholder.textContent = text;
+        slot.replaceChildren(placeholder);
+        return placeholder;
+    }
+
+    function photoRetry(slot, outlet) {
+        const placeholder = photoPlaceholder(slot, 'Foto gagal dimuat');
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'insight-branding-retry';
+        retry.textContent = 'Coba lagi';
+        retry.setAttribute('aria-label', 'Muat ulang foto ' + outlet.nama_outlet);
+        retry.addEventListener('click', () => {
+            photoPlaceholder(slot, 'Memuat foto…');
+            loadPagePhotos(new Map([[String(outlet.id_outlet), {slot, outlet}]]), true);
+        });
+        placeholder.appendChild(retry);
+    }
+
+    async function loadPagePhotos(slots, refresh = false) {
+        photoController?.abort();
+        const version = ++photoVersion;
+        const controller = new AbortController();
+        photoController = controller;
+        if (!slots.size) return;
+        let timedOut = false;
+        const timeout = root.setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+        try {
+            const photos = await loadPhotoData([...slots.keys()], controller.signal, refresh);
+            if (version !== photoVersion || !dialog.open) return;
+            slots.forEach(({slot, outlet}, id) => {
+                const photo = photos[id];
+                if (!photo?.url) { photoPlaceholder(slot, 'Foto tidak tersedia'); return; }
+                displayedPhotos.set(id, photo);
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'insight-branding-thumbnail';
+                button.dataset.insightPhotoId = id;
+                button.setAttribute('aria-label', 'Perbesar foto branding ' + outlet.nama_outlet);
+                const image = document.createElement('img');
+                image.alt = 'Branding ' + outlet.nama_outlet;
+                image.loading = 'lazy';
+                image.decoding = 'async';
+                let originalTried = false;
+                image.onerror = () => {
+                    if (!originalTried && image.getAttribute('src') !== photo.url) {
+                        originalTried = true;
+                        image.src = photo.url;
+                    } else { photoRetry(slot, outlet); }
+                };
+                image.src = photo.thumbnail_url || photo.url;
+                button.appendChild(image);
+                slot.replaceChildren(button);
+            });
+        } catch (error) {
+            if ((error.name !== 'AbortError' || timedOut) && version === photoVersion && dialog.open) {
+                slots.forEach(({slot, outlet}) => photoRetry(slot, outlet));
+            }
+        } finally { root.clearTimeout(timeout); }
+    }
 
     function lockPage() {
         const style = document.body.style;
@@ -96,6 +188,7 @@
         next.disabled = page >= pages;
         empty.hidden = filtered.length > 0;
         const fragment = document.createDocumentFragment();
+        const photoSlots = new Map();
         filtered.slice(start, start + perPage).forEach(outlet => {
             const tr = document.createElement('tr');
             const identity = cell(tr, 'Outlet', '', 'insight-outlet-identity');
@@ -104,6 +197,9 @@
             const id = document.createElement('small');
             id.textContent = String(outlet.id_outlet);
             identity.append(name, id);
+            const photoCell = cell(tr, 'Foto Branding', '', 'insight-branding-cell');
+            photoPlaceholder(photoCell, outlet.has_front_photo ? 'Memuat foto…' : 'Belum ada foto');
+            if (outlet.has_front_photo) photoSlots.set(String(outlet.id_outlet), {slot:photoCell, outlet});
             cell(tr, 'Sales Force', outlet.sf || 'UNMAPPING');
             cell(tr, 'TAP', tapOf(outlet));
             const visit = cell(tr, 'Visit', '');
@@ -138,6 +234,7 @@
         });
         body.replaceChildren(fragment);
         dialog.querySelector('.insight-outlet-table-wrap').scrollTop = 0;
+        loadPagePhotos(photoSlots);
     }
 
     root.SuryaBrandingInsights.setOutlets = function (rows, selectOnMap) {
@@ -171,8 +268,39 @@
     previous.addEventListener('click', () => { page--; render(); });
     next.addEventListener('click', () => { page++; render(); });
     dialog.querySelector('[data-insight-close]').addEventListener('click', () => dialog.close());
-    dialog.addEventListener('close', unlockPage);
+    dialog.addEventListener('close', () => {
+        photoController?.abort();
+        photoVersion++;
+        if (photoDialog.open) photoDialog.close();
+        unlockPage();
+    });
+    photoDialog.querySelector('[data-photo-close]').addEventListener('click', () => photoDialog.close());
+    previewImage.onload = () => { previewStatus.hidden = true; };
+    previewImage.onerror = () => {
+        if (!photoDialog.open) return;
+        previewStatus.textContent = 'Foto belum dapat dibuka. Silakan coba kembali.';
+        previewStatus.hidden = false;
+    };
+    photoDialog.addEventListener('close', () => previewImage.removeAttribute('src'));
     dialog.addEventListener('click', event => {
+        const photoButton = event.target.closest('[data-insight-photo-id]');
+        if (photoButton) {
+            const id = photoButton.dataset.insightPhotoId;
+            const photo = displayedPhotos.get(id);
+            const outlet = filtered.find(item => String(item.id_outlet) === id);
+            if (!photo || !outlet) return;
+            photoDialog.querySelector('h2').textContent = 'Foto Branding · ' + outlet.nama_outlet;
+            const date = new Date(String(photo.visited_at || '').replace(' ', 'T'));
+            photoDialog.querySelector('[data-photo-description]').textContent = id + ' · ' + tapOf(outlet) +
+                (Number.isNaN(date.getTime()) ? '' : ' · Visit ' + date.toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'}));
+            photoDialog.querySelector('[data-photo-original]').href = photo.url;
+            previewStatus.textContent = 'Memuat foto…';
+            previewStatus.hidden = false;
+            previewImage.alt = 'Foto branding ' + outlet.nama_outlet;
+            previewImage.src = photo.url;
+            photoDialog.showModal();
+            return;
+        }
         const button = event.target.closest('[data-insight-map-id]');
         if (!button) return;
         const outlet = filtered.find(item => String(item.id_outlet) === button.dataset.insightMapId);

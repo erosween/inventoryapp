@@ -370,6 +370,64 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertSame($approved, $search[0]['coordinate_visit_id']);
     }
 
+    public function test_branding_photo_batch_uses_the_latest_photo_and_thumbnail_without_loading_sales(): void
+    {
+        $this->admin();
+        $this->freezeTime();
+        Storage::fake('public');
+        $id = 990011021;
+        $missing = 990011022;
+        $this->outlet($id);
+        $this->outlet($missing);
+        $path = 'surya-visits/front/latest.webp';
+        $thumb = OptimizedImageStorage::thumbnailPathFor($path);
+        Storage::disk('public')->put($path, 'original');
+        Storage::disk('public')->put($thumb, 'thumbnail');
+        $this->visit($id, ['visited_at' => now()->subMinute(), 'gps_status' => 'rejected', 'photo_front_path' => $path]);
+        $this->visit($id, ['visited_at' => now()->subHours(2), 'photo_front_path' => 'surya-visits/front/old.webp']);
+        $this->visit($id, ['visited_at' => now(), 'photo_front_path' => null]);
+        $this->visit($missing, ['photo_front_path' => 'surya-visits/front/missing.webp']);
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            $response = $this->getJson(route('surya.outlet-branding-photos', ['outlets' => [(string) $id, (string) $missing]]))
+                ->assertOk()->assertHeader('Cache-Control')
+                ->assertJsonPath('photos.'.$id.'.url', '/storage/'.$path)
+                ->assertJsonPath('photos.'.$id.'.thumbnail_url', '/storage/'.$thumb);
+            $this->assertArrayNotHasKey((string) $missing, $response->json('photos'));
+            $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+            $queries = collect(DB::getQueryLog());
+            $this->assertFalse($queries->contains(fn ($query) => preg_match('/surya_daily_metrics|keluarsf|mobile_penjualan|mobile_sales_receipts/i', $query['query'])));
+            $this->assertLessThanOrEqual(3, $queries->count());
+        } finally { DB::disableQueryLog(); DB::flushQueryLog(); }
+    }
+
+    public function test_branding_photo_batch_obeys_tap_scope_and_falls_back_to_original_when_thumbnail_is_missing(): void
+    {
+        Storage::fake('public');
+        $allowed = 990011023;
+        $foreign = 990011024;
+        foreach ([$allowed, $foreign] as $id) {
+            $this->outlet($id);
+            Storage::disk('public')->put('surya-visits/front/'.$id.'.webp', 'image');
+            $this->visit($id, ['photo_front_path' => 'surya-visits/front/'.$id.'.webp']);
+        }
+        DB::table('appsdumais')->where('id_outlet', $allowed)->update(['tap' => 'DUMAI']);
+        $this->actingAs(User::where('username', 'asmen_dumai')->firstOrFail())->withSession(['idtap' => 'DUMAI']);
+        $response = $this->getJson(route('surya.outlet-branding-photos', ['outlets' => [(string) $allowed, (string) $foreign]]))
+            ->assertOk()->assertJsonPath('photos.'.$allowed.'.thumbnail_url', '/storage/surya-visits/front/'.$allowed.'.webp');
+        $this->assertArrayNotHasKey((string) $foreign, $response->json('photos'));
+    }
+
+    public function test_branding_photo_batch_rejects_oversized_and_noncanonical_outlet_id_requests(): void
+    {
+        $this->admin();
+        $this->getJson(route('surya.outlet-branding-photos', ['outlets' => array_fill(0, 101, '990011021')]))
+            ->assertUnprocessable()->assertJsonValidationErrors('outlets');
+        $this->getJson(route('surya.outlet-branding-photos', ['outlets' => ['990011021-OTHER']]))
+            ->assertUnprocessable()->assertJsonValidationErrors('outlets.0');
+    }
+
     public function test_latest_history_lookup_returns_only_latest_rows_and_keeps_photo_history_separate(): void
     {
         $this->freezeTime();
