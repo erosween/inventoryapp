@@ -63,6 +63,7 @@ Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashb
 Route::get('/surya/dashboard', [HomeController::class, 'index'])->middleware(['auth', 'asmen.access'])->name('surya.inventory-dashboard');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
+Route::post('/surya/transaction-upload/{upload}/process', [MonitaDumaiController::class, 'metricsUploadProcess'])->whereUuid('upload')->name('surya.transaction-upload.process');
 Route::get('/surya/stock-on-hand', [SuryaStockController::class, 'stock'])->name('surya.stock-on-hand');
 Route::get('/surya/stock-gudang', [sisaStockController::class, 'index'])->middleware('auth')->name('surya.stock-gudang');
 Route::get('/surya/input-target', [SuryaStockController::class, 'targets'])->name('surya.input-target');

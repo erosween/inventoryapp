@@ -17,8 +17,6 @@ use App\Services\SuryaOutletCoordinates;
 use App\Support\SuryaTapScope;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class MonitaDumaiController extends Controller
 {
@@ -411,266 +409,51 @@ class MonitaDumaiController extends Controller
             });
     }
 
-    public function metricsUpload(Request $request)
+    public function metricsUpload(Request $request, \App\Services\SuryaMetricsImport $importer)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
         $request->validate([
-            'metrics_file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:20480'],
+            'metrics_file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'extensions:xlsx,xls,csv', 'max:20480'],
         ]);
-
         try {
-            $reader = IOFactory::createReaderForFile($request->file('metrics_file')->getRealPath());
-            $reader->setReadDataOnly(true);
-            $sheet = $reader->load($request->file('metrics_file')->getRealPath())->getActiveSheet();
+            if ($request->boolean('staged') && $request->expectsJson()) {
+                return response()->json($importer->start($request->file('metrics_file'), (int) auth()->id()), 201);
+            }
+            // Retain the native form fallback. The browser uses short, sequential batch requests.
+            $path = $request->file('metrics_file')->getRealPath();
+            $meta = $importer->inspect($path);
+            $imported = $skipped = 0;
+            for ($next = 2; $next <= $meta['total_rows'];) {
+                $result = $importer->importChunk($path, $meta, $next);
+                $next = $result['next_row'];
+                $imported += $result['imported'];
+                $skipped += $result['skipped'];
+            }
+            return back()->with('success', "Upload berhasil: {$imported} baris diproses, {$skipped} baris dilewati.");
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
-
-            return back()->withErrors([
-                'metrics_file' => 'File Excel tidak dapat dibaca. Pastikan file tidak rusak dan formatnya XLSX, XLS, atau CSV.',
-            ]);
+            $message = 'File gagal diproses. Pastikan format dan isi file benar, lalu coba kembali.';
+            if ($request->expectsJson()) return response()->json(['message' => $message], 422);
+            return back()->withErrors(['metrics_file' => $message]);
         }
-
-        $highestDataRow = $sheet->getHighestDataRow();
-        $highestDataColumn = $sheet->getHighestDataColumn();
-        $headerRows = $sheet->rangeToArray("A1:{$highestDataColumn}1", null, true, true, true);
-        $header = $headerRows[1] ?? [];
-        $headerValues = collect($header)->filter(fn ($value) => trim((string) $value) !== '')->values();
-        $sampleEnd = min($highestDataRow, 30);
-        $sampleRows = $sampleEnd >= 2
-            ? $sheet->rangeToArray("A2:D{$sampleEnd}", null, true, true, true)
-            : [];
-        $firstDataRow = collect($sampleRows)->first(fn ($row) => trim((string) ($row['A'] ?? '')) !== '');
-        $salesHistoryDate = $this->parseUploadedSalesDate($firstDataRow['A'] ?? null);
-        $isSalesHistoryFile = $headerValues->count() === 4 && $salesHistoryDate !== null;
-        $isBiometricFile = $headerValues->count() === 4 && ! $isSalesHistoryFile;
-        $headers = collect($header)->mapWithKeys(function ($value, $key) {
-            $name = strtolower(trim((string) $value));
-            $name = preg_replace('/[^a-z0-9]+/', '_', $name);
-            return [$key => trim($name, '_')];
-        })->all();
-
-        $metrics = ['ss', 'hot_promo', 'cvm', 'insak', 'comsak', 'digital'];
-        $imported = 0;
-        $skipped = 0;
-        if ($isSalesHistoryFile) {
-            if (! Schema::hasTable('surya_outlet_sales_history')) {
-                return back()->withErrors([
-                    'metrics_file' => 'Tabel histori SA/PV belum tersedia. Jalankan php artisan migrate --force lalu upload ulang.',
-                ]);
-            }
-
-            try {
-                $now = now();
-                for ($startRow = 2; $startRow <= $highestDataRow; $startRow += 500) {
-                    $endRow = min($startRow + 499, $highestDataRow);
-                    $chunkRows = $sheet->rangeToArray("A{$startRow}:D{$endRow}", null, true, true, true);
-                    $batch = [];
-
-                    foreach ($chunkRows as $row) {
-                        $transactionDate = $this->parseUploadedSalesDate($row['A'] ?? null);
-                        $idOutlet = trim((string) ($row['B'] ?? ''));
-                        if ($transactionDate === null || $idOutlet === '') {
-                            $skipped++;
-                            continue;
-                        }
-
-                        $batch[$transactionDate.'|'.$idOutlet] = [
-                            'transaction_date' => $transactionDate,
-                            'id_outlet' => $idOutlet,
-                            'sa' => max(0, (int) ($row['C'] ?? 0)),
-                            'pv' => max(0, (int) ($row['D'] ?? 0)),
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ];
-                        $imported++;
-                    }
-
-                    if ($batch !== []) {
-                        DB::table('surya_outlet_sales_history')->upsert(
-                            array_values($batch),
-                            ['transaction_date', 'id_outlet'],
-                            ['sa', 'pv', 'updated_at']
-                        );
-                    }
-                }
-            } catch (\Throwable $e) {
-                report($e);
-
-                return back()->withErrors([
-                    'metrics_file' => 'Upload histori SA/PV gagal diproses. Periksa isi tanggal dan ID outlet, lalu coba kembali.',
-                ]);
-            }
-
-            return back()->with('success', "Upload historis SA/PV berhasil: {$imported} baris diproses, {$skipped} baris dilewati.");
-        }
-
-        $rows = $sheet->toArray(null, true, true, true);
-        array_shift($rows);
-        foreach ($rows as $row) {
-            if ($isBiometricFile) {
-                $idOutlet = trim((string) ($row['A'] ?? ''));
-                if ($idOutlet === '') {
-                    $skipped++;
-                    continue;
-                }
-
-                $now = now();
-                $existing = DB::table('surya_daily_metrics')
-                    ->where('id_outlet', $idOutlet)
-                    ->where('metric_date', $now->toDateString())
-                    ->first();
-                $uploadedMetrics = $this->mergeUploadedMetrics($existing, ['bio']);
-                DB::table('surya_daily_metrics')->updateOrInsert(
-                    ['id_outlet' => $idOutlet, 'metric_date' => $now->toDateString()],
-                    [
-                        'bio_fm1' => max(0, (int) ($row['B'] ?? 0)),
-                        'bio_m1' => max(0, (int) ($row['C'] ?? 0)),
-                        'bio_m' => max(0, (int) ($row['D'] ?? 0)),
-                        'source_updated_at' => $now->toDateString(),
-                        'uploaded_metrics' => $uploadedMetrics,
-                        'updated_at' => $now,
-                        'created_at' => $now,
-                    ]
-                );
-                $imported++;
-                continue;
-            }
-
-            $data = [];
-            foreach ($headers as $key => $name) {
-                if ($name !== '') $data[$name] = $row[$key] ?? null;
-            }
-
-            $idOutlet = trim((string) ($data['id_outlet'] ?? ''));
-            if ($idOutlet === '') {
-                $skipped++;
-                continue;
-            }
-
-            $presentMetrics = collect($metrics)->filter(function ($metric) use ($data) {
-                return collect(['fm1', 'm1', 'm'])->contains(fn ($period) => array_key_exists("{$metric}_{$period}", $data));
-            })->values()->all();
-            if ($presentMetrics === []) {
-                $skipped++;
-                continue;
-            }
-
-            $metricDate = $this->parseMetricsDate($data['update'] ?? null);
-            $now = now();
-            $values = ['updated_at' => $now, 'created_at' => $now];
-            foreach ($presentMetrics as $metric) {
-                foreach (['fm1', 'm1', 'm'] as $period) {
-                    if (array_key_exists("{$metric}_{$period}", $data)) {
-                        $values["{$metric}_{$period}"] = max(0, (int) ($data["{$metric}_{$period}"] ?? 0));
-                    }
-                }
-            }
-            $existing = DB::table('surya_daily_metrics')
-                ->where('id_outlet', $idOutlet)
-                ->where('metric_date', $metricDate)
-                ->first();
-            $values['uploaded_metrics'] = $this->mergeUploadedMetrics($existing, $presentMetrics);
-            $values['source_updated_at'] = $metricDate;
-            DB::table('surya_daily_metrics')->updateOrInsert(
-                ['id_outlet' => $idOutlet, 'metric_date' => $metricDate],
-                $values
-            );
-            $imported++;
-        }
-
-        return back()->with('success', "Upload berhasil: {$imported} outlet diproses, {$skipped} baris dilewati.");
     }
 
-    private function mergeUploadedMetrics(?object $existing, array $metrics): string
+    public function metricsUploadProcess(Request $request, string $upload, \App\Services\SuryaMetricsImport $importer)
     {
-        $metricColumns = [
-            'ss' => ['ss_fm1', 'ss_m1', 'ss_m'],
-            'hot_promo' => ['hot_promo_fm1', 'hot_promo_m1', 'hot_promo_m'],
-            'cvm' => ['cvm_fm1', 'cvm_m1', 'cvm_m'],
-            'insak' => ['insak_fm1', 'insak_m1', 'insak_m'],
-            'comsak' => ['comsak_fm1', 'comsak_m1', 'comsak_m'],
-            'digital' => ['digital_fm1', 'digital_m1', 'digital_m'],
-            'bio' => ['bio_fm1', 'bio_m1', 'bio_m'],
-        ];
-        $existingMetrics = collect(explode(',', (string) ($existing->uploaded_metrics ?? '')))
-            ->map(fn ($metric) => trim((string) $metric))
-            ->filter()
-            ->unique();
-
-        // Migrasi awal menandai row nol yang ambigu sebagai seluruh KPI. Saat file
-        // biometrik masuk ke row tersebut, marker legacy itu membuat Detail Outlet
-        // menganggap nilai transaksi nol sebagai upload terbaru dan menutupi histori.
-        // Marker eksplisit parsial tetap dipertahankan, sedangkan marker kosong/penuh
-        // dinormalisasi dari kolom yang benar-benar berisi data sebelum KPI baru digabung.
-        $allMetrics = collect(array_keys($metricColumns));
-        if ($existing && ($existingMetrics->isEmpty() || $allMetrics->diff($existingMetrics)->isEmpty())) {
-            $existingMetrics = $allMetrics->filter(function ($metric) use ($existing, $metricColumns) {
-                return collect($metricColumns[$metric])->contains(
-                    fn ($column) => (int) ($existing->{$column} ?? 0) !== 0
-                );
-            });
-        }
-
-        return $existingMetrics
-            ->concat($metrics)
-            ->map(fn ($metric) => trim((string) $metric))
-            ->filter(fn ($metric) => array_key_exists($metric, $metricColumns))
-            ->unique()
-            ->implode(',');
-    }
-
-    private function parseUploadedSalesDate($value): ?string
-    {
-        if ($value === null || trim((string) $value) === '') {
-            return null;
-        }
-
-        if (is_numeric($value)) {
-            $serial = (float) $value;
-            if ($serial < 20000 || $serial > 80000) {
-                return null;
-            }
-
-            try {
-                return ExcelDate::excelToDateTimeObject($serial)->format('Y-m-d');
-            } catch (\Throwable $e) {
-                return null;
-            }
-        }
-
-        $text = trim((string) $value);
-        if (! preg_match('/^\d{1,4}[\/-]\d{1,2}[\/-]\d{1,4}$/', $text)) {
-            return null;
-        }
-
-        foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'Y/m/d'] as $format) {
-            try {
-                $date = Carbon::createFromFormat('!'.$format, $text);
-                if ($date && $date->format($format) === $text) {
-                    return $date->toDateString();
-                }
-            } catch (\Throwable $e) {
-                // Coba format tanggal berikutnya.
-            }
-        }
-
-        return null;
-    }
-
-    private function parseMetricsDate($value): string
-    {
-        if (is_numeric($value)) {
-            try {
-                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d');
-            } catch (\Throwable $e) {
-                // Fallback to the application date below.
-            }
-        }
-
+        abort_unless($this->isSuryaAdminSuper(), 403);
+        $request->validate(['next_row' => ['nullable', 'integer', 'min:2'], 'cancel' => ['nullable', 'boolean']]);
         try {
-            return Carbon::parse((string) $value)->toDateString();
+            return response()->json($importer->advance(
+                $upload, (int) auth()->id(), $request->filled('next_row') ? (int) $request->input('next_row') : null,
+                $request->boolean('cancel')
+            ));
+        } catch (\Illuminate\Validation\ValidationException | \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Throwable $e) {
-            return now('Asia/Jakarta')->toDateString();
+            report($e);
+            return response()->json(['message' => 'Batch belum berhasil diselesaikan. Klik Lanjutkan untuk mencoba kembali dari progres terakhir.'], 500);
         }
     }
 
