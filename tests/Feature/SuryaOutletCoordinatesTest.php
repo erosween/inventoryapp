@@ -10,6 +10,8 @@ use App\Services\SuryaOutletCoordinates;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class SuryaOutletCoordinatesTest extends TestCase
@@ -40,6 +42,96 @@ class SuryaOutletCoordinatesTest extends TestCase
     {
         $this->actingAs(User::where('username', 'admin_super')->firstOrFail())
             ->withSession(['idtap' => 'SBP_DUMAI']);
+    }
+
+    public static function approvalMethods(): array
+    {
+        return ['automatic' => ['automatic'], 'manual' => ['manual']];
+    }
+
+    #[DataProvider('approvalMethods')]
+    public function test_far_visit_is_rejected_then_retaken_and_approval_uses_only_the_new_photo_gps(string $method): void
+    {
+        $this->freezeTime();
+        Storage::fake('public');
+        $id = 990011014;
+        $this->outlet($id);
+        $this->admin();
+        $this->withSession(['mobile_sf_id' => 'SF-GPS-TEST', 'mobile_sf_name' => 'GPS SALES TEST', 'idtap' => 'BENGKALIS']);
+        $this->mock(OptimizedImageStorage::class, function ($mock) {
+            $mock->shouldReceive('isLikelyBlack')->andReturn(false);
+            $mock->shouldReceive('store')->times(4)->andReturn(
+                ['path' => 'surya-visits/first-front.webp'], ['path' => 'surya-visits/first-inside.webp'],
+                ['path' => 'surya-visits/retake-front.webp'], ['path' => 'surya-visits/retake-inside.webp'],
+            );
+        });
+        $payload = fn ($lat, $lng) => [
+            'id_outlet' => (string) $id, 'visit_type' => 'pjp', 'latitude' => $lat, 'longitude' => $lng, 'accuracy' => 7,
+            'photo_front' => UploadedFile::fake()->image('front.jpg'), 'photo_inside' => UploadedFile::fake()->image('inside.jpg'),
+            'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus',
+        ];
+        $this->post(route('mobile.visit.store'), $payload(1.480325, 102.1108652))
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $first = SuryaVisit::where('id_outlet', (string) $id)->firstOrFail();
+        $this->assertSame('pending_admin', $first->gps_status);
+        $this->assertGreaterThan(100000, $first->distance_meters);
+        $this->assertEqualsWithDelta(0.53449532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        $this->post(route('surya.visits.reject', $first))->assertRedirect();
+        $this->assertSame('rejected', $first->fresh()->gps_status);
+
+        // The old 15-second window has passed, but a retake must restart it.
+        $this->travel(1)->minutes();
+        $this->post(route('mobile.visit.store'), $payload(1.490325, 102.1308652))
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $retake = $first->fresh();
+        $this->assertSame(1, SuryaVisit::where('id_outlet', (string) $id)->count());
+        $this->assertSame('pending_admin', $retake->gps_status);
+        $this->assertSame('surya-visits/retake-front.webp', $retake->photo_front_path);
+        $this->assertEqualsWithDelta(1.490325, $retake->latitude, 0.00000001);
+        $this->assertEqualsWithDelta(102.1308652, $retake->longitude, 0.00000001);
+        $this->getJson(route('mobile.visit.status', ['id_outlet' => (string) $id]))->assertOk()
+            ->assertJson(['gps_status' => 'pending_admin', 'can_sell' => false]);
+        $this->assertEqualsWithDelta(0.53449532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+
+        if ($method === 'automatic') {
+            $this->travel(14)->seconds();
+            $this->getJson(route('mobile.visit.status', ['id_outlet' => (string) $id]))->assertOk()->assertJson(['gps_status' => 'pending_admin']);
+            $this->travel(1)->seconds();
+            $this->getJson(route('mobile.visit.status', ['id_outlet' => (string) $id]))->assertOk()
+                ->assertJson(['gps_status' => 'approved', 'can_sell' => true]);
+        } else {
+            $this->post(route('surya.visits.approve', $retake))->assertRedirect();
+        }
+        $master = DB::table('appsdumais')->where('id_outlet', $id)->first();
+        $this->assertSame('approved', $retake->fresh()->gps_status);
+        $this->assertEqualsWithDelta(1.490325, $master->latitude, 0.00000001);
+        $this->assertEqualsWithDelta(102.1308652, $master->longitude, 0.00000001);
+        $search = $this->getJson('/surya/search?keyword='.$id)->assertOk()->json('0');
+        $this->assertSame('verified', $search['map_visit_state']);
+        $this->assertEqualsWithDelta(1.490325, $search['latitude'], 0.00000001);
+        $this->assertEqualsWithDelta(102.1308652, $search['longitude'], 0.00000001);
+    }
+
+    public function test_nearby_is_measured_against_the_current_confirmed_point_not_a_stale_master(): void
+    {
+        $this->freezeTime();
+        $id = 990011015;
+        $this->outlet($id);
+        $this->visit($id, ['idsf' => 'SF-GPS-OTHER']);
+        $this->mock(OptimizedImageStorage::class, function ($mock) {
+            $mock->shouldReceive('isLikelyBlack')->andReturn(false);
+            $mock->shouldReceive('store')->twice()->andReturn(['path' => 'surya-visits/near-point.webp']);
+        });
+        $this->withSession(['mobile_sf_id' => 'SF-GPS-TEST', 'mobile_sf_name' => 'GPS SALES TEST', 'idtap' => 'BENGKALIS'])
+            ->post(route('mobile.visit.store'), [
+                'id_outlet' => (string) $id, 'visit_type' => 'pjp', 'latitude' => 1.470011, 'longitude' => 102.120001,
+                'photo_front' => UploadedFile::fake()->image('front.jpg'), 'photo_inside' => UploadedFile::fake()->image('inside.jpg'),
+                'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus',
+            ])->assertSessionHasNoErrors()->assertRedirect();
+        $visit = SuryaVisit::where('id_outlet', (string) $id)->latest('visited_at')->firstOrFail();
+        $this->assertSame('valid', $visit->gps_status);
+        $this->assertLessThan(10, $visit->distance_meters);
+        $this->assertEqualsWithDelta(1.470011, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
     }
 
     public function test_photos_do_not_make_rejected_or_pending_visits_look_approved_and_map_exposes_gps_source(): void

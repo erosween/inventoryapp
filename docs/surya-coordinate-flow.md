@@ -1,12 +1,16 @@
 # Koordinat outlet SURYA
 
-Koordinat berasal dari GPS perangkat SF saat menyimpan dua foto visit. Nama TAP
+Koordinat berasal dari GPS perangkat SF saat mengambil foto depan/check-in. Nama TAP
 atau posisi SF yang diperkirakan tidak dipakai untuk menebak lokasi outlet.
 
 ## Alur
 
-1. Form meminta GPS baru (`maximumAge: 0`) saat mengambil foto dan menyimpan visit.
-2. Visit berstatus `valid` langsung menyinkronkan master outlet di transaksi yang sama.
+1. Form meminta GPS baru (`maximumAge: 0`) saat mengambil foto. GPS foto depan
+   disimpan bersama hasil foto dan dipakai sebagai titik check-in. Tombol Simpan
+   memakai snapshot tersebut; perpindahan SF setelah foto tidak mengganti titik.
+2. Jarak GPS foto depan dibandingkan dengan titik outlet valid/disetujui terbaru,
+   termasuk saat master lama belum disinkronkan. Jarak maksimal 10 meter langsung
+   `valid` dan menyinkronkan master outlet di transaksi yang sama.
 3. Visit `pending_admin` mengikuti approval manual atau aturan otomatis yang sudah
    ada (15 detik dan kedua foto lengkap). Semua jalur approval memakai layanan sama.
 4. Master selalu mengikuti visit **valid/approved terbaru menurut `visited_at`**.
@@ -24,6 +28,10 @@ atau posisi SF yang diperkirakan tidak dipakai untuk menebak lokasi outlet.
 8. Form mengosongkan GPS sebelumnya sebelum membaca ulang, memeriksa timestamp
    GPS (maksimal 30 detik), dan mengabaikan callback permintaan lama yang datang
    terlambat. Koordinat serta akurasi ditampilkan agar SF bisa memeriksanya.
+9. Setelah ditolak, SF mengambil ulang kedua foto. GPS foto depan, path foto,
+   waktu visit, dan status diperbarui; timer approval otomatis 15 detik dimulai
+   dari foto ulang. Titik lama bertahan sampai visit ulang disetujui, lalu master,
+   peta, pencarian, dan navigasi mengikuti GPS foto ulang.
 
 ## Deploy dan perbaikan riwayat seluruh outlet
 
@@ -70,3 +78,9 @@ koordinat baru berdasarkan TAP.
 - Regresi status marker dan sumber koordinat, beserta pembacaan GPS frontend:
   `php artisan test tests/Feature/SuryaOutletCoordinatesTest.php tests/Feature/SuryaOutletListTest.php tests/Feature/SuryaWorkspaceTest.php`
   (37 test lolos) dan `node --test tests/Unit/SuryaVisitGps.test.cjs` (3 test lolos).
+- Cross-check alur foto ulang: test HTTP dari unggah dua foto jauh, reject,
+  unggah ulang dengan GPS berbeda, status pending sebelum 15 detik, dan approval
+  manual/otomatis. Keduanya memperbarui master dan pencarian ke GPS foto ulang.
+  Test frontend juga menjalankan handler Simpan untuk memastikan GPS foto depan
+  tidak tertimpa posisi SF setelah foto. Validasi cross-check: 45 test aplikasi
+  dan 6 test GPS frontend lolos.

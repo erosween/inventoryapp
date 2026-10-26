@@ -237,6 +237,14 @@ class SuryaVisitController extends Controller
         $currentLongitude = (float) $request->longitude;
         $distance = null;
 
+        // Compare against the same confirmed point shown on the map, even if
+        // historical master coordinates have not been synchronized yet.
+        $confirmed = app(SuryaOutletCoordinates::class)->latestVisits([(string) $outlet->id_outlet])->first();
+        if ($confirmed) {
+            $outlet->latitude = $confirmed->visit_latitude;
+            $outlet->longitude = $confirmed->visit_longitude;
+        }
+
         if ($outlet->latitude !== null && $outlet->longitude !== null) {
             $distance = $this->distanceInMeters(
                 $currentLatitude,

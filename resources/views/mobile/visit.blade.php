@@ -261,6 +261,22 @@
 </script>
 <script>
 let visitGpsRequest = 0;
+const visitPhotoLocations = {};
+function rememberVisitPhotoLocation(kind, position) {
+    visitPhotoLocations[kind] = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+    };
+}
+function applyVisitPhotoLocation() {
+    const location = visitPhotoLocations.front;
+    if (!location) return false;
+    $('#visit-latitude').val(location.latitude);
+    $('#visit-longitude').val(location.longitude);
+    $('#visit-accuracy').val(location.accuracy);
+    return true;
+}
 function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan dengan koordinat outlet.') {
     const requestId = ++visitGpsRequest;
     $('#visit-latitude, #visit-longitude, #visit-accuracy').val('');
@@ -380,9 +396,10 @@ $('.capture-photo').on('click', async function() {
     const canvas = card.find('.visit-canvas').get(0);
     const kind = card.data('photo-kind');
     const label = kind === 'front' ? 'tampak depan' : 'etalase';
+    let photoPosition;
 
     try {
-        await refreshVisitLocation('GPS diperbarui sesuai lokasi foto ' + label + '. Lokasi akan diverifikasi saat disimpan.');
+        photoPosition = await refreshVisitLocation('GPS diperbarui sesuai lokasi foto ' + label + '. Lokasi akan diverifikasi saat disimpan.');
     } catch (error) {
         Swal.fire({
             icon: 'error',
@@ -443,6 +460,7 @@ $('.capture-photo').on('click', async function() {
         const file = new File([blob], 'visit-' + kind + '-' + Date.now() + (isWebp ? '.webp' : '.jpg'), {type: isWebp ? 'image/webp' : 'image/jpeg'});
         const transfer = new DataTransfer(); transfer.items.add(file);
         card.find('.visit-photo-input').get(0).files = transfer.files;
+        rememberVisitPhotoLocation(kind, photoPosition);
         card.find('.visit-preview').attr('src', URL.createObjectURL(blob)).removeClass('d-none');
         card.find('.camera-stage, .capture-photo').addClass('d-none');
         card.find('.open-camera').addClass('d-none').prop('disabled', true);
@@ -476,24 +494,20 @@ $('#visit-form').on('submit', function(event) {
         return;
     }
 
-    const form = this;
-    const submitButton = $(form).find('button[type="submit"]');
-    submitButton.prop('disabled', true).html('<i class="fas fa-location-crosshairs me-2"></i>Memverifikasi Lokasi...');
-
-    refreshVisitLocation('GPS terbaru siap. Lokasi akan dibandingkan dengan koordinat outlet.')
-        .then(function() {
-            visitSubmitting = true;
-            form.requestSubmit();
-        })
-        .catch(function() {
-            submitButton.prop('disabled', false).html('<i class="fas fa-camera me-2"></i>Simpan 2 Foto Visit');
-            Swal.fire({
-                icon: 'error',
-                title: 'Lokasi Belum Tersedia',
-                text: 'Aktifkan GPS dan izinkan akses lokasi sebelum menyimpan visit.',
-                confirmButtonColor: 'var(--primary)'
-            });
+    // Use the measurement belonging to the actual front photo/check-in.
+    // Re-reading GPS here could relocate the outlet after the SF walks away.
+    if (!applyVisitPhotoLocation()) {
+        Swal.fire({
+            icon: 'error',
+            title: 'GPS Foto Belum Tercatat',
+            text: 'Ambil ulang foto tampak depan dengan GPS aktif agar lokasi check-in ikut tersimpan.',
+            confirmButtonColor: 'var(--primary)'
         });
+        return;
+    }
+    visitSubmitting = true;
+    $(this).find('button[type="submit"]').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Menyimpan Foto...');
+    this.requestSubmit();
 });
 
 window.addEventListener('pagehide', stopVisitCamera);
