@@ -42,6 +42,33 @@ class SuryaOutletCoordinatesTest extends TestCase
             ->withSession(['idtap' => 'SBP_DUMAI']);
     }
 
+    public function test_photos_do_not_make_rejected_or_pending_visits_look_approved_and_map_exposes_gps_source(): void
+    {
+        $this->freezeTime();
+        $this->outlet(990011011);
+        $this->outlet(990011012);
+        $this->outlet(990011013);
+        $this->visit(990011011, ['gps_status' => 'rejected']);
+        $this->visit(990011012, ['gps_status' => 'pending_admin', 'visited_at' => now()]);
+        $this->visit(990011013, ['latitude' => 0.53449532, 'longitude' => 101.42113987]);
+        $this->admin();
+        $rows = collect($this->getJson('/surya/outlets')->assertOk()->json())->keyBy('id_outlet');
+        foreach ([990011011 => 'rejected', 990011012 => 'pending'] as $id => $state) {
+            $row = $rows[$id];
+            $this->assertTrue($row['has_front_photo']);
+            $this->assertSame($state, $row['map_visit_state']);
+            $this->assertSame('master', $row['coordinate_source']);
+            $this->assertEqualsWithDelta(0.53449532, $row['latitude'], 0.00000001);
+            $this->assertEqualsWithDelta(1.470001, $row['latest_visit_latitude'], 0.00000001);
+            $search = $this->getJson('/surya/search?keyword='.$id)->assertOk()->json('0');
+            $this->assertSame($state, $search['map_visit_state']);
+            $this->assertSame('master', $search['coordinate_source']);
+        }
+        $this->assertSame('verified', $rows[990011013]['map_visit_state']);
+        $this->assertSame('visit', $rows[990011013]['coordinate_source']);
+        $this->assertEquals($rows[990011013]['latitude'], $rows[990011013]['latest_visit_latitude']);
+    }
+
     public function test_all_map_and_search_results_use_visit_time_and_the_backfill_repairs_every_outlet_idempotently(): void
     {
         $this->freezeTime();

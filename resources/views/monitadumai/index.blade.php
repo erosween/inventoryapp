@@ -419,6 +419,7 @@
             <h3><i class="fas fa-map-marked-alt"></i> Semua Outlet</h3>
             <span class="map-count" id="map-outlet-count">Memuat...</span>
         </div>
+        <div class="map-marker-legend" aria-label="Arti warna titik outlet"><span class="verified">Visit disetujui</span><span class="attention">Visit perlu diperiksa</span><span class="unvisited">Belum ada visit</span></div>
         <div class="map-mobile-tabs" role="tablist" aria-label="Peta dan insight outlet">
             <button type="button" class="map-mobile-tab active" data-map-panel="map" role="tab"><i class="fas fa-map me-1"></i>Peta</button>
             <button type="button" class="map-mobile-tab" data-map-panel="insight" role="tab"><i class="fas fa-chart-pie me-1"></i>Insight</button>
@@ -2696,8 +2697,9 @@
         }
 
         function createOutletIcon(outlet = null, selected = false) {
-            const visited = Boolean(outlet?.has_front_photo || outlet?.front_photo_visited_at || outlet?.front_thumbnail_url);
-            const stateClass = visited ? ' outlet-marker-visited' : '';
+            const state = outlet?.map_visit_state || 'unvisited';
+            const stateClass = state === 'verified' ? ' outlet-marker-visited'
+                : state !== 'unvisited' ? ' outlet-marker-attention' : '';
             const content = '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>';
             return L.divIcon({
                 className: `outlet-marker-icon${selected ? ' outlet-marker-selected' : ''}${stateClass}`,
@@ -2788,9 +2790,7 @@
                     else if (wasOpen) marker.openPopup();
                 }
             }
-            if (selectedOutletMarker === marker) {
-                marker.setIcon(createOutletIcon(marker.outletData, true));
-            }
+            marker.setIcon(createOutletIcon(marker.outletData, selectedOutletMarker === marker));
             if (marker.isPopupOpen()) {
                 marker.setPopupContent(buildOutletPopup(marker.outletData, marker.getLatLng()));
             }
@@ -2801,6 +2801,15 @@
             const cvm = Number(outlet.m_cvm || 0).toLocaleString('id-ID');
             const sa = Number(outlet.m_stsa || 0).toLocaleString('id-ID');
             const pv = Number(outlet.m_stpv || 0).toLocaleString('id-ID');
+            const gpsLabels = {verified: 'Visit disetujui', rejected: 'Foto visit ditolak', pending: 'Menunggu persetujuan', unverified: 'GPS/foto perlu diperiksa', unvisited: 'Belum ada visit'};
+            const gpsState = outlet.map_visit_state || 'unvisited';
+            const gpsSource = outlet.coordinate_source === 'visit' ? 'Titik dari GPS visit valid/disetujui' : 'Titik dari master outlet';
+            const visitLat = Number(outlet.latest_visit_latitude), visitLng = Number(outlet.latest_visit_longitude);
+            const visitGps = outlet.latest_visit_latitude !== null && outlet.latest_visit_latitude !== undefined
+                && outlet.latest_visit_longitude !== null && outlet.latest_visit_longitude !== undefined
+                && Number.isFinite(visitLat) && Number.isFinite(visitLng) && Math.abs(visitLat) <= 90 && Math.abs(visitLng) <= 180 && (visitLat !== 0 || visitLng !== 0)
+                ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(visitLat + ',' + visitLng)}" target="_blank" rel="noopener noreferrer">GPS visit: ${visitLat.toFixed(6)}, ${visitLng.toFixed(6)}</a>` : '';
+            const gpsHtml = `<div class="outlet-gps-summary ${gpsState === 'verified' ? 'verified' : 'attention'}"><strong>${gpsLabels[gpsState] || 'GPS perlu diperiksa'}</strong><span>${gpsSource}</span>${visitGps}</div>`;
             let distanceHtml = '<div class="outlet-distance"><i class="fas fa-location-crosshairs"></i> Aktifkan lokasi untuk melihat jarak</div>';
 
             if (userLocationLatLng) {
@@ -2818,6 +2827,7 @@
             return `
                 <b>${outlet.nama_outlet}</b><br>
                 ${outlet.id_outlet} • ${outlet.tap}
+                ${gpsHtml}
                 ${photoHtml}
                 <div class="outlet-metrics">
                     <div class="outlet-metric"><small>CVM TRX</small><strong>${cvm}</strong></div>

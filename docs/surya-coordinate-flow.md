@@ -17,6 +17,13 @@ atau posisi SF yang diperkirakan tidak dipakai untuk menebak lokasi outlet.
    disetujui tetap terbaca meskipun master lama belum disinkronkan.
 6. Hasil pencarian memperbarui posisi marker beserta clusternya. Cache rincian
    dibatasi 30 detik; pencarian baru selalu memakai koordinat dari server.
+7. Hijau menandai visit terbaru valid/disetujui dengan dua foto dan GPS yang
+   dipakai oleh titik peta. Foto pada visit ditolak/pending tidak membuat marker
+   hijau. Oranye menandai visit yang perlu diperiksa. Popup menampilkan status,
+   sumber koordinat, dan tautan GPS visit terakhir, terpisah dari navigasi titik.
+8. Form mengosongkan GPS sebelumnya sebelum membaca ulang, memeriksa timestamp
+   GPS (maksimal 30 detik), dan mengabaikan callback permintaan lama yang datang
+   terlambat. Koordinat serta akurasi ditampilkan agar SF bisa memeriksanya.
 
 ## Deploy dan perbaikan riwayat seluruh outlet
 
@@ -60,3 +67,6 @@ koordinat baru berdasarkan TAP.
   saat memakai controller dari commit sebelum perbaikan. Penyebabnya ekspektasi
   URL timeout, alur receipt/foto struk dan tombol foto yang sudah berubah, serta
   tabel `surya_sa_consignment_movements` yang belum ada pada fixture SQLite.
+- Regresi status marker dan sumber koordinat, beserta pembacaan GPS frontend:
+  `php artisan test tests/Feature/SuryaOutletCoordinatesTest.php tests/Feature/SuryaOutletListTest.php tests/Feature/SuryaWorkspaceTest.php`
+  (37 test lolos) dan `node --test tests/Unit/SuryaVisitGps.test.cjs` (3 test lolos).

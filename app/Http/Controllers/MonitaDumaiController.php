@@ -2198,6 +2198,7 @@ class MonitaDumaiController extends Controller
                     ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
             })
             ->get();
+        $data = app(SuryaOutletCoordinates::class)->withVisitState($data);
         $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $data->pluck('id_outlet'));
         $metricRowsByOutlet = DB::table('surya_daily_metrics')
             ->whereIn('id_outlet', $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
@@ -2302,8 +2303,9 @@ class MonitaDumaiController extends Controller
                 'o.sf',
                 'o.tap'
             )
-            ->addSelect('o.latitude', 'o.longitude')
+            ->addSelect('o.latitude', 'o.longitude', 'o.coordinate_source', 'o.coordinate_visit_id', 'o.coordinate_visited_at')
             ->get();
+        $outlets = app(SuryaOutletCoordinates::class)->withVisitState($outlets);
         $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $outlets->pluck('id_outlet'));
 
         // The map only needs lightweight metadata for its first paint. Resolving

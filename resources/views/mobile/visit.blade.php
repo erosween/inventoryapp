@@ -260,7 +260,10 @@
     });
 </script>
 <script>
+let visitGpsRequest = 0;
 function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan dengan koordinat outlet.') {
+    const requestId = ++visitGpsRequest;
+    $('#visit-latitude, #visit-longitude, #visit-accuracy').val('');
     return new Promise(function(resolve, reject) {
         if (!navigator.geolocation) {
             $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text('Perangkat ini tidak mendukung GPS.');
@@ -269,12 +272,26 @@ function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan den
         }
 
         navigator.geolocation.getCurrentPosition(function(position) {
+            if (requestId !== visitGpsRequest) {
+                reject(new Error('Permintaan GPS digantikan pembacaan yang lebih baru.'));
+                return;
+            }
+            const lat = position.coords.latitude, lng = position.coords.longitude;
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180
+                || (lat === 0 && lng === 0) || !Number.isFinite(position.timestamp)
+                || Date.now() - position.timestamp > 30000 || position.timestamp - Date.now() > 5000) {
+                $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text('GPS belum memberikan lokasi terbaru. Aktifkan lokasi presisi dan coba ambil GPS lagi.');
+                reject(new Error('Pembacaan GPS tidak valid atau sudah kedaluwarsa.'));
+                return;
+            }
             $('#visit-latitude').val(position.coords.latitude);
             $('#visit-longitude').val(position.coords.longitude);
             $('#visit-accuracy').val(position.coords.accuracy);
-            $('#visit-gps-status').removeClass('alert-warning alert-danger').addClass('alert-success').text(message);
+            const accuracy = Number.isFinite(position.coords.accuracy) ? ' · akurasi ±' + Math.round(position.coords.accuracy) + ' m' : '';
+            $('#visit-gps-status').removeClass('alert-warning alert-danger').addClass('alert-success').text(message + ' GPS: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + accuracy);
             resolve(position);
         }, function(error) {
+            if (requestId !== visitGpsRequest) { reject(error); return; }
             $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text('GPS wajib diaktifkan untuk melakukan visit.');
             reject(error);
         }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });

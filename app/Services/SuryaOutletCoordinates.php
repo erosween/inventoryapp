@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class SuryaOutletCoordinates
 {
@@ -50,10 +51,42 @@ class SuryaOutletCoordinates
         $resolved = DB::table('appsdumais as outlet_master')
             ->leftJoinSub($this->latestVisits(), 'coordinates', 'coordinates.coordinate_outlet_id', '=', 'outlet_master.id_outlet')
             ->select($columns)
+            ->addSelect('coordinates.coordinate_visit_id', 'coordinates.coordinate_visited_at')
+            ->selectRaw('CASE WHEN coordinates.coordinate_visit_id IS NULL THEN \'master\' ELSE \'visit\' END as coordinate_source')
             ->selectRaw('COALESCE(coordinates.visit_latitude, outlet_master.latitude) as latitude')
             ->selectRaw('COALESCE(coordinates.visit_longitude, outlet_master.longitude) as longitude');
 
         return DB::query()->fromSub($resolved, $alias);
+    }
+
+    public function withVisitState(Collection $outlets): Collection
+    {
+        if ($outlets->isEmpty()) return $outlets;
+
+        $latest = DB::table('surya_visits')->whereIn('id_outlet', $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+            ->orderByDesc('visited_at')->orderByDesc('id')
+            ->get(['id', 'id_outlet', 'visited_at', 'gps_status', 'latitude', 'longitude', 'accuracy', 'photo_front_path', 'photo_inside_path'])
+            ->unique('id_outlet')->keyBy(fn ($visit) => (string) $visit->id_outlet);
+
+        return $outlets->map(function ($outlet) use ($latest) {
+            $visit = $latest->get((string) $outlet->id_outlet);
+            $outlet->latest_visit_status = $visit->gps_status ?? null;
+            $outlet->latest_visit_at = $visit->visited_at ?? null;
+            $outlet->latest_visit_latitude = $visit->latitude ?? null;
+            $outlet->latest_visit_longitude = $visit->longitude ?? null;
+            $outlet->latest_visit_accuracy = $visit->accuracy ?? null;
+            $outlet->map_visit_state = match (true) {
+                $visit === null => 'unvisited',
+                $visit->gps_status === 'rejected' => 'rejected',
+                $visit->gps_status === 'pending_admin' => 'pending',
+                in_array($visit->gps_status, ['valid', 'approved'], true)
+                    && (int) ($outlet->coordinate_visit_id ?? 0) === (int) $visit->id
+                    && filled($visit->photo_front_path) && filled($visit->photo_inside_path) => 'verified',
+                default => 'unverified',
+            };
+
+            return $outlet;
+        });
     }
 
     public function syncOutlet(string $idOutlet): bool
