@@ -725,6 +725,7 @@ class HomeController extends Controller
             'momTapInject',
             'currentDate',
             'cutoffDay',
+            'fairCutoffThisMonth',
             'momSelectedDate',
             'momEndPrevMonthPartial',
             'momClusterInject',
