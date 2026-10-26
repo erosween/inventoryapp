@@ -24,6 +24,11 @@
     <div class="stock-toolbar">
         <p class="muted">Target harian = sisa target bulanan ÷ sisa hari kerja ({{ $daysLeft }} hari).</p>
     </div>
+    <ul class="stock-status-guide" aria-label="Keterangan status stok">
+        <li><span class="status low">STOCK KURANG</span><span>OH &lt; TARGET DAILY</span></li>
+        <li><span class="status safe">STOCK AMAN</span><span>CUKUP 1–{{ $stockBufferDays }} HARI</span></li>
+        <li><span class="status over">STOCK OVER</span><span>OH &gt; {{ $stockBufferDays }} × TARGET DAILY</span></li>
+    </ul>
     <div class="table-wrap stock-table-wrap" tabindex="0" role="region" aria-label="Tabel Stock on Hand">
         <table class="stock-table">
             <thead><tr><th>Nama SF</th><th>TAP</th><th>Cluster</th><th>Validity</th><th>Target</th><th>Target Daily</th><th>Actual MTD</th><th>Stock on Hand</th><th>Rekomendasi</th><th>Status</th></tr></thead>
@@ -37,7 +42,10 @@
                     <td>{{ number_format($item['target']) }}</td><td>{{ number_format($item['daily']) }}</td>
                     <td>{{ number_format($item['actual']) }}</td><td>{{ number_format($item['stock']) }}</td>
                     <td>{{ number_format($item['recommendation']) }}</td>
-                    <td><span class="status {{ $item['status'] === 'Stock Aman' ? 'safe' : 'low' }}">{{ strtoupper($item['status']) }}</span></td>
+                    <td class="stock-status-cell">
+                        <span class="status {{ $item['status_class'] }}">{{ strtoupper($item['status']) }}</span>
+                        <small class="stock-status-detail">{{ $item['status_detail'] }}</small>
+                    </td>
                 </tr>
                 @endforeach
             @empty

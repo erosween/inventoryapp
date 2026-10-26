@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Imports\SuryaTargetImport;
 use App\Support\SuryaTapScope;
+use App\Support\SuryaStockStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -55,12 +56,15 @@ class SuryaStockController extends Controller
                 $actual = (int) $salesRows->only($iddenoms->all())->sum();
                 $daily = (int) ceil(max(0, $target->target_qty - $actual) / $daysLeft);
                 $onHand = (int) $stockRows->only($iddenoms->all())->sum('stock');
-                return ['validity' => $validity, 'target' => (int) $target->target_qty, 'daily' => $daily, 'actual' => $actual, 'stock' => $onHand, 'recommendation' => max(0, $daily - $onHand), 'status' => $onHand >= $daily ? 'Stock Aman' : 'Stock Kurang'];
+                return ['validity' => $validity, 'target' => (int) $target->target_qty, 'daily' => $daily, 'actual' => $actual, 'stock' => $onHand, 'recommendation' => max(0, $daily - $onHand)]
+                    + SuryaStockStatus::describe($onHand, $daily, (int) $target->target_qty);
             })->values();
             return ['idsf' => $sf->idsf, 'namasf' => $sf->namasf, 'idtap' => $sf->idtap, 'cluster' => $this->clusterFor($sf->idtap), 'items' => $items];
         })->filter(fn ($row) => $row['items']->isNotEmpty());
 
-        return view('surya.stock-on-hand', compact('family', 'rows', 'daysLeft', 'taps', 'selectedTap', 'search'));
+        $stockBufferDays = SuryaStockStatus::BUFFER_DAYS;
+
+        return view('surya.stock-on-hand', compact('family', 'rows', 'daysLeft', 'taps', 'selectedTap', 'search', 'stockBufferDays'));
     }
 
     public function targets()

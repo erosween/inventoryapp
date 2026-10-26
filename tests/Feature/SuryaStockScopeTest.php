@@ -6,11 +6,54 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class SuryaStockScopeTest extends TestCase
 {
     use DatabaseTransactions;
+
+    public static function productFamilies(): array
+    {
+        return ['PV reguler' => ['PV', '1 HARI', 'PV'], 'SA' => ['SA', '3GB', 'SA']];
+    }
+
+    #[DataProvider('productFamilies')]
+    public function test_stock_status_uses_daily_gap_and_shows_buffer_and_achievement_details(string $family, string $validity, string $category): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-26 12:00:00', 'Asia/Jakarta'));
+        $denom = 'TEST-STATUS-'.$family;
+        DB::table('denom')->insert([
+            'iddenom' => $denom, 'denom' => $family === 'SA' ? 'SA 3GB' : 'PV STATUS',
+            'group_name' => $validity, 'kategori_inject' => $category,
+        ]);
+        foreach ([80, 100, 200, 300, 400, 200] as $index => $stock) {
+            $idsf = 'SF-STATUS-'.$family.'-'.$index;
+            DB::table('idsf')->insert(['idsf' => $idsf, 'namasf' => 'STATUS SALES '.$index, 'idtap' => 'DUMAI']);
+            DB::table('surya_sf_targets')->insert([
+                'idsf' => $idsf, 'product_family' => $family, 'validity' => $validity,
+                'target_qty' => 500, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            DB::table('stockawalsf')->insert(['idsf' => $idsf, 'iddenom' => $denom, 'stock' => $stock]);
+            if ($index === 5) {
+                DB::table('keluarsf')->insert(['idsf' => $idsf, 'iddenom' => $denom, 'qty' => 500, 'tgl' => now(), 'idtap' => 'DUMAI']);
+            }
+        }
+        $admin = User::where('username', 'admin_super')->firstOrFail();
+        $response = $this->actingAs($admin)->withSession(['idtap' => $admin->idtap])
+            ->get(route('surya.stock-on-hand', ['family' => $family]))->assertOk()
+            ->assertSee('Keterangan status stok')->assertSee('STOCK OVER')->assertSee('CUKUP 2 HARI')
+            ->assertSee('KURANG 20 PCS')->assertSee('TAHAN PENAMBAHAN')->assertSee('TARGET TERCAPAI · SISA STOK 200 PCS');
+        $rows = $response->viewData('rows')->keyBy('idsf');
+        $expected = ['Stock Kurang', 'Stock Aman', 'Stock Aman', 'Stock Aman', 'Stock Over', 'Stock Aman'];
+        foreach ($expected as $index => $status) {
+            $item = $rows['SF-STATUS-'.$family.'-'.$index]['items']->first();
+            $this->assertSame($status, $item['status']);
+            $this->assertSame($index === 5 ? 0 : 100, $item['daily']);
+            $this->assertSame($index === 0 ? 20 : 0, $item['recommendation']);
+        }
+        $this->travelBack();
+    }
 
     public function test_pv_validities_are_ordered_by_duration_regardless_of_target_insertion_order(): void
     {
