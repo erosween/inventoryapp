@@ -2,9 +2,20 @@
 
 @php
     use Illuminate\Support\Str;
+    $isSuryaStockPage = request()->routeIs('surya.stock-gudang');
     $isCurrentStockPage = $isCurrentStockPage ?? false;
     $showClusterFooters = in_array(auth()->user()?->username, ['admin_cluster', 'admin_super', 'gm_cluster', 'branch_dumai'], true);
     $initialMode = $initialMode ?? 'all';
+    $mobileStockGroups = collect($groups)->map(fn ($validities) => collect($validities)->map(
+        fn ($items) => collect($items)->map(fn ($d) => ['id' => (string) $d->iddenom, 'label' => $d->denom])->values()
+    ));
+    $stockLanguage = $isSuryaStockPage ? [
+        'search' => '', 'searchPlaceholder' => 'Cari TAP atau nama sales…',
+        'lengthMenu' => '_MENU_ per halaman', 'info' => '_START_–_END_ dari _TOTAL_ data',
+        'infoEmpty' => 'Tidak ada data', 'infoFiltered' => '(dari _MAX_ data)',
+        'zeroRecords' => 'Stok tidak ditemukan', 'emptyTable' => 'Belum ada stok',
+        'processing' => 'Memuat stok…', 'paginate' => ['previous' => '‹', 'next' => '›'],
+    ] : (object) [];
     $dailyGroupMap = collect($groups)->flatMap(function ($validityGroups, $category) {
         return collect($validityGroups)->map(function ($items, $validity) use ($category) {
             return [
@@ -35,6 +46,7 @@
                 <div class="card premium-card stock-card daily-stock-card">
                     <div class="card-header bg-white border-bottom">
                         <form id="filter_form" class="row align-items-center">
+                            @unless($isSuryaStockPage)
                             <div class="col-md-4 col-sm-12">
                                 @unless(request()->routeIs('surya.stock-gudang'))
                                 <h4 class="card-title mb-0 font-weight-bold text-indigo">
@@ -43,15 +55,17 @@
                                 <div class="text-muted small">Monitoring stok aktif dan histori harian dalam satu tampilan</div>
                                 @endunless
                             </div>
-                            <div class="col-md-8 col-sm-12 d-flex flex-wrap align-items-center justify-content-md-end justify-content-start mt-3 mt-md-0">
+                            @endunless
+                            <div class="{{ $isSuryaStockPage ? 'col-12 warehouse-controls' : 'col-md-8 col-sm-12' }} d-flex flex-wrap align-items-center justify-content-md-end justify-content-start mt-3 mt-md-0">
                                 <div class="daily-mode-toggle mr-2" role="group" aria-label="Perspektif stok">
-                                    <button type="button" class="{{ $initialMode === 'all' ? 'active' : '' }}" data-mode="all">All</button>
-                                    <button type="button" class="{{ $initialMode === 'exc_asmen' ? 'active' : '' }}" data-mode="exc_asmen">All Exc Asman</button>
-                                    <button type="button" class="{{ $initialMode === 'tap' ? 'active' : '' }}" data-mode="tap">TAP</button>
-                                    <button type="button" class="{{ $initialMode === 'sf' ? 'active' : '' }}" data-mode="sf">SF</button>
+                                    <button type="button" class="{{ $initialMode === 'all' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'all' ? 'true' : 'false' }}" data-mode="all">All</button>
+                                    <button type="button" class="{{ $initialMode === 'exc_asmen' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'exc_asmen' ? 'true' : 'false' }}" data-mode="exc_asmen">All Exc Asman</button>
+                                    <button type="button" class="{{ $initialMode === 'tap' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'tap' ? 'true' : 'false' }}" data-mode="tap">TAP</button>
+                                    <button type="button" class="{{ $initialMode === 'sf' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'sf' ? 'true' : 'false' }}" data-mode="sf">SF</button>
                                 </div>
                                 @unless($isCurrentStockPage)
                                 <div class="input-group daily-date-filter">
+                                    @if($isSuryaStockPage)<label class="warehouse-date-label" for="target_date">Tanggal stok</label>@endif
                                     <input type="date" id="target_date" class="form-control border-0 bg-transparent font-weight-bold shadow-none" value="{{ $date }}">
                                 </div>
                                 @endunless
@@ -61,6 +75,11 @@
 
                     <div class="card-body px-0 py-0">
                         <div class="stock-table-toolbar" aria-label="Aksi dan pencarian tabel"></div>
+                        @if($isSuryaStockPage)
+                        <section class="warehouse-mobile" id="warehouse-mobile" aria-label="Ringkasan stok TAP dan sales" aria-busy="true">
+                            <p class="warehouse-state" role="status">Memuat stok…</p>
+                        </section>
+                        @endif
                         <div class="table-scroll stock-freeze stock-freeze--daily">
                             <table id="sisastock" class="table table-indigo table-hover w-100 mb-0">
                                 <thead>
@@ -168,12 +187,21 @@
 @endsection
 
 @push('scripts')
+    @if($isSuryaStockPage)
+    <script src="{{ asset('js/surya-warehouse-mobile.js') }}?v={{ filemtime(public_path('js/surya-warehouse-mobile.js')) }}"></script>
+    @endif
     <script>
         $(document).ready(function() {
             let stockMode = @json($initialMode);
             let dateReloadTimer = null;
+            let scrollMobileAfterPage = false;
             const dailyGroups = @json($dailyGroupMap);
             const dailySummaries = @json($dailySummaryMap);
+            const mobileWarehouse = @if($isSuryaStockPage) SuryaWarehouseMobile.create(
+                document.getElementById('warehouse-mobile'),
+                @json($mobileStockGroups),
+                @json($showClusterFooters)
+            ) @else null @endif;
             const dailyExportOptions = {
                 columns: ':visible',
                 format: {
@@ -254,13 +282,19 @@
             }
 
             const $stockTable = $('#sisastock');
+            $stockTable.on('page.dt', function() {
+                scrollMobileAfterPage = true;
+            });
             $stockTable.on('preXhr.dt', function() {
+                mobileWarehouse?.loading();
                 prepareClusterTotalsForReload();
                 $('.daily-mode-toggle button').prop('disabled', true);
             });
             $stockTable.on('xhr.dt', function(event, settings, payload) {
                 if (!payload) {
                     $('.daily-mode-toggle button').prop('disabled', false);
+                    mobileWarehouse?.fail(() => table.ajax.reload());
+                    if (mobileWarehouse) return true;
                 }
             });
 
@@ -397,10 +431,20 @@
                     applyClusterTotals(settings.json || {});
                     if (settings.json?.mode === stockMode) {
                         $('.daily-mode-toggle button').prop('disabled', false);
+                        mobileWarehouse?.render(settings.json, this.api().rows({page: 'current'}).data().toArray());
+                        if (mobileWarehouse && scrollMobileAfterPage && window.matchMedia('(max-width: 640px)').matches) {
+                            document.getElementById('warehouse-mobile').scrollIntoView({block: 'start', behavior: 'smooth'});
+                        }
+                        scrollMobileAfterPage = false;
                     }
+                    @if($isSuryaStockPage)
+                    $('.stock-table-footer .previous a').attr('aria-label', 'Halaman sebelumnya');
+                    $('.stock-table-footer .next a').attr('aria-label', 'Halaman berikutnya');
+                    @endif
                 },
-                pageLength: 25,
+                pageLength: @json($isSuryaStockPage) && window.matchMedia('(max-width: 640px)').matches ? 10 : 25,
                 autoWidth: false,
+                language: @json($stockLanguage),
                 dom: '<"top"Bf>rt<"bottom"lip><"clear">',
                 buttons: [
                     {
@@ -419,6 +463,7 @@
                     },
                     {
                         extend: 'print',
+                        @if($isSuryaStockPage)text: 'Cetak',@endif
                         footer: true,
                         exportOptions: dailyExportOptions
                     }
@@ -428,6 +473,11 @@
             const $stockWrapper = $('#sisastock_wrapper');
             $('.stock-table-toolbar').append($stockWrapper.children('.top'));
             $('.stock-table-footer').append($stockWrapper.children('.bottom'));
+            @if($isSuryaStockPage)
+            $('.stock-table-toolbar input[type="search"]').attr('aria-label', 'Cari TAP atau nama sales');
+            const warehouseViewport = window.matchMedia('(max-width: 640px)');
+            warehouseViewport.addEventListener('change', () => table.columns.adjust());
+            @endif
 
             $('#filter_form').on('submit', function(event) {
                 event.preventDefault();
@@ -455,8 +505,8 @@
                 if (nextMode === stockMode) return;
 
                 stockMode = nextMode;
-                $('.daily-mode-toggle button').removeClass('active');
-                $(this).addClass('active');
+                $('.daily-mode-toggle button').removeClass('active').attr('aria-pressed', 'false');
+                $(this).addClass('active').attr('aria-pressed', 'true');
                 prepareClusterTotalsForReload();
                 syncStockUrl();
                 table.ajax.reload();

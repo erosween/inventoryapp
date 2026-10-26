@@ -11,6 +11,23 @@ class StockVisibilityTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_surya_warehouse_has_a_mobile_summary_without_adding_it_to_inventory(): void
+    {
+        $admin = User::where('username', 'admin_super')->firstOrFail();
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI']);
+        $this->get(route('surya.stock-gudang'))->assertOk()
+            ->assertSee('id="warehouse-mobile"', false)
+            ->assertSee('surya-warehouse.css')->assertSee('surya-warehouse-mobile.js')
+            ->assertSee('aria-label="Ringkasan stok TAP dan sales"', false)
+            ->assertSee('Tanggal stok')->assertSee('Cari TAP atau nama sales')
+            ->assertSee('mobileWarehouse?.render', false)
+            ->assertSee('id="sisastock"', false);
+        $this->get('/sisastock')->assertOk()
+            ->assertDontSee('id="warehouse-mobile"', false)
+            ->assertDontSee('surya-warehouse.css')->assertDontSee('surya-warehouse-mobile.js')
+            ->assertSee('id="sisastock"', false);
+    }
+
     public function test_gm_cluster_receives_the_same_all_tap_stock_as_super_admin(): void
     {
         $gm = User::where('username', 'gm_cluster')->first();
