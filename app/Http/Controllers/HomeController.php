@@ -136,7 +136,7 @@ class HomeController extends Controller
 
         /* ================= CHART SALES ================= */
         if ($mode === 'monthly') {
-            $qChartSales = DB::table('keluarsf')
+            $qChartSales = $this->combinedSalesQuery()
                 ->selectRaw("DATE_FORMAT(tgl,'%Y-%m') AS label, SUM(qty) AS total")
                 ->whereBetween('tgl', [
                     $currentDate->copy()->subMonths(5)->startOfMonth(),
@@ -147,7 +147,7 @@ class HomeController extends Controller
             $applyFilter($qChartSales);
             $chartSales = $qChartSales->get();
         } else {
-            $qChartSales = DB::table('keluarsf')
+            $qChartSales = $this->combinedSalesQuery()
                 ->selectRaw("DATE(tgl) AS label, SUM(qty) AS total")
                 ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
                 ->groupBy(DB::raw('DATE(tgl)'))
@@ -417,12 +417,12 @@ class HomeController extends Controller
             $salesYear = (int) date('Y');
         }
 
-        $qMatrixData = DB::table('keluarsf')
+        $qMatrixData = $this->combinedSalesQuery()
             ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
             ->whereYear('tgl', $salesYear)
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
         $applyFilter($qMatrixData);
-        $applyProductFilter($qMatrixData, 'keluarsf', $salesProductFilter);
+        $applyProductFilter($qMatrixData, 'combined_sales', $salesProductFilter);
         $matrixSalesData = $qMatrixData->get();
 
         $matrixSales = [];
