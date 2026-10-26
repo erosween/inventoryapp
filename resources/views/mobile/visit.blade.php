@@ -267,7 +267,12 @@
     });
 </script>
 <script>
-let visitGpsRequest = 0;
+let visitGpsPromise = null;
+let visitGpsWatch = null;
+let visitGpsWatchVersion = 0;
+let visitLastPosition = null;
+let visitGpsDenied = false;
+let visitPermissionVersion = 0;
 const visitPhotoLocations = {};
 function rememberVisitPhotoLocation(kind, position) {
     visitPhotoLocations[kind] = {
@@ -284,41 +289,134 @@ function applyVisitPhotoLocation() {
     $('#visit-accuracy').val(location.accuracy);
     return true;
 }
-function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan dengan koordinat outlet.') {
-    const requestId = ++visitGpsRequest;
+function isFreshVisitPosition(position, maxAge = 30000) {
+    const lat = position?.coords?.latitude, lng = position?.coords?.longitude;
+    return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+        && (lat !== 0 || lng !== 0) && Number.isFinite(position.timestamp)
+        && Date.now() - position.timestamp <= maxAge && position.timestamp - Date.now() <= 5000;
+}
+function visitGpsProblem(error) {
+    if (error?.code === 'unsupported') return {
+        title: 'Lokasi Tidak Didukung',
+        message: 'Browser ini tidak menyediakan akses lokasi. Buka SURYA melalui HTTPS di browser yang mendukung lokasi.',
+    };
+    if (error?.code === 1) return {
+        title: 'Izin Lokasi Diblokir',
+        message: 'Izinkan lokasi untuk SURYA di pengaturan browser, aktifkan lokasi presisi, lalu coba ambil foto lagi.',
+    };
+    if (error?.code === 3) return {
+        title: 'Lokasi Belum Terbaca',
+        message: 'Browser terlalu lama memperoleh lokasi. GPS belum tentu mati. Tetap di outlet, coba mendekat ke area terbuka lalu tekan Ambil Foto lagi.',
+    };
+    if (error?.code === 'stale') return {
+        title: 'Lokasi Belum Diperbarui',
+        message: 'Browser memberikan lokasi lama atau tidak valid. Tetap di outlet dan coba Ambil Foto lagi dengan lokasi presisi aktif.',
+    };
+    return {
+        title: 'Lokasi Belum Tersedia',
+        message: 'Browser belum bisa membaca lokasi. Periksa layanan lokasi dan lokasi presisi, lalu coba Ambil Foto lagi. Foto yang sudah diambil tetap ada.',
+    };
+}
+function showVisitPosition(position, message) {
+    // A slower one-shot callback must not replace a newer camera GPS fix.
+    if (!isFreshVisitPosition(visitLastPosition) || position.timestamp >= visitLastPosition.timestamp) {
+        visitLastPosition = position;
+    }
+    visitGpsDenied = false;
+    const latest = visitLastPosition;
+    $('#visit-latitude').val(latest.coords.latitude);
+    $('#visit-longitude').val(latest.coords.longitude);
+    $('#visit-accuracy').val(latest.coords.accuracy);
+    const accuracy = Number.isFinite(latest.coords.accuracy) ? ' · akurasi ±' + Math.round(latest.coords.accuracy) + ' m' : '';
+    $('#visit-gps-status').removeClass('alert-warning alert-danger').addClass('alert-success')
+        .text(message + ' GPS: ' + latest.coords.latitude.toFixed(6) + ', ' + latest.coords.longitude.toFixed(6) + accuracy);
+    return latest;
+}
+function stopVisitGpsWatch() {
+    visitGpsWatchVersion++;
+    if (visitGpsWatch !== null) navigator.geolocation?.clearWatch(visitGpsWatch);
+    visitGpsWatch = null;
+}
+function handleVisitPermissionDenied() {
+    visitPermissionVersion++;
+    visitGpsDenied = true;
+    visitLastPosition = null;
+    stopVisitGpsWatch();
     $('#visit-latitude, #visit-longitude, #visit-accuracy').val('');
-    return new Promise(function(resolve, reject) {
+}
+function startVisitGpsWatch() {
+    if (!navigator.geolocation?.watchPosition || visitGpsWatch !== null) return;
+    const version = ++visitGpsWatchVersion;
+    visitGpsWatch = navigator.geolocation.watchPosition(function(position) {
+        if (version !== visitGpsWatchVersion || !isFreshVisitPosition(position)) return;
+        showVisitPosition(position, 'Lokasi kamera siap.');
+    }, function(error) {
+        if (version !== visitGpsWatchVersion) return;
+        if (error.code === 1) {
+            handleVisitPermissionDenied();
+            $('#visit-gps-status').removeClass('alert-success alert-warning').addClass('alert-danger').text(visitGpsProblem(error).message);
+        }
+        // Temporary watch timeouts do not invalidate a photo or claim GPS is off.
+    }, {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
+}
+function refreshVisitLocation(message = 'GPS aktif. Lokasi akan dibandingkan dengan koordinat outlet.') {
+    // Share an in-flight reading instead of making photo capture cancel the
+    // page's initial GPS request (or another tap on Ambil Foto).
+    if (visitGpsPromise) return visitGpsPromise;
+    $('#visit-latitude, #visit-longitude, #visit-accuracy').val('');
+    const pending = new Promise(function(resolve, reject) {
         if (!navigator.geolocation) {
-            $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text('Perangkat ini tidak mendukung GPS.');
-            reject(new Error('GPS tidak tersedia'));
+            const error = Object.assign(new Error('Perangkat ini tidak mendukung lokasi browser.'), {code: 'unsupported'});
+            $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text(visitGpsProblem(error).message);
+            reject(error);
             return;
         }
-
-        navigator.geolocation.getCurrentPosition(function(position) {
-            if (requestId !== visitGpsRequest) {
-                reject(new Error('Permintaan GPS digantikan pembacaan yang lebih baru.'));
+        let attempts = 0;
+        function failed(error) {
+            if (error.code === 1) handleVisitPermissionDenied();
+            if (error.code !== 1 && ++attempts < 2) {
+                $('#visit-gps-status').removeClass('alert-success alert-danger').addClass('alert-warning').text('Lokasi belum terbaca. Mencoba GPS sekali lagi…');
+                read();
                 return;
             }
-            const lat = position.coords.latitude, lng = position.coords.longitude;
-            if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180
-                || (lat === 0 && lng === 0) || !Number.isFinite(position.timestamp)
-                || Date.now() - position.timestamp > 30000 || position.timestamp - Date.now() > 5000) {
-                $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text('GPS belum memberikan lokasi terbaru. Aktifkan lokasi presisi dan coba ambil GPS lagi.');
-                reject(new Error('Pembacaan GPS tidak valid atau sudah kedaluwarsa.'));
-                return;
-            }
-            $('#visit-latitude').val(position.coords.latitude);
-            $('#visit-longitude').val(position.coords.longitude);
-            $('#visit-accuracy').val(position.coords.accuracy);
-            const accuracy = Number.isFinite(position.coords.accuracy) ? ' · akurasi ±' + Math.round(position.coords.accuracy) + ' m' : '';
-            $('#visit-gps-status').removeClass('alert-warning alert-danger').addClass('alert-success').text(message + ' GPS: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + accuracy);
-            resolve(position);
-        }, function(error) {
-            if (requestId !== visitGpsRequest) { reject(error); return; }
-            $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text('GPS wajib diaktifkan untuk melakukan visit.');
+            $('#visit-gps-status').removeClass('alert-warning alert-success').addClass('alert-danger').text(visitGpsProblem(error).message);
             reject(error);
-        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        }
+        function read() {
+            const permissionVersion = visitPermissionVersion;
+            navigator.geolocation.getCurrentPosition(function(position) {
+                if (permissionVersion !== visitPermissionVersion) {
+                    failed({code: 1});
+                    return;
+                }
+                if (!isFreshVisitPosition(position)) {
+                    failed(Object.assign(new Error('Pembacaan GPS tidak valid atau sudah kedaluwarsa.'), {code: 'stale'}));
+                    return;
+                }
+                resolve(showVisitPosition(position, message));
+            }, failed, {enableHighAccuracy: true, timeout: attempts ? 10000 : 12000, maximumAge: 0});
+        }
+        $('#visit-gps-status').removeClass('alert-success alert-danger').addClass('alert-warning').text('Membaca lokasi terbaru…');
+        read();
     });
+    visitGpsPromise = pending.finally(function() { visitGpsPromise = null; });
+    return visitGpsPromise;
+}
+async function getVisitPhotoLocation(message) {
+    // Reuse only a recent measured camera fix, never outlet master coordinates.
+    if (!visitGpsDenied && isFreshVisitPosition(visitLastPosition, 10000)) {
+        return showVisitPosition(visitLastPosition, message);
+    }
+    try {
+        return await refreshVisitLocation(message);
+    } catch (error) {
+        // A camera watch may have obtained a fresh fix while the one-shot read
+        // timed out. Permission denial always prevents this fallback.
+        if (error.code !== 1 && !visitGpsDenied && isFreshVisitPosition(visitLastPosition, 10000)) {
+            return showVisitPosition(visitLastPosition, message);
+        }
+        throw error;
+    }
 }
 
 refreshVisitLocation().catch(function() {});
@@ -326,9 +424,11 @@ refreshVisitLocation().catch(function() {});
 let visitCameraStream = null;
 let activePhotoCard = null;
 let visitSubmitting = false;
+let visitCapturing = false;
 let visitFacingMode = 'environment';
 
 function stopVisitCamera() {
+    stopVisitGpsWatch();
     if (visitCameraStream) {
         visitCameraStream.getTracks().forEach(track => track.stop());
         visitCameraStream = null;
@@ -358,9 +458,11 @@ async function startVisitCamera(card, facingMode) {
     card.find('.camera-stage, .capture-photo').removeClass('d-none');
     card.find('.visit-preview').addClass('d-none');
     card.find('.switch-camera span').text(facingMode === 'user' ? 'Pakai Kamera Belakang' : 'Pakai Kamera Depan');
+    startVisitGpsWatch();
 }
 
 $('.open-camera').on('click', async function() {
+    if (visitCapturing) return;
     const card = $(this).closest('.visit-photo-card');
 
     try {
@@ -376,6 +478,7 @@ $('.open-camera').on('click', async function() {
 });
 
 $('.switch-camera').on('click', async function() {
+    if (visitCapturing) return;
     const card = $(this).closest('.visit-photo-card');
     const previousFacingMode = visitFacingMode;
     const nextFacingMode = visitFacingMode === 'environment' ? 'user' : 'environment';
@@ -397,8 +500,7 @@ $('.switch-camera').on('click', async function() {
     }
 });
 
-$('.capture-photo').on('click', async function() {
-    const card = $(this).closest('.visit-photo-card');
+async function captureVisitPhoto(card) {
     const video = card.find('.visit-camera').get(0);
     const canvas = card.find('.visit-canvas').get(0);
     const kind = card.data('photo-kind');
@@ -406,12 +508,13 @@ $('.capture-photo').on('click', async function() {
     let photoPosition;
 
     try {
-        photoPosition = await refreshVisitLocation('GPS diperbarui sesuai lokasi foto ' + label + '. Lokasi akan diverifikasi saat disimpan.');
+        photoPosition = await getVisitPhotoLocation('Lokasi foto ' + label + ' tercatat. Lokasi akan diverifikasi saat disimpan.');
     } catch (error) {
+        const problem = visitGpsProblem(error);
         Swal.fire({
-            icon: 'error',
-            title: 'GPS Tidak Aktif',
-            text: 'Aktifkan GPS agar lokasi foto dapat dicatat.',
+            icon: error.code === 1 ? 'error' : 'warning',
+            title: problem.title,
+            text: problem.message,
             confirmButtonColor: 'var(--primary)'
         });
         return;
@@ -482,6 +585,24 @@ $('.capture-photo').on('click', async function() {
         usePhotoBlob(await SuryaVisitUpload.compress(canvas));
     } catch (error) {
         card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').text(error.message);
+    }
+}
+
+$('.capture-photo').on('click', async function() {
+    if (this.disabled || visitCapturing) return;
+    visitCapturing = true;
+    const captureButton = $(this);
+    captureButton.prop('disabled', true);
+    const originalLabel = captureButton.html();
+    captureButton.html('<i class="fas fa-spinner fa-spin me-2"></i>Membaca Lokasi…');
+    const card = $(this).closest('.visit-photo-card');
+    card.find('.switch-camera').prop('disabled', true);
+    try {
+        await captureVisitPhoto(card);
+    } finally {
+        visitCapturing = false;
+        captureButton.prop('disabled', false).html(originalLabel);
+        card.find('.switch-camera').prop('disabled', false);
     }
 });
 

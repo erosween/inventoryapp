@@ -87,6 +87,20 @@ koordinat baru berdasarkan TAP.
 
 ## Upload foto di koneksi mobile
 
+- Selama kamera terbuka, `watchPosition` menyiapkan pembacaan GPS presisi.
+  Foto boleh memakai pengukuran perangkat yang masih berumur maksimal 10 detik;
+  bila lebih lama, browser wajib memperoleh pengukuran baru. GPS master outlet
+  tidak digunakan sebagai fallback. Watch dihentikan saat kamera ditutup atau
+  halaman ditinggalkan, dan callback watch lama diabaikan.
+- Pembacaan sekali jalan yang bersamaan memakai satu promise. Timeout atau lokasi
+  sementara tidak tersedia dicoba ulang sekali (tetap high accuracy dan
+  maximumAge 0), dengan batas tunggu 12 detik lalu 10 detik. Izin ditolak tidak
+  diulang otomatis dan membatalkan penggunaan pengukuran terakhir. UI membedakan
+  izin diblokir, timeout, lokasi tidak tersedia, dan GPS lama/tidak valid.
+- Tombol foto dikunci selama pembacaan lokasi/pengambilan foto untuk mencegah
+  permintaan yang bertabrakan. Timeout tidak menghapus foto yang sudah berhasil
+  diambil, dan tombol dapat dicoba lagi. Lokasi simpan tetap GPS foto depan.
+
 - Foto kamera tetap maksimum 1.600 piksel. JPEG dimulai pada kualitas 76%;
   hanya foto di atas 320 KiB yang dicoba pada kualitas 64% lalu 56%. Ini sasaran
   ukuran, bukan batas mutlak; resolusi dipertahankan agar detail outlet terbaca.
