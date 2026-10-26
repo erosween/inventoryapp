@@ -1576,7 +1576,7 @@
                                 <input type="date" name="mom_date" id="mom_date"
                                     class="form-control form-control-sm"
                                     value="{{ $momSelectedDate->toDateString() }}"
-                                    max="{{ $currentDate->toDateString() }}">
+                                    max="{{ $fairCutoffThisMonth->toDateString() }}">
                             </form>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="mom-copy-btn" title="Copy sebagai gambar" style="gap:6px;">
                                 <i data-feather="copy" style="width:14px;height:14px"></i> Copy

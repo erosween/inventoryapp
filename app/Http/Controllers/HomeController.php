@@ -44,12 +44,32 @@ class HomeController extends Controller
         $latestRecord = $this->combinedSalesQuery()->max('tgl');
         $currentDate = $latestRecord ? Carbon::parse($latestRecord) : now();
 
-        $request->validate([
-            'mom_date' => 'nullable|date',
-        ]);
-        $momSelectedDate = $request->filled('mom_date')
+        /* ================= FAIR MOM CUTOFF: ALL PV, ALL TAP ================= */
+        // Cutoff adalah input terakhir paling awal antar-TAP dari sfkeluar + mobile approved.
+        $momCutoffQuery = $this->combinedSalesQuery()
+            ->whereYear('tgl', $currentDate->year)
+            ->whereMonth('tgl', $currentDate->month)
+            ->whereExists(function ($productQuery) {
+                $productQuery->selectRaw('1')
+                    ->from('denom as product_denom')
+                    ->whereColumn('product_denom.iddenom', 'combined_sales.iddenom')
+                    ->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) <> 'SA'");
+            })
+            ->selectRaw('idtap, MAX(tgl) AS last_input')
+            ->groupBy('idtap');
+        $applyFilter($momCutoffQuery);
+        $momCutoffDates = $momCutoffQuery->pluck('last_input');
+        $fairCutoffThisMonth = $momCutoffDates->isEmpty()
+            ? $currentDate->copy()
+            : Carbon::parse($momCutoffDates->min());
+
+        $request->validate(['mom_date' => 'nullable|date']);
+        $requestedMomDate = $request->filled('mom_date')
             ? Carbon::parse($request->query('mom_date'))->endOfDay()
-            : $currentDate->copy()->endOfDay();
+            : $fairCutoffThisMonth->copy()->endOfDay();
+        $momSelectedDate = $requestedMomDate->gt($fairCutoffThisMonth)
+            ? $fairCutoffThisMonth->copy()->endOfDay()
+            : $requestedMomDate;
         $momStartThisMonth = $momSelectedDate->copy()->startOfMonth();
         $momStartPrevMonth = $momSelectedDate->copy()->subMonthNoOverflow()->startOfMonth();
         $momEndPrevMonthFull = $momStartPrevMonth->copy()->endOfMonth();
@@ -71,15 +91,6 @@ class HomeController extends Controller
         $endThisMonth = $currentDate->copy(); // Dipakai untuk akumulasi total (Sales Bulan Ini, Pie, dll)
 
         /* ================= FAIR GLOBAL CUTOFF (MoM 16 vs 16) ================= */
-        $maxTglHarian = DB::table('keluarsf')
-            ->whereYear('tgl', $currentDate->year)
-            ->whereMonth('tgl', $currentDate->month)
-            ->selectRaw('idtap, MAX(tgl) AS last_keluar')
-            ->groupBy('idtap');
-        $applyFilter($maxTglHarian);
-        $maxTglHarian = $maxTglHarian->pluck('last_keluar');
-
-        $fairCutoffThisMonth = $maxTglHarian->isEmpty() ? $currentDate->copy() : Carbon::parse($maxTglHarian->min());
         $cutoffDay = $fairCutoffThisMonth->day;
 
         /* ================= PREV MONTH TIME RANGE (M-1) ================= */
@@ -392,7 +403,7 @@ class HomeController extends Controller
             ])
             ->groupBy('idtap');
         $applyFilter($qMomTapSales);
-        $applyProductFilter($qMomTapSales, 'combined_sales', $salesProductFilter);
+        $applyProductFilter($qMomTapSales, 'combined_sales', 'pv_all');
         $momTapSales = $qMomTapSales->get()->map(function ($row) {
             $row->mom = $row->prev_partial_qty > 0
                 ? (($row->curr_qty - $row->prev_partial_qty) / $row->prev_partial_qty) * 100
