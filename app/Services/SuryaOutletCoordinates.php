@@ -29,12 +29,13 @@ class SuryaOutletCoordinates
             ->joinSub($times, 'latest_time', fn ($join) => $join
                 ->on('latest_time.id_outlet', '=', 'selected_visit.id_outlet')
                 ->on('latest_time.coordinate_time', '=', 'selected_visit.visited_at'))
+            ->select('selected_visit.id_outlet as latest_outlet_id')
             ->selectRaw('MAX(selected_visit.id) as coordinate_id')->groupBy('selected_visit.id_outlet');
 
         return DB::table('surya_visits as coordinate_visit')
             ->joinSub($ids, 'latest_id', 'latest_id.coordinate_id', '=', 'coordinate_visit.id')
             ->select([
-                'coordinate_visit.id_outlet as coordinate_outlet_id',
+                'latest_id.latest_outlet_id as coordinate_outlet_id',
                 'coordinate_visit.id as coordinate_visit_id',
                 'coordinate_visit.visited_at as coordinate_visited_at',
                 'coordinate_visit.latitude as visit_latitude',
@@ -49,7 +50,10 @@ class SuryaOutletCoordinates
             ->reject(fn ($column) => in_array($column, ['latitude', 'longitude'], true))
             ->map(fn ($column) => 'outlet_master.'.$column)->all();
         $resolved = DB::table('appsdumais as outlet_master')
-            ->leftJoinSub($this->latestVisits(), 'coordinates', 'coordinates.coordinate_outlet_id', '=', 'outlet_master.id_outlet')
+            // Master IDs can be BIGINT while visit IDs are VARCHAR. Expose the
+            // grouped string key and compare strings so the derived lookup can
+            // use an index instead of scanning every visit group per outlet.
+            ->leftJoinSub($this->latestVisits(), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(outlet_master.id_outlet AS CHAR)'))
             ->select($columns)
             ->addSelect('coordinates.coordinate_visit_id', 'coordinates.coordinate_visited_at')
             ->selectRaw('CASE WHEN coordinates.coordinate_visit_id IS NULL THEN \'master\' ELSE \'visit\' END as coordinate_source')
@@ -174,7 +178,7 @@ class SuryaOutletCoordinates
     {
         $counts = ['checked' => 0, 'changed' => 0, 'unchanged' => 0, 'without_visit' => 0];
         DB::table('appsdumais as master')
-            ->leftJoinSub($this->latestVisits($outletIds), 'coordinates', 'coordinates.coordinate_outlet_id', '=', 'master.id_outlet')
+            ->leftJoinSub($this->latestVisits($outletIds), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(master.id_outlet AS CHAR)'))
             ->when($outletIds !== null, fn ($query) => $query->whereIn('master.id_outlet', $outletIds))
             ->select('master.id_outlet', 'master.latitude', 'master.longitude', 'coordinates.visit_latitude', 'coordinates.visit_longitude')
             ->orderBy('master.id_outlet')->chunk(250, function ($rows) use (&$counts, $dryRun) {

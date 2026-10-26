@@ -351,6 +351,25 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertArrayHasKey('visitDetails', $visitPage->viewData('dashboard'));
     }
 
+    public function test_coordinate_lookup_matches_the_exact_outlet_id_without_numeric_coercion(): void
+    {
+        $this->admin();
+        $this->freezeTime();
+        $id = 990011020;
+        $this->outlet($id);
+        $approved = $this->visit($id, ['visited_at' => now()->subHours(2), 'latitude' => 1.47, 'longitude' => 102.12]);
+        $unrelated = $this->visit($id, ['visited_at' => now()->subHour(), 'latitude' => 2.1, 'longitude' => 100.8]);
+        DB::table('surya_visits')->where('id', $unrelated)->update(['id_outlet' => $id.'-OTHER']);
+        $rows = collect($this->getJson('/surya/outlets')->assertOk()->json())->where('id_outlet', $id)->values();
+        $this->assertCount(1, $rows, 'A textual visit ID with the same numeric prefix must not duplicate or move a master outlet.');
+        $this->assertSame($approved, $rows[0]['coordinate_visit_id']);
+        $this->assertEqualsWithDelta(1.47, $rows[0]['latitude'], 0.00000001);
+        $this->assertEqualsWithDelta(102.12, $rows[0]['longitude'], 0.00000001);
+        $search = $this->getJson('/surya/search?keyword='.$id)->assertOk()->json();
+        $this->assertCount(1, $search);
+        $this->assertSame($approved, $search[0]['coordinate_visit_id']);
+    }
+
     public function test_latest_history_lookup_returns_only_latest_rows_and_keeps_photo_history_separate(): void
     {
         $this->freezeTime();
