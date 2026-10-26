@@ -271,7 +271,8 @@
                     $cards = [
                         ['STOK SEGEL', $stokSegel, '#4285F4', 'shield', 'Total stok aktif di sistem'],
                         ['STOK INJECT', $stokInject, '#0F9D58', 'zap', 'Total PV Injected'],
-                        ['SALES BULAN INI', $salesBulanIni, '#8E24AA', 'bar-chart', 'Akumulasi MTD Berjalan'],
+                        ['SALES BULAN INI · PV', $salesBulanIniPv, '#8E24AA', 'bar-chart', 'Akumulasi MTD PV berjalan'],
+                        ['SALES BULAN INI · SA', $salesBulanIniSa, '#6A1B9A', 'bar-chart', 'Akumulasi MTD SA berjalan'],
                         [
                             'MoM GROWTH',
                             number_format($mom, 2) . ' %',

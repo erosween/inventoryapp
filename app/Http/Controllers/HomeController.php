@@ -370,6 +370,18 @@ class HomeController extends Controller
             });
         };
 
+        // KPI penjualan bulan berjalan dipisah agar total PV tidak tercampur dengan SA.
+        $salesBulanIniByProduct = [];
+        foreach (['pv_all', 'sa_all'] as $product) {
+            $qSalesBulanIniProduct = $this->combinedSalesQuery()
+                ->whereBetween('tgl', [$startThisMonth, $endThisMonth]);
+            $applyFilter($qSalesBulanIniProduct);
+            $applyProductFilter($qSalesBulanIniProduct, 'combined_sales', $product);
+            $salesBulanIniByProduct[$product] = (int) $qSalesBulanIniProduct->sum('qty');
+        }
+        $salesBulanIniPv = $salesBulanIniByProduct['pv_all'];
+        $salesBulanIniSa = $salesBulanIniByProduct['sa_all'];
+
         $qMomTapSales = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
@@ -682,6 +694,8 @@ class HomeController extends Controller
             'stokSegel',
             'stokInject',
             'salesBulanIni',
+            'salesBulanIniPv',
+            'salesBulanIniSa',
             'mom',
             'chartSales',
             'chartInject',
