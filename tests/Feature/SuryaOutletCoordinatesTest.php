@@ -284,4 +284,46 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertDatabaseHas('surya_visits', ['id_outlet' => (string) $id, 'gps_status' => 'valid']);
         $this->assertEqualsWithDelta(0.53450532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
     }
+
+    public function test_photo_upload_returns_confirmation_only_after_saving_and_a_retry_does_not_duplicate_it(): void
+    {
+        $this->freezeTime();
+        $id = 990011016;
+        $this->outlet($id);
+        $this->mock(OptimizedImageStorage::class, function ($mock) {
+            $mock->shouldReceive('isLikelyBlack')->twice()->andReturn(false);
+            $mock->shouldReceive('store')->twice()->andReturn(['path' => 'surya-visits/upload.webp']);
+        });
+        $this->withSession(['mobile_sf_id' => 'SF-GPS-TEST', 'mobile_sf_name' => 'GPS SALES TEST', 'idtap' => 'BENGKALIS']);
+        $payload = fn () => [
+            'id_outlet' => (string) $id, 'visit_type' => 'pjp', 'latitude' => 0.53450532, 'longitude' => 101.42113987,
+            'photo_front' => UploadedFile::fake()->image('front.jpg'), 'photo_inside' => UploadedFile::fake()->image('inside.jpg'),
+            'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus',
+        ];
+        $headers = ['Accept' => 'application/json', 'X-Requested-With' => 'XMLHttpRequest'];
+        $url = route('mobile.visit.menu', ['id_outlet' => $id]);
+        $response = $this->post(route('mobile.visit.store'), $payload(), $headers)
+            ->assertOk()->assertJson(['redirect_url' => $url])->assertSessionHas('success');
+        $this->assertStringContainsString('photos;dur=', $response->headers->get('Server-Timing'));
+        $this->assertDatabaseHas('surya_visits', ['id_outlet' => (string) $id, 'gps_status' => 'valid', 'photo_inside_path' => 'surya-visits/upload.webp']);
+        $this->post(route('mobile.visit.store'), $payload(), $headers)->assertOk()->assertJson(['redirect_url' => $url]);
+        $this->assertSame(1, SuryaVisit::where('id_outlet', (string) $id)->count());
+    }
+
+    public function test_invalid_photo_upload_returns_validation_without_creating_a_visit(): void
+    {
+        $id = 990011017;
+        $this->outlet($id);
+        $this->mock(OptimizedImageStorage::class, function ($mock) {
+            $mock->shouldReceive('isLikelyBlack')->once()->andReturn(true);
+            $mock->shouldNotReceive('store');
+        });
+        $this->withSession(['mobile_sf_id' => 'SF-GPS-TEST', 'mobile_sf_name' => 'GPS SALES TEST', 'idtap' => 'BENGKALIS'])
+            ->post(route('mobile.visit.store'), [
+                'id_outlet' => (string) $id, 'visit_type' => 'pjp', 'latitude' => 0.53450532, 'longitude' => 101.42113987,
+                'photo_front' => UploadedFile::fake()->image('front.jpg'), 'photo_inside' => UploadedFile::fake()->image('inside.jpg'),
+                'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus',
+            ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('photo_front');
+        $this->assertDatabaseMissing('surya_visits', ['id_outlet' => (string) $id]);
+    }
 }

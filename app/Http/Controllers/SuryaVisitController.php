@@ -8,6 +8,7 @@ use App\Services\SuryaOutletCoordinates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class SuryaVisitController extends Controller
 {
@@ -188,6 +189,7 @@ class SuryaVisitController extends Controller
 
     public function store(Request $request)
     {
+        $started = microtime(true);
         $request->validate([
             'id_outlet' => ['required'],
             'visit_type' => ['required', 'in:pjp,extra_call,digipos_unmapped,non_digipos'],
@@ -207,11 +209,11 @@ class SuryaVisitController extends Controller
         ]);
 
         if ($redirect = $this->redirectToActiveVisitWhenDifferent($request->input('id_outlet'))) {
-            return $redirect;
+            return $request->expectsJson() ? response()->json(['redirect_url' => $redirect->getTargetUrl()]) : $redirect;
         }
 
         if ($redirect = $this->redirectWhenPhotosAlreadyCompleted($request->input('id_outlet'))) {
-            return $redirect;
+            return $request->expectsJson() ? response()->json(['redirect_url' => $redirect->getTargetUrl()]) : $redirect;
         }
 
         $outlet = $request->visit_type === 'non_digipos'
@@ -260,9 +262,13 @@ class SuryaVisitController extends Controller
 
         $frontPath = null;
         $insidePath = null;
+        $photosStarted = microtime(true);
 
         if ($this->imageStorage->isLikelyBlack($request->file('photo_front'))
             || $this->imageStorage->isLikelyBlack($request->file('photo_inside'))) {
+            if ($request->expectsJson()) {
+                return response()->json(['errors' => ['photo_front' => ['Foto terlalu gelap/hitam. Silakan ambil ulang foto dengan kamera dan pastikan preview terlihat jelas.']]], 422);
+            }
             return back()->withInput()->withErrors([
                 'photo_front' => 'Foto terlalu gelap/hitam. Silakan ambil ulang foto dengan kamera dan pastikan preview terlihat jelas.',
             ]);
@@ -271,6 +277,7 @@ class SuryaVisitController extends Controller
         try {
             $frontPath = $this->imageStorage->store($request->file('photo_front'), 'surya-visits/front')['path'];
             $insidePath = $this->imageStorage->store($request->file('photo_inside'), 'surya-visits/inside')['path'];
+            $photosFinished = microtime(true);
 
             $rejectedVisit = SuryaVisit::query()
                 ->where('idsf', session('mobile_sf_id'))
@@ -336,6 +343,28 @@ class SuryaVisitController extends Controller
         $message = $gpsStatus === 'valid'
             ? 'Visit berhasil dicatat. Lokasi sesuai dengan koordinat outlet.'
             : 'Visit berhasil dicatat. Lokasi berbeda dan menunggu persetujuan admin sebelum penjualan dapat diinput.';
+
+        $finished = microtime(true);
+        $timing = [
+            'lookup_ms' => round(($photosStarted - $started) * 1000),
+            'photos_ms' => round(($photosFinished - $photosStarted) * 1000),
+            'save_ms' => round(($finished - $photosFinished) * 1000),
+            'total_ms' => round(($finished - $started) * 1000),
+        ];
+        if ($timing['total_ms'] >= 3000) {
+            Log::warning('SURYA visit save slow', $timing + [
+                'idsf' => session('mobile_sf_id'), 'id_outlet' => $outlet->id_outlet,
+                'upload_bytes' => $request->file('photo_front')->getSize() + $request->file('photo_inside')->getSize(),
+            ]);
+        }
+        if ($request->expectsJson()) {
+            $request->session()->flash('success', $message);
+
+            return response()->json([
+                'message' => $message,
+                'redirect_url' => route('mobile.visit.menu', ['id_outlet' => $outlet->id_outlet]),
+            ])->header('Server-Timing', 'photos;dur='.$timing['photos_ms'].', save;dur='.$timing['save_ms'].', total;dur='.$timing['total_ms']);
+        }
 
         return redirect()
             ->route('mobile.visit.menu', ['id_outlet' => $outlet->id_outlet])

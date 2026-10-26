@@ -122,7 +122,7 @@ class OptimizedImageStorage
     {
         $image->setImageFormat('webp');
         $image->setImageCompressionQuality($quality);
-        $image->setOption('webp:method', '6');
+        $image->setOption('webp:method', '4');
 
         return $image->getImageBlob();
     }

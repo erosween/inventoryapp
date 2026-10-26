@@ -84,3 +84,26 @@ koordinat baru berdasarkan TAP.
   Test frontend juga menjalankan handler Simpan untuk memastikan GPS foto depan
   tidak tertimpa posisi SF setelah foto. Validasi cross-check: 45 test aplikasi
   dan 6 test GPS frontend lolos.
+
+## Upload foto di koneksi mobile
+
+- Foto kamera tetap maksimum 1.600 piksel. JPEG dimulai pada kualitas 76%;
+  hanya foto di atas 320 KiB yang dicoba pada kualitas 64% lalu 56%. Ini sasaran
+  ukuran, bukan batas mutlak; resolusi dipertahankan agar detail outlet terbaca.
+- Upload memakai XHR dengan progres transfer. Setelah 100%, tampil status
+  penyimpanan server; navigasi baru dilakukan setelah respons JSON sukses.
+- Batas tunggu respons 120 detik. Kesalahan koneksi/validasi tidak memuat ulang
+  halaman atau menghapus input foto. Tidak ada pengiriman ulang otomatis;
+  tautan Cek Status Visit tersedia untuk memeriksa hasil yang belum pasti.
+- Server tetap memvalidasi foto gelap dan menyimpan WebP serta thumbnail. Encoder
+  Imagick memakai method 4. Uji sintetis lokal 1.600 × 1.000 piksel: method 6
+  158 ms/70.140 byte, method 4 105 ms/75.830 byte, pada kualitas sama (72%).
+  Ini bukan pengukuran latency VPS ataupun jaringan sales.
+- Query GPS mendapat indeks `(id_outlet, gps_status, visited_at)` agar lookup
+  visit valid/approved per outlet tidak harus memindai seluruh riwayat.
+- Respons sukses memuat `Server-Timing`. Proses controller yang mencapai 3 detik
+  dicatat dengan pesan `SURYA visit save slow`: lookup_ms, photos_ms, save_ms,
+  total_ms, upload_bytes, SF dan outlet. Waktu transfer sebelum PHP menerima
+  request tidak termasuk durasi ini; progres browser membantu membedakannya.
+- Deploy memerlukan `php artisan migrate --force` dan `php artisan optimize:clear`
+  (jalankan sebagai user aplikasi, biasanya `www-data`).

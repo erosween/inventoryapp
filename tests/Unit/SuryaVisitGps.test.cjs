@@ -16,7 +16,11 @@ function browser() {
     const context = vm.createContext({
         Date: {now: () => now},
         navigator: {geolocation: {getCurrentPosition: (success, failure, options) => requests.push({success, failure, options})}},
-        document: {getElementById: () => ({files: [{}]})},
+        document: {getElementById: () => ({files: [{}], href: 'https://example.test/mobile/visit/menu', dataset: {menuUrl: 'https://example.test/mobile/visit/menu'}, classList: {add() {}, remove() {}}})},
+        URL,
+        FormData: class {get() {return '1201073824';}},
+        SuryaVisitUpload: {send: async () => {submitted++; return {redirect_url: '/mobile/visit/menu'};}},
+        window: {location: {assign() {}}},
         Swal: {fire: value => alerts.push(value)},
         $: selector => {
             const element = {
@@ -36,7 +40,7 @@ function browser() {
         read: () => vm.runInContext('refreshVisitLocation()', context), status: () => status,
         photo: (kind, position) => vm.runInContext(`rememberVisitPhotoLocation(${JSON.stringify(kind)}, ${JSON.stringify(position)})`, context),
         submitLocation: () => vm.runInContext('applyVisitPhotoLocation()', context),
-        submit: () => handlers.get('#visit-form:submit').call({requestSubmit: () => submitted++}, {preventDefault() {}}),
+        submit: () => handlers.get('#visit-form:submit').call({setAttribute() {}, removeAttribute() {}}, {preventDefault() {}}),
         submitted: () => submitted, alerts,
     };
 }

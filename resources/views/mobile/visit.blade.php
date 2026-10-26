@@ -131,6 +131,11 @@
         </div>
 
         <div id="visit-gps-status" class="alert alert-warning small">Mengambil lokasi GPS...</div>
+        <div id="visit-upload-status" class="alert alert-light border small d-none" role="status" aria-live="polite">
+            <div id="visit-upload-message" class="mb-2"></div>
+            <progress id="visit-upload-progress" class="w-100" max="100" value="0" aria-label="Progres upload foto"></progress>
+            <a id="visit-upload-check" class="d-none d-block mt-2 fw-bold text-danger" href="{{ route('mobile.visit.menu') }}" data-menu-url="{{ route('mobile.visit.menu') }}">Cek status visit</a>
+        </div>
         <button class="btn btn-danger w-100 rounded-pill py-3 fw-bold" type="submit"><i class="fas fa-camera me-2"></i>Simpan 2 Foto Visit</button>
     </form>
 </div>
@@ -144,6 +149,7 @@
         border-radius: 22px;
         background: #f8fafc;
     }
+    #visit-upload-progress { display: block; height: 8px; accent-color: var(--primary); }
     .branding-survey { padding: 15px; border: 1px solid #fecaca; border-radius: 18px; background: #fff7f7; }
     .branding-survey-title { display: flex; align-items: center; gap: 9px; color: #991b1b; font-size: .78rem; font-weight: 900; }
     .branding-survey-title i { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; color: #fff; background: #ec2028; }
@@ -241,6 +247,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('js/surya-visit-upload.js') }}?v={{ filemtime(public_path('js/surya-visit-upload.js')) }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const qualityQuestion = document.getElementById('branding-quality-question');
@@ -471,13 +478,16 @@ $('.capture-photo').on('click', async function() {
 
     // Use JPEG for the upload. WebP encoding is inconsistent on mobile
     // browsers; the server already normalizes the stored image to WebP.
-    canvas.toBlob(usePhotoBlob, 'image/jpeg', .86);
+    try {
+        usePhotoBlob(await SuryaVisitUpload.compress(canvas));
+    } catch (error) {
+        card.find('.visit-photo-status').removeClass('text-muted').addClass('text-danger fw-bold').text(error.message);
+    }
 });
 
-$('#visit-form').on('submit', function(event) {
-    if (visitSubmitting) return;
-
+$('#visit-form').on('submit', async function(event) {
     event.preventDefault();
+    if (visitSubmitting) return;
     const frontReady = document.getElementById('visit-photo-front').files.length > 0;
     const insideReady = document.getElementById('visit-photo-inside').files.length > 0;
 
@@ -506,8 +516,45 @@ $('#visit-form').on('submit', function(event) {
         return;
     }
     visitSubmitting = true;
-    $(this).find('button[type="submit"]').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Menyimpan Foto...');
-    this.requestSubmit();
+    const button = $(this).find('button[type="submit"]');
+    button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Mengirim Foto...');
+    const status = document.getElementById('visit-upload-status');
+    const progress = document.getElementById('visit-upload-progress');
+    const message = document.getElementById('visit-upload-message');
+    const check = document.getElementById('visit-upload-check');
+    const outlet = new FormData(this).get('id_outlet');
+    const menuUrl = new URL(check.dataset.menuUrl);
+    menuUrl.searchParams.set('id_outlet', outlet);
+    check.href = menuUrl.href;
+    check.textContent = 'Cek status visit';
+    check.classList.add('d-none');
+    status.classList.remove('d-none', 'alert-danger');
+    status.classList.add('alert-light');
+    this.setAttribute('aria-busy', 'true');
+    try {
+        const result = await SuryaVisitUpload.send(this, percent => {
+            progress.value = percent;
+            message.textContent = percent < 100 ? 'Mengirim 2 foto · ' + percent + '%' : 'Upload selesai. Server sedang menyimpan foto…';
+            if (percent === 100) button.html('<i class="fas fa-spinner fa-spin me-2"></i>Menyimpan Foto...');
+        });
+        message.textContent = 'Foto tersimpan. Membuka menu visit…';
+        window.location.assign(result.redirect_url);
+    } catch (error) {
+        // Never automatically resend an upload whose outcome is unknown.
+        // The menu also lets the SF confirm a save after a lost response.
+        status.classList.add('alert-danger');
+        status.classList.remove('alert-light');
+        message.textContent = error.message;
+        check.classList.remove('d-none');
+        if (error.errors?.photo_front || error.errors?.photo_inside) {
+            $('.open-camera').prop('disabled', false).removeClass('d-none').text('Ambil Ulang Foto');
+        }
+        if (error.redirect) { check.href = error.redirect; check.textContent = 'Login kembali'; }
+        visitSubmitting = false;
+        button.prop('disabled', false).html('<i class="fas fa-camera me-2"></i>Coba Simpan Foto Lagi');
+    } finally {
+        this.removeAttribute('aria-busy');
+    }
 });
 
 window.addEventListener('pagehide', stopVisitCamera);
