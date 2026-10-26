@@ -15,7 +15,7 @@ class HomeController extends Controller
         $query = $request->query();
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
-        $cacheKey = 'home-dashboard:v1:'.sha1($scope.'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v2:'.sha1($scope.'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
