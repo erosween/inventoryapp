@@ -58,3 +58,82 @@ test('Enter still opens the selected autocomplete result without also searching 
     assert.equal(selected,1);
     assert.equal(searched,0);
 });
+const initSource = blade.slice(blade.indexOf('        function initMap('), blade.indexOf('        function fitAndQueueOutletMarkers('));
+const queueSource = blade.slice(blade.indexOf('        function queueOutletMarkers('), blade.indexOf('        function showAllOutletPoints('));
+const loadSource = blade.slice(blade.indexOf('        let outletLoadPromise ='), blade.indexOf('        function initMap('));
+
+test('missing cluster library still creates a usable marker layer', async () => {
+    let fitCalls = 0;
+    const layer = { addTo() { return this; } };
+    const map = { setView() { return this; }, invalidateSize() {} };
+    const context = vm.createContext({
+        map:null, L:{ map:()=>map, tileLayer:()=>({addTo(){}}), layerGroup:()=>layer },
+        console:{warn(){}}, requestAnimationFrame:fn=>fn(), setTimeout(){}, window:{},
+        addFullscreenControl(){}, showUserLocation(){}, fitAndQueueOutletMarkers:()=>{ fitCalls++; return Promise.resolve(); }
+    });
+    vm.runInContext(initSource, context);
+    await vm.runInContext('initMap([])', context);
+    assert.equal(context.outletClusterLayer, layer);
+    assert.equal(fitCalls, 1);
+});
+
+test('all marker batches finish before loading is marked complete, including without clustering', async () => {
+    const frames = [], added = [], outlets = Array.from({length:185}, (_, id) => ({id}));
+    const context = vm.createContext({
+        Promise, pendingOutletFocus:null, addOutletMarker:outlet=>outlet,
+        outletClusterLayer:{addLayer:marker=>added.push(marker.id)},
+        window:{requestAnimationFrame:callback=>frames.push(callback)}
+    });
+    vm.runInContext(queueSource, context);
+    let complete = false;
+    const pending = context.queueOutletMarkers(outlets).then(()=>{ complete=true; });
+    assert.equal(added.length,80);
+    assert.equal(complete,false);
+    frames.shift()();
+    assert.equal(added.length,160);
+    assert.equal(complete,false);
+    frames.shift()();
+    await pending;
+    assert.equal(added.length,185);
+    assert.equal(complete,true);
+});
+
+test('an error in a later animation frame rejects the load rather than silently losing points', async () => {
+    const frames = [];
+    let count = 0;
+    const context = vm.createContext({
+        Promise, pendingOutletFocus:null,
+        addOutletMarker:outlet=>{ if (++count === 81) throw new Error('marker failed'); return outlet; },
+        outletClusterLayer:{addLayers(){}},
+        window:{requestAnimationFrame:callback=>frames.push(callback)}
+    });
+    vm.runInContext(queueSource, context);
+    const pending = context.queueOutletMarkers(Array.from({length:100},(_,id)=>({id})));
+    frames.shift()();
+    await assert.rejects(pending,/marker failed/);
+});
+
+test('initialization errors display a retry and do not leave a completed promise blocking future loads', async () => {
+    const elements = {
+        'map-outlet-count':{textContent:''},
+        'branding-insights':{innerHTML:''},
+        'map-outlet-error':{hidden:true,querySelector:()=>({textContent:''})}
+    };
+    let calls = 0, fetches = 0;
+    const context = vm.createContext({
+        Promise, AbortController, setTimeout:()=>1, clearTimeout(){},
+        document:{getElementById:id=>elements[id]}, map:null, outletClusterLayer:null,
+        setupMapMobileTabs(){},
+        initMap:()=>{ if (++calls===1) throw new Error('dependency unavailable'); },
+        fetch:async()=>{ fetches++; return {ok:true,json:async()=>[{has_front_photo:false}]}; },
+        renderBrandingInsights(){}, console:{error(){}}
+    });
+    vm.runInContext(loadSource,context);
+    await context.loadAllOutlets();
+    assert.equal(fetches,0);
+    assert.equal(elements['map-outlet-error'].hidden,false);
+    await context.loadAllOutlets();
+    assert.equal(fetches,1);
+    assert.equal(elements['map-outlet-error'].hidden,true);
+    assert.match(elements['map-outlet-count'].textContent,/1 outlet/);
+});

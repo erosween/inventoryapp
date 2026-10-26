@@ -1948,8 +1948,9 @@
         .branding-insights { margin: 0 8px 16px; }
         .branding-insight-loading { padding: 18px; border: 1px solid #e5e7eb; border-radius: 18px; color: #64748b; background: #fff; font-size: 12px; }
         .branding-insight-error { padding: 18px; border: 1px solid #fecdd3; border-radius: 18px; color: #b42318; background: #fff7f8; font-size: 12px; font-weight: 700; }
-        #map.map-load-error { display: grid; place-items: center; min-height: 260px; border: 1px dashed #fecdd3; border-radius: 18px; background: #fff7f8; color: #b42318; }
-        #map.map-load-error::before { content: 'Peta belum dapat dimuat. Silakan muat ulang halaman.'; padding: 18px; text-align: center; font-size: 12px; font-weight: 700; }
+        .map-outlet-error { display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:14px 16px;border:1px solid #fecdd3;border-radius:12px;background:#fff7f8;color:#a31230;font-size:13px;line-height:1.5; }
+        .map-outlet-error[hidden] { display:none; }
+        .map-outlet-error button { flex-shrink:0;padding:8px 14px;border:1px solid #c8102e;border-radius:8px;background:#fff;color:#b30929;font:inherit;font-weight:700;cursor:pointer; }
         .branding-insight-card { padding: 18px; border: 1px solid rgba(226,232,240,.9); border-radius: 20px; background: linear-gradient(145deg,#fff 0%,#fbfdff 100%); box-shadow: 0 12px 30px rgba(15,23,42,.06); }
         .branding-insight-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
         .branding-insight-card h4 { margin: 0; color: #172033; font-size: 15px; font-weight: 900; }
@@ -1986,6 +1987,7 @@
         }
 
         .map-fullscreen-button,
+        .map-overview-button,
         .map-locate-button {
             width: 36px;
             height: 36px;

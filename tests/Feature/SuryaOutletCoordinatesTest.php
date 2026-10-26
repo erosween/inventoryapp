@@ -333,7 +333,9 @@ class SuryaOutletCoordinatesTest extends TestCase
         DB::enableQueryLog();
         DB::flushQueryLog();
         try {
-            $page = $this->get('/surya?panel=outlet')->assertOk()->assertDontSee('telegram-web-app.js');
+            $page = $this->get('/surya?panel=outlet')->assertOk()->assertDontSee('telegram-web-app.js')
+                ->assertSee('vendor/leaflet/leaflet.js')->assertSee('vendor/leaflet-markercluster/leaflet.markercluster.js')
+                ->assertDontSee('https://unpkg.com/leaflet');
             $this->assertSame('outlet', $page->viewData('dashboard')['loadedPanel']);
             $this->assertArrayNotHasKey('visitDetails', $page->viewData('dashboard'));
             $this->assertFalse(collect(DB::getQueryLog())->contains(fn ($query) => preg_match('/from [`"]?(surya_visits|mobile_penjualan|keluarsf|mobile_sales_receipts)/i', $query['query'])));

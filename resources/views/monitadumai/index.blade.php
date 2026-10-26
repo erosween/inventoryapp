@@ -23,9 +23,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Leaflet Maps CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}?v=1.9.4" />
+    <link rel="stylesheet" href="{{ asset('vendor/leaflet-markercluster/MarkerCluster.css') }}?v=1.5.3" />
+    <link rel="stylesheet" href="{{ asset('vendor/leaflet-markercluster/MarkerCluster.Default.css') }}?v=1.5.3" />
 
 <link rel="stylesheet" href="{{ asset('css/surya-dashboard.css') }}?v={{ filemtime(public_path('css/surya-dashboard.css')) }}">
     @include('surya.partials.assets')
@@ -418,6 +418,10 @@
             <span class="map-count" id="map-outlet-count">Memuat...</span>
         </div>
         <div class="map-marker-legend" aria-label="Arti warna titik outlet"><span class="verified">Visit disetujui</span><span class="attention">Visit perlu diperiksa</span><span class="unvisited">Belum ada visit</span></div>
+        <div id="map-outlet-error" class="map-outlet-error" role="status" hidden>
+            <span data-map-error-message></span>
+            <button type="button" onclick="loadAllOutlets()">Coba Lagi</button>
+        </div>
         <div class="map-mobile-tabs" role="tablist" aria-label="Peta dan insight outlet">
             <button type="button" class="map-mobile-tab active" data-map-panel="map" role="tab"><i class="fas fa-map me-1"></i>Peta</button>
             <button type="button" class="map-mobile-tab" data-map-panel="insight" role="tab"><i class="fas fa-chart-pie me-1"></i>Insight</button>
@@ -793,8 +797,8 @@
     </div>
 
     <!-- Leaflet Maps JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="{{ asset('vendor/leaflet/leaflet.js') }}?v=1.9.4"></script>
+    <script src="{{ asset('vendor/leaflet-markercluster/leaflet.markercluster.js') }}?v=1.5.3"></script>
 
     <script>
         let map;
@@ -2595,71 +2599,88 @@
 
         let outletLoadPromise = null;
         let outletDataLoaded = false;
+        let mapMobileTabsBound = false;
+        let loadedOutletPoints = [];
 
         async function loadAllOutlets() {
             if (outletDataLoaded || outletLoadPromise) return outletLoadPromise;
 
             const countEl = document.getElementById('map-outlet-count');
             const insightEl = document.getElementById('branding-insights');
-            // Tiles and controls can start while the outlet metadata is in flight.
-            if (!map) {
-                setupMapMobileTabs();
-                initMap([]);
-            }
-            outletLoadPromise = (async () => {
+            const errorEl = document.getElementById('map-outlet-error');
+            if (errorEl) errorEl.hidden = true;
+            if (countEl) countEl.textContent = 'Memuat titik outlet…';
+            // Defer initialization until the promise has been assigned. Even a
+            // synchronous Leaflet failure must clear the guard and allow retry.
+            outletLoadPromise = Promise.resolve().then(async () => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30000);
                 try {
+                    if (!mapMobileTabsBound) {
+                        setupMapMobileTabs();
+                        mapMobileTabsBound = true;
+                    }
+                    await initMap([]);
                     const response = await fetch('/surya/outlets', {
                         credentials: 'same-origin',
                         headers: { 'Accept': 'application/json' },
-                        cache: 'no-store'
+                        cache: 'no-store',
+                        signal: controller.signal
                     });
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                     const outlets = await response.json();
                     if (!Array.isArray(outlets)) throw new Error('Format data outlet tidak valid');
 
-                    initMap(outlets);
+                    loadedOutletPoints = outlets;
+                    await initMap(outlets);
                     renderBrandingInsights(outlets);
                     outletDataLoaded = true;
-                    document.getElementById('map')?.classList.remove('map-load-error');
                     const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
                     if (countEl) countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
                 } catch (error) {
                     console.error('SURYA map gagal dimuat:', error);
-                    if (countEl) countEl.textContent = 'Gagal memuat peta';
-                    if (insightEl) insightEl.innerHTML = '<div class="branding-insight-error">Data peta belum dapat dimuat. Muat ulang halaman untuk mencoba lagi.</div>';
-                    document.getElementById('map')?.classList.add('map-load-error');
+                    if (map && !outletClusterLayer) {
+                        map.remove();
+                        map = null;
+                    }
+                    if (countEl) countEl.textContent = 'Titik outlet belum selesai dimuat';
+                    if (errorEl) {
+                        errorEl.querySelector('[data-map-error-message]').textContent = 'Titik outlet belum dapat dimuat. Periksa koneksi, lalu coba lagi.';
+                        errorEl.hidden = false;
+                    }
+                    if (insightEl) insightEl.innerHTML = '<div class="branding-insight-error">Insight menunggu data titik outlet. Klik Coba Lagi untuk melanjutkan.</div>';
                 } finally {
+                    clearTimeout(timeout);
                     outletLoadPromise = null;
                 }
-            })();
+            });
 
             return outletLoadPromise;
         }
 
         function initMap(outlets) {
             if (map) {
-                fitAndQueueOutletMarkers(outlets);
-                return;
+                return fitAndQueueOutletMarkers(outlets);
             }
             map = L.map('map').setView([1.75, 101.05], 8);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-            outletClusterLayer = L.markerClusterGroup({
-                chunkedLoading: true,
-                chunkInterval: 16,
-                chunkDelay: 16,
-                disableClusteringAtZoom: 16,
-                maxClusterRadius: 55,
-                removeOutsideVisibleBounds: true,
-                showCoverageOnHover: false,
-                spiderfyOnMaxZoom: true,
-                chunkProgress: (processed, total) => {
-                    if (processed === total && pendingOutletFocus) {
-                        focusOutletOnMap(pendingOutletFocus);
-                    }
-                }
-            }).addTo(map);
+            try {
+                outletClusterLayer = L.markerClusterGroup({
+                    // queueOutletMarkers already yields every 80 records. A second
+                    // asynchronous chunk queue can overlap while zooming on phones.
+                    chunkedLoading: false,
+                    disableClusteringAtZoom: 16,
+                    maxClusterRadius: 55,
+                    removeOutsideVisibleBounds: true,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                }).addTo(map);
+            } catch (error) {
+                console.warn('SURYA cluster tidak tersedia; tampilkan titik langsung.', error);
+                outletClusterLayer = L.layerGroup().addTo(map);
+            }
             // Semua outlet masuk cluster. Menampilkan ratusan thumbnail sekaligus
             // membuat browser lambat dan peta terasa belum selesai memuat.
             outletVisitedLayer = L.layerGroup();
@@ -2669,7 +2690,6 @@
             // become usable before thousands of marker objects are created.
             addFullscreenControl();
             showUserLocation();
-            fitAndQueueOutletMarkers(outlets);
 
             // Leaflet may initialize while this panel is still transitioning from
             // hidden to visible. Recalculate the viewport after the layout settles
@@ -2687,40 +2707,62 @@
                 observer.observe(document.getElementById('map'));
                 map._suryaResizeObserver = observer;
             }
-
+            return fitAndQueueOutletMarkers(outlets);
         }
 
         function fitAndQueueOutletMarkers(outlets) {
             const bounds = outlets.map(outlet => [Number(outlet.latitude), Number(outlet.longitude)])
                 .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
             if (bounds.length && !selectedOutletMarker) map.fitBounds(bounds, {padding: [24, 24]});
-            queueOutletMarkers(outlets);
+            return queueOutletMarkers(outlets);
         }
 
         function queueOutletMarkers(outlets) {
             let cursor = 0;
             const batchSize = 80;
 
-            const renderBatch = () => {
-                const batch = [];
-                const end = Math.min(cursor + batchSize, outlets.length);
-                for (; cursor < end; cursor++) {
-                    const marker = addOutletMarker(outlets[cursor], false);
-                    if (marker) batch.push(marker);
-                }
+            return new Promise((resolve, reject) => {
+                const renderBatch = () => {
+                    try {
+                        const batch = [];
+                        const end = Math.min(cursor + batchSize, outlets.length);
+                        for (; cursor < end; cursor++) {
+                            const marker = addOutletMarker(outlets[cursor], false);
+                            if (marker) batch.push(marker);
+                        }
 
-                if (batch.length) outletClusterLayer?.addLayers(batch);
+                        if (batch.length) {
+                            if (typeof outletClusterLayer.addLayers === 'function') outletClusterLayer.addLayers(batch);
+                            else batch.forEach(marker => outletClusterLayer.addLayer(marker));
+                        }
 
-                if (cursor < outlets.length) {
-                    // An idle callback without a deadline can starve while map
-                    // tiles are loading or the user is moving the map.
-                    window.requestAnimationFrame(renderBatch);
-                } else if (pendingOutletFocus) {
-                    focusOutletOnMap(pendingOutletFocus);
-                }
-            };
+                        if (cursor < outlets.length) {
+                            // Yield between small batches, including on phones.
+                            window.requestAnimationFrame(renderBatch);
+                        } else {
+                            if (pendingOutletFocus) focusOutletOnMap(pendingOutletFocus);
+                            resolve();
+                        }
+                    } catch (error) { reject(error); }
+                };
 
-            renderBatch();
+                renderBatch();
+            });
+        }
+
+        function showAllOutletPoints() {
+            if (!map || !outletDataLoaded || !loadedOutletPoints.length) return loadAllOutlets();
+            if (selectedOutletMarker) {
+                selectedOutletMarker.setIcon(createOutletIcon(selectedOutletMarker.outletData));
+                selectedOutletMarker.setZIndexOffset(0);
+            }
+            selectedOutletMarker = null;
+            pendingOutletFocus = null;
+            map.closePopup();
+            const bounds = loadedOutletPoints.map(outlet => [Number(outlet.latitude), Number(outlet.longitude)])
+                .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0));
+            map.invalidateSize({ pan: false });
+            if (bounds.length) map.fitBounds(bounds, {padding: [24, 24], maxZoom: 16});
         }
 
         function createOutletIcon(outlet = null, selected = false) {
@@ -2813,7 +2855,7 @@
                     if (clustered) outletClusterLayer.removeLayer(marker);
                     marker.setLatLng([lat, lng]);
                     if (clustered) outletClusterLayer.addLayer(marker);
-                    if (wasOpen && clustered) outletClusterLayer.zoomToShowLayer(marker, () => marker.openPopup());
+                    if (wasOpen && clustered && typeof outletClusterLayer.zoomToShowLayer === 'function') outletClusterLayer.zoomToShowLayer(marker, () => marker.openPopup());
                     else if (wasOpen) marker.openPopup();
                 }
             }
@@ -3052,7 +3094,7 @@
             marker.setIcon(createOutletIcon(marker.outletData, true));
             marker.setZIndexOffset(1000);
 
-            if (outletClusterLayer && outletClusterLayer.hasLayer(marker)) {
+            if (outletClusterLayer && typeof outletClusterLayer.zoomToShowLayer === 'function' && outletClusterLayer.hasLayer(marker)) {
                 outletClusterLayer.zoomToShowLayer(marker, () => {
                     map.setView(marker.getLatLng(), 17, { animate: true });
                     marker.openPopup();
@@ -3164,8 +3206,23 @@
                 }
             });
 
+            const OverviewControl = L.Control.extend({
+                options: { position: 'topright' },
+                onAdd() {
+                    const button = L.DomUtil.create('button', 'map-overview-button');
+                    button.type = 'button';
+                    button.title = 'Tampilkan semua titik outlet';
+                    button.setAttribute('aria-label', 'Tampilkan semua titik outlet');
+                    button.innerHTML = '<i class="fas fa-layer-group"></i>';
+                    L.DomEvent.disableClickPropagation(button);
+                    L.DomEvent.on(button, 'click', showAllOutletPoints);
+                    return button;
+                }
+            });
+
             map.addControl(new FullscreenControl());
             map.addControl(new LocateControl());
+            map.addControl(new OverviewControl());
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape' && document.getElementById('map').classList.contains('map-fullscreen-active')) {
                     const detailPanel = document.getElementById('map-outlet-detail-panel');

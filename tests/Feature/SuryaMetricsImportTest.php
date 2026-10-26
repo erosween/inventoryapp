@@ -146,6 +146,28 @@ class SuryaMetricsImportTest extends TestCase
         $this->assertDatabaseMissing('surya_daily_metrics', ['id_outlet' => 'CANCELLED-UPLOAD']);
     }
 
+    public function test_completed_metric_upload_keeps_all_map_outlets_and_coordinates(): void
+    {
+        $this->signIn();
+        $this->freezeTime();
+        $before = $this->getJson('/surya/outlets')->assertOk()->json();
+        $this->assertNotEmpty($before);
+        $snapshot = fn ($rows) => collect($rows)->map(fn ($row) => [
+            'id' => (string) $row['id_outlet'], 'latitude' => (string) $row['latitude'],
+            'longitude' => (string) $row['longitude'], 'state' => $row['map_visit_state'],
+        ])->sortBy('id')->values()->all();
+        $state = $this->post(route('surya.transaction-upload.store', ['staged' => 1]), [
+            'metrics_file' => $this->file([
+                ['id_outlet', 'cvm_m', 'ss_m', 'comsak_m', 'update'],
+                [$before[0]['id_outlet'], 10, 20, 30, now()->toDateString()],
+            ]),
+        ], ['Accept' => 'application/json'])->assertCreated()->json();
+        $this->postJson(route('surya.transaction-upload.process', ['upload' => $state['id']]), ['next_row' => 2])
+            ->assertOk()->assertJsonPath('status', 'complete');
+        $after = $this->getJson('/surya/outlets')->assertOk()->json();
+        $this->assertSame($snapshot($before), $snapshot($after));
+    }
+
     public function test_csv_import_and_unrecognized_headers(): void
     {
         $this->signIn();
