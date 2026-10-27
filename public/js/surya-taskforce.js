@@ -16,48 +16,49 @@
             button.disabled = false; button.textContent = 'Tampilkan';
         });
     }
-    const dialog = document.getElementById('push-so-dialog');
-    if (!dialog) return;
-    const form = document.getElementById('push-so-action');
-    const save = form.querySelector('button[type="submit"]');
-    const message = form.querySelector('.tf-save-message');
-    let actionUrl = '';
-    function updateDate() {
-        const visited = form.elements.visited.value === '1';
-        form.elements.visited_at.required = visited;
-        document.getElementById('visit-date-label').hidden = !visited;
-    }
-    form.elements.visited.addEventListener('change', updateDate);
-    function openAction(button, visited = button.dataset.visited) {
-        actionUrl = button.dataset.actionUrl;
-        form.reset(); message.textContent = ''; save.disabled = false;
-        save.textContent = 'Simpan';
-        document.getElementById('action-outlet').textContent = button.dataset.outlet;
-        form.elements.visited.value = visited;
-        form.elements.visited_at.value = button.dataset.date || '';
-        form.elements.notes.value = button.dataset.notes || '';
-        updateDate(); dialog.showModal();
-    }
-    document.querySelectorAll('button[data-action-url]').forEach(button => button.addEventListener('click', () => openAction(button)));
-    document.querySelectorAll('.tf-visit-select').forEach(select => select.addEventListener('change', () => {
-        const chosen = select.value;
-        select.value = select.dataset.visited;
-        openAction(select, chosen);
-    }));
-    dialog.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => { if (!save.disabled) dialog.close(); }));
-    dialog.addEventListener('cancel', event => { if (save.disabled) event.preventDefault(); });
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
-        if (save.disabled) return;
-        save.disabled = true; save.innerHTML = '<span class="tf-spinner" aria-hidden="true"></span> Menyimpan…'; message.textContent = '';
-        try {
-            const response = await fetch(actionUrl, {method:'POST', headers:{Accept:'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content}, body:new FormData(form)});
-            const result = await response.json();
-            if (!response.ok) throw new Error(Object.values(result.errors || {}).flat()[0] || result.message || 'Tindak lanjut gagal disimpan.');
-            window.location.reload();
-        } catch (error) {
-            message.textContent = error.message || 'Koneksi terputus. Coba kembali.';
-            save.disabled = false; save.textContent = 'Simpan';
-        }
+    document.querySelectorAll('[data-visit-row]').forEach(row => {
+        const status = row.querySelector('[name="visited"]');
+        const date = row.querySelector('[name="visited_at"]');
+        const notes = row.querySelector('[name="notes"]');
+        const save = row.querySelector('[data-save-visit]');
+        if (!save) return;
+        const message = row.querySelector('.tf-row-message');
+        let saving = false;
+        const markDirty = () => { message.textContent = 'Belum disimpan'; message.classList.remove('saved'); };
+        status.addEventListener('change', () => {
+            date.disabled = status.value !== '1';
+            date.required = status.value === '1';
+            if (status.value === '0') date.value = '';
+            markDirty();
+            if (!date.disabled) date.focus();
+        });
+        date.addEventListener('input', markDirty);
+        notes.addEventListener('input', markDirty);
+        save.addEventListener('click', async () => {
+            if (saving) return;
+            if (status.value === '1' && !date.reportValidity()) return;
+            saving = true;
+            const values = {sales_cutoff:row.dataset.cutoff,visited:status.value,visited_at:status.value === '1' ? date.value : null,notes:notes.value};
+            save.disabled = true; status.disabled = true; date.disabled = true; notes.disabled = true;
+            save.textContent = 'Menyimpan…'; message.textContent = '';
+            try {
+                const response = await fetch(row.dataset.actionUrl, {
+                    method:'POST', headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
+                    body:JSON.stringify(values)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(Object.values(data.errors || {}).flat()[0] || data.message || 'Gagal menyimpan.');
+                message.textContent = 'Tersimpan'; message.classList.add('saved');
+                if (data.updated_by) {
+                    let by = notes.parentElement.querySelector('.tf-subtext');
+                    if (!by) { by = document.createElement('small'); by.className = 'tf-subtext'; notes.parentElement.appendChild(by); }
+                    by.textContent = data.updated_by;
+                }
+            } catch (error) { message.textContent = error.message || 'Koneksi terputus. Coba lagi.'; message.classList.remove('saved'); }
+            finally {
+                saving = false; save.disabled = false; status.disabled = false; notes.disabled = false;
+                date.disabled = status.value !== '1'; save.textContent = 'Simpan';
+            }
+        });
     });
 })();

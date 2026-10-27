@@ -78,7 +78,7 @@ class TaskforceController extends MonitaDumaiController
 
     public function store(Request $request, string $idOutlet)
     {
-        abort_unless($this->canAct(),403,'Hanya asmen yang dapat mengisi tindak lanjut.');
+        abort_unless($this->canAct(),403,'Akun ini tidak memiliki hak mengisi tindak lanjut.');
         $data=$request->validate(['sales_cutoff'=>'required|date_format:Y-m-d|before_or_equal:today',
             'visited'=>'required|boolean','visited_at'=>'nullable|required_if:visited,1|date_format:Y-m-d|before_or_equal:today',
             'notes'=>'nullable|string|max:3000']);
@@ -96,12 +96,12 @@ class TaskforceController extends MonitaDumaiController
             'user_id'=>(string)auth()->id(),'username'=>auth()->user()->username,
             'created_at'=>now(),'updated_at'=>now(),
         ]);
-        return response()->json(['message'=>'Tindak lanjut outlet berhasil disimpan.']);
+        return response()->json(['message'=>'Tindak lanjut outlet berhasil disimpan.','updated_by'=>auth()->user()->username.' · '.now()->format('d/m H:i')]);
     }
 
     private function canAct(): bool
     {
-        return auth()->check() && str_starts_with(strtolower(auth()->user()->username),'asmen_');
+        return auth()->check() && (auth()->user()->isSuperAdmin() || str_starts_with(strtolower(auth()->user()->username),'asmen_'));
     }
 
     private function taskforceOutlets(?array $scopes, ?int $uploadId)

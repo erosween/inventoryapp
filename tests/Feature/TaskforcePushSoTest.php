@@ -81,7 +81,7 @@ class TaskforcePushSoTest extends TestCase
     {
         $response=$this->get($this->url())->assertOk()->assertSee('PUSH SO')->assertSee('TASKFORCE')
             ->assertDontSee('id="push-so-filters"',false)->assertSee('Upload lama hanya menyimpan ID outlet.')
-            ->assertSee('id="push-so-dialog"',false)->assertSee('Tanggal Visit');
+            ->assertSee('data-save-visit',false)->assertSee('tf-visit-date')->assertSee('tf-visit-notes')->assertSee('Tanggal Visit');
         $rows=$response->viewData('outlets');
         self::assertSame(2,$rows->total());
         self::assertSame(['A','B'],$rows->pluck('id_outlet')->all());
@@ -111,7 +111,8 @@ class TaskforcePushSoTest extends TestCase
     {
         $url=route('surya.taskforce.push-so.store',['idOutlet'=>'A']);
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Sudah cek stok'])->assertOk();
-        $this->get($this->url())->assertOk()->assertSee('Sudah visit')->assertSee('26/10/2026');
+        $visitedPage=$this->get($this->url())->assertOk()->assertSee('Sudah visit');
+        self::assertSame('2026-10-26',$visitedPage->viewData('outlets')->first()->visited_at);
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'Jadwalkan ulang'])->assertOk();
         self::assertSame(2,DB::table('taskforce_push_so_actions')->count());
         self::assertSame('asmen_dumai',DB::table('taskforce_push_so_actions')->value('username'));
@@ -127,12 +128,27 @@ class TaskforcePushSoTest extends TestCase
     {
         $payload=['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'test'];
         $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'C']),$payload)->assertNotFound();
-        $this->asUser('admin_super','SBP_DUMAI');
+        $this->asUser('branch_dumai','SBP_DUMAI');
         $r=$this->get($this->url())->assertOk();
         self::assertSame(3,$r->viewData('outlets')->total());
         self::assertFalse($r->viewData('canAct'));
         $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),$payload)->assertForbidden();
         self::assertSame(0,DB::table('taskforce_push_so_actions')->count());
+    }
+
+    public function test_super_admin_can_edit_and_visit_inputs_render_inline(): void
+    {
+        $this->asUser('admin_super','SBP_DUMAI');
+        $r=$this->get($this->url())->assertOk()->assertSee('data-save-visit',false)
+            ->assertSee('name="visited_at"',false)->assertSee('name="notes"',false)->assertDontSee('<dialog',false);
+        self::assertTrue($r->viewData('canAct'));
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'C']),[
+            'sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Dicek admin',
+        ])->assertOk()->assertJsonStructure(['message','updated_by']);
+        self::assertSame('admin_super',DB::table('taskforce_push_so_actions')->value('username'));
+        $row=$this->get($this->url())->viewData('outlets')->firstWhere('id_outlet','C');
+        self::assertSame('2026-10-26',$row->visited_at);
+        self::assertSame('Dicek admin',$row->notes);
     }
 
     public function test_validation_rejects_inverted_ranges_and_visit_without_date(): void
