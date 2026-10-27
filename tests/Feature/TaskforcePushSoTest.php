@@ -17,6 +17,7 @@ class TaskforcePushSoTest extends TestCase
         config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:']);
         DB::purge('sqlite');
         DB::connection()->getPdo()->sqliteCreateFunction('FIND_IN_SET',fn($needle,$list)=>in_array($needle,explode(',',(string)$list),true)?1:0);
+        DB::connection()->getPdo()->sqliteCreateFunction('regexp',fn($pattern,$value)=>preg_match('~'.$pattern.'~D',(string)$value));
         Carbon::setTestNow(Carbon::parse('2026-10-27 10:00:00'));
         Schema::create('keluar',function(Blueprint $t) { $t->integer('status');$t->string('penerima'); });
         Schema::create('appsdumais',function(Blueprint $t) {
@@ -296,5 +297,46 @@ class TaskforcePushSoTest extends TestCase
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'Tindak lanjut'])->assertOk();
         $r=$this->get($this->url(['columns'=>['visit'=>['Sudah visit']]]))->assertOk();
         self::assertSame(0,$r->viewData('outlets')->total());
+    }
+
+    public function test_header_sort_is_numeric_stable_and_shared_with_pagination_and_export(): void
+    {
+        $uploadId=DB::table('taskforce_uploads')->where('period_month','2026-10-01')->value('id');
+        DB::table('taskforce_uploads')->where('id',$uploadId)->update(['headers'=>json_encode(['ID Outlet','Grup','Jumlah'])]);
+        for($i=0;$i<30;$i++) {
+            $id='S'.str_pad((string)$i,2,'0',STR_PAD_LEFT);
+            DB::table('appsdumais')->insert(['id_outlet'=>$id,'nama_outlet'=>$id,'tap'=>'DUMAI','sf'=>'SF DUMAI','pjp'=>'Senin','kecamatan'=>'Kota']);
+            DB::table('taskforce_upload_outlets')->insert(['upload_id'=>$uploadId,'id_outlet'=>$id,'cells'=>json_encode([$id,'G',(string)($i+1)]),'row_position'=>100-$i]);
+        }
+        $query=['sort'=>'2','direction'=>'asc','columns'=>['1'=>['G']]];
+        $page=$this->get($this->url($query))->assertOk()->assertSee('Urutkan Jumlah');
+        self::assertSame(range(1,25),$page->viewData('outlets')->map(fn($row)=>(int)$row->uploaded_cells[2])->all());
+        self::assertStringContainsString('sort=2',$page->viewData('outlets')->nextPageUrl());
+        $page=$this->get($this->url($query+['page'=>2]))->assertOk();
+        self::assertSame(range(26,30),$page->viewData('outlets')->map(fn($row)=>(int)$row->uploaded_cells[2])->all());
+        $query['direction']='desc';
+        $page=$this->get($this->url($query))->assertOk();
+        self::assertSame(range(30,6),$page->viewData('outlets')->map(fn($row)=>(int)$row->uploaded_cells[2])->all());
+        $csv=$this->get(route('surya.taskforce.download',['sales_cutoff'=>'2026-10-26']+$query))->assertOk()->streamedContent();
+        $lines=explode("\n",trim($csv));
+        self::assertCount(31,$lines);
+        self::assertSame('30',str_getcsv($lines[1])[2]);
+        self::assertSame('1',str_getcsv($lines[30])[2]);
+        $this->getJson($this->url(['sort'=>'999']))->assertUnprocessable();
+        $this->getJson($this->url(['sort'=>'0','direction'=>'desc; DROP TABLE']))->assertUnprocessable();
+    }
+
+    public function test_visit_dates_sort_chronologically_and_blank_dates_stay_last(): void
+    {
+        foreach(['A'=>'2026-10-26','B'=>'2026-10-02'] as $id=>$day) {
+            $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>$id]),['sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>$day,'notes'=>$id])->assertOk();
+        }
+        $r=$this->get($this->url(['sort'=>'date','direction'=>'asc']))->assertOk();
+        self::assertSame(['B','A'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $r=$this->get($this->url(['sort'=>'notes','direction'=>'desc']))->assertOk();
+        self::assertSame(['B','A'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $this->asUser('admin_super','SBP_DUMAI');
+        $r=$this->get($this->url(['sort'=>'date','direction'=>'desc']))->assertOk();
+        self::assertSame(['A','B','C'],$r->viewData('outlets')->pluck('id_outlet')->all());
     }
 }

@@ -10,6 +10,20 @@
     const apply = menu.querySelector('[data-filter-apply]');
     const more = menu.querySelector('[data-filter-more]');
     let trigger, key, mode, chosen, values, page, timer, pending;
+    function sort(column, direction) {
+        const url = new URL(location.href);
+        if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
+        else { url.searchParams.delete('sort'); url.searchParams.delete('direction'); }
+        url.searchParams.delete('page');
+        location.assign(url.toString());
+    }
+    document.querySelectorAll('[data-sort-column]').forEach(button => button.addEventListener('click', () => {
+        const url = new URL(location.href);
+        const direction = url.searchParams.get('sort') === button.dataset.sortColumn && url.searchParams.get('direction') !== 'desc' ? 'desc' : 'asc';
+        sort(button.dataset.sortColumn,direction);
+    }));
+    menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => sort(key,button.dataset.sortDirection)));
+    menu.querySelector('[data-sort-clear]').addEventListener('click', () => sort(key,null));
     function close() {
         clearTimeout(timer); pending?.abort(); menu.hidden = true;
         trigger?.setAttribute('aria-expanded','false');

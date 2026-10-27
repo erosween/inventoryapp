@@ -16,7 +16,7 @@ class TaskforceController extends MonitaDumaiController
         $sfs=$this->taskforceOutlets($scopes,$upload?->id)->when(!empty($options['tap']),fn($q)=>$q->where('outlet.tap',$options['tap']))
             ->whereNotNull('outlet.sf')->whereRaw("TRIM(outlet.sf) <> ''")->distinct()->orderBy('outlet.sf')->pluck('outlet.sf');
         $outlets=$this->reportQuery($cutoff,$upload,$options)
-            ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','per_page','tap','sf','columns','exclude']));
+            ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','per_page','tap','sf','columns','exclude','sort','direction']));
         $outlets->getCollection()->transform(function($outlet) {
             $outlet->uploaded_cells=$outlet->cells ? json_decode($outlet->cells,true,512,JSON_THROW_ON_ERROR) : [(string)$outlet->id_outlet];
             return $outlet;
@@ -36,6 +36,7 @@ class TaskforceController extends MonitaDumaiController
             'columns.*.*'=>'present|nullable|string|max:5000',
             'exclude'=>'nullable|array|max:63','exclude.*'=>'required|array|min:1|max:100',
             'exclude.*.*'=>'present|nullable|string|max:5000',
+            'sort'=>'nullable|string|max:10','direction'=>'nullable|in:asc,desc',
         ]);
         $cutoff=Carbon::parse($options['sales_cutoff']??now('Asia/Jakarta')->toDateString());
         $upload=DB::table('taskforce_uploads')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())->orderByDesc('id')->first();
@@ -44,6 +45,7 @@ class TaskforceController extends MonitaDumaiController
             $this->columnExpression((string)$key,count($headers));
             $options[$mode][$key]=array_map(fn($value)=>(string)($value??''),$values);
         }
+        if(isset($options['sort'])) $this->columnExpression($options['sort'],count($headers));
         return [$cutoff,$upload,$headers,$options];
     }
 
@@ -62,6 +64,21 @@ class TaskforceController extends MonitaDumaiController
         $headerCount=$upload && $upload->headers ? count(json_decode($upload->headers,true,512,JSON_THROW_ON_ERROR)) : 1;
         foreach($options['columns']??[] as $key=>$values) $query->whereIn(DB::raw($this->columnExpression((string)$key,$headerCount)),$values);
         foreach($options['exclude']??[] as $key=>$values) $query->whereNotIn(DB::raw($this->columnExpression((string)$key,$headerCount)),$values);
+        if(isset($options['sort'])) {
+            $key=$options['sort'];
+            $expression=$this->columnExpression($key,$headerCount);
+            $direction=$options['direction']??'asc';
+            $query->reorder()->orderByRaw("CASE WHEN {$expression} = '' THEN 1 ELSE 0 END ASC");
+            if($key==='date') $query->orderBy('action.visited_at',$direction);
+            elseif(ctype_digit($key)) {
+                // Simple numbers sort numerically (2 before 10), text alphabetically.
+                $pattern='^[+-]?[0-9]+([.][0-9]+)?$';
+                $query->orderByRaw("CASE WHEN TRIM({$expression}) REGEXP ? THEN 0 ELSE 1 END ASC",[$pattern])
+                    ->orderByRaw("CASE WHEN TRIM({$expression}) REGEXP ? THEN CAST({$expression} AS DECIMAL(30,8)) ELSE NULL END {$direction}",[$pattern])
+                    ->orderByRaw("{$expression} {$direction}");
+            } else $query->orderByRaw("{$expression} {$direction}");
+            $query->orderBy('assignment.row_position')->orderBy('assignment.id');
+        }
         return $query;
     }
 
