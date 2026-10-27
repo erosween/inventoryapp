@@ -2781,62 +2781,56 @@
             window.feather.replace();
         }
 
-        // ================= DOUGHNUT CHART SETUP =================
-        const pieColors = ['#4285F4','#DB4437','#F4B400','#0F9D58','#AB47BC','#00ACC1','#FF7043','#9E9D24', '#5C6BC0'];
-
-        const psLabels = {!! json_encode($pieSales->pluck('group_name')) !!};
-        const psData = {!! json_encode($pieSales->pluck('total')) !!};
-        const psTotal = psData.reduce((a, b) => Number(a) + Number(b), 0);
-        const psLabelsPercent = psLabels.map((label, i) => label + ' (' + (psTotal > 0 ? ((psData[i] / psTotal) * 100).toFixed(1) : 0) + '%)');
-
-        new Chart(document.getElementById('pieSales'), {
-            type: 'doughnut',
-            data: { 
-                labels: psLabelsPercent, 
-                datasets: [{ 
-                    data: psData, 
-                    backgroundColor: pieColors,
-                    borderWidth: 2,
-                    hoverOffset: 10
-                }] 
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'right', labels: { boxWidth: 15, padding: 15, font: { size: 11 } } },
-                    tooltip: { callbacks: { label: c => ' ' + nf(c.parsed) + ' Pcs' } }
+        // Horizontal ranking, with values drawn at the end of every bar.
+        function createDistributionBars(canvasId, labels, values, accent) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const rows = labels.map((label, i) => ({label: label || 'Lainnya', value: Number(values[i]) || 0}))
+                .sort((a, b) => b.value - a.value);
+            canvas.parentElement.style.height = Math.max(260, rows.length * 38 + 28) + 'px';
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', rows.map(row => row.label + ': ' + nf(row.value)).join('; ') || 'Belum ada data');
+            const valueLabels = {
+                id: 'distributionValues',
+                afterDatasetsDraw(chart) {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.font = '700 12px Arial, sans-serif';
+                    ctx.fillStyle = '#344054';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    chart.getDatasetMeta(0).data.forEach((bar, index) => {
+                        ctx.fillText(nf(rows[index].value), bar.x + 9, bar.y);
+                    });
+                    if (!rows.length) {
+                        ctx.textAlign = 'center';
+                        ctx.fillStyle = '#98a2b3';
+                        ctx.fillText('Belum ada data', chart.width / 2, chart.height / 2);
+                    }
+                    ctx.restore();
+                }
+            };
+            new Chart(canvas, {
+                type: 'bar',
+                plugins: [valueLabels],
+                data: {
+                    labels: rows.map(row => row.label),
+                    datasets: [{data: rows.map(row => row.value), backgroundColor: rows.map((_, i) => i === 0 ? accent : '#e2e8f0'), borderRadius: 5, borderSkipped: false, maxBarThickness: 24}]
                 },
-                cutout: '70%'
-            }
-        });
-
-        const piLabels = {!! json_encode($pieInject->pluck('group_name')) !!};
-        const piData = {!! json_encode($pieInject->pluck('total')) !!};
-        const piTotal = piData.reduce((a, b) => Number(a) + Number(b), 0);
-        const piLabelsPercent = piLabels.map((label, i) => label + ' (' + (piTotal > 0 ? ((piData[i] / piTotal) * 100).toFixed(1) : 0) + '%)');
-
-        new Chart(document.getElementById('pieInject'), {
-            type: 'doughnut',
-            data: { 
-                labels: piLabelsPercent, 
-                datasets: [{ 
-                    data: piData, 
-                    backgroundColor: pieColors,
-                    borderWidth: 2,
-                    hoverOffset: 10
-                }] 
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'right', labels: { boxWidth: 15, padding: 15, font: { size: 11 } } },
-                    tooltip: { callbacks: { label: c => ' ' + nf(c.parsed) + ' Pcs' } }
-                },
-                cutout: '70%'
-            }
-        });
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    animation: {duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350},
+                    layout: {padding: {right: 85, top: 8, bottom: 8}},
+                    plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => ' ' + nf(c.parsed.x) + ' pcs'}}},
+                    scales: {
+                        x: {beginAtZero: true, display: false},
+                        y: {grid: {display: false}, border: {display: false}, ticks: {autoSkip: false, color: '#475467', font: {size: 12, weight: '600'}, padding: 12}}
+                    }
+                }
+            });
+        }
+        createDistributionBars('pieSales', @json($pieSales->pluck('group_name')), @json($pieSales->pluck('total')), '#c8102e');
+        createDistributionBars('pieInject', @json($pieInject->pluck('group_name')), @json($pieInject->pluck('total')), '#099268');
 
         // ================= SALES LINE ================= 
         new Chart(document.getElementById('chartSales'), {
