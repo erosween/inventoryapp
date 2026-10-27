@@ -1,5 +1,5 @@
 @extends('surya.layouts.workspace')
-@section('title', 'Dashboard Inventory')
+@section('title', 'Dashboard')
 @section('active-page', 'inventory-dashboard')
 @section('description', 'Ringkasan stok, penjualan, inject, dan pertumbuhan sesuai wilayah akses Anda.')
 @section('content-class', 'surya-inventory-dashboard-page')

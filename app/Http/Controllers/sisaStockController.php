@@ -30,7 +30,7 @@ class sisaStockController extends Controller
         return view('sisastock', compact('idtap', 'date', 'groups', 'initialMode'));
     }
 
-    public function data(Request $request)
+    public function data(Request $request, bool $snapshotOnly = false)
     {
         $idtap = session('idtap');
         $mode = in_array($request->input('mode'), ['all', 'exc_asmen', 'tap', 'sf'], true)
@@ -313,6 +313,10 @@ class sisaStockController extends Controller
             if ($mode === 'sf' || $grand_total != 0) {
                 $finalData[] = $row;
             }
+        }
+
+        if ($snapshotOnly) {
+            return ['rows' => collect($finalData), 'denoms' => $denoms];
         }
 
         // Visibility is always based on the combined All balance. A denom that

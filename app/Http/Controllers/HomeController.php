@@ -17,7 +17,7 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v10:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v11:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -120,26 +120,6 @@ class HomeController extends Controller
         $tapList = $tapKeluar->keys()->sort()->values();
 
         /* ================= KPI ================= */
-        // Read warehouse and SF stock once each, split PV and SA before summing.
-        $stockSources = [
-            DB::table('stockawaltap as stock'),
-            DB::table('stockawalsf as stock')->join('idsf as roster', 'roster.idsf', '=', 'stock.idsf'),
-        ];
-        $stockBuckets = collect();
-        foreach ($stockSources as $index => $source) {
-            $source->leftJoin('denom as product', 'product.iddenom', '=', 'stock.iddenom');
-            $applyFilter($source, $index === 0 ? 'stock.idtap' : 'roster.idtap');
-            $source->selectRaw("CASE WHEN UPPER(COALESCE(product.kategori_inject, '')) = 'SA' OR stock.iddenom IN ('SP6','SP7') THEN 'SA' ELSE 'PV' END AS family,
-                CASE WHEN stock.iddenom IN ('SEGEL','V16','V33','SP6','SP7') THEN 'segel' ELSE 'inject' END AS stock_type,
-                SUM(stock.stock) AS total")
-                ->groupBy('family', 'stock_type');
-            $stockBuckets = $stockBuckets->concat($source->get());
-        }
-        $stokSegel = $stockBuckets->where('family', 'PV')->where('stock_type', 'segel')->sum('total');
-        $stokInject = $stockBuckets->where('family', 'PV')->where('stock_type', 'inject')->sum('total');
-        $stokSaSegel = $stockBuckets->where('family', 'SA')->where('stock_type', 'segel')->sum('total');
-        $stokSaInject = $stockBuckets->where('family', 'SA')->where('stock_type', 'inject')->sum('total');
-
         $qSalesBulanIni = $this->combinedSalesQuery()->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
         $applyFilter($qSalesBulanIni);
         $salesBulanIni = $qSalesBulanIni->sum('qty');
@@ -357,15 +337,40 @@ class HomeController extends Controller
         $momPv = $momByProduct['pv_all'];
         $momSa = $momByProduct['sa_all'];
 
-        $stockCacheKey = 'home-stock-gudang-product:v2:'.sha1($idtap.'|'.$momProductFilter);
-        $stockGudangByTap = Cache::remember($stockCacheKey, now()->addMinutes(15), function () use ($applyFilter, $applyProductFilter, $momProductFilter) {
-            $query = DB::table('stockawaltap')
-                ->selectRaw('idtap, SUM(stock) AS total_stock')
-                ->groupBy('idtap');
-            $applyFilter($query);
-            $applyProductFilter($query, 'stockawaltap', $momProductFilter);
-            return $query->pluck('total_stock', 'idtap');
+        // Use the exact historical balance and visible denominations from Stock Gudang.
+        $stockSnapshot = app(sisaStockController::class)->data(new Request([
+            'date' => $momSelectedDate->toDateString(), 'mode' => 'all',
+        ]), true);
+        $stockDenoms = $stockSnapshot['denoms'];
+        $matchesStockProduct = static function ($denom, string $filter): bool {
+            $isSa = strtoupper((string) $denom->group_name) === 'SA';
+            $isByu = strtoupper((string) $denom->kategori_inject) === 'BYU';
+            $isSaByu = str_starts_with(strtoupper((string) $denom->denom), 'SA BYU');
+            return match ($filter) {
+                'pv_all' => !$isSa,
+                'pv_reg' => !$isSa && !$isByu,
+                'pv_byu' => !$isSa && $isByu,
+                'sa_all' => $isSa,
+                'sa_simpati' => $isSa && !$isSaByu,
+                'sa_byu' => $isSa && $isSaByu,
+                default => false,
+            };
+        };
+        $selectedStockDenoms = $stockDenoms->filter(fn ($d) => $matchesStockProduct($d, $momProductFilter));
+        $stockGudangByTap = $stockSnapshot['rows']->mapWithKeys(function ($row) use ($selectedStockDenoms) {
+            return [$row['idtap'] => $selectedStockDenoms->sum(fn ($d) => (int) ($row[$d->iddenom] ?? 0))];
         });
+        $stockTotals = ['pv_segel'=>0, 'pv_inject'=>0, 'sa_segel'=>0, 'sa_inject'=>0];
+        foreach ($stockDenoms as $denom) {
+            $family = strtoupper((string) $denom->group_name) === 'SA' ? 'sa' : 'pv';
+            $sealed = in_array($denom->iddenom, ['SEGEL','V16','V33','SP6','SP7'], true)
+                || strtoupper((string) $denom->group_name) === 'SEGEL';
+            $stockTotals[$family.'_'.($sealed ? 'segel' : 'inject')] += $stockSnapshot['rows']->sum(fn ($row) => (int) ($row[$denom->iddenom] ?? 0));
+        }
+        $stokSegel = $stockTotals['pv_segel'];
+        $stokInject = $stockTotals['pv_inject'];
+        $stokSaSegel = $stockTotals['sa_segel'];
+        $stokSaInject = $stockTotals['sa_inject'];
 
         $qMomTapSales = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
@@ -438,12 +443,12 @@ class HomeController extends Controller
         $applyFilter($momSfQuery);
         $applyProductFilter($momSfQuery, 'combined_sales', $momProductFilter);
         $momSfTotals = $momSfQuery->get()->keyBy('idsf');
-        $sfStockQuery = DB::table('stockawalsf as stock')
-            ->join('idsf as roster', 'roster.idsf', '=', 'stock.idsf')
-            ->selectRaw('stock.idsf, SUM(stock.stock) AS total_stock')->groupBy('stock.idsf');
-        $applyFilter($sfStockQuery, 'roster.idtap');
-        $applyProductFilter($sfStockQuery, 'stock', $momProductFilter);
-        $sfStocks = $sfStockQuery->pluck('total_stock', 'stock.idsf');
+        $sfSnapshot = app(sisaStockController::class)->data(new Request([
+            'date' => $momSelectedDate->toDateString(), 'mode' => 'sf',
+        ]), true);
+        $sfStocks = $sfSnapshot['rows']->mapWithKeys(function ($row) use ($selectedStockDenoms) {
+            return [$row['idsf'] => $selectedStockDenoms->sum(fn ($d) => (int) ($row[$d->iddenom] ?? 0))];
+        });
         $momProductSfByTap = $momSf->map(function ($sf) use ($momSfTotals, $sfStocks, $momSelectedDate) {
             $row = clone $sf;
             $totals = $momSfTotals->get($sf->idsf);

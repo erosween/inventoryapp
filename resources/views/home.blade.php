@@ -300,7 +300,7 @@
                             <div class="card-body py-4">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <strong class="text-dark">STOK {{ $stockFamily }}</strong>
-                                    <span class="text-muted small">Gudang + SF</span>
+                                    <span class="text-muted small">Gudang + SF · {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') }}</span>
                                 </div>
                                 <div class="row">
                                     <div class="col-6" style="border-right:1px solid #e8edf2">

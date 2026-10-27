@@ -8,7 +8,7 @@
                         <div>
                             <h6 class="font-weight-bold text-dark mb-0">📊 MoM Sales Tap</h6>
                             <small class="text-muted">
-                                1–{{ $momCurrentLabel }} vs 1–{{ $momPreviousLabel }}
+                                1–{{ $momCurrentLabel }} vs 1–{{ $momPreviousLabel }} · Stok Gudang + SF per {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') }}
                             </small>
                         </div>
                         <div class="export-actions mom-toolbar">
