@@ -6,6 +6,7 @@ use App\Exports\StockGudangExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Support\StockProduct;
 use Maatwebsite\Excel\Facades\Excel;
 
 
@@ -301,10 +302,10 @@ class sisaStockController extends Controller
                 }
             }
             $row['grand_total_pv'] = collect($denoms)
-                ->filter(fn ($denom) => strtoupper((string) $denom->group_name) !== 'SA')
+                ->filter(fn ($denom) => !StockProduct::isSa($denom))
                 ->sum(fn ($denom) => (int) ($row[$denom->iddenom] ?? 0));
             $row['grand_total_sa'] = collect($denoms)
-                ->filter(fn ($denom) => strtoupper((string) $denom->group_name) === 'SA')
+                ->filter(fn ($denom) => StockProduct::isSa($denom))
                 ->sum(fn ($denom) => (int) ($row[$denom->iddenom] ?? 0));
             $row['grand_total'] = $grand_total;
             $row['grand_total_end'] = $grand_total;
@@ -529,12 +530,6 @@ class sisaStockController extends Controller
 
     private function loadStockDenoms()
     {
-        return $this->stockDenoms()->get()->unique(function ($denom) {
-            $category = strtoupper(trim((string) ($denom->kategori_inject ?: 'REGULER')));
-            $group = strtoupper(trim((string) ($denom->group_name ?: 'LAINNYA')));
-            $label = strtoupper(trim((string) $denom->denom));
-
-            return $category . '|' . $group . '|' . $label;
-        })->values();
+        return StockProduct::canonical($this->stockDenoms()->get());
     }
 }

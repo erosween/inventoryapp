@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
+use App\Support\StockProduct;
 
 class HomeController extends Controller
 {
@@ -17,7 +18,7 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v12:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v13:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -345,9 +346,10 @@ class HomeController extends Controller
         ]), true);
         $stockDenoms = $stockSnapshot['denoms'];
         $matchesStockProduct = static function ($denom, string $filter): bool {
-            $isSa = strtoupper((string) $denom->group_name) === 'SA';
+            $isSa = StockProduct::isSa($denom);
             $isByu = strtoupper((string) $denom->kategori_inject) === 'BYU';
-            $isSaByu = str_starts_with(strtoupper((string) $denom->denom), 'SA BYU');
+            $isSaByu = strtoupper((string) $denom->iddenom) === 'SP7'
+                || str_starts_with(strtoupper((string) $denom->denom), 'SA BYU');
             return match ($filter) {
                 'pv_all' => !$isSa,
                 'pv_reg' => !$isSa && !$isByu,
@@ -364,9 +366,8 @@ class HomeController extends Controller
         });
         $stockTotals = ['pv_segel'=>0, 'pv_inject'=>0, 'sa_segel'=>0, 'sa_inject'=>0];
         foreach ($stockDenoms as $denom) {
-            $family = strtoupper((string) $denom->group_name) === 'SA' ? 'sa' : 'pv';
-            $sealed = in_array($denom->iddenom, ['SEGEL','V16','V33','SP6','SP7'], true)
-                || strtoupper((string) $denom->group_name) === 'SEGEL';
+            $family = StockProduct::isSa($denom) ? 'sa' : 'pv';
+            $sealed = StockProduct::isSealed($denom);
             $stockTotals[$family.'_'.($sealed ? 'segel' : 'inject')] += $stockSnapshot['rows']->sum(fn ($row) => (int) ($row[$denom->iddenom] ?? 0));
         }
         $stokSegel = $stockTotals['pv_segel'];
