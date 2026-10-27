@@ -1621,11 +1621,13 @@
                                                 <thead class="bg-white">
                                                     <tr>
                                                         <th class="border-top-0">Nama Petugas</th>
-                                                        <th class="text-right border-top-0">Capai MTD</th>
-                                                        <th class="text-right border-top-0">M-1</th>
-                                                        <!-- <th class="text-right border-top-0">M-2</th> -->
+                                                        <th class="text-right border-top-0">MTD ({{ $momCurrentLabel }})</th>
+                                                        <th class="text-right border-top-0">M-1 ({{ $momPreviousLabel }})</th>
+                                                        <th class="text-right border-top-0">M-1 Full</th>
                                                         <th class="text-right border-top-0">Growth (M-1)</th>
-                                                        <!-- <th class="text-right border-top-0">Growth (M-2)</th> -->
+                                                        <th class="text-right border-top-0">Daily ST</th>
+                                                        <th class="text-right border-top-0">Stok SF</th>
+                                                        <th class="text-right border-top-0">Stock Days</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1634,16 +1636,15 @@
                                                             <td class="text-muted border-bottom-0"><i data-feather="user" style="width:14px;height:14px"></i> {{ $sf->namasf ?? $sf->idsf }}</td>
                                                             <td class="text-right font-weight-bold border-bottom-0">{{ number_format($sf->curr_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_qty) }}</td>
+                                                            <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_full_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $sf->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                                                 <span class="badge badge-{{ $sf->mom >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
                                                                 </span>
                                                             </td>
-                                                            <!-- <td class="text-right border-bottom-0 {{ $sf->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
-                                                                <span class="badge badge-{{ $sf->mom_m2 >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom_m2 >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
-                                                                    {!! $sf->mom_m2 >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom_m2, 2) }} %
-                                                                </span>
-                                                            </td> -->
+                                                            <td class="text-right metric-daily-st">{{ number_format($sf->daily_st, 0) }}</td>
+                                                            <td class="text-right metric-stock">{{ number_format($sf->stock_qty, 0) }}</td>
+                                                            <td class="text-right metric-stock-days">{{ $sf->stock_days === null ? '–' : number_format($sf->stock_days, 0).' hari' }}</td>
                                                         </tr>
                                                     @endforeach
                                                 </tbody>

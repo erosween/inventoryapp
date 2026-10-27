@@ -15,7 +15,7 @@ class HomeController extends Controller
         $query = $request->query();
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
-        $cacheKey = 'home-dashboard:v6:'.sha1($scope.'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v7:'.sha1($scope.'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -393,17 +393,29 @@ class HomeController extends Controller
         $momSfQuery = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idsf, SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty', [
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty', [
                 $momStartThisMonth, $momSelectedDate, $momStartPrevMonth, $momEndPrevMonthPartial,
+                $momStartPrevMonth, $momEndPrevMonthFull,
             ])->groupBy('idsf');
         $applyFilter($momSfQuery);
         $applyProductFilter($momSfQuery, 'combined_sales', $momProductFilter);
         $momSfTotals = $momSfQuery->get()->keyBy('idsf');
-        $momProductSfByTap = $momSf->map(function ($sf) use ($momSfTotals) {
+        $sfStockQuery = DB::table('stockawalsf as stock')
+            ->join('idsf as roster', 'roster.idsf', '=', 'stock.idsf')
+            ->selectRaw('stock.idsf, SUM(stock.stock) AS total_stock')->groupBy('stock.idsf');
+        $applyFilter($sfStockQuery, 'roster.idtap');
+        $applyProductFilter($sfStockQuery, 'stock', $momProductFilter);
+        $sfStocks = $sfStockQuery->pluck('total_stock', 'stock.idsf');
+        $momProductSfByTap = $momSf->map(function ($sf) use ($momSfTotals, $sfStocks, $momSelectedDate) {
             $row = clone $sf;
             $totals = $momSfTotals->get($sf->idsf);
             $row->curr_qty = (int) ($totals->curr_qty ?? 0);
             $row->prev_qty = (int) ($totals->prev_qty ?? 0);
+            $row->prev_full_qty = (int) ($totals->prev_full_qty ?? 0);
+            $row->daily_st = $row->curr_qty / max(1, $momSelectedDate->day);
+            $row->stock_qty = (float) ($sfStocks[$sf->idsf] ?? 0);
+            $row->stock_days = $row->daily_st > 0 ? $row->stock_qty / $row->daily_st : null;
             $row->mom = $row->prev_qty > 0 ? (($row->curr_qty - $row->prev_qty) / $row->prev_qty) * 100 : 0;
             return $row;
         })->groupBy('idtap');
