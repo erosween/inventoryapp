@@ -3658,16 +3658,27 @@
         });
 
         @if(request('panel') === 'visit-detail' && request('visit_tab') === 'approval')
-        setInterval(() => {
-            fetch(@json(route('surya.visits.auto-approve-pending')) + '?_=' + Date.now(), {
+        let approvalPollBusy = false;
+        setInterval(async () => {
+            if (document.hidden || approvalPollBusy) return;
+            approvalPollBusy = true;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            try {
+            const response = await fetch(@json(route('surya.visits.auto-approve-pending')) + '?_=' + Date.now(), {
                 method: 'GET',
                 credentials: 'same-origin',
+                signal: controller.signal,
                 headers: { 'Accept': 'application/json' },
-            }).then(response => response.ok ? response.json() : null)
-              .then(result => {
-                  if (result?.approved > 0) window.location.reload();
-              })
-              .catch(() => {});
+            });
+            const result = response.ok ? await response.json() : null;
+            if (result?.approved > 0) window.location.reload();
+            } catch (_) {
+                // Retry on the next interval after temporary connection failures.
+            } finally {
+                clearTimeout(timeout);
+                approvalPollBusy = false;
+            }
         }, 5000);
         @endif
 
