@@ -15,13 +15,14 @@ class HomeController extends Controller
         $query = $request->query();
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
-        $cacheKey = 'home-dashboard:v7:'.sha1($scope.'|'.http_build_query($query));
+        $momOnly = $request->header('X-Surya-Card') === 'mom';
+        $cacheKey = 'home-dashboard:v8:'.sha1($scope.'|'.($momOnly ? 'mom|' : 'full|').http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
             : Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->dashboardData($request));
 
-        return view('home', $data);
+        return view($momOnly ? 'surya.partials.mom-sales-card' : 'home', $data);
     }
 
     private function dashboardData(Request $request): array
@@ -423,6 +424,15 @@ class HomeController extends Controller
         $annualCutoff = $request->query('sales_annual_cutoff', 'full');
         if ($annualCutoff !== 'full' && (! ctype_digit((string) $annualCutoff) || (int) $annualCutoff < 1 || (int) $annualCutoff > 12)) {
             $annualCutoff = 'full';
+        }
+        // Product changes only need the MoM card: skip annual, matrix, validity,
+        // inject and chart datasets that are otherwise computed below.
+        if ($request->header('X-Surya-Card') === 'mom') {
+            return compact('momProductFilter', 'momProductRows', 'momProductClusters',
+                'momProductSfByTap', 'stockGudangByTap', 'momSelectedDate',
+                'momEndPrevMonthPartial', 'fairCutoffThisMonth', 'salesProductFilter',
+                'injectProductFilter', 'selectedYear', 'salesYear', 'salesView',
+                'salesPeriod', 'annualCutoff', 'mode');
         }
         if ($salesPeriod === 'annual') {
             $salesYear = (int) date('Y');
