@@ -407,18 +407,6 @@ class HomeController extends Controller
         $momPv = $momByProduct['pv_all'];
         $momSa = $momByProduct['sa_all'];
 
-        $qStockGudang = DB::table('stockawaltap')
-            ->selectRaw('idtap, SUM(stock) AS total_stock')
-            ->whereExists(function ($productQuery) {
-                $productQuery->selectRaw('1')
-                    ->from('denom as product_denom')
-                    ->whereColumn('product_denom.iddenom', 'stockawaltap.iddenom')
-                    ->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) <> 'SA'");
-            })
-            ->groupBy('idtap');
-        $applyFilter($qStockGudang);
-        $stockGudangByTap = $qStockGudang->pluck('total_stock', 'idtap');
-
         $qMomTapSales = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
@@ -751,7 +739,6 @@ class HomeController extends Controller
             'salesBulanIniSa',
             'momPv',
             'momSa',
-            'stockGudangByTap',
             'mom',
             'chartSales',
             'chartInject',
