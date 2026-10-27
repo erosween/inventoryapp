@@ -1469,8 +1469,8 @@
 
 
             {{-- ================= CHARTS LINE & BAR ================= --}}
-            <div class="row mb-4">
-                <div class="col-md-8">
+            <div class="row mb-4 align-items-stretch">
+                <div class="col-md-8 mb-4 mb-md-0">
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between">
                             <div>
@@ -1486,11 +1486,7 @@
                     </div>
                 </div>
 
-            </div>
-
-            {{-- ================= ACTIVITY & MoM DAILY ================= --}}
-            <div class="row mb-4">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">🗓️ Feed Aktivitas TAP</h6>
@@ -1504,26 +1500,16 @@
                                         $keluar = $tapKeluar[$tap] ?? null;
                                         $latest = max($masuk, $keluar);
                                         $diff = $latest ? \Carbon\Carbon::parse($latest)->diffInDays(now()) : null;
-                                        
                                         $isDanger = (is_null($latest) || $diff > 3);
                                     @endphp
                                     <div class="feed-item {{ $isDanger ? 'danger-feed' : '' }}">
-                                        <div class="d-flex justify-content-between">
-                                            <strong class="text-dark">{{ $tap }}</strong>
-                                            @if (is_null($latest))
-                                                <span class="badge badge-secondary badge-pill">No Data</span>
-                                            @elseif ($diff <= 1)
-                                                <span class="badge badge-success badge-pill bg-success text-white">Aktif ({{ $diff }} hr)</span>
-                                            @elseif ($diff <= 3)
-                                                <span class="badge badge-warning badge-pill text-dark">Warning ({{ $diff }} hr)</span>
-                                            @else
-                                                <span class="badge badge-danger badge-pill bg-danger text-white">Drop ({{ $diff }} hr)</span>
-                                            @endif
+                                        <div class="d-flex justify-content-between"><strong class="text-dark">{{ $tap }}</strong>
+                                            @if (is_null($latest)) <span class="badge badge-secondary badge-pill">No Data</span>
+                                            @elseif ($diff <= 1) <span class="badge badge-success badge-pill bg-success text-white">Aktif ({{ $diff }} hr)</span>
+                                            @elseif ($diff <= 3) <span class="badge badge-warning badge-pill text-dark">Warning ({{ $diff }} hr)</span>
+                                            @else <span class="badge badge-danger badge-pill bg-danger text-white">Drop ({{ $diff }} hr)</span> @endif
                                         </div>
-                                        <div class="small mt-1 text-muted">
-                                            <i data-feather="download" style="width:12px;height:12px"></i> In: {{ $masuk ? \Carbon\Carbon::parse($masuk)->format('d/m H:i') : 'N/A' }} &nbsp;
-                                            <i data-feather="upload" style="width:12px;height:12px"></i> Out: {{ $keluar ? \Carbon\Carbon::parse($keluar)->format('d/m H:i') : 'N/A' }}
-                                        </div>
+                                        <div class="small mt-1 text-muted"><i data-feather="download" style="width:12px;height:12px"></i> In: {{ $masuk ? \Carbon\Carbon::parse($masuk)->format('d/m H:i') : 'N/A' }} &nbsp; <i data-feather="upload" style="width:12px;height:12px"></i> Out: {{ $keluar ? \Carbon\Carbon::parse($keluar)->format('d/m H:i') : 'N/A' }}</div>
                                     </div>
                                 @endforeach
                             </div>
@@ -1533,6 +1519,7 @@
 
             </div>
 
+            {{-- ================= ACTIVITY & MoM DAILY ================= --}}
             {{-- ================= MoM PER TAP ================= --}}
             @php
                 $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
