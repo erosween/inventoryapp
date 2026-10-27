@@ -446,6 +446,15 @@ class HomeController extends Controller
             ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
             ->whereYear('tgl', $salesYear)
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
+        if ($salesYear === $currentDate->year) {
+            $qMatrixData->where(function ($query) use ($currentDate, $fairCutoffThisMonth) {
+                $query->whereMonth('tgl', '<', $currentDate->month)
+                    ->orWhere(function ($monthQuery) use ($currentDate, $fairCutoffThisMonth) {
+                        $monthQuery->whereMonth('tgl', $currentDate->month)
+                            ->where('tgl', '<=', $fairCutoffThisMonth);
+                    });
+            });
+        }
         $applyFilter($qMatrixData);
         $applyProductFilter($qMatrixData, 'combined_sales', $salesProductFilter);
         $matrixSalesData = $qMatrixData->get();
