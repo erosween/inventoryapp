@@ -16,7 +16,7 @@ class TaskforceController extends MonitaDumaiController
         $sfs=$this->taskforceOutlets($scopes,$upload?->id)->when(!empty($options['tap']),fn($q)=>$q->where('outlet.tap',$options['tap']))
             ->whereNotNull('outlet.sf')->whereRaw("TRIM(outlet.sf) <> ''")->distinct()->orderBy('outlet.sf')->pluck('outlet.sf');
         $outlets=$this->reportQuery($cutoff,$upload,$options)
-            ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','per_page','tap','sf']));
+            ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','per_page','tap','sf','columns','exclude']));
         $outlets->getCollection()->transform(function($outlet) {
             $outlet->uploaded_cells=$outlet->cells ? json_decode($outlet->cells,true,512,JSON_THROW_ON_ERROR) : [(string)$outlet->id_outlet];
             return $outlet;
@@ -32,10 +32,18 @@ class TaskforceController extends MonitaDumaiController
             'per_page'=>'nullable|in:10,25,50,100',
             'sales_cutoff'=>'nullable|date_format:Y-m-d|before_or_equal:today',
             'tap'=>'nullable|string|max:150','sf'=>'nullable|string|max:150',
+            'columns'=>'nullable|array|max:63','columns.*'=>'required|array|min:1|max:100',
+            'columns.*.*'=>'present|nullable|string|max:5000',
+            'exclude'=>'nullable|array|max:63','exclude.*'=>'required|array|min:1|max:100',
+            'exclude.*.*'=>'present|nullable|string|max:5000',
         ]);
         $cutoff=Carbon::parse($options['sales_cutoff']??now('Asia/Jakarta')->toDateString());
         $upload=DB::table('taskforce_uploads')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())->orderByDesc('id')->first();
         $headers=$upload && $upload->headers ? json_decode($upload->headers,true,512,JSON_THROW_ON_ERROR) : ['ID Outlet'];
+        foreach(['columns','exclude'] as $mode) foreach($options[$mode]??[] as $key=>$values) {
+            $this->columnExpression((string)$key,count($headers));
+            $options[$mode][$key]=array_map(fn($value)=>(string)($value??''),$values);
+        }
         return [$cutoff,$upload,$headers,$options];
     }
 
@@ -43,7 +51,7 @@ class TaskforceController extends MonitaDumaiController
     {
         $latest=DB::table('taskforce_push_so_actions')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())
             ->selectRaw('id_outlet, MAX(id) as action_id')->groupBy('id_outlet');
-        return $this->taskforceOutlets($this->suryaTapScopes(),$upload?->id)
+        $query=$this->taskforceOutlets($this->suryaTapScopes(),$upload?->id)
             ->when(!empty($options['tap']),fn($q)=>$q->where('outlet.tap',$options['tap']))
             ->when(!empty($options['sf']),fn($q)=>$q->where('outlet.sf',$options['sf']))
             ->leftJoinSub($latest,'latest_action','latest_action.id_outlet','=','outlet.id_outlet')
@@ -51,6 +59,40 @@ class TaskforceController extends MonitaDumaiController
             ->select('outlet.id_outlet','outlet.nama_outlet','outlet.tap','assignment.cells','assignment.row_position',
                 'action.visited','action.visited_at','action.notes','action.username as action_by','action.updated_at as action_updated_at')
             ->orderBy('assignment.row_position')->orderBy('assignment.id');
+        $headerCount=$upload && $upload->headers ? count(json_decode($upload->headers,true,512,JSON_THROW_ON_ERROR)) : 1;
+        foreach($options['columns']??[] as $key=>$values) $query->whereIn(DB::raw($this->columnExpression((string)$key,$headerCount)),$values);
+        foreach($options['exclude']??[] as $key=>$values) $query->whereNotIn(DB::raw($this->columnExpression((string)$key,$headerCount)),$values);
+        return $query;
+    }
+
+    private function columnExpression(string $key, int $count): string
+    {
+        if(ctype_digit($key) && (int)$key<$count) {
+            $index=(int)$key;
+            $json=DB::connection()->getDriverName()==='sqlite'
+                ? "json_extract(assignment.cells, '$[{$index}]')"
+                : "JSON_UNQUOTE(JSON_EXTRACT(assignment.cells, '$[{$index}]'))";
+            return $index===0 ? "COALESCE({$json}, outlet.id_outlet, '')" : "COALESCE({$json}, '')";
+        }
+        if($key==='visit') return "CASE WHEN COALESCE(action.visited,0)=1 THEN 'Sudah visit' ELSE 'Belum visit' END";
+        if($key==='date') return DB::connection()->getDriverName()==='sqlite'
+            ? "COALESCE(strftime('%d/%m/%Y',action.visited_at),'')" : "COALESCE(DATE_FORMAT(action.visited_at,'%d/%m/%Y'),'')";
+        if($key==='notes') return "COALESCE(action.notes,'')";
+        throw \Illuminate\Validation\ValidationException::withMessages(['columns'=>'Kolom filter tidak valid.']);
+    }
+
+    public function filterValues(Request $request)
+    {
+        [$cutoff,$upload,$headers,$options]=$this->context($request);
+        $input=$request->validate(['column'=>'required|string|max:10','q'=>'nullable|string|max:200','value_page'=>'nullable|integer|min:1|max:10000']);
+        $key=$input['column'];
+        $expression=$this->columnExpression($key,count($headers));
+        unset($options['columns'][$key]);
+        unset($options['exclude'][$key]);
+        $query=$this->reportQuery($cutoff,$upload,$options)->reorder()->select([])->selectRaw($expression.' AS filter_value')->distinct();
+        if(($input['q']??'')!=='') $query->whereRaw($expression.' LIKE ?',['%'.$input['q'].'%']);
+        $values=$query->orderBy('filter_value')->offset(((int)($input['value_page']??1)-1)*100)->limit(101)->get();
+        return response()->json(['values'=>$values->take(100)->pluck('filter_value')->map(fn($value)=>(string)$value)->values(),'has_more'=>$values->count()>100]);
     }
 
     public function download(Request $request)

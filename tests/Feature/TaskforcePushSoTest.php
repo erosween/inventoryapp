@@ -252,4 +252,49 @@ class TaskforcePushSoTest extends TestCase
         self::assertSame(['C'],$response->viewData('outlets')->pluck('id_outlet')->all());
         self::assertSame(['SF DURI'],$response->viewData('sfs')->all());
     }
+
+    public function test_excel_header_filters_cover_all_pages_and_filtered_download(): void
+    {
+        $uploadId=DB::table('taskforce_uploads')->where('period_month','2026-10-01')->value('id');
+        DB::table('taskforce_uploads')->where('id',$uploadId)->update(['headers'=>json_encode(['ID Outlet','Segment','Jumlah'])]);
+        for($i=0;$i<30;$i++) {
+            $id='D'.str_pad((string)$i,2,'0',STR_PAD_LEFT);
+            DB::table('appsdumais')->insert(['id_outlet'=>$id,'nama_outlet'=>$id,'tap'=>'DUMAI','sf'=>'SF DUMAI','pjp'=>'Senin','kecamatan'=>'Kota']);
+            DB::table('taskforce_upload_outlets')->insert(['upload_id'=>$uploadId,'id_outlet'=>$id,'cells'=>json_encode([$id,$i===29?'Prioritas':'Reguler',(string)$i]),'row_position'=>$i+10]);
+        }
+        $r=$this->get($this->url(['columns'=>['1'=>['Prioritas']]]))->assertOk()->assertSee('tf-column-filter');
+        self::assertSame(['D29'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        self::assertSame(1,$r->viewData('outlets')->total());
+        $url=route('surya.taskforce.filter-values',['sales_cutoff'=>'2026-10-26','column'=>'2','q'=>'29']);
+        $this->getJson($url)->assertOk()->assertJsonPath('values',['29'])->assertJsonPath('has_more',false);
+        // The current column's own selection does not hide the remaining choices.
+        $this->getJson(route('surya.taskforce.filter-values',['sales_cutoff'=>'2026-10-26','column'=>'1','columns'=>['1'=>['Prioritas']]]))
+            ->assertOk()->assertJsonPath('values',['','Prioritas','Reguler']);
+        $r=$this->get($this->url(['exclude'=>['2'=>['29']]]))->assertOk();
+        self::assertSame(31,$r->viewData('outlets')->total());
+        $r=$this->get($this->url(['columns'=>['1'=>['']]]))->assertOk();
+        self::assertSame(['A','B'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $r=$this->get($this->url(['columns'=>['2'=>['0']]]))->assertOk();
+        self::assertSame(['D00'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $csv=$this->get(route('surya.taskforce.download',['sales_cutoff'=>'2026-10-26','columns'=>['1'=>['Prioritas']]]))->assertOk()->streamedContent();
+        self::assertStringContainsString('D29,Prioritas,29',$csv);
+        self::assertCount(2,explode("\n",trim($csv)));
+        $this->getJson(route('surya.taskforce.filter-values',['column'=>'0','sales_cutoff'=>'2026-10-26']))
+            ->assertOk()->assertJsonMissing(['C']);
+        $this->getJson($this->url(['columns'=>['999'=>['x']]]))->assertUnprocessable();
+        $this->getJson(route('surya.taskforce.filter-values',['column'=>'notes) OR 1=1','sales_cutoff'=>'2026-10-26']))->assertUnprocessable();
+    }
+
+    public function test_visit_date_and_notes_header_filters_use_latest_saved_action(): void
+    {
+        $url=route('surya.taskforce.push-so.store',['idOutlet'=>'A']);
+        $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Prioritas minggu ini'])->assertOk();
+        $r=$this->get($this->url(['columns'=>['visit'=>['Sudah visit'],'date'=>['26/10/2026'],'notes'=>['Prioritas minggu ini']]]))->assertOk();
+        self::assertSame(['A'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $this->getJson(route('surya.taskforce.filter-values',['sales_cutoff'=>'2026-10-26','column'=>'visit']))
+            ->assertOk()->assertJsonPath('values',['Belum visit','Sudah visit']);
+        $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'Tindak lanjut'])->assertOk();
+        $r=$this->get($this->url(['columns'=>['visit'=>['Sudah visit']]]))->assertOk();
+        self::assertSame(0,$r->viewData('outlets')->total());
+    }
 }
