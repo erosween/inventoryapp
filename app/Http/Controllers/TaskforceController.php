@@ -39,13 +39,21 @@ class TaskforceController extends MonitaDumaiController
         $sfs=$this->outletDetailBaseQuery($scopes, $filters['tap']??'')->whereNotNull('outlet.sf')
             ->whereRaw("TRIM(outlet.sf) <> ''")->distinct()->orderBy('outlet.sf')->pluck('outlet.sf');
         $period=$filters['period']??'mtd';
-        $eligibleOutletIds=(clone $base)->select('outlet.id_outlet');
+        $hasNumericFilter=collect(array_keys(self::METRICS))->contains(fn($key)=>$request->filled($key.'_min') || $request->filled($key.'_max'));
+        // Materialize only scoped IDs and grouped totals. Joining several aggregate
+        // derived tables makes MySQL re-evaluate large sales sets during COUNT.
+        $eligibleOutletIds=$hasNumericFilter ? (clone $base)->pluck('outlet.id_outlet') : collect();
         foreach (self::METRICS as $key=>$metric) {
             if (!$request->filled($key.'_min') && !$request->filled($key.'_max')) continue;
-            $this->joinMetricFilter($base, $key, $period, $cutoff, $eligibleOutletIds);
-            if ($request->filled($key.'_min')) $base->whereRaw("COALESCE(filter_{$key}.amount, 0) >= ?", [(int)$filters[$key.'_min']]);
-            if ($request->filled($key.'_max')) $base->whereRaw("COALESCE(filter_{$key}.amount, 0) <= ?", [(int)$filters[$key.'_max']]);
+            if ($eligibleOutletIds->isEmpty()) break;
+            $totals=$this->metricTotals($key, $period, $cutoff, $eligibleOutletIds->all());
+            $eligibleOutletIds=$eligibleOutletIds->filter(function($id) use($totals,$filters,$key,$request) {
+                $value=(int)($totals->get((string)$id)??0);
+                return (!$request->filled($key.'_min') || $value >= (int)$filters[$key.'_min'])
+                    && (!$request->filled($key.'_max') || $value <= (int)$filters[$key.'_max']);
+            })->values();
         }
+        if ($hasNumericFilter) $base->whereIn('outlet.id_outlet',$eligibleOutletIds->all());
         $latest=DB::table('taskforce_push_so_actions')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())
             ->selectRaw('id_outlet, MAX(id) as action_id')->groupBy('id_outlet');
         $base->leftJoinSub($latest,'latest_action','latest_action.id_outlet','=','outlet.id_outlet')
@@ -62,7 +70,7 @@ class TaskforceController extends MonitaDumaiController
             ->header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    private function joinMetricFilter($base, string $key, string $period, Carbon $cutoff, $eligibleOutletIds): void
+    private function metricTotals(string $key, string $period, Carbon $cutoff, array $eligibleOutletIds)
     {
         $month=$cutoff->copy()->startOfMonth();
         $previous=$month->copy()->subMonth();
@@ -73,7 +81,7 @@ class TaskforceController extends MonitaDumaiController
                 foreach (['keluarsf','mobile_penjualan'] as $table) {
                     $q=DB::table($table.' as sale')->join('denom as d','d.iddenom','=','sale.iddenom')
                         ->whereBetween('sale.tgl',[$month->toDateString(),$cutoff->toDateString()])
-                        ->whereIn('sale.id_outlet',clone $eligibleOutletIds)
+                        ->whereIn('sale.id_outlet',$eligibleOutletIds)
                         ->whereRaw($key==='sa' ? "UPPER(COALESCE(d.product_group,'PV')) IN ('SA','SP')" : "UPPER(COALESCE(d.product_group,'PV')) = 'PV'")
                         ->selectRaw('sale.id_outlet, SUM(sale.qty) as amount')->groupBy('sale.id_outlet');
                     if ($table==='mobile_penjualan') $q->where('sale.status','approved');
@@ -81,7 +89,7 @@ class TaskforceController extends MonitaDumaiController
                 }
                 $q=DB::query()->fromSub($parts[0]->unionAll($parts[1]),'sales')->selectRaw('id_outlet, SUM(amount) as amount')->groupBy('id_outlet');
             } elseif (Schema::hasTable('surya_outlet_sales_history')) {
-                $q=DB::table('surya_outlet_sales_history')->whereIn('id_outlet',clone $eligibleOutletIds)->whereBetween('transaction_date',[$previous->toDateString(),$end->toDateString()])
+                $q=DB::table('surya_outlet_sales_history')->whereIn('id_outlet',$eligibleOutletIds)->whereBetween('transaction_date',[$previous->toDateString(),$end->toDateString()])
                     ->selectRaw("id_outlet, SUM({$key}) as amount")->groupBy('id_outlet');
             } else {
                 // Same zero fallback as Detail Outlet while no history is uploaded.
@@ -90,15 +98,13 @@ class TaskforceController extends MonitaDumaiController
         } else {
             $column=self::METRICS[$key]['column'];
             $suffix=$period==='mtd'?'m':$period;
-            $q=DB::table('surya_daily_metrics as metric')->select('metric.id_outlet')->selectRaw("metric.{$column}_{$suffix} as amount")
-                ->whereIn('metric.id_outlet',clone $eligibleOutletIds)
-                ->where('metric.id','=',function($latest) use($column) {
-                    $latest->select('newest.id')->from('surya_daily_metrics as newest')->whereColumn('newest.id_outlet','metric.id_outlet')
-                        ->where(fn($q)=>$q->whereNull('newest.uploaded_metrics')->orWhere('newest.uploaded_metrics','')->orWhereRaw('FIND_IN_SET(?, newest.uploaded_metrics) > 0',[$column]))
-                        ->orderByDesc('newest.metric_date')->orderByDesc('newest.id')->limit(1);
-                });
+            $ranked=DB::table('surya_daily_metrics as metric')->select('metric.id_outlet')->selectRaw("metric.{$column}_{$suffix} as amount")
+                ->selectRaw('ROW_NUMBER() OVER (PARTITION BY metric.id_outlet ORDER BY metric.metric_date DESC, metric.id DESC) as metric_rank')
+                ->whereIn('metric.id_outlet',$eligibleOutletIds)
+                ->where(fn($q)=>$q->whereNull('metric.uploaded_metrics')->orWhere('metric.uploaded_metrics','')->orWhereRaw('FIND_IN_SET(?, metric.uploaded_metrics) > 0',[$column]));
+            $q=DB::query()->fromSub($ranked,'ranked_metrics')->where('metric_rank',1)->select('id_outlet','amount');
         }
-        $base->leftJoinSub($q,'filter_'.$key,'filter_'.$key.'.id_outlet','=','outlet.id_outlet');
+        return $q->pluck('amount','id_outlet');
     }
 
     public function store(Request $request, string $idOutlet)
