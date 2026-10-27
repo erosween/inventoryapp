@@ -118,13 +118,16 @@ class MonitaDumaiController extends Controller
             ->orderBy('tap')
             ->pluck('tap');
         $activeTab = $request->input('tab') === 'non-digipos' ? 'non-digipos' : 'digipos';
+        $selectedTap = trim((string) $request->input('tap'));
         $selectedPjp = trim((string) $request->input('pjp'));
         $selectedSf = trim((string) $request->input('sf'));
         $pjpDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-        $sfs = DB::table('appsdumais')->whereNotNull('sf')->whereRaw("TRIM(sf) <> ''")->whereRaw("UPPER(TRIM(sf)) <> 'UNMAPPING'")->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))->distinct()->orderBy('sf')->pluck('sf');
-        $outletCount = $this->outletDetailBaseQuery($tapScopes, '', '', $selectedPjp, $selectedSf)->count();
+        $sfs = DB::table('appsdumais')->whereNotNull('sf')->whereRaw("TRIM(sf) <> ''")->whereRaw("UPPER(TRIM(sf)) <> 'UNMAPPING'")
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->when($selectedTap !== '', fn ($query) => $query->where('tap', $selectedTap))
+            ->distinct()->orderBy('sf')->pluck('sf');
+        $outletCount = $this->outletDetailBaseQuery($tapScopes, $selectedTap, '', $selectedPjp, $selectedSf)->count();
         $nonDigiposCount = $this->nonDigiposOutletBaseQuery($tapScopes)->count();
-        $selectedTap = trim((string) $request->input('tap'));
         $search = trim((string) $request->input('q'));
         $perPage = (int) $request->input('per_page', 25);
         if (! in_array($perPage, [10, 25, 50, 100], true)) {
