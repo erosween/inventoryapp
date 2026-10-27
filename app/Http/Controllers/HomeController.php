@@ -167,19 +167,6 @@ class HomeController extends Controller
             $chartSales = $qChartSales->get();
         }
 
-        /* ================= CHART INJECT ================= */
-        $qChartInject = DB::table('injectvf')
-            ->selectRaw("
-                DATE(tgl) AS label,
-                SUM(CASE WHEN idtap IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN qty ELSE 0 END) AS dumai,
-                SUM(CASE WHEN idtap IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN qty ELSE 0 END) AS rohil
-            ")
-            ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
-            ->groupBy(DB::raw('DATE(tgl)'))
-            ->orderBy('label');
-        $applyFilter($qChartInject);
-        $chartInject = $qChartInject->get();
-
         /* ================= MoM PER TAP (TANGGAL PILIHAN vs M-1) ================= */
         $qMomTap = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
@@ -300,18 +287,6 @@ class HomeController extends Controller
                 return $r;
             });
 
-        /* ================= MOM DAILY ================= */
-        $qMomDaily = $this->combinedSalesQuery()
-            ->whereBetween('tgl', [$startPrevMonth, $fairCutoffThisMonth])
-            ->selectRaw("
-                DAY(tgl) AS day,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty
-            ", [$startThisMonth, $fairCutoffThisMonth, $startPrevMonth, $endPrevMonthPartial])
-            ->groupBy(DB::raw('DAY(tgl)'))
-            ->orderBy('day');
-        $applyFilter($qMomDaily);
-        $momDaily = $qMomDaily->get();
         /* ================= TOP SF ================= */
         $topGrowth = $momSf
             ->filter(fn($r) => Str::startsWith($r->idsf, 'SF') && $r->mom > 0)
@@ -741,7 +716,6 @@ class HomeController extends Controller
             'momSa',
             'mom',
             'chartSales',
-            'chartInject',
             'momTap',
             'momSf',
             'topGrowth',
@@ -751,7 +725,6 @@ class HomeController extends Controller
             'tapKeluar',
             'tapList',
             'momCluster',
-            'momDaily',
             'prevDecSales',
             'prevDecInject',
             'momTapInject',

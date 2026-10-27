@@ -1479,19 +1479,6 @@
                     </div>
                 </div>
 
-                <div class="col-md-4">
-                    <div class="card enterprise-shadow h-100">
-                        <div class="card-header bg-white border-0 pt-4 pb-0">
-                            <h6 class="font-weight-bold text-dark mb-0">⚡ Inject per Cluster</h6>
-                            <small class="text-muted">Quantity Inject Cluster</small>
-                        </div>
-                        <div class="card-body">
-                            <div style="height:300px">
-                                <canvas id="chartInject"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {{-- ================= ACTIVITY & MoM DAILY ================= --}}
@@ -1537,19 +1524,6 @@
                     </div>
                 </div>
 
-                <div class="col-md-7">
-                    <div class="card enterprise-shadow h-100">
-                        <div class="card-header bg-white border-0 pt-4 pb-0">
-                            <h6 class="font-weight-bold text-dark mb-0">📉 Komparasi Sales (Day-to-day MoM)</h6>
-                            <small class="text-muted">Adu laju pencapaian bulan berjalan vs bulan lalu</small>
-                        </div>
-                        <div class="card-body">
-                            <div style="height:400px">
-                                <canvas id="chartMomDaily"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {{-- ================= MoM PER TAP ================= --}}
@@ -3051,76 +3025,6 @@
             }
         });
 
-        // ================= INJECT BAR ================= 
-        new Chart(document.getElementById('chartInject'), {
-            type: 'bar',
-            data: {
-                labels: {!! json_encode($chartInject->pluck('label')) !!},
-                datasets: [{
-                    label: 'Dumai Bengkalis',
-                    data: {!! json_encode($chartInject->pluck('dumai')) !!},
-                    backgroundColor: '#0F9D58',
-                    borderRadius: 4
-                }, {
-                    label: 'Rokan Hilir',
-                    data: {!! json_encode($chartInject->pluck('rohil')) !!},
-                    backgroundColor: '#F4B400',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' },
-                    tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + nf(c.parsed.y) } }
-                },
-                scales: {
-                    y: { ticks: { callback: v => nf(v) }, grid:{ display: false } },
-                    x: { stacked: true, grid: { display: false } }
-                }
-            }
-        });
-
-        // ================= MoM DAILY LINE ================= 
-        new Chart(document.getElementById('chartMomDaily'), {
-            type: 'line',
-            data: {
-                labels: {!! json_encode($momDaily->pluck('day')) !!},
-                datasets: [{
-                    label: 'Bulan Ini',
-                    data: {!! json_encode($momDaily->pluck('curr_qty')) !!},
-                    borderColor: '#8E24AA',
-                    backgroundColor: 'rgba(142,36,170,0.15)',
-                    borderWidth: 3,
-                    pointRadius: 3,
-                    tension: 0.4,
-                    fill: true
-                }, {
-                    label: 'Bulan Lalu',
-                    data: {!! json_encode($momDaily->pluck('prev_qty')) !!},
-                    borderColor: '#9E9E9E',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    pointRadius: 2,
-                    tension: 0.4,
-                    fill: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' },
-                    tooltip: { mode: 'index', intersect: false, callbacks: { label: c => ' ' + c.dataset.label + ': ' + nf(c.parsed.y) } }
-                },
-                scales: {
-                    y: { ticks: { callback: v => nf(v) }, grid: { borderDash: [2, 4], color: '#f0f0f0' } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    
         // ================= INTERACTIVE TOGGLES ================= 
         $(document).off('click.dashboardToggle', '.toggle-validity').on('click.dashboardToggle', '.toggle-validity', function() {
                 const target = document.getElementById(this.dataset.target);
