@@ -1540,6 +1540,11 @@
                                 <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
                                 <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
                                 <input type="hidden" name="mode" value="{{ $mode }}">
+                                <select name="mom_product" id="mom-product" class="form-control form-control-sm mr-2" aria-label="Produk MoM">
+@foreach(['pv_all'=>'PV All','pv_reg'=>'PV Reguler','pv_byu'=>'PV By.U','sa_all'=>'SA All','sa_simpati'=>'SA Simpati','sa_byu'=>'SA By.U'] as $value => $label)
+<option value="{{ $value }}" @selected($momProductFilter === $value)>{{ $label }}</option>
+@endforeach
+</select>
                                 <label for="mom_date" class="mb-0 mr-2 small font-weight-bold text-muted">Tanggal MoM</label>
                                 <input type="date" name="mom_date" id="mom_date"
                                     class="form-control form-control-sm"
@@ -1584,7 +1589,7 @@
                         </thead>
 
                         <tbody>
-                            @foreach ($momTapSales as $r)
+                            @foreach ($momProductRows as $r)
                                 @php
                                     $dailySt = $momSelectedDate->day > 0 ? $r->curr_qty / $momSelectedDate->day : 0;
                                     $stockGudang = (float) ($stockGudangByTap[$r->idtap] ?? 0);
@@ -1610,7 +1615,7 @@
                                 </tr>
 
                                 <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light">
-                                    <td colspan="7" class="p-0 border-0">
+                                    <td colspan="8" class="p-0 border-0">
                                         <div class="p-3 bg-light border-left border-right">
                                             <table class="table table-sm mb-0 bg-white shadow-sm rounded">
                                                 <thead class="bg-white">
@@ -1624,12 +1629,11 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach ($sfByTap[$r->idtap] ?? [] as $sf)
+                                                    @foreach ($momProductSfByTap[$r->idtap] ?? [] as $sf)
                                                         <tr>
                                                             <td class="text-muted border-bottom-0"><i data-feather="user" style="width:14px;height:14px"></i> {{ $sf->namasf ?? $sf->idsf }}</td>
                                                             <td class="text-right font-weight-bold border-bottom-0">{{ number_format($sf->curr_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_qty) }}</td>
-                                                            <td class="text-right text-muted border-bottom-0">{{ number_format($sf->m2_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $sf->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                                                 <span class="badge badge-{{ $sf->mom >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
@@ -1654,14 +1658,14 @@
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                             <tr>
                                 <td class="border-0"><span class="badge badge-secondary mr-2">CLUSTER</span> Dumai Bengkalis</td>
-                                <td class="text-right border-0">{{ number_format($momClusterSalesRows['dumai_bengkalis']->curr_qty) }}</td>
-                                <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['dumai_bengkalis']->prev_partial_qty) }}</td>
-                                <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['dumai_bengkalis']->prev_full_qty) }}</td>
-                                <td class="text-right border-0 {{ $momClusterSalesRows['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {!! $momClusterSalesRows['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momClusterSalesRows['dumai_bengkalis']->mom), 2) }} %
+                                <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty) }}</td>
+                                <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
+                                <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_full_qty) }}</td>
+                                <td class="text-right border-0 {{ $momProductClusters['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {!! $momProductClusters['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momProductClusters['dumai_bengkalis']->mom), 2) }} %
                                 </td>
                                 @php
-                                    $dumaiDailySt = $momSelectedDate->day > 0 ? $momClusterSalesRows['dumai_bengkalis']->curr_qty / $momSelectedDate->day : 0;
+                                    $dumaiDailySt = $momSelectedDate->day > 0 ? $momProductClusters['dumai_bengkalis']->curr_qty / $momSelectedDate->day : 0;
                                     $dumaiStock = collect(['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'])->sum(fn($tap) => (float) ($stockGudangByTap[$tap] ?? 0));
                                 @endphp
                                 <td class="text-right border-0">{{ number_format($dumaiDailySt, 0) }}</td>
@@ -1672,14 +1676,14 @@
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
                             <tr>
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
-                                <td class="text-right border-0">{{ number_format($momClusterSalesRows['rokan_hilir']->curr_qty) }}</td>
-                                <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['rokan_hilir']->prev_partial_qty) }}</td>
-                                <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['rokan_hilir']->prev_full_qty) }}</td>
-                                <td class="text-right border-0 {{ $momClusterSalesRows['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {!! $momClusterSalesRows['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momClusterSalesRows['rokan_hilir']->mom), 2) }} %
+                                <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty) }}</td>
+                                <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
+                                <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_full_qty) }}</td>
+                                <td class="text-right border-0 {{ $momProductClusters['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {!! $momProductClusters['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momProductClusters['rokan_hilir']->mom), 2) }} %
                                 </td>
                                 @php
-                                    $rohilDailySt = $momSelectedDate->day > 0 ? $momClusterSalesRows['rokan_hilir']->curr_qty / $momSelectedDate->day : 0;
+                                    $rohilDailySt = $momSelectedDate->day > 0 ? $momProductClusters['rokan_hilir']->curr_qty / $momSelectedDate->day : 0;
                                     $rohilStock = collect(['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'])->sum(fn($tap) => (float) ($stockGudangByTap[$tap] ?? 0));
                                 @endphp
                                 <td class="text-right border-0">{{ number_format($rohilDailySt, 0) }}</td>
@@ -1689,9 +1693,9 @@
                             @endif
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP']))
                             @php
-                                $grandCurr = $momClusterSalesRows['dumai_bengkalis']->curr_qty + $momClusterSalesRows['rokan_hilir']->curr_qty;
-                                $grandPrevPart = $momClusterSalesRows['dumai_bengkalis']->prev_partial_qty + $momClusterSalesRows['rokan_hilir']->prev_partial_qty;
-                                $grandPrevFull = $momClusterSalesRows['dumai_bengkalis']->prev_full_qty + $momClusterSalesRows['rokan_hilir']->prev_full_qty;
+                                $grandCurr = $momProductClusters['dumai_bengkalis']->curr_qty + $momProductClusters['rokan_hilir']->curr_qty;
+                                $grandPrevPart = $momProductClusters['dumai_bengkalis']->prev_partial_qty + $momProductClusters['rokan_hilir']->prev_partial_qty;
+                                $grandPrevFull = $momProductClusters['dumai_bengkalis']->prev_full_qty + $momProductClusters['rokan_hilir']->prev_full_qty;
                                 $grandMom = $grandPrevPart > 0 ? (($grandCurr - $grandPrevPart) / $grandPrevPart) * 100 : 0;
                             @endphp
                             <tr style="background-color: #e3f2fd; color: #0d47a1;">
@@ -2588,7 +2592,7 @@
         }
 
         document.addEventListener('change', function(event) {
-            if (event.target.id === 'mom_date') loadMomDateWithoutRefresh(event.target);
+            if (event.target.id === 'mom_date' || event.target.id === 'mom-product') loadMomDateWithoutRefresh(event.target);
         });
 
         document.addEventListener('click', function(event) {

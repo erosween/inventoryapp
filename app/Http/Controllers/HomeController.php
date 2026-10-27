@@ -15,7 +15,7 @@ class HomeController extends Controller
         $query = $request->query();
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
-        $cacheKey = 'home-dashboard:v5:'.sha1($scope.'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v6:'.sha1($scope.'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -247,6 +247,8 @@ class HomeController extends Controller
         $salesView = $request->query('sales_view') === 'chart' ? 'chart' : 'table';
         $salesPeriod = $request->query('sales_period') === 'annual' ? 'annual' : 'monthly';
         $productFilterOptions = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
+        $momProductFilter = strtolower((string) $request->query('mom_product', 'pv_all'));
+        if (!in_array($momProductFilter, $productFilterOptions, true)) $momProductFilter = 'pv_all';
         $salesProductFilter = strtolower((string) $request->query('sales_product', 'pv_all'));
         $injectProductFilter = strtolower((string) $request->query('inject_product', 'pv_all'));
         // Legacy value "all" must remain ALL PV, never an unfiltered sales table.
@@ -318,16 +320,13 @@ class HomeController extends Controller
         $momPv = $momByProduct['pv_all'];
         $momSa = $momByProduct['sa_all'];
 
-        $stockCacheKey = 'home-stock-gudang-pv:v1:'.sha1(strtoupper(trim((string) $idtap)));
-        $stockGudangByTap = Cache::remember($stockCacheKey, now()->addMinutes(15), function () use ($applyFilter) {
-            $pvDenomIds = DB::table('denom')
-                ->whereRaw("UPPER(COALESCE(kategori_inject, '')) <> 'SA'")
-                ->pluck('iddenom');
+        $stockCacheKey = 'home-stock-gudang-product:v2:'.sha1($idtap.'|'.$momProductFilter);
+        $stockGudangByTap = Cache::remember($stockCacheKey, now()->addMinutes(15), function () use ($applyFilter, $applyProductFilter, $momProductFilter) {
             $query = DB::table('stockawaltap')
                 ->selectRaw('idtap, SUM(stock) AS total_stock')
-                ->whereIn('iddenom', $pvDenomIds)
                 ->groupBy('idtap');
             $applyFilter($query);
+            $applyProductFilter($query, 'stockawaltap', $momProductFilter);
             return $query->pluck('total_stock', 'idtap');
         });
 
@@ -343,6 +342,7 @@ class HomeController extends Controller
             ])
             ->groupBy('idtap');
         $applyFilter($qMomTapSales);
+        $qMomSelectedProduct = clone $qMomTapSales;
         $applyProductFilter($qMomTapSales, 'combined_sales', 'pv_all');
         $momTapSales = $qMomTapSales->get()->map(function ($row) {
             $row->mom = $row->prev_partial_qty > 0
@@ -374,6 +374,40 @@ class HomeController extends Controller
                 'mom' => $momClusterSales[$key],
             ];
         }
+        $applyProductFilter($qMomSelectedProduct, 'combined_sales', $momProductFilter);
+        $momProductRows = $momProductFilter === 'pv_all' ? $momTapSales : $qMomSelectedProduct->get()->map(function ($row) {
+            $row->mom = $row->prev_partial_qty > 0 ? (($row->curr_qty - $row->prev_partial_qty) / $row->prev_partial_qty) * 100 : 0;
+            return $row;
+        });
+        $momProductClusters = [];
+        foreach ($clusterMap as $key => $taps) {
+            $rows = $momProductRows->whereIn('idtap', $taps);
+            $curr = (int) $rows->sum('curr_qty');
+            $prev = (int) $rows->sum('prev_partial_qty');
+            $momProductClusters[$key] = (object) [
+                'curr_qty' => $curr, 'prev_partial_qty' => $prev,
+                'prev_full_qty' => (int) $rows->sum('prev_full_qty'),
+                'mom' => $prev > 0 ? (($curr - $prev) / $prev) * 100 : 0,
+            ];
+        }
+        $momSfQuery = $this->combinedSalesQuery()
+            ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
+            ->selectRaw('idsf, SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty', [
+                $momStartThisMonth, $momSelectedDate, $momStartPrevMonth, $momEndPrevMonthPartial,
+            ])->groupBy('idsf');
+        $applyFilter($momSfQuery);
+        $applyProductFilter($momSfQuery, 'combined_sales', $momProductFilter);
+        $momSfTotals = $momSfQuery->get()->keyBy('idsf');
+        $momProductSfByTap = $momSf->map(function ($sf) use ($momSfTotals) {
+            $row = clone $sf;
+            $totals = $momSfTotals->get($sf->idsf);
+            $row->curr_qty = (int) ($totals->curr_qty ?? 0);
+            $row->prev_qty = (int) ($totals->prev_qty ?? 0);
+            $row->mom = $row->prev_qty > 0 ? (($row->curr_qty - $row->prev_qty) / $row->prev_qty) * 100 : 0;
+            return $row;
+        })->groupBy('idtap');
+
         $annualCutoff = $request->query('sales_annual_cutoff', 'full');
         if ($annualCutoff !== 'full' && (! ctype_digit((string) $annualCutoff) || (int) $annualCutoff < 1 || (int) $annualCutoff > 12)) {
             $annualCutoff = 'full';
@@ -649,6 +683,7 @@ class HomeController extends Controller
 
 
         return compact(
+            'momProductFilter', 'momProductRows', 'momProductClusters', 'momProductSfByTap',
             'mode',
             'selectedYear',
             'salesYear',
@@ -715,7 +750,7 @@ class HomeController extends Controller
         $surya = DB::table('mobile_penjualan')
             ->where('status', 'approved')
             ->select([
-                'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
+                'tgl', 'idtap', DB::raw('COALESCE(owner_idsf, idsf) AS idsf'), 'iddenom', 'qty',
             ]);
 
         return DB::query()->fromSub($stockOut->unionAll($surya), 'combined_sales');
