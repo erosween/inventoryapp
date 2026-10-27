@@ -1742,10 +1742,7 @@
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandDailySt, 0) }}</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandStock) }}</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandDailySt > 0 ? $grandStock / $grandDailySt : 0, 0) }} hari</td>
-                                @php
-                                    $grandM2Part = $momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty;
-                                    $grandMomM2 = $grandM2Part > 0 ? (($grandCurr - $grandM2Part) / $grandM2Part) * 100 : 0;
-                                @endphp
+                                {{-- M-2 comparison is intentionally disabled for the unified PV dataset. --}}
                                 <!-- <td class="text-right border-0 font-weight-bold {{ $grandMomM2 >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMomM2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMomM2), 2) }} %
                                 </td> -->
