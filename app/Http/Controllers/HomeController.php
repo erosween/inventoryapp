@@ -163,80 +163,11 @@ class HomeController extends Controller
             $chartSales = $qChartSales->get();
         }
 
-        /* ================= MoM PER TAP (TANGGAL PILIHAN vs M-1) ================= */
-        $qMomTap = $this->combinedSalesQuery()
-            ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
-            ->selectRaw("
-                idtap,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_partial_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_full_qty
-            ", [
-                $momStartThisMonth, $momSelectedDate,
-                $momStartPrevMonth, $momEndPrevMonthPartial,
-                $momStartPrevMonth, $momEndPrevMonthFull,
-                $momStartM2Month, $momEndM2MonthPartial,
-                $momStartM2Month, $momEndM2MonthFull
-            ])
-            ->groupBy('idtap')
-            ->orderBy('idtap');
-        $applyFilter($qMomTap);
-        $momTap = $qMomTap->get()
-            ->map(function ($r) {
-                $r->mom = $r->prev_partial_qty > 0
-                    ? (($r->curr_qty - $r->prev_partial_qty) / $r->prev_partial_qty) * 100
-                    : 0;
-                $r->mom_m2 = $r->m2_partial_qty > 0
-                    ? (($r->curr_qty - $r->m2_partial_qty) / $r->m2_partial_qty) * 100
-                    : 0;
-                return $r;
-            });
-
         /* ================= CLUSTER SUMMARY ================= */
         $clusterMap = [
             'dumai_bengkalis' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
             'rokan_hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
         ];
-
-        // Satu agregasi menggantikan 5 query per cluster (10 query total).
-        $clusterTapMetrics = DB::table('keluarsf')
-            ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
-            ->selectRaw('idtap,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_partial_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_full_qty', [
-                $momStartThisMonth, $momSelectedDate,
-                $momStartPrevMonth, $momEndPrevMonthPartial,
-                $momStartPrevMonth, $momEndPrevMonthFull,
-                $momStartM2Month, $momEndM2MonthPartial,
-                $momStartM2Month, $momEndM2MonthFull,
-            ])
-            ->groupBy('idtap')
-            ->get()
-            ->keyBy('idtap');
-
-        $momCluster = collect();
-        foreach ($clusterMap as $key => $taps) {
-            $clusterRows = $clusterTapMetrics->only($taps);
-            $curr = (int) $clusterRows->sum('curr_qty');
-            $prevPartial = (int) $clusterRows->sum('prev_partial_qty');
-            $prevFull = (int) $clusterRows->sum('prev_full_qty');
-            $m2Partial = (int) $clusterRows->sum('m2_partial_qty');
-            $m2Full = (int) $clusterRows->sum('m2_full_qty');
-            $momCluster[$key] = (object) [
-                'curr_qty' => $curr,
-                'prev_partial_qty' => $prevPartial,
-                'prev_full_qty' => $prevFull,
-                'm2_partial_qty' => $m2Partial,
-                'm2_full_qty' => $m2Full,
-                'mom' => $prevPartial > 0 ? (($curr - $prevPartial) / $prevPartial) * 100 : 0,
-                'mom_m2' => $m2Partial > 0 ? (($curr - $m2Partial) / $m2Partial) * 100 : 0
-            ];
-        }
 
         /* ================= MoM PER SF ================= */
         $buildMomSfSource = function (string $table) use (
@@ -746,7 +677,6 @@ class HomeController extends Controller
             'stockGudangByTap',
             'mom',
             'chartSales',
-            'momTap',
             'momSf',
             'topGrowth',
             'topDrop',
@@ -754,7 +684,6 @@ class HomeController extends Controller
             'tapMasuk',
             'tapKeluar',
             'tapList',
-            'momCluster',
             'prevDecSales',
             'prevDecInject',
             'momTapInject',

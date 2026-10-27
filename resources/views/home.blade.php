@@ -1680,7 +1680,6 @@
                                 <td class="border-0"><span class="badge badge-secondary mr-2">CLUSTER</span> Dumai Bengkalis</td>
                                 <td class="text-right border-0">{{ number_format($momClusterSalesRows['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['dumai_bengkalis']->prev_partial_qty) }}</td>
-                                <!-- <td class="text-right opacity-75 border-0">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty) }}</td> -->
                                 <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['dumai_bengkalis']->prev_full_qty) }}</td>
                                 <td class="text-right border-0 {{ $momClusterSalesRows['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momClusterSalesRows['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momClusterSalesRows['dumai_bengkalis']->mom), 2) }} %
@@ -1692,9 +1691,6 @@
                                 <td class="text-right border-0">{{ number_format($dumaiDailySt, 0) }}</td>
                                 <td class="text-right border-0">{{ number_format($dumaiStock) }}</td>
                                 <td class="text-right border-0">{{ number_format($dumaiDailySt > 0 ? $dumaiStock / $dumaiDailySt : 0, 0) }} hari</td>
-                                <!-- <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {!! $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom_m2), 2) }} %
-                                </td> -->
                             </tr>
                             @endif
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
@@ -1702,7 +1698,6 @@
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
                                 <td class="text-right border-0">{{ number_format($momClusterSalesRows['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['rokan_hilir']->prev_partial_qty) }}</td>
-                                <!-- <td class="text-right opacity-75 border-0">{{ number_format($momCluster['rokan_hilir']->m2_partial_qty) }}</td> -->
                                 <td class="text-right opacity-75 border-0">{{ number_format($momClusterSalesRows['rokan_hilir']->prev_full_qty) }}</td>
                                 <td class="text-right border-0 {{ $momClusterSalesRows['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momClusterSalesRows['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momClusterSalesRows['rokan_hilir']->mom), 2) }} %
@@ -1714,9 +1709,6 @@
                                 <td class="text-right border-0">{{ number_format($rohilDailySt, 0) }}</td>
                                 <td class="text-right border-0">{{ number_format($rohilStock) }}</td>
                                 <td class="text-right border-0">{{ number_format($rohilDailySt > 0 ? $rohilStock / $rohilDailySt : 0, 0) }} hari</td>
-                                <!-- <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {!! $momCluster['rokan_hilir']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom_m2), 2) }} %
-                                </td> -->
                             </tr>
                             @endif
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP']))
@@ -1730,7 +1722,6 @@
                                 <td class="border-0 font-weight-bold">✨ GRAND TOTAL MOM</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>
-                                <!-- <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty) }}</td> -->
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevFull) }}</td>
                                 <td class="text-right border-0 font-weight-bold {{ $grandMom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMom), 2) }} %
