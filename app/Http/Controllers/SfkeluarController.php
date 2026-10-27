@@ -591,7 +591,21 @@ public function updateSfKeluar(Request $request, $id)
     $idtap     = session('idtap');
     $daterange = $request->daterange;
 
-    $query = DB::table('keluarsf as f')
+    // Samakan sumber export dengan dashboard/view: transaksi admin SF Keluar
+    // ditambah transaksi mobile yang sudah approved.
+    $adminSales = DB::table('keluarsf')
+        ->select(['tgl', 'idtap', 'idsf', 'iddenom', 'qty', 'tambahanket']);
+    $mobileSales = DB::table('mobile_penjualan')
+        ->where('status', 'approved')
+        ->select([
+            'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
+            DB::raw('NULL as tambahanket'),
+        ]);
+
+    $query = DB::query()->fromSub(
+            $adminSales->unionAll($mobileSales),
+            'f'
+        )
         ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
         ->join('idsf as i', 'f.idsf', '=', 'i.idsf')
         ->select(
