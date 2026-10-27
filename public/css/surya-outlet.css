@@ -12,4 +12,9 @@ html,body{max-width:100%;overflow-x:hidden!important}
 .main{min-width:0;max-width:100%;overflow-x:hidden}
 .filters{width:100%;min-width:0;max-width:100%;overflow:visible}
 .filters .input,.filters .btn{min-width:0;max-width:100%}
+.filters .select2-container{width:100%!important;min-width:0}
+.filters .select2-selection--single{height:44px!important;border:1px solid #d7e0e8!important;border-radius:10px!important;background:#fff!important}
+.filters .select2-selection__rendered{padding:0 14px!important;line-height:42px!important;color:#172033!important}
+.filters .select2-selection__arrow{height:42px!important;right:8px!important}
+.select2-container--open{z-index:2000}
 @media(min-width:1101px){.filters:not(.non-digipos){grid-template-columns:minmax(200px,1.6fr) repeat(4,minmax(105px,1fr)) minmax(115px,auto) minmax(135px,auto)}.filters .btn{padding-left:12px;padding-right:12px}}
