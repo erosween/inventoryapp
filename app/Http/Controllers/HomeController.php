@@ -175,9 +175,15 @@ class HomeController extends Controller
             $momStartPrevMonth, $momEndPrevMonthPartial,
             $momStartM2Month, $momEndM2MonthPartial
         ) {
+            $sfColumn = $table === 'mobile_penjualan'
+                ? DB::raw('COALESCE(owner_idsf, idsf)')
+                : 'idsf';
+            $sfSelect = $table === 'mobile_penjualan'
+                ? 'COALESCE(owner_idsf, idsf) AS idsf'
+                : 'idsf';
             $query = DB::table($table)
                 ->whereBetween('tgl', [$momStartM2Month, $momSelectedDate])
-                ->selectRaw("idsf,
+                ->selectRaw("{$sfSelect},
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty,
                     SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS m2_qty", [
@@ -185,7 +191,7 @@ class HomeController extends Controller
                     $momStartPrevMonth, $momEndPrevMonthPartial,
                     $momStartM2Month, $momEndM2MonthPartial,
                 ])
-                ->groupBy('idsf');
+                ->groupBy($sfColumn);
             if ($table === 'mobile_penjualan') {
                 $query->where('status', 'approved');
             }
