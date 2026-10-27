@@ -1,6 +1,10 @@
 @extends(request()->routeIs('surya.inventory-dashboard') ? 'surya.layouts.inventory-dashboard' : 'layout.layout')
 
 @section('content')
+@php
+    $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
+    $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
+@endphp
 <style>
     #mom-cluster-card { position:relative; }
     #mom-cluster-card .mom-loading { position:absolute; inset:0; z-index:120; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.82); border-radius:inherit; backdrop-filter:blur(2px); }
