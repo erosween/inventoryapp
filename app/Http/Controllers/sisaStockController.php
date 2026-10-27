@@ -316,7 +316,16 @@ class sisaStockController extends Controller
         }
 
         if ($snapshotOnly) {
-            return ['rows' => collect($finalData), 'denoms' => $denoms];
+            // Dashboard needs TAP and SF balances at the same cutoff. Reuse the
+            // already reversed SF map instead of replaying all movements twice.
+            $sfRows = $sales->map(function ($owner) use ($denoms, $sfStock) {
+                $row = ['idtap' => $owner->idtap, 'idsf' => $owner->idsf];
+                foreach ($denoms as $denom) {
+                    $row[$denom->iddenom] = (int) ($sfStock[$owner->idtap.'|'.$owner->idsf.'|'.$denom->iddenom] ?? 0);
+                }
+                return $row;
+            });
+            return ['rows' => collect($finalData), 'sf_rows' => $sfRows, 'denoms' => $denoms];
         }
 
         // Visibility is always based on the combined All balance. A denom that

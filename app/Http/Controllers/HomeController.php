@@ -17,7 +17,7 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v11:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v12:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -44,18 +44,21 @@ class HomeController extends Controller
         };
 
         /* ================= DETECT CURRENT DATE IN SYSTEM ================= */
-        $latestRecord = $this->combinedSalesQuery()->max('tgl');
+        // MAX over a UNION materializes every historical sales row first.
+        $latestRecord = max(
+            DB::table('keluarsf')->max('tgl'),
+            DB::table('mobile_penjualan')->where('status', 'approved')->max('tgl')
+        );
         $currentDate = $latestRecord ? Carbon::parse($latestRecord) : now();
 
         /* ================= FAIR MOM CUTOFF: ALL PV, ALL TAP ================= */
         // Cutoff adalah input terakhir paling awal antar-TAP dari sfkeluar + mobile approved.
-        $momCutoffQuery = $this->combinedSalesQuery()
+        $momCutoffQuery = $this->combinedSalesQuery($currentDate->copy()->startOfMonth(), $currentDate->copy()->endOfMonth())
             ->whereYear('tgl', $currentDate->year)
             ->whereMonth('tgl', $currentDate->month)
-            ->whereExists(function ($productQuery) {
-                $productQuery->selectRaw('1')
+            ->whereIn('combined_sales.iddenom', function ($productQuery) {
+                $productQuery->select('product_denom.iddenom')
                     ->from('denom as product_denom')
-                    ->whereColumn('product_denom.iddenom', 'combined_sales.iddenom')
                     ->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) <> 'SA'");
             })
             ->selectRaw('idtap, MAX(tgl) AS last_input')
@@ -120,11 +123,11 @@ class HomeController extends Controller
         $tapList = $tapKeluar->keys()->sort()->values();
 
         /* ================= KPI ================= */
-        $qSalesBulanIni = $this->combinedSalesQuery()->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
+        $qSalesBulanIni = $this->combinedSalesQuery($startThisMonth, $fairCutoffThisMonth->copy()->endOfDay())->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
         $applyFilter($qSalesBulanIni);
         $salesBulanIni = $qSalesBulanIni->sum('qty');
 
-        $qSalesPrev = $this->combinedSalesQuery()->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
+        $qSalesPrev = $this->combinedSalesQuery($startPrevMonth, $endPrevMonthPartial)->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
         $applyFilter($qSalesPrev);
         $salesPrev = $qSalesPrev->sum('qty');
 
@@ -134,7 +137,7 @@ class HomeController extends Controller
 
         /* ================= CHART SALES ================= */
         if ($mode === 'monthly') {
-            $qChartSales = $this->combinedSalesQuery()
+            $qChartSales = $this->combinedSalesQuery($currentDate->copy()->subMonths(5)->startOfMonth(), $currentDate)
                 ->selectRaw("DATE_FORMAT(tgl,'%Y-%m') AS label, SUM(qty) AS total")
                 ->whereBetween('tgl', [
                     $currentDate->copy()->subMonths(5)->startOfMonth(),
@@ -145,7 +148,7 @@ class HomeController extends Controller
             $applyFilter($qChartSales);
             $chartSales = $qChartSales->get();
         } else {
-            $qChartSales = $this->combinedSalesQuery()
+            $qChartSales = $this->combinedSalesQuery($startThisMonth, $endThisMonth)
                 ->selectRaw("DATE(tgl) AS label, SUM(qty) AS total")
                 ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
                 ->groupBy(DB::raw('DATE(tgl)'))
@@ -255,10 +258,9 @@ class HomeController extends Controller
         $applyProductFilter = function ($query, string $table, string $filter) {
             if ($filter === 'all') return;
 
-            $query->whereExists(function ($denomQuery) use ($table, $filter) {
-                $denomQuery->selectRaw('1')
-                    ->from('denom as product_denom')
-                    ->whereColumn('product_denom.iddenom', $table.'.iddenom');
+            $query->whereIn($table.'.iddenom', function ($denomQuery) use ($table, $filter) {
+                $denomQuery->select('product_denom.iddenom')
+                    ->from('denom as product_denom');
 
                 if ($table === 'injectvf') {
                     $sourceCategories = match ($filter) {
@@ -296,7 +298,7 @@ class HomeController extends Controller
             foreach (['sales', 'inject'] as $kind) {
                 if (str_starts_with((string) $chartKind, 'distribution-') && $chartKind !== 'distribution-'.$kind) continue;
                 $source = $kind === 'sales' ? 'combined_sales' : 'injectvf';
-                $query = $kind === 'sales' ? $this->combinedSalesQuery() : DB::table('injectvf');
+                $query = $kind === 'sales' ? $this->combinedSalesQuery($momStartThisMonth, $momSelectedDate) : DB::table('injectvf');
                 $query->join('denom as distribution_denom', $source.'.iddenom', '=', 'distribution_denom.iddenom')
                     ->whereBetween($source.'.tgl', [$momStartThisMonth, $momSelectedDate])
                     ->selectRaw('distribution_denom.group_name, SUM('.$source.'.qty) AS total')
@@ -314,7 +316,7 @@ class HomeController extends Controller
         // KPI penjualan bulan berjalan dipisah agar total PV tidak tercampur dengan SA.
         $salesBulanIniByProduct = [];
         foreach (['pv_all', 'sa_all'] as $product) {
-            $qSalesBulanIniProduct = $this->combinedSalesQuery()
+            $qSalesBulanIniProduct = $this->combinedSalesQuery($startThisMonth, $fairCutoffThisMonth->copy()->endOfDay())
                 ->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
             $applyFilter($qSalesBulanIniProduct);
             $applyProductFilter($qSalesBulanIniProduct, 'combined_sales', $product);
@@ -325,7 +327,7 @@ class HomeController extends Controller
 
         $momByProduct = [];
         foreach (['pv_all' => $salesBulanIniPv, 'sa_all' => $salesBulanIniSa] as $product => $currentQty) {
-            $qSalesPrevProduct = $this->combinedSalesQuery()
+            $qSalesPrevProduct = $this->combinedSalesQuery($startPrevMonth, $endPrevMonthPartial)
                 ->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
             $applyFilter($qSalesPrevProduct);
             $applyProductFilter($qSalesPrevProduct, 'combined_sales', $product);
@@ -372,7 +374,7 @@ class HomeController extends Controller
         $stokSaSegel = $stockTotals['sa_segel'];
         $stokSaInject = $stockTotals['sa_inject'];
 
-        $qMomTapSales = $this->combinedSalesQuery()
+        $qMomTapSales = $this->combinedSalesQuery($momStartPrevMonth, $momSelectedDate)
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
@@ -432,7 +434,7 @@ class HomeController extends Controller
                 'mom' => $prev > 0 ? (($curr - $prev) / $prev) * 100 : 0,
             ];
         }
-        $momSfQuery = $this->combinedSalesQuery()
+        $momSfQuery = $this->combinedSalesQuery($momStartPrevMonth, $momSelectedDate)
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idsf, SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_qty,
@@ -443,10 +445,7 @@ class HomeController extends Controller
         $applyFilter($momSfQuery);
         $applyProductFilter($momSfQuery, 'combined_sales', $momProductFilter);
         $momSfTotals = $momSfQuery->get()->keyBy('idsf');
-        $sfSnapshot = app(sisaStockController::class)->data(new Request([
-            'date' => $momSelectedDate->toDateString(), 'mode' => 'sf',
-        ]), true);
-        $sfStocks = $sfSnapshot['rows']->mapWithKeys(function ($row) use ($selectedStockDenoms) {
+        $sfStocks = $stockSnapshot['sf_rows']->mapWithKeys(function ($row) use ($selectedStockDenoms) {
             return [$row['idsf'] => $selectedStockDenoms->sum(fn ($d) => (int) ($row[$d->iddenom] ?? 0))];
         });
         $momProductSfByTap = $momSf->map(function ($sf) use ($momSfTotals, $sfStocks, $momSelectedDate) {
@@ -479,7 +478,7 @@ class HomeController extends Controller
             $salesYear = (int) date('Y');
         }
 
-        $qMatrixData = $this->combinedSalesQuery()
+        $qMatrixData = $this->combinedSalesQuery(Carbon::create($salesYear, 1, 1)->startOfDay(), Carbon::create($salesYear, 12, 31)->endOfDay())
             ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
             ->whereYear('tgl', $salesYear)
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
@@ -785,7 +784,7 @@ class HomeController extends Controller
     /**
      * Unified sales source for legacy SF stock-outs and approved Surya sales.
      */
-    private function combinedSalesQuery()
+    private function combinedSalesQuery($start = null, $end = null)
     {
         $stockOut = DB::table('keluarsf')->select([
             'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
@@ -796,6 +795,18 @@ class HomeController extends Controller
             ->select([
                 'tgl', 'idtap', DB::raw('COALESCE(owner_idsf, idsf) AS idsf'), 'iddenom', 'qty',
             ]);
+
+        foreach ([$stockOut, $surya] as $source) {
+            if ($start !== null && $end !== null) $source->whereBetween('tgl', [$start, $end]);
+            $scope = session('idtap');
+            if ($scope === 'CLUSTER_DUMAI') {
+                $source->whereIn('idtap', ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING']);
+            } elseif ($scope === 'CLUSTER_ROHIL') {
+                $source->whereIn('idtap', ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG']);
+            } elseif (!in_array($scope, ['SBP_DUMAI', 'ALL TAP'], true)) {
+                $source->where('idtap', $scope);
+            }
+        }
 
         return DB::query()->fromSub($stockOut->unionAll($surya), 'combined_sales');
     }
