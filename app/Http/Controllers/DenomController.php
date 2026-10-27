@@ -74,14 +74,15 @@ class DenomController extends Controller
 
         DB::beginTransaction();
         try {
-            $productGroup = $this->productGroupForCategory($request->kategori_inject);
+            $isSealedStarter = in_array(strtoupper((string) $request->iddenom), ['SP6', 'SP7'], true);
+            $productGroup = $isSealedStarter ? 'SP' : $this->productGroupForCategory($request->kategori_inject);
 
             // 1. Simpan ke tabel master denom
             DB::table('denom')->insert([
                 'iddenom' => $request->iddenom,
                 'denom' => $request->denom,
                 'group_name' => $request->group_name,
-                'kategori_inject' => $request->kategori_inject,
+                'kategori_inject' => $isSealedStarter ? 'SA' : $request->kategori_inject,
                 'product_group' => $productGroup,
                 'harga_jual' => $request->harga_jual ?? 0
             ]);
@@ -131,12 +132,13 @@ class DenomController extends Controller
 
         DB::beginTransaction();
         try {
-            $productGroup = $this->productGroupForCategory($request->kategori_inject);
+            $isSealedStarter = in_array(strtoupper((string) $iddenom), ['SP6', 'SP7'], true);
+            $productGroup = $isSealedStarter ? 'SP' : $this->productGroupForCategory($request->kategori_inject);
 
             DB::table('denom')->where('iddenom', $iddenom)->update([
                 'denom' => $request->denom,
                 'group_name' => $request->group_name,
-                'kategori_inject' => $request->kategori_inject,
+                'kategori_inject' => $isSealedStarter ? 'SA' : $request->kategori_inject,
                 'product_group' => $productGroup,
                 'harga_jual' => $request->harga_jual ?? 0
             ]);
