@@ -35,6 +35,7 @@ class TaskforcePushSoTest extends TestCase
         });
         (require database_path('migrations/2026_10_27_200000_create_taskforce_push_so_actions.php'))->up();
         (require database_path('migrations/2026_10_27_210000_create_taskforce_upload_lists.php'))->up();
+        (require database_path('migrations/2026_10_27_220000_store_taskforce_uploaded_cells.php'))->up();
         foreach([['A','DUMAI'],['B','DUMAI'],['C','DURI']] as [$id,$tap]) DB::table('appsdumais')->insert([
             'id_outlet'=>$id,'nama_outlet'=>'Outlet '.$id,'kecamatan'=>'Kota','sf'=>'SF '.$tap,'tap'=>$tap,'pjp'=>'Senin',
         ]);
@@ -76,39 +77,41 @@ class TaskforcePushSoTest extends TestCase
         return route('surya.taskforce.push-so', ['sales_cutoff'=>'2026-10-26']+$query);
     }
 
-    public function test_page_reuses_detail_metrics_and_respects_tap_scope(): void
+    public function test_page_respects_scope_and_shows_honest_legacy_upload_fallback(): void
     {
         $response=$this->get($this->url())->assertOk()->assertSee('PUSH SO')->assertSee('TASKFORCE')
-            ->assertDontSee('id="push-so-filters"',false)->assertDontSee('Filter jumlah transaksi')
-            ->assertSee('id="push-so-dialog"',false);
+            ->assertDontSee('id="push-so-filters"',false)->assertSee('Upload lama hanya menyimpan ID outlet.')
+            ->assertSee('id="push-so-dialog"',false)->assertSee('Tanggal Visit');
         $rows=$response->viewData('outlets');
         self::assertSame(2,$rows->total());
         self::assertSame(['A','B'],$rows->pluck('id_outlet')->all());
-        $a=$rows->first();
-        self::assertSame(3,$a->st_sa_mtd);
-        self::assertSame(10,$a->st_pv_mtd);
-        self::assertSame(20,$a->st_sa_fm1);
-        self::assertSame(4,$a->st_sa_m1);
-        self::assertSame(2,$a->biometrik_mtd);
-        self::assertSame(['SF DUMAI'],$response->viewData('sfs')->all());
+        self::assertSame(['ID Outlet'],$response->viewData('headers'));
+        self::assertSame(['A'],$rows->first()->uploaded_cells);
+        self::assertFalse(property_exists($rows->first(),'st_sa_mtd'));
     }
 
-    public function test_multiple_numeric_filters_apply_before_pagination_and_match_visible_numbers(): void
+    public function test_table_preserves_uploaded_headers_cell_values_and_row_order(): void
     {
-        $r=$this->get($this->url(['sa_min'=>3,'sa_max'=>3,'pv_min'=>10,'pv_max'=>10,'bio_min'=>2,'bio_max'=>2]))->assertOk();
-        self::assertSame(['A'],$r->viewData('outlets')->pluck('id_outlet')->all());
-        $r=$this->get($this->url(['sa_max'=>0,'bio_max'=>0]))->assertOk();
-        self::assertSame(['B'],$r->viewData('outlets')->pluck('id_outlet')->all());
-        $r=$this->get($this->url(['period'=>'fm1','sa_min'=>20,'sa_max'=>20]))->assertOk();
-        self::assertSame(['A'],$r->viewData('outlets')->pluck('id_outlet')->all());
-        $r=$this->get($this->url(['period'=>'m1','sa_min'=>4,'sa_max'=>4,'bio_min'=>4]))->assertOk();
-        self::assertSame(['A'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $this->asUser('admin_super','SBP_DUMAI');
+        $file=\Illuminate\Http\UploadedFile::fake()->createWithContent('custom.csv',"Nama Pilihan,ID Outlet,SA M,Narasi\nNama File B,B,999,<script>alert(1)</script>\nNama File A,A,0,\n");
+        $this->post(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertRedirect()->assertSessionHasNoErrors();
+        $this->asUser('asmen_dumai','DUMAI');
+        $queries=[];
+        DB::listen(function($event) use(&$queries) { $queries[]=$event->sql; });
+        $r=$this->get($this->url(['sa_max'=>0,'tap'=>'DURI']))->assertOk();
+        self::assertSame(['Nama Pilihan','ID Outlet','SA M','Narasi'],$r->viewData('headers'));
+        self::assertSame(['B','A'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        self::assertSame(['Nama File B','B','999','<script>alert(1)</script>'],$r->viewData('outlets')->first()->uploaded_cells);
+        self::assertSame(['Nama File A','A','0',''],$r->viewData('outlets')->last()->uploaded_cells);
+        $r->assertSee('Nama File B')->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;',false)->assertDontSee('<script>alert(1)</script>',false);
+        self::assertFalse(collect($queries)->contains(fn($sql)=>str_contains($sql,'keluarsf') || str_contains($sql,'mobile_penjualan') || str_contains($sql,'surya_daily_metrics')));
     }
 
     public function test_asmen_can_save_visit_with_audit_trail_and_month_isolation(): void
     {
         $url=route('surya.taskforce.push-so.store',['idOutlet'=>'A']);
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Sudah cek stok'])->assertOk();
+        $this->get($this->url())->assertOk()->assertSee('Sudah visit')->assertSee('26/10/2026');
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'Jadwalkan ulang'])->assertOk();
         self::assertSame(2,DB::table('taskforce_push_so_actions')->count());
         self::assertSame('asmen_dumai',DB::table('taskforce_push_so_actions')->value('username'));
@@ -134,7 +137,7 @@ class TaskforcePushSoTest extends TestCase
 
     public function test_validation_rejects_inverted_ranges_and_visit_without_date(): void
     {
-        $this->getJson($this->url(['sa_min'=>5,'sa_max'=>1]))->assertUnprocessable()->assertJsonValidationErrors('sa_max');
+        $this->getJson($this->url(['sa_min'=>5,'sa_max'=>1]))->assertOk();
         $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>1])->assertUnprocessable()->assertJsonValidationErrors('visited_at');
         self::assertSame(0,DB::table('taskforce_push_so_actions')->count());
     }
@@ -180,7 +183,12 @@ class TaskforcePushSoTest extends TestCase
         self::assertSame(0,$this->get($this->url())->viewData('outlets')->total());
         DB::table('appsdumais')->where('id_outlet','A')->update(['pjp'=>'UNMAPPING']);
         $book=new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $book->getActiveSheet()->fromArray([['ID Outlet'],['A']]);
+        $book->getActiveSheet()->fromArray([
+            ['ID Outlet','Rencana Visit','Rasio','Stok Upload'],
+            ['A',\PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(new \DateTime('2026-10-26')),0.125,0],
+        ],null,'A1',true);
+        $book->getActiveSheet()->getStyle('B2')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $book->getActiveSheet()->getStyle('C2')->getNumberFormat()->setFormatCode('0.0%');
         $path=tempnam(sys_get_temp_dir(),'taskforce-xlsx-');
         try {
             (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save($path);
@@ -190,7 +198,10 @@ class TaskforcePushSoTest extends TestCase
             $this->get(route('surya.transaction-upload'))->assertOk()->assertSee('Upload Daftar Outlet Taskforce');
             $this->get(route('surya.taskforce.template'))->assertOk()->assertDownload('template-taskforce.csv');
             $this->asUser('asmen_dumai','DUMAI');
-            self::assertSame(['A'],$this->get($this->url())->viewData('outlets')->pluck('id_outlet')->all());
+            $response=$this->get($this->url())->assertOk();
+            self::assertSame(['A'],$response->viewData('outlets')->pluck('id_outlet')->all());
+            self::assertSame(['ID Outlet','Rencana Visit','Rasio','Stok Upload'],$response->viewData('headers'));
+            self::assertSame(['A','26/10/2026','12.5%','0'],$response->viewData('outlets')->first()->uploaded_cells);
             $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertOk();
         } finally {
             @unlink($path);
