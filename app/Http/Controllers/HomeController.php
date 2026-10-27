@@ -411,6 +411,12 @@ class HomeController extends Controller
                 : 0;
             return $row;
         });
+        // Satu sumber angka untuk card PV, tabel per-TAP, dan Grand Total MoM.
+        $salesBulanIniPv = (int) $momTapSales->sum('curr_qty');
+        $momPvPrevious = (int) $momTapSales->sum('prev_partial_qty');
+        $momPv = $momPvPrevious > 0
+            ? (($salesBulanIniPv - $momPvPrevious) / $momPvPrevious) * 100
+            : 0;
 
         $momClusterSales = [];
         foreach ($clusterMap as $key => $taps) {
