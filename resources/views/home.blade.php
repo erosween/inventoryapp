@@ -1620,7 +1620,6 @@
                                     </td>
                                     <td class="text-right font-weight-bold text-dark">{{ number_format($r->curr_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_partial_qty) }}</td>
-                                    <!-- <td class="text-right text-muted">{{ number_format($r->m2_partial_qty) }}</td> -->
                                     <td class="text-right text-muted">{{ number_format($r->prev_full_qty) }}</td>
                                     <td class="text-right font-weight-bold {{ $r->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom), 2) }} %
