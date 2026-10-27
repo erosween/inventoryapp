@@ -466,6 +466,13 @@ class HomeController extends Controller
         foreach ($matrixSalesData as $row) {
             $matrixSales[$row->idtap][$row->bulan] = $row->total;
         }
+        // ALL PV bulan berjalan harus identik dengan dataset MoM bawah (cutoff yang sama).
+        if ($salesProductFilter === 'pv_all' && $salesYear === $currentDate->year) {
+            foreach ($tapList as $tap) {
+                $momRow = $momTapSales->firstWhere('idtap', $tap);
+                $matrixSales[$tap][$currentDate->month] = (int) ($momRow->curr_qty ?? 0);
+            }
+        }
 
         /* ================= SALES TAHUNAN PER TAP ================= */
         $annualSalesData = DB::table('keluarsf')
