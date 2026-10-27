@@ -1,21 +1,5 @@
 (() => {
     'use strict';
-    const filters = document.getElementById('push-so-filters');
-    if (!filters) return;
-    if (window.jQuery && jQuery.fn.select2) {
-        jQuery('.tf-select').select2({width: '100%', allowClear: true, language: {noResults: () => 'Tidak ditemukan'}});
-        jQuery(filters.elements.tap).on('change', () => { filters.elements.sf.value = ''; filters.requestSubmit(); });
-    } else filters.elements.tap.addEventListener('change', () => { filters.elements.sf.value = ''; filters.requestSubmit(); });
-    filters.addEventListener('submit', () => {
-        const button = filters.querySelector('button[type="submit"]');
-        button.disabled = true;
-        button.innerHTML = '<span class="tf-spinner" aria-hidden="true"></span> Memuat…';
-        filters.setAttribute('aria-busy', 'true');
-    });
-    window.addEventListener('pageshow', () => {
-        const button = filters.querySelector('button[type="submit"]');
-        button.disabled = false; button.textContent = 'Tampilkan'; filters.removeAttribute('aria-busy');
-    });
     const dialog = document.getElementById('push-so-dialog');
     if (!dialog) return;
     const form = document.getElementById('push-so-action');

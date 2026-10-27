@@ -78,7 +78,9 @@ class TaskforcePushSoTest extends TestCase
 
     public function test_page_reuses_detail_metrics_and_respects_tap_scope(): void
     {
-        $response=$this->get($this->url())->assertOk()->assertSee('PUSH SO')->assertSee('TASKFORCE');
+        $response=$this->get($this->url())->assertOk()->assertSee('PUSH SO')->assertSee('TASKFORCE')
+            ->assertDontSee('id="push-so-filters"',false)->assertDontSee('Filter jumlah transaksi')
+            ->assertSee('id="push-so-dialog"',false);
         $rows=$response->viewData('outlets');
         self::assertSame(2,$rows->total());
         self::assertSame(['A','B'],$rows->pluck('id_outlet')->all());
