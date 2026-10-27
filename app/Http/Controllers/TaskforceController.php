@@ -10,30 +10,70 @@ class TaskforceController extends MonitaDumaiController
 {
     public function index(Request $request)
     {
-        $options=$request->validate([
-            'per_page'=>'nullable|in:10,25,50,100',
-            'sales_cutoff'=>'nullable|date_format:Y-m-d|before_or_equal:today',
-        ]);
-        $cutoff=Carbon::parse($options['sales_cutoff']??now('Asia/Jakarta')->toDateString());
-        $month=$cutoff->copy()->startOfMonth()->toDateString();
-        $upload=DB::table('taskforce_uploads')->where('period_month',$month)->orderByDesc('id')->first();
-        $headers=$upload && $upload->headers ? json_decode($upload->headers,true,512,JSON_THROW_ON_ERROR) : ['ID Outlet'];
-        $base=$this->taskforceOutlets($this->suryaTapScopes(),$upload?->id);
-        $latest=DB::table('taskforce_push_so_actions')->where('period_month',$month)
-            ->selectRaw('id_outlet, MAX(id) as action_id')->groupBy('id_outlet');
-        $outlets=$base->leftJoinSub($latest,'latest_action','latest_action.id_outlet','=','outlet.id_outlet')
-            ->leftJoin('taskforce_push_so_actions as action','action.id','=','latest_action.action_id')
-            ->select('outlet.id_outlet','outlet.nama_outlet','outlet.tap','assignment.cells','assignment.row_position',
-                'action.visited','action.visited_at','action.notes','action.username as action_by','action.updated_at as action_updated_at')
-            ->orderBy('assignment.row_position')->orderBy('assignment.id')
-            ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','per_page']));
+        [$cutoff,$upload,$headers,$options]=$this->context($request);
+        $scopes=$this->suryaTapScopes();
+        $taps=$this->taskforceOutlets($scopes,$upload?->id)->distinct()->orderBy('outlet.tap')->pluck('outlet.tap');
+        $sfs=$this->taskforceOutlets($scopes,$upload?->id)->when(!empty($options['tap']),fn($q)=>$q->where('outlet.tap',$options['tap']))
+            ->whereNotNull('outlet.sf')->whereRaw("TRIM(outlet.sf) <> ''")->distinct()->orderBy('outlet.sf')->pluck('outlet.sf');
+        $outlets=$this->reportQuery($cutoff,$upload,$options)
+            ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','per_page','tap','sf']));
         $outlets->getCollection()->transform(function($outlet) {
             $outlet->uploaded_cells=$outlet->cells ? json_decode($outlet->cells,true,512,JSON_THROW_ON_ERROR) : [(string)$outlet->id_outlet];
             return $outlet;
         });
         $canAct=$this->canAct();
-        return response()->view('surya.taskforce.push-so',compact('outlets','headers','cutoff','canAct','upload'))
+        return response()->view('surya.taskforce.push-so',compact('outlets','headers','cutoff','canAct','upload','taps','sfs','options'))
             ->header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    private function context(Request $request): array
+    {
+        $options=$request->validate([
+            'per_page'=>'nullable|in:10,25,50,100',
+            'sales_cutoff'=>'nullable|date_format:Y-m-d|before_or_equal:today',
+            'tap'=>'nullable|string|max:150','sf'=>'nullable|string|max:150',
+        ]);
+        $cutoff=Carbon::parse($options['sales_cutoff']??now('Asia/Jakarta')->toDateString());
+        $upload=DB::table('taskforce_uploads')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())->orderByDesc('id')->first();
+        $headers=$upload && $upload->headers ? json_decode($upload->headers,true,512,JSON_THROW_ON_ERROR) : ['ID Outlet'];
+        return [$cutoff,$upload,$headers,$options];
+    }
+
+    private function reportQuery(Carbon $cutoff, $upload, array $options)
+    {
+        $latest=DB::table('taskforce_push_so_actions')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())
+            ->selectRaw('id_outlet, MAX(id) as action_id')->groupBy('id_outlet');
+        return $this->taskforceOutlets($this->suryaTapScopes(),$upload?->id)
+            ->when(!empty($options['tap']),fn($q)=>$q->where('outlet.tap',$options['tap']))
+            ->when(!empty($options['sf']),fn($q)=>$q->where('outlet.sf',$options['sf']))
+            ->leftJoinSub($latest,'latest_action','latest_action.id_outlet','=','outlet.id_outlet')
+            ->leftJoin('taskforce_push_so_actions as action','action.id','=','latest_action.action_id')
+            ->select('outlet.id_outlet','outlet.nama_outlet','outlet.tap','assignment.cells','assignment.row_position',
+                'action.visited','action.visited_at','action.notes','action.username as action_by','action.updated_at as action_updated_at')
+            ->orderBy('assignment.row_position')->orderBy('assignment.id');
+    }
+
+    public function download(Request $request)
+    {
+        [$cutoff,$upload,$headers,$options]=$this->context($request);
+        $query=$this->reportQuery($cutoff,$upload,$options);
+        return response()->streamDownload(function() use($query,$headers) {
+            $output=fopen('php://output','w');
+            fwrite($output,"\xEF\xBB\xBF");
+            // Treat spreadsheet formulas as text when the CSV is opened in Excel.
+            $safe=static fn($value)=>preg_match('/^[\s]*[=+@-]/u',(string)$value) ? "'".$value : $value;
+            try {
+                fputcsv($output,array_map($safe,array_merge($headers,['Visit Asmen','Tanggal Visit','Catatan Asmen'])));
+                foreach($query->cursor() as $row) {
+                    $cells=$row->cells ? json_decode($row->cells,true,512,JSON_THROW_ON_ERROR) : [(string)$row->id_outlet];
+                    $cells=array_slice(array_pad($cells,count($headers),''),0,count($headers));
+                    $cells[]=$row->visited?'Sudah visit':'Belum visit';
+                    $cells[]=$row->visited_at ? Carbon::parse($row->visited_at)->format('d/m/Y') : '';
+                    $cells[]=$row->notes??'';
+                    fputcsv($output,array_map($safe,$cells));
+                }
+            } finally { fclose($output); }
+        },'taskforce-'.$cutoff->format('Y-m').'.csv',['Content-Type'=>'text/csv; charset=UTF-8']);
     }
 
     public function store(Request $request, string $idOutlet)

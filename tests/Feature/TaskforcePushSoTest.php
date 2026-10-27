@@ -98,7 +98,7 @@ class TaskforcePushSoTest extends TestCase
         $this->asUser('asmen_dumai','DUMAI');
         $queries=[];
         DB::listen(function($event) use(&$queries) { $queries[]=$event->sql; });
-        $r=$this->get($this->url(['sa_max'=>0,'tap'=>'DURI']))->assertOk();
+        $r=$this->get($this->url(['sa_max'=>0,'tap'=>'DUMAI']))->assertOk();
         self::assertSame(['Nama Pilihan','ID Outlet','SA M','Narasi'],$r->viewData('headers'));
         self::assertSame(['B','A'],$r->viewData('outlets')->pluck('id_outlet')->all());
         self::assertSame(['Nama File B','B','999','<script>alert(1)</script>'],$r->viewData('outlets')->first()->uploaded_cells);
@@ -207,5 +207,33 @@ class TaskforcePushSoTest extends TestCase
             @unlink($path);
             $book->disconnectWorksheets();
         }
+    }
+
+    public function test_tap_sf_filters_and_download_follow_the_same_scope(): void
+    {
+        DB::table('appsdumais')->where('id_outlet','B')->update(['sf'=>'SF B']);
+        $r=$this->get($this->url(['tap'=>'DUMAI','sf'=>'SF B']))->assertOk()
+            ->assertSee('<h1>TASKFORCE</h1>',false)->assertSee('Download Outlet')->assertSee('tf-visit-select')
+            ->assertDontSee('Pantau transaksi outlet')->assertDontSee('Kolom dan data mengikuti file upload.');
+        self::assertSame(['B'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        self::assertSame(['DUMAI'],$r->viewData('taps')->all());
+        self::assertSame(['SF B','SF DUMAI'],$r->viewData('sfs')->all());
+        $response=$this->get(route('surya.taskforce.download',['sales_cutoff'=>'2026-10-26','tap'=>'DUMAI','sf'=>'SF B']))->assertOk()->assertDownload('taskforce-2026-10.csv');
+        $csv=ltrim($response->streamedContent(),"\xEF\xBB\xBF");
+        $rows=array_map('str_getcsv',explode("\n",trim($csv)));
+        self::assertSame(['ID Outlet','Visit Asmen','Tanggal Visit','Catatan Asmen'],$rows[0]);
+        self::assertCount(2,$rows);
+        self::assertSame('B',$rows[1][0]);
+        $this->get($this->url(['tap'=>'DURI']))->assertOk()->assertViewHas('outlets',fn($rows)=>$rows->total()===0);
+        $response=$this->get(route('surya.taskforce.download',['tap'=>'DURI','sales_cutoff'=>'2026-10-26']))->assertOk();
+        self::assertCount(1,explode("\n",trim($response->streamedContent())));
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'=1+1'])->assertOk();
+        $response=$this->get(route('surya.taskforce.download',['sales_cutoff'=>'2026-10-26']))->assertOk();
+        $rows=array_map('str_getcsv',explode("\n",trim(ltrim($response->streamedContent(),"\xEF\xBB\xBF"))));
+        self::assertSame(['A','Sudah visit','26/10/2026',"'=1+1"],$rows[1]);
+        $this->asUser('admin_super','SBP_DUMAI');
+        $response=$this->get($this->url(['tap'=>'DURI']))->assertOk();
+        self::assertSame(['C'],$response->viewData('outlets')->pluck('id_outlet')->all());
+        self::assertSame(['SF DURI'],$response->viewData('sfs')->all());
     }
 }
