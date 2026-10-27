@@ -19,7 +19,9 @@ class HomeController extends Controller
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
-            : Cache::remember($cacheKey, now()->addMinutes(5), fn () => $this->dashboardData($request));
+            : Cache::lock('home-dashboard-build:'.$cacheKey, 120)->block(20, function () use ($cacheKey, $request) {
+                return Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->dashboardData($request));
+            });
 
         return view('home', $data);
     }
