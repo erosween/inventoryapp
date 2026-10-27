@@ -15,7 +15,7 @@ class HomeController extends Controller
         $query = $request->query();
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
-        $cacheKey = 'home-dashboard:v4:'.sha1($scope.'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v5:'.sha1($scope.'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -398,9 +398,11 @@ class HomeController extends Controller
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS curr_qty,
-                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty', [
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_partial_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS prev_full_qty', [
                 $momStartThisMonth, $momSelectedDate,
                 $momStartPrevMonth, $momEndPrevMonthPartial,
+                $momStartPrevMonth, $momEndPrevMonthFull,
             ])
             ->groupBy('idtap');
         $applyFilter($qMomTapSales);
@@ -419,13 +421,21 @@ class HomeController extends Controller
             : 0;
 
         $momClusterSales = [];
+        $momClusterSalesRows = [];
         foreach ($clusterMap as $key => $taps) {
             $clusterSales = $momTapSales->whereIn('idtap', $taps);
             $currQty = (int) $clusterSales->sum('curr_qty');
             $prevQty = (int) $clusterSales->sum('prev_partial_qty');
+            $prevFullQty = (int) $clusterSales->sum('prev_full_qty');
             $momClusterSales[$key] = $prevQty > 0
                 ? (($currQty - $prevQty) / $prevQty) * 100
                 : 0;
+            $momClusterSalesRows[$key] = (object) [
+                'curr_qty' => $currQty,
+                'prev_partial_qty' => $prevQty,
+                'prev_full_qty' => $prevFullQty,
+                'mom' => $momClusterSales[$key],
+            ];
         }
         $annualCutoff = $request->query('sales_annual_cutoff', 'full');
         if ($annualCutoff !== 'full' && (! ctype_digit((string) $annualCutoff) || (int) $annualCutoff < 1 || (int) $annualCutoff > 12)) {
@@ -711,6 +721,7 @@ class HomeController extends Controller
             'injectProductFilter',
             'momTapSales',
             'momClusterSales',
+            'momClusterSalesRows',
             'annualSales',
             'annualCurrentYtdSales',
             'annualComparisonMonth',
