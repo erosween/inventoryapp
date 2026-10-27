@@ -10,6 +10,8 @@ use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DOExport;
 use App\Helpers\AuditLogger;
+use App\Support\DenomGrouping;
+use Illuminate\Validation\Rule;
 
 class InputDOController extends Controller
 {
@@ -112,7 +114,8 @@ class InputDOController extends Controller
             })
             ->get();
 
-        return view('form.formDO', compact('data', 'idtap'));
+        $denom = DB::table('denom')->where('allow_do', true)->whereIn('iddenom', DenomGrouping::DO_CODES)->orderBy('iddenom')->get();
+        return view('form.formDO', compact('data', 'idtap', 'denom'));
     }
 
     /* =====================================================
@@ -120,15 +123,7 @@ class InputDOController extends Controller
     ===================================================== */
     public function masukProses(Request $request)
     {
-        $request->validate([
-            'kategorisegel' => 'required',
-            'penerima'      => 'required', // idsf
-            'qty'           => 'required|numeric|min:1',
-            'tgl'           => 'required|date',
-            'nomordo'       => 'required',
-            'week'          => 'required',
-            'idtap'         => 'required'
-        ]);
+        $this->validateDo($request);
 
         DB::transaction(function () use ($request) {
 
@@ -179,13 +174,14 @@ class InputDOController extends Controller
             ->when($idtap_session !== 'SBP_DUMAI', fn($q) => $q->where('idtap', $idtap_session))
             ->get();
 
-        $denom = DB::table('denom')->get();
+        $denom = DB::table('denom')->where('allow_do', true)->whereIn('iddenom', DenomGrouping::DO_CODES)->get();
 
         return view('form.form-edit-DO', compact('edit', 'data', 'denom', 'idtap_session'));
     }
 
     public function update(Request $request, $id)
     {
+        $this->validateDo($request);
         DB::transaction(function () use ($request, $id) {
             $oldData = DB::table('masuk')->where('idmasuk', $id)->lockForUpdate()->first();
             
@@ -318,6 +314,18 @@ public function getTap(Request $request)
     private function isDirectPackage(?string $iddenom): bool
     {
         return in_array(strtoupper((string) $iddenom), ['SP1', 'SP6', 'SP7'], true);
+    }
+
+    private function validateDo(Request $request): void
+    {
+        $request->validate([
+            'kategorisegel' => ['required', Rule::in(DenomGrouping::DO_CODES), Rule::exists('denom', 'iddenom')->where('allow_do', true)],
+            'penerima' => ['required', Rule::exists('kategori_bo', 'namabo')->where('idtap', $request->idtap)],
+            'qty' => 'required|integer|min:1', 'tgl' => 'required|date|before_or_equal:today',
+            'nomordo' => 'required|string|max:255', 'week' => 'required|string|max:25',
+            'idtap' => 'required|exists:kodetap,idtap',
+        ]);
+        abort_unless(session('idtap') === 'SBP_DUMAI' || $request->idtap === session('idtap'), 403);
     }
 
     private function incrementTapStock(string $idtap, string $iddenom, int $qty): void

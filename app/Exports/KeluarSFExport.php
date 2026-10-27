@@ -32,7 +32,9 @@ class KeluarSFExport implements FromCollection, WithHeadings
             'QTY',
             'TAP',
             'SF',
-            'KET'
+            'KET',
+            'PRODUK',
+            'VARIAN'
             
         ];
     }

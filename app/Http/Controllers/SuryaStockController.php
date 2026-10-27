@@ -35,8 +35,8 @@ class SuryaStockController extends Controller
         $sfIds = $sfRows->pluck('idsf');
         $targets = DB::table('surya_sf_targets')->whereIn('idsf', $sfIds)->where('product_family', $family)->get()->groupBy('idsf');
         $denoms = DB::table('denom')->where(function ($q) use ($family) {
-            if ($family === 'SA') $q->where('kategori_inject', 'SA');
-            else $q->whereNotIn('kategori_inject', ['BYU', 'SA'])->where('group_name', '!=', 'LAINNYA');
+            if ($family === 'SA') $q->where('product', 'SA')->where('stock_form', 'INJECT');
+            else $q->where('product', 'PV')->where('product_variant', 'REGULER')->where('stock_form', 'INJECT')->where('group_name', '!=', 'LAINNYA');
         })->get(['iddenom', 'denom', 'group_name']);
         $denomKeys = $denoms->groupBy(fn ($d) => $family === 'PV' ? strtoupper($d->group_name) : strtoupper(preg_replace('/^SA\s+/i', '', $d->denom)))->map(fn ($rows) => $rows->pluck('iddenom')->values());
         $stock = DB::table('stockawalsf')->whereIn('idsf', $sfIds)->whereIn('iddenom', $denoms->pluck('iddenom'))->get()->groupBy('idsf');

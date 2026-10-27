@@ -6,6 +6,7 @@ class StockProduct
 {
     public static function isSa(object $denom): bool
     {
+        if (in_array($denom->product ?? null, ['PV', 'SA'], true)) return $denom->product === 'SA';
         $id = strtoupper(trim((string) $denom->iddenom));
         if (in_array($id, ['SP6', 'SP7'], true)) return true;
         if (in_array($id, ['SEGEL', 'V16', 'V33'], true)) return false;
@@ -16,6 +17,7 @@ class StockProduct
 
     public static function isSealed(object $denom): bool
     {
+        if (in_array($denom->stock_form ?? null, ['SEGEL', 'INJECT'], true)) return $denom->stock_form === 'SEGEL';
         return in_array(strtoupper(trim((string) $denom->iddenom)), ['SEGEL', 'V16', 'V33', 'SP6', 'SP7'], true)
             || strtoupper(trim((string) $denom->group_name)) === 'SEGEL';
     }

@@ -35,7 +35,7 @@ final class InjectProductConfig
                 'destination_name_excludes' => [],
                 'excluded_source_ids' => ['SP6', 'SP7'],
             ],
-            default => [
+            'SEGEL' => [
                 'label' => 'PV SEGEL',
                 'source_id' => 'SEGEL',
                 'destination_category' => 'SEGEL',
@@ -44,6 +44,7 @@ final class InjectProductConfig
                 'destination_name_excludes' => [],
                 'excluded_source_ids' => ['SEGEL', 'V33', 'SP6', 'SP7'],
             ],
+            default => throw \Illuminate\Validation\ValidationException::withMessages(['category' => 'Sumber segel tidak valid.']),
         };
     }
 }

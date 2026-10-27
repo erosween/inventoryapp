@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\DenomGrouping;
 
 class DenomController extends Controller
 {
@@ -72,20 +73,20 @@ class DenomController extends Controller
             'group_name' => 'required'
         ]);
 
+        $metadata = $this->groupingMetadata($request, (string) $request->iddenom);
+
         DB::beginTransaction();
         try {
-            $isSealedStarter = in_array(strtoupper((string) $request->iddenom), ['SP6', 'SP7'], true);
-            $productGroup = $isSealedStarter ? 'SP' : $this->productGroupForCategory($request->kategori_inject);
 
             // 1. Simpan ke tabel master denom
             DB::table('denom')->insert([
                 'iddenom' => $request->iddenom,
                 'denom' => $request->denom,
-                'group_name' => $request->group_name,
-                'kategori_inject' => $isSealedStarter ? 'SA' : $request->kategori_inject,
-                'product_group' => $productGroup,
+                'group_name' => $metadata['stock_form'] === 'SEGEL' ? 'SEGEL' : $request->group_name,
+                'kategori_inject' => $this->legacyCategory($metadata),
+                'product_group' => $this->legacyProductGroup($metadata, (string) $request->iddenom),
                 'harga_jual' => $request->harga_jual ?? 0
-            ]);
+            ] + $metadata);
 
             // 2. Automasi Inisialisasi Stok Awal (Saldo Awal) ke 0 untuk semua TAP
             $taps = DB::table('kodetap')->get();
@@ -130,18 +131,18 @@ class DenomController extends Controller
             'group_name' => 'required'
         ]);
 
+        $metadata = $this->groupingMetadata($request, (string) $iddenom);
+
         DB::beginTransaction();
         try {
-            $isSealedStarter = in_array(strtoupper((string) $iddenom), ['SP6', 'SP7'], true);
-            $productGroup = $isSealedStarter ? 'SP' : $this->productGroupForCategory($request->kategori_inject);
 
             DB::table('denom')->where('iddenom', $iddenom)->update([
                 'denom' => $request->denom,
-                'group_name' => $request->group_name,
-                'kategori_inject' => $isSealedStarter ? 'SA' : $request->kategori_inject,
-                'product_group' => $productGroup,
+                'group_name' => $metadata['stock_form'] === 'SEGEL' ? 'SEGEL' : $request->group_name,
+                'kategori_inject' => $this->legacyCategory($metadata),
+                'product_group' => $this->legacyProductGroup($metadata, (string) $iddenom),
                 'harga_jual' => $request->harga_jual ?? 0
-            ]);
+            ] + $metadata);
 
             // Update master denom saja karena relasi stock awal akan membaca dari sini.
             DB::commit();
@@ -171,5 +172,28 @@ class DenomController extends Controller
             'SEGEL' => 'PV',
             default => 'PV',
         };
+    }
+
+    private function groupingMetadata(Request $request, string $id): array
+    {
+        $request->validate([
+            'product'=>'required|in:PV,SA',
+            'product_variant'=>'required|in:REGULER,SIMPATI,BYU,ROAMAX',
+            'stock_form'=>'required|in:SEGEL,INJECT',
+        ]);
+        return DenomGrouping::forMaster($id, $request->all());
+    }
+
+    private function legacyProductGroup(array $metadata, string $id): string
+    {
+        $existing = DB::table('denom')->where('iddenom', $id)->value('product_group');
+        return $metadata['product'] === 'SA' && ($existing === 'SP' || in_array($id, ['SP6','SP7'], true))
+            ? 'SP' : $metadata['product'];
+    }
+
+    private function legacyCategory(array $metadata): string
+    {
+        if ($metadata['product'] === 'SA') return 'SA';
+        return match ($metadata['product_variant']) { 'BYU'=>'BYU', 'ROAMAX'=>'ROAMAX', default=>'SEGEL' };
     }
 }

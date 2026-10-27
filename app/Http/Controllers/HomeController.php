@@ -18,7 +18,7 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v13:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v14:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -60,7 +60,7 @@ class HomeController extends Controller
             ->whereIn('combined_sales.iddenom', function ($productQuery) {
                 $productQuery->select('product_denom.iddenom')
                     ->from('denom as product_denom')
-                    ->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) <> 'SA'");
+                    ->whereRaw("product_denom.product = 'PV'");
             })
             ->selectRaw('idtap, MAX(tgl) AS last_input')
             ->groupBy('idtap');
@@ -257,39 +257,7 @@ class HomeController extends Controller
         if (!in_array($injectProductFilter, $productFilterOptions, true)) $injectProductFilter = 'pv_all';
 
         $applyProductFilter = function ($query, string $table, string $filter) {
-            if ($filter === 'all') return;
-
-            $query->whereIn($table.'.iddenom', function ($denomQuery) use ($table, $filter) {
-                $denomQuery->select('product_denom.iddenom')
-                    ->from('denom as product_denom');
-
-                if ($table === 'injectvf') {
-                    $sourceCategories = match ($filter) {
-                        'pv_all' => ['SEGEL', 'V33'],
-                        'pv_reg' => ['SEGEL'],
-                        'pv_byu' => ['V33'],
-                        'sa_all' => ['SP6', 'SP7'],
-                        'sa_simpati' => ['SP6'],
-                        'sa_byu' => ['SP7'],
-                        default => [],
-                    };
-                    $denomQuery->whereIn($table.'.kategori', $sourceCategories);
-                } elseif ($filter === 'pv_all') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) <> 'SA'");
-                } elseif ($filter === 'pv_reg') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) NOT IN ('BYU', 'SA')");
-                } elseif ($filter === 'pv_byu') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'BYU'");
-                } elseif ($filter === 'sa_all') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'");
-                } elseif ($filter === 'sa_simpati') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
-                        ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) NOT LIKE 'SA BYU%'");
-                } elseif ($filter === 'sa_byu') {
-                    $denomQuery->whereRaw("UPPER(COALESCE(product_denom.kategori_inject, '')) = 'SA'")
-                        ->whereRaw("UPPER(COALESCE(product_denom.denom, '')) LIKE 'SA BYU%'");
-                }
-            });
+            \App\Support\DenomGrouping::filterTransactions($query, $table, $filter);
         };
 
         $chartKind = $request->header('X-Surya-Card');
@@ -347,12 +315,11 @@ class HomeController extends Controller
         $stockDenoms = $stockSnapshot['denoms'];
         $matchesStockProduct = static function ($denom, string $filter): bool {
             $isSa = StockProduct::isSa($denom);
-            $isByu = strtoupper((string) $denom->kategori_inject) === 'BYU';
-            $isSaByu = strtoupper((string) $denom->iddenom) === 'SP7'
-                || str_starts_with(strtoupper((string) $denom->denom), 'SA BYU');
+            $isByu = $denom->product_variant === 'BYU';
+            $isSaByu = $denom->product_variant === 'BYU';
             return match ($filter) {
                 'pv_all' => !$isSa,
-                'pv_reg' => !$isSa && !$isByu,
+                'pv_reg' => !$isSa && $denom->product_variant === 'REGULER',
                 'pv_byu' => !$isSa && $isByu,
                 'sa_all' => $isSa,
                 'sa_simpati' => $isSa && !$isSaByu,

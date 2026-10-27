@@ -176,7 +176,7 @@ class InjectController extends Controller
                 'd.denom',
                 'f.qty',
                 'f.idtap',
-                'f.sn'
+                'f.sn', 'd.product', 'd.product_variant', 'f.kategori'
             );
 
         TapFilter::apply($query, 'f.idtap');

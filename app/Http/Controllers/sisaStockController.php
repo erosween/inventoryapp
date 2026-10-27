@@ -127,8 +127,13 @@ class sisaStockController extends Controller
                 ->where('tgl', '>=', $afterDate);
             $applyFilter($doMasuk);
             foreach ($doMasuk->groupBy('idtap', 'penerima', 'iddenom')->get() as $r) {
-                $key = $r->idtap . '|' . $r->idsf . '|' . $r->iddenom;
-                $sfStock[$key] = ($sfStock[$key] ?? 0) - $r->total;
+                if (in_array($r->iddenom, ['SP1', 'SP6', 'SP7'], true)) {
+                    $key = $r->idtap.'|'.$r->iddenom;
+                    $tapStock[$key] = ($tapStock[$key] ?? 0) - $r->total;
+                } else {
+                    $key = $r->idtap . '|' . $r->idsf . '|' . $r->iddenom;
+                    $sfStock[$key] = ($sfStock[$key] ?? 0) - $r->total;
+                }
             }
 
             // Distribusi TAP ke SF: kembalikan stok ke TAP dan kurangi stok SF.
@@ -184,12 +189,11 @@ class sisaStockController extends Controller
 
             // e. Inject PV (Potong Segel)
             $injectSegel = DB::table('injectvf')
-                ->join('denom', 'injectvf.iddenom', '=', 'denom.iddenom')
-                ->select('injectvf.idtap', 'denom.kategori_inject as iddenom', DB::raw('SUM(injectvf.qty) as total'))
-                ->whereNotNull('denom.kategori_inject')
+                ->select('injectvf.idtap', 'injectvf.kategori as iddenom', DB::raw('SUM(injectvf.qty) as total'))
+                ->whereNotNull('injectvf.kategori')
                 ->where('injectvf.tgl', '>=', $afterDate);
             $applyFilter($injectSegel, 'injectvf.idtap');
-            foreach ($injectSegel->groupBy('injectvf.idtap', 'denom.kategori_inject')->get() as $r) {
+            foreach ($injectSegel->groupBy('injectvf.idtap', 'injectvf.kategori')->get() as $r) {
                 $key = $r->idtap . '|' . $r->iddenom;
                 $tapStock[$key] = ($tapStock[$key] ?? 0) + $r->total;
             }
@@ -494,7 +498,7 @@ class sisaStockController extends Controller
         ];
 
         foreach ($denoms as $denom) {
-            $injectCategory = strtoupper(trim((string) $denom->kategori_inject));
+            $injectCategory = StockProduct::isSa($denom) ? 'SA' : ($denom->product_variant ?? strtoupper(trim((string) $denom->kategori_inject)));
             $category = in_array($injectCategory, ['BYU', 'SA'], true)
                 ? $injectCategory
                 : 'REGULER';

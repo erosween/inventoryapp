@@ -28,12 +28,12 @@ class StockSfController extends Controller
             ->get();
         $visibleDenomIds = $denoms->pluck('iddenom')->all();
 
-        $groups = ['VOUCHER FISIK' => [], 'VOUCHER by.U' => []];
+        $groups = ['PV REGULER' => [], 'PV BY.U' => [], 'SA SIMPATI' => [], 'SA BY.U' => []];
         foreach ($denoms as $d) {
             $groupName = $d->group_name;
-            $voucherType = strtoupper((string) $d->kategori_inject) === 'BYU'
-                ? 'VOUCHER by.U'
-                : 'VOUCHER FISIK';
+            $voucherType = $d->product === 'SA'
+                ? ($d->product_variant === 'BYU' ? 'SA BY.U' : 'SA SIMPATI')
+                : ($d->product_variant === 'BYU' ? 'PV BY.U' : 'PV REGULER');
             if (!isset($groups[$voucherType][$groupName])) {
                 $groups[$voucherType][$groupName] = [];
             }

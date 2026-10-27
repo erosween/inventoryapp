@@ -5,7 +5,7 @@
 
     $validitySummaries = [];
     foreach ($groups as $voucherType => $validityGroups) {
-        $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER';
+        $voucherLabel = $voucherType;
         foreach ($validityGroups as $groupName => $items) {
             if (Str::contains(Str::upper($groupName), 'HARI')) {
                 $validitySummaries[] = [
@@ -66,7 +66,7 @@
                                             @endphp
                                             @if ($voucherColspan)
                                                 <th colspan="{{ $voucherColspan }}"
-                                                    class="th-voucher {{ $voucherType === 'VOUCHER by.U' ? 'th-voucher-byu' : 'th-voucher-fisik' }}">
+                                                    class="th-voucher {{ str_contains($voucherType, 'BY.U') ? 'th-voucher-byu' : 'th-voucher-fisik' }}">
                                                     <span class="voucher-label">{{ $voucherType }}</span>
                                                 </th>
                                             @endif
@@ -82,7 +82,7 @@
 
                                     <tr class="group-header">
                                         @foreach ($groups as $voucherType => $validityGroups)
-                                            @php $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER'; @endphp
+                                            @php $voucherLabel = $voucherType; @endphp
                                             @foreach ($validityGroups as $group => $items)
                                                 <th colspan="{{ count($items) + 1 }}"
                                                     class="th-group th-{{ Str::slug($group) }}">
@@ -95,7 +95,7 @@
                                     {{-- SUB HEADER --}}
                                     <tr class="sub-header">
                                         @foreach ($groups as $voucherType => $validityGroups)
-                                            @php $voucherLabel = $voucherType === 'VOUCHER by.U' ? 'BYU' : 'REGULER'; @endphp
+                                            @php $voucherLabel = $voucherType; @endphp
                                             @foreach ($validityGroups as $group => $items)
                                                 @foreach ($items as $d)
                                                     <th class="th-sub text-center">{{ $d->denom }}</th>

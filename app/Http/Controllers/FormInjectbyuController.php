@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Support\InjectProductConfig;
+use App\Support\DenomGrouping;
 
 class FormInjectbyuController extends Controller
 {   
@@ -16,13 +17,7 @@ class FormInjectbyuController extends Controller
         $category = $request->query('category', 'V33');
         $config = $this->categoryConfig($category);
 
-        $denom = DB::table('denom')
-                    ->select('iddenom', 'denom')
-                    ->where('kategori_inject', $config['destination_category'])
-                    ->where($this->productGroupFilter($config['product_group']))
-                    ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-                    ->whereNotIn('iddenom', $config['excluded_source_ids'])
-                    ->get();
+        $denom = DenomGrouping::destinations(DB::table('denom'), $config['source_id'])->get(['iddenom', 'denom']);
 
         if($idtap == 'SBP_DUMAI'){
 
@@ -83,14 +78,8 @@ class FormInjectbyuController extends Controller
         }
 
         $config = $this->categoryConfig($payload['category']);
-        $allowedDenoms = DB::table('denom')
-            ->where('kategori_inject', $config['destination_category'])
-            ->where($this->productGroupFilter($config['product_group']))
-            ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-            ->whereNotIn('iddenom', $config['excluded_source_ids'])
-            ->pluck('iddenom')
-            ->map(fn ($id) => (string) $id)
-            ->flip();
+        $allowedDenoms = DenomGrouping::destinations(DB::table('denom'), $config['source_id'])
+            ->pluck('iddenom')->map(fn ($id) => (string) $id)->flip();
 
         foreach ($payload['items'] as $item) {
             if (! $allowedDenoms->has((string) $item['iddenom'])) {

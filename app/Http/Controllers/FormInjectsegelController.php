@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Support\InjectProductConfig;
+use App\Support\DenomGrouping;
 
 class FormInjectsegelController extends Controller
 {
@@ -17,18 +18,7 @@ class FormInjectsegelController extends Controller
         $category = $request->query('category', 'SEGEL');
         $config = $this->categoryConfig($category);
 
-        $denom = DB::table('denom')
-                    ->select('iddenom', 'denom')
-                    ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
-                    ->where('kategori_inject', $config['destination_category'])
-                    ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-                    ->whereNotIn('iddenom', $config['excluded_source_ids'])
-                    ->when($config['destination_name_excludes'], function ($q, $patterns) {
-                        foreach ($patterns as $pattern) {
-                            $q->where('denom', 'not like', $pattern);
-                        }
-                    })
-                    ->get();
+        $denom = DenomGrouping::destinations(DB::table('denom'), $config['source_id'])->get(['iddenom', 'denom']);
 
         if($idtap == 'SBP_DUMAI'){
 
@@ -84,19 +74,8 @@ class FormInjectsegelController extends Controller
             abort(403, 'TAP tidak sesuai dengan akses pengguna.');
         }
 
-        $allowedDenoms = DB::table('denom')
-            ->when($config['product_group'], fn ($q, $group) => $q->where('product_group', $group))
-            ->where('kategori_inject', $config['destination_category'])
-            ->when($config['destination_name_prefix'], fn ($q, $prefix) => $q->where('denom', 'like', $prefix))
-            ->whereNotIn('iddenom', $config['excluded_source_ids'])
-            ->when($config['destination_name_excludes'], function ($q, $patterns) {
-                foreach ($patterns as $pattern) {
-                    $q->where('denom', 'not like', $pattern);
-                }
-            })
-            ->pluck('iddenom')
-            ->map(fn ($id) => (string) $id)
-            ->flip();
+        $allowedDenoms = DenomGrouping::destinations(DB::table('denom'), $config['source_id'])
+            ->pluck('iddenom')->map(fn ($id) => (string) $id)->flip();
 
         foreach ($payload['items'] as $item) {
             if (! $allowedDenoms->has((string) $item['iddenom'])) {

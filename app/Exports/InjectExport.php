@@ -26,10 +26,13 @@ class InjectExport implements FromCollection, WithHeadings
     {
         return [
             'TANGGAL',
-            'SN',
-            'TAP',
             'DENOM',
-            'QUANTITY'
+            'QUANTITY',
+            'TAP',
+            'SN',
+            'PRODUK',
+            'VARIAN',
+            'SUMBER SEGEL'
             
         ];
     }

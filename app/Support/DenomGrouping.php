@@ -24,7 +24,7 @@ final class DenomGrouping
         $variant = match ($id) {
             'SEGEL'=>'REGULER', 'V16'=>'ROAMAX', 'V33', 'SP7'=>'BYU', 'SP1', 'SP6'=>'SIMPATI', default=>$variant,
         };
-        $sealed = in_array($id, self::SOURCES, true) || $group === 'SEGEL';
+        $sealed = $id !== 'SP1' && (in_array($id, self::SOURCES, true) || $group === 'SEGEL');
         $source = $sealed ? null : match ($variant) {
             'SIMPATI' => 'SP6', 'BYU' => $sa ? 'SP7' : 'V33',
             'ROAMAX' => 'V16', default => 'SEGEL',
@@ -46,7 +46,7 @@ final class DenomGrouping
     public static function forMaster(string $id, array $input): array
     {
         if (in_array(strtoupper($id), [...self::SOURCES, 'SP1'], true)) {
-            return self::infer((object) ($input + ['iddenom' => strtoupper($id)]));
+            return self::infer((object) array_merge($input, ['iddenom' => strtoupper($id)]));
         }
         $product = $input['product'];
         $variant = $input['product_variant'];

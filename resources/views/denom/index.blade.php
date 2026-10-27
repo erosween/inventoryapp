@@ -51,6 +51,7 @@
                                             <tr>
                                                 <th>ID Denom</th>
                                                 <th>Nama Denom</th>
+                                                <th>Produk</th><th>Varian</th><th>Bentuk</th><th>Sumber Segel</th><th>Input DO</th>
                                                 <th>Grup</th>
                                                 <th>Kategori Inject</th>
                                                 <th>Harga Jual</th>
@@ -62,6 +63,11 @@
                                                 <tr>
                                                     <td>{{ $denom->iddenom }}</td>
                                                     <td>{{ $denom->denom }}</td>
+                                                    <td><span class="badge badge-{{ $denom->product === 'SA' ? 'danger' : 'primary' }}">{{ $denom->product }}</span></td>
+                                                    <td>{{ $denom->product_variant }}</td>
+                                                    <td>{{ $denom->stock_form }}</td>
+                                                    <td>{{ $denom->inject_source_id ?: '–' }}</td>
+                                                    <td>{{ $denom->allow_do ? 'Ya' : 'Tidak' }}</td>
                                                     <td>
                                                         <span class="badge badge-info">{{ $denom->group_name }}</span>
                                                     </td>
@@ -133,6 +139,7 @@
                         <p class="small text-muted">Menambah denom baru akan otomatis membuat saldo awal "0" untuk SEMUA
                             TAP dan SALES FORCE.</p>
                         <div class="row">
+                            @include('denom.grouping-fields')
                             <div class="col-sm-12">
                                 <div class="form-group">
                                     <label>ID Denom (Unik)</label>
@@ -160,8 +167,8 @@
                             </div>
                             <div class="col-sm-12">
                                 <div class="form-group">
-                                    <label>Kategori Inject</label>
-                                    <select name="kategori_inject" class="form-control">
+                                    <label>Kategori Inject Lama (otomatis)</label>
+                                    <select name="kategori_inject" class="form-control" disabled>
                                         <option value="">- Non Inject -</option>
                                         @foreach ($kategoriInjects as $kategori => $pilihan)
                                             <optgroup label="{{ $kategori }}">
@@ -171,7 +178,7 @@
                                             </optgroup>
                                         @endforeach
                                     </select>
-                                    <small class="form-text text-muted">Untuk denom Unlimited, pilih kategori BYU.</small>
+                                    <small class="form-text text-muted">Diisi otomatis dari Produk + Varian saat disimpan.</small>
                                 </div>
                             </div>
                             <div class="col-sm-12">
@@ -209,6 +216,7 @@
                         @csrf
                         <div class="modal-body">
                             <div class="row">
+                                @include('denom.grouping-fields', ['groupingDenom'=>$denom])
                                 <div class="col-sm-12">
                                     <div class="form-group">
                                         <label>ID Denom (Kunci)</label>
@@ -236,8 +244,8 @@
                                 </div>
                                 <div class="col-sm-12">
                                     <div class="form-group">
-                                        <label>Kategori Inject</label>
-                                        <select name="kategori_inject" class="form-control">
+                                        <label>Kategori Inject Lama (otomatis)</label>
+                                        <select name="kategori_inject" class="form-control" disabled>
                                             <option value="">- Non Inject -</option>
                                             @foreach ($kategoriInjects as $kategori => $pilihan)
                                                 <optgroup label="{{ $kategori }}">
@@ -249,7 +257,7 @@
                                                 </optgroup>
                                             @endforeach
                                         </select>
-                                        <small class="form-text text-muted">Untuk denom Unlimited, pilih kategori BYU.</small>
+                                        <small class="form-text text-muted">Diisi otomatis dari Produk + Varian saat disimpan.</small>
                                     </div>
                                 </div>
                                 <div class="col-sm-12">

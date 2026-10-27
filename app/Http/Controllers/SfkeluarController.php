@@ -614,14 +614,14 @@ public function updateSfKeluar(Request $request, $id)
             DB::raw('SUM(f.qty) as qty'),
             'f.idtap',
             'i.namasf',
-            'f.tambahanket'
+            'f.tambahanket', 'd.product', 'd.product_variant'
         )
         ->groupBy(
             'f.tgl',
             'd.denom',
             'f.idtap',
             'i.namasf',
-            'f.tambahanket'
+            'f.tambahanket', 'd.product', 'd.product_variant'
         );
 
     /* ===============================
