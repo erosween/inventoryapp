@@ -25,8 +25,18 @@
             $pageStart = max(1, $paginator->currentPage() - 2); $pageEnd = min($paginator->lastPage(), $paginator->currentPage() + 2);
         @endphp
         @if($activeTab === 'digipos')
-        <div class="card"><div class="table-wrap"><table class="detail-table"><thead><tr><th rowspan="2">ID Outlet</th><th rowspan="2">Nama Outlet</th><th rowspan="2">Kecamatan</th><th rowspan="2">SF</th><th rowspan="2">TAP</th><th rowspan="2">Hari PJP</th>@foreach($groups as $group)<th class="group" colspan="5">{{ $group['label'] }}</th>@endforeach</tr><tr>@foreach($groups as $group)@foreach($periods as $label)<th>{{ $label }}</th>@endforeach @endforeach</tr></thead><tbody>
-        @forelse($outlets as $outlet)<tr><td>@if($canEditOutlet)<button class="outlet-profile-link" type="button" data-outlet-id="{{ $outlet->id_outlet }}">{{ $outlet->id_outlet }}</button>@else{{ $outlet->id_outlet }}@endif</td><td>{{ $outlet->nama_outlet ?: '–' }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->sf ?: '–' }}</td><td>{{ $outlet->tap ?: '–' }}</td><td>{{ $outlet->pjp ?: '–' }}</td>@foreach($groups as $key => $group)@foreach($periods as $period => $label)@php $value=$outlet->{$key.'_'.$period};$isPercent=$period==='mom_pct'; @endphp<td class="metric {{ $loop->first ? 'group-start' : '' }} {{ $group['class'] }} {{ $isPercent && $value !== null ? ($value >= 0 ? 'positive' : 'negative') : '' }} {{ $value === null ? 'blank' : '' }}">{{ $value === null ? '–' : ($isPercent ? ($value > 0 ? '+' : '').number_format($value,1,',','.').'%' : number_format($value,0,',','.')) }}</td>@endforeach @endforeach</tr>@empty<tr><td class="table-empty" colspan="41">Outlet PJP tidak ditemukan.</td></tr>@endforelse
+        <div class="card"><div class="table-wrap"><table class="detail-table outlet-table-v2">
+        <colgroup><col style="width:34px"><col style="width:130px"><col style="width:230px"><col span="4" style="width:160px"><col span="35" style="width:100px"></colgroup>
+        <thead><tr><th class="freeze-number" rowspan="2">No</th><th class="freeze-id" rowspan="2">ID Outlet</th><th class="freeze-name" rowspan="2">Nama Outlet</th><th rowspan="2">Kecamatan</th><th rowspan="2">SF</th><th rowspan="2">TAP</th><th rowspan="2">Hari PJP</th>@foreach($groups as $group)<th class="group" colspan="5">{{ $group['label'] }}</th>@endforeach</tr><tr>@foreach($groups as $group)@foreach($periods as $label)<th>{{ $label }}</th>@endforeach @endforeach</tr></thead><tbody>
+        @forelse($outlets as $outlet)
+        <tr>
+            <td class="freeze-number">{{ $outlets->firstItem() + $loop->index }}</td>
+            <td class="freeze-id">@if($canEditOutlet)<button class="outlet-profile-link" type="button" data-outlet-id="{{ $outlet->id_outlet }}">{{ $outlet->id_outlet }}</button>@else{{ $outlet->id_outlet }}@endif</td>
+            <td class="freeze-name">{{ $outlet->nama_outlet ?: '–' }}</td>
+            <td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->sf ?: '–' }}</td><td>{{ $outlet->tap ?: '–' }}</td><td>{{ $outlet->pjp ?: '–' }}</td>
+            @foreach($groups as $key => $group)@foreach($periods as $period => $label)@php $value=$outlet->{$key.'_'.$period};$isPercent=$period==='mom_pct'; @endphp<td class="metric {{ $loop->first ? 'group-start' : '' }} {{ $group['class'] }} {{ $isPercent && $value !== null ? ($value >= 0 ? 'positive' : 'negative') : '' }} {{ $value === null ? 'blank' : '' }}">{{ $value === null ? '–' : ($isPercent ? ($value > 0 ? '+' : '').number_format($value,1,',','.').'%' : number_format($value,0,',','.')) }}</td>@endforeach @endforeach
+        </tr>
+        @empty<tr><td class="table-empty" colspan="42">Outlet PJP tidak ditemukan.</td></tr>@endforelse
         </tbody></table></div>
         @else
         <div class="card"><div class="table-wrap"><table class="non-digipos-table"><thead><tr><th>Outlet</th><th>Owner</th><th>Contact</th><th>Alamat</th><th>SF</th><th>TAP</th><th>SA</th><th>PV</th></tr></thead><tbody>@forelse($nonDigiposOutlets as $outlet)<tr><td><strong>{{ $outlet->outlet_name ?: '–' }}</strong></td><td>{{ $outlet->owner_name ?: '–' }}</td><td>{{ $outlet->phone_number ?: '–' }}</td><td class="product-summary">{{ $outlet->outlet_address ?: '–' }}</td><td><strong>{{ $outlet->namasf ?: $outlet->idsf }}</strong></td><td>{{ $outlet->idtap ?: '–' }}</td><td class="number sales">{{ number_format($outlet->total_sa) }}</td><td class="number sales">{{ number_format($outlet->total_pv) }}</td></tr>@empty<tr><td class="table-empty" colspan="8">Outlet non-Digipos tidak ditemukan.</td></tr>@endforelse</tbody></table></div>
@@ -49,28 +59,6 @@ $('.filters select[name="tap"]').on('change', function () {
     if (sf.length) sf.val(null).trigger('change');
     this.form.submit();
 });
-const outletTable = document.querySelector('.detail-table');
-if (outletTable) {
-    const header = outletTable.tHead?.rows[0];
-    if (header && !header.querySelector('.row-number-header')) {
-        const numberHeader = document.createElement('th');
-        numberHeader.className = 'row-number-header';
-        numberHeader.rowSpan = 2;
-        numberHeader.textContent = 'No';
-        header.insertBefore(numberHeader, header.firstElementChild);
-    }
-    outletTable.tBodies[0]?.querySelectorAll('tr:not(.sf-row)').forEach((row, index) => {
-        if (row.querySelector('.row-number-cell')) return;
-        const numberCell = document.createElement('td');
-        numberCell.className = 'row-number-cell';
-        numberCell.textContent = index + 1;
-        row.insertBefore(numberCell, row.firstElementChild);
-    });
-    outletTable.querySelectorAll('[colspan]').forEach(cell => {
-        const colspan = Number(cell.getAttribute('colspan'));
-        if (Number.isFinite(colspan)) cell.setAttribute('colspan', colspan + 1);
-    });
-}
 
 const canEditOutlet=@json($canEditOutlet);if(canEditOutlet){const modal=document.getElementById('profile-modal'),form=document.getElementById('profile-form'),message=document.getElementById('profile-message'),save=document.getElementById('profile-save'),profileUrl=@json(route('surya.outlet-detail.profile',['idOutlet'=>'__ID__'])),updateUrl=@json(route('surya.outlet-detail.profile.update',['idOutlet'=>'__ID__'])),detailTable=document.querySelector('.detail-table');let activeId='';const closeModal=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-profile-close]').forEach(button=>button.onclick=closeModal);modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});detailTable?.addEventListener('click',async event=>{const button=event.target.closest('[data-outlet-id]');if(!button)return;activeId=button.dataset.outletId;message.textContent='';modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.getElementById('profile-subtitle').textContent='Memuat data outlet...';try{const response=await fetch(profileUrl.replace('__ID__',encodeURIComponent(activeId)),{headers:{Accept:'application/json'}});if(!response.ok)throw new Error('Profil outlet gagal dimuat.');const data=await response.json(),outlet=data.outlet;document.getElementById('profile-id').textContent=outlet.id_outlet;document.getElementById('profile-tap').textContent=outlet.tap||'–';document.getElementById('profile-name').textContent=outlet.nama_outlet||'–';document.getElementById('profile-kecamatan').textContent=outlet.kecamatan||'–';document.getElementById('profile-subtitle').textContent='Ubah mapping Sales Force dan hari PJP.';const sf=document.getElementById('profile-sf');sf.innerHTML='<option value="UNMAPPING">UNMAPPING</option>';data.sales.forEach(item=>sf.add(new Option(`${item.namasf} (${item.idsf})`,item.namasf)));sf.value=outlet.sf||'UNMAPPING';const pjp=document.getElementById('profile-pjp');pjp.innerHTML='';data.days.forEach(day=>pjp.add(new Option(day,day)));pjp.value=outlet.pjp||'UNMAPPING'}catch(error){message.textContent=error.message}});form.addEventListener('submit',async event=>{event.preventDefault();message.textContent='';save.disabled=true;try{const response=await fetch(updateUrl.replace('__ID__',encodeURIComponent(activeId)),{method:'PUT',headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-TOKEN':@json(csrf_token())},body:JSON.stringify({sf:document.getElementById('profile-sf').value,pjp:document.getElementById('profile-pjp').value})});const data=await response.json();if(!response.ok)throw new Error(Object.values(data.errors||{}).flat()[0]||data.message||'Perubahan gagal disimpan.');window.location.reload()}catch(error){message.textContent=error.message;save.disabled=false}})}
 </script></body></html>
