@@ -393,6 +393,20 @@ class HomeController extends Controller
         $salesBulanIniPv = $salesBulanIniByProduct['pv_all'];
         $salesBulanIniSa = $salesBulanIniByProduct['sa_all'];
 
+        $momByProduct = [];
+        foreach (['pv_all' => $salesBulanIniPv, 'sa_all' => $salesBulanIniSa] as $product => $currentQty) {
+            $qSalesPrevProduct = $this->combinedSalesQuery()
+                ->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
+            $applyFilter($qSalesPrevProduct);
+            $applyProductFilter($qSalesPrevProduct, 'combined_sales', $product);
+            $previousQty = (int) $qSalesPrevProduct->sum('qty');
+            $momByProduct[$product] = $previousQty > 0
+                ? (($currentQty - $previousQty) / $previousQty) * 100
+                : 0;
+        }
+        $momPv = $momByProduct['pv_all'];
+        $momSa = $momByProduct['sa_all'];
+
         $qMomTapSales = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
@@ -707,6 +721,8 @@ class HomeController extends Controller
             'salesBulanIni',
             'salesBulanIniPv',
             'salesBulanIniSa',
+            'momPv',
+            'momSa',
             'mom',
             'chartSales',
             'chartInject',

@@ -274,11 +274,18 @@
                         ['SALES BULAN INI · PV', $salesBulanIniPv, '#8E24AA', 'bar-chart', 'Akumulasi MTD PV berjalan'],
                         ['SALES BULAN INI · SA', $salesBulanIniSa, '#6A1B9A', 'bar-chart', 'Akumulasi MTD SA berjalan'],
                         [
-                            'MoM GROWTH',
-                            number_format($mom, 2) . ' %',
-                            $mom >= 0 ? '#F4B400' : '#DB4437',
-                            $mom >= 0 ? 'trending-up' : 'trending-down',
-                            $mom >= 0 ? '📈 Kinerja Naik vs Bulan Lalu' : '⚠️ Perhatian: Kinerja Turun',
+                            'MoM GROWTH · PV',
+                            number_format($momPv, 2) . ' %',
+                            $momPv >= 0 ? '#F4B400' : '#DB4437',
+                            $momPv >= 0 ? 'trending-up' : 'trending-down',
+                            $momPv >= 0 ? '📈 PV naik vs bulan lalu' : '⚠️ PV turun vs bulan lalu',
+                        ],
+                        [
+                            'MoM GROWTH · SA',
+                            number_format($momSa, 2) . ' %',
+                            $momSa >= 0 ? '#D97706' : '#B91C1C',
+                            $momSa >= 0 ? 'trending-up' : 'trending-down',
+                            $momSa >= 0 ? '📈 SA naik vs bulan lalu' : '⚠️ SA turun vs bulan lalu',
                         ],
                     ];
                 @endphp
