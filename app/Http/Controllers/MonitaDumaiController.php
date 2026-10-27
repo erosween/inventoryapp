@@ -118,7 +118,11 @@ class MonitaDumaiController extends Controller
             ->orderBy('tap')
             ->pluck('tap');
         $activeTab = $request->input('tab') === 'non-digipos' ? 'non-digipos' : 'digipos';
-        $outletCount = $this->outletDetailBaseQuery($tapScopes)->count();
+        $selectedPjp = trim((string) $request->input('pjp'));
+        $selectedSf = trim((string) $request->input('sf'));
+        $pjpDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $sfs = DB::table('appsdumais')->whereNotNull('sf')->whereRaw("TRIM(sf) <> ''")->whereRaw("UPPER(TRIM(sf)) <> 'UNMAPPING'")->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))->distinct()->orderBy('sf')->pluck('sf');
+        $outletCount = $this->outletDetailBaseQuery($tapScopes, '', '', $selectedPjp, $selectedSf)->count();
         $nonDigiposCount = $this->nonDigiposOutletBaseQuery($tapScopes)->count();
         $selectedTap = trim((string) $request->input('tap'));
         $search = trim((string) $request->input('q'));
@@ -135,7 +139,7 @@ class MonitaDumaiController extends Controller
         $outlets = null;
         $nonDigiposOutlets = null;
         if ($activeTab === 'digipos') {
-            $outlets = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
+            $outlets = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf)
                 ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
                 ->orderBy('outlet.nama_outlet')->paginate($perPage)->withQueryString();
             $outlets->setCollection($this->hydrateOutletDetailPage($outlets->getCollection(), $salesCutoff));
@@ -148,7 +152,7 @@ class MonitaDumaiController extends Controller
         return response()->view('surya.outlet-detail', compact(
             'taps', 'outletCount', 'canEditOutlet', 'salesCutoffDate', 'salesCutoffValue',
             'salesCutoffMax', 'outlets', 'nonDigiposOutlets', 'selectedTap', 'search', 'perPage',
-            'activeTab', 'nonDigiposCount'
+            'activeTab', 'nonDigiposCount', 'pjpDays', 'sfs', 'selectedPjp', 'selectedSf'
         ))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
@@ -160,10 +164,12 @@ class MonitaDumaiController extends Controller
         try {
             $tapScopes = $this->suryaTapScopes();
             $selectedTap = trim((string) $request->input('tap'));
+            $selectedPjp = trim((string) $request->input('pjp'));
+            $selectedSf = trim((string) $request->input('sf'));
             $searchInput = $request->input('search', []);
             $search = trim((string) (is_array($searchInput) ? ($searchInput['value'] ?? '') : $searchInput));
-            $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search);
-            $recordsTotal = $this->outletDetailBaseQuery($tapScopes)->count();
+            $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf);
+            $recordsTotal = $this->outletDetailBaseQuery($tapScopes, '', '', $selectedPjp, $selectedSf)->count();
             $recordsFiltered = (clone $base)->count();
 
             $length = min(100, max(10, (int) $request->input('length', 25)));
@@ -205,9 +211,11 @@ class MonitaDumaiController extends Controller
 
         $tapScopes = $this->suryaTapScopes();
         $selectedTap = trim((string) $request->input('tap'));
+        $selectedPjp = trim((string) $request->input('pjp'));
+        $selectedSf = trim((string) $request->input('sf'));
         $search = trim((string) $request->input('q'));
         $salesCutoff = $this->outletSalesCutoff($request);
-        $rows = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search)
+        $rows = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf)
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
             ->orderBy('outlet.nama_outlet')
             ->get()
@@ -389,7 +397,7 @@ class MonitaDumaiController extends Controller
         return ! $selected || $selected->greaterThan($today) ? $today : $selected;
     }
 
-    private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
+    private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '', string $selectedPjp = '', string $selectedSf = '')
     {
         return DB::table('appsdumais as outlet')
             ->whereNotNull('outlet.pjp')
@@ -397,6 +405,8 @@ class MonitaDumaiController extends Controller
             ->whereRaw("UPPER(TRIM(outlet.pjp)) <> 'UNMAPPING'")
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('outlet.tap', $tapScopes))
             ->when($selectedTap !== '', fn ($query) => $query->where('outlet.tap', $selectedTap))
+            ->when($selectedPjp !== '', fn ($query) => $query->where('outlet.pjp', $selectedPjp))
+            ->when($selectedSf !== '', fn ($query) => $query->where('outlet.sf', $selectedSf))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($filter) use ($search) {
                     $filter->where('outlet.id_outlet', 'like', "%{$search}%")
