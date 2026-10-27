@@ -395,6 +395,19 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-scroll-heatmap {{ $salesView === 'chart' ? 'd-none' : '' }}" id="heatmap-sales-wrap">
+<style>
+    @if($salesPeriod === 'monthly' && (int) $salesYear === (int) $currentDate->year)
+    /* Keep historical MoM; current-month comparison lives in the MoM card. */
+    #heatmap-sales-wrap > table > thead > tr > :nth-child({{ 2 * $currentDate->month + 1 }}),
+    #heatmap-sales-wrap > table > tbody > tr:not(.validity-row) > :nth-child({{ 2 * $currentDate->month + 1 }}),
+    #heatmap-sales-wrap > table > tfoot > tr:not(.validity-row) > :nth-child({{ 2 * $currentDate->month + 1 }}),
+    #heatmap-sales-wrap > table > thead > tr > :nth-child(n+{{ 2 * $currentDate->month + 2 }}),
+    #heatmap-sales-wrap > table > tbody > tr:not(.validity-row) > :nth-child(n+{{ 2 * $currentDate->month + 2 }}),
+    #heatmap-sales-wrap > table > tfoot > tr:not(.validity-row) > :nth-child(n+{{ 2 * $currentDate->month + 2 }}) {
+        display: none !important;
+    }
+    @endif
+</style>
                         @if($salesPeriod === 'annual')
                             @php
                                 $annualYears = range(2024, (int) date('Y'));
