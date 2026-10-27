@@ -250,26 +250,6 @@
             {{-- ================= TOP CONTROL BAR ================= --}}
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="font-weight-bold mb-0 text-dark">Executive Summary</h4>
-                <form action="" method="GET" class="d-flex shadow-sm rounded">
-                    @if(request()->routeIs('surya.inventory-dashboard'))
-                    <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
-                    <input type="hidden" name="inject_product" value="{{ $injectProductFilter }}">
-                    <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
-                    @endif
-                    <input type="hidden" name="sales_year" value="{{ $salesYear }}">
-                    <input type="hidden" name="sales_view" value="{{ $salesView }}">
-                    <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
-                    <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
-                    <select name="year" class="form-control mr-2 border-0 bg-white text-dark font-weight-bold" onchange="this.form.submit()">
-                        @for($i = date('Y'); $i >= 2023; $i--)
-                            <option value="{{ $i }}" {{ $selectedYear == $i ? 'selected' : '' }}>Tahun {{ $i }}</option>
-                        @endfor
-                    </select>
-                    <select name="mode" class="form-control border-0 bg-white text-dark font-weight-bold" onchange="this.form.submit()">
-                        <option value="daily" {{ $mode == 'daily' ? 'selected' : '' }}>Harian</option>
-                        <option value="monthly" {{ $mode == 'monthly' ? 'selected' : '' }}>Bulanan</option>
-                    </select>
-                </form>
             </div>
 
             {{-- ================= KPI ================= --}}
