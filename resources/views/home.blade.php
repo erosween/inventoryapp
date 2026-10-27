@@ -191,6 +191,13 @@
         text-transform: uppercase;
         border-bottom: 1px solid #edf0f2 !important;
     }
+    #mom-cluster-card .card-header h6 { font-size: 16px; letter-spacing: -.01em; }
+    #mom-cluster-card .card-header small { color: #7b8497 !important; font-weight: 600; }
+    #mom-cluster-card .metric-daily-st { color: #4f46e5; font-weight: 800; }
+    #mom-cluster-card .metric-stock { color: #0f766e; font-weight: 800; }
+    #mom-cluster-card .metric-stock-days { color: #b45309; font-weight: 800; }
+    #mom-cluster-card thead th:nth-last-child(-n+3) { background: #f0fdf9; color: #166534; }
+    #mom-cluster-card tfoot tr:last-child td { border-top: 2px solid #bfdbfe !important; }
     #mom-cluster-table-wrap tbody td,
     #mom-cluster-table-wrap tfoot td {
         font-size: 13px;
@@ -1577,6 +1584,9 @@
                             <col class="mom-number-col">
                             <col class="mom-number-col">
                             <col class="mom-growth-col">
+                            <col class="mom-number-col">
+                            <col class="mom-number-col">
+                            <col class="mom-number-col">
                         </colgroup>
                         <thead class="bg-light text-secondary">
                             <tr>
@@ -1586,12 +1596,20 @@
                                 <!-- <th class="text-right border-0">M-2 PARTIAL</th> -->
                                 <th class="text-right border-0">M-1 FULL</th>
                                 <th class="text-right border-0">GROWTH (M-1)</th>
+                                <th class="text-right border-0">DAILY ST</th>
+                                <th class="text-right border-0">STOCK GUDANG</th>
+                                <th class="text-right border-0">STOCK DAYS</th>
                                 <!-- <th class="text-right border-0">GROWTH (M-2)</th> -->
                             </tr>
                         </thead>
 
                         <tbody>
                             @foreach ($momTap as $r)
+                                @php
+                                    $dailySt = $momSelectedDate->day > 0 ? $r->curr_qty / $momSelectedDate->day : 0;
+                                    $stockGudang = (float) ($stockGudangByTap[$r->idtap] ?? 0);
+                                    $stockDays = $dailySt > 0 ? $stockGudang / $dailySt : 0;
+                                @endphp
                                 <tr class="bg-white">
                                     <td class="font-weight-bold text-dark">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
@@ -1607,6 +1625,9 @@
                                     <td class="text-right font-weight-bold {{ $r->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom), 2) }} %
                                     </td>
+                                    <td class="text-right metric-daily-st">{{ number_format($dailySt, 0) }}</td>
+                                    <td class="text-right metric-stock">{{ number_format($stockGudang) }}</td>
+                                    <td class="text-right metric-stock-days">{{ number_format($stockDays, 1) }} hari</td>
                                     <!-- <td class="text-right font-weight-bold {{ $r->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom_m2), 2) }} %
                                     </td> -->
@@ -1664,6 +1685,13 @@
                                 <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom), 2) }} %
                                 </td>
+                                @php
+                                    $dumaiDailySt = $momSelectedDate->day > 0 ? $momCluster['dumai_bengkalis']->curr_qty / $momSelectedDate->day : 0;
+                                    $dumaiStock = collect(['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'])->sum(fn($tap) => (float) ($stockGudangByTap[$tap] ?? 0));
+                                @endphp
+                                <td class="text-right border-0">{{ number_format($dumaiDailySt, 0) }}</td>
+                                <td class="text-right border-0">{{ number_format($dumaiStock) }}</td>
+                                <td class="text-right border-0">{{ number_format($dumaiDailySt > 0 ? $dumaiStock / $dumaiDailySt : 0, 1) }} hari</td>
                                 <!-- <td class="text-right border-0 {{ $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['dumai_bengkalis']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['dumai_bengkalis']->mom_m2), 2) }} %
                                 </td> -->
@@ -1679,6 +1707,13 @@
                                 <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom), 2) }} %
                                 </td>
+                                @php
+                                    $rohilDailySt = $momSelectedDate->day > 0 ? $momCluster['rokan_hilir']->curr_qty / $momSelectedDate->day : 0;
+                                    $rohilStock = collect(['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'])->sum(fn($tap) => (float) ($stockGudangByTap[$tap] ?? 0));
+                                @endphp
+                                <td class="text-right border-0">{{ number_format($rohilDailySt, 0) }}</td>
+                                <td class="text-right border-0">{{ number_format($rohilStock) }}</td>
+                                <td class="text-right border-0">{{ number_format($rohilDailySt > 0 ? $rohilStock / $rohilDailySt : 0, 1) }} hari</td>
                                 <!-- <td class="text-right border-0 {{ $momCluster['rokan_hilir']->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momCluster['rokan_hilir']->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momCluster['rokan_hilir']->mom_m2), 2) }} %
                                 </td> -->
@@ -1700,6 +1735,13 @@
                                 <td class="text-right border-0 font-weight-bold {{ $grandMom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMom), 2) }} %
                                 </td>
+                                @php
+                                    $grandDailySt = $momSelectedDate->day > 0 ? $grandCurr / $momSelectedDate->day : 0;
+                                    $grandStock = $dumaiStock + $rohilStock;
+                                @endphp
+                                <td class="text-right border-0 font-weight-bold">{{ number_format($grandDailySt, 0) }}</td>
+                                <td class="text-right border-0 font-weight-bold">{{ number_format($grandStock) }}</td>
+                                <td class="text-right border-0 font-weight-bold">{{ number_format($grandDailySt > 0 ? $grandStock / $grandDailySt : 0, 1) }} hari</td>
                                 @php
                                     $grandM2Part = $momCluster['dumai_bengkalis']->m2_partial_qty + $momCluster['rokan_hilir']->m2_partial_qty;
                                     $grandMomM2 = $grandM2Part > 0 ? (($grandCurr - $grandM2Part) / $grandM2Part) * 100 : 0;

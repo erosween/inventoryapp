@@ -380,6 +380,19 @@ class HomeController extends Controller
         $momPv = $momByProduct['pv_all'];
         $momSa = $momByProduct['sa_all'];
 
+        $stockCacheKey = 'home-stock-gudang-pv:v1:'.sha1(strtoupper(trim((string) $idtap)));
+        $stockGudangByTap = Cache::remember($stockCacheKey, now()->addMinutes(15), function () use ($applyFilter) {
+            $pvDenomIds = DB::table('denom')
+                ->whereRaw("UPPER(COALESCE(kategori_inject, '')) <> 'SA'")
+                ->pluck('iddenom');
+            $query = DB::table('stockawaltap')
+                ->selectRaw('idtap, SUM(stock) AS total_stock')
+                ->whereIn('iddenom', $pvDenomIds)
+                ->groupBy('idtap');
+            $applyFilter($query);
+            return $query->pluck('total_stock', 'idtap');
+        });
+
         $qMomTapSales = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
@@ -712,6 +725,7 @@ class HomeController extends Controller
             'salesBulanIniSa',
             'momPv',
             'momSa',
+            'stockGudangByTap',
             'mom',
             'chartSales',
             'momTap',
