@@ -447,11 +447,11 @@ class HomeController extends Controller
             ->whereYear('tgl', $salesYear)
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
         if ($salesYear === $currentDate->year) {
-            $qMatrixData->where(function ($query) use ($currentDate, $fairCutoffThisMonth) {
+            $qMatrixData->where(function ($query) use ($currentDate, $momSelectedDate) {
                 $query->whereMonth('tgl', '<', $currentDate->month)
-                    ->orWhere(function ($monthQuery) use ($currentDate, $fairCutoffThisMonth) {
+                    ->orWhere(function ($monthQuery) use ($currentDate, $momSelectedDate) {
                         $monthQuery->whereMonth('tgl', $currentDate->month)
-                            ->where('tgl', '<=', $fairCutoffThisMonth);
+                            ->where('tgl', '<=', $momSelectedDate);
                     });
             });
         }
