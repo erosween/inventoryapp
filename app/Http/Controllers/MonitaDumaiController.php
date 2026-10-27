@@ -285,7 +285,7 @@ class MonitaDumaiController extends Controller
         });
     }
 
-    private function hydrateOutletDetailPage($rows, Carbon $cutoff)
+    protected function hydrateOutletDetailPage($rows, Carbon $cutoff)
     {
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
         $cutoff = $cutoff->copy()->startOfDay();
@@ -327,7 +327,7 @@ class MonitaDumaiController extends Controller
             });
         }
         $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds) {
-            return DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->get()
+            return DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->orderByDesc('id')->get()
                 ->groupBy(fn ($row) => (string) $row->id_outlet);
         });
 
@@ -381,7 +381,7 @@ class MonitaDumaiController extends Controller
         }
     }
 
-    private function outletSalesCutoff(Request $request): Carbon
+    protected function outletSalesCutoff(Request $request): Carbon
     {
         $default = now('Asia/Jakarta')->subDays(2)->startOfDay();
         $value = trim((string) $request->input('sales_cutoff'));
@@ -400,7 +400,7 @@ class MonitaDumaiController extends Controller
         return ! $selected || $selected->greaterThan($today) ? $today : $selected;
     }
 
-    private function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '', string $selectedPjp = '', string $selectedSf = '')
+    protected function outletDetailBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '', string $selectedPjp = '', string $selectedSf = '')
     {
         return DB::table('appsdumais as outlet')
             ->whereNotNull('outlet.pjp')
@@ -1082,7 +1082,7 @@ class MonitaDumaiController extends Controller
     }
 
     /** Return null for unrestricted users, otherwise the exact tap list allowed in SURYA. */
-    private function suryaTapScopes(): ?array
+    protected function suryaTapScopes(): ?array
     {
         return SuryaTapScope::forUser(Auth::user(), session('idtap'));
     }

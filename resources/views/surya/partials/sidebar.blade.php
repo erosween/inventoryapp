@@ -18,6 +18,10 @@
         <a href="{{ route('surya.dashboard', ['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'outlet' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="outlet" @endif><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ in_array($sidebarPage, ['dashboard', 'visit-detail', 'visit-report', 'field-reports'], true) && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
         <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
+        <details class="sidebar-taskforce" @if($sidebarPage === 'push-so') open @endif>
+            <summary class="sidebar-link"><i class="fas fa-people-group"></i><span>TASKFORCE</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
+            <a href="{{ route('surya.taskforce.push-so') }}" class="sidebar-link {{ $sidebarPage === 'push-so' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-bullseye"></i><span>PUSH SO</span></a>
+        </details>
         <a href="{{ $stockUrl }}" class="sidebar-link {{ $sidebarPage === 'stock-gudang' ? 'active' : '' }}"><i class="fas fa-warehouse"></i><span>STOCK GUDANG</span></a>
         <a href="{{ route('surya.stock-on-hand') }}" class="sidebar-link {{ $sidebarPage === 'stock-on-hand' ? 'active' : '' }}"><i class="fas fa-boxes-stacked"></i><span>STOCK ON HAND</span></a>
         @if($sidebarUser === 'admin_super')
