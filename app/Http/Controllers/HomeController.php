@@ -66,12 +66,8 @@ class HomeController extends Controller
             : Carbon::parse($momCutoffDates->min());
 
         $request->validate(['mom_date' => 'nullable|date']);
-        $requestedMomDate = $request->filled('mom_date')
-            ? Carbon::parse($request->query('mom_date'))->endOfDay()
-            : $fairCutoffThisMonth->copy()->endOfDay();
-        $momSelectedDate = $requestedMomDate->gt($fairCutoffThisMonth)
-            ? $fairCutoffThisMonth->copy()->endOfDay()
-            : $requestedMomDate;
+        // Semua KPI MTD memakai cutoff global yang sama agar angka dashboard lurus.
+        $momSelectedDate = $fairCutoffThisMonth->copy()->endOfDay();
         $momStartThisMonth = $momSelectedDate->copy()->startOfMonth();
         $momStartPrevMonth = $momSelectedDate->copy()->subMonthNoOverflow()->startOfMonth();
         $momEndPrevMonthFull = $momStartPrevMonth->copy()->endOfMonth();
@@ -135,7 +131,7 @@ class HomeController extends Controller
         $applyFilter($qStokInject2, 'idsf.idtap');
         $stokInject = $qStokInject1->sum('stock') + $qStokInject2->sum('sf.stock');
 
-        $qSalesBulanIni = $this->combinedSalesQuery()->whereBetween('tgl', [$startThisMonth, $endThisMonth]);
+        $qSalesBulanIni = $this->combinedSalesQuery()->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
         $applyFilter($qSalesBulanIni);
         $salesBulanIni = $qSalesBulanIni->sum('qty');
 
@@ -362,7 +358,7 @@ class HomeController extends Controller
         $salesBulanIniByProduct = [];
         foreach (['pv_all', 'sa_all'] as $product) {
             $qSalesBulanIniProduct = $this->combinedSalesQuery()
-                ->whereBetween('tgl', [$startThisMonth, $endThisMonth]);
+                ->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
             $applyFilter($qSalesBulanIniProduct);
             $applyProductFilter($qSalesBulanIniProduct, 'combined_sales', $product);
             $salesBulanIniByProduct[$product] = (int) $qSalesBulanIniProduct->sum('qty');

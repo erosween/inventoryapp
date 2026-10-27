@@ -271,8 +271,8 @@
                     $cards = [
                         ['STOK SEGEL', $stokSegel, '#4285F4', 'shield', 'Total stok aktif di sistem'],
                         ['STOK INJECT', $stokInject, '#0F9D58', 'zap', 'Total PV Injected'],
-                        ['SALES BULAN INI · PV', $salesBulanIniPv, '#8E24AA', 'bar-chart', 'Akumulasi MTD PV berjalan'],
-                        ['SALES BULAN INI · SA', $salesBulanIniSa, '#6A1B9A', 'bar-chart', 'Akumulasi MTD SA berjalan'],
+                        ['SALES BULAN INI · PV', $salesBulanIniPv, '#8E24AA', 'bar-chart', 'MTD PV · Cutoff '. $fairCutoffThisMonth->locale('id')->translatedFormat('d M Y')],
+                        ['SALES BULAN INI · SA', $salesBulanIniSa, '#6A1B9A', 'bar-chart', 'MTD SA · Cutoff '. $fairCutoffThisMonth->locale('id')->translatedFormat('d M Y')],
                         [
                             'MoM GROWTH · PV',
                             number_format($momPv, 2) . ' %',
@@ -355,7 +355,7 @@
                     <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
                         <div>
                             <h6 class="font-weight-bold text-dark mb-0">🗺️ Penjualan {{ $salesPeriod === 'annual' ? 'Tahunan (2024–'.date('Y').')' : 'Bulanan (Tahun '.$salesYear.')' }}</h6>
-                            <small class="text-muted">{{ $salesPeriod === 'annual' ? 'Perbandingan total penjualan setiap TAP per tahun · '.$annualCutoffLabel : 'Transaksi bulanan per TAP' }}</small>
+                            <small class="text-muted">{{ $salesPeriod === 'annual' ? 'Perbandingan total penjualan setiap TAP per tahun · '.$annualCutoffLabel : 'Transaksi bulanan per TAP · Cutoff MTD '.$fairCutoffThisMonth->locale('id')->translatedFormat('d M Y') }}</small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
                             <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-sales-card" class="monthly-sales-filter-form mb-0" id="monthly-sales-filter-form">
