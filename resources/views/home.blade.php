@@ -294,31 +294,26 @@
 
             {{-- ================= KPI ================= --}}
             <div class="row">
-                @php
-                    $cards = [
-                        ['STOK SEGEL', $stokSegel, '#4285F4', 'shield', 'Total stok aktif di sistem'],
-                        ['STOK INJECT', $stokInject, '#0F9D58', 'zap', 'Total PV Injected'],
-                    ];
-                @endphp
-
-                @foreach ($cards as $c)
+                @foreach ([['PV', $stokSegel, $stokInject], ['SA', $stokSaSegel, $stokSaInject]] as [$stockFamily, $sealedStock, $injectedStock])
                     <div class="col-md-6 mb-4">
-                        <div class="card kpi-card text-white h-100" style="background: {{ $c[2] }}; box-shadow: 0 5px 15px {{ $c[2] }}40;">
+                        <article class="card kpi-card h-100">
                             <div class="card-body py-4">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div class="w-100">
-                                        <small class="text-uppercase font-weight-bold" style="letter-spacing:1px; opacity:0.85">{{ $c[0] }}</small>
-                                        <h2 class="mb-1 mt-2 font-weight-bold" style="font-size:2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.1)">
-                                            {{ is_numeric($c[1]) ? number_format($c[1]) : $c[1] }}
-                                        </h2>
-                                        <small style="opacity: 0.9">{{ $c[4] }}</small>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <strong class="text-dark">STOK {{ $stockFamily }}</strong>
+                                    <span class="text-muted small">Gudang + SF</span>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6" style="border-right:1px solid #e8edf2">
+                                        <small class="text-muted">{{ $stockFamily }} Segel</small>
+                                        <h2 class="mt-2 mb-0 font-weight-bold text-dark">{{ number_format($sealedStock, 0, ',', '.') }}</h2>
                                     </div>
-                                    <div class="icon-bg">
-                                        <i data-feather="{{ $c[3] }}" style="width:36px;height:36px;opacity:1"></i>
+                                    <div class="col-6">
+                                        <small class="text-muted">{{ $stockFamily }} Inject</small>
+                                        <h2 class="mt-2 mb-0 font-weight-bold text-dark">{{ number_format($injectedStock, 0, ',', '.') }}</h2>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </article>
                     </div>
                 @endforeach
                 @foreach ([['PV', $salesBulanIniPv, $momPv], ['SA', $salesBulanIniSa, $momSa]] as [$product, $quantity, $growth])

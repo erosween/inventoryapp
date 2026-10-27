@@ -17,7 +17,7 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v9:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v10:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -120,17 +120,25 @@ class HomeController extends Controller
         $tapList = $tapKeluar->keys()->sort()->values();
 
         /* ================= KPI ================= */
-        $qStokSegel1 = DB::table('stockawaltap')->whereIn('iddenom', ['SEGEL', 'V16', 'V33']);
-        $applyFilter($qStokSegel1);
-        $qStokSegel2 = DB::table('stockawalsf as sf')->join('idsf', 'sf.idsf', '=', 'idsf.idsf')->whereIn('sf.iddenom', ['SEGEL', 'V16', 'V33']);
-        $applyFilter($qStokSegel2, 'idsf.idtap');
-        $stokSegel = $qStokSegel1->sum('stock') + $qStokSegel2->sum('sf.stock');
-
-        $qStokInject1 = DB::table('stockawaltap')->whereNotIn('iddenom', ['SEGEL', 'V16', 'V33']);
-        $applyFilter($qStokInject1);
-        $qStokInject2 = DB::table('stockawalsf as sf')->join('idsf', 'sf.idsf', '=', 'idsf.idsf')->whereNotIn('sf.iddenom', ['SEGEL', 'V16', 'V33']);
-        $applyFilter($qStokInject2, 'idsf.idtap');
-        $stokInject = $qStokInject1->sum('stock') + $qStokInject2->sum('sf.stock');
+        // Read warehouse and SF stock once each, split PV and SA before summing.
+        $stockSources = [
+            DB::table('stockawaltap as stock'),
+            DB::table('stockawalsf as stock')->join('idsf as roster', 'roster.idsf', '=', 'stock.idsf'),
+        ];
+        $stockBuckets = collect();
+        foreach ($stockSources as $index => $source) {
+            $source->leftJoin('denom as product', 'product.iddenom', '=', 'stock.iddenom');
+            $applyFilter($source, $index === 0 ? 'stock.idtap' : 'roster.idtap');
+            $source->selectRaw("CASE WHEN UPPER(COALESCE(product.kategori_inject, '')) = 'SA' OR stock.iddenom IN ('SP6','SP7') THEN 'SA' ELSE 'PV' END AS family,
+                CASE WHEN stock.iddenom IN ('SEGEL','V16','V33','SP6','SP7') THEN 'segel' ELSE 'inject' END AS stock_type,
+                SUM(stock.stock) AS total")
+                ->groupBy('family', 'stock_type');
+            $stockBuckets = $stockBuckets->concat($source->get());
+        }
+        $stokSegel = $stockBuckets->where('family', 'PV')->where('stock_type', 'segel')->sum('total');
+        $stokInject = $stockBuckets->where('family', 'PV')->where('stock_type', 'inject')->sum('total');
+        $stokSaSegel = $stockBuckets->where('family', 'SA')->where('stock_type', 'segel')->sum('total');
+        $stokSaInject = $stockBuckets->where('family', 'SA')->where('stock_type', 'inject')->sum('total');
 
         $qSalesBulanIni = $this->combinedSalesQuery()->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
         $applyFilter($qSalesBulanIni);
@@ -712,6 +720,7 @@ class HomeController extends Controller
 
 
         return compact(
+            'stokSaSegel', 'stokSaInject',
             'distributionSalesProduct', 'distributionInjectProduct',
             'momProductFilter', 'momProductRows', 'momProductClusters', 'momProductSfByTap',
             'mode',
