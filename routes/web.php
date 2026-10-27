@@ -72,6 +72,8 @@ Route::patch('/surya/input-target/{target}', [SuryaStockController::class, 'upda
 Route::get('/surya/detail-outlet', [MonitaDumaiController::class, 'outletDetail'])->name('surya.outlet-detail');
 Route::get('/surya/taskforce/push-so', [\App\Http\Controllers\TaskforceController::class, 'index'])->name('surya.taskforce.push-so');
 Route::post('/surya/taskforce/push-so/{idOutlet}/action', [\App\Http\Controllers\TaskforceController::class, 'store'])->name('surya.taskforce.push-so.store');
+Route::post('/surya/taskforce/upload', [\App\Http\Controllers\TaskforceController::class, 'upload'])->name('surya.taskforce.upload');
+Route::get('/surya/taskforce/template', [\App\Http\Controllers\TaskforceController::class, 'template'])->name('surya.taskforce.template');
 Route::get('/surya/detail-outlet/data', [MonitaDumaiController::class, 'outletDetailData'])->name('surya.outlet-detail.data');
 Route::get('/surya/detail-outlet/export', [MonitaDumaiController::class, 'outletDetailExport'])->name('surya.outlet-detail.export');
 Route::get('/surya/detail-outlet/{idOutlet}/profile', [MonitaDumaiController::class, 'outletProfile'])->name('surya.outlet-detail.profile');

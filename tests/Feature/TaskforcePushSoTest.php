@@ -34,9 +34,14 @@ class TaskforcePushSoTest extends TestCase
             foreach(['bio','cvm','ss','comsak','hot_promo'] as $metric) foreach(['fm1','m1','m'] as $period) $t->integer($metric.'_'.$period)->default(0);
         });
         (require database_path('migrations/2026_10_27_200000_create_taskforce_push_so_actions.php'))->up();
+        (require database_path('migrations/2026_10_27_210000_create_taskforce_upload_lists.php'))->up();
         foreach([['A','DUMAI'],['B','DUMAI'],['C','DURI']] as [$id,$tap]) DB::table('appsdumais')->insert([
             'id_outlet'=>$id,'nama_outlet'=>'Outlet '.$id,'kecamatan'=>'Kota','sf'=>'SF '.$tap,'tap'=>$tap,'pjp'=>'Senin',
         ]);
+        foreach(['2026-09-01','2026-10-01'] as $month) {
+            $id=DB::table('taskforce_uploads')->insertGetId(['period_month'=>$month,'filename'=>'test.csv','username'=>'admin_super','outlet_count'=>3,'created_at'=>now(),'updated_at'=>now()]);
+            foreach(['A','B','C'] as $outlet) DB::table('taskforce_upload_outlets')->insert(['upload_id'=>$id,'id_outlet'=>$outlet]);
+        }
         DB::table('denom')->insert([['iddenom'=>'SP1','product_group'=>'SP'],['iddenom'=>'V1','product_group'=>'PV']]);
         DB::table('keluarsf')->insert([
             ['id_outlet'=>'A','iddenom'=>'SP1','tgl'=>'2026-10-20','qty'=>2],
@@ -130,5 +135,64 @@ class TaskforcePushSoTest extends TestCase
         $this->getJson($this->url(['sa_min'=>5,'sa_max'=>1]))->assertUnprocessable()->assertJsonValidationErrors('sa_max');
         $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>1])->assertUnprocessable()->assertJsonValidationErrors('visited_at');
         self::assertSame(0,DB::table('taskforce_push_so_actions')->count());
+    }
+
+    public function test_upload_replaces_only_selected_month_and_preserves_visit_notes(): void
+    {
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'Tetap disimpan'])->assertOk();
+        $this->asUser('admin_super','SBP_DUMAI');
+        $file=\Illuminate\Http\UploadedFile::fake()->createWithContent('taskforce.csv',"ID Outlet\nB\nB\nC\n");
+        $this->post(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertRedirect(route('surya.transaction-upload'))->assertSessionHas('success');
+        $r=$this->get($this->url())->assertOk();
+        self::assertSame(['B','C'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        self::assertSame(2,$r->viewData('upload')->outlet_count);
+        self::assertSame(3,$this->get(route('surya.taskforce.push-so',['sales_cutoff'=>'2026-09-26']))->viewData('outlets')->total());
+        self::assertSame(1,DB::table('taskforce_push_so_actions')->count());
+        $this->asUser('asmen_dumai','DUMAI');
+        $r=$this->get($this->url())->assertOk();
+        self::assertSame(['B'],$r->viewData('outlets')->pluck('id_outlet')->all());
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertNotFound();
+        $this->asUser('admin_super','SBP_DUMAI');
+        $file=\Illuminate\Http\UploadedFile::fake()->createWithContent('taskforce.csv',"ID Outlet\nA\n");
+        $this->post(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertRedirect()->assertSessionHasNoErrors();
+        self::assertSame('Tetap disimpan',$this->get($this->url())->viewData('outlets')->first()->notes);
+    }
+
+    public function test_bad_upload_is_atomic_and_only_admin_can_upload(): void
+    {
+        $file=\Illuminate\Http\UploadedFile::fake()->createWithContent('taskforce.csv',"ID Outlet\nA\nUNKNOWN\n");
+        $this->postJson(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertForbidden();
+        $this->asUser('admin_super','SBP_DUMAI');
+        $this->postJson(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertUnprocessable()->assertJsonValidationErrors('taskforce_file');
+        self::assertSame(2,DB::table('taskforce_uploads')->count());
+        self::assertSame(3,$this->get($this->url())->viewData('outlets')->total());
+        $file=\Illuminate\Http\UploadedFile::fake()->createWithContent('empty.csv',"ID Outlet\n");
+        $this->postJson(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertUnprocessable();
+        self::assertSame(2,DB::table('taskforce_uploads')->count());
+    }
+
+    public function test_no_upload_shows_no_outlets_and_excel_accepts_unmapped_outlet(): void
+    {
+        DB::table('taskforce_uploads')->delete();
+        $this->get($this->url())->assertOk()->assertSee('Belum ada daftar taskforce');
+        self::assertSame(0,$this->get($this->url())->viewData('outlets')->total());
+        DB::table('appsdumais')->where('id_outlet','A')->update(['pjp'=>'UNMAPPING']);
+        $book=new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $book->getActiveSheet()->fromArray([['ID Outlet'],['A']]);
+        $path=tempnam(sys_get_temp_dir(),'taskforce-xlsx-');
+        try {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save($path);
+            $this->asUser('admin_super','SBP_DUMAI');
+            $file=new \Illuminate\Http\UploadedFile($path,'taskforce.xlsx',null,null,true);
+            $this->post(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertRedirect();
+            $this->get(route('surya.transaction-upload'))->assertOk()->assertSee('Upload Daftar Outlet Taskforce');
+            $this->get(route('surya.taskforce.template'))->assertOk()->assertDownload('template-taskforce.csv');
+            $this->asUser('asmen_dumai','DUMAI');
+            self::assertSame(['A'],$this->get($this->url())->viewData('outlets')->pluck('id_outlet')->all());
+            $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertOk();
+        } finally {
+            @unlink($path);
+            $book->disconnectWorksheets();
+        }
     }
 }

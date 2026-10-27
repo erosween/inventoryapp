@@ -34,9 +34,10 @@ class TaskforceController extends MonitaDumaiController
         $filters=$request->validate($rules);
         $cutoff=$this->outletSalesCutoff($request);
         $scopes=$this->suryaTapScopes();
-        $base=$this->outletDetailBaseQuery($scopes, $filters['tap']??'', $filters['q']??'', $filters['pjp']??'', $filters['sf']??'');
-        $taps=$this->outletDetailBaseQuery($scopes)->distinct()->orderBy('outlet.tap')->pluck('outlet.tap');
-        $sfs=$this->outletDetailBaseQuery($scopes, $filters['tap']??'')->whereNotNull('outlet.sf')
+        $upload=DB::table('taskforce_uploads')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())->orderByDesc('id')->first();
+        $base=$this->taskforceOutlets($scopes, $upload?->id, $filters['tap']??'', $filters['q']??'', $filters['pjp']??'', $filters['sf']??'');
+        $taps=$this->taskforceOutlets($scopes,$upload?->id)->distinct()->orderBy('outlet.tap')->pluck('outlet.tap');
+        $sfs=$this->taskforceOutlets($scopes,$upload?->id, $filters['tap']??'')->whereNotNull('outlet.sf')
             ->whereRaw("TRIM(outlet.sf) <> ''")->distinct()->orderBy('outlet.sf')->pluck('outlet.sf');
         $period=$filters['period']??'mtd';
         $hasNumericFilter=collect(array_keys(self::METRICS))->contains(fn($key)=>$request->filled($key.'_min') || $request->filled($key.'_max'));
@@ -66,7 +67,7 @@ class TaskforceController extends MonitaDumaiController
         $outlets->setCollection($this->hydrateOutletDetailPage($outlets->getCollection(),$cutoff));
         $metrics=self::METRICS;
         $canAct=$this->canAct();
-        return response()->view('surya.taskforce.push-so',compact('outlets','taps','sfs','filters','period','cutoff','metrics','canAct'))
+        return response()->view('surya.taskforce.push-so',compact('outlets','taps','sfs','filters','period','cutoff','metrics','canAct','upload'))
             ->header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
     }
 
@@ -116,7 +117,8 @@ class TaskforceController extends MonitaDumaiController
         if ($data['visited'] && !Carbon::parse($data['visited_at'])->isSameMonth(Carbon::parse($data['sales_cutoff']))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['visited_at'=>'Tanggal visit harus berada dalam bulan tindak lanjut.']);
         }
-        $outlet=$this->outletDetailBaseQuery($this->suryaTapScopes())->where('outlet.id_outlet',$idOutlet)->first();
+        $uploadId=DB::table('taskforce_uploads')->where('period_month',Carbon::parse($data['sales_cutoff'])->startOfMonth()->toDateString())->max('id');
+        $outlet=$this->taskforceOutlets($this->suryaTapScopes(),$uploadId)->where('outlet.id_outlet',$idOutlet)->first();
         abort_unless($outlet,404);
         $month=Carbon::parse($data['sales_cutoff'])->startOfMonth()->toDateString();
         // Append a new event so previous notes and the responsible user remain auditable.
@@ -132,5 +134,41 @@ class TaskforceController extends MonitaDumaiController
     private function canAct(): bool
     {
         return auth()->check() && str_starts_with(strtolower(auth()->user()->username),'asmen_');
+    }
+
+    private function taskforceOutlets(?array $scopes, ?int $uploadId, string $tap='', string $search='', string $pjp='', string $sf='')
+    {
+        return DB::table('appsdumais as outlet')
+            ->whereExists(fn($q)=>$q->selectRaw('1')->from('taskforce_upload_outlets as assignment')
+                ->where('assignment.upload_id',$uploadId??0)->whereColumn('assignment.id_outlet','outlet.id_outlet'))
+            ->when($scopes!==null,fn($q)=>$q->whereIn('outlet.tap',$scopes))
+            ->when($tap!=='',fn($q)=>$q->where('outlet.tap',$tap))
+            ->when($sf!=='',fn($q)=>$q->where('outlet.sf',$sf))
+            ->when($pjp!=='',fn($q)=>$q->where('outlet.pjp',$pjp))
+            ->when($search!=='',fn($q)=>$q->where(function($q) use($search) {
+                foreach(['id_outlet','nama_outlet','kecamatan','sf','tap','pjp'] as $column) $q->orWhere('outlet.'.$column,'like','%'.$search.'%');
+            }));
+    }
+
+    public function upload(Request $request, \App\Services\TaskforceUpload $importer)
+    {
+        abort_unless(auth()->check() && auth()->user()->isSuperAdmin(),403);
+        $data=$request->validate(['taskforce_month'=>'required|date_format:Y-m',
+            'taskforce_file'=>'required|file|mimes:xlsx,xls,csv,txt|extensions:xlsx,xls,csv|max:5120']);
+        try {
+            $result=$importer->import($request->file('taskforce_file'),$data['taskforce_month'].'-01',auth()->user()->username);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+            throw \Illuminate\Validation\ValidationException::withMessages(['taskforce_file'=>'File gagal dibaca. Gunakan template Excel/CSV yang benar. Daftar sebelumnya tidak berubah.']);
+        }
+        return redirect()->route('surya.transaction-upload')->with('success',"Taskforce {$data['taskforce_month']}: {$result['count']} outlet disimpan, {$result['duplicates']} duplikat diabaikan. Status visit dan catatan tetap tersimpan.");
+    }
+
+    public function template()
+    {
+        abort_unless(auth()->check() && auth()->user()->isSuperAdmin(),403);
+        return response()->streamDownload(function() { echo "\xEF\xBB\xBFID Outlet\r\n"; },'template-taskforce.csv',['Content-Type'=>'text/csv; charset=UTF-8']);
     }
 }

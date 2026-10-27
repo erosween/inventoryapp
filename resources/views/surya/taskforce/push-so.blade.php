@@ -13,6 +13,7 @@
 @include('surya.partials.page-heading',['title'=>'PUSH SO','description'=>'Taskforce · Pantau transaksi outlet dan tindak lanjut kunjungan asmen.'])
 <div class="outlet-summary"><span class="count">{{ number_format($outlets->total()) }} outlet</span><span>Cutoff SA/PV <strong>{{ $cutoff->translatedFormat('d M Y') }}</strong></span><span>FM-1: bulan lalu penuh · M-1: tanggal sebanding · M: MTD</span></div>
 @if($errors->any())<div class="tf-alert" role="alert">{{ $errors->first() }}</div>@endif
+<div class="tf-data-note">@if($upload)Daftar taskforce {{ $cutoff->translatedFormat('F Y') }} · {{ number_format($upload->outlet_count) }} outlet dalam file · Diupload {{ \Carbon\Carbon::parse($upload->created_at)->format('d/m/Y H:i') }}. Outlet ditampilkan sesuai wilayah akses.@else<strong>Belum ada daftar taskforce untuk {{ $cutoff->translatedFormat('F Y') }}.</strong> Admin perlu mengupload file khusus taskforce melalui menu Upload Transaksi.@endif</div>
 <form class="tf-filters card" method="get" id="push-so-filters">
     <div class="tf-filter-grid">
         <label class="tf-search">Cari outlet<input class="input" name="q" value="{{ $filters['q']??'' }}" placeholder="ID outlet, nama, kecamatan…"></label>
