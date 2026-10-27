@@ -1582,13 +1582,7 @@
                     type: tr.parentElement?.tagName === 'TFOOT'
                         ? (firstText.toUpperCase().includes('GRAND TOTAL') ? 'grand' : 'cluster')
                         : 'tap',
-                    cells: [
-                        firstText,
-                        getMomCellText(cells[1]),
-                        getMomCellText(cells[2]),
-                        getMomCellText(cells[3]),
-                        growthText
-                    ],
+                    cells: [firstText, ...cells.slice(1).map(getMomCellText)],
                     growth1Down: growthText.includes('▼') || /^-/.test(growthText)
                 });
             });
@@ -1602,14 +1596,14 @@
             if (headerCells.length < 5) {
                 return [
                     'LOKASI (TAP / SF)',
-                    @json("MTD ({$momCurrentLabel})"),
-                    @json("M-1 ({$momPreviousLabel})"),
+                    'MTD',
+                    'M-1',
                     'M-1 FULL',
-                    'GROWTH (M-1)'
+                    'GROWTH (M-1)', 'DAILY ST', 'STOCK GUDANG', 'STOCK DAYS'
                 ];
             }
 
-            return headerCells.slice(0, 5).map(cell => getMomCellText(cell));
+            return headerCells.map(cell => getMomCellText(cell));
         }
 
         function roundRect(ctx, x, y, width, height, radius) {
@@ -1677,18 +1671,22 @@
         }
 
         async function renderMomClusterCardToCanvas() {
+            if (document.getElementById('mom-cluster-card')?.getAttribute('aria-busy') === 'true') {
+                throw new Error('Tunggu data produk selesai dimuat sebelum ekspor.');
+            }
             const rows = getMomExportRows();
             if (!rows.length) return null;
             const headers = getMomExportHeaders();
             const heading = getCardExportHeading(
                 'mom-cluster-card',
                 '📊 MoM Sales Tap',
-                @json("1–{$momCurrentLabel} vs 1–{$momPreviousLabel}")
+                'Perbandingan MTD'
             );
 
             // Render dibuat mengikuti tampilan card asli, bukan versi export yang beda layout.
             const pixelRatio = 2;
-            const width = 1120;
+            const cols = [350, 160, 180, 180, 180, 150, 180, 160];
+            const width = cols.reduce((total, col) => total + col, 0);
             const titleHeight = 118;
             const headHeight = 62;
             const rowHeight = 62;
@@ -1700,7 +1698,6 @@
             if (!ctx) return null;
             ctx.scale(pixelRatio, pixelRatio);
 
-            const cols = [350, 160, 220, 230, 160];
             const lefts = cols.reduce((acc, col, i) => {
                 acc.push(i === 0 ? 0 : acc[i - 1] + cols[i - 1]);
                 return acc;
@@ -1732,8 +1729,11 @@
                     align: 'center'
                 });
             }
-            drawPill('Copy', width - 210, 28, 92);
-            drawPill('PNG', width - 105, 28, 92);
+            const product = document.getElementById('mom-product');
+            const selectedProduct = product?.selectedOptions?.[0]?.textContent?.trim() || 'PV All';
+            const cutoff = document.getElementById('mom_date')?.value || '';
+            drawPill(selectedProduct, width - 380, 28, 170);
+            drawPill('Cutoff ' + cutoff, width - 200, 28, 184);
 
             ctx.strokeStyle = '#edf0f2';
             ctx.lineWidth = 1.5;
@@ -1820,6 +1820,10 @@
                     }
                     if (i === 4) {
                         color = row.growth1Down ? '#e75757' : '#32a852';
+                        font = '700 16px Arial, sans-serif';
+                    }
+                    if (i >= 5 && !isGrand && !isCluster) {
+                        color = ['#4f46e5', '#0f766e', '#b45309'][i - 5];
                         font = '700 16px Arial, sans-serif';
                     }
 
