@@ -2,6 +2,19 @@
 
 @section('content')
 <style>
+    #mom-cluster-card .mom-toolbar { display:flex; align-items:flex-end!important; gap:12px; flex-wrap:wrap; }
+    #mom-cluster-card form.mom-filter-form { display:flex!important; flex-direction:row!important; align-items:flex-end!important; gap:12px; margin:0; }
+    #mom-cluster-card .mom-filter-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    #mom-cluster-card .mom-filter-field label { margin:0; color:#667085; font-size:11px; font-weight:700; letter-spacing:.3px; }
+    #mom-cluster-card .mom-filter-field .form-control { width:184px!important; height:42px!important; min-height:42px; margin:0!important; padding:9px 12px; border:1px solid #dce4eb; border-radius:10px!important; background-color:#fff; color:#344054; font-size:13px; font-weight:600; box-shadow:none; }
+    #mom-cluster-card .mom-filter-field .form-control:focus { border-color:#c8102e; box-shadow:0 0 0 3px rgba(200,16,46,.08); outline:0; }
+    #mom-cluster-card .mom-toolbar .export-action-btn { height:42px; min-width:80px; border-radius:10px!important; }
+    @media(max-width:640px) {
+        #mom-cluster-card .mom-toolbar { width:100%; }
+        #mom-cluster-card form.mom-filter-form { width:100%!important; }
+        #mom-cluster-card .mom-filter-field { flex:1; }
+        #mom-cluster-card .mom-filter-field .form-control { width:100%!important; }
+    }
     .kpi-card { border: none; border-radius: 12px; transition: transform 0.2s; }
     .kpi-card:hover { transform: translateY(-3px); }
     .enterprise-shadow { box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 10px; border:1px solid #f0f0f0; }
@@ -1527,9 +1540,9 @@
                                 1–{{ $momCurrentLabel }} vs 1–{{ $momPreviousLabel }}
                             </small>
                         </div>
-                        <div class="d-flex align-items-center export-actions">
+                        <div class="export-actions mom-toolbar">
                             <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#mom-cluster-card"
-                                class="d-flex align-items-center mb-0">
+                                class="mom-filter-form">
                                 @if(request()->routeIs('surya.inventory-dashboard'))
                                 <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
                                 <input type="hidden" name="inject_product" value="{{ $injectProductFilter }}">
@@ -1540,16 +1553,21 @@
                                 <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
                                 <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
                                 <input type="hidden" name="mode" value="{{ $mode }}">
-                                <select name="mom_product" id="mom-product" class="form-control form-control-sm mr-2" aria-label="Produk MoM">
+                                <div class="mom-filter-field">
+                                <label for="mom-product">Produk</label>
+                                <select name="mom_product" id="mom-product" class="form-control" aria-label="Produk MoM">
 @foreach(['pv_all'=>'PV All','pv_reg'=>'PV Reguler','pv_byu'=>'PV By.U','sa_all'=>'SA All','sa_simpati'=>'SA Simpati','sa_byu'=>'SA By.U'] as $value => $label)
 <option value="{{ $value }}" @selected($momProductFilter === $value)>{{ $label }}</option>
 @endforeach
 </select>
-                                <label for="mom_date" class="mb-0 mr-2 small font-weight-bold text-muted">Tanggal MoM</label>
+                                </div>
+                                <div class="mom-filter-field">
+                                <label for="mom_date">Tanggal MoM</label>
                                 <input type="date" name="mom_date" id="mom_date"
                                     class="form-control form-control-sm"
                                     value="{{ $momSelectedDate->toDateString() }}"
                                     max="{{ $fairCutoffThisMonth->toDateString() }}">
+                                </div>
                             </form>
                             <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="mom-copy-btn" title="Copy sebagai gambar" style="gap:6px;">
                                 <i data-feather="copy" style="width:14px;height:14px"></i> Copy
