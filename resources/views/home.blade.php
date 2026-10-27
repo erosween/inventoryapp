@@ -1627,9 +1627,6 @@
                                     <td class="text-right metric-daily-st">{{ number_format($dailySt, 0) }}</td>
                                     <td class="text-right metric-stock">{{ number_format($stockGudang) }}</td>
                                     <td class="text-right metric-stock-days">{{ number_format($stockDays, 0) }} hari</td>
-                                    <!-- <td class="text-right font-weight-bold {{ $r->mom_m2 >= 0 ? 'text-success' : 'text-danger' }}">
-                                        {!! $r->mom_m2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom_m2), 2) }} %
-                                    </td> -->
                                 </tr>
 
                                 <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light">
