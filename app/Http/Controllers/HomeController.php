@@ -15,7 +15,7 @@ class HomeController extends Controller
         $query = $request->query();
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
-        $cacheKey = 'home-dashboard:v3:'.sha1($scope.'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v4:'.sha1($scope.'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -312,8 +312,11 @@ class HomeController extends Controller
         $productFilterOptions = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
         $salesProductFilter = strtolower((string) $request->query('sales_product', 'pv_all'));
         $injectProductFilter = strtolower((string) $request->query('inject_product', 'pv_all'));
-        if (!in_array($salesProductFilter, $productFilterOptions, true)) $salesProductFilter = 'all';
-        if (!in_array($injectProductFilter, $productFilterOptions, true)) $injectProductFilter = 'all';
+        // Legacy value "all" must remain ALL PV, never an unfiltered sales table.
+        if ($salesProductFilter === 'all') $salesProductFilter = 'pv_all';
+        if ($injectProductFilter === 'all') $injectProductFilter = 'pv_all';
+        if (!in_array($salesProductFilter, $productFilterOptions, true)) $salesProductFilter = 'pv_all';
+        if (!in_array($injectProductFilter, $productFilterOptions, true)) $injectProductFilter = 'pv_all';
 
         $applyProductFilter = function ($query, string $table, string $filter) {
             if ($filter === 'all') return;
