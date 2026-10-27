@@ -16,12 +16,14 @@ class HomeController extends Controller
         ksort($query);
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
-        $cacheKey = 'home-dashboard:v8:'.sha1($scope.'|'.($momOnly ? 'mom|' : 'full|').http_build_query($query));
+        $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
+        $cacheKey = 'home-dashboard:v9:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
             : Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->dashboardData($request));
 
+        if ($chartOnly) return response()->json($data);
         return view($momOnly ? 'surya.partials.mom-sales-card' : 'home', $data);
     }
 
@@ -248,6 +250,10 @@ class HomeController extends Controller
         $salesView = $request->query('sales_view') === 'chart' ? 'chart' : 'table';
         $salesPeriod = $request->query('sales_period') === 'annual' ? 'annual' : 'monthly';
         $productFilterOptions = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
+        $distributionSalesProduct = (string) $request->query('distribution_sales_product', 'pv_all');
+        $distributionInjectProduct = (string) $request->query('distribution_inject_product', 'pv_all');
+        if (!in_array($distributionSalesProduct, $productFilterOptions, true)) $distributionSalesProduct = 'pv_all';
+        if (!in_array($distributionInjectProduct, $productFilterOptions, true)) $distributionInjectProduct = 'pv_all';
         $momProductFilter = strtolower((string) $request->query('mom_product', 'pv_all'));
         if (!in_array($momProductFilter, $productFilterOptions, true)) $momProductFilter = 'pv_all';
         $salesProductFilter = strtolower((string) $request->query('sales_product', 'pv_all'));
@@ -294,6 +300,28 @@ class HomeController extends Controller
                 }
             });
         };
+
+        $chartKind = $request->header('X-Surya-Card');
+        $pieSales = collect();
+        $pieInject = collect();
+        if ($chartKind !== 'mom') {
+            foreach (['sales', 'inject'] as $kind) {
+                if (str_starts_with((string) $chartKind, 'distribution-') && $chartKind !== 'distribution-'.$kind) continue;
+                $source = $kind === 'sales' ? 'combined_sales' : 'injectvf';
+                $query = $kind === 'sales' ? $this->combinedSalesQuery() : DB::table('injectvf');
+                $query->join('denom as distribution_denom', $source.'.iddenom', '=', 'distribution_denom.iddenom')
+                    ->whereBetween($source.'.tgl', [$momStartThisMonth, $momSelectedDate])
+                    ->selectRaw('distribution_denom.group_name, SUM('.$source.'.qty) AS total')
+                    ->groupBy('distribution_denom.group_name')->orderByDesc('total');
+                $applyFilter($query, $source.'.idtap');
+                $applyProductFilter($query, $source, $kind === 'sales' ? $distributionSalesProduct : $distributionInjectProduct);
+                if ($kind === 'sales') $pieSales = $query->get(); else $pieInject = $query->get();
+            }
+            if (in_array($chartKind, ['distribution-sales', 'distribution-inject'], true)) {
+                $rows = $chartKind === 'distribution-sales' ? $pieSales : $pieInject;
+                return ['labels' => $rows->pluck('group_name'), 'values' => $rows->pluck('total'), 'cutoff' => $momSelectedDate->toDateString()];
+            }
+        }
 
         // KPI penjualan bulan berjalan dipisah agar total PV tidak tercampur dengan SA.
         $salesBulanIniByProduct = [];
@@ -669,27 +697,6 @@ class HomeController extends Controller
         $validityMatrixSales = $fetchValidityMatrix('keluarsf', $salesYear, $applyFilter, $applyProductFilter, $salesProductFilter);
         $validityMatrixInject = $fetchValidityMatrix('injectvf', $selectedYear, $applyFilter, $applyProductFilter, $injectProductFilter);
 
-        /* ================= NEW: DOUGHNUT CHART VALIDITY ================= */
-        // PIE SALES
-        $qPieSales = DB::table('keluarsf')
-            ->join('denom', 'keluarsf.iddenom', '=', 'denom.iddenom')
-            ->selectRaw('denom.group_name, SUM(keluarsf.qty) as total')
-            ->whereBetween('keluarsf.tgl', [$startThisMonth, $endThisMonth])
-            // ->whereNotIn('denom.group_name', ['SEGEL', 'VOICE', 'LAINNYA']) // Opt: Filter if needed
-            ->groupBy('denom.group_name')
-            ->orderBy('total', 'desc');
-        $applyFilter($qPieSales, 'keluarsf.idtap');
-        $pieSales = $qPieSales->get();
-
-        // PIE INJECT
-        $qPieInject = DB::table('injectvf')
-            ->join('denom', 'injectvf.iddenom', '=', 'denom.iddenom')
-            ->selectRaw('denom.group_name, SUM(injectvf.qty) as total')
-            ->whereBetween('injectvf.tgl', [$startThisMonth, $endThisMonth])
-            ->groupBy('denom.group_name')
-            ->orderBy('total', 'desc');
-        $applyFilter($qPieInject, 'injectvf.idtap');
-        $pieInject = $qPieInject->get();
 
         /* ================= NEW: MoM INJECT SUMMARY (CLUSTER & GT) ================= */
         $momClusterInject = [];
@@ -705,6 +712,7 @@ class HomeController extends Controller
 
 
         return compact(
+            'distributionSalesProduct', 'distributionInjectProduct',
             'momProductFilter', 'momProductRows', 'momProductClusters', 'momProductSfByTap',
             'mode',
             'selectedYear',

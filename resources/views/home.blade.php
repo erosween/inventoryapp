@@ -6,6 +6,11 @@
     $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
 @endphp
 <style>
+    .distribution-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 8px; }
+    .distribution-controls label { margin:0; font-size:11px; color:#667085; font-weight:700; }
+    .distribution-product { height:38px; width:170px; padding:0 12px; border:1px solid #dce4eb; border-radius:9px; color:#344054; background:#fff; font:600 12px inherit; }
+    .distribution-status { font-size:12px; color:#667085; }
+    .distribution-product[aria-busy="true"] { opacity:.6; }
     .card.sales-summary-card { padding:26px 28px; border:1px solid #e8e2d9; border-radius:20px; background:#fffaf4; box-shadow:0 5px 20px rgba(40,36,28,.04); color:#292923; }
     .sales-summary-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .sales-summary-label { font-size:12px; font-weight:750; letter-spacing:1.1px; text-transform:uppercase; color:#78766f; }
@@ -343,6 +348,7 @@
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">Distribusi Sales (Bulan Berjalan)</h6>
                             <small class="text-muted">Porsi penjualan per validity / grup</small>
+                            @include('surya.partials.distribution-filter', ['kind'=>'sales', 'selectedProduct'=>$distributionSalesProduct])
                         </div>
                         <div class="card-body">
                             <div style="height:260px">
@@ -357,6 +363,7 @@
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">Inject Voucher Fisik (Bulan Berjalan)</h6>
                             <small class="text-muted">Porsi Inject Voucher Fisik</small>
+                            @include('surya.partials.distribution-filter', ['kind'=>'inject', 'selectedProduct'=>$distributionInjectProduct])
                         </div>
                         <div class="card-body">
                             <div style="height:260px">
@@ -2799,6 +2806,7 @@
         function createDistributionBars(canvasId, labels, values, accent) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
+            Chart.getChart(canvas)?.destroy();
             const rows = labels.map((label, i) => ({label: label || 'Lainnya', value: Number(values[i]) || 0}))
                 .sort((a, b) => b.value - a.value);
             canvas.parentElement.style.height = Math.max(260, rows.length * 38 + 28) + 'px';
@@ -2845,6 +2853,40 @@
         }
         createDistributionBars('pieSales', @json($pieSales->pluck('group_name')), @json($pieSales->pluck('total')), '#c8102e');
         createDistributionBars('pieInject', @json($pieInject->pluck('group_name')), @json($pieInject->pluck('total')), '#099268');
+        document.querySelectorAll('.distribution-product').forEach(select => {
+            let controller;
+            let committed = select.value;
+            select.addEventListener('change', async () => {
+                controller?.abort();
+                const active = new AbortController();
+                controller = active;
+                const kind = select.dataset.kind;
+                const status = select.parentElement.querySelector('.distribution-status');
+                status.textContent = 'Memuat data…';
+                select.setAttribute('aria-busy', 'true');
+                const url = new URL(window.location.href);
+                document.querySelectorAll('.distribution-product').forEach(input => url.searchParams.set('distribution_' + input.dataset.kind + '_product', input.value));
+                try {
+                    const response = await fetch(url, {signal:active.signal, headers:{'X-Surya-Card':'distribution-' + kind, 'Accept':'application/json'}});
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    const data = await response.json();
+                    if (controller !== active) return;
+                    createDistributionBars(kind === 'sales' ? 'pieSales' : 'pieInject', data.labels, data.values, kind === 'sales' ? '#c8102e' : '#099268');
+                    committed = select.value;
+                    status.textContent = '';
+                    const currentUrl = new URL(window.location.href);
+                    currentUrl.searchParams.set('distribution_' + kind + '_product', committed);
+                    window.history.replaceState({}, '', currentUrl);
+                } catch (error) {
+                    if (error.name !== 'AbortError' && controller === active) {
+                        select.value = committed;
+                        status.textContent = 'Gagal memuat. Silakan coba lagi.';
+                    }
+                } finally {
+                    if (controller === active) select.removeAttribute('aria-busy');
+                }
+            });
+        });
 
         // ================= SALES LINE ================= 
         new Chart(document.getElementById('chartSales'), {
