@@ -407,17 +407,6 @@ class HomeController extends Controller
         $momPv = $momByProduct['pv_all'];
         $momSa = $momByProduct['sa_all'];
 
-        // Stok gudang ringan: master denom dibaca sekali, lalu agregasi stok memakai index iddenom/idtap.
-        $pvDenomIds = DB::table('denom')
-            ->whereRaw("UPPER(COALESCE(kategori_inject, '')) <> 'SA'")
-            ->pluck('iddenom');
-        $qStockGudang = DB::table('stockawaltap')
-            ->selectRaw('idtap, SUM(stock) AS total_stock')
-            ->whereIn('iddenom', $pvDenomIds)
-            ->groupBy('idtap');
-        $applyFilter($qStockGudang);
-        $stockGudangByTap = $qStockGudang->pluck('total_stock', 'idtap');
-
         $qMomTapSales = $this->combinedSalesQuery()
             ->whereBetween('tgl', [$momStartPrevMonth, $momSelectedDate])
             ->selectRaw('idtap,
@@ -750,7 +739,6 @@ class HomeController extends Controller
             'salesBulanIniSa',
             'momPv',
             'momSa',
-            'stockGudangByTap',
             'mom',
             'chartSales',
             'chartInject',
