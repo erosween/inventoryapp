@@ -1730,9 +1730,6 @@
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandStock) }}</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandDailySt > 0 ? $grandStock / $grandDailySt : 0, 0) }} hari</td>
                                 {{-- M-2 comparison is intentionally disabled for the unified PV dataset. --}}
-                                <!-- <td class="text-right border-0 font-weight-bold {{ $grandMomM2 >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {!! $grandMomM2 >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMomM2), 2) }} %
-                                </td> -->
                             </tr>
                             @endif
                         </tfoot>
