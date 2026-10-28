@@ -33,7 +33,7 @@ class OutletColumnFilters {
    foreach(['sa','pv']as$p)$history->selectRaw("SUM($p) AS {$p}_fm1, SUM(CASE WHEN transaction_date<=? THEN $p ELSE 0 END) AS {$p}_m1",[$compare->toDateString()]);
    $q->leftJoinSub($history,'h',fn($j)=>$j->on('h.id_outlet','=',$outletId));
    }
-   $q->leftJoin('surya_trx_cvm as c','c.id_outlet','=','outlet.id_outlet')->leftJoin('surya_biometrik as b','b.id_outlet','=',$outletId);
+   $q->leftJoin('surya_trx_cvm as c','c.id_outlet','=',$outletId)->leftJoin('surya_biometrik as b','b.id_outlet','=',$outletId);
    foreach(self::GROUPS as$g){
     if (str_starts_with($g,'st_') && !$salesNeeded) continue;
     if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(h.{$p}_fm1,0)";$m1="COALESCE(h.{$p}_m1,0)";$m="(COALESCE(k.$p,0)+COALESCE(m.$p,0))";}
