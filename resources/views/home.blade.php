@@ -1503,19 +1503,9 @@
             {{-- ================= CHARTS LINE & BAR ================= --}}
             <div class="row mb-4 align-items-stretch">
                 <div class="col-md-8 mb-4 mb-md-0">
-                    <div class="card enterprise-shadow h-100">
-                        <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between">
-                            <div>
-                                <h6 class="font-weight-bold text-dark mb-0">📈 Tren Sales ({{ ucfirst($mode) }})</h6>
-                                <small class="text-muted">Analisa riwayat panjang penjualan</small>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div style="height:300px">
-                                <canvas id="chartSales"></canvas>
-                            </div>
-                        </div>
-                    </div>
+                    <link rel="stylesheet" href="{{ asset('css/surya-validity-mom.css') }}?v={{ filemtime(public_path('css/surya-validity-mom.css')) }}">
+                    @include('surya.partials.validity-mom')
+                    <script src="{{ asset('js/surya-validity-mom.js') }}?v={{ filemtime(public_path('js/surya-validity-mom.js')) }}" defer></script>
                 </div>
 
                 <div class="col-md-4">
@@ -2881,38 +2871,6 @@
                     if (controller === active) select.removeAttribute('aria-busy');
                 }
             });
-        });
-
-        // ================= SALES LINE ================= 
-        new Chart(document.getElementById('chartSales'), {
-            type: 'line',
-            data: {
-                labels: {!! json_encode($chartSales->pluck('label')) !!},
-                datasets: [{
-                    label: 'Total Sales',
-                    data: {!! json_encode($chartSales->pluck('total')) !!},
-                    borderColor: '#4285F4',
-                    backgroundColor: 'rgba(66,133,244,0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    borderWidth: 3,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#4285F4'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: c => ' ' + nf(c.parsed.y) } }
-                },
-                scales: {
-                    y: { ticks: { callback: v => nf(v) }, grid:{ borderDash: [2, 4], color: '#f0f0f0' } },
-                    x: { grid: { display: false } }
-                }
-            }
         });
 
         // ================= INTERACTIVE TOGGLES ================= 

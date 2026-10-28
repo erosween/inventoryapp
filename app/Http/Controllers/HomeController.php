@@ -18,13 +18,14 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v14:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v15:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
             : Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->dashboardData($request));
 
         if ($chartOnly) return response()->json($data);
+        if ($request->header('X-Surya-Card') === 'validity-mom') return view('surya.partials.validity-mom',['validityMom'=>$data]);
         return view($momOnly ? 'surya.partials.mom-sales-card' : 'home', $data);
     }
 
@@ -82,6 +83,11 @@ class HomeController extends Controller
             : $momStartPrevMonth->copy()
                 ->day(min($momSelectedDate->day, $momEndPrevMonthFull->day))
                 ->endOfDay();
+        $validityMom = null;
+        if (in_array($request->header('X-Surya-Card','full'), ['full','validity-mom'], true)) {
+            $validityMom = app(\App\Services\ValidityMom::class)->data($request,$momSelectedDate,$momEndPrevMonthPartial,$applyFilter);
+            if ($request->header('X-Surya-Card') === 'validity-mom') return $validityMom;
+        }
         $momStartM2Month = $momSelectedDate->copy()->subMonthsNoOverflow(2)->startOfMonth();
         $momEndM2MonthFull = $momStartM2Month->copy()->endOfMonth();
         $momEndM2MonthPartial = $isMomMonthEnd
@@ -135,28 +141,6 @@ class HomeController extends Controller
         $mom = $salesPrev > 0
             ? (($salesBulanIni - $salesPrev) / $salesPrev) * 100
             : 0;
-
-        /* ================= CHART SALES ================= */
-        if ($mode === 'monthly') {
-            $qChartSales = $this->combinedSalesQuery($currentDate->copy()->subMonths(5)->startOfMonth(), $currentDate)
-                ->selectRaw("DATE_FORMAT(tgl,'%Y-%m') AS label, SUM(qty) AS total")
-                ->whereBetween('tgl', [
-                    $currentDate->copy()->subMonths(5)->startOfMonth(),
-                    $currentDate
-                ])
-                ->groupBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"))
-                ->orderBy(DB::raw("DATE_FORMAT(tgl,'%Y-%m')"));
-            $applyFilter($qChartSales);
-            $chartSales = $qChartSales->get();
-        } else {
-            $qChartSales = $this->combinedSalesQuery($startThisMonth, $endThisMonth)
-                ->selectRaw("DATE(tgl) AS label, SUM(qty) AS total")
-                ->whereBetween('tgl', [$startThisMonth, $endThisMonth])
-                ->groupBy(DB::raw('DATE(tgl)'))
-                ->orderBy('label');
-            $applyFilter($qChartSales);
-            $chartSales = $qChartSales->get();
-        }
 
         /* ================= CLUSTER SUMMARY ================= */
         $clusterMap = [
@@ -728,7 +712,7 @@ class HomeController extends Controller
             'momSa',
             'stockGudangByTap',
             'mom',
-            'chartSales',
+            'validityMom',
             'momSf',
             'topGrowth',
             'topDrop',
