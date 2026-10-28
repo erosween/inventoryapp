@@ -595,7 +595,7 @@ public function updateSfKeluar(Request $request, $id)
     // ditambah transaksi mobile yang sudah approved.
     $adminSales = \App\Support\SalesSource::legacy()
         ->select(['tgl', 'idtap', 'idsf', 'iddenom', 'qty', 'tambahanket']);
-    $mobileSales = DB::table('mobile_penjualan')
+    $mobileSales = \App\Support\SalesSource::mobile()
         ->where('status', 'approved')
         ->select([
             'tgl', 'idtap', DB::raw('COALESCE(owner_idsf,idsf) AS idsf'), 'iddenom', 'qty',

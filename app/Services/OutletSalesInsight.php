@@ -18,7 +18,7 @@ class OutletSalesInsight
   }
   if($master->isNotEmpty())foreach(['keluarsf','mobile_penjualan']as$table){
    $q=DB::table($table.' as t')->join('denom as d','d.iddenom','=','t.iddenom')->whereIn('t.id_outlet',$master->keys()->all())->whereBetween('t.tgl',[$prevStart,$end]);
-   if($table==='keluarsf')SalesSource::excludeApprovalCopies($q,'t');else$q->where('t.status','approved');
+   if($table==='mobile_penjualan'){SalesSource::excludePostedMobile($q,'t');$q->where('t.status','approved');}
    DenomGrouping::filterDenoms($q,strtolower($family).'_all','d');
    $data=$q->select('t.id_outlet','d.group_name','d.product_variant')->selectRaw('SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS current_qty,SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS previous_qty',[$start,$end,$prevStart,$prevEnd])->groupBy('t.id_outlet','d.group_name','d.product_variant')->get();
    foreach($data as$r){$o=$master->get((string)$r->id_outlet);$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=json_encode([$tap,$district]);$g=$this->validity($r->group_name);

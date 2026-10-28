@@ -25,7 +25,7 @@ class OutletColumnFilters {
    if ($salesNeeded) {
    foreach(['keluarsf'=>'k','mobile_penjualan'=>'m']as$table=>$alias){
     $sum=DB::table($table.' as t')->leftJoin('denom as d','d.iddenom','=','t.iddenom')->whereBetween('t.tgl',[$start->toDateString(),$cutoff->copy()->endOfDay()->toDateTimeString()])->select('t.id_outlet')->groupBy('t.id_outlet');
-    if($table==='keluarsf')\App\Support\SalesSource::excludeApprovalCopies($sum,'t');
+    if($table==='mobile_penjualan')\App\Support\SalesSource::excludePostedMobile($sum,'t');
     if($alias==='m')$sum->where('t.status','approved');
     $sum->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group,'PV')) IN ('SA','SP') THEN t.qty ELSE 0 END) AS sa, SUM(CASE WHEN UPPER(COALESCE(d.product_group,'PV'))='PV' THEN t.qty ELSE 0 END) AS pv");
     $q->leftJoinSub($sum,$alias,fn($j)=>$j->on($alias.'.id_outlet','=',$outletId));

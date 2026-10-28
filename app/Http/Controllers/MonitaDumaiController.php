@@ -333,7 +333,7 @@ class MonitaDumaiController extends Controller
                 ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         });
         $mobile = $this->safeOutletDetailSource('mobile_penjualan', function () use ($monthStart, $cutoff, $pageIds) {
-            return DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+            return \App\Support\SalesSource::mobile('m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
                 ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->copy()->endOfDay()->toDateTimeString()])
                 ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
                 ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
@@ -775,7 +775,7 @@ class MonitaDumaiController extends Controller
             ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END), 0) AS m_stpv")
             ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
 
-        $approved = DB::table('mobile_penjualan as m')
+        $approved = \App\Support\SalesSource::mobile('m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
             ->where('m.status', 'approved')
             ->whereBetween('m.tgl', [$monthStart, $cutoffDate])

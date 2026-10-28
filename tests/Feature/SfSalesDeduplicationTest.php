@@ -20,8 +20,9 @@ class SfSalesDeduplicationTest extends TestCase {
   DB::table('mobile_penjualan')->insert(['id'=>1,'tgl'=>'2026-10-26 00:00:00','idtap'=>'DUMAI','idsf'=>'HELPER','owner_idsf'=>'SF1','iddenom'=>'V1','status'=>'approved','qty'=>10]);
   foreach([null,'Mobile Approval ID: 1','Mobile Approval ID: 999']as$note)DB::table('keluarsf')->insert(['tgl'=>'2026-10-26 00:00:00','idtap'=>'DUMAI','idsf'=>'SF1','iddenom'=>'V1','qty'=>10,'tambahanket'=>$note]);
  }
- public function test_only_verified_approval_mirror_is_removed_not_real_identical_transactions():void{
-  $this->assertSame(20,(int)SalesSource::legacy()->sum('qty'));
+ public function test_posted_journal_is_kept_and_mobile_is_suppressed_by_identity():void{
+  $this->assertSame(30,(int)SalesSource::legacy()->sum('qty'));
+  $this->assertSame(0,(int)SalesSource::mobile()->sum('qty'));
   DB::table('mobile_penjualan')->where('id',1)->update(['status'=>'rejected']);
   $this->assertSame(30,(int)SalesSource::legacy()->sum('qty'));
  }
@@ -29,6 +30,19 @@ class SfSalesDeduplicationTest extends TestCase {
   $u=new User();$u->username='admin_super';$this->actingAs($u)->withSession(['idtap'=>'SBP_DUMAI']);Excel::fake();
   app(\App\Http\Controllers\SfkeluarController::class)->exportexcel(Request::create('/','GET',['daterange'=>'2026-10-26 - 2026-10-26']));
   Excel::assertDownloaded('PENJUALAN_SF_2026-10-26_sd_2026-10-26.xlsx',function($export){$rows=$export->collection();$this->assertSame(30,(int)$rows->sum('qty'));$this->assertSame(['Sales Owner'],$rows->pluck('namasf')->unique()->values()->all());return true;});
+ }
+ public function test_export_uses_posted_qty_even_if_mobile_qty_date_product_or_tap_changes():void {
+  foreach ([['qty'=>40],['tgl'=>'2026-10-17 00:00:00'],['iddenom'=>'OTHER'],['idtap'=>'OTHER']] as $change) {
+   DB::table('mobile_penjualan')->where('id',1)->update($change);
+   $this->assertSame(30,(int)SalesSource::legacy()->sum('qty')+(int)SalesSource::mobile()->sum('qty'));
+  }
+  $u=new User();$u->username='admin_super';$this->actingAs($u)->withSession(['idtap'=>'SBP_DUMAI']);Excel::fake();
+  app(\App\Http\Controllers\SfkeluarController::class)->exportexcel(Request::create('/','GET',['daterange'=>'2026-10-26 - 2026-10-26']));
+  Excel::assertDownloaded('PENJUALAN_SF_2026-10-26_sd_2026-10-26.xlsx',function($export){$this->assertSame(30,(int)$export->collection()->sum('qty'));return true;});
+ }
+ public function test_approved_mobile_without_posted_journal_is_still_included():void {
+  DB::table('mobile_penjualan')->insert(['id'=>2,'tgl'=>'2026-10-26','idtap'=>'DUMAI','idsf'=>'SF1','iddenom'=>'V1','qty'=>7,'status'=>'approved']);
+  $this->assertSame(7,(int)SalesSource::mobile()->sum('qty'));
  }
  private function prepareNewApproval():void {
   Schema::table('keluarsf',fn(Blueprint $t)=>$t->string('id_outlet')->nullable());
@@ -44,7 +58,7 @@ class SfSalesDeduplicationTest extends TestCase {
   $second=$controller->approve(new Request(['id'=>2]))->getData(true);$this->assertFalse($second['success']);
   $this->assertSame(1,DB::table('keluarsf')->where('tambahanket','Mobile Approval ID: 2')->count());
   $this->assertSame(93,(int)DB::table('stockawalsf')->value('stock'));
-  $this->assertSame(37,(int)SalesSource::legacy()->sum('qty')+(int)DB::table('mobile_penjualan')->where('status','approved')->sum('qty'));
+  $this->assertSame(37,(int)SalesSource::legacy()->sum('qty')+(int)SalesSource::mobile()->sum('qty'));
  }
  public function test_bulk_approval_with_repeated_id_is_safe():void {
   $this->prepareNewApproval();$r=app(\App\Http\Controllers\MobileApprovalController::class)->bulkApprove(new Request(['ids'=>[2,2]]))->getData(true);
@@ -54,8 +68,8 @@ class SfSalesDeduplicationTest extends TestCase {
  public function test_duplicate_guard_is_not_limited_to_october_26_27_or_28():void {
   DB::table('keluarsf')->where('tambahanket','Mobile Approval ID: 1')->update(['tgl'=>'2031-01-15 00:00:00']);
   DB::table('mobile_penjualan')->where('id',1)->update(['tgl'=>'2031-01-15 00:00:00']);
-  $this->assertSame(0,(int)SalesSource::legacy()->whereDate('tgl','2031-01-15')->sum('qty'));
-  $this->assertSame(10,(int)DB::table('mobile_penjualan')->where('status','approved')->whereDate('tgl','2031-01-15')->sum('qty'));
+  $this->assertSame(10,(int)SalesSource::legacy()->whereDate('tgl','2031-01-15')->sum('qty'));
+  $this->assertSame(0,(int)SalesSource::mobile()->whereDate('tgl','2031-01-15')->sum('qty'));
  }
 
 }

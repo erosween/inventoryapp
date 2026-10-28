@@ -18,7 +18,7 @@ class HomeController extends Controller
         $scope = strtoupper(trim((string) session('idtap')));
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v17:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
+        $cacheKey = 'home-dashboard:v18:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
 
         $data = app()->environment('testing')
             ? $this->dashboardData($request)
@@ -174,7 +174,7 @@ class HomeController extends Controller
             if ($table === 'mobile_penjualan') {
                 $query->where('status', 'approved');
             }
-            if ($table === 'keluarsf') \App\Support\SalesSource::excludeApprovalCopies($query);
+            if ($table === 'mobile_penjualan') \App\Support\SalesSource::excludePostedMobile($query);
             $applyFilter($query);
 
             return $query->get()->keyBy('idsf');
@@ -743,7 +743,7 @@ class HomeController extends Controller
             'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
         ]);
 
-        $surya = DB::table('mobile_penjualan')
+        $surya = \App\Support\SalesSource::mobile()
             ->where('status', 'approved')
             ->select([
                 'tgl', 'idtap', DB::raw('COALESCE(owner_idsf, idsf) AS idsf'), 'iddenom', 'qty',
