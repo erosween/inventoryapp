@@ -23,7 +23,7 @@ class SuryaCsvReader
    $columns=array_values(array_intersect($headers,$allowed));$offset=ftell($h);$count=1;$first=null;
    while(($row=fgetcsv($h,0,$delimiter,'"',''))!==false){$count++;if($count>500001)$this->error('Maksimal 500.000 baris data per file.');if(count($row)>count($raw))$this->error('Jumlah kolom melebihi header pada baris '.$count.'.');if($first===null&&array_filter($row,fn($v)=>trim((string)$v)!==''))$first=$row;}
    if($first===null)$this->error('Tidak ada baris data di CSV. Data aktif tidak diganti.');
-   $type=in_array('id_outlet',$headers,true)&&$columns!==[]?'metrics':(count($raw)===4?($this->looksLikeDate($first[0]??'')?'sales':'bio'):null);
+   $type=in_array('id_outlet',$headers,true)&&$columns!==[]?'metrics':(count($raw)===4?($kind==='biometrik'?'bio':($this->looksLikeDate($first[0]??'')?'sales':'bio')):null);
    if($type===null)$this->error('Header tidak dikenali. Gunakan header TRX CVM atau empat kolom Biometrik.');
    if(($type==='bio'?'biometrik':'cvm')!==$kind)$this->error('Nama file tidak sesuai isi. Gunakan cvm untuk TRX CVM dan biometrik untuk Biometrik.');
    if($type==='metrics'&&array_filter($headers,fn($c)=>str_starts_with($c,'bio_')))$this->error('Biometrik harus diupload melalui file biometrik terpisah.');

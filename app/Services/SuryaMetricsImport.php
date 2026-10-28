@@ -260,7 +260,7 @@ class SuryaMetricsImport
         $stem = strtolower(pathinfo(basename($filename), PATHINFO_FILENAME));
         $cvm = str_contains($stem, 'cvm');
         $bio = str_contains($stem, 'biometrik');
-        if ($cvm === $bio) throw ValidationException::withMessages(['metrics_file' => 'Nama file wajib mengandung salah satu: cvm atau biometrik. Contoh: trx_cvm.xlsx atau biometrik.xlsx.']);
+        if ($cvm === $bio) throw ValidationException::withMessages(['metrics_file' => 'Nama file wajib mengandung salah satu: cvm atau biometrik. Contoh: trx_cvm.csv atau biometrik.csv.']);
         return $bio ? 'biometrik' : 'cvm';
     }
 
