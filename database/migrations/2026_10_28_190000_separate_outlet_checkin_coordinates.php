@@ -16,12 +16,15 @@ return new class extends Migration {
         // Preserve the latest accepted check-in before any new Digipos import.
         app(\App\Services\SuryaOutletCoordinates::class)->latestVisits()
             ->orderBy('coordinate_visit_id')->chunk(250, function ($visits) {
-                foreach ($visits as $visit) DB::table('appsdumais')
+                foreach ($visits as $visit) {
+                    if (!preg_match('/^[1-9][0-9]{0,17}$/D', (string)$visit->coordinate_outlet_id)) continue;
+                    DB::table('appsdumais')->where('id_outlet', $visit->coordinate_outlet_id)
                     ->whereRaw('CAST(id_outlet AS CHAR) = ?', [(string)$visit->coordinate_outlet_id])
                     ->whereNull('latitude_checkin')->whereNull('longitude_checkin')->update([
                         'latitude_checkin' => $visit->visit_latitude,
                         'longitude_checkin' => $visit->visit_longitude,
                     ]);
+                }
             });
     }
 
