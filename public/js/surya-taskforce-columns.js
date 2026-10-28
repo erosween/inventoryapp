@@ -1,5 +1,9 @@
 (() => {
     'use strict';
+    let cleanup = () => {};
+    function init() {
+    cleanup();
+    const events = new AbortController();
     const menu = document.getElementById('tf-column-menu');
     if (!menu) return;
     const includes = JSON.parse(menu.dataset.selection || '{}');
@@ -15,18 +19,21 @@
         if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
         else { url.searchParams.delete('sort'); url.searchParams.delete('direction'); }
         url.searchParams.delete('page');
-        location.assign(url.toString());
+        window.SuryaTaskforceNavigate(url.toString());
     }
-    document.querySelectorAll('[data-sort-column]').forEach(button => button.addEventListener('click', () => {
-        const url = new URL(location.href);
-        const direction = url.searchParams.get('sort') === button.dataset.sortColumn && url.searchParams.get('direction') !== 'desc' ? 'desc' : 'asc';
-        sort(button.dataset.sortColumn,direction);
-    }));
     menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => sort(key,button.dataset.sortDirection)));
     menu.querySelector('[data-sort-clear]').addEventListener('click', () => sort(key,null));
+    cleanup = () => { events.abort(); pending?.abort(); clearTimeout(timer); };
     function close() {
         clearTimeout(timer); pending?.abort(); menu.hidden = true;
         trigger?.setAttribute('aria-expanded','false');
+    }
+    function positionMenu() {
+        if (menu.hidden || !trigger?.isConnected) return;
+        const rect = trigger.getBoundingClientRect();
+        const column = trigger.closest('th').getBoundingClientRect();
+        menu.style.left = Math.max(8,Math.min(column.left,innerWidth - 326)) + 'px';
+        menu.style.top = Math.max(8,Math.min(rect.bottom + 6,innerHeight - Math.min(460,innerHeight - 16))) + 'px';
     }
     function draw() {
         list.replaceChildren();
@@ -77,7 +84,7 @@
         if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? 'columns' : 'exclude'}[${key}][]`,value);
         url.searchParams.delete('page');
         apply.disabled = true; apply.textContent = 'Memuat…';
-        location.assign(url.toString());
+        window.SuryaTaskforceNavigate(url.toString());
     }
     document.querySelectorAll('.tf-column-filter').forEach(button => button.addEventListener('click', () => {
         if (!menu.hidden && trigger === button) { close(); return; }
@@ -87,11 +94,8 @@
         values = []; page = 1; search.value = ''; apply.textContent = 'Terapkan';
         document.getElementById('tf-column-title').textContent = 'Filter · ' + button.dataset.label;
         menu.hidden = false; button.setAttribute('aria-expanded','true');
-        const rect = button.getBoundingClientRect();
-        const column = button.closest('th').getBoundingClientRect();
-        menu.style.left = Math.max(8,Math.min(column.left,innerWidth - 326)) + 'px';
-        menu.style.top = Math.max(8,Math.min(rect.bottom + 6,innerHeight - Math.min(460,innerHeight - 16))) + 'px';
-        search.focus(); load();
+        positionMenu();
+        search.focus({preventScroll:true}); load();
     }));
     search.addEventListener('input', () => { clearTimeout(timer); pending?.abort(); timer = setTimeout(() => { page = 1; load(); },250); });
     more.addEventListener('click', () => { page++; load(true); });
@@ -100,8 +104,11 @@
     menu.querySelector('[data-filter-reset]').addEventListener('click', () => navigate(true));
     apply.addEventListener('click', () => navigate());
     menu.querySelector('[data-filter-close]').addEventListener('click', () => { close(); trigger?.focus(); });
-    document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); trigger?.focus(); } });
-    document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',close,{passive:true});
-    window.addEventListener('resize',close);
+    document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); },{signal:events.signal});
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); trigger?.focus(); } },{signal:events.signal});
+    document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',positionMenu,{passive:true});
+    window.addEventListener('resize',close,{signal:events.signal});
+    }
+    init();
+    document.addEventListener('taskforce:updated',init);
 })();

@@ -309,7 +309,7 @@ class TaskforcePushSoTest extends TestCase
             DB::table('taskforce_upload_outlets')->insert(['upload_id'=>$uploadId,'id_outlet'=>$id,'cells'=>json_encode([$id,'G',(string)($i+1)]),'row_position'=>100-$i]);
         }
         $query=['sort'=>'2','direction'=>'asc','columns'=>['1'=>['G']]];
-        $page=$this->get($this->url($query))->assertOk()->assertSee('Urutkan Jumlah');
+        $page=$this->get($this->url($query))->assertOk()->assertSee('Urutkan naik')->assertSee('Urutkan turun')->assertDontSee('data-sort-column',false);
         self::assertSame(range(1,25),$page->viewData('outlets')->map(fn($row)=>(int)$row->uploaded_cells[2])->all());
         self::assertStringContainsString('sort=2',$page->viewData('outlets')->nextPageUrl());
         $page=$this->get($this->url($query+['page'=>2]))->assertOk();
