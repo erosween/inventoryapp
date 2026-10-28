@@ -15,25 +15,6 @@
                 </ul>
             </div>
 
-            <!-- Global Stats Banner -->
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="card card-round shadow-sm border-0 mb-4 text-white overflow-hidden" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);">
-                        <div class="card-body py-4 position-relative">
-                            <div class="row align-items-center">
-                                <div class="col-md-12">
-                                    <h6 class="text-white-50 fw-bold mb-1" id="total-pending-label">TOTAL PENDING {{ strtoupper($selected_date_label) }}</h6>
-                                    <h1 class="fw-900 mb-0" id="total-pending-amount" style="font-size: 2.5rem;">Rp {{ number_format($total_pending_amount, 0, ',', '.') }}</h1>
-                                    <div class="mt-2 text-white-50 small">
-                                        <i class="fas fa-chart-line me-1"></i> Rekapitulasi setoran tertunda yang menunggu verifikasi
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="row">
                 <div class="col-md-12">
                     <div class="card premium-card card-round border-0 shadow-sm">
@@ -76,7 +57,6 @@
                                             <th>TAP</th>
                                             <th>JENIS PAKET</th>
                                             <th class="text-right">TOTAL QTY</th>
-                                            <th class="text-right">TOTAL RUPIAH</th>
                                             <th class="text-center">STATUS</th>
                                             <th class="text-center" style="width: 150px">AKSI</th>
                                         </tr>
@@ -97,7 +77,7 @@
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content card-round border-0 shadow-lg">
             <div class="modal-header bg-indigo py-3">
-                <h5 class="modal-title text-white fw-bold"><i class="fas fa-layer-group me-2"></i> Rekap Setoran per Denom</h5>
+                <h5 class="modal-title text-white fw-bold"><i class="fas fa-layer-group me-2"></i> Rincian Penjualan per Denom</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: white; opacity: 1;">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -111,7 +91,6 @@
                             <p class="text-muted small mb-0"><span id="modal-jenis-label" class="badge badge-info me-2"></span> <span id="modal-tap-label" class="badge badge-secondary"></span></p>
                         </div>
                         <div class="col-md-5 text-end">
-                            <h2 class="fw-900 text-indigo mb-0" id="modal-total-amount">Rp 0</h2>
                             <span class="badge badge-indigo" id="modal-item-count">0 Denom</span>
                             <div id="modal-status-badge" class="mt-2"></div>
                         </div>
@@ -133,7 +112,6 @@
                                     <th>Denom</th>
                                     <th class="text-center">Transaksi</th>
                                     <th class="text-end">Qty</th>
-                                    <th class="text-end">Total</th>
                                     <th class="text-center" style="width: 90px">AKSI</th>
                                 </tr>
                             </thead>
@@ -155,21 +133,6 @@
                     <div id="modal-consignment-list"></div>
                 </div>
 
-                <!-- Comparison Helper (Only for Pending) -->
-                <div id="modal-comparison-section" class="px-4 py-3 bg-light border-top">
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <label class="text-muted small fw-bold">INPUT TOTAL DARI BON FISIK</label>
-                            <input type="number" id="real-bon-input" class="form-control" placeholder="Masukkan total di bon fisik...">
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <div id="selisih-wrapper" class="d-none">
-                                <label class="text-muted small fw-bold">SELISIH DENGAN SISTEM</label>
-                                <h3 id="selisih-val" class="fw-900 mb-0">Rp 0</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
             <div class="modal-footer bg-white py-3 d-none" id="modal-footer-actions">
                 <div class="me-auto small text-muted fw-bold ps-3" id="selected-count-label">0 denom dipilih</div>
@@ -258,7 +221,6 @@
         var currentModalSf = '';
         var currentModalIdtap = '';
         var currentModalJenis = '';
-        var currentModalTotal = 0;
         var escapeHtml = function(value) { return $('<div>').text(value == null ? '' : String(value)).html(); };
 
         var table = $('#approval-table').DataTable({
@@ -279,26 +241,11 @@
                 { data: 'idtap', name: 'x.idtap', className: 'text-center' },
                 { data: 'jenis_paket', name: 'jenis_paket', className: 'text-center fw-bold' },
                 { data: 'total_qty', name: 'total_qty', className: 'text-right fw-bold' },
-                { data: 'total_rupiah', name: 'total_rupiah', className: 'text-right fw-bold text-success' },
                 { data: 'status', name: 'x.status', className: 'text-center' },
                 { data: 'action', name: 'action', className: 'text-center', orderable: false, searchable: false }
             ],
             order: [[0, 'asc']],
             pageLength: 25
-        });
-
-        function refreshStats() {
-            return $.get("{{ route('admin.mobile-approval.stats') }}", {
-                idsf: selectedIdsf,
-                date: selectedDate
-            }, function(res) {
-                $('#total-pending-amount').text(res.pending_amount);
-                $('#total-pending-label').text('TOTAL PENDING ' + String(res.date_label || '').toUpperCase());
-            });
-        }
-
-        table.on('xhr.dt', function() {
-            refreshStats();
         });
 
         $('#approval-date').on('change', function() {
@@ -309,9 +256,9 @@
         $('#approval-refresh').on('click', function() {
             var button = $(this);
             button.prop('disabled', true).find('i').addClass('fa-spin');
-            $.when(table.ajax.reload(null, false), refreshStats()).always(function() {
+            table.ajax.reload(function() {
                 button.prop('disabled', false).find('i').removeClass('fa-spin');
-            });
+            }, false);
         });
 
         // Status Tabs
@@ -340,14 +287,13 @@
             $('#modal-sf-name').text(namasf.toUpperCase());
             $('#modal-jenis-label').text(jenis);
             $('#modal-tap-label').text(idtap);
-            $('#modal-total-amount').text('...');
             $('#modal-item-count').text('Memuat...');
             $('#modal-status-badge').html('<i class="fas fa-circle-notch fa-spin text-muted"></i>');
-            $('#modal-items-table tbody').html('<tr><td colspan="6" class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-indigo"></i><br><small class="text-muted">Mengambil data rincian...</small></td></tr>');
+            $('#modal-items-table tbody').html('<tr><td colspan="5" class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-indigo"></i><br><small class="text-muted">Mengambil data rincian...</small></td></tr>');
             $('#modal-consignment-section').addClass('d-none');
             $('#modal-consignment-list').empty();
             $('#modal-consignment-count').text('0 Nomor');
-            $('#modal-comparison-section, #modal-footer-actions').addClass('d-none');
+            $('#modal-footer-actions').addClass('d-none');
             $('#check-all-items').prop('checked', false);
             $('#reviewModal').modal('show');
             
@@ -359,19 +305,14 @@
                 date: selectedDate
             }, function(res) {
                 $('#modal-sf-name').text(res.sf_name.toUpperCase());
-                $('#modal-total-amount').text(res.total_amount);
                 $('#modal-item-count').text(res.count + ' Denom · ' + res.transaction_count + ' Transaksi');
                 
                 var badgeClass = res.status == 'pending' ? 'badge-warning' : (res.status == 'approved' ? 'badge-success' : 'badge-danger');
                 $('#modal-status-badge').html(`<span class="badge ${badgeClass} fw-bold px-3 py-2 animate__animated animate__fadeIn">${res.status.toUpperCase()}</span>`);
 
                 if (res.status == 'pending') {
-                    $('#modal-comparison-section, #modal-footer-actions').removeClass('d-none').addClass('animate__animated animate__fadeIn');
+                    $('#modal-footer-actions').removeClass('d-none').addClass('animate__animated animate__fadeIn');
                 }
-
-                currentModalTotal = parseInt(res.total_amount.replace(/[^0-9]/g, ''));
-                $('#real-bon-input').val('');
-                $('#selisih-wrapper').addClass('d-none');
 
                 var html = '';
                 res.items.forEach(function(item, index) {
@@ -404,9 +345,8 @@
                         </td>
                         <td class="text-center"><span class="badge badge-light">${item.transaction_count}</span></td>
                         <td class="text-end fw-bold">${item.qty}</td>
-                        <td class="text-end text-indigo fw-bold">${item.total}</td>
                         <td class="text-center">${actionBtns}</td>
-                    </tr><tr class="denom-outlet-detail"><td></td><td colspan="5"><div class="transaction-outlet-list"><small class="text-muted fw-bold">RINCIAN OUTLET / TRANSAKSI</small>${outletDetails}</div></td></tr>`;
+                    </tr><tr class="denom-outlet-detail"><td></td><td colspan="4"><div class="transaction-outlet-list"><small class="text-muted fw-bold">RINCIAN OUTLET / TRANSAKSI</small>${outletDetails}</div></td></tr>`;
                 });
                 $('#modal-items-table tbody').html(html);
 
@@ -460,19 +400,6 @@
             });
             return [...new Set(ids)];
         }
-
-        // Calculation Helper
-        $('#real-bon-input').on('input', function() {
-            var val = $(this).val();
-            if (val) {
-                var diff = val - currentModalTotal;
-                $('#selisih-val').text('Rp ' + new Intl.NumberFormat('id-ID').format(diff));
-                $('#selisih-val').toggleClass('text-danger', diff != 0).toggleClass('text-success', diff == 0);
-                $('#selisih-wrapper').removeClass('d-none');
-            } else {
-                $('#selisih-wrapper').addClass('d-none');
-            }
-        });
 
         // Individual Item Actions
         $(document).on('click', '.item-approve-btn', function() {
