@@ -19,6 +19,7 @@ class OutletColumnFilters {
   $numeric=array_diff($needed,self::TEXT)!==[];
   $q=$base->select(array_map(fn($c)=>'outlet.'.$c,self::TEXT));
   if($numeric){
+   $outletId = DB::raw('CAST(outlet.id_outlet AS '.(DB::getDriverName()==='sqlite'?'TEXT':'CHAR').')');
    $start=$cutoff->copy()->startOfMonth();$prev=$start->copy()->subMonth();$end=$prev->copy()->endOfMonth();$compare=$prev->copy()->day(min($cutoff->day,$end->day));
    $salesNeeded = collect($needed)->contains(fn($key)=>str_starts_with($key,'st_'));
    if ($salesNeeded) {
@@ -26,13 +27,13 @@ class OutletColumnFilters {
     $sum=DB::table($table.' as t')->leftJoin('denom as d','d.iddenom','=','t.iddenom')->whereBetween('t.tgl',[$start->toDateString(),$cutoff->toDateString()])->select('t.id_outlet')->groupBy('t.id_outlet');
     if($alias==='m')$sum->where('t.status','approved');
     $sum->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group,'PV')) IN ('SA','SP') THEN t.qty ELSE 0 END) AS sa, SUM(CASE WHEN UPPER(COALESCE(d.product_group,'PV'))='PV' THEN t.qty ELSE 0 END) AS pv");
-    $q->leftJoinSub($sum,$alias,fn($j)=>$j->on($alias.'.id_outlet','=','outlet.id_outlet'));
+    $q->leftJoinSub($sum,$alias,fn($j)=>$j->on($alias.'.id_outlet','=',$outletId));
    }
    $history=DB::table('surya_outlet_sales_history')->whereBetween('transaction_date',[$prev->toDateString(),$end->toDateString()])->select('id_outlet')->groupBy('id_outlet');
    foreach(['sa','pv']as$p)$history->selectRaw("SUM($p) AS {$p}_fm1, SUM(CASE WHEN transaction_date<=? THEN $p ELSE 0 END) AS {$p}_m1",[$compare->toDateString()]);
-   $q->leftJoinSub($history,'h',fn($j)=>$j->on('h.id_outlet','=','outlet.id_outlet'));
+   $q->leftJoinSub($history,'h',fn($j)=>$j->on('h.id_outlet','=',$outletId));
    }
-   $q->leftJoin('surya_trx_cvm as c','c.id_outlet','=','outlet.id_outlet')->leftJoin('surya_biometrik as b','b.id_outlet','=','outlet.id_outlet');
+   $q->leftJoin('surya_trx_cvm as c','c.id_outlet','=','outlet.id_outlet')->leftJoin('surya_biometrik as b','b.id_outlet','=',$outletId);
    foreach(self::GROUPS as$g){
     if (str_starts_with($g,'st_') && !$salesNeeded) continue;
     if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(h.{$p}_fm1,0)";$m1="COALESCE(h.{$p}_m1,0)";$m="(COALESCE(k.$p,0)+COALESCE(m.$p,0))";}
