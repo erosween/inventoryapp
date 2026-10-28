@@ -25,6 +25,7 @@
     menu.querySelector('[data-sort-clear]').addEventListener('click', () => sort(key,null));
     cleanup = () => { events.abort(); pending?.abort(); clearTimeout(timer); };
     function close() {
+        if (menu.contains(document.activeElement)) document.activeElement.blur();
         clearTimeout(timer); pending?.abort(); menu.hidden = true;
         trigger?.setAttribute('aria-expanded','false');
     }
@@ -32,8 +33,16 @@
         if (menu.hidden || !trigger?.isConnected) return;
         const rect = trigger.getBoundingClientRect();
         const column = trigger.closest('th').getBoundingClientRect();
-        menu.style.left = Math.max(8,Math.min(column.left,innerWidth - 326)) + 'px';
-        menu.style.top = Math.max(8,Math.min(rect.bottom + 6,innerHeight - Math.min(460,innerHeight - 16))) + 'px';
+        const viewport = window.visualViewport;
+        const width = viewport?.width || innerWidth, height = viewport?.height || innerHeight;
+        const left = viewport?.offsetLeft || 0, top = viewport?.offsetTop || 0;
+        const touch = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer:coarse)').matches;
+        const menuWidth = Math.min(touch ? 360 : 310, Math.max(0,width - 16));
+        menu.style.width = menuWidth + 'px';
+        menu.style.maxWidth = Math.max(0,width - 16) + 'px';
+        menu.style.maxHeight = Math.max(0,height - 16) + 'px';
+        menu.style.left = (touch ? left + (width - menuWidth) / 2 : Math.max(left + 8,Math.min(column.left,left + width - menuWidth - 8))) + 'px';
+        menu.style.top = Math.max(top + 8,Math.min(rect.bottom + 6,top + height - Math.min(460,height - 16) - 8)) + 'px';
     }
     function draw() {
         list.replaceChildren();
@@ -95,7 +104,9 @@
         document.getElementById('tf-column-title').textContent = 'Filter · ' + button.dataset.label;
         menu.hidden = false; button.setAttribute('aria-expanded','true');
         positionMenu();
-        search.focus({preventScroll:true}); load();
+        // On touch screens the keyboard should open only when search is tapped.
+        if (!(navigator.maxTouchPoints > 0 || window.matchMedia('(pointer:coarse)').matches)) search.focus({preventScroll:true});
+        load();
     }));
     search.addEventListener('input', () => { clearTimeout(timer); pending?.abort(); timer = setTimeout(() => { page = 1; load(); },250); });
     more.addEventListener('click', () => { page++; load(true); });
@@ -107,7 +118,9 @@
     document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); },{signal:events.signal});
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); trigger?.focus(); } },{signal:events.signal});
     document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',positionMenu,{passive:true});
-    window.addEventListener('resize',close,{signal:events.signal});
+    window.addEventListener('resize',positionMenu,{signal:events.signal});
+    window.visualViewport?.addEventListener('resize',positionMenu,{signal:events.signal});
+    window.visualViewport?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
     }
     init();
     document.addEventListener('taskforce:updated',init);
