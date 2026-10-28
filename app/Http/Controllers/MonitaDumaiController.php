@@ -218,7 +218,7 @@ class MonitaDumaiController extends Controller
         $base=$this->outletDetailBaseQuery($this->suryaTapScopes(),trim((string)$request->input('tap')),trim((string)$request->input('q')),trim((string)$request->input('pjp')),trim((string)$request->input('sf')));
         $cutoff=$this->outletSalesCutoff($request);
         $outlets=$service->query($base,$cutoff,$options)->select('id_outlet','tap','kecamatan')->get();
-        $insight=app(\App\Services\OutletSalesInsight::class)->data($outlets,$cutoff,$request->input('summary_product','pv_all'));
+        $insight=app(\App\Services\OutletSalesInsight::class)->data($outlets,$cutoff,($request->input('summary_product') ?: 'pv_all'));
         return response()->view('surya.partials.outlet-sales-insight',compact('insight'))->header('Cache-Control','no-store');
     }
 
