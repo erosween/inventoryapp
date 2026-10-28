@@ -1502,13 +1502,13 @@
 
             {{-- ================= CHARTS LINE & BAR ================= --}}
             <div class="row mb-4 align-items-stretch">
-                <div class="col-md-8 mb-4 mb-md-0">
+                <div class="col-12 mb-4">
                     <link rel="stylesheet" href="{{ asset('css/surya-validity-mom.css') }}?v={{ filemtime(public_path('css/surya-validity-mom.css')) }}">
                     @include('surya.partials.validity-mom')
                     <script src="{{ asset('js/surya-validity-mom.js') }}?v={{ filemtime(public_path('js/surya-validity-mom.js')) }}" defer></script>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-12">
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">🗓️ Feed Aktivitas TAP</h6>
