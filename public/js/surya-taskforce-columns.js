@@ -67,6 +67,7 @@
         const controller = new AbortController(); pending = controller;
         const url = new URL(menu.dataset.valuesUrl,location.href);
         url.search = location.search;
+        if (menu.dataset.outletSearch !== undefined) url.searchParams.set('outlet_q',menu.dataset.outletSearch);
         url.searchParams.delete('page');
         url.searchParams.set('column',key);
         url.searchParams.set('q',search.value);
@@ -118,6 +119,7 @@
     document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); },{signal:events.signal});
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); trigger?.focus(); } },{signal:events.signal});
     document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',positionMenu,{passive:true});
+    document.querySelector('.detail-table')?.closest('.table-wrap')?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
     window.addEventListener('resize',positionMenu,{signal:events.signal});
     window.visualViewport?.addEventListener('resize',positionMenu,{signal:events.signal});
     window.visualViewport?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});

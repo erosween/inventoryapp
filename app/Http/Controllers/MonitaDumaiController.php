@@ -142,9 +142,10 @@ class MonitaDumaiController extends Controller
         $outlets = null;
         $nonDigiposOutlets = null;
         if ($activeTab === 'digipos') {
-            $outlets = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf)
-                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-                ->orderBy('outlet.nama_outlet')->paginate($perPage)->withQueryString();
+            $filterService = app(\App\Services\OutletColumnFilters::class);
+            $options = $filterService->options($request);
+            $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf);
+            $outlets = $filterService->order($filterService->query($base, $salesCutoff, $options), $options)->paginate($perPage)->withQueryString();
             $outlets->setCollection($this->hydrateOutletDetailPage($outlets->getCollection(), $salesCutoff));
         } else {
             $nonDigiposOutlets = $this->nonDigiposOutletBaseQuery($tapScopes, $selectedTap, $search)
@@ -208,6 +209,21 @@ class MonitaDumaiController extends Controller
         }
     }
 
+    public function outletColumnValues(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+        $request->validate(['column'=>'required|string','q'=>'nullable|string|max:150','value_page'=>'nullable|integer|min:1|max:10000']);
+        $service=app(\App\Services\OutletColumnFilters::class);
+        $key=$request->input('column');$service->check($key);$options=$service->options($request);
+        unset($options['columns'][$key],$options['exclude'][$key],$options['sort']);
+        $base=$this->outletDetailBaseQuery($this->suryaTapScopes(),trim((string)$request->input('tap')),trim((string)$request->input('outlet_q')),trim((string)$request->input('pjp')),trim((string)$request->input('sf')));
+        $q=$service->query($base,$this->outletSalesCutoff($request),$options,$key);
+        $expr=$service->expression($key);
+        if($request->filled('q'))$q->whereRaw($expr.' LIKE ?', ['%'.$request->input('q').'%']);
+        $values=$q->selectRaw($expr.' AS value')->distinct()->orderBy('value')->offset((max(1,(int)$request->input('value_page',1))-1)*100)->limit(101)->pluck('value');
+        return response()->json(['values'=>$values->take(100)->values(),'has_more'=>$values->count()>100]);
+    }
+
     public function outletDetailExport(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
@@ -218,9 +234,10 @@ class MonitaDumaiController extends Controller
         $selectedSf = trim((string) $request->input('sf'));
         $search = trim((string) $request->input('q'));
         $salesCutoff = $this->outletSalesCutoff($request);
-        $rows = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf)
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
-            ->orderBy('outlet.nama_outlet')
+        $filterService = app(\App\Services\OutletColumnFilters::class);
+        $options = $filterService->options($request);
+        $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf);
+        $rows = $filterService->order($filterService->query($base, $salesCutoff, $options), $options)
             ->get()
             ->chunk(200)
             ->flatMap(fn ($chunk) => $this->hydrateOutletDetailPage($chunk, $salesCutoff))
