@@ -432,17 +432,11 @@ class MonitaDumaiController extends Controller
             if ($request->boolean('staged') && $request->expectsJson()) {
                 return response()->json($importer->start($request->file('metrics_file'), (int) auth()->id()), 201);
             }
-            // Retain the native form fallback. The browser uses short, sequential batch requests.
-            $path = $request->file('metrics_file')->getRealPath();
-            $meta = $importer->inspect($path, $request->file('metrics_file')->getClientOriginalName());
-            $imported = $skipped = 0;
-            for ($next = 2; $next <= $meta['total_rows'];) {
-                $result = $importer->importChunk($path, $meta, $next);
-                $next = $result['next_row'];
-                $imported += $result['imported'];
-                $skipped += $result['skipped'];
-            }
-            return back()->with('success', "Upload berhasil: {$imported} baris diproses, {$skipped} baris dilewati.");
+            $state = $importer->start($request->file('metrics_file'), (int) auth()->id());
+            do {
+                $state = $importer->advance($state['id'], (int) auth()->id(), $state['next_row']);
+            } while ($state['status'] === 'processing');
+            return back()->with('success', "Upload berhasil: {$state['imported']} baris diproses. Data terbaru sudah digunakan.");
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {

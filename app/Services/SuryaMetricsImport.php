@@ -101,10 +101,22 @@ class SuryaMetricsImport
                 continue;
             }
             $dateColumn = $meta['type'] === 'sales' ? 'transaction_date' : 'metric_date';
-            $batch[$date.'|'.$id] = array_merge($values, [
+            $batch[isset($meta['snapshot_id']) ? $id : $date.'|'.$id] = array_merge($values, [
                 'id_outlet' => $id, $dateColumn => $date, 'created_at' => $now, 'updated_at' => $now,
             ]);
             $imported++;
+        }
+        if (isset($meta['snapshot_id'])) {
+            $staged = [];
+            foreach ($batch as $values) {
+                $values['created_at'] = $now->toDateTimeString();
+                $values['updated_at'] = $now->toDateTimeString();
+                $values['source_updated_at'] = $values['metric_date'];
+                $values['uploaded_metrics'] = $meta['type'] === 'bio' ? 'bio' : implode(',', self::METRICS);
+                $staged[$values['id_outlet']] = ['upload_id'=>$meta['snapshot_id'], 'id_outlet'=>$values['id_outlet'], 'data'=>json_encode($values, JSON_THROW_ON_ERROR)];
+            }
+            foreach (array_chunk(array_values($staged), 100) as $chunk) DB::table('surya_transaction_staging')->upsert($chunk, ['upload_id','id_outlet'], ['data']);
+            return ['imported'=>$imported, 'skipped'=>$skipped, 'next_row'=>$end+1];
         }
         $targetTable = $meta['type'] === 'bio' ? 'surya_biometrik' : 'surya_trx_cvm';
         if ($batch !== []) {
@@ -150,6 +162,9 @@ class SuryaMetricsImport
                 'id' => $id, 'owner' => $owner, 'path' => $path,
                 'next_row' => 2, 'imported' => 0, 'skipped' => 0, 'status' => 'processing',
             ]);
+            if ($meta['type'] !== 'sales') {
+                $meta['snapshot_id'] = DB::table('surya_transaction_uploads')->insertGetId(['kind'=>$meta['type']==='bio'?'biometrik':'cvm','created_at'=>now(),'updated_at'=>now()]);
+            }
             if (! $disk->put($directory.'/state.json', json_encode($meta, JSON_THROW_ON_ERROR))) {
                 throw new \RuntimeException('Upload progress could not be saved.');
             }
@@ -175,6 +190,10 @@ class SuryaMetricsImport
             abort_unless((int) $meta['owner'] === $owner, 403);
             if ($cancel && $meta['status'] === 'processing') {
                 $meta['status'] = 'cancelled';
+                if (isset($meta['snapshot_id'])) {
+                    DB::table('surya_transaction_staging')->where('upload_id',$meta['snapshot_id'])->delete();
+                    DB::table('surya_transaction_uploads')->where('id',$meta['snapshot_id'])->update(['status'=>'cancelled','updated_at'=>now()]);
+                }
                 $disk->delete($meta['path']);
                 if (! $disk->put($directory.'/state.json', json_encode($meta, JSON_THROW_ON_ERROR))) {
                     throw new \RuntimeException('Upload cancellation could not be saved.');
@@ -184,11 +203,15 @@ class SuryaMetricsImport
             if ($expectedRow === null || $expectedRow !== $meta['next_row'] || $meta['status'] !== 'processing') {
                 return $this->publicState($meta);
             }
+            if ($meta['type'] !== 'sales' && !isset($meta['snapshot_id'])) throw ValidationException::withMessages(['metrics_file'=>'Aturan upload berubah. Pilih dan upload ulang file cvm atau biometrik agar seluruh data diganti dengan aman.']);
             $result = $this->importChunk($disk->path($meta['path']), $meta, $meta['next_row']);
             $meta['next_row'] = $result['next_row'];
             $meta['imported'] += $result['imported'];
             $meta['skipped'] += $result['skipped'];
-            if ($meta['next_row'] > $meta['total_rows']) $meta['status'] = 'complete';
+            if ($meta['next_row'] > $meta['total_rows']) {
+                if (isset($meta['snapshot_id'])) $this->publishSnapshot($meta);
+                $meta['status'] = 'complete';
+            }
             // Rename prevents a reader observing partially written metadata after an interrupted write.
             if (! $disk->put($directory.'/state.tmp', json_encode($meta, JSON_THROW_ON_ERROR))
                 || ! $disk->move($directory.'/state.tmp', $directory.'/state.json')) {
@@ -200,6 +223,25 @@ class SuryaMetricsImport
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    public function publishSnapshot(array $meta): void
+    {
+        $kind = $meta['type'] === 'bio' ? 'biometrik' : 'cvm';
+        $table = $kind === 'biometrik' ? 'surya_biometrik' : 'surya_trx_cvm';
+        DB::transaction(function () use ($meta, $kind, $table) {
+            $current = DB::table('surya_transaction_current')->where('kind',$kind)->lockForUpdate()->first();
+            if ((int)$current->upload_id >= (int)$meta['snapshot_id']) return;
+            if (!DB::table('surya_transaction_staging')->where('upload_id',$meta['snapshot_id'])->exists()) throw ValidationException::withMessages(['metrics_file'=>'Tidak ada data outlet valid. Data sebelumnya tetap digunakan.']);
+            DB::table($table)->delete();
+            DB::table('surya_transaction_staging')->where('upload_id',$meta['snapshot_id'])->orderBy('id')->chunkById(100,function($rows)use($table){
+                $values = $rows->map(fn($r)=>json_decode($r->data,true,512,JSON_THROW_ON_ERROR))->all();
+                DB::table($table)->insert($values);
+            });
+            DB::table('surya_transaction_current')->where('kind',$kind)->update(['upload_id'=>$meta['snapshot_id']]);
+            DB::table('surya_transaction_uploads')->where('id',$meta['snapshot_id'])->update(['status'=>'complete','updated_at'=>now()]);
+            DB::table('surya_transaction_staging')->where('upload_id',$meta['snapshot_id'])->delete();
+        });
     }
 
     public function fileKind(string $filename): string
