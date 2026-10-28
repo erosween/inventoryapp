@@ -26,7 +26,7 @@ function setup(touch) {
     const title=new Element(), table=new Element();
     document=new EventTarget();document.activeElement=null;
     document.getElementById=id=>id==='tf-column-menu'?menu:title;
-    document.querySelectorAll=()=>[trigger];document.querySelector=()=>table;
+    document.querySelectorAll=()=>[trigger];document.querySelector=selector=>selector==='.detail-table'?null:table;
     const window=new EventTarget();window.matchMedia=()=>({matches:touch});
     const viewport=new EventTarget();Object.assign(viewport,{width:touch?390:1024,height:touch?844:768,offsetLeft:0,offsetTop:0});
     window.visualViewport=viewport;
