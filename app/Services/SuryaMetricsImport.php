@@ -20,6 +20,10 @@ class SuryaMetricsImport
     public function inspect(string $path, ?string $filename = null): array
     {
         $kind = $filename === null ? null : $this->fileKind($filename);
+        if ($filename !== null) {
+            if (strtolower(pathinfo($filename,PATHINFO_EXTENSION)) !== 'csv') throw ValidationException::withMessages(['metrics_file'=>'Upload TRX CVM dan Biometrik sekarang wajib CSV. Di Excel pilih Save As → CSV UTF-8 (.csv).']);
+            return app(SuryaCsvReader::class)->inspect($path,$kind);
+        }
         $readerType = IOFactory::identify($path);
         $reader = $this->reader($path, 1, 30, $readerType);
         $info = $reader->listWorksheetInfo($path);
@@ -64,6 +68,10 @@ class SuryaMetricsImport
         if ($end < $start) {
             return ['imported' => 0, 'skipped' => 0, 'next_row' => $start];
         }
+        $csvOffset = null;
+        if (($meta['reader_type']??'') === 'CsvStream') {
+            [$rows,$csvOffset] = app(SuryaCsvReader::class)->chunk($path,$meta,$start,$end);
+        } else {
         $reader = $this->reader($path, $start, $end, $meta['reader_type']);
         $reader->setLoadSheetsOnly($meta['sheet']);
         $book = $reader->load($path);
@@ -71,6 +79,7 @@ class SuryaMetricsImport
             $rows = $this->rows($book->getSheetByName($meta['sheet']), $start, $end, $meta['last_column']);
         } finally {
             $book->disconnectWorksheets();
+        }
         }
         $batch = [];
         $imported = $skipped = 0;
@@ -116,7 +125,7 @@ class SuryaMetricsImport
                 $staged[$values['id_outlet']] = ['upload_id'=>$meta['snapshot_id'], 'id_outlet'=>$values['id_outlet'], 'data'=>json_encode($values, JSON_THROW_ON_ERROR)];
             }
             foreach (array_chunk(array_values($staged), 100) as $chunk) DB::table('surya_transaction_staging')->upsert($chunk, ['upload_id','id_outlet'], ['data']);
-            return ['imported'=>$imported, 'skipped'=>$skipped, 'next_row'=>$end+1];
+            return ['imported'=>$imported, 'skipped'=>$skipped, 'next_row'=>$end+1, 'csv_offset'=>$csvOffset];
         }
         $targetTable = $meta['type'] === 'bio' ? 'surya_biometrik' : 'surya_trx_cvm';
         if ($batch !== []) {
@@ -148,7 +157,7 @@ class SuryaMetricsImport
                 }
             }, 3);
         }
-        return ['imported' => $imported, 'skipped' => $skipped, 'next_row' => $end + 1];
+        return ['imported' => $imported, 'skipped' => $skipped, 'next_row' => $end + 1, 'csv_offset'=>$csvOffset];
     }
 
     public function start(UploadedFile $file, int $owner): array
@@ -203,9 +212,11 @@ class SuryaMetricsImport
             if ($expectedRow === null || $expectedRow !== $meta['next_row'] || $meta['status'] !== 'processing') {
                 return $this->publicState($meta);
             }
+            if (($meta['reader_type']??'') !== 'CsvStream') throw ValidationException::withMessages(['metrics_file'=>'Pilih File Lain, lalu upload ulang sebagai CSV UTF-8 agar proses lebih ringan.']);
             if ($meta['type'] !== 'sales' && !isset($meta['snapshot_id'])) throw ValidationException::withMessages(['metrics_file'=>'Aturan upload berubah. Pilih dan upload ulang file cvm atau biometrik agar seluruh data diganti dengan aman.']);
             $result = $this->importChunk($disk->path($meta['path']), $meta, $meta['next_row']);
             $meta['next_row'] = $result['next_row'];
+            if (isset($result['csv_offset'])) $meta['csv_offset'] = $result['csv_offset'];
             $meta['imported'] += $result['imported'];
             $meta['skipped'] += $result['skipped'];
             if ($meta['next_row'] > $meta['total_rows']) {

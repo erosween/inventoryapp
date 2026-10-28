@@ -443,7 +443,7 @@ class MonitaDumaiController extends Controller
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
         $request->validate([
-            'metrics_file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'extensions:xlsx,xls,csv', 'max:20480'],
+            'metrics_file' => ['required', 'file', 'mimes:csv,txt', 'extensions:csv', 'max:20480'],
         ]);
         try {
             if ($request->boolean('staged') && $request->expectsJson()) {

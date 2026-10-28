@@ -126,6 +126,8 @@
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (busy || !file.files.length) return;
+        if (!/\.csv$/i.test(file.files[0].name)) { showError(new Error('Gunakan CSV UTF-8 (.csv). Di Excel pilih Save As → CSV UTF-8.')); return; }
+        if (!/(cvm|biometrik)/i.test(file.files[0].name)) { showError(new Error('Nama file wajib mengandung cvm atau biometrik.')); return; }
         const data = new FormData(form);
         error.hidden = true;
         panel.hidden = false;
