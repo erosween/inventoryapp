@@ -110,7 +110,7 @@
             background: #f1f3f9;
             padding: 5px;
             border-radius: 4px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: var(--web-font);
             font-size: 0.75rem;
         }
         .login-summary-chip {

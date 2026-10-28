@@ -18,9 +18,6 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/inventory/icon-180.png">
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#bd001c">
     <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
@@ -38,7 +35,7 @@
         body {
             margin: 0;
             min-height: 100%;
-            font-family: Inter, system-ui, sans-serif;
+            font-family: var(--web-font);
             color: var(--ink)
         }
 
@@ -389,6 +386,7 @@
             }
         }
     </style>
+    @include('layout.web-typography')
 </head>
 
 <body>

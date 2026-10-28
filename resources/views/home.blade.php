@@ -8,7 +8,7 @@
 <style>
     .distribution-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 8px; }
     .distribution-controls label { margin:0; font-size:11px; color:#667085; font-weight:700; }
-    .distribution-product { height:38px; width:170px; padding:0 12px; border:1px solid #dce4eb; border-radius:9px; color:#344054; background:#fff; font:600 12px inherit; }
+    .distribution-product { height:38px; width:170px; padding:0 12px; border:1px solid #dce4eb; border-radius:9px; color:#344054; background:#fff; font-family:inherit;font-size:12px;font-weight:600; }
     .distribution-status { font-size:12px; color:#667085; }
     .distribution-product[aria-busy="true"] { opacity:.6; }
     .card.sales-summary-card { padding:26px 28px; border:1px solid #e8e2d9; border-radius:20px; background:#fffaf4; box-shadow:0 5px 20px rgba(40,36,28,.04); color:#292923; }
@@ -1630,7 +1630,7 @@
         function drawText(ctx, text, x, y, options = {}) {
             const {
                 color = '#343a40',
-                font = '600 22px Arial, sans-serif',
+                font = '600 22px Geist Variable, sans-serif',
                 align = 'left',
                 baseline = 'middle',
                 maxWidth
@@ -1664,7 +1664,7 @@
         }
 
         function drawWrappedText(ctx, text, x, centerY, maxWidth, lineHeight, options = {}) {
-            ctx.font = options.font || '700 22px Arial, sans-serif';
+            ctx.font = options.font || '700 22px Geist Variable, sans-serif';
             const lines = wrapText(ctx, text, maxWidth).slice(0, options.maxLines || 3);
             const startY = centerY - ((lines.length - 1) * lineHeight / 2);
             lines.forEach((line, index) => {
@@ -1718,11 +1718,11 @@
 
             // Header card seperti UI.
             drawText(ctx, heading.title, 28, 38, {
-                font: '700 15px Arial, sans-serif',
+                font: '700 15px Geist Variable, sans-serif',
                 color: '#2f3437'
             });
             drawText(ctx, heading.subtitle, 28, 62, {
-                font: '400 16px Arial, sans-serif',
+                font: '400 16px Geist Variable, sans-serif',
                 color: '#7b858e'
             });
 
@@ -1734,7 +1734,7 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
                 drawText(ctx, text, x + (w / 2), y + 22, {
-                    font: '700 13px Arial, sans-serif',
+                    font: '700 13px Geist Variable, sans-serif',
                     color: '#111827',
                     align: 'center'
                 });
@@ -1758,7 +1758,7 @@
             headers.forEach((header, index) => {
                 const x = index === 0 ? lefts[index] + 18 : lefts[index] + cols[index] - 18;
                 drawText(ctx, header, x, titleHeight + 32, {
-                    font: '700 16px Arial, sans-serif',
+                    font: '700 16px Geist Variable, sans-serif',
                     color: '#55554c',
                     align: index === 0 ? 'left' : 'right'
                 });
@@ -1787,12 +1787,12 @@
                     ctx.strokeStyle = '#dfe4ea';
                     ctx.stroke();
                     drawText(ctx, '+', 34, centerY, {
-                        font: '400 14px Arial, sans-serif',
+                        font: '400 14px Geist Variable, sans-serif',
                         color: '#343a40',
                         align: 'center'
                     });
                     drawText(ctx, row.cells[0], 68, centerY, {
-                        font: '700 16px Arial, sans-serif',
+                        font: '700 16px Geist Variable, sans-serif',
                         color: '#2f3437',
                         maxWidth: cols[0] - 78
                     });
@@ -1804,18 +1804,18 @@
                     ctx.strokeStyle = purple ? '#7467d4' : '#dfe4ea';
                     ctx.stroke();
                     drawText(ctx, 'CLUSTER', 63, centerY, {
-                        font: '400 14px Arial, sans-serif',
+                        font: '400 14px Geist Variable, sans-serif',
                         color: purple ? '#ffffff' : '#55554c',
                         align: 'center'
                     });
                     drawText(ctx, row.cells[0], 118, centerY, {
-                        font: '700 16px Arial, sans-serif',
+                        font: '700 16px Geist Variable, sans-serif',
                         color: '#2f3437',
                         maxWidth: cols[0] - 126
                     });
                 } else {
                     drawText(ctx, row.cells[0], 18, centerY, {
-                        font: '700 16px Arial, sans-serif',
+                        font: '700 16px Geist Variable, sans-serif',
                         color: '#1657b7',
                         maxWidth: cols[0] - 36
                     });
@@ -1823,18 +1823,18 @@
 
                 for (let i = 1; i < row.cells.length; i++) {
                     let color = '#8a8f98';
-                    let font = '400 16px Arial, sans-serif';
+                    let font = '400 16px Geist Variable, sans-serif';
                     if (i === 1 || isCluster || isGrand) {
                         color = isGrand ? '#1657b7' : '#2f3437';
-                        font = '700 16px Arial, sans-serif';
+                        font = '700 16px Geist Variable, sans-serif';
                     }
                     if (i === 4) {
                         color = row.growth1Down ? '#e75757' : '#32a852';
-                        font = '700 16px Arial, sans-serif';
+                        font = '700 16px Geist Variable, sans-serif';
                     }
                     if (i >= 5 && !isGrand && !isCluster) {
                         color = ['#4f46e5', '#0f766e', '#b45309'][i - 5];
-                        font = '700 16px Arial, sans-serif';
+                        font = '700 16px Geist Variable, sans-serif';
                     }
 
                     drawText(ctx, row.cells[i], lefts[i] + cols[i] - 18, centerY, {
@@ -1934,11 +1934,11 @@
             ctx.fillRect(0, 0, width, height);
 
             drawText(ctx, heading.title, 38, 42, {
-                font: '700 24px Arial, sans-serif',
+                font: '700 24px Geist Variable, sans-serif',
                 color: '#343a40'
             });
             drawText(ctx, heading.subtitle, 38, 76, {
-                font: '400 23px Arial, sans-serif',
+                font: '400 23px Geist Variable, sans-serif',
                 color: '#7b858e'
             });
 
@@ -1952,24 +1952,24 @@
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headHeight);
             drawText(ctx, 'NAMA TAP', 24, titleHeight + 39, {
-                font: '700 21px Arial, sans-serif',
+                font: '700 21px Geist Variable, sans-serif',
                 color: '#55554c'
             });
 
             monthNames.forEach((month, index) => {
                 const x = firstCol + (index * (valueCol + momCol));
                 drawText(ctx, month, x + (valueCol / 2), titleHeight + 28, {
-                    font: '700 18px Arial, sans-serif',
+                    font: '700 18px Geist Variable, sans-serif',
                     color: '#55554c',
                     align: 'center'
                 });
                 drawText(ctx, 'MoM', x + valueCol + (momCol / 2), titleHeight + 28, {
-                    font: '700 15px Arial, sans-serif',
+                    font: '700 15px Geist Variable, sans-serif',
                     color: '#7b858e',
                     align: 'center'
                 });
                 drawText(ctx, '%', x + valueCol + (momCol / 2), titleHeight + 52, {
-                    font: '700 13px Arial, sans-serif',
+                    font: '700 13px Geist Variable, sans-serif',
                     color: '#9aa3aa',
                     align: 'center'
                 });
@@ -1998,12 +1998,12 @@
                     ctx.strokeStyle = '#dde2e7';
                     ctx.stroke();
                     drawText(ctx, '+', 42, centerY, {
-                        font: '400 18px Arial, sans-serif',
+                        font: '400 18px Geist Variable, sans-serif',
                         color: '#343a40',
                         align: 'center'
                     });
                     drawWrappedText(ctx, row.name, 78, centerY, firstCol - 96, 25, {
-                        font: '700 21px Arial, sans-serif',
+                        font: '700 21px Geist Variable, sans-serif',
                         color: '#343a40',
                         maxLines: 2
                     });
@@ -2012,18 +2012,18 @@
                     ctx.fillStyle = config.accent;
                     ctx.fill();
                     drawText(ctx, 'CLUSTER', 76, centerY, {
-                        font: '400 17px Arial, sans-serif',
+                        font: '400 17px Geist Variable, sans-serif',
                         color: '#ffffff',
                         align: 'center'
                     });
                     drawWrappedText(ctx, row.name, 148, centerY, firstCol - 166, 24, {
-                        font: '700 20px Arial, sans-serif',
+                        font: '700 20px Geist Variable, sans-serif',
                         color: '#343a40',
                         maxLines: 2
                     });
                 } else {
                     drawWrappedText(ctx, row.name, 22, centerY, firstCol - 42, 25, {
-                        font: '700 21px Arial, sans-serif',
+                        font: '700 21px Geist Variable, sans-serif',
                         color: config.grandColor,
                         maxLines: 2
                     });
@@ -2051,7 +2051,7 @@
 
                     const valueColor = isGrand ? config.grandColor : (month.valueColor || '#444');
                     drawText(ctx, month.value, x + valueCol - 12, centerY, {
-                        font: (isGrand || isCluster) ? '700 18px Arial, sans-serif' : '600 17px Arial, sans-serif',
+                        font: (isGrand || isCluster) ? '700 18px Geist Variable, sans-serif' : '600 17px Geist Variable, sans-serif',
                         color: valueColor,
                         align: 'right',
                         maxWidth: valueCol - 18
@@ -2061,7 +2061,7 @@
                     if (month.momDown) momColor = '#ff5b66';
                     if (!month.momDown && month.momUp && month.mom !== '-') momColor = '#32a852';
                     drawText(ctx, month.mom, x + valueCol + momCol - 9, centerY, {
-                        font: '700 15px Arial, sans-serif',
+                        font: '700 15px Geist Variable, sans-serif',
                         color: momColor,
                         align: 'right',
                         maxWidth: momCol - 12
@@ -2087,11 +2087,11 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             drawText(ctx, heading.title, 42, 46, {
-                font: '700 30px Arial, sans-serif',
+                font: '700 30px Geist Variable, sans-serif',
                 color: '#343a40'
             });
             drawText(ctx, heading.subtitle, 42, 91, {
-                font: '400 24px Arial, sans-serif',
+                font: '400 24px Geist Variable, sans-serif',
                 color: '#7b858e'
             });
             ctx.strokeStyle = '#e9ecef';
@@ -2137,15 +2137,15 @@
 
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
-            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'Inter', Arial, sans-serif", color: '#343a40' });
-            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'Inter', Arial, sans-serif", color: '#7b858e' });
+            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'Geist Variable', sans-serif", color: '#343a40' });
+            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'Geist Variable', sans-serif", color: '#7b858e' });
 
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headerHeight);
             let x = 0;
             headers.forEach((header, index) => {
                 drawText(ctx, header, index === 0 ? 18 : x + columns[index] / 2, titleHeight + headerHeight / 2, {
-                    font: "700 17px 'Inter', Arial, sans-serif",
+                    font: "700 17px 'Geist Variable', sans-serif",
                     color: '#55554c',
                     align: index === 0 ? 'left' : 'center',
                     maxWidth: columns[index] - 20
@@ -2181,12 +2181,12 @@
                         ctx.strokeStyle = '#d1d5db';
                         ctx.stroke();
                         drawText(ctx, 'CLUSTER', 60, y + rowHeight / 2, {
-                            font: "600 12px 'Inter', Arial, sans-serif",
+                            font: "600 12px 'Geist Variable', sans-serif",
                             color: '#4b5563',
                             align: 'center'
                         });
                         drawText(ctx, cell.replace(/^CLUSTER\s*/i, ''), 118, y + rowHeight / 2, {
-                            font: "700 16px 'Inter', Arial, sans-serif",
+                            font: "700 16px 'Geist Variable', sans-serif",
                             color: '#343a40',
                             maxWidth: columns[index] - 130
                         });
@@ -2195,8 +2195,8 @@
                     }
                     drawText(ctx, cell, index === 0 ? 18 : left + columns[index] - 16, y + rowHeight / 2, {
                         font: (isGrand || isCluster || index === 0 || isGrowth || headers[index] === 'TOTAL')
-                            ? "700 16px 'Inter', Arial, sans-serif"
-                            : "400 16px 'Inter', Arial, sans-serif",
+                            ? "700 16px 'Geist Variable', sans-serif"
+                            : "400 16px 'Geist Variable', sans-serif",
                         color,
                         align: index === 0 ? 'left' : 'right',
                         maxWidth: columns[index] - 24
@@ -2802,7 +2802,7 @@
                 afterDatasetsDraw(chart) {
                     const ctx = chart.ctx;
                     ctx.save();
-                    ctx.font = '700 12px Arial, sans-serif';
+                    ctx.font = '700 12px Geist Variable, sans-serif';
                     ctx.fillStyle = '#344054';
                     ctx.textAlign = 'left';
                     ctx.textBaseline = 'middle';

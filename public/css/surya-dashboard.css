@@ -2609,7 +2609,7 @@
         .visit-detail-table th small { display: block; margin-top: 2px; color: #94a3b8; font-size: 8px; }
         .visit-detail-table td { padding: 15px 16px; border-top: 1px solid #edf0f4; color: #334155; font-size: 12px; }
         .visit-detail-table tbody tr:hover { background: #fffafa; }
-        .visit-code { color: #b0001b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; }
+        .visit-code { color: #b0001b; font-family: var(--web-font); font-weight: 800; }
         .cluster-chip { display: inline-flex; padding: 5px 8px; border-radius: 999px; background: #fef2f2; color: #b91c1c; font-size: 9px; font-weight: 800; }
         .metric-number { display: inline-grid; min-width: 42px; min-height: 30px; place-items: center; border-radius: 9px; font-weight: 900; }
         .metric-number.actual { background: #eff6ff; color: #1d4ed8; }

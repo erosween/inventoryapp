@@ -10,13 +10,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon" />
 
+    @include('layout.web-typography')
     <!-- Fonts and icons -->
     <script src="/assets/js/plugin/webfont/webfont.min.js"></script>
     <script>
         WebFont.load({
-            google: {
-                "families": ["Inter:400,500,600,700"]
-            },
             custom: {
                 "families": ["Flaticon", "Font Awesome 5 Solid", "Font Awesome 5 Regular", "Font Awesome 5 Brands"],
                 urls: ['/assets/css/fonts.css']

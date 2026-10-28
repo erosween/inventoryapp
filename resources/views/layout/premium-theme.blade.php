@@ -1,3 +1,4 @@
+@include('layout.web-typography')
 <style>
     :root {
         --app-primary: #4f46e5;
@@ -13,7 +14,7 @@
         --app-success: #169b70;
         --app-danger: #e11d48;
         --app-warning: #d99114;
-        --app-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --app-font: var(--web-font);
         --premium-indigo: var(--app-primary);
         --premium-indigo-dark: var(--app-primary-dark);
         --premium-slate: var(--app-bg);
@@ -43,7 +44,7 @@
     .select2-container,
     .dataTables_wrapper,
     .table { font-family: var(--app-font) !important; }
-    body { font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'; -webkit-font-smoothing: antialiased; }
+    body { font-feature-settings: normal; -webkit-font-smoothing: antialiased; }
     a { transition: color .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
 
     /* App chrome */
