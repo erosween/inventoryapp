@@ -30,4 +30,32 @@ class SfSalesDeduplicationTest extends TestCase {
   app(\App\Http\Controllers\SfkeluarController::class)->exportexcel(Request::create('/','GET',['daterange'=>'2026-10-26 - 2026-10-26']));
   Excel::assertDownloaded('PENJUALAN_SF_2026-10-26_sd_2026-10-26.xlsx',function($export){$rows=$export->collection();$this->assertSame(30,(int)$rows->sum('qty'));$this->assertSame(['Sales Owner'],$rows->pluck('namasf')->unique()->values()->all());return true;});
  }
+ private function prepareNewApproval():void {
+  Schema::table('keluarsf',fn(Blueprint $t)=>$t->string('id_outlet')->nullable());
+  Schema::table('mobile_penjualan',function(Blueprint $t){$t->string('id_outlet')->nullable();$t->timestamp('stock_reserved_at')->nullable();$t->unsignedInteger('receipt_id')->nullable();$t->timestamp('updated_at')->nullable();});
+  Schema::create('stockawalsf',function(Blueprint $t){$t->string('idsf');$t->string('iddenom');$t->integer('stock');});
+  DB::table('stockawalsf')->insert(['idsf'=>'SF1','iddenom'=>'V1','stock'=>100]);
+  DB::table('mobile_penjualan')->insert(['id'=>2,'tgl'=>now()->startOfDay()->toDateTimeString(),'idtap'=>'DUMAI','idsf'=>'HELPER','owner_idsf'=>'SF1','id_outlet'=>'OUTLET-A','iddenom'=>'V1','status'=>'pending','qty'=>7]);
+  $u=new User();$u->username='admin_super';$this->actingAs($u)->withSession(['idtap'=>'SBP_DUMAI']);
+ }
+ public function test_new_approval_and_retry_count_sales_and_deduct_stock_only_once():void {
+  $this->prepareNewApproval();$controller=app(\App\Http\Controllers\MobileApprovalController::class);
+  $first=$controller->approve(new Request(['id'=>2]))->getData(true);$this->assertTrue($first['success']);
+  $second=$controller->approve(new Request(['id'=>2]))->getData(true);$this->assertFalse($second['success']);
+  $this->assertSame(1,DB::table('keluarsf')->where('tambahanket','Mobile Approval ID: 2')->count());
+  $this->assertSame(93,(int)DB::table('stockawalsf')->value('stock'));
+  $this->assertSame(37,(int)SalesSource::legacy()->sum('qty')+(int)DB::table('mobile_penjualan')->where('status','approved')->sum('qty'));
+ }
+ public function test_bulk_approval_with_repeated_id_is_safe():void {
+  $this->prepareNewApproval();$r=app(\App\Http\Controllers\MobileApprovalController::class)->bulkApprove(new Request(['ids'=>[2,2]]))->getData(true);
+  $this->assertSame(1,$r['details']['success']);$this->assertSame(1,$r['details']['failed']);$this->assertSame(93,(int)DB::table('stockawalsf')->value('stock'));
+  $this->assertSame(1,DB::table('keluarsf')->where('tambahanket','Mobile Approval ID: 2')->count());
+ }
+ public function test_duplicate_guard_is_not_limited_to_october_26_27_or_28():void {
+  DB::table('keluarsf')->where('tambahanket','Mobile Approval ID: 1')->update(['tgl'=>'2031-01-15 00:00:00']);
+  DB::table('mobile_penjualan')->where('id',1)->update(['tgl'=>'2031-01-15 00:00:00']);
+  $this->assertSame(0,(int)SalesSource::legacy()->whereDate('tgl','2031-01-15')->sum('qty'));
+  $this->assertSame(10,(int)DB::table('mobile_penjualan')->where('status','approved')->whereDate('tgl','2031-01-15')->sum('qty'));
+ }
+
 }
