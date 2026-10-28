@@ -125,16 +125,40 @@ class TaskforcePushSoTest extends TestCase
         self::assertNull($r->viewData('outlets')->first()->notes);
     }
 
-    public function test_readers_cannot_write_and_asmen_cannot_access_other_tap(): void
+    public function test_branch_user_can_write_and_asmen_cannot_access_other_tap(): void
     {
         $payload=['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'test'];
         $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'C']),$payload)->assertNotFound();
         $this->asUser('branch_dumai','SBP_DUMAI');
         $r=$this->get($this->url())->assertOk();
         self::assertSame(3,$r->viewData('outlets')->total());
-        self::assertFalse($r->viewData('canAct'));
-        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),$payload)->assertForbidden();
-        self::assertSame(0,DB::table('taskforce_push_so_actions')->count());
+        self::assertTrue($r->viewData('canAct'));
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),$payload)->assertOk();
+        self::assertSame('branch_dumai',DB::table('taskforce_push_so_actions')->value('username'));
+    }
+
+    public function test_all_surya_roles_can_save_visits_without_expanding_tap_access(): void
+    {
+        DB::table('appsdumais')->insert(['id_outlet'=>'R','nama_outlet'=>'Rohil','tap'=>'BAGAN BATU','sf'=>'SF R','kecamatan'=>'Kota','pjp'=>'Senin']);
+        DB::table('taskforce_upload_outlets')->insert(['upload_id'=>DB::table('taskforce_uploads')->where('period_month','2026-10-01')->value('id'),'id_outlet'=>'R']);
+        foreach(['gm','gm_cluster','branch_dumai','admin_super','admin_cluster','cluster_dumai','cluster_rohil','asmen_dumai'] as $username) {
+            $this->asUser($username,$username==='gm'?'CLUSTER_DUMAI':'DUMAI');
+            $page=$this->get($this->url())->assertOk();
+            self::assertTrue($page->viewData('canAct'),$username);
+            $id=$username==='cluster_rohil'?'R':'A';
+            $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>$id]),[
+                'sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Dicek '.$username,
+            ])->assertOk();
+            self::assertSame($username,DB::table('taskforce_push_so_actions')->orderByDesc('id')->value('username'));
+            if(in_array($username,['cluster_dumai','asmen_dumai'],true)) $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'R']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertNotFound();
+            if($username==='cluster_rohil') $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertNotFound();
+        }
+        $before=DB::table('taskforce_push_so_actions')->count();
+        $this->asUser('unrelated_user','DUMAI');
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertUnauthorized();
+        auth()->logout();session()->flush();
+        $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'A']),['sales_cutoff'=>'2026-10-26','visited'=>0])->assertUnauthorized();
+        self::assertSame($before,DB::table('taskforce_push_so_actions')->count());
     }
 
     public function test_super_admin_can_edit_and_visit_inputs_render_inline(): void

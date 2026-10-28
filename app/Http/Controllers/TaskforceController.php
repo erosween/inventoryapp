@@ -165,7 +165,9 @@ class TaskforceController extends MonitaDumaiController
 
     private function canAct(): bool
     {
-        return auth()->check() && (auth()->user()->isSuperAdmin() || str_starts_with(strtolower(auth()->user()->username),'asmen_'));
+        // The surya.web route middleware controls access; every signed-in SURYA
+        // user can follow up assigned outlets within the existing TAP scope.
+        return auth()->check();
     }
 
     private function taskforceOutlets(?array $scopes, ?int $uploadId)
