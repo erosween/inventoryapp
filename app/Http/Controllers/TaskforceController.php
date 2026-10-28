@@ -120,7 +120,12 @@ class TaskforceController extends MonitaDumaiController
             $output=fopen('php://output','w');
             fwrite($output,"\xEF\xBB\xBF");
             // Treat spreadsheet formulas as text when the CSV is opened in Excel.
-            $safe=static fn($value)=>preg_match('/^[\s]*[=+@-]/u',(string)$value) ? "'".$value : $value;
+            $safe=static function($value) {
+                $text=(string)$value;
+                // Preserve numeric negatives, decimals, grouped numbers and percentages.
+                if(preg_match('/^-?(?:\d+(?:[.,]\d+)*|[.,]\d+)(?:[eE][+-]?\d+)?%?$/D',$text)) return $value;
+                return preg_match('/^[\s]*[=+@-]/u',$text) ? "'".$value : $value;
+            };
             try {
                 fputcsv($output,array_map($safe,array_merge($headers,['Visit Asmen','Tanggal Visit','Catatan Asmen'])));
                 foreach($query->cursor() as $row) {

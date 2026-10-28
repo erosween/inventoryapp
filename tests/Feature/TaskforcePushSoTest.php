@@ -339,4 +339,17 @@ class TaskforcePushSoTest extends TestCase
         $r=$this->get($this->url(['sort'=>'date','direction'=>'desc']))->assertOk();
         self::assertSame(['A','B','C'],$r->viewData('outlets')->pluck('id_outlet')->all());
     }
+
+    public function test_download_preserves_negative_numbers_but_escapes_formula_text(): void
+    {
+        $uploadId=DB::table('taskforce_uploads')->where('period_month','2026-10-01')->value('id');
+        $values=['A','-2','-2.5','-2,5','-1.234,56','-12.5%','-2e3','0','12','-2+3','=1+1','@SUM(A1)','+SUM(A1)','-SUM(A1)'];
+        $headers=array_merge(['ID Outlet'],array_map(fn($i)=>'Kolom '.$i,range(1,count($values)-1)));
+        DB::table('taskforce_uploads')->where('id',$uploadId)->update(['headers'=>json_encode($headers)]);
+        DB::table('taskforce_upload_outlets')->where('upload_id',$uploadId)->where('id_outlet','A')->update(['cells'=>json_encode($values)]);
+        $csv=$this->get(route('surya.taskforce.download',['sales_cutoff'=>'2026-10-26']))->assertOk()->streamedContent();
+        $rows=array_map('str_getcsv',explode("\n",trim(ltrim($csv,"\xEF\xBB\xBF"))));
+        self::assertSame(array_slice($values,0,9),array_slice($rows[1],0,9));
+        self::assertSame(["'-2+3","'=1+1","'@SUM(A1)","'+SUM(A1)","'-SUM(A1)"],array_slice($rows[1],9,5));
+    }
 }
