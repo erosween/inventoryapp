@@ -41,8 +41,23 @@ class SfSalesDeduplicationTest extends TestCase {
   Excel::assertDownloaded('PENJUALAN_SF_2026-10-26_sd_2026-10-26.xlsx',function($export){$this->assertSame(30,(int)$export->collection()->sum('qty'));return true;});
  }
  public function test_approved_mobile_without_posted_journal_is_still_included():void {
-  DB::table('mobile_penjualan')->insert(['id'=>2,'tgl'=>'2026-10-26','idtap'=>'DUMAI','idsf'=>'SF1','iddenom'=>'V1','qty'=>7,'status'=>'approved']);
+  DB::table('mobile_penjualan')->insert(['id'=>2,'tgl'=>'2026-10-26 00:00:00','idtap'=>'DUMAI','idsf'=>'SF1','iddenom'=>'V1','qty'=>7,'status'=>'approved']);
   $this->assertSame(7,(int)SalesSource::mobile()->sum('qty'));
+ }
+ public function test_sf_view_includes_unposted_mobile_and_keeps_posted_qty_after_mobile_edit():void {
+  Schema::table('keluarsf',function(Blueprint $t){$t->integer('idkeluar')->nullable();$t->string('id_outlet')->nullable();});
+  Schema::table('mobile_penjualan',fn(Blueprint $t)=>$t->string('id_outlet')->nullable());
+  DB::table('keluarsf')->update(['idkeluar'=>DB::raw('id')]);
+  DB::table('mobile_penjualan')->where('id',1)->update(['qty'=>70]);
+  DB::table('mobile_penjualan')->insert(['id'=>2,'tgl'=>'2026-10-26 00:00:00','idtap'=>'DUMAI','idsf'=>'HELPER','owner_idsf'=>'SF1','iddenom'=>'V1','qty'=>7,'status'=>'approved']);
+  $u=new User();$u->username='admin_super';$this->actingAs($u)->withSession(['idtap'=>'SBP_DUMAI']);
+  $r=Request::create('/','GET',['daterange'=>'2026-10-26 - 2026-10-26','length'=>100]);app()->instance('request',$r);
+  $data=app(\App\Http\Controllers\SfkeluarController::class)->data($r)->getData(true);
+  $this->assertSame(4,count($data['data']),json_encode($data));
+  $this->assertSame(37,array_sum(array_map(fn($row)=>(int)str_replace(',','',$row['qty']),$data['data'])));
+  $unposted=collect($data['data'])->firstWhere('idkeluar',-2);
+  $this->assertSame('Sales Owner',$unposted['namasf']);
+  $this->assertStringNotContainsString('sf-keluar.edit',$unposted['action']);
  }
  private function prepareNewApproval():void {
   Schema::table('keluarsf',fn(Blueprint $t)=>$t->string('id_outlet')->nullable());

@@ -33,7 +33,16 @@ use Illuminate\Validation\ValidationException;
     $idtap     = session('idtap');
     $daterange = $request->daterange;
 
-    $query = DB::table('keluarsf as f')
+    // Keep the view and export on the same posted-journal-first sales source.
+    $journal = \App\Support\SalesSource::legacy()->select([
+        'idkeluar', 'tgl', 'iddenom', 'qty', 'idtap', 'idsf', 'id_outlet', 'tambahanket',
+    ]);
+    $unpostedMobile = \App\Support\SalesSource::mobile()->select([
+        DB::raw('-id AS idkeluar'), 'tgl', 'iddenom', 'qty', 'idtap',
+        DB::raw('COALESCE(owner_idsf,idsf) AS idsf'), 'id_outlet',
+        DB::raw("'Mobile approved' AS tambahanket"),
+    ]);
+    $query = DB::query()->fromSub($journal->unionAll($unpostedMobile), 'f')
         ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
         ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
         ->select(
@@ -65,6 +74,7 @@ use Illuminate\Validation\ValidationException;
     return DataTables::of($query)
         ->editColumn('qty', fn ($r) => number_format($r->qty))
         ->addColumn('action', function ($row) {
+            if ((int) $row->idkeluar < 0) return '<span class="text-muted">Mobile approved</span>';
             $btnEdit = '
                 <a href="'.route('sf-keluar.edit', $row->idkeluar).'"
                    class="btn btn-link text-primary p-0 action-edit-icon"
