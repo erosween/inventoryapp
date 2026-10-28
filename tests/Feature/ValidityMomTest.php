@@ -27,5 +27,16 @@ class ValidityMomTest extends TestCase {
  $html=view('surya.partials.validity-mom',['validityMom'=>$this->report()])->render();
  foreach(['M-1','MTD','MoM','1D','2D','GRAND TOTAL','+150,0%','data-validity-product','data-validity-tab="inject"']as$text)$this->assertStringContainsString($text,$html);
  }
+ public function test_cluster_subtotals_follow_scope_and_add_up_to_grand_total():void{
+ DB::table('idsf')->insert(['idtap'=>'BAGAN BATU']);
+ DB::table('keluarsf')->insert(['idtap'=>'BAGAN BATU','iddenom'=>'V1','tgl'=>'2026-10-24 12:00:00','qty'=>7]);
+ $data=app(ValidityMom::class)->data(Request::create('/'),Carbon::parse('2026-10-26 23:59:59'),Carbon::parse('2026-09-26 23:59:59'),fn($q,$col)=>$q);
+ $this->assertSame(['Dumai Bengkalis','Rokan Hilir'],array_column($data['clusters'],'tap'));
+ foreach($data['columns']as$column)foreach(['current','previous']as$period)$this->assertSame($data['total'][$column][$period],array_sum(array_map(fn($row)=>$row['values'][$column][$period],$data['clusters'])));
+ $scoped=$this->report();$this->assertSame(['Dumai Bengkalis'],array_column($scoped['clusters'],'tap'));
+ $this->assertSame($scoped['total'],$scoped['clusters'][0]['values']);
+ $html=view('surya.partials.validity-mom',['validityMom'=>$data])->render();
+ $this->assertLessThan(strpos($html,'GRAND TOTAL'),strpos($html,'Rokan Hilir'));
+ }
  public function test_invalid_product_is_rejected():void{$this->expectException(\Illuminate\Validation\ValidationException::class);$this->report('invalid');}
 }

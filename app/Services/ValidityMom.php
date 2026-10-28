@@ -20,7 +20,15 @@ class ValidityMom {
   $roster=DB::table('idsf')->select('idtap')->distinct()->whereNotNull('idtap');$scope($roster,'idtap');
   $taps=$roster->pluck('idtap')->merge(array_keys($quantities))->unique()->sort()->values();$rows=[];$total=[];
   foreach($taps as$tap){$values=[];foreach($columns as$column){$cell=$quantities[$tap][$column]??['current'=>0,'previous'=>0];$values[$column]=$cell;$total[$column]['current']=($total[$column]['current']??0)+$cell['current'];$total[$column]['previous']=($total[$column]['previous']??0)+$cell['previous'];}$rows[]=['tap'=>$tap,'values'=>$values];}
-  return ['product'=>$product,'tab'=>$tab,'columns'=>$columns,'rows'=>$rows,'total'=>$total,'cutoff'=>$cutoff,'previousEnd'=>$previousEnd];
+  $clusters=[];
+  foreach(['Dumai Bengkalis'=>['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'],'Rokan Hilir'=>['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']] as $name=>$members){
+   $clusterRows=array_filter($rows,fn($row)=>in_array($row['tap'],$members,true));
+   if($clusterRows===[])continue;
+   $values=[];
+   foreach($columns as $column){$values[$column]=['current'=>0,'previous'=>0];foreach($clusterRows as $row){$values[$column]['current']+=$row['values'][$column]['current'];$values[$column]['previous']+=$row['values'][$column]['previous'];}}
+   $clusters[]=['tap'=>$name,'values'=>$values,'cluster'=>true];
+  }
+  return ['clusters'=>$clusters,'product'=>$product,'tab'=>$tab,'columns'=>$columns,'rows'=>$rows,'total'=>$total,'cutoff'=>$cutoff,'previousEnd'=>$previousEnd];
  }
  private function label(string $group):string {$g=strtoupper(trim($group));if(preg_match('/^(\d+)\s*(?:HARI|DAYS?|D)$/',$g,$m))return (int)$m[1].'D';return $g;}
 }
