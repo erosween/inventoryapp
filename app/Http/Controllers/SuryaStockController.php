@@ -40,8 +40,8 @@ class SuryaStockController extends Controller
         })->get(['iddenom', 'denom', 'group_name']);
         $denomKeys = $denoms->groupBy(fn ($d) => $family === 'PV' ? strtoupper($d->group_name) : strtoupper(preg_replace('/^SA\s+/i', '', $d->denom)))->map(fn ($rows) => $rows->pluck('iddenom')->values());
         $stock = DB::table('stockawalsf')->whereIn('idsf', $sfIds)->whereIn('iddenom', $denoms->pluck('iddenom'))->get()->groupBy('idsf');
-        $sales = DB::table('keluarsf')->whereIn('idsf', $sfIds)->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
-        $mobileSales = DB::table('mobile_penjualan')->whereIn('idsf', $sfIds)->where('status', 'approved')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
+        $sales = \App\Support\SalesSource::legacy()->whereIn('idsf', $sfIds)->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get(['idsf', 'iddenom', 'qty']);
+        $mobileSales = DB::table('mobile_penjualan')->whereIn(DB::raw('COALESCE(owner_idsf,idsf)'), $sfIds)->where('status', 'approved')->whereBetween('tgl', [$today->copy()->startOfMonth(), $today->copy()->endOfDay()])->whereIn('iddenom', $denoms->pluck('iddenom'))->get([DB::raw('COALESCE(owner_idsf,idsf) AS idsf'), 'iddenom', 'qty']);
         $sales = $sales->concat($mobileSales)->groupBy('idsf');
 
         $rows = $sfRows->map(function ($sf) use ($targets, $denomKeys, $stock, $sales, $daysLeft, $family) {

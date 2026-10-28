@@ -11,6 +11,7 @@ class ValidityMom {
   $start=$cutoff->copy()->startOfMonth();$prev=$previousEnd->copy()->startOfMonth();$quantities=[];$groups=[];
   foreach($tab==='sales'?['keluarsf','mobile_penjualan']:['injectvf'] as$table){
    $q=DB::table($table.' as t')->leftJoin('denom as d','d.iddenom','=','t.iddenom')->whereBetween('t.tgl',[$prev,$cutoff]);
+   if($table==='keluarsf')\App\Support\SalesSource::excludeApprovalCopies($q,'t');
    if($table==='mobile_penjualan')$q->where('t.status','approved');
    DenomGrouping::filterDenoms($q,$product,'d');$scope($q,'t.idtap');
    $rows=$q->selectRaw("t.idtap, COALESCE(NULLIF(TRIM(d.group_name),''),'LAINNYA') AS validity, SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS current_qty, SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS previous_qty",[$start,$cutoff,$prev,$previousEnd])->groupBy('t.idtap','d.group_name')->get();

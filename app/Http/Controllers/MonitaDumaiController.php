@@ -312,7 +312,7 @@ class MonitaDumaiController extends Controller
         $previousComparableEnd = $previousMonthStart->copy()
             ->day(min($cutoff->day, $previousMonthEnd->day));
         $keluar = $this->safeOutletDetailSource('keluarsf', function () use ($monthStart, $cutoff, $pageIds) {
-            return DB::table('keluarsf as k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
+            return \App\Support\SalesSource::legacy('k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
                 ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
                 ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
                 ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
@@ -751,7 +751,7 @@ class MonitaDumaiController extends Controller
         $cutoffDate = $cutoff->toDateString();
         $ids = $outletIds ? collect($outletIds)->map(fn ($id) => (string) $id)->all() : null;
 
-        $legacy = DB::table('keluarsf as k')
+        $legacy = \App\Support\SalesSource::legacy('k')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
             ->whereBetween('k.tgl', [$monthStart, $cutoffDate])
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('k.idtap', $tapScopes))
