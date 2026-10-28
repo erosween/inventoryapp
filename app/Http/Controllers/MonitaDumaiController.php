@@ -327,7 +327,7 @@ class MonitaDumaiController extends Controller
             });
         }
         $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds) {
-            return DB::table('surya_daily_metrics')->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->orderByDesc('id')->get()
+            return \App\Support\SuryaTransactions::query()->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->orderByDesc('id')->get()
                 ->groupBy(fn ($row) => (string) $row->id_outlet);
         });
 
@@ -434,7 +434,7 @@ class MonitaDumaiController extends Controller
             }
             // Retain the native form fallback. The browser uses short, sequential batch requests.
             $path = $request->file('metrics_file')->getRealPath();
-            $meta = $importer->inspect($path);
+            $meta = $importer->inspect($path, $request->file('metrics_file')->getClientOriginalName());
             $imported = $skipped = 0;
             for ($next = 2; $next <= $meta['total_rows'];) {
                 $result = $importer->importChunk($path, $meta, $next);
@@ -2004,7 +2004,7 @@ class MonitaDumaiController extends Controller
             ->get();
         $data = app(SuryaOutletCoordinates::class)->withVisitState($data);
         $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $data->pluck('id_outlet'));
-        $metricRowsByOutlet = DB::table('surya_daily_metrics')
+        $metricRowsByOutlet = \App\Support\SuryaTransactions::query()
             ->whereIn('id_outlet', $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
             ->orderByDesc('metric_date')
             ->get()

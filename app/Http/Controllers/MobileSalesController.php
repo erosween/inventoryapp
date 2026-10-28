@@ -79,7 +79,7 @@ class MobileSalesController extends Controller
                 ->first()
             : null;
         $metricRows = Schema::hasTable('surya_daily_metrics')
-            ? DB::table('surya_daily_metrics')
+            ? \App\Support\SuryaTransactions::query()
                 ->where('id_outlet', $idOutlet)
                 ->orderByDesc('metric_date')
                 ->get()

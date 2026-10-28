@@ -17,8 +17,9 @@ class SuryaMetricsImport
     public const CHUNK_SIZE = 1000;
     private const METRICS = ['ss', 'hot_promo', 'cvm', 'insak', 'comsak', 'digital'];
 
-    public function inspect(string $path): array
+    public function inspect(string $path, ?string $filename = null): array
     {
+        $kind = $filename === null ? null : $this->fileKind($filename);
         $readerType = IOFactory::identify($path);
         $reader = $this->reader($path, 1, 30, $readerType);
         $info = $reader->listWorksheetInfo($path);
@@ -40,7 +41,12 @@ class SuryaMetricsImport
                 ? ($this->parseUploadedSalesDate($first['A'] ?? null) ? 'sales' : 'bio')
                 : null);
             if ($type === null) {
-                throw ValidationException::withMessages(['metrics_file' => 'Header tidak dikenali. Gunakan ID outlet dan kolom KPI, atau format empat kolom historis SA/PV atau biometrik.']);
+                throw ValidationException::withMessages(['metrics_file' => 'Header tidak dikenali. Gunakan ID outlet dan kolom transaksi, atau format empat kolom historis SA/PV atau biometrik.']);
+            }
+            if ($kind !== null) {
+                $expected = $type === 'bio' ? 'biometrik' : 'cvm';
+                if ($kind !== $expected) throw ValidationException::withMessages(['metrics_file' => 'Nama file tidak sesuai isi. Gunakan cvm untuk TRX CVM dan biometrik untuk Biometrik.']);
+                if ($type === 'metrics' && array_filter($headers, fn ($column) => str_starts_with($column, 'bio_'))) throw ValidationException::withMessages(['metrics_file' => 'Kolom Biometrik harus diupload melalui file biometrik terpisah.']);
             }
             return [
                 'sheet' => $sheet->getTitle(), 'reader_type' => $readerType, 'headers' => $headers, 'columns' => $columns,
@@ -100,8 +106,9 @@ class SuryaMetricsImport
             ]);
             $imported++;
         }
+        $targetTable = $meta['type'] === 'bio' ? 'surya_biometrik' : 'surya_trx_cvm';
         if ($batch !== []) {
-            DB::transaction(function () use ($batch, $meta) {
+            DB::transaction(function () use ($batch, $meta, $targetTable) {
                 if ($meta['type'] === 'sales') {
                     foreach (array_chunk(array_values($batch), 500) as $chunk) {
                         DB::table('surya_outlet_sales_history')->upsert($chunk, ['transaction_date', 'id_outlet'], ['sa', 'pv', 'updated_at']);
@@ -109,7 +116,7 @@ class SuryaMetricsImport
                     return;
                 }
                 // One lookup per batch; partial uploads must preserve other KPI values and markers.
-                $existing = DB::table('surya_daily_metrics')->where(function ($query) use ($batch) {
+                $existing = DB::table($targetTable)->where(function ($query) use ($batch) {
                     foreach (collect($batch)->groupBy('metric_date') as $date => $records) {
                         $query->orWhere(fn ($q) => $q->where('metric_date', $date)->whereIn('id_outlet', $records->pluck('id_outlet')));
                     }
@@ -125,7 +132,7 @@ class SuryaMetricsImport
                 $updates = array_merge($meta['type'] === 'bio' ? ['bio_fm1', 'bio_m1', 'bio_m'] : $meta['columns'],
                     ['source_updated_at', 'uploaded_metrics', 'updated_at']);
                 foreach (array_chunk(array_values($batch), 500) as $chunk) {
-                    DB::table('surya_daily_metrics')->upsert($chunk, ['id_outlet', 'metric_date'], $updates);
+                    DB::table($targetTable)->upsert($chunk, ['id_outlet', 'metric_date'], $updates);
                 }
             }, 3);
         }
@@ -139,7 +146,7 @@ class SuryaMetricsImport
         $disk = Storage::disk('local');
         $path = $file->storeAs($directory, 'source.'.$file->getClientOriginalExtension(), 'local');
         try {
-            $meta = array_merge($this->inspect($disk->path($path)), [
+            $meta = array_merge($this->inspect($disk->path($path), $file->getClientOriginalName()), [
                 'id' => $id, 'owner' => $owner, 'path' => $path,
                 'next_row' => 2, 'imported' => 0, 'skipped' => 0, 'status' => 'processing',
             ]);
@@ -193,6 +200,15 @@ class SuryaMetricsImport
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    public function fileKind(string $filename): string
+    {
+        $stem = strtolower(pathinfo(basename($filename), PATHINFO_FILENAME));
+        $cvm = str_contains($stem, 'cvm');
+        $bio = str_contains($stem, 'biometrik');
+        if ($cvm === $bio) throw ValidationException::withMessages(['metrics_file' => 'Nama file wajib mengandung salah satu: cvm atau biometrik. Contoh: trx_cvm.xlsx atau biometrik.xlsx.']);
+        return $bio ? 'biometrik' : 'cvm';
     }
 
     private function publicState(array $meta): array
