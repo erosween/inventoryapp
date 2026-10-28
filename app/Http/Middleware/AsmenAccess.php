@@ -26,6 +26,7 @@ class AsmenAccess
             'surya.outlet-detail',
             'surya.outlet-detail.data',
             'surya.outlet-detail.filter-values',
+            'surya.outlet-detail.sales-summary',
             'surya.outlet-detail.export',
             'surya.visits.export',
             'surya.visits.report',

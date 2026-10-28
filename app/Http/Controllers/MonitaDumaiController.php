@@ -209,6 +209,19 @@ class MonitaDumaiController extends Controller
         }
     }
 
+    public function outletSalesSummary(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request),403);
+        $request->validate(['summary_product'=>'nullable|in:pv_all,pv_reg,pv_byu,sa_all,sa_simpati,sa_byu']);
+        $service=app(\App\Services\OutletColumnFilters::class);
+        $options=$service->options($request);unset($options['sort'],$options['direction']);
+        $base=$this->outletDetailBaseQuery($this->suryaTapScopes(),trim((string)$request->input('tap')),trim((string)$request->input('q')),trim((string)$request->input('pjp')),trim((string)$request->input('sf')));
+        $cutoff=$this->outletSalesCutoff($request);
+        $outlets=$service->query($base,$cutoff,$options)->select('id_outlet','tap','kecamatan')->get();
+        $insight=app(\App\Services\OutletSalesInsight::class)->data($outlets,$cutoff,$request->input('summary_product','pv_all'));
+        return response()->view('surya.partials.outlet-sales-insight',compact('insight'))->header('Cache-Control','no-store');
+    }
+
     public function outletColumnValues(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
@@ -313,7 +326,7 @@ class MonitaDumaiController extends Controller
             ->day(min($cutoff->day, $previousMonthEnd->day));
         $keluar = $this->safeOutletDetailSource('keluarsf', function () use ($monthStart, $cutoff, $pageIds) {
             return \App\Support\SalesSource::legacy('k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
+                ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->copy()->endOfDay()->toDateTimeString()])
                 ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
                 ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
                 ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
@@ -321,7 +334,7 @@ class MonitaDumaiController extends Controller
         });
         $mobile = $this->safeOutletDetailSource('mobile_penjualan', function () use ($monthStart, $cutoff, $pageIds) {
             return DB::table('mobile_penjualan as m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-                ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->toDateString()])
+                ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->copy()->endOfDay()->toDateTimeString()])
                 ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
                 ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
                 ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
