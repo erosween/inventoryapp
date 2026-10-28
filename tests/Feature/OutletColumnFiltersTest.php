@@ -14,7 +14,7 @@ class OutletColumnFiltersTest extends TestCase {
   Schema::create('denom',function(Blueprint$t){$t->string('iddenom');$t->string('product_group');});
   foreach(['keluarsf','mobile_penjualan']as$table)Schema::create($table,function(Blueprint$t){$t->string('id_outlet');$t->string('iddenom');$t->date('tgl');$t->integer('qty');$t->string('status')->nullable();});
   Schema::create('surya_outlet_sales_history',function(Blueprint$t){$t->string('id_outlet');$t->date('transaction_date');$t->integer('sa');$t->integer('pv');});
-  foreach(['surya_trx_cvm'=>['ss','cvm','hot_promo','comsak'],'surya_biometrik'=>['bio']]as$table=>$metrics)Schema::create($table,function(Blueprint$t)use($metrics){$t->string('id_outlet')->unique();foreach($metrics as$m)foreach(['fm1','m1','m']as$p)$t->integer($m.'_'.$p)->default(0);});
+  foreach(['surya_trx_cvm'=>['ss','cvm','hot_promo','comsak'],'surya_biometrik'=>['bio']]as$table=>$metrics)Schema::create($table,function(Blueprint$t)use($metrics){$t->string('id_outlet')->unique();$t->string('uploaded_metrics')->nullable();foreach($metrics as$m)foreach(['fm1','m1','m']as$p)$t->integer($m.'_'.$p)->default(0);});
   foreach([['A','DUMAI'],['B','DUMAI'],['C','DURI']]as[$id,$tap])DB::table('appsdumais')->insert(['id_outlet'=>$id,'nama_outlet'=>'Outlet '.$id,'tap'=>$tap,'sf'=>'SF '.$tap,'pjp'=>'Senin']);
   DB::table('denom')->insert(['iddenom'=>'V1','product_group'=>'PV']);
   DB::table('keluarsf')->insert(['id_outlet'=>'A','iddenom'=>'V1','tgl'=>'2026-10-23','qty'=>10]);

@@ -37,7 +37,9 @@ class OutletColumnFilters {
    foreach(self::GROUPS as$g){
     if (str_starts_with($g,'st_') && !$salesNeeded) continue;
     if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(h.{$p}_fm1,0)";$m1="COALESCE(h.{$p}_m1,0)";$m="(COALESCE(k.$p,0)+COALESCE(m.$p,0))";}
-    else{$column=['super_seru'=>'ss','biometrik'=>'bio'][$g]??$g;$alias=$g==='biometrik'?'b':'c';$fm="COALESCE($alias.{$column}_fm1,0)";$m1="COALESCE($alias.{$column}_m1,0)";$m="COALESCE($alias.{$column}_m,0)";}
+    else{$column=['super_seru'=>'ss','biometrik'=>'bio'][$g]??$g;$alias=$g==='biometrik'?'b':'c';$marker = DB::getDriverName()==='sqlite' ? "(',' || COALESCE($alias.uploaded_metrics,'') || ',')" : "CONCAT(',',COALESCE($alias.uploaded_metrics,''),',')";
+     $available="($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%')";
+     $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE 0 END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE 0 END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE 0 END";}
     $q->selectRaw("$fm AS {$g}_fm1, $m1 AS {$g}_m1, $m AS {$g}_mtd, ($m-$m1) AS {$g}_gap, CASE WHEN $m1=0 THEN NULL ELSE ROUND((1.0*$m/$m1-1)*100,1) END AS {$g}_mom_pct");
    }
   }

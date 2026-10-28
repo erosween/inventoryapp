@@ -4,3 +4,5 @@
 .tf-column-menu{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.tf-column-menu input[type="search"]{font-size:16px}.tf-column-menu input[type="checkbox"]{width:16px;height:16px}@media(pointer:coarse){.tf-column-filter{flex-basis:32px;width:32px;height:34px}.tf-column-menu{padding:14px}.tf-column-values label{min-height:40px}.tf-column-menu-heading button{min-width:36px;min-height:36px}.tf-column-menu .btn,.tf-sort-menu button{min-height:40px}}
 
 .detail-table th .tf-column-heading{font-size:10px;gap:3px}.detail-table th .tf-column-filter{flex-basis:22px;width:22px}.detail-table thead tr:nth-child(2) th .tf-column-heading>span{font-size:9px}.detail-table[aria-busy="true"] tbody{opacity:.45}.tf-column-menu .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:0;background:#ce0030;color:white;cursor:pointer}.tf-column-menu .btn-secondary{background:#eef2f6;color:#344054}
+
+[data-column-options]{display:none!important}
