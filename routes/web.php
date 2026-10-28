@@ -61,6 +61,8 @@ Route::get('/search', [searchController::class, 'search'])->name('search');
 Route::middleware('surya.web')->group(function () {
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
 Route::get('/surya/dashboard', [HomeController::class, 'index'])->middleware(['auth', 'asmen.access'])->name('surya.inventory-dashboard');
+Route::post('/surya/outletlist/upload', [\App\Http\Controllers\OutletlistUploadController::class, 'store'])->name('surya.outletlist.upload');
+Route::get('/surya/outletlist/template', [\App\Http\Controllers\OutletlistUploadController::class, 'template'])->name('surya.outletlist.template');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
 Route::post('/surya/transaction-upload/{upload}/process', [MonitaDumaiController::class, 'metricsUploadProcess'])->whereUuid('upload')->name('surya.transaction-upload.process');

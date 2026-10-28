@@ -46,7 +46,12 @@ class SuryaOutletCoordinates
     /** Every map/search reader gets the same coordinates, even before a backfill. */
     public function outlets(string $alias = 'appsdumais', ?array $selectedColumns = null): Builder
     {
-        $columns = collect($selectedColumns ?? DB::getSchemaBuilder()->getColumnListing('appsdumais'))
+        $schema = DB::getSchemaBuilder()->getColumnListing('appsdumais');
+        $hasCheckin = in_array('latitude_checkin', $schema, true) && in_array('longitude_checkin', $schema, true);
+        $latitude = $hasCheckin ? 'COALESCE(outlet_master.latitude_checkin, outlet_master.latitude)' : 'outlet_master.latitude';
+        $longitude = $hasCheckin ? 'COALESCE(outlet_master.longitude_checkin, outlet_master.longitude)' : 'outlet_master.longitude';
+        $source = $hasCheckin ? "CASE WHEN outlet_master.latitude_checkin IS NOT NULL AND outlet_master.longitude_checkin IS NOT NULL THEN 'visit' ELSE 'master' END" : "'master'";
+        $columns = collect($selectedColumns ?? $schema)
             ->reject(fn ($column) => in_array($column, ['latitude', 'longitude'], true))
             ->map(fn ($column) => 'outlet_master.'.$column)->all();
         $resolved = DB::table('appsdumais as outlet_master')
@@ -56,9 +61,9 @@ class SuryaOutletCoordinates
             ->leftJoinSub($this->latestVisits(), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(outlet_master.id_outlet AS CHAR)'))
             ->select($columns)
             ->addSelect('coordinates.coordinate_visit_id', 'coordinates.coordinate_visited_at')
-            ->selectRaw('CASE WHEN coordinates.coordinate_visit_id IS NULL THEN \'master\' ELSE \'visit\' END as coordinate_source')
-            ->selectRaw('COALESCE(coordinates.visit_latitude, outlet_master.latitude) as latitude')
-            ->selectRaw('COALESCE(coordinates.visit_longitude, outlet_master.longitude) as longitude');
+            ->selectRaw("CASE WHEN coordinates.coordinate_visit_id IS NULL THEN $source ELSE 'visit' END as coordinate_source")
+            ->selectRaw("COALESCE(coordinates.visit_latitude, $latitude) as latitude")
+            ->selectRaw("COALESCE(coordinates.visit_longitude, $longitude) as longitude");
 
         return DB::query()->fromSub($resolved, $alias);
     }
@@ -116,19 +121,28 @@ class SuryaOutletCoordinates
 
     public function syncOutlet(string $idOutlet): bool
     {
+        if (!preg_match('/^[1-9][0-9]{0,17}$/D', $idOutlet)) return false;
         return DB::transaction(function () use ($idOutlet) {
-            $outlet = DB::table('appsdumais')->where('id_outlet', $idOutlet)->lockForUpdate()->first(['id_outlet', 'latitude', 'longitude']);
+            $fields = $this->storedCoordinateFields();
+            $outlet = DB::table('appsdumais')->where('id_outlet', $idOutlet)->lockForUpdate()
+                ->select('id_outlet')->selectRaw($fields[0].' as latitude, '.$fields[1].' as longitude')->first();
             $visit = $this->latestVisits([$idOutlet])->first();
             if (! $outlet || ! $visit || ! $this->different($outlet, $visit)) {
                 return false;
             }
             DB::table('appsdumais')->where('id_outlet', $idOutlet)->update([
-                'latitude' => $visit->visit_latitude,
-                'longitude' => $visit->visit_longitude,
+                $fields[0] => $visit->visit_latitude,
+                $fields[1] => $visit->visit_longitude,
             ]);
 
             return true;
         });
+    }
+
+    private function storedCoordinateFields(): array
+    {
+        return DB::getSchemaBuilder()->hasColumn('appsdumais', 'latitude_checkin')
+            ? ['latitude_checkin', 'longitude_checkin'] : ['latitude', 'longitude'];
     }
 
     private function different(object $outlet, object $visit): bool
@@ -176,11 +190,13 @@ class SuryaOutletCoordinates
 
     public function synchronize(bool $dryRun = false, ?array $outletIds = null): array
     {
+        $fields = $this->storedCoordinateFields();
         $counts = ['checked' => 0, 'changed' => 0, 'unchanged' => 0, 'without_visit' => 0];
         DB::table('appsdumais as master')
             ->leftJoinSub($this->latestVisits($outletIds), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(master.id_outlet AS CHAR)'))
             ->when($outletIds !== null, fn ($query) => $query->whereIn('master.id_outlet', $outletIds))
-            ->select('master.id_outlet', 'master.latitude', 'master.longitude', 'coordinates.visit_latitude', 'coordinates.visit_longitude')
+            ->select('master.id_outlet', 'coordinates.visit_latitude', 'coordinates.visit_longitude')
+            ->selectRaw('master.'.$fields[0].' as latitude, master.'.$fields[1].' as longitude')
             ->orderBy('master.id_outlet')->chunk(250, function ($rows) use (&$counts, $dryRun) {
                 foreach ($rows as $row) {
                     $counts['checked']++;

@@ -104,8 +104,8 @@ class SuryaOutletCoordinatesTest extends TestCase
         }
         $master = DB::table('appsdumais')->where('id_outlet', $id)->first();
         $this->assertSame('approved', $retake->fresh()->gps_status);
-        $this->assertEqualsWithDelta(1.490325, $master->latitude, 0.00000001);
-        $this->assertEqualsWithDelta(102.1308652, $master->longitude, 0.00000001);
+        $this->assertEqualsWithDelta(1.490325, $master->latitude_checkin, 0.00000001);
+        $this->assertEqualsWithDelta(102.1308652, $master->longitude_checkin, 0.00000001);
         $search = $this->getJson('/surya/search?keyword='.$id)->assertOk()->json('0');
         $this->assertSame('verified', $search['map_visit_state']);
         $this->assertEqualsWithDelta(1.490325, $search['latitude'], 0.00000001);
@@ -131,7 +131,7 @@ class SuryaOutletCoordinatesTest extends TestCase
         $visit = SuryaVisit::where('id_outlet', (string) $id)->latest('visited_at')->firstOrFail();
         $this->assertSame('valid', $visit->gps_status);
         $this->assertLessThan(10, $visit->distance_meters);
-        $this->assertEqualsWithDelta(1.470011, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        $this->assertEqualsWithDelta(1.470011, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude_checkin'), 0.00000001);
     }
 
     public function test_photos_do_not_make_rejected_or_pending_visits_look_approved_and_map_exposes_gps_source(): void
@@ -192,7 +192,7 @@ class SuryaOutletCoordinatesTest extends TestCase
         }
         $this->artisan('surya:sync-outlet-coordinates', ['--outlet' => $ids])->assertExitCode(0);
         foreach ($ids as $index => $id) {
-            $this->assertEqualsWithDelta(1.47 + $index / 100, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+            $this->assertEqualsWithDelta(1.47 + $index / 100, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude_checkin'), 0.00000001);
         }
         $this->assertSame(0, app(SuryaOutletCoordinates::class)->synchronize(false, $ids)['changed']);
     }
@@ -207,7 +207,7 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->admin();
         $this->getJson('/surya/outlets')->assertOk();
         $this->assertDatabaseHas('surya_visits', ['id' => $pending, 'gps_status' => 'approved']);
-        $this->assertEqualsWithDelta(1.48, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        $this->assertEqualsWithDelta(1.48, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude_checkin'), 0.00000001);
     }
 
     public function test_equal_visit_times_use_the_latest_id_and_outlets_without_visits_keep_their_master(): void
@@ -218,7 +218,7 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->visit(990011009, ['latitude' => 1.4]);
         $this->visit(990011009, ['latitude' => 1.5]);
         app(SuryaOutletCoordinates::class)->synchronize(false, ['990011009', '990011010']);
-        $this->assertEqualsWithDelta(1.5, DB::table('appsdumais')->where('id_outlet', 990011009)->value('latitude'), 0.00000001);
+        $this->assertEqualsWithDelta(1.5, DB::table('appsdumais')->where('id_outlet', 990011009)->value('latitude_checkin'), 0.00000001);
         $this->assertEqualsWithDelta(0.53449532, DB::table('appsdumais')->where('id_outlet', 990011010)->value('latitude'), 0.00000001);
     }
 
@@ -249,7 +249,7 @@ class SuryaOutletCoordinatesTest extends TestCase
             ->getJson(route('mobile.visit.status', ['id_outlet' => (string) $id]))
             ->assertOk()->assertJson(['gps_status' => 'approved', 'can_sell' => true]);
         $this->assertDatabaseHas('surya_visits', ['id' => $visit, 'gps_status' => 'approved']);
-        $this->assertEqualsWithDelta(1.470001, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        $this->assertEqualsWithDelta(1.470001, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude_checkin'), 0.00000001);
     }
 
     public function test_stale_admin_approval_does_not_override_a_rejection_or_move_the_outlet(): void
@@ -282,7 +282,7 @@ class SuryaOutletCoordinatesTest extends TestCase
                 'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus',
             ])->assertSessionHasNoErrors()->assertRedirect(route('mobile.visit.menu', ['id_outlet' => $id]));
         $this->assertDatabaseHas('surya_visits', ['id_outlet' => (string) $id, 'gps_status' => 'valid']);
-        $this->assertEqualsWithDelta(0.53450532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude'), 0.00000001);
+        $this->assertEqualsWithDelta(0.53450532, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude_checkin'), 0.00000001);
     }
 
     public function test_photo_upload_returns_confirmation_only_after_saving_and_a_retry_does_not_duplicate_it(): void

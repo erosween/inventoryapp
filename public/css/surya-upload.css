@@ -1,14 +1,35 @@
-*{box-sizing:border-box}.upload-card{max-width:940px;padding:26px;border:1px solid #dde5ec;border-radius:18px;background:#fff;box-shadow:0 8px 30px #141e320d}.eyebrow{margin-bottom:8px;color:#c8102e;font-size:10px;font-weight:900;letter-spacing:.12em}.upload-card h3{margin:0;font-size:18px}.muted{margin:7px 0 0;color:#737d8e;font-size:13px;line-height:1.55}.drop{margin-top:22px;padding:22px;border:2px dashed #d8e0e8;border-radius:16px;background:#fbfcfe}.file-label{display:block;margin-bottom:11px;font-size:12px;font-weight:800}.file-input{display:block;width:100%;min-height:46px;padding:8px;border:1px solid #dce3ea;border-radius:11px;background:#fff;color:#485466;font-family:inherit;font-size:12px}.file-input::file-selector-button{height:28px;margin-right:10px;padding:0 12px;border:0;border-radius:7px;background:#eef2f6;color:#263244;font-family:inherit;font-size:11px;font-weight:800;cursor:pointer}.btn{height:46px;margin-top:16px;padding:0 20px;border:0;border-radius:11px;background:#c8102e;color:#fff;font-family:inherit;font-size:12px;font-weight:800;line-height:1;cursor:pointer}.btn i{margin-right:7px}.alert{margin-bottom:18px;padding:14px 17px;border-radius:12px;background:#dcfce7;color:#166534;font-size:13px;font-weight:800}.field-error{margin-top:8px;color:#b42318;font-size:12px;font-weight:700}.info{margin-top:18px;padding:15px 17px;border-radius:13px;background:#f5f8fc;color:#475467;font-size:12px;line-height:1.6}@media(max-width:960px){.upload-card{padding:20px}}@media(max-width:520px){.drop{padding:16px}.btn{width:100%}}
-/* Keep the standalone pages visually identical to the SURYA dashboard shell. */
-.metrics-import-progress{margin:20px 0 12px;padding:18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
-.metrics-import-heading{display:flex;justify-content:space-between;gap:16px;color:#172033;font-size:14px}
-.metrics-import-progress progress{display:block;width:100%;height:9px;margin-top:12px;border:0;border-radius:9px;overflow:hidden;accent-color:#d3072d}
-.metrics-import-progress progress::-webkit-progress-bar{background:#e2e8f0}
-.metrics-import-progress progress::-webkit-progress-value{background:#d3072d;border-radius:9px;transition:width .2s}
-.metrics-import-progress progress::-moz-progress-bar{background:#d3072d}
-.metrics-import-progress p,.metrics-import-hint{font-size:13px;line-height:1.6;color:#64748b;margin:10px 0 0}
-.metrics-import-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
-.metrics-import-actions .btn{margin:0}
-.metrics-import-actions .btn:disabled{opacity:.55;cursor:wait}
-.metrics-import-actions .metrics-import-resume{background:#fff;color:#bc092d;border:1px solid #bc092d;box-shadow:none}
-.metrics-import-progress[hidden],.metrics-import-actions [hidden],[data-import-error][hidden]{display:none!important}
+.surya-upload-page .main,.surya-upload-page .content{min-width:0}
+.surya-upload-page .upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+.surya-upload-page .upload-card{min-width:0;border:1px solid #dfe6ef;border-radius:20px;background:#fff;box-shadow:0 4px 20px #17203305;overflow:hidden}
+.surya-upload-page .upload-card-wide{grid-column:1/-1}
+.surya-upload-page .upload-card-header{display:flex;align-items:center;gap:12px;padding:22px 24px;border-bottom:1px solid #edf0f5}
+.surya-upload-page .upload-card h2{margin:0;min-width:0;color:#172033;font-size:17px;font-weight:750;line-height:1.4}
+.surya-upload-page .upload-icon{display:grid;place-items:center;flex:0 0 40px;height:40px;border-radius:12px;background:#fff0f3;color:#c8102e;font-size:17px}
+.surya-upload-page .upload-format{flex-shrink:0;margin-left:auto;padding:5px 9px;border:1px solid #e7ebf1;border-radius:7px;color:#667085;background:#f8fafc;font-size:11px;font-weight:650;white-space:nowrap}
+.surya-upload-page .drop{margin:0;padding:24px;border:0;background:#fff}
+.surya-upload-page .file-label{display:block;margin:0 0 9px;color:#344054;font-size:13px;font-weight:650}
+.surya-upload-page .file-input,.surya-upload-page .upload-input{box-sizing:border-box;display:block;width:100%;min-width:0;max-width:100%;height:48px;padding:11px 12px;border:1px solid #d7dfeb;border-radius:10px;background:#fff;color:#344054;font:inherit;font-size:13px;line-height:24px}
+.surya-upload-page .file-input{height:auto;min-height:48px;padding:7px;color:#667085;font-size:12px;overflow:hidden}
+.surya-upload-page .file-input::file-selector-button{height:32px;margin-right:12px;padding:0 12px;border:0;border-radius:6px;background:#f0f3f8;color:#344054;font:inherit;font-weight:600;cursor:pointer}
+.surya-upload-page .file-input:focus-visible,.surya-upload-page .upload-input:focus-visible,.surya-upload-page .btn:focus-visible{outline:3px solid #f3b7c3;outline-offset:3px}
+.surya-upload-page .upload-fields{display:grid;grid-template-columns:minmax(140px,.65fr) minmax(0,1.35fr);gap:16px}
+.surya-upload-page .upload-fields>div{min-width:0}
+.surya-upload-page .upload-hint{margin:10px 0 0;color:#7b8495;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.surya-upload-page .metrics-import-actions{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.surya-upload-page .upload-card .btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:auto;max-width:100%;min-height:44px;height:auto;margin:0;padding:12px 18px;border:1px solid #c8102e;border-radius:10px;background:#c8102e;color:#fff;box-shadow:none;font:inherit;font-size:13px;font-weight:650;line-height:1.3;text-decoration:none;cursor:pointer;white-space:normal}
+.surya-upload-page .upload-card .btn:hover{background:#ad0c27;border-color:#ad0c27}
+.surya-upload-page .upload-card .metrics-import-resume{background:#fff;color:#475467;border-color:#d7dfeb}
+.surya-upload-page .upload-card .metrics-import-resume:hover{background:#f5f7fb;border-color:#b9c5d6}
+.surya-upload-page .upload-card .btn:disabled{opacity:.6;cursor:wait}
+.surya-upload-page .upload-alert{display:flex;gap:10px;align-items:flex-start;margin-bottom:22px;padding:15px 18px;border:1px solid #bde5d1;border-radius:12px;background:#effaf4;color:#166a42;font-size:13px;line-height:1.6}
+.surya-upload-page .field-error{margin-top:9px;color:#b42318;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.surya-upload-page .metrics-import-progress{margin:20px 0 12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
+.surya-upload-page .metrics-import-heading{display:flex;justify-content:space-between;gap:16px;color:#344054;font-size:13px}
+.surya-upload-page .metrics-import-progress progress{display:block;width:100%;height:8px;margin-top:12px;border:0;border-radius:9px;overflow:hidden;accent-color:#c8102e}
+.surya-upload-page .metrics-import-progress progress::-webkit-progress-bar{background:#e2e8f0}
+.surya-upload-page .metrics-import-progress progress::-webkit-progress-value{background:#c8102e;border-radius:9px;transition:width .2s}
+.surya-upload-page .metrics-import-progress progress::-moz-progress-bar{background:#c8102e}
+.surya-upload-page .metrics-import-progress p{margin:9px 0 0;font-size:12px;line-height:1.6;color:#64748b}
+.surya-upload-page [hidden]{display:none!important}
+@media(max-width:1100px){.surya-upload-page .upload-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:560px){.surya-upload-page .upload-card-header{padding:18px 16px;gap:9px}.surya-upload-page .upload-card h2{font-size:15px}.surya-upload-page .upload-icon{flex-basis:34px;height:34px}.surya-upload-page .drop{padding:18px 16px}.surya-upload-page .upload-fields{grid-template-columns:minmax(0,1fr)}.surya-upload-page .metrics-import-actions .btn{flex:1 1 auto}.surya-upload-page .upload-grid{gap:18px}}
