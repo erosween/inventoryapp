@@ -219,6 +219,12 @@ class MonitaDumaiController extends Controller
         $cutoff=$this->outletSalesCutoff($request);
         $outlets=$service->query($base,$cutoff,$options)->select('id_outlet','tap','kecamatan')->get();
         $insight=app(\App\Services\OutletSalesInsight::class)->data($outlets,$cutoff,($request->input('summary_product') ?: 'pv_all'));
+        if ($request->routeIs('surya.outlet-detail.sales-summary.download')) {
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                new \App\Exports\OutletSalesInsightExport($insight),
+                'Insight_Outlet_'.$insight['product'].'_'.$cutoff->format('Y-m-d').'.xlsx'
+            );
+        }
         return response()->view('surya.partials.outlet-sales-insight',compact('insight'))->header('Cache-Control','no-store');
     }
 

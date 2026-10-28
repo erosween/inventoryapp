@@ -13,22 +13,22 @@ class OutletSalesInsight
   $variant=match($product){'pv_reg'=>'REGULER','pv_byu','sa_byu'=>'BYU','sa_simpati'=>'SIMPATI',default=>null};
   $end=$cutoff->copy()->endOfDay();$start=$end->copy()->startOfMonth();$prevStart=$start->copy()->subMonth();$prevEnd=$prevStart->copy()->day(min($end->day,$prevStart->daysInMonth))->endOfDay();
   $master=$outlets->keyBy(fn($o)=>(string)$o->id_outlet);$taps=[];$districts=[];$columns=[];
-  foreach($master as$o){$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=json_encode([$tap,$district]);
-   $taps[$tap]??=$this->area($tap,$tap);$districts[$key]??=$this->area($district,$tap);
+  foreach($master as$o){$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=mb_strtoupper(preg_replace('/\s+/u',' ',$district));
+   $taps[$tap]??=$this->area($tap,$tap);$districts[$key]??=$this->area($district,'');
   }
   if($master->isNotEmpty())foreach(['keluarsf','mobile_penjualan']as$table){
    $q=DB::table($table.' as t')->join('denom as d','d.iddenom','=','t.iddenom')->whereIn('t.id_outlet',$master->keys()->all())->whereBetween('t.tgl',[$prevStart,$end]);
    if($table==='mobile_penjualan'){SalesSource::excludePostedMobile($q,'t');$q->where('t.status','approved');}
    DenomGrouping::filterDenoms($q,strtolower($family).'_all','d');
    $data=$q->select('t.id_outlet','d.group_name','d.product_variant')->selectRaw('SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS current_qty,SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS previous_qty',[$start,$end,$prevStart,$prevEnd])->groupBy('t.id_outlet','d.group_name','d.product_variant')->get();
-   foreach($data as$r){$o=$master->get((string)$r->id_outlet);$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=json_encode([$tap,$district]);$g=$this->validity($r->group_name);
+   foreach($data as$r){$o=$master->get((string)$r->id_outlet);$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=mb_strtoupper(preg_replace('/\s+/u',' ',$district));$g=$this->validity($r->group_name);
     foreach(['current'=>(int)$r->current_qty,'previous'=>(int)$r->previous_qty]as$p=>$value){$taps[$tap]['denominator'][$p]+=$value;$districts[$key]['denominator'][$p]+=$value;
      if($variant===null||$variant===$r->product_variant){$columns[$g]=true;$taps[$tap]['values'][$g][$p]=($taps[$tap]['values'][$g][$p]??0)+$value;$districts[$key]['values'][$g][$p]=($districts[$key]['values'][$g][$p]??0)+$value;}
     }
    }
   }
   $columns=array_keys($columns);usort($columns,fn($a,$b)=>($this->weight($a)<=>$this->weight($b))?:strnatcasecmp($a,$b));
-  $tapRows=array_values($taps);usort($tapRows,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));$districtRows=array_values($districts);usort($districtRows,fn($a,$b)=>strnatcasecmp($a['tap'].' '.$a['name'],$b['tap'].' '.$b['name']));
+  $tapRows=array_values($taps);usort($tapRows,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));$districtRows=array_values($districts);usort($districtRows,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));
   $grand=$this->sum($tapRows,'Grand Total');
   $clusters=[];foreach(['Dumai Bengkalis'=>['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'],'Rokan Hilir'=>['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']]as$name=>$members){$rows=array_values(array_filter($tapRows,fn($r)=>in_array($r['tap'],$members,true)));if($rows){$row=$this->sum($rows,$name);$row['cluster']=true;$clusters[]=$row;}}
   return compact('family','product','cutoff','prevEnd','columns','tapRows','districtRows','grand','clusters')+['outletCount'=>$master->count()];

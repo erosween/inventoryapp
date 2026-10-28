@@ -28,7 +28,21 @@ class OutletSalesInsightTest extends TestCase {
  $d=$this->report('pv_reg');$this->assertSame(45,$d['grand']['denominator']['current']);$this->assertSame(['1D'],$d['columns']);$this->assertSame(35,$d['grand']['values']['1D']['current']);
  $sa=$this->report('sa_all');$this->assertSame(8,$sa['grand']['denominator']['current']);$this->assertSame(['SA'],$sa['columns']);
  }
- public function test_same_district_name_in_different_taps_is_kept_separate_and_totals_reconcile():void{
- $d=$this->report('pv_all',true);$this->assertSame(3,count($d['districtRows']));$this->assertSame(545,$d['grand']['denominator']['current']);$this->assertSame(545,array_sum(array_map(fn($r)=>$r['denominator']['current'],$d['districtRows'])));$this->assertSame(545,array_sum(array_map(fn($r)=>$r['denominator']['current'],$d['tapRows'])));
+ public function test_same_district_name_in_different_taps_is_merged_and_totals_reconcile():void{
+ $d=$this->report('pv_all',true);$this->assertSame(2,count($d['districtRows']));$kota=collect($d['districtRows'])->firstWhere('name','Kota');$this->assertSame(535,$kota['values']['1D']['current']);$this->assertSame('',$kota['tap']);$this->assertSame(545,$d['grand']['denominator']['current']);$this->assertSame(545,array_sum(array_map(fn($r)=>$r['denominator']['current'],$d['districtRows'])));$this->assertSame(545,array_sum(array_map(fn($r)=>$r['denominator']['current'],$d['tapRows'])));
  }
+ public function test_tap_comes_from_outlet_master_not_transaction_tap():void{
+ DB::table('keluarsf')->where('id_outlet','A')->update(['idtap'=>'OTHER']);
+ $d=$this->report();$this->assertSame('DUMAI',$d['tapRows'][0]['name']);$this->assertSame(45,$d['tapRows'][0]['denominator']['current']);
+ }
+ public function test_real_workbook_contains_both_summaries_numeric_values_cutoff_and_safe_names():void{
+ $d=$this->report('pv_all',true);$d['districtRows'][0]['name']='=2+2';
+ $bytes=\Maatwebsite\Excel\Facades\Excel::raw(new \App\Exports\OutletSalesInsightExport($d),\Maatwebsite\Excel\Excel::XLSX);
+ $path=tempnam(sys_get_temp_dir(),'insight-export-');file_put_contents($path,$bytes);
+ try{$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($path);$this->assertSame(['Summary TAP','Summary Kecamatan'],$book->getSheetNames());$tap=$book->getSheet(0);$district=$book->getSheet(1);
+ $this->assertSame('B5',$tap->getFreezePane());$this->assertSame('MTD · Total',$tap->getCell('G4')->getValue());$this->assertSame(45,$tap->getCell('G5')->getValue());$this->assertSame(15,$tap->getCell('D5')->getValue());$this->assertEquals(2,$tap->getCell('J5')->getValue());$this->assertEquals(1,$tap->getCell('M5')->getValue());$this->assertSame('n',$tap->getCell('G5')->getDataType());$this->assertStringContainsString('26/10/2026',$tap->getCell('A2')->getValue());$this->assertStringContainsString('26/09/2026',$tap->getCell('A2')->getValue());
+ $this->assertSame('=2+2',$district->getCell('A5')->getValue());$this->assertSame('s',$district->getCell('A5')->getDataType());$this->assertSame(545,$district->getCell('G7')->getValue());$book->disconnectWorksheets();
+ }finally{unlink($path);}
+ }
+
 }

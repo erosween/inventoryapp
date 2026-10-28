@@ -78,6 +78,7 @@ Route::get('/surya/taskforce/push-so/filter-values', [\App\Http\Controllers\Task
 Route::post('/surya/taskforce/push-so/{idOutlet}/action', [\App\Http\Controllers\TaskforceController::class, 'store'])->name('surya.taskforce.push-so.store');
 Route::post('/surya/taskforce/upload', [\App\Http\Controllers\TaskforceController::class, 'upload'])->name('surya.taskforce.upload');
 Route::get('/surya/taskforce/template', [\App\Http\Controllers\TaskforceController::class, 'template'])->name('surya.taskforce.template');
+Route::get('/surya/detail-outlet/sales-summary/download', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary.download');
 Route::get('/surya/detail-outlet/sales-summary', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary');
 Route::get('/surya/detail-outlet/filter-values', [MonitaDumaiController::class, 'outletColumnValues'])->name('surya.outlet-detail.filter-values');
 Route::get('/surya/detail-outlet/data', [MonitaDumaiController::class, 'outletDetailData'])->name('surya.outlet-detail.data');
