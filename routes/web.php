@@ -73,6 +73,9 @@ Route::post('/surya/input-target/upload', [SuryaStockController::class, 'upload'
 Route::patch('/surya/input-target/{target}', [SuryaStockController::class, 'update'])->name('surya.input-target.update');
 Route::get('/surya/detail-outlet', [MonitaDumaiController::class, 'outletDetail'])->name('surya.outlet-detail');
 Route::get('/surya/taskforce/push-so', [\App\Http\Controllers\TaskforceController::class, 'index'])->name('surya.taskforce.push-so');
+Route::get('/surya/taskforce/push-so/visits/download', [\App\Http\Controllers\TaskforceController::class, 'visitWorkbook'])->name('surya.taskforce.visits.download');
+Route::get('/surya/taskforce/push-so/{idOutlet}/visits', [\App\Http\Controllers\TaskforceController::class, 'visitHistory'])->name('surya.taskforce.visits.history');
+Route::post('/surya/taskforce/push-so/{idOutlet}/visits', [\App\Http\Controllers\TaskforceController::class, 'addVisit'])->name('surya.taskforce.visits.store');
 Route::get('/surya/taskforce/push-so/download', [\App\Http\Controllers\TaskforceController::class, 'download'])->name('surya.taskforce.download');
 Route::get('/surya/taskforce/push-so/filter-values', [\App\Http\Controllers\TaskforceController::class, 'filterValues'])->name('surya.taskforce.filter-values');
 Route::post('/surya/taskforce/push-so/{idOutlet}/action', [\App\Http\Controllers\TaskforceController::class, 'store'])->name('surya.taskforce.push-so.store');

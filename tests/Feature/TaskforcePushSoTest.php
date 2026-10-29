@@ -37,6 +37,7 @@ class TaskforcePushSoTest extends TestCase
         (require database_path('migrations/2026_10_27_200000_create_taskforce_push_so_actions.php'))->up();
         (require database_path('migrations/2026_10_27_210000_create_taskforce_upload_lists.php'))->up();
         (require database_path('migrations/2026_10_27_220000_store_taskforce_uploaded_cells.php'))->up();
+        (require database_path('migrations/2026_10_29_000001_create_taskforce_visit_history.php'))->up();
         foreach([['A','DUMAI'],['B','DUMAI'],['C','DURI']] as [$id,$tap]) DB::table('appsdumais')->insert([
             'id_outlet'=>$id,'nama_outlet'=>'Outlet '.$id,'kecamatan'=>'Kota','sf'=>'SF '.$tap,'tap'=>$tap,'pjp'=>'Senin',
         ]);
@@ -82,7 +83,7 @@ class TaskforcePushSoTest extends TestCase
     {
         $response=$this->get($this->url())->assertOk()->assertSee('PUSH SO')->assertSee('TASKFORCE')
             ->assertDontSee('id="push-so-filters"',false)->assertSee('Upload lama hanya menyimpan ID outlet.')
-            ->assertSee('data-save-visit',false)->assertSee('tf-visit-date')->assertSee('tf-visit-notes')->assertSee('Tanggal Visit');
+            ->assertSee('data-add-visit',false)->assertSee('data-visit-history')->assertSee('Hasil temuan')->assertSee('Visit Terakhir');
         $rows=$response->viewData('outlets');
         self::assertSame(2,$rows->total());
         self::assertSame(['A','B'],$rows->pluck('id_outlet')->all());
@@ -108,7 +109,7 @@ class TaskforcePushSoTest extends TestCase
         self::assertFalse(collect($queries)->contains(fn($sql)=>str_contains($sql,'keluarsf') || str_contains($sql,'mobile_penjualan') || str_contains($sql,'surya_daily_metrics')));
     }
 
-    public function test_asmen_can_save_visit_with_audit_trail_and_month_isolation(): void
+    public function test_legacy_edits_keep_audit_trail_and_cannot_erase_real_visits(): void
     {
         $url=route('surya.taskforce.push-so.store',['idOutlet'=>'A']);
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Sudah cek stok'])->assertOk();
@@ -119,10 +120,11 @@ class TaskforcePushSoTest extends TestCase
         self::assertSame('asmen_dumai',DB::table('taskforce_push_so_actions')->value('username'));
         $r=$this->get($this->url(['visit'=>'pending']))->assertOk();
         self::assertSame(2,$r->viewData('outlets')->total());
-        self::assertSame('Jadwalkan ulang',$r->viewData('outlets')->first()->notes);
-        self::assertNull($r->viewData('outlets')->first()->visited_at);
+        self::assertSame('Sudah cek stok',$r->viewData('outlets')->first()->notes);
+        self::assertSame(1,(int)$r->viewData('outlets')->first()->visit_count);
+        self::assertSame('2026-10-26',$r->viewData('outlets')->first()->visited_at);
         $r=$this->get(route('surya.taskforce.push-so',['sales_cutoff'=>'2026-09-26']))->assertOk();
-        self::assertNull($r->viewData('outlets')->first()->notes);
+        self::assertSame('Sudah cek stok',$r->viewData('outlets')->first()->notes);
     }
 
     public function test_branch_user_can_write_and_asmen_cannot_access_other_tap(): void
@@ -161,11 +163,11 @@ class TaskforcePushSoTest extends TestCase
         self::assertSame($before,DB::table('taskforce_push_so_actions')->count());
     }
 
-    public function test_super_admin_can_edit_and_visit_inputs_render_inline(): void
+    public function test_super_admin_can_record_visits_and_form_renders_in_dialog(): void
     {
         $this->asUser('admin_super','SBP_DUMAI');
-        $r=$this->get($this->url())->assertOk()->assertSee('data-save-visit',false)
-            ->assertSee('name="visited_at"',false)->assertSee('name="notes"',false)->assertDontSee('<dialog',false);
+        $r=$this->get($this->url())->assertOk()->assertSee('data-add-visit',false)
+            ->assertSee('name="visited_at"',false)->assertSee('name="notes"',false)->assertSee('<dialog',false);
         self::assertTrue($r->viewData('canAct'));
         $this->postJson(route('surya.taskforce.push-so.store',['idOutlet'=>'C']),[
             'sales_cutoff'=>'2026-10-26','visited'=>1,'visited_at'=>'2026-10-26','notes'=>'Dicek admin',
@@ -236,7 +238,7 @@ class TaskforcePushSoTest extends TestCase
             $this->asUser('admin_super','SBP_DUMAI');
             $file=new \Illuminate\Http\UploadedFile($path,'taskforce.xlsx',null,null,true);
             $this->post(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertRedirect();
-            $this->get(route('surya.transaction-upload'))->assertOk()->assertSee('Upload Daftar Outlet Taskforce');
+            $this->get(route('surya.transaction-upload'))->assertOk()->assertSee('outletlist-upload-form',false);
             $this->get(route('surya.taskforce.template'))->assertOk()->assertDownload('template-taskforce.csv');
             $this->asUser('asmen_dumai','DUMAI');
             $response=$this->get($this->url())->assertOk();
@@ -254,7 +256,7 @@ class TaskforcePushSoTest extends TestCase
     {
         DB::table('appsdumais')->where('id_outlet','B')->update(['sf'=>'SF B']);
         $r=$this->get($this->url(['tap'=>'DUMAI','sf'=>'SF B']))->assertOk()
-            ->assertSee('<h1>TASKFORCE</h1>',false)->assertSee('Download Outlet')->assertSee('tf-visit-select')
+            ->assertSee('<h1>TASKFORCE</h1>',false)->assertSee('Download Excel')->assertSee('data-add-visit',false)
             ->assertDontSee('Pantau transaksi outlet')->assertDontSee('Kolom dan data mengikuti file upload.');
         self::assertSame(['B'],$r->viewData('outlets')->pluck('id_outlet')->all());
         self::assertSame(['DUMAI'],$r->viewData('taps')->all());
@@ -320,7 +322,7 @@ class TaskforcePushSoTest extends TestCase
             ->assertOk()->assertJsonPath('values',['Belum visit','Sudah visit']);
         $this->postJson($url,['sales_cutoff'=>'2026-10-26','visited'=>0,'notes'=>'Tindak lanjut'])->assertOk();
         $r=$this->get($this->url(['columns'=>['visit'=>['Sudah visit']]]))->assertOk();
-        self::assertSame(0,$r->viewData('outlets')->total());
+        self::assertSame(1,$r->viewData('outlets')->total());
     }
 
     public function test_header_sort_is_numeric_stable_and_shared_with_pagination_and_export(): void
@@ -376,4 +378,123 @@ class TaskforcePushSoTest extends TestCase
         self::assertSame(array_slice($values,0,9),array_slice($rows[1],0,9));
         self::assertSame(["'-2+3","'=1+1","'@SUM(A1)","'+SUM(A1)","'-SUM(A1)"],array_slice($rows[1],9,5));
     }
+    private function addVisit(string $id,string $date,string $notes,array $extra=[])
+    {
+        return $this->postJson(route('surya.taskforce.visits.store',['idOutlet'=>$id]),$extra+[
+            'sales_cutoff'=>'2026-10-26','request_id'=>(string)\Illuminate\Support\Str::uuid(),
+            'visited_at'=>$date,'notes'=>$notes,'follow_up'=>'Follow up '.$notes,
+        ]);
+    }
+
+    public function test_repeat_visits_and_backdated_entry_preserve_every_note_and_latest_actual_date(): void
+    {
+        $this->addVisit('A','2026-10-26','Kunjungan kedua')->assertOk();
+        $this->addVisit('A','2026-09-25','Kunjungan pertama terlambat dicatat')->assertOk();
+        $row=$this->get($this->url())->assertOk()->viewData('outlets')->firstWhere('id_outlet','A');
+        self::assertSame(2,(int)$row->visit_count);self::assertSame('2026-10-26',$row->visited_at);self::assertSame('Kunjungan kedua',$row->notes);
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'A','sales_cutoff'=>'2026-10-26']))
+            ->assertOk()->assertJsonPath('total',2)->assertJsonPath('visits.0.notes','Kunjungan kedua')->assertJsonPath('visits.1.visited_at','2026-09-25');
+    }
+
+    public function test_retries_do_not_duplicate_but_separate_visits_on_the_same_day_are_allowed(): void
+    {
+        $key=(string)\Illuminate\Support\Str::uuid();
+        $first=$this->addVisit('A','2026-10-26','Visit pagi',['request_id'=>$key])->assertOk()->json('visit_id');
+        $this->addVisit('A','2026-10-26','Visit pagi',['request_id'=>$key])->assertOk()->assertJsonPath('visit_id',$first);
+        self::assertSame(1,DB::table('taskforce_visits')->count());
+        $this->addVisit('A','2026-10-26','Visit sore')->assertOk();self::assertSame(2,DB::table('taskforce_visits')->count());
+        $this->addVisit('A','2026-10-26','Payload lain',['request_id'=>$key])->assertStatus(409);
+        self::assertSame(2,DB::table('taskforce_visits')->count());
+    }
+
+    public function test_visit_range_filters_summary_history_count_sort_and_workbook_together(): void
+    {
+        $this->addVisit('A','2026-10-05','Awal bulan')->assertOk();$this->addVisit('A','2026-10-26','Akhir bulan')->assertOk();
+        $this->addVisit('B','2026-10-20','Outlet B')->assertOk();
+        $range=['visit_from'=>'2026-10-20','visit_to'=>'2026-10-27'];
+        $rows=$this->get($this->url($range+['sort'=>'count','direction'=>'desc']))->assertOk()->viewData('outlets');
+        self::assertSame([1,1],$rows->map(fn($r)=>(int)$r->visit_count)->all());
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'A','sales_cutoff'=>'2026-10-26']+$range))
+            ->assertOk()->assertJsonPath('total',1)->assertJsonPath('visits.0.notes','Akhir bulan');
+        $this->getJson($this->url(['visit_from'=>'2026-10-26','visit_to'=>'2026-10-01']))->assertUnprocessable();
+        $this->getJson(route('surya.taskforce.filter-values',['sales_cutoff'=>'2026-10-26','column'=>'count']))->assertOk()->assertJsonPath('values',['1','2']);
+        $file=$this->get(route('surya.taskforce.visits.download',['sales_cutoff'=>'2026-10-26','sf'=>'SF DUMAI']+$range))->assertOk()->assertDownload('Taskforce_2026-10.xlsx');
+        $book=\PhpOffice\PhpSpreadsheet\IOFactory::load($file->baseResponse->getFile()->getPathname());
+        self::assertSame(['Ringkasan Outlet','Riwayat Visit'],$book->getSheetNames());
+        self::assertSame(6,$book->getSheet(0)->getHighestRow());self::assertSame(6,$book->getSheet(1)->getHighestRow());
+        self::assertSame('20/10/2026',$book->getSheet(1)->getCell('E5')->getFormattedValue());
+        self::assertSame('Akhir bulan',(string)$book->getSheet(1)->getCell('G6')->getValue());$book->disconnectWorksheets();unlink($file->baseResponse->getFile()->getPathname());
+    }
+
+    public function test_upload_replacement_and_different_taskforce_month_keep_the_same_outlet_history(): void
+    {
+        $this->addVisit('A','2026-10-26','Tetap aman')->assertOk();$this->asUser('admin_super','SBP_DUMAI');
+        $file=\Illuminate\Http\UploadedFile::fake()->createWithContent('taskforce.csv',"ID Outlet\nA\n");
+        $this->post(route('surya.taskforce.upload'),['taskforce_month'=>'2026-10','taskforce_file'=>$file])->assertRedirect();
+        $row=$this->get($this->url())->viewData('outlets')->first();self::assertSame(1,(int)$row->visit_count);
+        self::assertSame('Tetap aman',$row->notes);
+        $row=$this->get(route('surya.taskforce.push-so',['period_month'=>'2026-09']))->assertOk()->viewData('outlets')->firstWhere('id_outlet','A');
+        self::assertSame(1,(int)$row->visit_count);self::assertSame('Tetap aman',$row->notes);
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'A','period_month'=>'2026-09']))->assertOk()->assertJsonPath('total',1);
+    }
+
+    public function test_history_and_workbook_enforce_scope_and_strings_are_not_excel_formulas(): void
+    {
+        $this->asUser('admin_super','SBP_DUMAI');$this->addVisit('C','2026-10-26','DURI secret')->assertOk();
+        $this->addVisit('A','2026-10-26','=1+1',['follow_up'=>'@SUM(A1)'])->assertOk();
+        $this->asUser('asmen_dumai','DUMAI');
+        $this->addVisit('C','2026-10-26','Forbidden')->assertNotFound();
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'C','sales_cutoff'=>'2026-10-26']))->assertNotFound();
+        $file=$this->get(route('surya.taskforce.visits.download',['sales_cutoff'=>'2026-10-26']))->assertOk();
+        $book=\PhpOffice\PhpSpreadsheet\IOFactory::load($file->baseResponse->getFile()->getPathname());$sheet=$book->getSheet(1);
+        self::assertSame(5,$sheet->getHighestRow());self::assertSame('A',(string)$sheet->getCell('A5')->getValue());
+        self::assertSame('=1+1',(string)$sheet->getCell('G5')->getValue());self::assertNotSame('f',$sheet->getCell('G5')->getDataType());self::assertSame('@SUM(A1)',(string)$sheet->getCell('H5')->getValue());
+        self::assertSame('n',$sheet->getCell('E5')->getDataType());$book->disconnectWorksheets();unlink($file->baseResponse->getFile()->getPathname());
+    }
+
+    public function test_new_visit_validation_and_all_surya_roles_without_scope_expansion(): void
+    {
+        $this->addVisit('A','2026-10-28','Future')->assertUnprocessable()->assertJsonValidationErrors('visited_at');
+        $this->addVisit('A','2026-10-26','')->assertUnprocessable()->assertJsonValidationErrors('notes');
+        $this->addVisit('A','2026-10-26','No key',['request_id'=>'bad'])->assertUnprocessable()->assertJsonValidationErrors('request_id');
+        DB::table('appsdumais')->insert(['id_outlet'=>'R','nama_outlet'=>'Rohil','tap'=>'BAGAN BATU','sf'=>'SF R','kecamatan'=>'Kota','pjp'=>'Senin']);
+        DB::table('taskforce_upload_outlets')->insert(['upload_id'=>DB::table('taskforce_uploads')->where('period_month','2026-10-01')->value('id'),'id_outlet'=>'R']);
+        foreach(['gm','gm_cluster','branch_dumai','admin_super','admin_cluster','cluster_dumai','cluster_rohil','asmen_dumai']as$user){
+            $this->asUser($user,$user==='gm'?'CLUSTER_DUMAI':'DUMAI');$this->addVisit($user==='cluster_rohil'?'R':'A','2026-10-26','Oleh '.$user)->assertOk();
+            self::assertSame($user,DB::table('taskforce_visits')->orderByDesc('id')->value('username'));
+        }
+        self::assertSame(8,DB::table('taskforce_visits')->count());
+        $this->asUser('unrelated_user','DUMAI');$this->addVisit('A','2026-10-26','Forbidden')->assertUnauthorized();
+    }
+
+    public function test_migration_deduplicates_legacy_status_edits_without_deleting_the_action_audit(): void
+    {
+        Schema::drop('taskforce_visits');
+        foreach([[true,'2026-10-25','Pertama'],[true,'2026-10-26','Draft'],[true,'2026-10-26','Catatan diperbaiki'],[false,null,'Jadwal']]as[$visited,$day,$notes])
+            DB::table('taskforce_push_so_actions')->insert(['id_outlet'=>'A','period_month'=>'2026-10-01','visited'=>$visited,'visited_at'=>$day,'notes'=>$notes,'user_id'=>'1','username'=>'asmen_dumai','created_at'=>now(),'updated_at'=>now()]);
+        (require database_path('migrations/2026_10_29_000001_create_taskforce_visit_history.php'))->up();
+        self::assertSame(4,DB::table('taskforce_push_so_actions')->count());self::assertSame(2,DB::table('taskforce_visits')->count());
+        self::assertSame('Catatan diperbaiki',DB::table('taskforce_visits')->where('visited_at','2026-10-26')->value('notes'));
+        (require database_path('migrations/2026_10_29_000001_create_taskforce_visit_history.php'))->up();
+        self::assertSame(2,DB::table('taskforce_visits')->count());
+    }
+
+    public function test_history_pagination_and_count_filters_cover_all_visits(): void
+    {
+        for($i=0;$i<25;$i++)$this->addVisit('A','2026-10-26','Visit '.$i)->assertOk();
+        $url=route('surya.taskforce.visits.history',['idOutlet'=>'A','sales_cutoff'=>'2026-10-26']);
+        $this->getJson($url)->assertOk()->assertJsonCount(20,'visits')->assertJsonPath('has_more',true)->assertJsonPath('total',25);
+        $this->getJson($url.'&page=2')->assertOk()->assertJsonCount(5,'visits')->assertJsonPath('has_more',false);
+        $page=$this->get($this->url(['columns'=>['count'=>['25']]]))->assertOk();self::assertSame(['A'],$page->viewData('outlets')->pluck('id_outlet')->all());
+    }
+
+    public function test_missing_migration_shows_preparation_state_without_breaking_the_page(): void
+    {
+        Schema::drop('taskforce_visits');
+        $page=$this->get($this->url())->assertOk()->assertSee('Riwayat kunjungan sedang disiapkan');self::assertFalse($page->viewData('canAct'));
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'A','sales_cutoff'=>'2026-10-26']))->assertStatus(503);
+        $this->addVisit('A','2026-10-26','Tunggu')->assertStatus(503);
+        $this->getJson(route('surya.taskforce.visits.download',['sales_cutoff'=>'2026-10-26']))->assertStatus(503);
+    }
+
 }
