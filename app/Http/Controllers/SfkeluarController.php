@@ -604,12 +604,12 @@ public function updateSfKeluar(Request $request, $id)
     // Samakan sumber export dengan dashboard/view: transaksi admin SF Keluar
     // ditambah transaksi mobile yang sudah approved.
     $adminSales = \App\Support\SalesSource::legacy()
-        ->select(['tgl', 'idtap', 'idsf', 'iddenom', 'qty', 'tambahanket']);
+        ->select(['tgl', 'idtap', 'idsf', 'iddenom', 'qty', 'tambahanket', 'id_outlet']);
     $mobileSales = \App\Support\SalesSource::mobile()
         ->where('status', 'approved')
         ->select([
             'tgl', 'idtap', DB::raw('COALESCE(owner_idsf,idsf) AS idsf'), 'iddenom', 'qty',
-            DB::raw("'Mobile approved' as tambahanket"),
+            DB::raw("'Mobile approved' as tambahanket"), 'id_outlet',
         ]);
 
     $query = DB::query()->fromSub(
@@ -624,6 +624,7 @@ public function updateSfKeluar(Request $request, $id)
             DB::raw('SUM(f.qty) as qty'),
             'f.idtap',
             'i.namasf',
+            'f.id_outlet',
             'f.tambahanket', 'd.product', 'd.product_variant'
         )
         ->groupBy(
@@ -631,6 +632,7 @@ public function updateSfKeluar(Request $request, $id)
             'd.denom',
             'f.idtap',
             'i.namasf',
+            'f.id_outlet',
             'f.tambahanket', 'd.product', 'd.product_variant'
         );
 
