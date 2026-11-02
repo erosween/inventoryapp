@@ -81,6 +81,8 @@ class StockSfController extends Controller
             ->select('idsf.idtap', 'idsf.namasf', 'sf.iddenom', 'sf.stock as stock')
             ->whereIn('sf.iddenom', $visibleDenomIds);
 
+        \App\Support\SfVisibility::visible($base);
+
         $idtap = session('idtap') ?? $user->idtap;
         $applyFilter = function($q, $col = 'idtap') use ($idtap) {
             if ($idtap === 'CLUSTER_DUMAI') {

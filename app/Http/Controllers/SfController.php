@@ -58,6 +58,7 @@ class SfController extends Controller
                 // Nama SF distandarisasi huruf kapital
                 'namasf' => strtoupper($request->namasf),
                 'digipos_id' => $request->input('digipos_id'),
+                'is_hidden' => false,
                 'login_code' => strtoupper(Str::random(6)),
                 'password' => Hash::make('123')
             ]);
@@ -89,12 +90,14 @@ class SfController extends Controller
         $data = $request->validate([
             'idtap' => 'required|string|exists:kodetap,idtap',
             'namasf' => 'required|string|max:100',
+            'is_hidden' => ['sometimes', 'boolean'],
             'digipos_id' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/D', Rule::unique('idsf', 'digipos_id')->ignore($idsf, 'idsf')],
         ]);
         DB::table('idsf')->where('idsf', $idsf)->update([
             'idtap' => $data['idtap'],
             'namasf' => mb_strtoupper(trim($data['namasf'])),
             'digipos_id' => $data['digipos_id'] ?? null,
+            'is_hidden' => $request->boolean('is_hidden'),
         ]);
         return redirect('sf')->with('success', 'Data SF berhasil diperbarui.');
     }

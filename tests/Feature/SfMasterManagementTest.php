@@ -15,7 +15,7 @@ class SfMasterManagementTest extends TestCase
         parent::setUp();
         config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:']);
         DB::purge('sqlite');
-        Schema::create('idsf',function(Blueprint $t){$t->string('idsf')->primary();$t->string('idtap');$t->string('namasf');$t->string('login_code');$t->string('digipos_id')->nullable()->unique();});
+        Schema::create('idsf',function(Blueprint $t){$t->string('idsf')->primary();$t->string('idtap');$t->string('namasf');$t->string('login_code');$t->string('digipos_id')->nullable()->unique();$t->boolean('is_hidden')->default(false);});
         Schema::create('kodetap',fn(Blueprint $t)=>$t->string('idtap'));
         Schema::create('stockawalsf',function(Blueprint $t){$t->string('idsf');$t->integer('stock');});
         Schema::create('mobile_penjualan',function(Blueprint $t){$t->string('idsf');$t->string('owner_idsf')->nullable();});
@@ -51,6 +51,23 @@ class SfMasterManagementTest extends TestCase
     {
         $this->expectException(\Illuminate\Validation\ValidationException::class);
         app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>str_repeat('X',101)]),'SF1');
+    }
+    public function test_hide_and_unhide_preserves_master_and_stock_and_filters_both_dropdowns(): void
+    {
+        $request=Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'SALESMAN','is_hidden'=>'1']);
+        app(SfController::class)->update($request,'SF1');
+        $this->assertEquals(1,DB::table('idsf')->value('is_hidden'));
+        $this->assertSame(1,DB::table('stockawalsf')->count());
+        $this->withSession(['idtap'=>'DUMAI']);
+        $get=Request::create('/','POST',['idtap'=>'DUMAI']);
+        foreach ([\App\Http\Controllers\SfmasukController::class,\App\Http\Controllers\SfkeluarController::class] as $controller) {
+            $this->assertCount(0,app($controller)->getSf($get)->getData());
+        }
+        app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'SALESMAN']),'SF1');
+        foreach ([\App\Http\Controllers\SfmasukController::class,\App\Http\Controllers\SfkeluarController::class] as $controller) {
+            $this->assertCount(1,app($controller)->getSf($get)->getData());
+        }
+        $this->assertSame('ABC123',DB::table('idsf')->value('login_code'));
     }
     public function test_unused_sf_and_zero_stock_can_be_deleted(): void
     {

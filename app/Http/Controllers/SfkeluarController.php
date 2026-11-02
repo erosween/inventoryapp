@@ -131,7 +131,7 @@ use Illuminate\Validation\ValidationException;
     {
         $idtap = $this->requestedTap($request);
 
-        $sfData = DB::table('idsf')
+        $sfData = \App\Support\SfVisibility::visible(DB::table('idsf'))
             ->where('idtap', $idtap)
             ->orderBy('namasf')
             ->get();
@@ -214,9 +214,9 @@ use Illuminate\Validation\ValidationException;
         abort(403);
     }
     abort_unless(
-        DB::table('idsf')->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
+        \App\Support\SfVisibility::visible(DB::table('idsf'))->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
         422,
-        'Petugas tidak sesuai dengan TAP.'
+        'Petugas disembunyikan atau tidak sesuai dengan TAP.'
     );
 
     DB::transaction(function () use ($validated) {

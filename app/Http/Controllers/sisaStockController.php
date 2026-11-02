@@ -258,7 +258,7 @@ class sisaStockController extends Controller
         $taps = DB::table('kodetap')
             ->when(true, fn($q) => $applyFilter($q))
             ->pluck('idtap');
-        $sales = DB::table('idsf')
+        $sales = \App\Support\SfVisibility::visible(DB::table('idsf'))
             ->whereIn('idtap', $taps)
             ->orderBy('idtap')
             ->orderBy('namasf')

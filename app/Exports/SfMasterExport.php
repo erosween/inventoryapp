@@ -19,11 +19,12 @@ class SfMasterExport implements FromCollection, WithHeadings, ShouldAutoSize
             $row->idtap,
             $row->login_code,
             $row->digipos_id ?? null,
+            ($row->is_hidden ?? false) ? 'Disembunyikan' : 'Ditampilkan',
         ]);
     }
 
     public function headings(): array
     {
-        return ['SF Code', 'Nama SF', 'TAP', 'Login Code', 'ID SF Digipos'];
+        return ['SF Code', 'Nama SF', 'TAP', 'Login Code', 'ID SF Digipos', 'Status Tampilan'];
     }
 }

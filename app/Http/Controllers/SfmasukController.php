@@ -129,7 +129,7 @@ class SfmasukController extends Controller
         // Prioritaskan idtap dari request (untuk edit) atau fallback ke session
         $idtap = $request->idtap ?: $idtapsession;
 
-        $sf = DB::table('idsf')
+        $sf = \App\Support\SfVisibility::visible(DB::table('idsf'))
             ->where('idtap', $idtap)
             ->orderBy('namasf')
             ->get();
@@ -192,9 +192,9 @@ public function masuksfproses(Request $request)
         abort(403);
     }
     abort_unless(
-        DB::table('idsf')->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
+        \App\Support\SfVisibility::visible(DB::table('idsf'))->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
         422,
-        'Petugas tidak sesuai dengan TAP.'
+        'Petugas disembunyikan atau tidak sesuai dengan TAP.'
     );
 
     DB::transaction(function () use ($validated) {

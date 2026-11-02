@@ -63,6 +63,7 @@
                                                 <th>ID SF</th>
                                                 <th>Nama SF</th>
                                                 <th>ID SF Digipos</th>
+                                                <th>Status Tampilan</th>
                                                 <th>Login Code (Mobile)</th>
                                                 <th style="width: 10%">Aksi</th>
                                             </tr>
@@ -74,6 +75,7 @@
                                                     <td>{{ $sf->idsf }}</td>
                                                     <td>{{ $sf->namasf }}</td>
                                                     <td>{{ $sf->digipos_id ?? '—' }}</td>
+                                                    <td><span class="badge {{ ($sf->is_hidden ?? false) ? 'badge-secondary' : 'badge-success' }}">{{ ($sf->is_hidden ?? false) ? 'Disembunyikan' : 'Ditampilkan' }}</span></td>
                                                     <td><code class="text-primary font-weight-bold">{{ $sf->login_code }}</code></td>
                                                     <td>
                                                         <div class="form-button-action d-flex align-items-center" style="gap:14px">
@@ -205,6 +207,10 @@
                         <div class="form-group px-4">
                             <label>ID SF Digipos</label>
                             <input type="text" name="digipos_id" class="form-control" maxlength="50" value="{{ $sf->digipos_id ?? '' }}" placeholder="ID SF dari Digipos (opsional)">
+                        </div>
+                        <div class="form-group px-4">
+                            <label class="d-flex align-items-center" style="gap:10px"><input type="checkbox" name="is_hidden" value="1" {{ ($sf->is_hidden ?? false) ? 'checked' : '' }}> Sembunyikan SF</label>
+                            <small class="text-muted">Tidak muncul di daftar stok SF dan pilihan input SF Masuk/Keluar. Riwayat tetap tersimpan.</small>
                         </div>
                         <div class="modal-footer no-bd">
                             <button type="submit" class="btn btn-primary">Update</button>
