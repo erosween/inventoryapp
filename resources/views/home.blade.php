@@ -1543,7 +1543,7 @@
 
             {{-- ================= ACTIVITY & MoM DAILY ================= --}}
             {{-- ================= MoM PER TAP ================= --}}
-            @include('surya.partials.mom-sales-card')
+            @include('surya.partials.mom-sales-card', $momCardData ?? [])
 
             {{-- close --}}
         </div>
@@ -2389,7 +2389,7 @@
             loader.className = 'mom-loading';
             loader.setAttribute('role', 'status');
             loader.setAttribute('aria-live', 'polite');
-            loader.innerHTML = '<span><i aria-hidden="true"></i>Memuat data produk…</span>';
+            loader.innerHTML = '<span><i aria-hidden="true"></i>Memuat data MoM…</span>';
             currentCard.appendChild(loader);
             currentCard.setAttribute('aria-busy', 'true');
 

@@ -13,20 +13,31 @@ class HomeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $request->query();
-        ksort($query);
-        $scope = strtoupper(trim((string) session('idtap')));
+        $request->validate(['mom_date'=>['nullable','date_format:Y-m-d']]);
         $momOnly = $request->header('X-Surya-Card') === 'mom';
         $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
-        $cacheKey = 'home-dashboard:v18:'.sha1($scope.'|'.$request->header('X-Surya-Card', 'full').'|'.http_build_query($query));
-
-        $data = app()->environment('testing')
-            ? $this->dashboardData($request)
-            : Cache::remember($cacheKey, now()->addMinutes(15), fn () => $this->dashboardData($request));
+        $fullHistorical = $request->header('X-Surya-Card','full') === 'full' && $request->filled('mom_date');
+        $baseRequest = clone $request;
+        if ($fullHistorical) $baseRequest->query->remove('mom_date');
+        $data = $this->cachedDashboardData($baseRequest);
+        if ($fullHistorical) {
+            $momRequest = clone $request;
+            $momRequest->headers->set('X-Surya-Card','mom');
+            $data['momCardData'] = $this->cachedDashboardData($momRequest);
+        }
 
         if ($chartOnly) return response()->json($data);
         if ($request->header('X-Surya-Card') === 'validity-mom') return view('surya.partials.validity-mom',['validityMom'=>$data]);
         return view($momOnly ? 'surya.partials.mom-sales-card' : 'home', $data);
+    }
+
+    private function cachedDashboardData(Request $request): array
+    {
+        $query=$request->query();ksort($query);
+        $scope=strtoupper(trim((string)session('idtap')));
+        $key='home-dashboard:v19:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        return app()->environment('testing') ? $this->dashboardData($request)
+            : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
 
     private function dashboardData(Request $request): array
@@ -71,9 +82,11 @@ class HomeController extends Controller
             ? $currentDate->copy()
             : Carbon::parse($momCutoffDates->min());
 
-        $request->validate(['mom_date' => 'nullable|date']);
-        // Semua KPI MTD memakai cutoff global yang sama agar angka dashboard lurus.
-        $momSelectedDate = $fairCutoffThisMonth->copy()->endOfDay();
+        $request->validate(['mom_date' => ['nullable','date_format:Y-m-d','before_or_equal:'.$fairCutoffThisMonth->toDateString()]]);
+        // Default stays on the fair cutoff; an explicit card date may select any earlier month.
+        $momSelectedDate = $request->filled('mom_date')
+            ? Carbon::parse($request->query('mom_date'))->endOfDay()
+            : $fairCutoffThisMonth->copy()->endOfDay();
         $momStartThisMonth = $momSelectedDate->copy()->startOfMonth();
         $momStartPrevMonth = $momSelectedDate->copy()->subMonthNoOverflow()->startOfMonth();
         $momEndPrevMonthFull = $momStartPrevMonth->copy()->endOfMonth();
