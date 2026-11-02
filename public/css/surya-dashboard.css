@@ -2990,3 +2990,11 @@
             .visit-refresh-button { width: 100%; margin-left: 0; justify-content: center; }
             .visit-status-actions { width: 100%; margin-left: 0; }
         }
+
+/* A separate export range does not change the daily visit report filters. */
+.visit-export-range{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;padding:16px 18px;margin:14px 0;background:#fff;border:1px solid #dce3ed;border-radius:14px}
+.visit-export-range>strong{align-self:center;margin-right:auto;color:#172033}
+.visit-export-range label{display:flex;flex-direction:column;gap:6px;margin:0;font-size:12px;font-weight:600;color:#64748b}
+.visit-export-range input{min-height:42px;min-width:165px;padding:8px 12px;border:1px solid #dce3ed;border-radius:9px;background:#fff;color:#172033;font:inherit;font-size:14px}
+.visit-export-range .visit-refresh-button{min-height:42px;margin:0}
+@media(max-width:600px){.visit-export-range>strong{flex-basis:100%}.visit-export-range label{flex:1;min-width:0}.visit-export-range input{min-width:0;width:100%;font-size:16px}.visit-export-range button{width:100%;justify-content:center}}

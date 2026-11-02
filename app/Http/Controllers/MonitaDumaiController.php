@@ -505,7 +505,12 @@ class MonitaDumaiController extends Controller
         abort_unless($this->hasSuryaAccess($request), 403);
 
         $today = now('Asia/Jakarta')->toDateString();
-        $monthStart = now('Asia/Jakarta')->startOfMonth()->toDateString();
+        $dates = $request->validate([
+            'date_from' => ['nullable', 'required_with:date_to', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'required_with:date_from', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+        ]);
+        $startDate = $dates['date_from'] ?? now('Asia/Jakarta')->startOfMonth()->toDateString();
+        $endDate = $dates['date_to'] ?? $today;
         $tapScopes = $this->suryaTapScopes();
         $visitSelects = [
             'v.visited_at', 'v.checkout_at', 'v.id_outlet', 'v.idtap', 'v.idsf',
@@ -520,7 +525,7 @@ class MonitaDumaiController extends Controller
         $rows = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
-            ->whereBetween('v.visited_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->whereBetween('v.visited_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderBy('v.idtap')
             ->orderBy('s.namasf')
@@ -579,13 +584,13 @@ class MonitaDumaiController extends Controller
             ->leftJoin('idsf as owner', 'owner.idsf', '=', DB::raw('COALESCE(m.owner_idsf, m.idsf)'))
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'm.id_outlet')
             ->leftJoinSub($nonDigiposOutlets, 'non_digipos', 'non_digipos.id_outlet', '=', 'm.id_outlet')
-            ->whereBetween('m.tgl', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->whereBetween('m.tgl', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
             ->get([
                 'm.tgl', 'm.idsf', 's.namasf', 'm.owner_idsf', 'owner.namasf as owner_namasf', 'm.idtap', 'm.id_outlet',
                 DB::raw('COALESCE(o.nama_outlet, non_digipos.outlet_name) as nama_outlet'),
-                'd.denom', 'd.kategori_inject', 'm.qty',
+                'm.iddenom', 'd.denom', 'd.kategori_inject', 'm.qty',
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price'),
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total'),
                 'm.status',
@@ -600,7 +605,7 @@ class MonitaDumaiController extends Controller
         $adminSales = DB::table('keluarsf as k')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
             ->leftJoin('idsf as s', 's.idsf', '=', 'k.idsf')
-            ->whereBetween('k.tgl', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->whereBetween('k.tgl', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('k.idtap', $tapScopes))
             ->orderBy('k.tgl')->orderBy('k.idtap')->orderBy('s.namasf')
             ->get(['k.tgl', 'k.idtap', 'k.idsf', 'k.id_outlet', 'k.iddenom', 's.namasf', 'k.tambahanket', 'd.denom', 'k.qty'])
@@ -619,7 +624,7 @@ class MonitaDumaiController extends Controller
             ->leftJoin('denom as d', 'd.iddenom', '=', 'c.iddenom')
             ->leftJoin('idsf as s', 's.idsf', '=', 'c.idsf')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
-            ->whereBetween('c.reported_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->whereBetween('c.reported_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('c.idtap', $tapScopes))
             ->orderBy('c.reported_at')->orderBy('c.idtap')->orderBy('o.nama_outlet')
             ->get(['c.reported_at', 'c.idtap', 'c.idsf', 's.namasf', 'c.id_outlet', 'o.nama_outlet', 'c.iddenom', 'd.denom', 'c.serial_number', 'c.status', 'c.notes'])
@@ -650,7 +655,7 @@ class MonitaDumaiController extends Controller
             ->leftJoin('appsdumais as from_o', 'from_o.id_outlet', '=', 'h.from_id_outlet')
             ->leftJoin('appsdumais as to_o', 'to_o.id_outlet', '=', 'h.to_id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'h.idsf')
-            ->whereBetween('h.moved_at', [$monthStart . ' 00:00:00', $today . ' 23:59:59'])
+            ->whereBetween('h.moved_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('h.idtap', $tapScopes))
             ->orderBy('h.moved_at')
             ->get(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id', 'current_c.iddenom', 'd.denom'])
@@ -665,7 +670,7 @@ class MonitaDumaiController extends Controller
 
         return Excel::download(
             new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments),
-            "surya-penjualan-{$monthStart}-sampai-{$today}.xlsx"
+            "surya-penjualan-{$startDate}-sampai-{$endDate}.xlsx"
         );
     }
 

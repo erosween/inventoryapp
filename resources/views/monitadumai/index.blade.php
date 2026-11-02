@@ -626,8 +626,16 @@
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'summary' ? 'active' : '' }}" data-visit-subtab="summary"><i class="fas fa-chart-column"></i> Rekap Visit</button>
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'non-digipos' ? 'active' : '' }}" data-visit-subtab="non-digipos"><i class="fas fa-shop"></i> Non-Digipos</button>
                         <button type="button" class="visit-module-tab {{ $activeVisitTab === 'approval' ? 'active' : '' }}" data-visit-subtab="approval"><i class="fas fa-camera"></i> Approval Visit</button>
-                        <div class="visit-status-actions"><a class="visit-refresh-button" data-force-refresh href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a><a class="visit-refresh-button" href="{{ route('surya.visits.export', ['visit_date' => $visitDate]) }}"><i class="fas fa-file-excel"></i> Download Excel</a></div>
+                        <div class="visit-status-actions"><a class="visit-refresh-button" data-force-refresh href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a></div>
                     </div>
+                    <form class="visit-export-range" action="{{ route('surya.visits.export') }}" method="GET">
+                        <strong><i class="fas fa-file-excel" aria-hidden="true"></i> Download Detail Visit</strong>
+                        <label for="visit-export-from">Dari tanggal<input id="visit-export-from" type="date" name="date_from" value="{{ old('date_from', \Carbon\Carbon::parse($visitDate)->startOfMonth()->toDateString()) }}" required></label>
+                        <label for="visit-export-to">Sampai tanggal<input id="visit-export-to" type="date" name="date_to" value="{{ old('date_to', min(\Carbon\Carbon::parse($visitDate)->endOfMonth()->toDateString(), now('Asia/Jakarta')->toDateString())) }}" required></label>
+                        <button type="submit" class="visit-refresh-button"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
+                        @error('date_from')<span class="text-danger">{{ $message }}</span>@enderror
+                        @error('date_to')<span class="text-danger">{{ $message }}</span>@enderror
+                    </form>
                     <div class="visit-subpanel" data-visit-subpanel="summary" @if($activeVisitTab !== 'summary') hidden @endif>
                     <div class="visit-summary-strip">
                         @php
