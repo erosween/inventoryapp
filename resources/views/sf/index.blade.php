@@ -62,6 +62,7 @@
                                                 <th>TAP</th>
                                                 <th>ID SF</th>
                                                 <th>Nama SF</th>
+                                                <th>ID SF Digipos</th>
                                                 <th>Login Code (Mobile)</th>
                                                 <th style="width: 10%">Aksi</th>
                                             </tr>
@@ -72,6 +73,7 @@
                                                     <td>{{ $sf->idtap }}</td>
                                                     <td>{{ $sf->idsf }}</td>
                                                     <td>{{ $sf->namasf }}</td>
+                                                    <td>{{ $sf->digipos_id ?? '—' }}</td>
                                                     <td><code class="text-primary font-weight-bold">{{ $sf->login_code }}</code></td>
                                                     <td>
                                                         <div class="form-button-action d-flex align-items-center" style="gap:14px">
@@ -145,6 +147,10 @@
                             </div>
                         </div>
                     </div>
+                    <div class="form-group px-4">
+                        <label>ID SF Digipos</label>
+                        <input type="text" name="digipos_id" class="form-control" maxlength="50" value="{{ old('digipos_id') }}" placeholder="ID SF dari Digipos (opsional)">
+                    </div>
                     <div class="modal-footer no-bd">
                         <button type="submit" class="btn btn-primary">Simpan</button>
                         <button type="button" class="btn btn-danger" data-dismiss="modal">Tutup</button>
@@ -195,6 +201,10 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="form-group px-4">
+                            <label>ID SF Digipos</label>
+                            <input type="text" name="digipos_id" class="form-control" maxlength="50" value="{{ $sf->digipos_id ?? '' }}" placeholder="ID SF dari Digipos (opsional)">
                         </div>
                         <div class="modal-footer no-bd">
                             <button type="submit" class="btn btn-primary">Update</button>

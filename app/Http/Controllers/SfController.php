@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SfMasterExport;
 
@@ -35,8 +36,10 @@ class SfController extends Controller
 
     public function store(Request $request)
     {
+        $this->normalizeDigiposId($request);
         $request->validate([
             'idsf' => 'required|unique:idsf,idsf',
+            'digipos_id' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/D', 'unique:idsf,digipos_id'],
             'idtap' => 'required',
             'namasf' => 'required'
         ], [
@@ -54,6 +57,7 @@ class SfController extends Controller
                 'idtap' => $request->idtap,
                 // Nama SF distandarisasi huruf kapital
                 'namasf' => strtoupper($request->namasf),
+                'digipos_id' => $request->input('digipos_id'),
                 'login_code' => strtoupper(Str::random(6)),
                 'password' => Hash::make('123')
             ]);
@@ -81,13 +85,16 @@ class SfController extends Controller
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
         abort_unless(DB::table('idsf')->where('idsf', $idsf)->exists(), 404);
+        $this->normalizeDigiposId($request);
         $data = $request->validate([
             'idtap' => 'required|string|exists:kodetap,idtap',
             'namasf' => 'required|string|max:100',
+            'digipos_id' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/D', Rule::unique('idsf', 'digipos_id')->ignore($idsf, 'idsf')],
         ]);
         DB::table('idsf')->where('idsf', $idsf)->update([
             'idtap' => $data['idtap'],
             'namasf' => mb_strtoupper(trim($data['namasf'])),
+            'digipos_id' => $data['digipos_id'] ?? null,
         ]);
         return redirect('sf')->with('success', 'Data SF berhasil diperbarui.');
     }
@@ -130,6 +137,15 @@ class SfController extends Controller
             DB::table('idsf')->where('idsf', $idsf)->delete();
             return redirect('sf')->with('success', 'SF berhasil dihapus.');
         });
+    }
+
+    private function normalizeDigiposId(Request $request): void
+    {
+        $value = $request->input('digipos_id');
+        if (is_string($value)) {
+            $value = strtoupper(trim($value));
+            $request->merge(['digipos_id' => $value === '' ? null : $value]);
+        }
     }
 
     public function checkId($id)

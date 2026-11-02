@@ -15,7 +15,7 @@ class SfMasterManagementTest extends TestCase
         parent::setUp();
         config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:']);
         DB::purge('sqlite');
-        Schema::create('idsf',function(Blueprint $t){$t->string('idsf')->primary();$t->string('idtap');$t->string('namasf');$t->string('login_code');});
+        Schema::create('idsf',function(Blueprint $t){$t->string('idsf')->primary();$t->string('idtap');$t->string('namasf');$t->string('login_code');$t->string('digipos_id')->nullable()->unique();});
         Schema::create('kodetap',fn(Blueprint $t)=>$t->string('idtap'));
         Schema::create('stockawalsf',function(Blueprint $t){$t->string('idsf');$t->integer('stock');});
         Schema::create('mobile_penjualan',function(Blueprint $t){$t->string('idsf');$t->string('owner_idsf')->nullable();});
@@ -29,6 +29,18 @@ class SfMasterManagementTest extends TestCase
         app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'Sales Baru']),'SF1');
         $this->assertSame('SALES BARU',DB::table('idsf')->value('namasf'));
         $this->assertSame('ABC123',DB::table('idsf')->value('login_code'));
+    }
+    public function test_digipos_id_is_normalized_and_does_not_replace_surya_id(): void
+    {
+        app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'Sales Baru','digipos_id'=>' 00012abc ']),'SF1');
+        $this->assertSame('00012ABC',DB::table('idsf')->where('idsf','SF1')->value('digipos_id'));
+        $this->assertSame('ABC123',DB::table('idsf')->value('login_code'));
+    }
+    public function test_duplicate_digipos_id_is_rejected(): void
+    {
+        DB::table('idsf')->insert(['idsf'=>'SF2','idtap'=>'DUMAI','namasf'=>'OTHER','login_code'=>'DEF123','digipos_id'=>'DIG123']);
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'Sales Baru','digipos_id'=>'DIG123']),'SF1');
     }
     public function test_unused_sf_and_zero_stock_can_be_deleted(): void
     {
