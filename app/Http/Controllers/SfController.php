@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -78,29 +79,57 @@ class SfController extends Controller
 
     public function update(Request $request, $idsf)
     {
-        $request->validate([
-            'idtap' => 'required',
-            'namasf' => 'required'
-        ], [
-            'idtap.required' => 'Kolom TAP wajib dipilih.',
-            'namasf.required' => 'Nama SF wajib diisi.'
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+        abort_unless(DB::table('idsf')->where('idsf', $idsf)->exists(), 404);
+        $data = $request->validate([
+            'idtap' => 'required|string|exists:kodetap,idtap',
+            'namasf' => 'required|string|max:100',
         ]);
-
-        try {
-            DB::table('idsf')->where('idsf', $idsf)->update([
-                'idtap' => $request->idtap,
-                'namasf' => strtoupper($request->namasf)
-            ]);
-
-            return redirect()->back()->with('success', 'Data SF berhasil diperbarui.');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal memperbarui data SF.');
-        }
+        DB::table('idsf')->where('idsf', $idsf)->update([
+            'idtap' => $data['idtap'],
+            'namasf' => mb_strtoupper(trim($data['namasf'])),
+        ]);
+        return redirect('sf')->with('success', 'Data SF berhasil diperbarui.');
     }
 
     public function destroy($idsf)
     {
-        return redirect()->back()->with('error', 'Fitur penghapusan dinonaktifkan untuk menjaga integritas history data.');
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+        return DB::transaction(function () use ($idsf) {
+            $sf = DB::table('idsf')->where('idsf', $idsf)->lockForUpdate()->first();
+            abort_unless($sf, 404);
+            $stock = Schema::hasTable('stockawalsf')
+                ? DB::table('stockawalsf')->where('idsf', $idsf)->lockForUpdate()->get()
+                : collect();
+            if ($stock->contains(fn ($row) => (float) $row->stock != 0)) {
+                return redirect('sf')->with('error', 'SF tidak dapat dihapus karena masih memiliki saldo stok.');
+            }
+            // Preserve every reference to an SF identity, including mobile owner/helper history.
+            $references = [
+                'masuksf' => ['idsf'], 'keluarsf' => ['idsf'], 'retursf' => ['idsf'],
+                'masuk' => ['pengirim', 'penerima'], 'keluar' => ['pengirim', 'penerima'],
+                'mobile_penjualan' => ['idsf', 'owner_idsf'],
+                'mobile_sales_receipts' => ['idsf'],
+                'surya_visits' => ['idsf', 'stock_owner_idsf'],
+                'surya_sf_targets' => ['idsf'],
+                'surya_sa_consignment_movements' => ['idsf'], 'surya_sa_consignment_numbers' => ['idsf'],
+                'surya_competitor_surveys' => ['idsf'], 'surya_network_reports' => ['idsf'],
+            ];
+            foreach ($references as $table => $columns) {
+                if (! Schema::hasTable($table)) continue;
+                foreach ($columns as $column) {
+                    if (Schema::hasColumn($table, $column)
+                        && DB::table($table)->where($column, $idsf)->exists()) {
+                        return redirect('sf')->with('error', 'SF tidak dapat dihapus karena sudah digunakan dalam transaksi, visit, atau penugasan. Riwayat tetap dipertahankan.');
+                    }
+                }
+            }
+            if (Schema::hasTable('stockawalsf')) {
+                DB::table('stockawalsf')->where('idsf', $idsf)->delete();
+            }
+            DB::table('idsf')->where('idsf', $idsf)->delete();
+            return redirect('sf')->with('success', 'SF berhasil dihapus.');
+        });
     }
 
     public function checkId($id)

@@ -74,14 +74,17 @@
                                                     <td>{{ $sf->namasf }}</td>
                                                     <td><code class="text-primary font-weight-bold">{{ $sf->login_code }}</code></td>
                                                     <td>
-                                                        <div class="form-button-action">
+                                                        <div class="form-button-action d-flex align-items-center" style="gap:14px">
                                                             <button type="button" data-toggle="modal"
-                                                                data-target="#editModal{{ $sf->idsf }}"
+                                                                data-target="#editModal{{ $loop->index }}"
                                                                 class="btn btn-link text-primary p-0 action-edit-icon"
                                                                 title="Edit" aria-label="Edit">
-                                                                <i class="fas fa-edit fa-lg" aria-hidden="true"></i>
+                                                                <i class="fas fa-edit" aria-hidden="true"></i> Edit
                                                             </button>
-
+                                                            <form action="{{ url('sf/' . rawurlencode($sf->idsf)) }}" method="POST" class="m-0" onsubmit="return confirm('Hapus SF ini? SF yang masih memiliki stok atau riwayat tidak dapat dihapus.')">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-link text-danger p-0" title="Hapus SF {{ $sf->namasf }}" aria-label="Hapus SF {{ $sf->namasf }}"><i class="fas fa-trash-alt" aria-hidden="true"></i> Delete</button>
+                                                            </form>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -153,7 +156,7 @@
 
     @foreach ($sfs as $sf)
         <!-- Edit Modal -->
-        <div class="modal fade" id="editModal{{ $sf->idsf }}" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal fade" id="editModal{{ $loop->index }}" tabindex="-1" role="dialog" aria-hidden="true">
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
                     <div class="modal-header no-bd">
