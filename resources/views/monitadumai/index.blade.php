@@ -32,6 +32,7 @@
 <script src="{{ asset('js/surya-branding-insights.js') }}?v={{ filemtime(public_path('js/surya-branding-insights.js')) }}" defer></script>
     @include('surya.partials.assets')
     <link rel="stylesheet" href="{{ asset('css/surya-visit-photo-preview.css') }}?v={{ filemtime(public_path('css/surya-visit-photo-preview.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/surya-visit-layout.css') }}?v={{ filemtime(public_path('css/surya-visit-layout.css')) }}">
 </head>
 
 <body>
@@ -609,60 +610,60 @@
 
             <div class="dashboard-panel {{ request('panel') === 'visit-detail' ? 'active' : '' }}" id="dashboard-panel-visit-detail">
                 <section class="module-page visit-detail-page">
-                    @include('surya.partials.page-heading', ['title' => 'Detail Visit', 'description' => 'Rekap PJP, penjualan, foto branding, dan approval visit sales force.'])
-                    <div class="visit-detail-filters">
-                        <form class="visit-date-filter" method="GET" action="{{ route('surya.dashboard') }}#visit-detail">
-                            <input type="hidden" name="panel" value="visit-detail">
-                            <input type="hidden" name="visit_tab" id="visit-tab-filter" value="{{ in_array(request('visit_tab'), ['approval', 'non-digipos'], true) ? request('visit_tab') : 'summary' }}">
-                            <label for="visit-date">Tanggal Visit</label>
-                            <div><input id="visit-date" type="date" name="visit_date" value="{{ $visitDate }}"><button type="submit"><i class="fas fa-filter"></i> Tampilkan</button></div>
-                        </form>
-                    </div>
+                    <header class="visit-page-header">
+                        <div class="visit-page-title"><span class="visit-eyebrow">AKTIVITAS LAPANGAN</span><h1>Detail Visit</h1><p>Pantau kunjungan, pencapaian PJP, dan aktivitas Sales Force.</p></div>
+                        <div class="visit-page-actions">
+                            <form class="visit-date-filter" method="GET" action="{{ route('surya.dashboard') }}#visit-detail">
+                                <input type="hidden" name="panel" value="visit-detail">
+                                <input type="hidden" name="visit_tab" id="visit-tab-filter" value="{{ in_array(request('visit_tab'), ['approval', 'non-digipos'], true) ? request('visit_tab') : 'summary' }}">
+                                <label for="visit-date">Tanggal laporan</label>
+                                <div><input id="visit-date" type="date" name="visit_date" value="{{ $visitDate }}" required><button type="submit">Tampilkan</button></div>
+                            </form>
+                            <button type="button" class="visit-export-trigger" data-visit-export-open aria-haspopup="dialog"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
+                        </div>
+                    </header>
                     @if(session('success'))<div class="notice"><i class="fas fa-circle-check"></i> {{ session('success') }}</div>@endif
                     @php
                         $activeVisitTab = in_array(request('visit_tab'), ['approval', 'non-digipos'], true) ? request('visit_tab') : 'summary';
                     @endphp
-                    <div class="visit-module-tabs" role="tablist">
-                        <button type="button" class="visit-module-tab {{ $activeVisitTab === 'summary' ? 'active' : '' }}" data-visit-subtab="summary"><i class="fas fa-chart-column"></i> Rekap Visit</button>
-                        <button type="button" class="visit-module-tab {{ $activeVisitTab === 'non-digipos' ? 'active' : '' }}" data-visit-subtab="non-digipos"><i class="fas fa-shop"></i> Non-Digipos</button>
-                        <button type="button" class="visit-module-tab {{ $activeVisitTab === 'approval' ? 'active' : '' }}" data-visit-subtab="approval"><i class="fas fa-camera"></i> Approval Visit</button>
-                        <div class="visit-status-actions"><a class="visit-refresh-button" data-force-refresh href="{{ route('surya.dashboard', ['panel' => 'visit-detail', 'visit_date' => $visitDate, 'visit_tab' => $activeVisitTab]) }}#visit-detail"><i class="fas fa-rotate"></i> Muat Ulang Status</a></div>
+                    <div class="visit-navigation">
+                        <div class="visit-module-tabs" role="tablist" aria-label="Jenis laporan visit">
+                            @foreach(['summary'=>['fa-chart-column','Rekap Visit'],'non-digipos'=>['fa-shop','Non-Digipos'],'approval'=>['fa-camera','Approval Visit']] as $tab=>$tabInfo)
+                            <button type="button" id="visit-tab-{{ $tab }}" role="tab" aria-controls="visit-panel-{{ $tab }}" aria-selected="{{ $activeVisitTab===$tab?'true':'false' }}" tabindex="{{ $activeVisitTab===$tab?'0':'-1' }}" class="visit-module-tab {{ $activeVisitTab===$tab?'active':'' }}" data-visit-subtab="{{ $tab }}"><i class="fas {{ $tabInfo[0] }}" aria-hidden="true"></i>{{ $tabInfo[1] }}</button>
+                            @endforeach
+                        </div>
+                        <a class="visit-refresh-button" data-force-refresh href="{{ route('surya.dashboard', ['panel'=>'visit-detail','visit_date'=>$visitDate,'visit_tab'=>$activeVisitTab]) }}#visit-detail" aria-label="Muat ulang status visit"><i class="fas fa-rotate" aria-hidden="true"></i><span>Perbarui</span></a>
                     </div>
-                    <form class="visit-export-range" action="{{ route('surya.visits.export') }}" method="GET">
-                        <strong><i class="fas fa-file-excel" aria-hidden="true"></i> Download Detail Visit</strong>
-                        <label for="visit-export-from">Dari tanggal<input id="visit-export-from" type="date" name="date_from" value="{{ old('date_from', \Carbon\Carbon::parse($visitDate)->startOfMonth()->toDateString()) }}" required></label>
-                        <label for="visit-export-to">Sampai tanggal<input id="visit-export-to" type="date" name="date_to" value="{{ old('date_to', min(\Carbon\Carbon::parse($visitDate)->endOfMonth()->toDateString(), now('Asia/Jakarta')->toDateString())) }}" required></label>
-                        <button type="submit" class="visit-refresh-button"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
-                        @error('date_from')<span class="text-danger">{{ $message }}</span>@enderror
-                        @error('date_to')<span class="text-danger">{{ $message }}</span>@enderror
-                    </form>
-                    <div class="visit-subpanel" data-visit-subpanel="summary" @if($activeVisitTab !== 'summary') hidden @endif>
-                    <div class="visit-summary-strip">
-                        @php
-                            $visitRows = collect($visitDetails);
-                            $totalPjp = (int) $visitRows->sum('pjp_total');
-                            $totalActualCall = (int) $visitRows->sum('actual_call');
-                            $visitPercentage = $totalPjp > 0 ? ($totalActualCall / $totalPjp) * 100 : 0;
-                        @endphp
-                        <div><small>SALES FORCE AKTIF</small><strong>{{ number_format(count($visitDetails), 0, ',', '.') }}</strong></div>
-                        <div><small>TOTAL PJP</small><strong>{{ number_format($totalPjp, 0, ',', '.') }}</strong></div>
-                        <div><small>ACTUAL CALL</small><strong>{{ number_format($totalActualCall, 0, ',', '.') }}</strong></div>
-                        <div><small>% VISIT</small><strong>{{ number_format($visitPercentage, 1, ',', '.') }}%</strong></div>
-                        <div><small>EFFECTIVE CALL</small><strong>{{ number_format(collect($visitDetails)->sum('effective_call'), 0, ',', '.') }}</strong></div>
-                        <div><small>EXTRA CALL</small><strong>{{ number_format(collect($visitDetails)->sum('non_pjp'), 0, ',', '.') }}</strong></div>
-                        <div><small>OUTLET NON BELANJA</small><strong>{{ number_format(collect($visitDetails)->sum('non_buying'), 0, ',', '.') }}</strong></div>
-                        <div><small>TOTAL PV</small><strong>{{ number_format(collect($visitDetails)->sum('total_pv'), 0, ',', '.') }}</strong></div>
-                        <div><small>TOTAL SA</small><strong>{{ number_format(collect($visitDetails)->sum('total_sa'), 0, ',', '.') }}</strong></div>
+                    <div class="visit-subpanel" role="tabpanel" id="visit-panel-summary" aria-labelledby="visit-tab-summary" data-visit-subpanel="summary" @if($activeVisitTab !== 'summary') hidden @endif>
+                    @php
+                        $visitRows = collect($visitDetails);
+                        $totalPjp = (int) $visitRows->sum('pjp_total');
+                        $totalActualCall = (int) $visitRows->sum('actual_call');
+                        $visitPercentage = $totalPjp > 0 ? ($totalActualCall / $totalPjp) * 100 : 0;
+                    @endphp
+                    <div class="visit-kpi-grid">
+                        <article class="visit-kpi"><div class="visit-kpi-label">Total PJP<span class="visit-kpi-icon"><i class="fas fa-route" aria-hidden="true"></i></span></div><strong>{{ number_format($totalPjp,0,',','.') }}</strong><small>Outlet terjadwal</small></article>
+                        <article class="visit-kpi"><div class="visit-kpi-label">Actual Call<span class="visit-kpi-icon blue"><i class="fas fa-location-dot" aria-hidden="true"></i></span></div><strong>{{ number_format($totalActualCall,0,',','.') }}</strong><small>Kunjungan sesuai PJP</small></article>
+                        <article class="visit-kpi visit-kpi-highlight"><div class="visit-kpi-label">Pencapaian Visit<span class="visit-kpi-icon green"><i class="fas fa-chart-simple" aria-hidden="true"></i></span></div><strong>{{ number_format($visitPercentage,1,',','.') }}<span>%</span></strong><progress max="100" value="{{ min(100,max(0,$visitPercentage)) }}" aria-label="Pencapaian visit"></progress><small>Actual Call ÷ Total PJP</small></article>
+                        <article class="visit-kpi"><div class="visit-kpi-label">Effective Call<span class="visit-kpi-icon green"><i class="fas fa-bag-shopping" aria-hidden="true"></i></span></div><strong>{{ number_format($visitRows->sum('effective_call'),0,',','.') }}</strong><small>Kunjungan dengan transaksi</small></article>
                     </div>
+                    <div class="visit-secondary-metrics">
+                        <div><span>Sales Force aktif</span><strong>{{ number_format(count($visitDetails),0,',','.') }}</strong></div>
+                        <div><span>Extra Call</span><strong>{{ number_format($visitRows->sum('non_pjp'),0,',','.') }}</strong></div>
+                        <div><span>Outlet non belanja</span><strong>{{ number_format($visitRows->sum('non_buying'),0,',','.') }}</strong></div>
+                        <div><span>Total PV</span><strong>{{ number_format($visitRows->sum('total_pv'),0,',','.') }}</strong></div>
+                        <div><span>Total SA</span><strong>{{ number_format($visitRows->sum('total_sa'),0,',','.') }}</strong></div>
+                    </div>
+                    <div class="visit-detail-card visit-performance-card">
+                        <header class="visit-table-heading"><div><h2>Kinerja Sales Force</h2><p>{{ \Carbon\Carbon::parse($visitDate)->locale('id')->translatedFormat('l, d F Y') }}</p></div><span data-visit-result-count>{{ count($visitDetails) }} Sales Force</span></header>
                     <div class="visit-table-tools" data-visit-tools>
                         <input type="search" data-visit-search placeholder="Cari SF, kode, TAP, atau cluster..." aria-label="Cari rekap visit">
                         <select data-visit-tap aria-label="Filter TAP"><option value="">Semua TAP</option>@foreach(collect($visitDetails)->pluck('tap')->filter()->unique()->sort() as $tap)<option value="{{ $tap }}">{{ $tap }}</option>@endforeach</select>
                         <select data-visit-cluster aria-label="Filter cluster"><option value="">Semua Cluster</option>@foreach(collect($visitDetails)->pluck('cluster')->filter()->unique()->sort() as $cluster)<option value="{{ $cluster }}">{{ $cluster }}</option>@endforeach</select>
                         <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="actual-desc">Actual Call terbesar</option><option value="visitPercent-desc">% Visit terbesar</option><option value="pjp-desc">Total PJP terbesar</option><option value="pv-desc">PV terbesar</option><option value="effective-desc">Effective Call terbesar</option><option value="nonBuying-desc">Non Belanja terbesar</option></select>
                     </div>
-                    <div class="visit-detail-card">
                         <div class="visit-detail-table-wrap">
-                            <table class="visit-detail-table visit-summary-table" style="min-width:1450px">
+                            <table class="visit-detail-table visit-summary-table" style="min-width:1180px">
                                 <thead><tr><th data-sort="sfcode">SF Code</th><th data-sort="name">Nama SF</th><th data-sort="tap">TAP</th><th data-sort="cluster">Cluster</th><th data-sort="pjp">Total PJP</th><th data-sort="actual">Actual Call</th><th data-sort="visitPercent">% Visit</th><th data-sort="effective">Effective Call</th><th data-sort="nonPjp">Extra Call</th><th data-sort="nonBuying">Non Belanja</th><th data-sort="pv">Total PV</th><th data-sort="sa">Total SA</th></tr></thead>
                                 <tbody>
                                     @forelse($visitDetails as $row)
@@ -688,7 +689,7 @@
                         </div>
                     </div>
                     </div>
-                    <div class="visit-subpanel" data-visit-subpanel="non-digipos" @if($activeVisitTab !== 'non-digipos') hidden @endif>
+                    <div class="visit-subpanel" role="tabpanel" id="visit-panel-non-digipos" aria-labelledby="visit-tab-non-digipos" data-visit-subpanel="non-digipos" @if($activeVisitTab !== 'non-digipos') hidden @endif>
                         @php($nonDigiposRows = collect($nonDigiposVisitDetails))
                         <div class="visit-summary-strip">
                             <div><small>TOTAL VISIT</small><strong>{{ number_format($nonDigiposRows->count(), 0, ',', '.') }}</strong></div>
@@ -704,7 +705,7 @@
                         @endforelse
                         </tbody></table></div></div>
                     </div>
-                    <div class="visit-subpanel" data-visit-subpanel="approval" @if($activeVisitTab !== 'approval') hidden @endif>
+                    <div class="visit-subpanel" role="tabpanel" id="visit-panel-approval" aria-labelledby="visit-tab-approval" data-visit-subpanel="approval" @if($activeVisitTab !== 'approval') hidden @endif>
                         <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1360px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status</th><th>Jarak</th><th>Notes</th><th>Tampak Depan</th><th>Foto Etalase</th><th>Foto Nota Bon</th><th>Aksi</th></tr></thead><tbody>
                         @forelse($approvalVisits as $visit)
                             <tr>
@@ -3738,6 +3739,8 @@
                         && (!clusterValue || String(row.dataset.cluster || '').toLocaleLowerCase('id') === clusterValue);
                 }).sort(compareRows);
                 const visibleSet = new Set(visible);
+                const resultCount = document.querySelector('[data-visit-result-count]');
+                if (resultCount) resultCount.textContent = visible.length === rows.length ? `${rows.length} Sales Force` : `${visible.length} dari ${rows.length} Sales Force`;
                 visible.forEach(row => { row.hidden = false; row.style.display = ''; body.appendChild(row); });
                 rows.filter(row => !visibleSet.has(row)).forEach(row => { row.hidden = true; row.style.display = 'none'; body.appendChild(row); });
                 setHeaderState();
@@ -3764,6 +3767,18 @@
             setHeaderState();
         })();
     </script>
+    <dialog id="visit-export-dialog" class="visit-export-dialog" aria-labelledby="visit-export-dialog-title">
+        <header><div><h2 id="visit-export-dialog-title">Download Detail Visit</h2><p>Ekspor laporan dalam format Excel</p></div><button type="button" data-visit-export-close aria-label="Tutup download" autofocus><i class="fas fa-xmark" aria-hidden="true"></i></button></header>
+                    <form class="visit-export-range" id="visit-export-form" action="{{ route('surya.visits.export') }}" method="GET">
+                        <p class="visit-export-description">Pilih rentang tanggal untuk seluruh sheet visit, penjualan, dan konsinyasi.</p>
+                        <label for="visit-export-from">Dari tanggal<input id="visit-export-from" type="date" name="date_from" value="{{ old('date_from', \Carbon\Carbon::parse($visitDate)->startOfMonth()->toDateString()) }}" required></label>
+                        <label for="visit-export-to">Sampai tanggal<input id="visit-export-to" type="date" name="date_to" value="{{ old('date_to', min(\Carbon\Carbon::parse($visitDate)->endOfMonth()->toDateString(), now('Asia/Jakarta')->toDateString())) }}" required></label>
+                        <button type="submit" class="visit-refresh-button"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
+                        @error('date_from')<span class="text-danger">{{ $message }}</span>@enderror
+                        @error('date_to')<span class="text-danger">{{ $message }}</span>@enderror
+                    </form>
+    </dialog>
+    <script src="{{ asset('js/surya-visit-layout.js') }}?v={{ filemtime(public_path('js/surya-visit-layout.js')) }}" defer></script>
     <dialog id="surya-visit-photo-preview" class="surya-visit-photo-preview" aria-labelledby="visit-photo-caption">
         <header><strong id="visit-photo-caption" data-photo-caption>Foto Visit</strong>
             <button type="button" data-photo-out aria-label="Perkecil foto">−</button>
