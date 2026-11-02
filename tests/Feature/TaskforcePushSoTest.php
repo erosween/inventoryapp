@@ -386,6 +386,26 @@ class TaskforcePushSoTest extends TestCase
         ]);
     }
 
+    public function test_tap_recap_counts_unique_outlets_and_follows_scope_and_filters(): void
+    {
+        $this->addVisit('A','2026-10-25','Visit 1')->assertOk();
+        $this->addVisit('A','2026-10-26','Visit 2')->assertOk();
+        $response=$this->get($this->url())->assertOk()->assertSee('Rekap Visit per TAP');
+        $rows=$response->viewData('tapSummary');
+        self::assertCount(1,$rows);
+        self::assertSame([2,1,1,50.0],[$rows[0]->total,$rows[0]->visited,$rows[0]->pending,(float)$rows[0]->percentage]);
+        $this->asUser('admin_super','SBP_DUMAI');
+        $rows=$this->get($this->url())->assertOk()->viewData('tapSummary')->keyBy('tap');
+        self::assertCount(2,$rows);self::assertSame(1,$rows['DURI']->pending);
+        self::assertSame(3,$rows->sum('total'));self::assertSame(1,$rows->sum('visited'));
+        $rows=$this->get($this->url(['columns'=>['visit'=>['Belum visit']]]))->assertOk()->viewData('tapSummary');
+        self::assertSame(2,$rows->sum('total'));self::assertSame(0,$rows->sum('visited'));
+        $rows=$this->get($this->url(['visit_from'=>'2026-10-27','visit_to'=>'2026-10-27']))->assertOk()->viewData('tapSummary');
+        self::assertSame(0,$rows->sum('visited'));self::assertSame(3,$rows->sum('pending'));
+        $rows=$this->get($this->url(['tap'=>'DURI']))->assertOk()->viewData('tapSummary');
+        self::assertCount(1,$rows);self::assertSame('DURI',$rows[0]->tap);
+    }
+
     public function test_repeat_visits_and_backdated_entry_preserve_every_note_and_latest_actual_date(): void
     {
         $this->addVisit('A','2026-10-26','Kunjungan kedua')->assertOk();

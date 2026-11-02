@@ -25,6 +25,7 @@
 <label>Visit dari<input class="input" type="date" name="visit_from" value="{{ $options['visit_from']??'' }}" max="{{ now('Asia/Jakarta')->toDateString() }}"></label><label>Visit sampai<input class="input" type="date" name="visit_to" value="{{ $options['visit_to']??'' }}" max="{{ now('Asia/Jakarta')->toDateString() }}"></label>
 <div class="tf-toolbar-actions"><button class="btn" type="submit"><i class="fas fa-filter"></i> Tampilkan</button><a class="btn btn-secondary" href="{{ route('surya.taskforce.push-so',['sales_cutoff'=>$cutoff->toDateString()]) }}">Reset</a>@if($historyReady)<a class="btn" href="{{ route('surya.taskforce.visits.download',array_merge($options,['sales_cutoff'=>$cutoff->toDateString()])) }}"><i class="fas fa-download"></i> Download Excel</a>@else<span class="tf-subtext">Download riwayat sedang disiapkan</span>@endif</div>
 </form>
+@include('surya.taskforce.tap-summary')
 @if($upload && !$upload->headers)<div class="tf-alert">Upload lama hanya menyimpan ID outlet. Upload ulang file taskforce agar seluruh header dan isinya dapat ditampilkan. Status visit dan catatan tetap tersimpan.</div>@endif
 @php
     $nameColumn=null;

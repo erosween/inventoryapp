@@ -15,7 +15,9 @@ class TaskforceController extends MonitaDumaiController
         $taps=$this->taskforceOutlets($scopes,$upload?->id)->distinct()->orderBy('outlet.tap')->pluck('outlet.tap');
         $sfs=$this->taskforceOutlets($scopes,$upload?->id)->when(!empty($options['tap']),fn($q)=>$q->where('outlet.tap',$options['tap']))
             ->whereNotNull('outlet.sf')->whereRaw("TRIM(outlet.sf) <> ''")->distinct()->orderBy('outlet.sf')->pluck('outlet.sf');
-        $outlets=$this->reportQuery($cutoff,$upload,$options)
+        $report=$this->reportQuery($cutoff,$upload,$options);
+        $tapSummary=$this->tapSummary(clone $report);
+        $outlets=$report
             ->paginate((int)($options['per_page']??25))->appends($request->only(['sales_cutoff','period_month','visit_from','visit_to','per_page','tap','sf','columns','exclude','sort','direction']));
         $outlets->getCollection()->transform(function($outlet) {
             $outlet->uploaded_cells=$outlet->cells ? json_decode($outlet->cells,true,512,JSON_THROW_ON_ERROR) : [(string)$outlet->id_outlet];
@@ -23,8 +25,28 @@ class TaskforceController extends MonitaDumaiController
         });
         $historyReady=\Illuminate\Support\Facades\Schema::hasTable('taskforce_visits');
         $canAct=$this->canAct()&&$historyReady;
-        return response()->view('surya.taskforce.push-so',compact('outlets','headers','cutoff','canAct','upload','taps','sfs','options','historyReady'))
+        return response()->view('surya.taskforce.push-so',compact('outlets','headers','cutoff','canAct','upload','taps','sfs','options','historyReady','tapSummary'))
             ->header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    private function tapSummary(\Illuminate\Database\Query\Builder $report)
+    {
+        $ready=\Illuminate\Support\Facades\Schema::hasTable('taskforce_visits');
+        $visited=$ready ? 'CASE WHEN COALESCE(visit_stats.visit_count,0)>0 THEN 1 ELSE 0 END'
+            : 'CASE WHEN action.visited=1 THEN 1 ELSE 0 END';
+        $base=$report->reorder()->select('outlet.id_outlet','outlet.tap')->selectRaw($visited.' as is_visited');
+        return DB::query()->fromSub($base,'summary')
+            ->select('summary.tap')
+            ->selectRaw('COUNT(DISTINCT summary.id_outlet) as total')
+            ->selectRaw('COUNT(DISTINCT CASE WHEN summary.is_visited=1 THEN summary.id_outlet END) as visited')
+            ->groupBy('summary.tap')->orderBy('summary.tap')->get()
+            ->map(function($row) {
+                $row->total=(int)$row->total;
+                $row->visited=(int)$row->visited;
+                $row->pending=$row->total-$row->visited;
+                $row->percentage=$row->total>0 ? round($row->visited/$row->total*100,1) : 0;
+                return $row;
+            });
     }
 
     private function context(Request $request): array
