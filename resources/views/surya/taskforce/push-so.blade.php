@@ -11,7 +11,7 @@
 <div class="main surya-workspace-main">@include('surya.partials.header')
 <main class="content surya-content taskforce-content">
 @include('surya.partials.page-heading',['title'=>'TASKFORCE'])
-<div class="outlet-summary"><span class="count">{{ number_format($outlets->total()) }} outlet</span><strong>{{ $cutoff->translatedFormat('F Y') }}</strong></div>
+<div class="outlet-summary"><span class="count">{{ number_format($outlets->total()) }} outlet</span><strong>{{ $cutoff->translatedFormat('F Y') }}</strong>@if($upload)<span class="tf-subtext">Daftar outlet {{ \Carbon\Carbon::parse($upload->period_month)->translatedFormat('F Y') }} · Visit berlanjut</span>@endif</div>
 @if($errors->any())<div class="tf-alert" role="alert">{{ $errors->first() }}</div>@endif
 @unless($historyReady)<div class="tf-data-note" role="status">Riwayat kunjungan sedang disiapkan. Coba kembali beberapa saat lagi.</div>@endunless
 @unless($upload)<div class="tf-data-note">Belum ada daftar taskforce untuk {{ $cutoff->translatedFormat('F Y') }}.</div>@endunless

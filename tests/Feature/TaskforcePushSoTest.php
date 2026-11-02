@@ -406,6 +406,38 @@ class TaskforcePushSoTest extends TestCase
         self::assertCount(1,$rows);self::assertSame('DURI',$rows[0]->tap);
     }
 
+    public function test_october_outlet_list_continues_in_november_and_actual_visits_accumulate(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-02 10:00:00'));
+        $this->addVisit('A','2026-10-26','Visit Oktober')->assertOk();
+        $url=route('surya.taskforce.push-so',['period_month'=>'2026-11']);
+        $page=$this->get($url)->assertOk()->assertSee('Visit berlanjut');
+        self::assertSame('2026-10-01',$page->viewData('upload')->period_month);
+        self::assertSame(2,$page->viewData('outlets')->total());
+        $this->addVisit('B','2026-11-02','Visit November',['period_month'=>'2026-11'])->assertOk();
+        $this->addVisit('A','2026-11-02','Repeat November',['period_month'=>'2026-11'])->assertOk();
+        $page=$this->get($url)->assertOk();
+        self::assertSame(2,$page->viewData('tapSummary')->sum('visited'));
+        self::assertSame(0,$page->viewData('tapSummary')->sum('pending'));
+        self::assertSame(2,(int)$page->viewData('outlets')->firstWhere('id_outlet','A')->visit_count);
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'A','period_month'=>'2026-11']))->assertOk()->assertJsonPath('total',2);
+        $this->getJson(route('surya.taskforce.visits.history',['idOutlet'=>'C','period_month'=>'2026-11']))->assertNotFound();
+        $book=$this->get(route('surya.taskforce.visits.download',['period_month'=>'2026-11']))->assertOk();
+        self::assertFileExists($book->baseResponse->getFile()->getPathname());
+        unlink($book->baseResponse->getFile()->getPathname());
+    }
+    public function test_carryover_uses_latest_prior_period_not_future_or_insertion_order(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-02 10:00:00'));
+        DB::table('taskforce_uploads')->insert(['period_month'=>'2026-09-01','filename'=>'late.csv','username'=>'admin_super','outlet_count'=>0,'created_at'=>now(),'updated_at'=>now()]);
+        DB::table('taskforce_uploads')->insert(['period_month'=>'2026-12-01','filename'=>'future.csv','username'=>'admin_super','outlet_count'=>0,'created_at'=>now(),'updated_at'=>now()]);
+        $page=$this->get(route('surya.taskforce.push-so',['period_month'=>'2026-11']))->assertOk();
+        self::assertSame('2026-10-01',$page->viewData('upload')->period_month);
+        $page=$this->get(route('surya.taskforce.push-so',['period_month'=>'2026-08']))->assertOk();
+        self::assertNull($page->viewData('upload'));
+        self::assertSame(0,$page->viewData('outlets')->total());
+    }
+
     public function test_repeat_visits_and_backdated_entry_preserve_every_note_and_latest_actual_date(): void
     {
         $this->addVisit('A','2026-10-26','Kunjungan kedua')->assertOk();

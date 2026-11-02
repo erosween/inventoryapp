@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{{ asset('css/surya-visits.css') }}?v={{ filemtime(public_path('css/surya-visits.css')) }}">
     @include('surya.partials.assets')
+<link rel="stylesheet" href="{{ asset('css/surya-visit-photo-preview.css') }}?v={{ filemtime(public_path('css/surya-visit-photo-preview.css')) }}">
 </head>
 
 <body>
@@ -108,68 +109,7 @@
             </main>
         </div>
     </div>
-    <div id="visit-photo-viewer" class="viewer visit-photo-viewer" hidden aria-hidden="true" role="dialog"
-        aria-modal="true">
-        <div class="viewer-bar"><span id="viewer-title" class="viewer-title">Foto Visit</span><button type="button"
-                data-photo-zoom-out><i class="fas fa-search-minus"></i></button><button type="button"
-                data-reset>100%</button><button type="button" data-photo-zoom-in><i
-                    class="fas fa-search-plus"></i></button><button type="button" data-photo-close><i
-                    class="fas fa-times"></i></button></div>
-        <div class="viewer-stage"><img id="viewer-image" class="viewer-image" alt="Foto visit"></div>
-    </div>
-    <script>
-
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const viewer = document.getElementById('visit-photo-viewer'),
-                image = document.getElementById('viewer-image'),
-                title = document.getElementById('viewer-title'),
-                reset = viewer.querySelector('[data-reset]');
-            let zoom = 1;
-            const apply = () => {
-                image.style.transform = `scale(${zoom})`;
-                reset.textContent = `${Math.round(zoom*100)}%`
-            };
-            const close = () => {
-                viewer.hidden = true;
-                viewer.setAttribute('aria-hidden', 'true');
-                document.body.classList.remove('viewer-open');
-                image.removeAttribute('src');
-                zoom = 1;
-                apply()
-            };
-            document.addEventListener('click', e => {
-                const opener = e.target.closest('.photo-open');
-                if (!opener) return;
-                zoom = 1;
-                image.src = opener.dataset.photoSrc;
-                image.alt = title.textContent = opener.dataset.photoTitle || 'Foto Visit';
-                viewer.hidden = false;
-                viewer.setAttribute('aria-hidden', 'false');
-                document.body.classList.add('viewer-open');
-                apply()
-            });
-            viewer.querySelector('[data-photo-zoom-in]').onclick = () => {
-                zoom = Math.min(3, zoom + .25);
-                apply()
-            };
-            viewer.querySelector('[data-photo-zoom-out]').onclick = () => {
-                zoom = Math.max(.5, zoom - .25);
-                apply()
-            };
-            reset.onclick = () => {
-                zoom = 1;
-                apply()
-            };
-            viewer.querySelector('[data-photo-close]').onclick = close;
-            viewer.onclick = e => {
-                if (e.target === viewer) close()
-            };
-            document.addEventListener('keydown', e => {
-                if (e.key === 'Escape' && !viewer.hidden) close()
-            })
-        });
-    </script>
+    @include('surya.partials.photo-preview')
 </body>
 
 </html>

@@ -66,7 +66,7 @@ class TaskforceController extends MonitaDumaiController
         ]);
         if(!empty($options['visit_from'])&&!empty($options['visit_to'])&&$options['visit_from']>$options['visit_to'])throw \Illuminate\Validation\ValidationException::withMessages(['visit_to'=>'Tanggal akhir harus sama atau sesudah tanggal awal.']);
         $cutoff=Carbon::parse(!empty($options['period_month'])?$options['period_month'].'-01':($options['sales_cutoff']??now('Asia/Jakarta')->toDateString()));
-        $upload=DB::table('taskforce_uploads')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())->orderByDesc('id')->first();
+        $upload=$this->activeUpload($cutoff);
         $headers=$upload && $upload->headers ? json_decode($upload->headers,true,512,JSON_THROW_ON_ERROR) : ['ID Outlet'];
         foreach(['columns','exclude'] as $mode) foreach($options[$mode]??[] as $key=>$values) {
             $this->columnExpression((string)$key,count($headers));
@@ -74,6 +74,13 @@ class TaskforceController extends MonitaDumaiController
         }
         if(isset($options['sort'])) $this->columnExpression($options['sort'],count($headers));
         return [$cutoff,$upload,$headers,$options];
+    }
+
+    private function activeUpload(Carbon $cutoff)
+    {
+        return DB::table('taskforce_uploads')
+            ->where('period_month','<=',$cutoff->copy()->startOfMonth()->toDateString())
+            ->orderByDesc('period_month')->orderByDesc('id')->first();
     }
 
     private function reportQuery(Carbon $cutoff, $upload, array $options)
@@ -195,7 +202,7 @@ class TaskforceController extends MonitaDumaiController
         if ($data['visited'] && !Carbon::parse($data['visited_at'])->isSameMonth(Carbon::parse($data['sales_cutoff']))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['visited_at'=>'Tanggal visit harus berada dalam bulan tindak lanjut.']);
         }
-        $uploadId=DB::table('taskforce_uploads')->where('period_month',Carbon::parse($data['sales_cutoff'])->startOfMonth()->toDateString())->max('id');
+        $uploadId=$this->activeUpload(Carbon::parse($data['sales_cutoff']))?->id;
         $outlet=$this->taskforceOutlets($this->suryaTapScopes(),$uploadId)->where('outlet.id_outlet',$idOutlet)->first();
         abort_unless($outlet,404);
         $month=Carbon::parse($data['sales_cutoff'])->startOfMonth()->toDateString();
