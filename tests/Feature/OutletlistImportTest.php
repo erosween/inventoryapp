@@ -18,6 +18,8 @@ class OutletlistImportTest extends TestCase
         parent::setUp();
         config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:','cache.default'=>'array']);
         DB::purge('sqlite');
+        Schema::create('idsf',function(Blueprint $t){$t->string('idsf');$t->string('idtap');$t->string('namasf');});
+        DB::table('idsf')->insert(['idsf'=>'SF1','idtap'=>'DUMAI','namasf'=>'SALES A']);
         Schema::create('appsdumais',function(Blueprint $t){
             $t->unsignedBigInteger('id_outlet')->primary();
             foreach(array_diff(OutletlistImport::COLUMNS,['id_outlet']) as $c) $t->string($c)->nullable();
@@ -57,6 +59,37 @@ class OutletlistImportTest extends TestCase
         app(OutletlistImport::class)->import($this->file([$this->row()]));
         $resolved=$coordinates->outlets()->first();$this->assertEquals(1.5,$resolved->latitude);$this->assertEquals(101.5,$resolved->longitude);
         $this->assertSame('visit',$resolved->coordinate_source);$this->assertSame(1,DB::table('appsdumais')->count());
+    }
+    public function test_uploaded_name_and_pjp_resolve_to_master_name_and_day(): void
+    {
+        $row=$this->row();$row[5]='  sales   a  ';$row[9]=' selasa ';
+        app(OutletlistImport::class)->import($this->file([$row]));
+        $master=DB::table('appsdumais')->first();
+        $this->assertSame('SALES A',$master->sf);
+        $this->assertSame('Selasa',$master->pjp);
+    }
+    public function test_unknown_name_wrong_tap_or_invalid_day_rejects_without_partial_update(): void
+    {
+        foreach ([['sf'=>'SF1'],['sf'=>'UNKNOWN'],['tap'=>'DURI'],['pjp'=>'Tuesday']] as $changes) {
+            $row=array_combine(OutletlistImport::COLUMNS,$this->row());
+            foreach($changes as $key=>$value)$row[$key]=$value;
+            try { app(OutletlistImport::class)->import($this->file([array_values($row)])); $this->fail('Invalid assignment accepted'); }
+            catch(ValidationException $e){$this->assertArrayHasKey('outletlist_file',$e->errors());}
+            $this->assertSame('Outlet lama',DB::table('appsdumais')->value('nama_outlet'));
+        }
+    }
+    public function test_reassigned_outlet_keeps_latest_accepted_checkin_by_id_and_ignores_rejected_point(): void
+    {
+        DB::table('idsf')->insert(['idsf'=>'SF2','idtap'=>'DUMAI','namasf'=>'SALES B']);
+        $this->visit(['latitude'=>1.4,'longitude'=>101.4]);
+        $this->visit(['visited_at'=>'2026-11-01 10:00:00','latitude'=>1.6,'longitude'=>101.6]);
+        $this->visit(['gps_status'=>'rejected','visited_at'=>'2026-11-02 10:00:00','latitude'=>9,'longitude'=>109]);
+        $row=$this->row();$row[5]='SALES B';$row[9]='Rabu';
+        app(OutletlistImport::class)->import($this->file([$row]));
+        $outlet=app(SuryaOutletCoordinates::class)->outlets()->where('id_outlet','1200000001')->first();
+        $this->assertSame('SALES B',$outlet->sf);$this->assertSame('Rabu',$outlet->pjp);
+        $this->assertEquals(1.6,$outlet->latitude);$this->assertEquals(101.6,$outlet->longitude);
+        $this->assertSame(1,DB::table('appsdumais')->count());
     }
     public function test_new_outlet_without_visits_uses_uploaded_coordinates_and_unlisted_outlets_remain(): void
     {

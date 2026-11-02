@@ -11,11 +11,23 @@ class OutletlistImport
     public const COLUMNS = ['id_outlet','nama_outlet','nomor_rs','kecamatan','cluster','sf','tap','longitude','latitude','pjp'];
     public const PROTECTED_COLUMNS = ['latitude_checkin','longitude_checkin'];
 
+    private array $salesNames = [];
+
+    private function nameKey(string $value): string
+    {
+        return mb_strtoupper(preg_replace('/\s+/u', ' ', trim($value)));
+    }
+
     public function import(UploadedFile $file): array
     {
         $lock = Cache::lock('surya-outletlist-import', 120);
         if (!$lock->get()) $this->error('Upload Outletlist lain masih diproses.');
         try {
+            $this->salesNames = [];
+            foreach (DB::table('idsf')->get(['idsf', 'idtap', 'namasf']) as $sf) {
+                $key = $this->nameKey((string)$sf->idtap).'|'.$this->nameKey((string)$sf->namasf);
+                $this->salesNames[$key][] = trim((string)$sf->namasf);
+            }
             $path = $file->getRealPath();
             [$delimiter, $headers] = $this->header($path);
             // Validate the complete file before writing any master data.
@@ -97,6 +109,21 @@ class OutletlistImport
                     $row[$column] = $value;
                 }
                 foreach (['tap','cluster'] as $column) if ($row[$column] !== null) $row[$column] = mb_strtoupper($row[$column]);
+                if ($row['sf'] !== null && $this->nameKey($row['sf']) !== 'UNMAPPING') {
+                    $matches = $this->salesNames[$this->nameKey((string)$row['tap']).'|'.$this->nameKey($row['sf'])] ?? [];
+                    if (count($matches) !== 1) {
+                        $this->error("Nama SF pada baris $number tidak ditemukan atau ganda pada TAP yang dipilih. Samakan kolom sf dengan Nama SF di master Sales Force, bukan ID SF/ID Digipos.");
+                    }
+                    $row['sf'] = $matches[0];
+                } elseif ($row['sf'] !== null) {
+                    $row['sf'] = 'UNMAPPING';
+                }
+                if ($row['pjp'] !== null) {
+                    $days = ['SENIN'=>'Senin','SELASA'=>'Selasa','RABU'=>'Rabu','KAMIS'=>'Kamis','JUMAT'=>'Jumat',"JUM'AT"=>'Jumat','SABTU'=>'Sabtu','MINGGU'=>'Minggu'];
+                    $day = $days[$this->nameKey($row['pjp'])] ?? null;
+                    if ($day === null) $this->error("Hari PJP tidak valid pada baris $number. Gunakan Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, atau Minggu.");
+                    $row['pjp'] = $day;
+                }
                 yield $number => $row;
             }
         } finally { fclose($h); }
