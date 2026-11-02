@@ -79,6 +79,30 @@ class OutletlistImportTest extends TestCase
             $this->assertSame(1,DB::table('appsdumais')->count());
         }
     }
+    public function test_blank_null_zero_and_partial_coordinates_are_accepted_without_losing_checkin(): void
+    {
+        $this->visit();app(SuryaOutletCoordinates::class)->syncOutlet('1200000001');
+        foreach ([['',''],['NULL','null'],['0','0'],['0.0','0,00'],['','101.25'],['1.25',''],['0','']] as [$latitude,$longitude]) {
+            $row=$this->row();$row[7]=$longitude;$row[8]=$latitude;
+            app(OutletlistImport::class)->import($this->file([$row]));
+            $master=DB::table('appsdumais')->first();
+            $this->assertNull($master->latitude);$this->assertNull($master->longitude);
+            $this->assertEquals(1.5,$master->latitude_checkin);$this->assertEquals(101.5,$master->longitude_checkin);
+            $resolved=app(SuryaOutletCoordinates::class)->outlets()->first();
+            $this->assertEquals(1.5,$resolved->latitude);$this->assertEquals(101.5,$resolved->longitude);
+        }
+    }
+    public function test_new_outlet_with_missing_coordinates_is_imported_and_a_valid_equator_point_is_kept(): void
+    {
+        $row=$this->row('1200000002');$row[7]='';$row[8]='NULL';
+        app(OutletlistImport::class)->import($this->file([$row]));
+        $resolved=app(SuryaOutletCoordinates::class)->outlets()->where('id_outlet','1200000002')->first();
+        $this->assertNull($resolved->latitude);$this->assertNull($resolved->longitude);
+        $row[7]='101.25';$row[8]='0';
+        app(OutletlistImport::class)->import($this->file([$row]));
+        $master=DB::table('appsdumais')->where('id_outlet','1200000002')->first();
+        $this->assertEquals(0,$master->latitude);$this->assertEquals(101.25,$master->longitude);
+    }
     public function test_unknown_name_wrong_tap_or_invalid_day_rejects_without_partial_update(): void
     {
         foreach ([['sf'=>'SF1'],['sf'=>'UNKNOWN'],['tap'=>'DURI'],['pjp'=>'Tuesday']] as $changes) {

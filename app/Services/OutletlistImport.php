@@ -101,12 +101,20 @@ class OutletlistImport
                 if (!preg_match('/^[1-9][0-9]{0,17}$/D', (string)$row['id_outlet'])) $this->error("ID outlet tidak valid pada baris $number. Gunakan angka utuh, bukan notasi ilmiah.");
                 if ($row['nama_outlet'] === null) $this->error("Nama outlet kosong pada baris $number.");
                 if ($row['nomor_rs'] !== null && !preg_match('/^[0-9]{1,18}$/D', $row['nomor_rs'])) $this->error("Nomor RS tidak valid pada baris $number.");
-                if (($row['latitude'] === null) !== ($row['longitude'] === null)) $this->error("Latitude dan longitude harus berpasangan pada baris $number.");
                 foreach (['latitude'=>90, 'longitude'=>180] as $column => $limit) {
-                    if ($row[$column] === null) continue;
+                    if ($row[$column] === null || strcasecmp($row[$column], 'NULL') === 0) {
+                        $row[$column] = null;
+                        continue;
+                    }
                     $value = str_replace(',', '.', $row[$column]);
                     if (!preg_match('/^-?[0-9]+(?:\.[0-9]+)?$/D', $value) || abs((float)$value) > $limit) $this->error("Koordinat $column tidak valid pada baris $number.");
                     $row[$column] = $value;
+                }
+                // Incomplete pairs and the 0,0 placeholder are missing Digipos coordinates.
+                // Preserve a single zero with a non-zero partner (equator/prime meridian).
+                if ($row['latitude'] === null || $row['longitude'] === null
+                    || ((float)$row['latitude'] === 0.0 && (float)$row['longitude'] === 0.0)) {
+                    $row['latitude'] = $row['longitude'] = null;
                 }
                 foreach (['tap','cluster'] as $column) if ($row[$column] !== null) $row[$column] = mb_strtoupper($row[$column]);
                 if ($row['sf'] !== null && $this->nameKey($row['sf']) !== 'UNMAPPING') {
