@@ -42,6 +42,16 @@ class SfMasterManagementTest extends TestCase
         $this->expectException(\Illuminate\Validation\ValidationException::class);
         app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'Sales Baru','digipos_id'=>'DIG123']),'SF1');
     }
+    public function test_helper_name_longer_than_old_database_limit_can_be_saved(): void
+    {
+        app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>'HELPER - AFIF ALWAN SYAHRIDHO']),'SF1');
+        $this->assertSame('HELPER - AFIF ALWAN SYAHRIDHO',DB::table('idsf')->value('namasf'));
+    }
+    public function test_overlong_name_is_validation_error(): void
+    {
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        app(SfController::class)->update(Request::create('/','POST',['idtap'=>'DUMAI','namasf'=>str_repeat('X',101)]),'SF1');
+    }
     public function test_unused_sf_and_zero_stock_can_be_deleted(): void
     {
         app(SfController::class)->destroy('SF1');

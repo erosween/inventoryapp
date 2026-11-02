@@ -41,7 +41,7 @@ class SfController extends Controller
             'idsf' => 'required|unique:idsf,idsf',
             'digipos_id' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/D', 'unique:idsf,digipos_id'],
             'idtap' => 'required',
-            'namasf' => 'required'
+            'namasf' => 'required|string|max:100'
         ], [
             'idsf.unique' => 'Peringatan: ID SF "' . $request->idsf . '" sudah ada di sistem! Silakan gunakan ID yang berbeda.',
             'idsf.required' => 'ID SF wajib diisi.',
@@ -141,6 +141,9 @@ class SfController extends Controller
 
     private function normalizeDigiposId(Request $request): void
     {
+        if (is_string($request->input('namasf'))) {
+            $request->merge(['namasf' => mb_strtoupper(trim($request->input('namasf')))]);
+        }
         $value = $request->input('digipos_id');
         if (is_string($value)) {
             $value = strtoupper(trim($value));

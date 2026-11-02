@@ -142,7 +142,7 @@
                             <div class="col-sm-12">
                                 <div class="form-group form-group-default">
                                     <label>Nama SF</label>
-                                    <input id="namasf" type="text" class="form-control" name="namasf" placeholder="Masukkan nama..." required>
+                                    <input id="namasf" type="text" class="form-control" maxlength="100" name="namasf" placeholder="Masukkan nama..." required>
                                 </div>
                             </div>
                         </div>
@@ -197,7 +197,7 @@
                                 <div class="col-sm-12">
                                     <div class="form-group form-group-default">
                                         <label>Nama SF</label>
-                                        <input type="text" name="namasf" class="form-control" value="{{ $sf->namasf }}" required>
+                                        <input type="text" name="namasf" maxlength="100" class="form-control" value="{{ $sf->namasf }}" required>
                                     </div>
                                 </div>
                             </div>
