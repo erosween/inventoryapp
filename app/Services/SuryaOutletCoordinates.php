@@ -8,11 +8,18 @@ use Illuminate\Support\Collection;
 
 class SuryaOutletCoordinates
 {
+    // Approval permits the visit workflow; only precise fixes may reposition an outlet.
+    public const MAX_COORDINATE_ACCURACY_METERS = 100;
+
     private function eligibleVisits(string $alias, ?array $outletIds = null): Builder
     {
         return DB::table('surya_visits as '.$alias)
             ->whereIn($alias.'.gps_status', ['valid', 'approved'])
             ->whereNotNull($alias.'.visited_at')
+            ->when(DB::getSchemaBuilder()->hasColumn('surya_visits','accuracy'), fn ($query) => $query
+                ->where(fn ($quality) => $quality->whereNull($alias.'.accuracy')
+                    ->orWhereBetween($alias.'.accuracy',[0,self::MAX_COORDINATE_ACCURACY_METERS])))
+
             ->whereBetween($alias.'.latitude', [-90, 90])
             ->whereBetween($alias.'.longitude', [-180, 180])
             ->where(fn ($query) => $query->where($alias.'.latitude', '!=', 0)->orWhere($alias.'.longitude', '!=', 0))
@@ -48,9 +55,18 @@ class SuryaOutletCoordinates
     {
         $schema = DB::getSchemaBuilder()->getColumnListing('appsdumais');
         $hasCheckin = in_array('latitude_checkin', $schema, true) && in_array('longitude_checkin', $schema, true);
-        $latitude = $hasCheckin ? 'COALESCE(outlet_master.latitude_checkin, outlet_master.latitude)' : 'outlet_master.latitude';
-        $longitude = $hasCheckin ? 'COALESCE(outlet_master.longitude_checkin, outlet_master.longitude)' : 'outlet_master.longitude';
-        $source = $hasCheckin ? "CASE WHEN outlet_master.latitude_checkin IS NOT NULL AND outlet_master.longitude_checkin IS NOT NULL THEN 'visit' ELSE 'master' END" : "'master'";
+        $trustedCheckin = 'outlet_master.latitude_checkin IS NOT NULL AND outlet_master.longitude_checkin IS NOT NULL';
+        if ($hasCheckin && DB::getSchemaBuilder()->hasColumn('surya_visits','accuracy')) {
+            // Do not reuse a stored point previously promoted from a known imprecise fix.
+            $trustedCheckin .= ' AND NOT EXISTS (SELECT 1 FROM surya_visits AS suspect_coordinate'
+                .' WHERE suspect_coordinate.id_outlet = CAST(outlet_master.id_outlet AS CHAR)'
+                .' AND suspect_coordinate.latitude = outlet_master.latitude_checkin'
+                .' AND suspect_coordinate.longitude = outlet_master.longitude_checkin'
+                .' AND (suspect_coordinate.accuracy < 0 OR suspect_coordinate.accuracy > '.self::MAX_COORDINATE_ACCURACY_METERS.'))';
+        }
+        $latitude = $hasCheckin ? "CASE WHEN $trustedCheckin THEN outlet_master.latitude_checkin ELSE outlet_master.latitude END" : 'outlet_master.latitude';
+        $longitude = $hasCheckin ? "CASE WHEN $trustedCheckin THEN outlet_master.longitude_checkin ELSE outlet_master.longitude END" : 'outlet_master.longitude';
+        $source = $hasCheckin ? "CASE WHEN $trustedCheckin THEN 'visit' ELSE 'master' END" : "'master'";
         $columns = collect($selectedColumns ?? $schema)
             ->reject(fn ($column) => in_array($column, ['latitude', 'longitude'], true))
             ->map(fn ($column) => 'outlet_master.'.$column)->all();

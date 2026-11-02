@@ -252,6 +252,31 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertEqualsWithDelta(1.470001, DB::table('appsdumais')->where('id_outlet', $id)->value('latitude_checkin'), 0.00000001);
     }
 
+    public function test_imprecise_approved_fix_cannot_override_an_earlier_reliable_coordinate(): void
+    {
+        $id=990011029;$this->outlet($id);
+        $good=$this->visit($id,['visited_at'=>'2026-10-21 09:30:25','latitude'=>1.437489,'longitude'=>100.6463581,'accuracy'=>11.7]);
+        $bad=$this->visit($id,['visited_at'=>'2026-10-28 21:09:56','latitude'=>17.579235,'longitude'=>100.2594383,'accuracy'=>752479.31]);
+        $service=app(SuryaOutletCoordinates::class);
+        $point=$service->outlets()->where('id_outlet',$id)->first();
+        $this->assertSame($good,(int)$point->coordinate_visit_id);
+        $this->assertEquals(1.437489,$point->latitude);
+        $service->syncOutlet((string)$id);
+        $this->assertEquals(1.437489,DB::table('appsdumais')->where('id_outlet',$id)->value('latitude_checkin'));
+        $this->assertDatabaseHas('surya_visits',['id'=>$bad,'gps_status'=>'approved','accuracy'=>752479.31]);
+    }
+    public function test_bad_only_visit_and_its_stored_copy_fall_back_to_original_digipos_point(): void
+    {
+        $id=990011030;$this->outlet($id);
+        $this->visit($id,['latitude'=>17.579235,'longitude'=>100.2594383,'accuracy'=>752479.31]);
+        DB::table('appsdumais')->where('id_outlet',$id)->update(['latitude_checkin'=>17.579235,'longitude_checkin'=>100.2594383]);
+        $service=app(SuryaOutletCoordinates::class);
+        $point=$service->outlets()->where('id_outlet',$id)->first();
+        $this->assertSame('master',$point->coordinate_source);
+        $this->assertEquals(0.53449532,$point->latitude);
+        $this->assertFalse($service->syncOutlet((string)$id));
+    }
+
     public function test_stale_admin_approval_does_not_override_a_rejection_or_move_the_outlet(): void
     {
         $id = 990011007;
