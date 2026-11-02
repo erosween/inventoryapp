@@ -119,9 +119,9 @@ class OutletlistImport
                     $row['sf'] = 'UNMAPPING';
                 }
                 if ($row['pjp'] !== null) {
-                    $days = ['SENIN'=>'Senin','SELASA'=>'Selasa','RABU'=>'Rabu','KAMIS'=>'Kamis','JUMAT'=>'Jumat',"JUM'AT"=>'Jumat','SABTU'=>'Sabtu','MINGGU'=>'Minggu'];
+                    $days = ['UNMAPPING'=>'UNMAPPING','SENIN'=>'Senin','SELASA'=>'Selasa','RABU'=>'Rabu','KAMIS'=>'Kamis','JUMAT'=>'Jumat',"JUM'AT"=>'Jumat','SABTU'=>'Sabtu','MINGGU'=>'Minggu'];
                     $day = $days[$this->nameKey($row['pjp'])] ?? null;
-                    if ($day === null) $this->error("Hari PJP tidak valid pada baris $number. Gunakan Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, atau Minggu.");
+                    if ($day === null) $this->error("Hari PJP tidak valid pada baris $number. Gunakan Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, atau Minggu; UNMAPPING untuk outlet tanpa jadwal PJP.");
                     $row['pjp'] = $day;
                 }
                 yield $number => $row;

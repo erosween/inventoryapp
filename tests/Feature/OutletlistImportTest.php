@@ -68,6 +68,17 @@ class OutletlistImportTest extends TestCase
         $this->assertSame('SALES A',$master->sf);
         $this->assertSame('Selasa',$master->pjp);
     }
+    public function test_unmapping_pjp_with_empty_or_unmapped_sf_is_accepted(): void
+    {
+        foreach (['', ' unmapping '] as $sf) {
+            $row=$this->row();$row[5]=$sf;$row[9]=' unmapping ';
+            app(OutletlistImport::class)->import($this->file([$row]));
+            $master=DB::table('appsdumais')->first();
+            $this->assertSame('UNMAPPING',$master->pjp);
+            $this->assertSame($sf === '' ? null : 'UNMAPPING',$master->sf);
+            $this->assertSame(1,DB::table('appsdumais')->count());
+        }
+    }
     public function test_unknown_name_wrong_tap_or_invalid_day_rejects_without_partial_update(): void
     {
         foreach ([['sf'=>'SF1'],['sf'=>'UNKNOWN'],['tap'=>'DURI'],['pjp'=>'Tuesday']] as $changes) {
