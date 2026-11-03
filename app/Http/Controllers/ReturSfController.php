@@ -279,49 +279,37 @@ class ReturSfController extends Controller
             return back()->with('error', 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.');
         }
 
-        DB::transaction(function () use ($idretur) {
+        try {
+            $deleted = DB::transaction(fn () => $this->cancelReturn((string)$idretur, 'DELETE'));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
-            $data = DB::table('retursf')
-                ->where('idretur', $idretur)
-                ->lockForUpdate()
-                ->first();
+        return back()->with($deleted ? 'success' : 'error', $deleted
+            ? 'Data retur berhasil dihapus dan stok dikembalikan ke SF.'
+            : 'Data retur sudah dihapus atau tidak ditemukan.');
+    }
 
-            if (!$data) {
-                throw new \Exception('Data tidak ditemukan');
-            }
-
-            // LOCK STOK TAP
-            $stockTap = DB::table('stockawaltap')
-                ->where('idtap', $data->idtap)
-                ->where('iddenom', $data->iddenom)
-                ->lockForUpdate()
-                ->value('stock');
-
-            if ($stockTap < $data->qty) {
-                throw new \Exception('Stok TAP tidak mencukupi untuk membatalkan retur');
-            }
-
-            // balikin stok SF
-            DB::table('stockawalsf')
-                ->where('idsf', $data->idsf)
-                ->where('iddenom', $data->iddenom)
-                ->increment('stock', $data->qty);
-
-            // kurangi stok TAP
-            DB::table('stockawaltap')
-                ->where('idtap', $data->idtap)
-                ->where('iddenom', $data->iddenom)
-                ->decrement('stock', $data->qty);
-
-            DB::table('retursf')
-                ->where('idretur', $idretur)
-                ->delete();
-
-            // 📝 LOG
-            AuditLogger::log('DELETE', 'Retur SF', $idretur, (array)$data);
-        });
-
-        return back()->with('success', 'Data berhasil dihapus');
+    /** Reverse one return while the enclosing transaction holds the journal and stock locks. */
+    private function cancelReturn(string $idretur, string $action): bool
+    {
+        $data = DB::table('retursf')->where('idretur',$idretur)->lockForUpdate()->first();
+        if (!$data) return false;
+        $stockTap = DB::table('stockawaltap')->where('idtap',$data->idtap)
+            ->where('iddenom',$data->iddenom)->lockForUpdate()->value('stock');
+        if ($stockTap === null || $stockTap < $data->qty) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['retur' =>
+                'Retur tidak dapat dihapus: stok TAP '.$data->idtap.' untuk denom '.$data->iddenom
+                .' tersedia '.number_format($stockTap ?? 0,0,',','.')
+                .', sedangkan pembatalan retur membutuhkan '.number_format($data->qty,0,',','.').'. Saldo stok tidak diubah.']);
+        }
+        DB::table('stockawalsf')->insertOrIgnore(['idsf'=>$data->idsf,'iddenom'=>$data->iddenom,'stock'=>0]);
+        DB::table('stockawalsf')->where('idsf',$data->idsf)->where('iddenom',$data->iddenom)->lockForUpdate()->first();
+        DB::table('stockawalsf')->where('idsf',$data->idsf)->where('iddenom',$data->iddenom)->increment('stock',$data->qty);
+        DB::table('stockawaltap')->where('idtap',$data->idtap)->where('iddenom',$data->iddenom)->decrement('stock',$data->qty);
+        DB::table('retursf')->where('idretur',$idretur)->delete();
+        AuditLogger::log($action,'Retur SF',$idretur,(array)$data);
+        return true;
     }
 
     /* ===============================
@@ -361,58 +349,20 @@ class ReturSfController extends Controller
             return response()->json(['success' => false, 'message' => 'Akses ditolak. Hanya Admin Cluster yang boleh menghapus data.']);
         }
 
-        $ids = $request->ids;
-        if (!$ids || !is_array($ids)) {
-            return response()->json(['success' => false, 'message' => 'Tidak ada data terpilih']);
-        }
-
+        $data = $request->validate(['ids'=>'required|array|min:1|max:500','ids.*'=>'required|integer|min:1']);
+        $ids = array_values(array_unique(array_map('intval',$data['ids'])));
+        sort($ids); // Consistent journal/stock lock order for concurrent bulk requests.
         try {
-            DB::transaction(function () use ($ids) {
+            $deleted = DB::transaction(function () use ($ids) {
+                $count = 0;
                 foreach ($ids as $idretur) {
-                    $data = DB::table('retursf as r')
-                        ->join('denom as d', 'r.iddenom', '=', 'd.iddenom')
-                        ->select('r.*', 'd.denom')
-                        ->where('idretur', $idretur)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (!$data) continue;
-
-                    // 🔒 LOCK STOK TAP
-                    $stockTap = DB::table('stockawaltap')
-                        ->where('idtap', $data->idtap)
-                        ->where('iddenom', $data->iddenom)
-                        ->lockForUpdate()
-                        ->value('stock');
-
-                    if ($stockTap < $data->qty) {
-                        throw new \Exception('Stok TAP untuk ' . $data->denom . ' tidak mencukupi untuk pembatalan retur ini');
-                    }
-
-                    // balikin stok SF
-                    DB::table('stockawalsf')
-                        ->where('idsf', $data->idsf)
-                        ->where('iddenom', $data->iddenom)
-                        ->increment('stock', $data->qty);
-
-                    // kurangi stok TAP
-                    DB::table('stockawaltap')
-                        ->where('idtap', $data->idtap)
-                        ->where('iddenom', $data->iddenom)
-                        ->decrement('stock', $data->qty);
-
-                    DB::table('retursf')
-                        ->where('idretur', $idretur)
-                        ->delete();
-
-                    // 📝 LOG
-                    AuditLogger::log('DELETE (BULK)', 'Retur SF', $idretur, (array)$data);
+                    if ($this->cancelReturn((string)$idretur,'DELETE (BULK)')) $count++;
                 }
+                return $count;
             });
-
-            return response()->json(['success' => true, 'message' => count($ids) . ' data berhasil dihapus']);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+            return response()->json(['success'=>true,'message'=>$deleted.' data retur berhasil dihapus']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success'=>false,'message'=>$e->getMessage()]);
         }
     }
 
