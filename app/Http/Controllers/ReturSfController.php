@@ -298,8 +298,9 @@ class ReturSfController extends Controller
         $stockTap = DB::table('stockawaltap')->where('idtap',$data->idtap)
             ->where('iddenom',$data->iddenom)->lockForUpdate()->value('stock');
         if ($stockTap === null || $stockTap < $data->qty) {
+            $denomName = DB::table('denom')->where('iddenom',$data->iddenom)->value('denom') ?: 'Produk tidak ditemukan';
             throw \Illuminate\Validation\ValidationException::withMessages(['retur' =>
-                'Retur tidak dapat dihapus: stok TAP '.$data->idtap.' untuk denom '.$data->iddenom
+                'Retur tidak dapat dihapus: stok TAP '.$data->idtap.' untuk denom '.$denomName
                 .' tersedia '.number_format($stockTap ?? 0,0,',','.')
                 .', sedangkan pembatalan retur membutuhkan '.number_format($data->qty,0,',','.').'. Saldo stok tidak diubah.']);
         }

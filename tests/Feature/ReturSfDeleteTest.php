@@ -14,6 +14,8 @@ class ReturSfDeleteTest extends TestCase
         parent::setUp();
         config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:']);
         DB::purge('sqlite');$schema=DB::getSchemaBuilder();
+        $schema->create('denom',function(Blueprint $t){$t->string('iddenom');$t->string('denom');});
+        DB::table('denom')->insert(['iddenom'=>'V1','denom'=>'1GB/3hari']);
         $schema->create('retursf',function(Blueprint $t){$t->integer('idretur')->primary();$t->string('idtap');$t->string('idsf');$t->string('iddenom');$t->integer('qty');});
         $schema->create('stockawaltap',function(Blueprint $t){$t->string('idtap');$t->string('iddenom');$t->integer('stock');$t->primary(['idtap','iddenom']);});
         $schema->create('stockawalsf',function(Blueprint $t){$t->string('idsf');$t->string('iddenom');$t->integer('stock');$t->primary(['idsf','iddenom']);});
@@ -29,6 +31,8 @@ class ReturSfDeleteTest extends TestCase
         $response=app(ReturSfController::class)->delete(Request::create('/retursf/1','POST'),1);
         $this->assertSame(302,$response->getStatusCode());
         $this->assertStringContainsString('tersedia 2',$response->getSession()->get('error'));
+        $this->assertStringContainsString('1GB/3hari',$response->getSession()->get('error'));
+        $this->assertStringNotContainsString('denom V1',$response->getSession()->get('error'));
         $this->assertSame(2,DB::table('stockawaltap')->value('stock'));
         $this->assertSame(10,DB::table('stockawalsf')->value('stock'));
         $this->assertSame(1,DB::table('retursf')->count());
