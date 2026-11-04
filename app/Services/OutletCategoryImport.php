@@ -34,7 +34,8 @@ class OutletCategoryImport
                     $row = array_combine($header, array_map('trim', $values));
                     $id = $row['id_outlet'];
                     if (!preg_match('/^[1-9][0-9]{0,17}$/D', $id)) $this->fail("ID outlet tidak valid pada baris $number.");
-                    if (mb_strtolower(preg_replace('/\s+/u', ' ', $row['kategori_outlet'])) !== 'top 20 tap') $this->fail("Kategori pada baris $number harus Top 20 TAP.");
+                    $category = mb_strtolower(preg_replace('/\s+/u', ' ', $row['kategori_outlet']));
+                    if (!in_array($category, ['top 20 tap', 'top 20 outlet tap'], true)) $this->fail("Kategori pada baris $number harus Top 20 TAP atau TOP 20 OUTLET TAP.");
                     if (isset($ids[$id])) $this->fail("ID outlet berulang pada baris $number.");
                     $ids[$id] = true;
                     if (count($ids) > 50000) $this->fail('Maksimal 50.000 outlet per file.');

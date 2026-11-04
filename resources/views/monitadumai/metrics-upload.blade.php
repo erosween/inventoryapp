@@ -10,6 +10,7 @@
 <div class="main surya-workspace-main">@include('surya.partials.header')<main class="content surya-content">
 @include('surya.partials.page-heading', ['title' => 'Upload TRX'])
 @if(session('success'))<div class="upload-alert" role="status"><i class="fa fa-check-circle" aria-hidden="true"></i> {{ session('success') }}</div>@endif
+@if($errors->any())<div class="field-error" role="alert" tabindex="-1" id="upload-errors">Upload belum berhasil: {{ $errors->first() }}</div><script>document.getElementById('upload-errors').focus();</script>@endif
 <div class="upload-grid">
 <section class="upload-card" aria-labelledby="trx-title">
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-chart-column" aria-hidden="true"></i></span><h2 id="trx-title">TRX CVM / Biometrik</h2><span class="upload-format">CSV</span></header>

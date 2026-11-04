@@ -53,4 +53,11 @@ class OutletCategoryImportTest extends TestCase
             $this->assertSame(['Top 20 TAP','Reguler'], DB::table('appsdumais')->orderBy('id_outlet')->pluck('kategori_outlet')->all());
         }
     }
+
+    public function test_uploaded_top_20_outlet_tap_label_is_normalized(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('TOP 20.csv', "id_outlet,kategori_outlet\n1200000002,TOP 20 OUTLET TAP\n");
+        $this->assertSame(1, app(OutletCategoryImport::class)->import($file));
+        $this->assertSame('Top 20 TAP', DB::table('appsdumais')->where('id_outlet',1200000002)->value('kategori_outlet'));
+    }
 }
