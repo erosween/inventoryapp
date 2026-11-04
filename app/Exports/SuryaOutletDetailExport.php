@@ -30,6 +30,7 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
             $row->sf,
             $row->tap,
             $row->pjp,
+            $row->kategori_outlet ?? 'Reguler',
         ];
 
         foreach (['st_sa', 'st_pv', 'cvm', 'super_seru', 'comsak', 'hot_promo', 'biometrik'] as $metric) {
@@ -43,7 +44,7 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
 
     public function headings(): array
     {
-        $headings = ['ID Outlet', 'Nama Outlet', 'Kecamatan', 'SF', 'TAP', 'Hari PJP'];
+        $headings = ['ID Outlet', 'Nama Outlet', 'Kecamatan', 'SF', 'TAP', 'Hari PJP', 'Kategori Outlet'];
         foreach (['ST SA', 'ST PV', 'CVM', 'Super Seru', 'Comsak', 'Hot Promo', 'Biometrik'] as $metric) {
             foreach (['FM1', 'M1', 'MTD', 'Gap MoM', '%MoM'] as $period) {
                 $headings[] = "{$metric} {$period}";
@@ -61,25 +62,25 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
     public function styles(Worksheet $sheet): array
     {
         $lastRow = max(1, $this->rows->count() + 1);
-        $sheet->freezePane('G2');
-        $sheet->setAutoFilter("A1:AO{$lastRow}");
-        $sheet->getStyle('A1:AO1')->applyFromArray([
+        $sheet->freezePane('H2');
+        $sheet->setAutoFilter("A1:AP{$lastRow}");
+        $sheet->getStyle('A1:AP1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C8102E']],
             'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
         ]);
         $sheet->getRowDimension(1)->setRowHeight(24);
-        foreach (['K', 'P', 'U', 'Z', 'AE', 'AJ', 'AO'] as $column) {
+        foreach (['L', 'Q', 'V', 'AA', 'AF', 'AK', 'AP'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$lastRow}")->getNumberFormat()->setFormatCode('0.0"%"');
         }
         $sheet->getColumnDimension('A')->setWidth(16);
-        foreach (['B' => 28, 'C' => 22, 'D' => 24, 'E' => 18, 'F' => 14] as $column => $width) {
+        foreach (['B' => 28, 'C' => 22, 'D' => 24, 'E' => 18, 'F' => 14, 'G' => 20] as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
-        foreach (range('G', 'Z') as $column) {
+        foreach (range('H', 'Z') as $column) {
             $sheet->getColumnDimension($column)->setWidth(13);
         }
-        foreach (['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO'] as $column) {
+        foreach (['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP'] as $column) {
             $sheet->getColumnDimension($column)->setWidth(13);
         }
 

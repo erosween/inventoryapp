@@ -5,11 +5,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 class OutletColumnFilters {
- public const TEXT=['id_outlet','nama_outlet','kecamatan','sf','tap','pjp'];
+ public const TEXT=['id_outlet','nama_outlet','kecamatan','sf','tap','pjp','kategori_outlet'];
  public const GROUPS=['st_sa','st_pv','cvm','super_seru','comsak','hot_promo','biometrik'];
  public function keys():array { $keys=self::TEXT;foreach(self::GROUPS as $g)foreach(['fm1','m1','mtd','gap','mom_pct']as$p)$keys[]=$g.'_'.$p;return $keys; }
  public function options(Request $r):array {
-  $o=$r->validate(['columns'=>'nullable|array|max:41','columns.*'=>'array|min:1|max:100','columns.*.*'=>'nullable|string|max:5000','exclude'=>'nullable|array|max:41','exclude.*'=>'array|min:1|max:100','exclude.*.*'=>'nullable|string|max:5000','sort'=>'nullable|string','direction'=>'nullable|in:asc,desc']);
+  $o=$r->validate(['columns'=>'nullable|array|max:42','columns.*'=>'array|min:1|max:100','columns.*.*'=>'nullable|string|max:5000','exclude'=>'nullable|array|max:42','exclude.*'=>'array|min:1|max:100','exclude.*.*'=>'nullable|string|max:5000','sort'=>'nullable|string','direction'=>'nullable|in:asc,desc']);
   foreach(['columns','exclude']as$mode)foreach($o[$mode]??[]as$key=>$values){$this->check($key);$o[$mode][$key]=array_map(fn($v)=>(string)$v,$values);}
   if(!empty($o['sort']))$this->check($o['sort']);return $o;
  }

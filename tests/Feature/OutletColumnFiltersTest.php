@@ -23,6 +23,18 @@ class OutletColumnFiltersTest extends TestCase {
   DB::table('surya_trx_cvm')->insert([['id_outlet'=>'A','cvm_fm1'=>8,'cvm_m1'=>4,'cvm_m'=>2],['id_outlet'=>'B','cvm_fm1'=>8,'cvm_m1'=>4,'cvm_m'=>10],['id_outlet'=>'C','cvm_fm1'=>8,'cvm_m1'=>4,'cvm_m'=>999]]);
  }
  private function query(array$o,?string$facet=null){$s=app(OutletColumnFilters::class);return $s->query(DB::table('appsdumais as outlet')->where('outlet.tap','DUMAI'),Carbon::parse('2026-10-26'),$o,$facet);}
+ public function test_category_filter_sort_and_export_follow_uploaded_master():void{
+  DB::table('appsdumais')->where('id_outlet','A')->update(['kategori_outlet'=>'Top 20 TAP']);
+  DB::table('appsdumais')->where('id_outlet','B')->update(['kategori_outlet'=>'Reguler']);
+  $rows=$this->query(['columns'=>['kategori_outlet'=>['Top 20 TAP']]])->get();
+  $this->assertSame(['A'],$rows->pluck('id_outlet')->all());
+  $s=app(OutletColumnFilters::class);
+  $this->assertSame(['B','A'],$s->order($this->query([]),['sort'=>'kategori_outlet','direction'=>'asc'])->pluck('id_outlet')->all());
+  $export=new \App\Exports\SuryaOutletDetailExport(collect());
+  $this->assertSame(['Hari PJP','Kategori Outlet','ST SA FM1'],array_slice($export->headings(),5,3));
+  $row=$rows->first();foreach(OutletColumnFilters::GROUPS as $g)foreach(['fm1','m1','mtd','gap','mom_pct']as$p)$row->{$g.'_'.$p}=0;
+  $this->assertSame('Top 20 TAP',$export->map($row)[6]);
+ }
  public function test_numeric_sort_filters_before_pagination_and_enforces_scope():void{
   $s=app(OutletColumnFilters::class);$o=['sort'=>'cvm_mtd','direction'=>'desc'];$q=$s->order($this->query($o),$o);$this->assertSame('B',$q->paginate(1)->first()->id_outlet);
   $rows=$this->query(['columns'=>['cvm_gap'=>['-2']]])->get();$this->assertSame(['A'],$rows->pluck('id_outlet')->all());

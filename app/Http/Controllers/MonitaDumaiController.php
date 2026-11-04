@@ -179,7 +179,7 @@ class MonitaDumaiController extends Controller
             $length = min(100, max(10, (int) $request->input('length', 25)));
             $start = max(0, (int) $request->input('start', 0));
             $rows = (clone $base)
-                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp')
+                ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.sf', 'outlet.tap', 'outlet.pjp', 'outlet.kategori_outlet')
                 ->orderBy('outlet.nama_outlet')
                 ->offset($start)
                 ->limit($length)
