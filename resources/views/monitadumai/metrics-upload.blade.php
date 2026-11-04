@@ -55,6 +55,17 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Outletlist</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.template') }}"><i class="fa fa-download" aria-hidden="true"></i> Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
+<section class="upload-card upload-card-wide" aria-labelledby="category-title">
+<header class="upload-card-header"><span class="upload-icon"><i class="fa fa-tags" aria-hidden="true"></i></span><h2 id="category-title">Kategori Outlet</h2><span class="upload-format">CSV</span></header>
+<form class="drop" data-simple-upload method="POST" action="{{ route('surya.outletlist.category') }}" enctype="multipart/form-data">
+@csrf
+<label class="file-label" for="category-file">Daftar Top 20 TAP</label>
+<input class="file-input" id="category-file" type="file" name="category_file" accept=".csv,text/csv" required>
+<p class="upload-hint">Header: id_outlet, kategori_outlet · Isi kategori: Top 20 TAP · Daftar terbaru menggantikan sebelumnya; outlet di luar daftar menjadi Reguler.</p>
+@error('category_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
+<div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Kategori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.category-template') }}">Template</a></div>
+<p class="upload-hint" role="status" data-simple-status hidden></p>
+</form></section>
 </div></main></div></div>
 <script src="{{ asset('js/surya-metrics-upload.js') }}?v={{ filemtime(public_path('js/surya-metrics-upload.js')) }}" defer></script>
 <script src="{{ asset('js/surya-simple-upload.js') }}?v={{ filemtime(public_path('js/surya-simple-upload.js')) }}" defer></script>
