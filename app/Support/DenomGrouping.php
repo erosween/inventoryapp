@@ -6,7 +6,7 @@ use Illuminate\Validation\ValidationException;
 
 final class DenomGrouping
 {
-    public const DO_CODES = ['SEGEL', 'V33', 'SP6', 'SP7', 'SP1'];
+    public const DO_CODES = ['SEGEL', 'V33', 'SP6', 'SP7', 'SP1', 'SP9'];
     public const SOURCES = ['SEGEL', 'V33', 'SP6', 'SP7', 'V16'];
     public const FILTERS = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
 
@@ -56,7 +56,7 @@ final class DenomGrouping
             throw ValidationException::withMessages(['stock_form' => 'Segel menggunakan kode sumber yang sudah tersedia.']);
         }
         return ['product'=>$product, 'product_variant'=>$variant, 'stock_form'=>$form,
-            'inject_source_id'=>$source, 'allow_do'=>false];
+            'inject_source_id'=>$source, 'allow_do'=>in_array(strtoupper($id), self::DO_CODES, true)];
     }
 
     public static function filterDenoms($query, string $filter, string $alias = 'denom')

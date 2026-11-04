@@ -22,7 +22,7 @@ class DenomGroupingFlowTest extends TestCase
         DB::purge('sqlite');
         foreach (['denom','kodetap','kategori_bo','stockawaltap','stockawalsf','injectvf','masuk'] as $name) {
             Schema::create($name, function (Blueprint $t) use ($name) {
-                $t->increments('id');
+                $t->increments($name === 'masuk' ? 'idmasuk' : 'id');
                 if (in_array($name, ['denom','stockawaltap','stockawalsf','injectvf','masuk'])) $t->string('iddenom')->nullable();
                 if ($name === 'denom') {
                     foreach (['denom','group_name','kategori_inject','product_group','product','product_variant','stock_form','inject_source_id'] as $c) $t->string($c)->nullable();
@@ -40,7 +40,7 @@ class DenomGroupingFlowTest extends TestCase
         }
         DB::table('kodetap')->insert(['idtap'=>'TEST TAP']);
         DB::table('kategori_bo')->insert(['idtap'=>'TEST TAP','namabo'=>'TEST BO']);
-        foreach ([['SEGEL','SEGEL','SEGEL'],['V33','BYU SEGEL','BYU'],['SP6','PERDANA SEGEL SIMPATI','SA'],['SP7','PERDANA SEGEL BYU','SA'],['SP1','SA 3GB','SA'],['SP5','SA BYU 3GB','SA'],['V1','PV 1GB','SEGEL'],['V34','BYU 2GB','BYU']] as [$id,$name,$category]) {
+        foreach ([['SEGEL','SEGEL','SEGEL'],['V33','BYU SEGEL','BYU'],['SP6','PERDANA SEGEL SIMPATI','SA'],['SP7','PERDANA SEGEL BYU','SA'],['SP1','SA 3GB','SA'],['SP9','SA 15GB','SA'],['SP5','SA BYU 3GB','SA'],['V1','PV 1GB','SEGEL'],['V34','BYU 2GB','BYU']] as [$id,$name,$category]) {
             $base=['iddenom'=>$id,'denom'=>$name,'kategori_inject'=>$category,'group_name'=>in_array($id,DenomGrouping::SOURCES)?'SEGEL':'3 HARI','product_group'=>str_starts_with($id,'SP')?'SP':'PV'];
             DB::table('denom')->insert($base + DenomGrouping::infer((object) $base));
             DB::table('stockawaltap')->insert(['idtap'=>'TEST TAP','iddenom'=>$id,'stock'=>100]);
@@ -50,7 +50,7 @@ class DenomGroupingFlowTest extends TestCase
 
     public function test_source_selection_includes_sp1_only_under_sp6(): void
     {
-        self::assertSame(['SP1'], DenomGrouping::destinations(DB::table('denom'), 'SP6')->pluck('iddenom')->all());
+        self::assertSame(['SP1', 'SP9'], DenomGrouping::destinations(DB::table('denom'), 'SP6')->pluck('iddenom')->all());
         self::assertSame(['SP5'], DenomGrouping::destinations(DB::table('denom'), 'SP7')->pluck('iddenom')->all());
         self::assertSame(['V1'], DenomGrouping::destinations(DB::table('denom'), 'SEGEL')->pluck('iddenom')->all());
         self::assertSame(['V34'], DenomGrouping::destinations(DB::table('denom'), 'V33')->pluck('iddenom')->all());
@@ -67,6 +67,40 @@ class DenomGroupingFlowTest extends TestCase
     {
         $this->expectException(ValidationException::class);
         app(InputDOController::class)->masukProses($this->doRequest('V1'));
+    }
+
+    public function test_sp9_do_credits_tap_and_edit_delete_reverse_the_same_stock(): void
+    {
+        $controller = app(InputDOController::class);
+        $controller->masukProses($this->doRequest('SP9'));
+        $id = DB::table('masuk')->value('idmasuk');
+        self::assertSame(107, (int) DB::table('stockawaltap')->where('iddenom', 'SP9')->value('stock'));
+        self::assertSame(100, (int) DB::table('stockawaltap')->where('iddenom', 'SP6')->value('stock'));
+        self::assertSame(0, DB::table('stockawalsf')->count());
+
+        $request = $this->doRequest('SP9');
+        $request->merge(['qty' => 11]);
+        $controller->update($request, $id);
+        self::assertSame(111, (int) DB::table('stockawaltap')->where('iddenom', 'SP9')->value('stock'));
+        self::assertSame(11, (int) DB::table('masuk')->value('qty'));
+
+        $controller->delete($this->doRequest('SP9'), $id);
+        self::assertSame(100, (int) DB::table('stockawaltap')->where('iddenom', 'SP9')->value('stock'));
+        self::assertSame(0, DB::table('masuk')->count());
+        self::assertSame(100, (int) DB::table('stockawaltap')->where('iddenom', 'SP6')->value('stock'));
+    }
+
+    public function test_editing_sp9_master_preserves_do_permission_and_inject_source(): void
+    {
+        $metadata = DenomGrouping::forMaster('SP9', [
+            'product' => 'SA', 'product_variant' => 'SIMPATI', 'stock_form' => 'INJECT',
+        ]);
+        self::assertTrue($metadata['allow_do']);
+        self::assertSame('SP6', $metadata['inject_source_id']);
+        self::assertSame('SA', $metadata['product']);
+        self::assertFalse(DenomGrouping::forMaster('SP5', [
+            'product' => 'SA', 'product_variant' => 'BYU', 'stock_form' => 'INJECT',
+        ])['allow_do']);
     }
 
     public function test_inject_consumes_correct_source_and_rejects_cross_product(): void

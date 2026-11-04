@@ -313,7 +313,7 @@ public function getTap(Request $request)
 
     private function isDirectPackage(?string $iddenom): bool
     {
-        return in_array(strtoupper((string) $iddenom), ['SP1', 'SP6', 'SP7'], true);
+        return in_array(strtoupper((string) $iddenom), ['SP1', 'SP6', 'SP7', 'SP9'], true);
     }
 
     private function validateDo(Request $request): void
