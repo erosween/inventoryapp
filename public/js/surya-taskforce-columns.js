@@ -42,7 +42,8 @@
         menu.style.maxWidth = Math.max(0,width - 16) + 'px';
         menu.style.maxHeight = Math.max(0,height - 16) + 'px';
         menu.style.left = (touch ? left + (width - menuWidth) / 2 : Math.max(left + 8,Math.min(column.left,left + width - menuWidth - 8))) + 'px';
-        menu.style.top = Math.max(top + 8,Math.min(rect.bottom + 6,top + height - Math.min(460,height - 16) - 8)) + 'px';
+        const menuHeight = menu.getBoundingClientRect().height;
+        menu.style.top = Math.max(top + 8,Math.min(rect.bottom + 6,top + height - menuHeight - 8)) + 'px';
     }
     function draw() {
         list.replaceChildren();
@@ -81,8 +82,10 @@
             values = [...new Set(append ? values.concat(data.values) : data.values)];
             draw(); more.hidden = !data.has_more;
             message.textContent = values.length ? '' : 'Tidak ada nilai yang sesuai.';
+            positionMenu();
         } catch (error) {
             if (error.name !== 'AbortError') message.textContent = error.message || 'Koneksi terputus.';
+            positionMenu();
         }
     }
     function navigate(clear = false) {
@@ -118,7 +121,8 @@
     menu.querySelector('[data-filter-close]').addEventListener('click', () => { close(); trigger?.focus(); });
     document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); },{signal:events.signal});
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); trigger?.focus(); } },{signal:events.signal});
-    document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',positionMenu,{passive:true});
+    document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
+    window.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
     document.querySelector('.detail-table')?.closest('.table-wrap')?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
     window.addEventListener('resize',positionMenu,{signal:events.signal});
     window.visualViewport?.addEventListener('resize',positionMenu,{signal:events.signal});

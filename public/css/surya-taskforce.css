@@ -27,3 +27,9 @@
 .tf-summary-progress{display:flex;align-items:center;justify-content:flex-end;gap:12px}
 .tf-summary-progress progress{width:100px;height:7px;accent-color:#15803d}
 @media(max-width:620px){.tf-tap-summary header{padding:16px}.tf-tap-summary th,.tf-tap-summary td{padding:12px 16px}.tf-summary-progress progress{width:65px}}
+
+/* Keep actions reachable even with long lists or the on-screen keyboard. */
+.tf-column-menu{display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}
+.tf-column-menu-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
+.tf-column-menu-body>.input{width:100%;height:38px;border:1px solid #d7e0e8;border-radius:8px;padding:8px 10px;box-sizing:border-box}
+.tf-column-menu-actions{flex:0 0 auto;background:#fff;padding-top:10px;border-top:1px solid #eaecf0}
