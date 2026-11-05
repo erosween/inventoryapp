@@ -17,7 +17,7 @@ class NgrsController extends Controller
     }
     public function index(Request $request,NgrsReport $report)
     {
-        $filters=$this->filters($request);$scopes=$report->scopes();$taps=array_merge(NgrsImport::TAPS,['INFILTRASI DUMAI','INFILTRASI ROHIL']);if($scopes!==null)$taps=array_values(array_intersect($taps,$scopes));
+        $filters=$this->filters($request);$filters['metric']='trx';$scopes=$report->scopes();$taps=array_merge(NgrsImport::TAPS,['INFILTRASI DUMAI','INFILTRASI ROHIL']);if($scopes!==null)$taps=array_values(array_intersect($taps,$scopes));
         $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->pluck('month')->map(fn($m)=>(int)substr($m,5,2))->all();
         $years=DB::table('surya_ngrs_months')->selectRaw('SUBSTR(month,1,4) AS year')->distinct()->pluck('year')->map(fn($y)=>(int)$y)->push(now('Asia/Jakarta')->year)->push($filters['year'])->unique()->sortDesc()->values();
         $summary=$report->summary($filters);$outlets=$report->details($filters)->paginate($filters['per_page'])->withQueryString();

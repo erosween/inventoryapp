@@ -5,22 +5,21 @@
 </head><body><div class="shell" data-surya-workspace>
 @include('surya.partials.sidebar',['activePage'=>'ngrs'])
 <div class="main surya-workspace-main">@include('surya.partials.header')<main class="content surya-content ngrs-page">
-@include('surya.partials.page-heading',['title'=>'NGRS','description'=>'Rekap transaksi bulanan dan recharge per nomor RS.'])
+@include('surya.partials.page-heading',['title'=>'NGRS','description'=>'Rekap transaksi bulanan per nomor RS.'])
 @php $monthNames=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];$metricLabel=strtoupper($filters['metric']); @endphp
 <form class="ngrs-toolbar" method="get" action="{{ route('surya.ngrs') }}">
 <label>Tahun<select name="year">@foreach($years as $year)<option value="{{ $year }}" @selected($filters['year']===$year)>{{ $year }}</option>@endforeach</select></label>
 <label>TAP<select name="tap"><option value="">Semua TAP</option>@foreach($taps as $tap)<option value="{{ $tap }}" @selected($filters['tap']===$tap)>{{ $tap }}</option>@endforeach</select></label>
 <label class="ngrs-search">Cari outlet<input name="q" value="{{ $filters['q'] }}" placeholder="Nomor RS, ID atau nama outlet"></label>
 <input type="hidden" name="metric" value="{{ $filters['metric'] }}"><input type="hidden" name="per_page" value="{{ $filters['per_page'] }}">
-<button class="ngrs-button" type="submit">Tampilkan</button><a class="ngrs-button secondary" href="{{ route('surya.ngrs.export',request()->query()) }}">Download CSV</a>
+<button class="ngrs-button" type="submit">Tampilkan</button><a class="ngrs-button secondary" href="{{ route('surya.ngrs.export',array_merge(request()->query(),['metric'=>'trx'])) }}">Download CSV</a>
 </form>
 <div class="ngrs-stats">
 <div><span>Total TRX</span><strong>{{ number_format($summary['stats']->trx,0,',','.') }}</strong><small>{{ $filters['year'] }} · sesuai filter</small></div>
-<div><span>Total RECH</span><strong>{{ number_format($summary['stats']->rech,0,',','.') }}</strong><small>Nilai recharge</small></div>
 <div><span>RS bertransaksi</span><strong>{{ number_format($summary['stats']->rs,0,',','.') }}</strong><small>Nomor RS unik</small></div>
 <div class="{{ $summary['stats']->unmapped?'ngrs-warning':'' }}"><span>Belum terpetakan</span><strong>{{ number_format($summary['stats']->unmapped,0,',','.') }}</strong><small>Termasuk RS ganda di master</small></div>
 </div>
-<div class="ngrs-report-heading"><div><h2>Rekap per TAP</h2><p>TAP dan cluster mengikuti file upload. Infiltrasi sudah masuk dalam total cluster.</p></div><nav class="ngrs-metrics" aria-label="Jenis nilai">@foreach(['trx'=>'TRX','rech'=>'RECH'] as $key=>$label)<a class="{{ $filters['metric']===$key?'active':'' }}" href="{{ route('surya.ngrs',array_merge(request()->except('page'),['metric'=>$key])) }}" @if($filters['metric']===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav></div>
+<div class="ngrs-report-heading"><div><h2>Rekap per TAP</h2><p>TAP dan cluster mengikuti file upload. Infiltrasi sudah masuk dalam total cluster.</p></div></div>
 @if(!$months)<div class="ngrs-empty">Belum ada upload NGRS untuk tahun {{ $filters['year'] }}.</div>@endif
 <section class="ngrs-card" aria-label="Rekap {{ $metricLabel }} per TAP"><div class="ngrs-scroll"><table class="ngrs-summary"><thead><tr><th>TAP · {{ $metricLabel }}</th>@foreach($monthNames as $name)<th>{{ $name }}</th>@endforeach<th>Total</th></tr></thead><tbody>
 @foreach($summary['rows'] as $row)<tr><th>{{ $row['tap'] }}</th>@foreach(range(1,12) as $m)<td>{{ in_array($m,$months,true)?number_format($row['months'][$m]??0,0,',','.'):'—' }}</td>@endforeach<td class="ngrs-total">{{ number_format($row['total'],0,',','.') }}</td></tr>@endforeach

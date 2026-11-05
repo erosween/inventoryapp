@@ -81,7 +81,7 @@ class NgrsTest extends TestCase
     {
         $this->get(route('surya.ngrs'))->assertOk()->assertSee('Belum ada upload NGRS')->assertSee('Outlet Tanpa Trx');
         $this->import([$this->row()]);
-        $this->get(route('surya.ngrs',['metric'=>'rech']))->assertOk()->assertSee('20.450')->assertSee('Detail outlet');
+        $this->get(route('surya.ngrs',['metric'=>'rech']))->assertOk()->assertDontSee('Total RECH')->assertDontSee('20.450')->assertSee('Detail outlet · TRX');
         $csv=$this->get(route('surya.ngrs.export',['metric'=>'rech','q'=>'6281234567890']))->assertOk()->streamedContent();
         $h=fopen('php://temp','w+');fwrite($h,$csv);rewind($h);$head=fgetcsv($h,0,',','"','');$row=fgetcsv($h,0,',','"','');fclose($h);
         $this->assertSame('20450',$row[6]);$this->assertSame('',$row[7]);$this->assertSame('20450',end($row));
