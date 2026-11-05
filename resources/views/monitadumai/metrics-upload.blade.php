@@ -46,7 +46,7 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload</button><a class="btn metrics-import-resume" href="{{ route('surya.taskforce.template') }}"><i class="fa fa-download" aria-hidden="true"></i> Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
-<section class="upload-card upload-card-wide" aria-labelledby="outletlist-title">
+<section class="upload-card" aria-labelledby="outletlist-title">
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-store" aria-hidden="true"></i></span><h2 id="outletlist-title">Outletlist</h2><span class="upload-format">CSV</span></header>
 <form class="drop" id="outletlist-upload-form" data-simple-upload method="POST" action="{{ route('surya.outletlist.upload') }}" enctype="multipart/form-data">
 @csrf
@@ -56,7 +56,7 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Outletlist</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.template') }}"><i class="fa fa-download" aria-hidden="true"></i> Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
-<section class="upload-card upload-card-wide" aria-labelledby="category-title">
+<section class="upload-card" aria-labelledby="category-title">
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-tags" aria-hidden="true"></i></span><h2 id="category-title">Kategori Outlet</h2><span class="upload-format">CSV</span></header>
 <form class="drop" data-simple-upload method="POST" action="{{ route('surya.outletlist.category') }}" enctype="multipart/form-data">
 @csrf
@@ -67,7 +67,7 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Kategori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.category-template') }}">Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
-<section class="upload-card upload-card-wide" aria-labelledby="nota-title">
+<section class="upload-card" aria-labelledby="nota-title">
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-receipt" aria-hidden="true"></i></span><h2 id="nota-title">Histori ST Nota · Januari–15 Oktober 2026</h2><span class="upload-format">CSV</span></header>
 <form class="drop" data-simple-upload method="POST" action="{{ route('surya.outletlist.nota') }}" enctype="multipart/form-data">
 @csrf
@@ -78,7 +78,7 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Histori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.nota-template') }}">Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
-<section class="upload-card upload-card-wide" aria-labelledby="ngrs-title">
+<section class="upload-card" aria-labelledby="ngrs-title">
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-signal" aria-hidden="true"></i></span><h2 id="ngrs-title">NGRS</h2><span class="upload-format">CSV</span></header>
 <form class="drop" data-simple-upload method="POST" action="{{ route('surya.ngrs.upload') }}" enctype="multipart/form-data">@csrf
 <label class="file-label" for="ngrs-file">File transaksi NGRS</label><input class="file-input" id="ngrs-file" type="file" name="ngrs_file" accept=".csv,text/csv" required>

@@ -13,7 +13,7 @@ class NgrsController extends Controller
     private function admin(): void {abort_unless(auth()->check()&&strtolower((string)auth()->user()->username)==='admin_super',403);}
     private function filters(Request $r): array
     {
-        $v=$r->validate(['year'=>'nullable|integer|min:2026|max:2100','metric'=>'nullable|in:trx,rech','tap'=>'nullable|string|max:40','q'=>'nullable|string|max:150','per_page'=>'nullable|in:25,50,100']);
+        $v=$r->validate(['year'=>'nullable|integer|min:2026|max:2100','metric'=>'nullable|in:trx,rech','tap'=>'nullable|string|max:40','q'=>'nullable|string|max:150','per_page'=>'nullable|in:25,50,100','summary_view'=>'nullable|in:monthly,average']);
         return ['year'=>(int)($v['year']??now('Asia/Jakarta')->year),'metric'=>$v['metric']??'trx','tap'=>trim($v['tap']??''),'q'=>trim($v['q']??''),'per_page'=>(int)($v['per_page']??25)];
     }
     public function index(Request $request,NgrsReport $report)
@@ -23,7 +23,8 @@ class NgrsController extends Controller
         $years=DB::table('surya_ngrs_months')->selectRaw('SUBSTR(month,1,4) AS year')->distinct()->pluck('year')->map(fn($y)=>(int)$y)->push(now('Asia/Jakarta')->year)->push($filters['year'])->unique()->sortDesc()->values();
         $columns=app(NgrsColumnFilters::class);$options=$columns->options($request);
         $summary=$report->summary($filters);$outlets=$columns->apply($report->details($filters),$options)->paginate($filters['per_page'])->withQueryString();
-        return view('surya.ngrs',compact('filters','taps','months','years','summary','outlets'));
+        $days=$report->dayDivisors($filters['year'],$months);$summaryView=$request->input('summary_view','monthly');
+        return view('surya.ngrs',compact('filters','taps','months','years','summary','outlets','days','summaryView'));
     }
     public function values(Request $request,NgrsReport $report)
     {

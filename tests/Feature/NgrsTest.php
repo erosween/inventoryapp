@@ -105,4 +105,22 @@ class NgrsTest extends TestCase
         $this->getJson(route('surya.ngrs',['sort'=>'rech']))->assertUnprocessable();
         $this->getJson(route('surya.ngrs.filter-values',['column'=>'bad']))->assertUnprocessable();
     }
+    public function test_tap_average_uses_calendar_days_and_global_active_file_cutoff(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-05 12:00:00','Asia/Jakarta'));
+        $this->import([$this->row('01/02/2026','6281234567890','A',56,'DUMAI'),$this->row('01/11/2026','6281234567890','A',12,'DUMAI'),$this->row('04/11/2026','6281234567892','A',8,'DURI')]);
+        $r=app(NgrsReport::class);$this->assertSame([2=>28,11=>4],$r->dayDivisors(2026,[2,11]));
+        $u=new User();$u->username='asmen_dumai';$this->actingAs($u);
+        $this->assertSame(4,$r->dayDivisors(2026,[11])[11]);
+        $html=$this->get(route('surya.ngrs',['summary_view'=>'average']))->assertOk()->assertSee('Average TRX')->getContent();
+        $summary=substr($html,strpos($html,'id="ngrs-summary-panel"'));$summary=substr($summary,0,strpos($summary,'</section>'));
+        $this->assertStringContainsString('data-ngrs-days="4">3,00</td>',$summary);
+        $this->assertStringContainsString('data-ngrs-days="28">2,00</td>',$summary);
+        $this->assertStringContainsString('data-ngrs-days="32">2,13</td>',$summary);
+        $this->assertStringContainsString('Detail outlet · TRX',$html);
+        // The active replacement, not a superseded batch, defines the current cutoff.
+        $this->import([$this->row('02/11/2026','6281234567890','A',6,'DUMAI')]);
+        $this->assertSame(2,$r->dayDivisors(2026,[11])[11]);
+        $this->travelBack();
+    }
 }

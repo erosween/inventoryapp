@@ -49,6 +49,22 @@ class NgrsReport
         return $q;
     }
 
+    public function dayDivisors(int $year,array $months): array
+    {
+        $today=now('Asia/Jakarta');$days=[];
+        foreach($months as $month){
+            $start=\Carbon\Carbon::create($year,$month,1,0,0,0,'Asia/Jakarta');
+            if($start->lt($today->copy()->startOfMonth()))$days[$month]=$start->daysInMonth;
+            else{
+                // Global file cutoff: the same divisor applies to every TAP and role.
+                $latest=DB::table('surya_ngrs_transactions as t')->join('surya_ngrs_months as a',fn($j)=>$j->on('a.month','=','t.month')->on('a.upload_id','=','t.upload_id'))
+                    ->where('t.month',$start->toDateString())->max('t.transaction_date');
+                $days[$month]=$latest?(int)substr($latest,8,2):0;
+            }
+        }
+        return $days;
+    }
+
     public function summary(array $filters): array
     {
         $data=$this->base($filters)->select('n.tap','n.cluster','n.month')->selectRaw('SUM(n.trx) AS trx,SUM(n.rech) AS rech')->groupBy('n.tap','n.cluster','n.month')->get();

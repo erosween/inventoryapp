@@ -1,7 +1,6 @@
 .surya-upload-page .main,.surya-upload-page .content{min-width:0}
 .surya-upload-page .upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
 .surya-upload-page .upload-card{min-width:0;border:1px solid #dfe6ef;border-radius:20px;background:#fff;box-shadow:0 4px 20px #17203305;overflow:hidden}
-.surya-upload-page .upload-card-wide{grid-column:1/-1}
 .surya-upload-page .upload-card-header{display:flex;align-items:center;gap:12px;padding:22px 24px;border-bottom:1px solid #edf0f5}
 .surya-upload-page .upload-card h2{margin:0;min-width:0;color:#172033;font-size:17px;font-weight:750;line-height:1.4}
 .surya-upload-page .upload-icon{display:grid;place-items:center;flex:0 0 40px;height:40px;border-radius:12px;background:#fff0f3;color:#c8102e;font-size:17px}
