@@ -87,4 +87,22 @@ class NgrsTest extends TestCase
         $this->assertSame('20450',$row[6]);$this->assertSame('',$row[7]);$this->assertSame('20450',end($row));
         $this->assertSame('Total RECH',end($head));
     }
+    public function test_header_filters_numeric_sort_facets_and_export_share_scoped_results(): void
+    {
+        $this->import([$this->row('01/01/2026','6281234567890','A',2,'DUMAI'),$this->row('01/01/2026','6281234567891','A',10,'DUMAI'),$this->row('01/01/2026','6281234567892','A',100,'DURI')]);
+        $options=['year'=>2026,'sort'=>'m1','direction'=>'desc','columns'=>['tap'=>['DUMAI']]];
+        $html=$this->get(route('surya.ngrs',$options))->assertOk()->assertSee('Filter dan urutkan Jan')->getContent();
+        $detail=substr($html,strpos($html,'<table class="ngrs-detail">'));
+        $this->assertLessThan(strpos($detail,'6281234567890'),strpos($detail,'6281234567891'));
+        $this->assertStringNotContainsString('6281234567892',$detail);
+        $csv=$this->get(route('surya.ngrs.export',$options))->assertOk()->streamedContent();
+        $rows=array_map('str_getcsv',array_filter(explode("\n",trim($csv))));
+        $this->assertCount(3,$rows);$this->assertSame('6281234567891',$rows[1][0]);$this->assertSame('10',$rows[1][6]);
+        $u=new User();$u->username='asmen_dumai';$this->actingAs($u);
+        $this->getJson(route('surya.ngrs.filter-values',['column'=>'tap','columns'=>['tap'=>['DURI']]]))->assertOk()->assertJsonPath('values',['DUMAI']);
+        $this->getJson(route('surya.ngrs.filter-values',['column'=>'rs','columns'=>['tap'=>['DURI']]]))->assertOk()->assertJsonPath('values',[]);
+        $this->getJson(route('surya.ngrs.filter-values',['column'=>'m1','q'=>'10']))->assertOk()->assertJsonPath('values',['10']);
+        $this->getJson(route('surya.ngrs',['sort'=>'rech']))->assertUnprocessable();
+        $this->getJson(route('surya.ngrs.filter-values',['column'=>'bad']))->assertUnprocessable();
+    }
 }

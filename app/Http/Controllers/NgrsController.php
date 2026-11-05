@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Services\NgrsImport;
 use App\Services\NgrsReport;
+use App\Services\NgrsColumnFilters;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,8 +21,19 @@ class NgrsController extends Controller
         $filters=$this->filters($request);$filters['metric']='trx';$scopes=$report->scopes();$taps=array_merge(NgrsImport::TAPS,['INFILTRASI DUMAI','INFILTRASI ROHIL']);if($scopes!==null)$taps=array_values(array_intersect($taps,$scopes));
         $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->pluck('month')->map(fn($m)=>(int)substr($m,5,2))->all();
         $years=DB::table('surya_ngrs_months')->selectRaw('SUBSTR(month,1,4) AS year')->distinct()->pluck('year')->map(fn($y)=>(int)$y)->push(now('Asia/Jakarta')->year)->push($filters['year'])->unique()->sortDesc()->values();
-        $summary=$report->summary($filters);$outlets=$report->details($filters)->paginate($filters['per_page'])->withQueryString();
+        $columns=app(NgrsColumnFilters::class);$options=$columns->options($request);
+        $summary=$report->summary($filters);$outlets=$columns->apply($report->details($filters),$options)->paginate($filters['per_page'])->withQueryString();
         return view('surya.ngrs',compact('filters','taps','months','years','summary','outlets'));
+    }
+    public function values(Request $request,NgrsReport $report)
+    {
+        $request->validate(['column'=>'required|string','q'=>'nullable|string|max:150','outlet_q'=>'nullable|string|max:150','value_page'=>'nullable|integer|min:1|max:10000']);
+        $columns=app(NgrsColumnFilters::class);$key=$request->input('column');$columns->check($key);$options=$columns->options($request);
+        $filters=$this->filters($request);$filters['metric']='trx';$filters['q']=trim((string)$request->input('outlet_q'));
+        $query=$columns->apply($report->details($filters),$options,$key)->reorder();$expr=$columns->expression($key);
+        if($request->filled('q'))$query->whereRaw($expr.' LIKE ?',['%'.$request->input('q').'%']);
+        $values=$query->selectRaw($expr.' AS value')->distinct()->orderBy('value')->offset(((int)$request->input('value_page',1)-1)*100)->limit(101)->pluck('value');
+        return response()->json(['values'=>$values->take(100)->values(),'has_more'=>$values->count()>100])->header('Cache-Control','no-store');
     }
     public function store(Request $request,NgrsImport $importer)
     {
@@ -35,10 +47,10 @@ class NgrsController extends Controller
     }
     public function export(Request $request,NgrsReport $report)
     {
-        $filters=$this->filters($request);
+        $filters=$this->filters($request);$columns=app(NgrsColumnFilters::class);$options=$columns->options($request);
         $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->pluck('month')->map(fn($m)=>(int)substr($m,5,2))->all();
-        return response()->streamDownload(function()use($report,$filters,$months){$h=fopen('php://output','wb');fwrite($h,"\xEF\xBB\xBF");fputcsv($h,['RS','ID Outlet','Nama Outlet','Status Mapping','TAP','Cluster',...array_map(fn($m)=>sprintf('%04d-%02d',$filters['year'],$m),range(1,12)),'Total '.strtoupper($filters['metric'])],',','"','');
-            foreach($report->details($filters)->cursor()as$r){$matched=(int)$r->candidates===1;$values=[$r->rs,$matched?$r->id_outlet:'',$matched?$r->nama_outlet:'Belum terpetakan',$matched?'Terpetakan':((int)$r->candidates>1?'RS ganda di master':'Belum terpetakan'),$r->tap,$r->cluster];foreach(range(1,12)as$m)$values[]=in_array($m,$months,true)?(int)$r->{'m'.$m}:'';$values[]=(int)$r->total;$values=array_map(fn($v)=>is_string($v)&&preg_match('/^[=+@\t\r\n-]/',$v)?"'".$v:$v,$values);fputcsv($h,$values,',','"','');}fclose($h);
+        return response()->streamDownload(function()use($report,$filters,$months,$columns,$options){$h=fopen('php://output','wb');fwrite($h,"\xEF\xBB\xBF");fputcsv($h,['RS','ID Outlet','Nama Outlet','Status Mapping','TAP','Cluster',...array_map(fn($m)=>sprintf('%04d-%02d',$filters['year'],$m),range(1,12)),'Total '.strtoupper($filters['metric'])],',','"','');
+            foreach($columns->apply($report->details($filters),$options)->cursor()as$r){$matched=(int)$r->candidates===1;$values=[$r->rs,$matched?$r->id_outlet:'',$matched?$r->nama_outlet:'Belum terpetakan',$matched?'Terpetakan':((int)$r->candidates>1?'RS ganda di master':'Belum terpetakan'),$r->tap,$r->cluster];foreach(range(1,12)as$m)$values[]=in_array($m,$months,true)?(int)$r->{'m'.$m}:'';$values[]=(int)$r->total;$values=array_map(fn($v)=>is_string($v)&&preg_match('/^[=+@\t\r\n-]/',$v)?"'".$v:$v,$values);fputcsv($h,$values,',','"','');}fclose($h);
         },'NGRS_'.$filters['year'].'_'.strtoupper($filters['metric']).'.csv',['Content-Type'=>'text/csv; charset=UTF-8']);
     }
 }
