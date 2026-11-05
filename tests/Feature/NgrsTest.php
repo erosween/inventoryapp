@@ -181,4 +181,37 @@ class NgrsTest extends TestCase
         $detail=(new NgrsReport)->details($this->filters())->where('rs','6281234567890')->first();$this->assertSame(5,(int)$detail->gap_m3);$this->assertNull($detail->gap_m2);
         $this->travelBack();
     }
+    public function test_tap_summary_mom_all_modes_uses_fair_cutoff_and_direction_styles():void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-08 12:00:00','Asia/Jakarta'));
+        $rows=[];foreach(['01/01/2026'=>[100,100000000],'01/02/2026'=>[100,100000000],'01/03/2026'=>[50,50000000],'01/04/2026'=>[120,120000000],'01/10/2026'=>[20,100000000],'05/10/2026'=>[30,200000000],'31/10/2026'=>[300,900000000],'01/11/2026'=>[25,150000000],'05/11/2026'=>[35,200000000]]as$date=>$v)$rows[]=array_replace($this->row($date,'6281234567890','A',$v[0],'DUMAI'),[4=>(string)$v[1]]);
+        $this->import($rows);$summary=(new NgrsReport)->summary($this->filters());$row=$summary['rows']['DUMAI|DUMAI BENGKALIS'];
+        $this->assertSame(50,$row['compare_trx']);$this->assertSame(300000000,$row['compare_rech']);$this->assertSame(50,$summary['grand']['compare_trx']);$this->assertSame(50,$summary['clusters']['Dumai Bengkalis']['compare_trx']);
+        foreach([['monthly','trx','▲ +10'],['average','trx','▲ +2'],['monthly','rech','▲ +0.050'],['average','rech','▲ +0.010']]as[$period,$metric,$gap]){
+            $html=$this->get(route('surya.ngrs',['summary_view'=>$period,'summary_metric'=>$metric]))->assertOk()->assertSee('Okt-MoM')->assertSee($gap)->getContent();
+            $this->assertStringContainsString('ngrs-summary-gap is-positive',$html);$this->assertStringContainsString('ngrs-summary-gap is-negative',$html);$this->assertStringContainsString('ngrs-summary-gap is-flat',$html);
+        }
+        $this->assertSame('▼ -50',\App\Support\NgrsFormat::gap(50,0,31,100,0,28,'monthly','trx')['text']);
+        $this->assertSame('flat',\App\Support\NgrsFormat::gap(0,0,31,0,0,28,'average','trx')['direction']);
+        $this->assertNull(\App\Support\NgrsFormat::gap(5,0,5,0,0,0,'monthly','trx')['value']);
+        // Closing the month invalidates the summary comparison cache as well.
+        $this->travelTo(\Carbon\Carbon::parse('2026-12-08 12:00:00','Asia/Jakarta'));
+        $closed=(new NgrsReport)->summary($this->filters());$this->assertArrayNotHasKey('compare_trx',$closed['rows']['DUMAI|DUMAI BENGKALIS']);
+        $this->travelBack();
+    }
+    public function test_cumulative_daily_november_upload_replaces_month_and_replay_never_adds():void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-08 12:00:00','Asia/Jakarta'));
+        $this->import([array_replace($this->row('01/10/2026','6281234567890','A',20,'DUMAI'),[4=>'200']),array_replace($this->row('01/11/2026','6281234567890','A',100,'DUMAI'),[4=>'1000']),array_replace($this->row('02/11/2026','6281234567891','A',40,'DUMAI'),[4=>'400'])]);
+        $r=new NgrsReport;$r->summary($this->filters());$r->details($this->filters())->get();
+        $latest=[array_replace($this->row('01/11/2026','6281234567890','A',120,'DUMAI'),[4=>'500']),array_replace($this->row('03/11/2026','6281234567890','A',60,'DUMAI'),[4=>'600'])];
+        foreach([1,2]as$pass){
+            $this->import($latest);$report=new NgrsReport;$summary=$report->summary($this->filters());
+            $this->assertSame(200,$summary['grand']['total']);$this->assertSame(1300,$summary['grand']['total_recharge']);$this->assertSame(180,$summary['grand']['months'][11]);$this->assertSame(20,$summary['grand']['months'][10]);$this->assertSame(20,$summary['grand']['compare_trx']);
+            $detail=$report->details($this->filters())->where('rs','6281234567890')->first();$this->assertSame(180,(int)$detail->m11);$this->assertSame(160,(int)$detail->gap_m11);
+            $removed=$report->details($this->filters())->where('rs','6281234567891')->first();$this->assertSame(0,(int)$removed->m11);
+            $this->assertSame(2,DB::table('surya_ngrs_months')->count());
+        }
+        $this->travelBack();
+    }
 }

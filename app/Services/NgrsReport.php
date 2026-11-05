@@ -67,8 +67,8 @@ class NgrsReport
         if($filters['q']!=='')return $this->computeSummary($filters);
         $this->master();
         $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->orderBy('month')->pluck('upload_id','month');
-        $version=hash('sha256',$months->toJson().'|'.Cache::get('surya-ngrs-outlet-map-v1',''));
-        $key='surya-ngrs-summary-v1-'.hash('sha256',json_encode([$filters['year'],$filters['metric'],$filters['tap'],$this->scopes()]));
+        $version=hash('sha256',$months->toJson().'|'.now('Asia/Jakarta')->format('Y-m').'|'.Cache::get('surya-ngrs-outlet-map-v1',''));
+        $key='surya-ngrs-summary-v2-'.hash('sha256',json_encode([$filters['year'],$filters['metric'],$filters['tap'],$this->scopes()]));
         $cached=Cache::get($key);if(($cached['version']??null)===$version)return $cached['data'];
         $data=$this->computeSummary($filters);Cache::put($key,['version'=>$version,'data'=>$data],300);return $data;
     }
@@ -84,7 +84,22 @@ class NgrsReport
             $rows[$tap.'|'.$cluster]??=['tap'=>$tap,'cluster'=>$cluster,'months'=>[],'total'=>0];
         }
         uasort($rows,fn($a,$b)=>(str_starts_with($a['tap'],'INFILTRASI')<=>str_starts_with($b['tap'],'INFILTRASI'))?:strnatcasecmp($a['tap'],$b['tap']));
-        foreach($rows as$r){$cluster=in_array($r['cluster'],['INF DB','DUMAI BENGKALIS'])?'Dumai Bengkalis':'Rokan Hilir';$clusters[$cluster]??=['tap'=>$cluster,'months'=>[],'total'=>0];foreach($r['months']as$m=>$v){$clusters[$cluster]['months'][$m]=($clusters[$cluster]['months'][$m]??0)+$v;$grand['months'][$m]=($grand['months'][$m]??0)+$v;}$clusters[$cluster]['total']+=$r['total'];$grand['total']+=$r['total'];foreach($r['recharge']??[] as $m=>$value){$clusters[$cluster]['recharge'][$m]=($clusters[$cluster]['recharge'][$m]??0)+$value;$grand['recharge'][$m]=($grand['recharge'][$m]??0)+$value;}$clusters[$cluster]['total_recharge']=($clusters[$cluster]['total_recharge']??0)+($r['total_recharge']??0);$grand['total_recharge']=($grand['total_recharge']??0)+($r['total_recharge']??0);}
+        $comparison=app(NgrsComparison::class)->plan($filters['year']);
+        if($comparison&&$comparison['previous_available']){
+            app(NgrsAnnual::class)->refresh($filters['year']);
+            $compare=DB::table('surya_ngrs_annual as n')->where('n.year',$filters['year']);
+            if($scopes!==null)$compare->whereIn('n.tap',$scopes);
+            if($filters['tap']!=='')$compare->where('n.tap',$filters['tap']);
+            if($filters['q']!==''){
+                $compare->leftJoinSub($this->master(),'m',fn($j)=>$j->on('m.rs','=','n.rs'));
+                $compare->where(fn($q)=>$q->where('n.rs','like','%'.$filters['q'].'%')->orWhere(fn($q)=>$q->where('m.candidates',1)->where(fn($q)=>$q->where('m.nama_outlet','like','%'.$filters['q'].'%')->orWhere('m.id_outlet','like','%'.$filters['q'].'%'))));
+            }
+            foreach($compare->select('n.tap','n.cluster')->selectRaw('SUM(n.compare_trx) AS trx,SUM(n.compare_rech) AS rech')->groupBy('n.tap','n.cluster')->get() as $entry){
+                $key=$entry->tap.'|'.$entry->cluster;
+                if(isset($rows[$key])){$rows[$key]['compare_trx']=(int)$entry->trx;$rows[$key]['compare_rech']=(int)$entry->rech;}
+            }
+        }
+        foreach($rows as$r){$cluster=in_array($r['cluster'],['INF DB','DUMAI BENGKALIS'])?'Dumai Bengkalis':'Rokan Hilir';$clusters[$cluster]??=['tap'=>$cluster,'months'=>[],'total'=>0];foreach($r['months']as$m=>$v){$clusters[$cluster]['months'][$m]=($clusters[$cluster]['months'][$m]??0)+$v;$grand['months'][$m]=($grand['months'][$m]??0)+$v;}$clusters[$cluster]['compare_trx']=($clusters[$cluster]['compare_trx']??0)+($r['compare_trx']??0);$clusters[$cluster]['compare_rech']=($clusters[$cluster]['compare_rech']??0)+($r['compare_rech']??0);$grand['compare_trx']=($grand['compare_trx']??0)+($r['compare_trx']??0);$grand['compare_rech']=($grand['compare_rech']??0)+($r['compare_rech']??0);$clusters[$cluster]['total']+=$r['total'];$grand['total']+=$r['total'];foreach($r['recharge']??[] as $m=>$value){$clusters[$cluster]['recharge'][$m]=($clusters[$cluster]['recharge'][$m]??0)+$value;$grand['recharge'][$m]=($grand['recharge'][$m]??0)+$value;}$clusters[$cluster]['total_recharge']=($clusters[$cluster]['total_recharge']??0)+($r['total_recharge']??0);$grand['total_recharge']=($grand['total_recharge']??0)+($r['total_recharge']??0);}
         uksort($clusters,fn($a,$b)=>array_search($a,['Dumai Bengkalis','Rokan Hilir'])<=>array_search($b,['Dumai Bengkalis','Rokan Hilir']));
         $stats=$this->base($filters)->selectRaw('COALESCE(SUM(n.trx),0) AS trx,COALESCE(SUM(n.rech),0) AS rech,COUNT(DISTINCT n.rs) AS rs,COUNT(DISTINCT CASE WHEN m.candidates IS NULL OR m.candidates<>1 THEN n.rs END) AS unmapped')->first();
         return compact('rows','clusters','grand','stats');
