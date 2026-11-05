@@ -335,8 +335,10 @@ class MonitaDumaiController extends Controller
         $current = $nota->totals($monthStart, $cutoff, $ids)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
         $fullPrevious = $nota->totals($previousMonthStart, $previousMonthEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
         $partialPrevious = $nota->totals($previousMonthStart, $previousComparableEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
-        $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds) {
-            return \App\Support\SuryaTransactions::query()->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->orderByDesc('id')->get()
+        $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds, $monthStart) {
+            return \App\Support\SuryaTransactions::query()->whereIn('id_outlet', $pageIds)
+                ->whereBetween('metric_date', [$monthStart->toDateString(), $monthStart->copy()->endOfMonth()->toDateString()])
+                ->orderByDesc('metric_date')->orderByDesc('id')->get()
                 ->groupBy(fn ($row) => (string) $row->id_outlet);
         });
 
@@ -362,6 +364,10 @@ class MonitaDumaiController extends Controller
 
                     return $uploaded === [] || in_array($column, $uploaded, true);
                 });
+                if ($metric === null) {
+                    foreach (['fm1','m1','mtd','gap','mom_pct'] as $period) $row->{$alias.'_'.$period} = null;
+                    continue;
+                }
                 $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
                 $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
                 $mtd = (int) ($metric->{$column . '_m'} ?? 0);

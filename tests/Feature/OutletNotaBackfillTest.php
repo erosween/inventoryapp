@@ -30,7 +30,7 @@ class OutletNotaBackfillTest extends TestCase
         foreach(['keluarsf','mobile_penjualan']as$table)Schema::create($table,function(Blueprint $t){$t->id();foreach(['id_outlet','iddenom','tgl','status','tambahanket']as$c)$t->string($c)->nullable();$t->integer('qty');});
         $migration=require database_path('migrations/2026_11_05_000001_create_outlet_nota_backfill.php');$migration->up();
         $history=require database_path('migrations/2026_10_22_000003_create_surya_outlet_sales_history.php');$history->up();
-        foreach(['surya_trx_cvm'=>['ss','cvm','hot_promo','comsak'],'surya_biometrik'=>['bio']]as$table=>$metrics)Schema::create($table,function(Blueprint $t)use($metrics){$t->string('id_outlet');$t->string('uploaded_metrics')->nullable();foreach($metrics as$m)foreach(['fm1','m1','m']as$p)$t->integer($m.'_'.$p)->default(0);});
+        foreach(['surya_trx_cvm'=>['ss','cvm','hot_promo','comsak','insak','digital'],'surya_biometrik'=>['bio']]as$table=>$metrics)Schema::create($table,function(Blueprint $t)use($metrics){$t->id();$t->string('id_outlet');$t->date('metric_date');$t->date('source_updated_at')->nullable();$t->timestamps();$t->string('uploaded_metrics')->nullable();foreach($metrics as$m)foreach(['fm1','m1','m']as$p)$t->integer($m.'_'.$p)->default(0);});
         Schema::create('surya_daily_metrics',function(Blueprint $t){$t->id();$t->string('id_outlet');$t->date('metric_date');});
         foreach([['2026-10-10','V1',999],['2026-10-16','V1',30],['2026-10-31','V1',40],['2026-10-16','SP1',4],['2026-11-01','V1',7]]as[$date,$denom,$qty])DB::table('keluarsf')->insert(['id_outlet'=>'1201034972','iddenom'=>$denom,'tgl'=>$date,'qty'=>$qty]);
         DB::table('mobile_penjualan')->insert(['id'=>10,'id_outlet'=>'1201034972','iddenom'=>'V1','tgl'=>'2026-10-16','qty'=>5,'status'=>'approved']);
@@ -135,5 +135,22 @@ class OutletNotaBackfillTest extends TestCase
             catch(ValidationException $e){$this->assertArrayHasKey('nota_file',$e->errors());}
             $this->assertSame(5,(int)DB::table('surya_outlet_nota_backfill')->sum('pv'));
         }
+    }
+
+    public function test_metrics_never_leak_between_months_and_missing_is_not_zero(): void
+    {
+        DB::table('surya_trx_cvm')->insert(['id_outlet'=>'1201034972','metric_date'=>'2026-11-04','uploaded_metrics'=>'cvm,ss,comsak,hot_promo','cvm_fm1'=>8,'cvm_m1'=>4,'cvm_m'=>0,'ss_m'=>15,'comsak_m'=>25,'hot_promo_m'=>35]);
+        DB::table('surya_biometrik')->insert(['id_outlet'=>'1201034972','metric_date'=>'2026-10-28','uploaded_metrics'=>'bio','bio_fm1'=>10,'bio_m1'=>20,'bio_m'=>50]);
+        $feb=$this->hydrate('2026-02-28');
+        foreach(['cvm','super_seru','comsak','hot_promo','biometrik']as$group)foreach(['fm1','m1','mtd','gap','mom_pct']as$period)$this->assertNull($feb->{$group.'_'.$period});
+        $nov=$this->hydrate('2026-11-10');$this->assertSame(0,$nov->cvm_mtd);$this->assertSame(-4,$nov->cvm_gap);$this->assertSame(15,$nov->super_seru_mtd);$this->assertNull($nov->biometrik_mtd);
+        $oct=$this->hydrate('2026-10-31');$this->assertSame(50,$oct->biometrik_mtd);$this->assertNull($oct->cvm_mtd);
+        $export=new \App\Exports\SuryaOutletDetailExport(collect([$feb]));$cells=array_combine($export->headings(),$export->map($feb));
+        $this->assertNull($cells['CVM MTD']);$this->assertNull($cells['Biometrik MTD']);
+        $s=app(OutletColumnFilters::class);$base=fn()=>DB::table('appsdumais as outlet');
+        $this->assertSame(0,$s->query($base(),Carbon::parse('2026-02-28'),['columns'=>['cvm_mtd'=>['0']]])->count());
+        $this->assertSame(1,$s->query($base(),Carbon::parse('2026-02-28'),['columns'=>['cvm_mtd'=>['']]])->count());
+        $this->assertSame(1,$s->query($base(),Carbon::parse('2026-11-10'),['columns'=>['cvm_mtd'=>['0']]])->count());
+        $this->assertSame(1,$s->query($base(),Carbon::parse('2026-10-31'),['columns'=>['biometrik_mtd'=>['50']]])->count());
     }
 }

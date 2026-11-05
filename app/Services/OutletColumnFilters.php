@@ -28,13 +28,15 @@ class OutletColumnFilters {
    $q->leftJoinSub($nota->totals($prev,$end,null,true),'hf',fn($j)=>$j->on('hf.id_outlet','=',$outletId));
    $q->leftJoinSub($nota->totals($prev,$compare,null,true),'hp',fn($j)=>$j->on('hp.id_outlet','=',$outletId));
    }
-   $q->leftJoin('surya_trx_cvm as c','c.id_outlet','=',$outletId)->leftJoin('surya_biometrik as b','b.id_outlet','=',$outletId);
+   $metricMonth=[$start->toDateString(),$start->copy()->endOfMonth()->toDateString()];
+   $q->leftJoin('surya_trx_cvm as c',fn($j)=>$j->on('c.id_outlet','=',$outletId)->whereBetween('c.metric_date',$metricMonth))
+     ->leftJoin('surya_biometrik as b',fn($j)=>$j->on('b.id_outlet','=',$outletId)->whereBetween('b.metric_date',$metricMonth));
    foreach(self::GROUPS as$g){
     if (str_starts_with($g,'st_') && !$salesNeeded) continue;
     if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(hf.{$p},0)";$m1="COALESCE(hp.{$p},0)";$m="COALESCE(k.$p,0)";}
     else{$column=['super_seru'=>'ss','biometrik'=>'bio'][$g]??$g;$alias=$g==='biometrik'?'b':'c';$marker = DB::getDriverName()==='sqlite' ? "(',' || COALESCE($alias.uploaded_metrics,'') || ',')" : "CONCAT(',',COALESCE($alias.uploaded_metrics,''),',')";
-     $available="($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%')";
-     $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE 0 END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE 0 END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE 0 END";}
+     $available="($alias.id_outlet IS NOT NULL AND ($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%'))";
+     $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE NULL END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE NULL END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE NULL END";}
     $q->selectRaw("$fm AS {$g}_fm1, $m1 AS {$g}_m1, $m AS {$g}_mtd, ($m-$m1) AS {$g}_gap, CASE WHEN $m1=0 THEN NULL ELSE ROUND((1.0*$m/$m1-1)*100,1) END AS {$g}_mom_pct");
    }
   }
