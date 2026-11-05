@@ -86,11 +86,15 @@ class NgrsReport
     public function details(array $filters)
     {
         $metric=$filters['metric'];$year=$filters['year'];
-        $q=$this->base($filters)->selectRaw($this->unionText('n.rs').' AS rs,'.$this->unionText('n.tap').' AS tap,'.$this->unionText('n.cluster').' AS cluster')->selectRaw("MAX(m.candidates) AS candidates,MAX(m.id_outlet) AS id_outlet,MAX(m.nama_outlet) AS nama_outlet,'upload' AS tap_source");
-        for($m=1;$m<=12;$m++)$q->selectRaw("SUM(CASE WHEN n.month=? THEN n.$metric ELSE 0 END) AS m$m",[sprintf('%04d-%02d-01',$year,$m)]);
-        $q->selectRaw("SUM(n.$metric) AS total")->groupBy('n.rs','n.tap','n.cluster');
+        app(NgrsAnnual::class)->refresh($year);
+        $q=DB::table('surya_ngrs_annual as n')->where('n.year',$year)->leftJoinSub($this->master(),'m',fn($j)=>$j->on('m.rs','=','n.rs'));
+        $scopes=$this->scopes();if($scopes!==null)$q->whereIn('n.tap',$scopes);
+        if($filters['tap']!=='')$q->where('n.tap',$filters['tap']);
+        if($filters['q']!=='')$q->where(fn($q)=>$q->where('n.rs','like','%'.$filters['q'].'%')->orWhere(fn($q)=>$q->where('m.candidates',1)->where(fn($q)=>$q->where('m.nama_outlet','like','%'.$filters['q'].'%')->orWhere('m.id_outlet','like','%'.$filters['q'].'%'))));
+        $q->selectRaw($this->unionText('n.rs').' AS rs,'.$this->unionText('n.tap').' AS tap,'.$this->unionText('n.cluster').' AS cluster')->selectRaw("m.candidates,m.id_outlet,m.nama_outlet,'upload' AS tap_source");
+        foreach(range(1,12)as$m)$q->selectRaw("n.{$metric}_m$m AS m$m");$q->selectRaw("n.{$metric}_total AS total");
         // Registered RS without any transaction remain visible with zero quantities.
-        $zero=DB::query()->fromSub($this->master(),'m')->whereNotIn('m.rs',$this->active($year)->select('n.rs'))
+        $zero=DB::query()->fromSub($this->master(),'m')->whereNotIn('m.rs',DB::table('surya_ngrs_annual')->where('year',$year)->select('rs'))
             ->selectRaw($this->unionText('m.rs').' AS rs,'.$this->unionText('m.master_tap').' AS tap,'.$this->unionText("CASE WHEN m.master_tap IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN 'DUMAI BENGKALIS' ELSE 'ROKAN HILIR' END").' AS cluster')->selectRaw("m.candidates,m.id_outlet,m.nama_outlet,'master' AS tap_source");
         $scopes=$this->scopes();if($scopes!==null)$zero->whereIn('m.master_tap',$scopes);
         if($filters['tap']!=='')$zero->where('m.master_tap',$filters['tap']);$this->search($zero,$filters['q']);

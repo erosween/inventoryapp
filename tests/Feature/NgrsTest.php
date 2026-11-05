@@ -23,7 +23,7 @@ class NgrsTest extends TestCase
             ['id_outlet'=>'1200000002','nama_outlet'=>'Outlet Tanpa Trx','nomor_rs'=>'6281234567891','tap'=>'DUMAI'],
             ['id_outlet'=>'1200000003','nama_outlet'=>'=FORMULA','nomor_rs'=>'6281234567892','tap'=>'DURI'],
         ]);
-        $m=require database_path('migrations/2026_11_05_000002_create_surya_ngrs.php');$m->up();$map=require database_path('migrations/2026_11_05_000003_create_surya_ngrs_outlet_map.php');$map->up();
+        $m=require database_path('migrations/2026_11_05_000002_create_surya_ngrs.php');$m->up();$map=require database_path('migrations/2026_11_05_000003_create_surya_ngrs_outlet_map.php');$map->up();$annual=require database_path('migrations/2026_11_05_000004_create_surya_ngrs_annual.php');$annual->up();
         $u=new User();$u->username='admin_super';$this->actingAs($u);
     }
     private function file(array $rows): UploadedFile
@@ -145,5 +145,16 @@ class NgrsTest extends TestCase
         $html=$this->get(route('surya.ngrs',['summary_metric'=>'rech']))->assertOk()->assertSee('0.100 mio')->assertSee('Detail outlet · TRX')->getContent();
         $this->assertStringContainsString('data-ngrs-metric="rech"',$html);
         $this->assertSame(100000000,app(NgrsReport::class)->summary($this->filters())['grand']['total_recharge']);
+    }
+    public function test_annual_read_model_tracks_month_replacement_without_accumulation(): void
+    {
+        $this->import([$this->row('01/01/2026','6281234567890','A',4),$this->row('01/02/2026','6281234567890','A',6)]);
+        $r=app(NgrsReport::class);$first=$r->details($this->filters())->where('rs','6281234567890')->first();
+        $this->assertSame(10,(int)$first->total);$this->assertSame(1,DB::table('surya_ngrs_annual')->count());
+        $again=$r->details($this->filters())->where('rs','6281234567890')->first();$this->assertSame(10,(int)$again->total);
+        $this->import([$this->row('01/01/2026','6281234567890','A',9)]);
+        $next=$r->details($this->filters())->where('rs','6281234567890')->first();
+        $this->assertSame(15,(int)$next->total);$this->assertSame(9,(int)$next->m1);$this->assertSame(6,(int)$next->m2);
+        $this->assertSame(1,DB::table('surya_ngrs_annual')->count());
     }
 }
