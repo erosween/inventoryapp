@@ -6,6 +6,8 @@
     const events = new AbortController();
     const menu = document.getElementById('tf-column-menu');
     if (!menu) return;
+    // The popup belongs to the viewport, not the report's scrolling/layout container.
+    document.body.append(menu);
     const includes = JSON.parse(menu.dataset.selection || '{}');
     const excludes = JSON.parse(menu.dataset.excluded || '{}');
     const list = menu.querySelector('[data-filter-values]');
@@ -23,28 +25,32 @@
     }
     menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => sort(key,button.dataset.sortDirection)));
     menu.querySelector('[data-sort-clear]').addEventListener('click', () => sort(key,null));
-    cleanup = () => { events.abort(); pending?.abort(); clearTimeout(timer); };
+    let resizeObserver;
+    cleanup = () => { events.abort(); pending?.abort(); clearTimeout(timer); resizeObserver?.disconnect(); };
     function close() {
         if (menu.contains(document.activeElement)) document.activeElement.blur();
         clearTimeout(timer); pending?.abort(); menu.hidden = true;
         trigger?.setAttribute('aria-expanded','false');
     }
-    function positionMenu() {
+    function positionMenu(anchor = false) {
         if (menu.hidden || !trigger?.isConnected) return;
         const rect = trigger.getBoundingClientRect();
         const column = trigger.closest('th').getBoundingClientRect();
         const viewport = window.visualViewport;
-        const width = viewport?.width || innerWidth, height = viewport?.height || innerHeight;
+        const width = Math.min(viewport?.width || innerWidth, innerWidth), height = Math.min(viewport?.height || innerHeight, innerHeight);
         const left = viewport?.offsetLeft || 0, top = viewport?.offsetTop || 0;
         const touch = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer:coarse)').matches;
         const menuWidth = Math.min(touch ? 360 : 310, Math.max(0,width - 16));
         menu.style.width = menuWidth + 'px';
         menu.style.maxWidth = Math.max(0,width - 16) + 'px';
         menu.style.maxHeight = Math.max(0,height - 16) + 'px';
-        menu.style.left = (touch ? left + (width - menuWidth) / 2 : Math.max(left + 8,Math.min(column.left,left + width - menuWidth - 8))) + 'px';
+        const desiredLeft = anchor ? column.left : (parseFloat(menu.style.left) || column.left);
+        menu.style.left = (touch ? left + (width - menuWidth) / 2 : Math.max(left + 8,Math.min(desiredLeft,left + width - menuWidth - 8))) + 'px';
         const menuHeight = menu.getBoundingClientRect().height;
-        menu.style.top = Math.max(top + 8,Math.min(rect.bottom + 6,top + height - menuHeight - 8)) + 'px';
+        const desiredTop = anchor ? rect.bottom + 6 : (parseFloat(menu.style.top) || top + 8);
+        menu.style.top = Math.max(top + 8,Math.min(desiredTop,top + height - menuHeight - 8)) + 'px';
     }
+    const keepInView = () => positionMenu(false);
     function draw() {
         list.replaceChildren();
         for (const value of values) {
@@ -107,7 +113,7 @@
         values = []; page = 1; search.value = ''; apply.textContent = 'Terapkan';
         document.getElementById('tf-column-title').textContent = 'Filter · ' + button.dataset.label;
         menu.hidden = false; button.setAttribute('aria-expanded','true');
-        positionMenu();
+        positionMenu(true);
         // On touch screens the keyboard should open only when search is tapped.
         if (!(navigator.maxTouchPoints > 0 || window.matchMedia('(pointer:coarse)').matches)) search.focus({preventScroll:true});
         load();
@@ -121,12 +127,17 @@
     menu.querySelector('[data-filter-close]').addEventListener('click', () => { close(); trigger?.focus(); });
     document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); },{signal:events.signal});
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); trigger?.focus(); } },{signal:events.signal});
-    document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
-    window.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
-    document.querySelector('.detail-table')?.closest('.table-wrap')?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
-    window.addEventListener('resize',positionMenu,{signal:events.signal});
-    window.visualViewport?.addEventListener('resize',positionMenu,{signal:events.signal});
-    window.visualViewport?.addEventListener('scroll',positionMenu,{passive:true,signal:events.signal});
+    document.querySelector('.tf-table-card .table-wrap')?.addEventListener('scroll',keepInView,{passive:true,signal:events.signal});
+    window.addEventListener('scroll',keepInView,{passive:true,signal:events.signal});
+    document.querySelector('.detail-table')?.closest('.table-wrap')?.addEventListener('scroll',keepInView,{passive:true,signal:events.signal});
+    window.addEventListener('resize',keepInView,{signal:events.signal});
+    window.addEventListener('surya:layout',keepInView,{signal:events.signal});
+    window.visualViewport?.addEventListener('resize',keepInView,{signal:events.signal});
+    window.visualViewport?.addEventListener('scroll',keepInView,{passive:true,signal:events.signal});
+    if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(keepInView);
+        resizeObserver.observe(menu);
+    }
     }
     init();
     document.addEventListener('taskforce:updated',init);
