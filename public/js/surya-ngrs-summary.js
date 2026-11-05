@@ -14,12 +14,16 @@
   });
   panel.querySelectorAll('[data-ngrs-gap]').forEach(cell=>{
    const days=Number(cell.dataset.currentDays),previousDays=Number(cell.dataset.previousDays);
-   let text='—',direction='missing';
+   let text='—',direction='missing';const percent=cell.dataset.gapPercent==='1';
    if(days>0&&previousDays>0){
     const current=Number(recharge?cell.dataset.currentRecharge:cell.dataset.currentTrx),previous=Number(recharge?cell.dataset.previousRecharge:cell.dataset.previousTrx);
-    const raw=recharge?current/(average?days:1)-previous/(average?previousDays:1):(average?Math.ceil(current/days)-Math.ceil(previous/previousDays):current-previous);
-    const value=recharge?Math.sign(raw)*Math.round(Math.abs(raw)/1e6)/1000:raw;
-    direction=value>0?'positive':value<0?'negative':'flat';text=(value>0?'▲ +':value<0?'▼ -':'')+format.format(Math.abs(value));
+    const currentValue=recharge?current/(average?days:1):(average?Math.ceil(current/days):current),previousValue=recharge?previous/(average?previousDays:1):(average?Math.ceil(previous/previousDays):previous);
+    const raw=percent?(previousValue===0?null:(currentValue/previousValue-1)*100):currentValue-previousValue;
+    if(raw!==null){
+     const value=percent?Math.sign(raw)*Math.round(Math.abs(raw)*10)/10:(recharge?Math.sign(raw)*Math.round(Math.abs(raw)/1e6)/1000:raw);
+     const formatter=percent?new Intl.NumberFormat('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1}):format;
+     direction=value>0?'positive':value<0?'negative':'flat';text=(value>0?'▲ +':value<0?'▼ -':'')+formatter.format(Math.abs(value))+(percent?'%':'');
+    }
    }
    cell.classList.remove('is-positive','is-negative','is-flat','is-missing');cell.classList.add('is-'+direction);cell.textContent=text;
   });
@@ -29,6 +33,7 @@
   document.getElementById('ngrs-average-tab').textContent=recharge?'Average Recharge':'Average TRX';
   document.querySelector('[data-ngrs-summary-input]').value=mode;document.querySelector('[data-ngrs-metric-input]').value=metric;
   const url=new URL(location.href);url.searchParams.set('summary_view',mode);url.searchParams.set('summary_metric',metric);history.replaceState({},'',url);
+  const download=document.querySelector('[data-ngrs-summary-download]');if(download){const exportUrl=new URL(download.href);exportUrl.search=url.search;download.href=exportUrl.toString();}
  }
  const mode=()=>document.querySelector('[data-ngrs-summary-input]').value, metric=()=>document.querySelector('[data-ngrs-metric-input]').value;
  tabs.forEach((tab,index)=>{tab.addEventListener('click',()=>select(tab.dataset.ngrsSummary,metric()));tab.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=tabs[event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length];next.focus();select(next.dataset.ngrsSummary,metric());});});

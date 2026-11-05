@@ -6,5 +6,7 @@
     $previousTrx=$fair?($row['compare_trx']??0):($row['months'][$m-1]??0);
     $previousRecharge=$fair?($row['compare_rech']??0):($row['recharge'][$m-1]??0);
     $previousDays=$fair?($comparison['previous_available']?(int)substr($comparison['previous_end'],8,2):0):($days[$m-1]??0);
-    $gap=\App\Support\NgrsFormat::gap($row['months'][$m]??0,$row['recharge'][$m]??0,$days[$m]??0,$previousTrx,$previousRecharge,$previousDays,$summaryView,$summaryMetric);
-@endphp<td class="ngrs-summary-gap is-{{ $gap['direction'] }}" data-ngrs-gap data-current-trx="{{ $row['months'][$m]??0 }}" data-current-recharge="{{ $row['recharge'][$m]??0 }}" data-current-days="{{ $days[$m]??0 }}" data-previous-trx="{{ $previousTrx }}" data-previous-recharge="{{ $previousRecharge }}" data-previous-days="{{ $previousDays }}">{{ $gap['text'] }}</td>@endforeach</tr>
+@endphp
+@foreach(['gap','percent'] as $gapKind)@php
+    $gap=\App\Support\NgrsFormat::$gapKind($row['months'][$m]??0,$row['recharge'][$m]??0,$days[$m]??0,$previousTrx,$previousRecharge,$previousDays,$summaryView,$summaryMetric);
+@endphp<td class="ngrs-summary-gap is-{{ $gap['direction'] }}" data-ngrs-gap data-gap-percent="{{ $gapKind==='percent'?'1':'0' }}" data-current-trx="{{ $row['months'][$m]??0 }}" data-current-recharge="{{ $row['recharge'][$m]??0 }}" data-current-days="{{ $days[$m]??0 }}" data-previous-trx="{{ $previousTrx }}" data-previous-recharge="{{ $previousRecharge }}" data-previous-days="{{ $previousDays }}">{{ $gap['text'] }}</td>@endforeach @endforeach</tr>

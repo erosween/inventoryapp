@@ -134,6 +134,7 @@ class NgrsReport
             $available=in_array($m,$months,true)&&in_array($m-1,$months,true);
             $previous=$comparison&&$comparison['month']===$m?'compare_qty':'m'.($m-1);
             $query->selectRaw($available?"(CAST(m$m AS SIGNED)-CAST($previous AS SIGNED)) AS gap_m$m":"NULL AS gap_m$m");
+            $query->selectRaw($available?"CASE WHEN $previous=0 THEN NULL ELSE ROUND((1.0*m$m/$previous-1)*100,1) END AS mom_pct_m$m":"NULL AS mom_pct_m$m");
         }
         return DB::query()->fromSub($query,'details')->orderByDesc('total')->orderBy('rs')->orderBy('tap');
     }

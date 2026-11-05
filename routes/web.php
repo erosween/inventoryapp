@@ -68,6 +68,7 @@ Route::post('/surya/outletlist/nota', [\App\Http\Controllers\OutletlistUploadCon
 Route::get('/surya/outletlist/nota/template', [\App\Http\Controllers\OutletlistUploadController::class, 'notaTemplate'])->name('surya.outletlist.nota-template');
 Route::get('/surya/ngrs/filter-values', [\App\Http\Controllers\NgrsController::class, 'values'])->name('surya.ngrs.filter-values');
 Route::get('/surya/ngrs', [\App\Http\Controllers\NgrsController::class, 'index'])->name('surya.ngrs');
+Route::get('/surya/ngrs/summary-export', [\App\Http\Controllers\NgrsController::class, 'summaryExport'])->name('surya.ngrs.summary-export');
 Route::get('/surya/ngrs/export', [\App\Http\Controllers\NgrsController::class, 'export'])->name('surya.ngrs.export');
 Route::post('/surya/ngrs/upload', [\App\Http\Controllers\NgrsController::class, 'store'])->name('surya.ngrs.upload');
 Route::get('/surya/ngrs/template', [\App\Http\Controllers\NgrsController::class, 'template'])->name('surya.ngrs.template');

@@ -162,12 +162,12 @@ class NgrsTest extends TestCase
         $this->travelTo(\Carbon\Carbon::parse('2026-11-08 12:00:00','Asia/Jakarta'));
         $rows=[];foreach(['01/01/2026'=>10,'01/02/2026'=>7,'30/09/2026'=>100,'01/10/2026'=>20,'05/10/2026'=>30,'06/10/2026'=>100,'31/10/2026'=>200,'01/11/2026'=>25,'05/11/2026'=>35]as$date=>$qty)$rows[]=$this->row($date,'6281234567890','A',$qty,'DUMAI');
         $this->import($rows);$r=new NgrsReport;$detail=$r->details($this->filters())->where('rs','6281234567890')->first();
-        $this->assertSame(350,(int)$detail->m10);$this->assertSame(50,(int)$detail->mom_compare);$this->assertSame(60,(int)$detail->m11);$this->assertSame(10,(int)$detail->gap_m11);
-        $this->assertSame(250,(int)$detail->gap_m10);$this->assertSame(-3,(int)$detail->gap_m2);$this->assertNull($detail->gap_m3);$this->assertNull($detail->gap_m12);
+        $this->assertSame(350,(int)$detail->m10);$this->assertSame(50,(int)$detail->mom_compare);$this->assertSame(60,(int)$detail->m11);$this->assertSame(10,(int)$detail->gap_m11);$this->assertEquals(20,$detail->mom_pct_m11);$this->assertEquals(-30,$detail->mom_pct_m2);
+        $this->assertSame(250,(int)$detail->gap_m10);$this->assertSame(-3,(int)$detail->gap_m2);$this->assertNull($detail->gap_m3);$this->assertNull($detail->mom_pct_m3);$this->assertNull($detail->gap_m12);
         $this->get(route('surya.ngrs'))->assertOk()->assertSee('Okt-MoM')->assertSee('GAP Nov');
         $options=['columns'=>['rs'=>['6281234567890'],'gap_m11'=>['10']],'sort'=>'gap_m2','direction'=>'asc'];
         $csv=$this->get(route('surya.ngrs.export',$options))->assertOk()->streamedContent();$h=fopen('php://temp','w+');fwrite($h,$csv);rewind($h);$header=fgetcsv($h,0,',','"','');$row=fgetcsv($h,0,',','"','');fclose($h);
-        $this->assertSame('350',$row[array_search('2026-10',$header)]);$this->assertSame('50',$row[array_search('2026-10 MoM 1-05',$header)]);$this->assertSame('10',$row[array_search('GAP MoM 2026-11',$header)]);$this->assertSame('-3',$row[array_search('GAP MoM 2026-02',$header)]);
+        $this->assertSame('350',$row[array_search('2026-10',$header)]);$this->assertSame('50',$row[array_search('2026-10 MoM 1-05',$header)]);$this->assertSame('10',$row[array_search('GAP MoM 2026-11',$header)]);$this->assertSame('-3',$row[array_search('GAP MoM 2026-02',$header)]);$this->assertSame('20',$row[array_search('MoM % 2026-11',$header)]);
         $this->getJson(route('surya.ngrs.filter-values',['column'=>'gap_m11','columns'=>['rs'=>['6281234567890']]]))->assertOk()->assertJsonPath('values',['10']);
         $this->travelTo(\Carbon\Carbon::parse('2026-12-08 12:00:00','Asia/Jakarta'));
         $closed=(new NgrsReport)->details($this->filters())->where('rs','6281234567890')->first();$this->assertSame(-290,(int)$closed->gap_m11);$this->assertNull($closed->mom_compare);
@@ -213,5 +213,39 @@ class NgrsTest extends TestCase
             $this->assertSame(2,DB::table('surya_ngrs_months')->count());
         }
         $this->travelBack();
+    }
+    public function test_summary_excel_matches_selected_modes_scope_cutoff_and_numeric_gaps():void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-08 12:00:00','Asia/Jakarta'));
+        $rows=[];foreach(['01/01/2026'=>[10,100000000],'01/02/2026'=>[7,50000000],'01/10/2026'=>[20,100000000],'05/10/2026'=>[30,200000000],'31/10/2026'=>[300,900000000],'01/11/2026'=>[25,150000000],'05/11/2026'=>[35,200000000]]as$date=>$v)$rows[]=array_replace($this->row($date,'6281234567890','A',$v[0],'DUMAI'),[4=>(string)$v[1]]);
+        $rows[]=$this->row('05/11/2026','6281234567892','A',999,'DURI');$this->import($rows);
+        $u=new User();$u->username='asmen_dumai';$this->actingAs($u);
+        foreach([['monthly','trx',60,50,10],['average','trx',12,10,2],['monthly','rech',0.350,0.300,0.050],['average','rech',0.070,0.060,0.010]]as[$period,$metric,$nov,$oct,$gap]){
+            $response=$this->get(route('surya.ngrs.summary-export',['year'=>2026,'summary_view'=>$period,'summary_metric'=>$metric]));$response->assertOk()->assertDownload('Rekap_TAP_NGRS_2026_'.strtoupper($metric).'_'.$period.'.xlsx');
+            $path=$response->baseResponse->getFile()->getPathname();$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+            try{
+                $sheet=$book->getActiveSheet();$header=$sheet->rangeToArray('A4:'.$sheet->getHighestColumn().'4',null,true,false)[0];
+                $cell=fn($label,$row=5)=>$sheet->getCell(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(array_search($label,$header)+1).$row);
+                $this->assertSame('DUMAI',$sheet->getCell('A5')->getValue());$this->assertSame('CLUSTER · Dumai Bengkalis',$sheet->getCell('A6')->getValue());$this->assertSame('GRAND TOTAL',$sheet->getCell('A7')->getValue());$this->assertSame(7,$sheet->getHighestRow());
+                $this->assertEquals($nov,$cell('Nov')->getValue());$this->assertEquals($oct,$cell('Okt-MoM (1-5)')->getValue());$this->assertEquals($gap,$cell('GAP Nov')->getValue());$this->assertEquals($gap,$cell('GAP Nov',7)->getValue());
+                $this->assertEquals($metric==='trx'?0.2:0.167,$cell('MoM % Nov')->getValue());$this->assertSame('n',$cell('MoM % Nov')->getDataType());$this->assertStringContainsString('%',$cell('MoM % Nov')->getStyle()->getNumberFormat()->getFormatCode());$this->assertSame('n',$cell('GAP Nov')->getDataType());$this->assertSame('12805C',$cell('GAP Nov')->getStyle()->getFont()->getColor()->getRGB());$this->assertStringContainsString('▲',$cell('GAP Nov')->getStyle()->getNumberFormat()->getFormatCode());
+                $this->assertSame('B5',$sheet->getFreezePane());$this->assertStringContainsString('05/11/2026',$sheet->getCell('A2')->getValue());
+                if($period==='monthly'&&$metric==='trx'){$this->assertSame(-3,$cell('GAP Feb')->getValue());$this->assertSame('n',$cell('GAP Feb')->getDataType());$this->assertSame('D92D20',$cell('GAP Feb')->getStyle()->getFont()->getColor()->getRGB());}
+                if($period==='average'&&$metric==='trx'){$this->assertSame(0,$cell('GAP Feb')->getValue());$this->assertSame('172033',$cell('GAP Feb')->getStyle()->getFont()->getColor()->getRGB());$this->assertSame('EEF2F6',$cell('GAP Feb')->getStyle()->getFill()->getStartColor()->getRGB());}
+            }finally{$book->disconnectWorksheets();unlink($path);}
+        }
+        $this->travelBack();
+    }
+    public function test_percent_handles_zero_base_loss_and_fair_average_values():void
+    {
+        $this->assertSame(20.0,\App\Support\NgrsFormat::percent(60,0,5,50,0,5,'monthly','trx')['value']);
+        $this->assertSame(20.0,\App\Support\NgrsFormat::percent(60,0,5,50,0,5,'average','trx')['value']);
+        $this->assertSame(16.7,\App\Support\NgrsFormat::percent(0,350000000,5,0,300000000,5,'average','rech')['value']);
+        $this->assertSame('▼ -100,0%',\App\Support\NgrsFormat::percent(0,0,5,50,0,5,'monthly','trx')['text']);
+        $this->assertNull(\App\Support\NgrsFormat::percent(50,0,5,0,0,5,'monthly','trx')['value']);
+        $this->import([$this->row('01/01/2026','6281234567890','A',10,'DUMAI'),$this->row('01/02/2026','6281234567890','A',7,'DUMAI'),$this->row('01/02/2026','6281234567891','A',5,'DUMAI')]);
+        $r=new NgrsReport;$row=$r->details($this->filters())->where('rs','6281234567891')->first();$this->assertNull($row->mom_pct_m2);
+        $this->getJson(route('surya.ngrs.filter-values',['column'=>'mom_pct_m2','columns'=>['rs'=>['6281234567890']]]))->assertOk()->assertJsonPath('values',['-30.0']);
+        $this->get(route('surya.ngrs',['columns'=>['mom_pct_m2'=>['-30.0']],'sort'=>'mom_pct_m2','direction'=>'asc']))->assertOk()->assertSee('MoM % Feb')->assertSee('▼ -30,0%');
     }
 }
