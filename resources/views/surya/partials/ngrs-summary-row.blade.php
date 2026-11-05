@@ -1,0 +1,3 @@
+<tr class="{{ $kind }}"><th>@if($kind==='ngrs-cluster')<small>CLUSTER</small>@endif{{ $kind==='ngrs-grand'?'GRAND TOTAL':$row['tap'] }}</th>
+@foreach(range(1,12) as $m)<td data-ngrs-qty="{{ $row['months'][$m]??0 }}" data-ngrs-recharge="{{ $row['recharge'][$m]??0 }}" data-ngrs-days="{{ $days[$m]??0 }}">{{ \App\Support\NgrsFormat::value($row['months'][$m]??0,$row['recharge'][$m]??0,$days[$m]??0,$summaryView,$summaryMetric) }}</td>@endforeach
+<td class="ngrs-total" data-ngrs-qty="{{ $row['total'] }}" data-ngrs-recharge="{{ $row['total_recharge']??0 }}" data-ngrs-days="{{ array_sum($days) }}">{{ \App\Support\NgrsFormat::value($row['total'],$row['total_recharge']??0,array_sum($days),$summaryView,$summaryMetric) }}</td></tr>

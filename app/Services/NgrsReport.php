@@ -15,15 +15,11 @@ class NgrsReport
         return $scopes;
     }
 
+    private bool $mapReady=false;
     public function master()
     {
-        $raw="REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(CAST(nomor_rs AS ".(DB::getDriverName()==='sqlite'?'TEXT':'CHAR').")),' ',''),'+',''),'-',''),'(',''),')','')";
-        $zero=DB::getDriverName()==='sqlite'?"('62' || SUBSTR($raw,2))":"CONCAT('62',SUBSTR($raw,2))";
-        $eight=DB::getDriverName()==='sqlite'?"('62' || $raw)":"CONCAT('62',$raw)";
-        $rs="CASE WHEN $raw LIKE '0%' THEN $zero WHEN $raw LIKE '8%' THEN $eight ELSE $raw END";
-        return DB::table('appsdumais')->whereNotNull('nomor_rs')->whereRaw("$rs LIKE '62%' AND LENGTH($rs)>=9")
-            ->selectRaw("$rs AS rs,COUNT(*) AS candidates,MIN(id_outlet) AS id_outlet,MIN(nama_outlet) AS nama_outlet,MIN(tap) AS master_tap")
-            ->groupByRaw($rs);
+        if(!$this->mapReady){app(NgrsOutletMap::class)->refresh();$this->mapReady=true;}
+        return DB::table('surya_ngrs_outlet_map')->select('rs','candidates','id_outlet','nama_outlet','master_tap');
     }
 
     public function active(int $year)
@@ -69,14 +65,14 @@ class NgrsReport
     {
         $data=$this->base($filters)->select('n.tap','n.cluster','n.month')->selectRaw('SUM(n.trx) AS trx,SUM(n.rech) AS rech')->groupBy('n.tap','n.cluster','n.month')->get();
         $rows=[];$clusters=[];$grand=['tap'=>'Grand Total','months'=>[],'total'=>0];$metric=$filters['metric'];$scopes=$this->scopes();
-        foreach($data as$r){$key=$r->tap.'|'.$r->cluster;$rows[$key]??=['tap'=>$r->tap,'cluster'=>$r->cluster,'months'=>[],'total'=>0];$month=(int)substr($r->month,5,2);$v=(int)$r->$metric;$rows[$key]['months'][$month]=$v;$rows[$key]['total']+=$v;}
+        foreach($data as$r){$key=$r->tap.'|'.$r->cluster;$rows[$key]??=['tap'=>$r->tap,'cluster'=>$r->cluster,'months'=>[],'total'=>0];$month=(int)substr($r->month,5,2);$v=(int)$r->$metric;$rows[$key]['months'][$month]=$v;$rows[$key]['total']+=$v;$rows[$key]['recharge'][$month]=(int)$r->rech;$rows[$key]['total_recharge']=($rows[$key]['total_recharge']??0)+(int)$r->rech;}
         foreach(array_merge(NgrsImport::TAPS,['INFILTRASI DUMAI','INFILTRASI ROHIL'])as$tap){
             if(($scopes!==null&&!in_array($tap,$scopes,true))||($filters['tap']!==''&&$filters['tap']!==$tap))continue;
             $cluster=$tap==='INFILTRASI DUMAI'?'INF DB':($tap==='INFILTRASI ROHIL'?'INF RH':(in_array($tap,['DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'])?'DUMAI BENGKALIS':'ROKAN HILIR'));
             $rows[$tap.'|'.$cluster]??=['tap'=>$tap,'cluster'=>$cluster,'months'=>[],'total'=>0];
         }
         uasort($rows,fn($a,$b)=>(str_starts_with($a['tap'],'INFILTRASI')<=>str_starts_with($b['tap'],'INFILTRASI'))?:strnatcasecmp($a['tap'],$b['tap']));
-        foreach($rows as$r){$cluster=in_array($r['cluster'],['INF DB','DUMAI BENGKALIS'])?'Dumai Bengkalis':'Rokan Hilir';$clusters[$cluster]??=['tap'=>$cluster,'months'=>[],'total'=>0];foreach($r['months']as$m=>$v){$clusters[$cluster]['months'][$m]=($clusters[$cluster]['months'][$m]??0)+$v;$grand['months'][$m]=($grand['months'][$m]??0)+$v;}$clusters[$cluster]['total']+=$r['total'];$grand['total']+=$r['total'];}
+        foreach($rows as$r){$cluster=in_array($r['cluster'],['INF DB','DUMAI BENGKALIS'])?'Dumai Bengkalis':'Rokan Hilir';$clusters[$cluster]??=['tap'=>$cluster,'months'=>[],'total'=>0];foreach($r['months']as$m=>$v){$clusters[$cluster]['months'][$m]=($clusters[$cluster]['months'][$m]??0)+$v;$grand['months'][$m]=($grand['months'][$m]??0)+$v;}$clusters[$cluster]['total']+=$r['total'];$grand['total']+=$r['total'];foreach($r['recharge']??[] as $m=>$value){$clusters[$cluster]['recharge'][$m]=($clusters[$cluster]['recharge'][$m]??0)+$value;$grand['recharge'][$m]=($grand['recharge'][$m]??0)+$value;}$clusters[$cluster]['total_recharge']=($clusters[$cluster]['total_recharge']??0)+($r['total_recharge']??0);$grand['total_recharge']=($grand['total_recharge']??0)+($r['total_recharge']??0);}
         uksort($clusters,fn($a,$b)=>array_search($a,['Dumai Bengkalis','Rokan Hilir'])<=>array_search($b,['Dumai Bengkalis','Rokan Hilir']));
         $stats=$this->base($filters)->selectRaw('COALESCE(SUM(n.trx),0) AS trx,COALESCE(SUM(n.rech),0) AS rech,COUNT(DISTINCT n.rs) AS rs,COUNT(DISTINCT CASE WHEN m.candidates IS NULL OR m.candidates<>1 THEN n.rs END) AS unmapped')->first();
         return compact('rows','clusters','grand','stats');

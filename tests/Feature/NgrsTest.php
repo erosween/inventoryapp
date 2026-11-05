@@ -23,7 +23,7 @@ class NgrsTest extends TestCase
             ['id_outlet'=>'1200000002','nama_outlet'=>'Outlet Tanpa Trx','nomor_rs'=>'6281234567891','tap'=>'DUMAI'],
             ['id_outlet'=>'1200000003','nama_outlet'=>'=FORMULA','nomor_rs'=>'6281234567892','tap'=>'DURI'],
         ]);
-        $m=require database_path('migrations/2026_11_05_000002_create_surya_ngrs.php');$m->up();
+        $m=require database_path('migrations/2026_11_05_000002_create_surya_ngrs.php');$m->up();$map=require database_path('migrations/2026_11_05_000003_create_surya_ngrs_outlet_map.php');$map->up();
         $u=new User();$u->username='admin_super';$this->actingAs($u);
     }
     private function file(array $rows): UploadedFile
@@ -114,13 +114,36 @@ class NgrsTest extends TestCase
         $this->assertSame(4,$r->dayDivisors(2026,[11])[11]);
         $html=$this->get(route('surya.ngrs',['summary_view'=>'average']))->assertOk()->assertSee('Average TRX')->getContent();
         $summary=substr($html,strpos($html,'id="ngrs-summary-panel"'));$summary=substr($summary,0,strpos($summary,'</section>'));
-        $this->assertStringContainsString('data-ngrs-days="4">3,00</td>',$summary);
-        $this->assertStringContainsString('data-ngrs-days="28">2,00</td>',$summary);
-        $this->assertStringContainsString('data-ngrs-days="32">2,13</td>',$summary);
+        $this->assertStringContainsString('data-ngrs-days="4">3</td>',$summary);
+        $this->assertStringContainsString('data-ngrs-days="28">2</td>',$summary);
+        $this->assertStringContainsString('data-ngrs-days="32">3</td>',$summary);
         $this->assertStringContainsString('Detail outlet · TRX',$html);
         // The active replacement, not a superseded batch, defines the current cutoff.
         $this->import([$this->row('02/11/2026','6281234567890','A',6,'DUMAI')]);
         $this->assertSame(2,$r->dayDivisors(2026,[11])[11]);
         $this->travelBack();
+    }
+    public function test_indexed_master_map_refreshes_when_source_changes_and_keeps_ambiguity(): void
+    {
+        app(\App\Services\NgrsOutletMap::class)->refresh();
+        $this->assertSame('Outlet A',DB::table('surya_ngrs_outlet_map')->where('rs','6281234567890')->value('nama_outlet'));
+        DB::table('appsdumais')->where('id_outlet','1200000001')->update(['nama_outlet'=>'Nama Terbaru','tap'=>'DURI']);
+        app(\App\Services\NgrsOutletMap::class)->refresh();
+        $this->assertSame('Nama Terbaru',DB::table('surya_ngrs_outlet_map')->where('rs','6281234567890')->value('nama_outlet'));
+        DB::table('appsdumais')->insert(['id_outlet'=>'1200000004','nama_outlet'=>'RS Ganda','nomor_rs'=>'6281234567890','tap'=>'DUMAI']);
+        app(\App\Services\NgrsOutletMap::class)->refresh();
+        $this->assertSame(2,DB::table('surya_ngrs_outlet_map')->where('rs','6281234567890')->value('candidates'));
+        $this->import([$this->row()]);$r=app(NgrsReport::class);$this->assertSame(2,$r->summary($this->filters())['grand']['total']);
+        $this->assertSame(1,(int)$r->summary($this->filters())['stats']->unmapped);
+    }
+    public function test_summary_recharge_mode_and_ceiling_average_do_not_change_outlet_trx(): void
+    {
+        $this->assertSame('5.143',\App\Support\NgrsFormat::value(154283,0,30,'average','trx'));
+        $this->assertSame('0.100 mio',\App\Support\NgrsFormat::value(0,100000000,30,'monthly','rech'));
+        $this->assertSame('0',\App\Support\NgrsFormat::value(0,0,30,'average','trx'));
+        $this->import([array_replace($this->row(),[4=>'100000000'])]);
+        $html=$this->get(route('surya.ngrs',['summary_metric'=>'rech']))->assertOk()->assertSee('0.100 mio')->assertSee('Detail outlet · TRX')->getContent();
+        $this->assertStringContainsString('data-ngrs-metric="rech"',$html);
+        $this->assertSame(100000000,app(NgrsReport::class)->summary($this->filters())['grand']['total_recharge']);
     }
 }
