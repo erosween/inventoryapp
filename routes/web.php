@@ -64,6 +64,8 @@ Route::get('/surya/dashboard', [HomeController::class, 'index'])->middleware(['a
 Route::post('/surya/outletlist/upload', [\App\Http\Controllers\OutletlistUploadController::class, 'store'])->name('surya.outletlist.upload');
 Route::get('/surya/outletlist/template', [\App\Http\Controllers\OutletlistUploadController::class, 'template'])->name('surya.outletlist.template');
 Route::post('/surya/outletlist/category', [\App\Http\Controllers\OutletlistUploadController::class, 'categoryStore'])->name('surya.outletlist.category');
+Route::post('/surya/outletlist/nota', [\App\Http\Controllers\OutletlistUploadController::class, 'notaStore'])->name('surya.outletlist.nota');
+Route::get('/surya/outletlist/nota/template', [\App\Http\Controllers\OutletlistUploadController::class, 'notaTemplate'])->name('surya.outletlist.nota-template');
 Route::get('/surya/outletlist/category/template', [\App\Http\Controllers\OutletlistUploadController::class, 'categoryTemplate'])->name('surya.outletlist.category-template');
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');

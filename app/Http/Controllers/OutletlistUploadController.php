@@ -7,6 +7,28 @@ use Illuminate\Validation\ValidationException;
 
 class OutletlistUploadController extends Controller
 {
+    public function notaStore(Request $request, \App\Services\OutletNotaImport $importer)
+    {
+        $this->authorizeUpload();
+        $request->validate(['nota_file'=>['required','file','mimes:csv,txt','extensions:csv','max:20480']]);
+        try { $count = $importer->import($request->file('nota_file')); }
+        catch (ValidationException $e) { throw $e; }
+        catch (\Throwable $e) {
+            report($e);
+            throw ValidationException::withMessages(['nota_file'=>'Upload gagal. Histori sebelumnya tetap tersimpan.']);
+        }
+        return redirect()->route('surya.transaction-upload')->with('success', "Histori ST Nota: $count baris menggantikan data 1–15 Oktober 2026 untuk Detail Outlet.");
+    }
+
+    public function notaTemplate()
+    {
+        $this->authorizeUpload();
+        return response()->streamDownload(function () {
+            $h=fopen('php://output','wb'); fwrite($h,"\xEF\xBB\xBF");
+            fputcsv($h, \App\Services\OutletNotaImport::HEADERS, ',', '"', ''); fclose($h);
+        }, 'template-st-nota-1-15-oktober-2026.csv', ['Content-Type'=>'text/csv; charset=UTF-8']);
+    }
+
     public function categoryStore(Request $request, \App\Services\OutletCategoryImport $importer)
     {
         $this->authorizeUpload();

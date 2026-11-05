@@ -23,21 +23,15 @@ class OutletColumnFilters {
    $start=$cutoff->copy()->startOfMonth();$prev=$start->copy()->subMonth();$end=$prev->copy()->endOfMonth();$compare=$prev->copy()->day(min($cutoff->day,$end->day));
    $salesNeeded = collect($needed)->contains(fn($key)=>str_starts_with($key,'st_'));
    if ($salesNeeded) {
-   foreach(['keluarsf'=>'k','mobile_penjualan'=>'m']as$table=>$alias){
-    $sum=DB::table($table.' as t')->leftJoin('denom as d','d.iddenom','=','t.iddenom')->whereBetween('t.tgl',[$start->toDateString(),$cutoff->copy()->endOfDay()->toDateTimeString()])->select('t.id_outlet')->groupBy('t.id_outlet');
-    if($table==='mobile_penjualan')\App\Support\SalesSource::excludePostedMobile($sum,'t');
-    if($alias==='m')$sum->where('t.status','approved');
-    $sum->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group,'PV')) IN ('SA','SP') THEN t.qty ELSE 0 END) AS sa, SUM(CASE WHEN UPPER(COALESCE(d.product_group,'PV'))='PV' THEN t.qty ELSE 0 END) AS pv");
-    $q->leftJoinSub($sum,$alias,fn($j)=>$j->on($alias.'.id_outlet','=',$outletId));
-   }
-   $history=DB::table('surya_outlet_sales_history')->whereBetween('transaction_date',[$prev->toDateString(),$end->toDateString()])->select('id_outlet')->groupBy('id_outlet');
-   foreach(['sa','pv']as$p)$history->selectRaw("SUM($p) AS {$p}_fm1, SUM(CASE WHEN transaction_date<=? THEN $p ELSE 0 END) AS {$p}_m1",[$compare->toDateString()]);
-   $q->leftJoinSub($history,'h',fn($j)=>$j->on('h.id_outlet','=',$outletId));
+   $nota=app(OutletNotaSales::class);
+   $q->leftJoinSub($nota->totals($start,$cutoff),'k',fn($j)=>$j->on('k.id_outlet','=',$outletId));
+   $q->leftJoinSub($nota->totals($prev,$end,null,true),'hf',fn($j)=>$j->on('hf.id_outlet','=',$outletId));
+   $q->leftJoinSub($nota->totals($prev,$compare,null,true),'hp',fn($j)=>$j->on('hp.id_outlet','=',$outletId));
    }
    $q->leftJoin('surya_trx_cvm as c','c.id_outlet','=',$outletId)->leftJoin('surya_biometrik as b','b.id_outlet','=',$outletId);
    foreach(self::GROUPS as$g){
     if (str_starts_with($g,'st_') && !$salesNeeded) continue;
-    if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(h.{$p}_fm1,0)";$m1="COALESCE(h.{$p}_m1,0)";$m="(COALESCE(k.$p,0)+COALESCE(m.$p,0))";}
+    if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(hf.{$p},0)";$m1="COALESCE(hp.{$p},0)";$m="COALESCE(k.$p,0)";}
     else{$column=['super_seru'=>'ss','biometrik'=>'bio'][$g]??$g;$alias=$g==='biometrik'?'b':'c';$marker = DB::getDriverName()==='sqlite' ? "(',' || COALESCE($alias.uploaded_metrics,'') || ',')" : "CONCAT(',',COALESCE($alias.uploaded_metrics,''),',')";
      $available="($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%')";
      $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE 0 END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE 0 END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE 0 END";}

@@ -4,6 +4,7 @@ use App\Support\DenomGrouping;
 use App\Support\SalesSource;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class OutletSalesInsight
 {
@@ -18,9 +19,16 @@ class OutletSalesInsight
   }
   if($master->isNotEmpty())foreach(['keluarsf','mobile_penjualan']as$table){
    $q=DB::table($table.' as t')->join('denom as d','d.iddenom','=','t.iddenom')->whereIn('t.id_outlet',$master->keys()->all())->whereBetween('t.tgl',[$prevStart,$end]);
+   OutletNotaSales::excludeSpecialPeriod($q,'t.tgl');
    if($table==='mobile_penjualan'){SalesSource::excludePostedMobile($q,'t');$q->where('t.status','approved');}
    DenomGrouping::filterDenoms($q,strtolower($family).'_all','d');
    $data=$q->select('t.id_outlet','d.group_name','d.product_variant')->selectRaw('SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS current_qty,SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS previous_qty',[$start,$end,$prevStart,$prevEnd])->groupBy('t.id_outlet','d.group_name','d.product_variant')->get();
+   if($table==='keluarsf' && Schema::hasTable('surya_outlet_nota_backfill')) {
+    $column=$family==='SA'?'sa':'pv';
+    $historical=DB::table('surya_outlet_nota_backfill')->whereIn('id_outlet',$master->keys()->all())->whereBetween('transaction_date',[OutletNotaSales::FROM,OutletNotaSales::TO])
+     ->select('id_outlet')->selectRaw("SUM(CASE WHEN transaction_date BETWEEN ? AND ? THEN $column ELSE 0 END) AS current_qty, SUM(CASE WHEN transaction_date BETWEEN ? AND ? THEN $column ELSE 0 END) AS previous_qty",[$start->toDateString(),$end->toDateString(),$prevStart->toDateString(),$prevEnd->toDateString()])->groupBy('id_outlet')->get();
+    foreach($historical as$r){if(!(int)$r->current_qty&&!(int)$r->previous_qty)continue;$r->group_name='HISTORI TANPA RINCIAN';$r->product_variant=null;$data->push($r);}
+   }
    foreach($data as$r){$o=$master->get((string)$r->id_outlet);$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=mb_strtoupper(preg_replace('/\s+/u',' ',$district));$g=$this->validity($r->group_name);
     foreach(['current'=>(int)$r->current_qty,'previous'=>(int)$r->previous_qty]as$p=>$value){$taps[$tap]['denominator'][$p]+=$value;$districts[$key]['denominator'][$p]+=$value;
      if($variant===null||$variant===$r->product_variant){$columns[$g]=true;$taps[$tap]['values'][$g][$p]=($taps[$tap]['values'][$g][$p]??0)+$value;$districts[$key]['values'][$g][$p]=($districts[$key]['values'][$g][$p]??0)+$value;}

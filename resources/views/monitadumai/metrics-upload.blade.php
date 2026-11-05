@@ -67,6 +67,17 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Kategori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.category-template') }}">Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
+<section class="upload-card upload-card-wide" aria-labelledby="nota-title">
+<header class="upload-card-header"><span class="upload-icon"><i class="fa fa-receipt" aria-hidden="true"></i></span><h2 id="nota-title">Histori ST Nota · 1–15 Oktober 2026</h2><span class="upload-format">CSV</span></header>
+<form class="drop" data-simple-upload method="POST" action="{{ route('surya.outletlist.nota') }}" enctype="multipart/form-data">
+@csrf
+<label class="file-label" for="nota-file">File histori harian per outlet</label>
+<input class="file-input" id="nota-file" type="file" name="nota_file" accept=".csv,text/csv" required>
+<p class="upload-hint">Tanggal YYYY-MM-DD · Qty SA/PV tanpa pemisah ribuan · Upload menggantikan seluruh histori 1–15 Oktober, bukan menambah. Hanya untuk laporan Detail Outlet; tidak mengubah stok.</p>
+@error('nota_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
+<div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Histori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.nota-template') }}">Template</a></div>
+<p class="upload-hint" role="status" data-simple-status hidden></p>
+</form></section>
 </div></main></div></div>
 <script src="{{ asset('js/surya-metrics-upload.js') }}?v={{ filemtime(public_path('js/surya-metrics-upload.js')) }}" defer></script>
 <script src="{{ asset('js/surya-simple-upload.js') }}?v={{ filemtime(public_path('js/surya-simple-upload.js')) }}" defer></script>

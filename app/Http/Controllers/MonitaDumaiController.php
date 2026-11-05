@@ -330,53 +330,26 @@ class MonitaDumaiController extends Controller
         $previousMonthEnd = $previousMonthStart->copy()->endOfMonth();
         $previousComparableEnd = $previousMonthStart->copy()
             ->day(min($cutoff->day, $previousMonthEnd->day));
-        $keluar = $this->safeOutletDetailSource('keluarsf', function () use ($monthStart, $cutoff, $pageIds) {
-            return \App\Support\SalesSource::legacy('k')->leftJoin('denom as d', 'd.iddenom', '=', 'k.iddenom')
-                ->whereBetween('k.tgl', [$monthStart->toDateString(), $cutoff->copy()->endOfDay()->toDateTimeString()])
-                ->whereIn('k.id_outlet', $pageIds)->select('k.id_outlet')
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN k.qty ELSE 0 END) as st_sa")
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN k.qty ELSE 0 END) as st_pv")
-                ->groupBy('k.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-        });
-        $mobile = $this->safeOutletDetailSource('mobile_penjualan', function () use ($monthStart, $cutoff, $pageIds) {
-            return \App\Support\SalesSource::mobile('m')->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-                ->whereBetween('m.tgl', [$monthStart->toDateString(), $cutoff->copy()->endOfDay()->toDateTimeString()])
-                ->where('m.status', 'approved')->whereIn('m.id_outlet', $pageIds)->select('m.id_outlet')
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) IN ('SA', 'SP') THEN m.qty ELSE 0 END) as st_sa")
-                ->selectRaw("SUM(CASE WHEN UPPER(COALESCE(d.product_group, 'PV')) = 'PV' THEN m.qty ELSE 0 END) as st_pv")
-                ->groupBy('m.id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-        });
-        // Tetap layani Detail Outlet saat deployment aplikasi selesai lebih dulu
-        // daripada migrasi tabel histori. Setelah migrasi tersedia, FM1/M1 langsung
-        // dibaca tanpa perlu cache atau restart tambahan.
-        $history = collect();
-        if (Schema::hasTable('surya_outlet_sales_history')) {
-            $history = $this->safeOutletDetailSource('surya_outlet_sales_history', function () use ($pageIds, $previousMonthStart, $previousMonthEnd, $previousComparableEnd) {
-                return DB::table('surya_outlet_sales_history')
-                    ->whereIn('id_outlet', $pageIds)
-                    ->whereBetween('transaction_date', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
-                    ->select('id_outlet')
-                    ->selectRaw('SUM(sa) as sa_fm1, SUM(pv) as pv_fm1')
-                    ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN sa ELSE 0 END) as sa_m1', [$previousComparableEnd->toDateString()])
-                    ->selectRaw('SUM(CASE WHEN transaction_date <= ? THEN pv ELSE 0 END) as pv_m1', [$previousComparableEnd->toDateString()])
-                    ->groupBy('id_outlet')->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-            });
-        }
+        $nota = app(\App\Services\OutletNotaSales::class);
+        $ids = $pageIds->all();
+        $current = $nota->totals($monthStart, $cutoff, $ids)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
+        $fullPrevious = $nota->totals($previousMonthStart, $previousMonthEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
+        $partialPrevious = $nota->totals($previousMonthStart, $previousComparableEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
         $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds) {
             return \App\Support\SuryaTransactions::query()->whereIn('id_outlet', $pageIds)->orderByDesc('metric_date')->orderByDesc('id')->get()
                 ->groupBy(fn ($row) => (string) $row->id_outlet);
         });
 
-        return $rows->transform(function ($row) use ($keluar, $mobile, $history, $metrics) {
+        return $rows->transform(function ($row) use ($current, $fullPrevious, $partialPrevious, $metrics) {
             $id = (string) $row->id_outlet;
-            $legacy = $keluar->get($id);
-            $approved = $mobile->get($id);
-            $historical = $history->get($id);
+            $sale = $current->get($id);
+            $full = $fullPrevious->get($id);
+            $partial = $partialPrevious->get($id);
             $outletMetrics = $metrics->get($id, collect());
             foreach (['st_sa' => 'sa', 'st_pv' => 'pv'] as $stock => $historyColumn) {
-                $fm1 = (int) ($historical->{$historyColumn . '_fm1'} ?? 0);
-                $m1 = (int) ($historical->{$historyColumn . '_m1'} ?? 0);
-                $mtd = (int) ($legacy->{$stock} ?? 0) + (int) ($approved->{$stock} ?? 0);
+                $fm1 = (int) ($full->{$historyColumn} ?? 0);
+                $m1 = (int) ($partial->{$historyColumn} ?? 0);
+                $mtd = (int) ($sale->{$historyColumn} ?? 0);
                 $row->{$stock . '_fm1'} = $fm1;
                 $row->{$stock . '_m1'} = $m1;
                 $row->{$stock . '_mtd'} = $mtd;
