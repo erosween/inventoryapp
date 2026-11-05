@@ -1,6 +1,18 @@
 (() => {
  'use strict';
  let pending;
+ const table=document.querySelector('.ngrs-detail');
+ function freezeOffsets(){
+  if(!table)return;
+  const name=table.querySelector('thead .ngrs-frozen-name'),tap=table.querySelector('thead .ngrs-frozen-tap');
+  if(!name||!tap)return;
+  table.style.setProperty('--ngrs-name-width',name.getBoundingClientRect().width+'px');
+  table.style.setProperty('--ngrs-tap-width',tap.getBoundingClientRect().width+'px');
+ }
+ freezeOffsets();
+ if(table&&typeof ResizeObserver!=='undefined')new ResizeObserver(freezeOffsets).observe(table);
+ window.addEventListener('resize',freezeOffsets,{passive:true});
+ document.addEventListener('taskforce:updated',freezeOffsets);
  window.SuryaTaskforceNavigate=async(target,push=true)=>{
   pending?.abort();const ctrl=new AbortController();pending=ctrl;
   const table=document.querySelector('.ngrs-detail'),wrap=table.closest('.ngrs-scroll'),footer=document.querySelector('.ngrs-footer');

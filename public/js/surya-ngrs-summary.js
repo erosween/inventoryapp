@@ -10,12 +10,11 @@
   panel.setAttribute('aria-labelledby',`ngrs-${mode}-tab`);
   panel.querySelectorAll('[data-ngrs-qty]').forEach(cell=>{
    const days=Number(cell.dataset.ngrsDays),raw=Number(recharge?cell.dataset.ngrsRecharge:cell.dataset.ngrsQty),value=raw/(average?days:1);
-   cell.textContent=days?format.format(recharge?value/1e9:average?Math.ceil(value):value)+(recharge?' mio':''):'—';
+   cell.textContent=days?format.format(recharge?value/1e9:average?Math.ceil(value):value):'—';
   });
   panel.querySelector('[data-ngrs-summary-unit]').textContent=recharge?(average?'RECH mio / HARI':'RECH (mio)'):(average?'TRX / HARI':'TRX');
   panel.querySelector('[data-ngrs-summary-total]').textContent=average?'Rata-rata / hari':'Total';
   document.querySelector('[data-ngrs-average-note]').hidden=!average;
-  document.querySelector('[data-ngrs-recharge-note]').hidden=!recharge;
   document.getElementById('ngrs-average-tab').textContent=recharge?'Average Recharge':'Average TRX';
   document.querySelector('[data-ngrs-summary-input]').value=mode;document.querySelector('[data-ngrs-metric-input]').value=metric;
   const url=new URL(location.href);url.searchParams.set('summary_view',mode);url.searchParams.set('summary_metric',metric);history.replaceState({},'',url);

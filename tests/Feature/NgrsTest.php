@@ -139,10 +139,10 @@ class NgrsTest extends TestCase
     public function test_summary_recharge_mode_and_ceiling_average_do_not_change_outlet_trx(): void
     {
         $this->assertSame('5.143',\App\Support\NgrsFormat::value(154283,0,30,'average','trx'));
-        $this->assertSame('0.100 mio',\App\Support\NgrsFormat::value(0,100000000,30,'monthly','rech'));
+        $this->assertSame('0.100',\App\Support\NgrsFormat::value(0,100000000,30,'monthly','rech'));
         $this->assertSame('0',\App\Support\NgrsFormat::value(0,0,30,'average','trx'));
         $this->import([array_replace($this->row(),[4=>'100000000'])]);
-        $html=$this->get(route('surya.ngrs',['summary_metric'=>'rech']))->assertOk()->assertSee('0.100 mio')->assertSee('Detail outlet · TRX')->getContent();
+        $html=$this->get(route('surya.ngrs',['summary_metric'=>'rech']))->assertOk()->assertSee('0.100')->assertSee('Detail outlet · TRX')->assertDontSee('Skala sesuai permintaan')->assertDontSee('0.100 mio')->getContent();
         $this->assertStringContainsString('data-ngrs-metric="rech"',$html);
         $this->assertSame(100000000,app(NgrsReport::class)->summary($this->filters())['grand']['total_recharge']);
     }

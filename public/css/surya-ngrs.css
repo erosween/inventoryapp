@@ -7,5 +7,10 @@
 .ngrs-toolbar [data-column-options]{display:none}.ngrs-detail thead th{min-width:110px}.ngrs-detail th:first-child,.ngrs-detail td:first-child{min-width:34px;width:34px;padding-left:9px;padding-right:9px}.ngrs-detail[aria-busy="true"] tbody{opacity:.45}.ngrs-detail .tf-column-heading{text-align:left}
 .ngrs-metrics button{padding:9px 17px;border-radius:7px;border:0;background:transparent;color:#667085;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}.ngrs-metrics button[aria-selected="true"]{color:#c8102e;background:#fff;box-shadow:0 2px 6px #1720330a}.ngrs-metrics button:focus-visible{outline:3px solid #f5b5c2;outline-offset:2px}.ngrs-average-note{font-size:11px;line-height:1.6;color:#667085;margin:0 0 12px}.ngrs-average-note[hidden]{display:none}
 
-.ngrs-detail .ngrs-frozen-name{position:sticky;left:0;z-index:2;background:#fff;min-width:220px;text-align:left;box-shadow:5px 0 7px -6px #17203355}.ngrs-detail thead th.ngrs-frozen-name{top:0;z-index:4;background:#f7f9fc}
+.ngrs-detail .ngrs-frozen-name{position:sticky;left:0;z-index:2;background:#fff;min-width:220px;text-align:left}.ngrs-detail thead th.ngrs-frozen-name{top:0;z-index:4;background:#f7f9fc}
 .ngrs-summary-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}.ngrs-metrics button[aria-pressed="true"]{color:#c8102e;background:#fff;box-shadow:0 2px 6px #1720330a}.ngrs-note[hidden]{display:none}
+
+.ngrs-detail .ngrs-frozen-tap,.ngrs-detail .ngrs-frozen-cluster{position:sticky;z-index:2;background:#fff;text-align:left;white-space:normal;min-width:150px;max-width:190px;overflow-wrap:anywhere}
+.ngrs-detail .ngrs-frozen-tap{left:var(--ngrs-name-width,220px)}.ngrs-detail .ngrs-frozen-cluster{left:calc(var(--ngrs-name-width,220px) + var(--ngrs-tap-width,150px));box-shadow:5px 0 7px -6px #17203355}
+.ngrs-detail thead th.ngrs-frozen-tap,.ngrs-detail thead th.ngrs-frozen-cluster{top:0;z-index:4;background:#f7f9fc}
+@media(max-width:620px){.ngrs-detail .ngrs-frozen-name{min-width:125px!important;max-width:145px}.ngrs-detail .ngrs-frozen-tap,.ngrs-detail .ngrs-frozen-cluster{min-width:95px;max-width:105px}.ngrs-detail .ngrs-frozen-name,.ngrs-detail .ngrs-frozen-tap,.ngrs-detail .ngrs-frozen-cluster{padding:10px 7px;font-size:10px}}
