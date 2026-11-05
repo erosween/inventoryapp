@@ -20,7 +20,7 @@ class OutletColumnFilters {
   $q=$base->select(array_map(fn($c)=>'outlet.'.$c,self::TEXT));
   if($numeric){
    $outletId = DB::raw('CAST(outlet.id_outlet AS '.(DB::getDriverName()==='sqlite'?'TEXT':'CHAR').')');
-   $start=$cutoff->copy()->startOfMonth();$prev=$start->copy()->subMonth();$end=$prev->copy()->endOfMonth();$compare=$prev->copy()->day(min($cutoff->day,$end->day));
+   $start=$cutoff->copy()->startOfMonth();$prev=$start->copy()->subMonth();$end=$prev->copy()->endOfMonth();$compare=\App\Support\OutletReportPeriod::previousEnd($cutoff);
    $salesNeeded = collect($needed)->contains(fn($key)=>str_starts_with($key,'st_'));
    if ($salesNeeded) {
    $nota=app(OutletNotaSales::class);

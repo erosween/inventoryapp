@@ -6,7 +6,13 @@
     const iso = date => [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
     const caption = document.querySelector('[data-period-caption]');
     const updateCaption = date => {
-        if (date && caption) caption.textContent = 'MTD 1–' + new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'long',year:'numeric'}).format(date);
+        if (!date || !caption) return;
+        const today = parse(input.max);
+        const lastDay = new Date(date.getFullYear(),date.getMonth()+1,0).getDate();
+        const closed = date.getDate() === lastDay && date < new Date(today.getFullYear(),today.getMonth(),1);
+        caption.textContent = closed
+            ? 'Bulan penuh · ' + new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric'}).format(date)
+            : 'MTD 1–' + new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'long',year:'numeric'}).format(date);
     };
     let picker;
     if (typeof window.flatpickr === 'function') {

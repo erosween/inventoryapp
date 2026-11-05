@@ -153,4 +153,23 @@ class OutletNotaBackfillTest extends TestCase
         $this->assertSame(1,$s->query($base(),Carbon::parse('2026-11-10'),['columns'=>['cvm_mtd'=>['0']]])->count());
         $this->assertSame(1,$s->query($base(),Carbon::parse('2026-10-31'),['columns'=>['biometrik_mtd'=>['50']]])->count());
     }
+
+    public function test_closed_month_end_compares_entire_previous_month_in_all_reports(): void
+    {
+        $this->upload("2026-08-01,1201034972,800,100\n2026-08-31,1201034972,1300,200\n2026-09-30,1201034972,700,60\n");
+        $closing=$this->hydrate('2026-09-30');
+        $this->assertSame(2100,$closing->st_sa_fm1);$this->assertSame(2100,$closing->st_sa_m1);
+        $this->assertSame(700,$closing->st_sa_mtd);$this->assertSame(-1400,$closing->st_sa_gap);
+        $this->assertEqualsWithDelta(-66.6667,$closing->st_sa_mom_pct,0.001);
+        $this->assertSame(300,$closing->st_pv_fm1);$this->assertSame(300,$closing->st_pv_m1);
+        $mid=$this->hydrate('2026-09-29');$this->assertSame(2100,$mid->st_sa_fm1);$this->assertSame(800,$mid->st_sa_m1);
+        $s=app(OutletColumnFilters::class);
+        $q=$s->query(DB::table('appsdumais as outlet'),Carbon::parse('2026-09-30'),['columns'=>['st_sa_m1'=>['2100']],'sort'=>'st_sa_m1']);
+        $filtered=$s->order($q,['sort'=>'st_sa_m1'])->first();$this->assertSame(2100,(int)$filtered->st_sa_m1);$this->assertSame(-1400,(int)$filtered->st_sa_gap);
+        $export=new \App\Exports\SuryaOutletDetailExport(collect([$closing]));$cells=array_combine($export->headings(),$export->map($closing));$this->assertSame($cells['ST SA FM1'],$cells['ST SA M1']);
+        $d=app(OutletSalesInsight::class)->data(DB::table('appsdumais')->get(),Carbon::parse('2026-09-30'),'sa_all');
+        $this->assertSame('2026-08-31',$d['prevEnd']->toDateString());$this->assertSame(2100,$d['grand']['denominator']['previous']);$this->assertSame(700,$d['grand']['denominator']['current']);
+        $this->upload("2026-01-31,1201034972,25,40\n2026-02-28,1201034972,30,50\n");
+        $feb=$this->hydrate('2026-02-28');$this->assertSame(25,$feb->st_sa_fm1);$this->assertSame(25,$feb->st_sa_m1);
+    }
 }

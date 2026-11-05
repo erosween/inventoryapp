@@ -12,7 +12,7 @@ class OutletSalesInsight
   $nota=app(OutletNotaSales::class);
   $family=str_starts_with($product,'sa_')?'SA':'PV';
   $variant=match($product){'pv_reg'=>'REGULER','pv_byu','sa_byu'=>'BYU','sa_simpati'=>'SIMPATI',default=>null};
-  $end=$cutoff->copy()->endOfDay();$start=$end->copy()->startOfMonth();$prevStart=$start->copy()->subMonth();$prevEnd=$prevStart->copy()->day(min($end->day,$prevStart->daysInMonth))->endOfDay();
+  $end=$cutoff->copy()->endOfDay();$start=$end->copy()->startOfMonth();$prevStart=$start->copy()->subMonth();$prevEnd=\App\Support\OutletReportPeriod::previousEnd($cutoff);
   $master=$outlets->keyBy(fn($o)=>(string)$o->id_outlet);$taps=[];$districts=[];$columns=[];
   foreach($master as$o){$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=mb_strtoupper(preg_replace('/\s+/u',' ',$district));
    $taps[$tap]??=$this->area($tap,$tap);$districts[$key]??=$this->area($district,'');

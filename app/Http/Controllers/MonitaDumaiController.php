@@ -328,8 +328,7 @@ class MonitaDumaiController extends Controller
         $monthStart = $cutoff->copy()->startOfMonth();
         $previousMonthStart = $monthStart->copy()->subMonth();
         $previousMonthEnd = $previousMonthStart->copy()->endOfMonth();
-        $previousComparableEnd = $previousMonthStart->copy()
-            ->day(min($cutoff->day, $previousMonthEnd->day));
+        $previousComparableEnd = \App\Support\OutletReportPeriod::previousEnd($cutoff);
         $nota = app(\App\Services\OutletNotaSales::class);
         $ids = $pageIds->all();
         $current = $nota->totals($monthStart, $cutoff, $ids)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
