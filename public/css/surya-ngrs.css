@@ -14,3 +14,4 @@
 .ngrs-detail .ngrs-frozen-tap{left:var(--ngrs-name-width,220px)}.ngrs-detail .ngrs-frozen-cluster{left:calc(var(--ngrs-name-width,220px) + var(--ngrs-tap-width,150px));box-shadow:5px 0 7px -6px #17203355}
 .ngrs-detail thead th.ngrs-frozen-tap,.ngrs-detail thead th.ngrs-frozen-cluster{top:0;z-index:4;background:#f7f9fc}
 @media(max-width:620px){.ngrs-detail .ngrs-frozen-name{min-width:125px!important;max-width:145px}.ngrs-detail .ngrs-frozen-tap,.ngrs-detail .ngrs-frozen-cluster{min-width:95px;max-width:105px}.ngrs-detail .ngrs-frozen-name,.ngrs-detail .ngrs-frozen-tap,.ngrs-detail .ngrs-frozen-cluster{padding:10px 7px;font-size:10px}}
+.ngrs-mom-helper{background:#eff8ff!important;color:#175cd3;font-weight:650}.ngrs-detail .ngrs-gap-heading{background:#f0f7f4;color:#166a42;min-width:120px}.ngrs-gap.is-positive{color:#12805c}.ngrs-gap.is-negative{color:#d92d20}.ngrs-comparison-note{margin:0 0 12px}

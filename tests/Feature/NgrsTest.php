@@ -23,7 +23,7 @@ class NgrsTest extends TestCase
             ['id_outlet'=>'1200000002','nama_outlet'=>'Outlet Tanpa Trx','nomor_rs'=>'6281234567891','tap'=>'DUMAI'],
             ['id_outlet'=>'1200000003','nama_outlet'=>'=FORMULA','nomor_rs'=>'6281234567892','tap'=>'DURI'],
         ]);
-        $m=require database_path('migrations/2026_11_05_000002_create_surya_ngrs.php');$m->up();$map=require database_path('migrations/2026_11_05_000003_create_surya_ngrs_outlet_map.php');$map->up();$annual=require database_path('migrations/2026_11_05_000004_create_surya_ngrs_annual.php');$annual->up();
+        $m=require database_path('migrations/2026_11_05_000002_create_surya_ngrs.php');$m->up();$map=require database_path('migrations/2026_11_05_000003_create_surya_ngrs_outlet_map.php');$map->up();$annual=require database_path('migrations/2026_11_05_000004_create_surya_ngrs_annual.php');$annual->up();$comparison=require database_path('migrations/2026_11_05_000005_add_ngrs_comparison_totals.php');$comparison->up();
         $u=new User();$u->username='admin_super';$this->actingAs($u);
     }
     private function file(array $rows): UploadedFile
@@ -84,8 +84,8 @@ class NgrsTest extends TestCase
         $this->get(route('surya.ngrs',['metric'=>'rech']))->assertOk()->assertDontSee('Total RECH')->assertDontSee('20.450')->assertSee('Detail outlet · TRX');
         $csv=$this->get(route('surya.ngrs.export',['metric'=>'rech','q'=>'6281234567890']))->assertOk()->streamedContent();
         $h=fopen('php://temp','w+');fwrite($h,$csv);rewind($h);$head=fgetcsv($h,0,',','"','');$row=fgetcsv($h,0,',','"','');fclose($h);
-        $this->assertSame('20450',$row[6]);$this->assertSame('',$row[7]);$this->assertSame('20450',end($row));
-        $this->assertSame('Total RECH',end($head));
+        $this->assertSame('20450',$row[6]);$this->assertSame('',$row[7]);$this->assertSame('20450',$row[array_search('Total RECH',$head)]);
+        $this->assertContains('Total RECH',$head);
     }
     public function test_header_filters_numeric_sort_facets_and_export_share_scoped_results(): void
     {
@@ -156,5 +156,29 @@ class NgrsTest extends TestCase
         $next=$r->details($this->filters())->where('rs','6281234567890')->first();
         $this->assertSame(15,(int)$next->total);$this->assertSame(9,(int)$next->m1);$this->assertSame(6,(int)$next->m2);
         $this->assertSame(1,DB::table('surya_ngrs_annual')->count());
+    }
+    public function test_detail_mom_uses_matching_file_cutoff_and_export_filter_sort_match(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-08 12:00:00','Asia/Jakarta'));
+        $rows=[];foreach(['01/01/2026'=>10,'01/02/2026'=>7,'30/09/2026'=>100,'01/10/2026'=>20,'05/10/2026'=>30,'06/10/2026'=>100,'31/10/2026'=>200,'01/11/2026'=>25,'05/11/2026'=>35]as$date=>$qty)$rows[]=$this->row($date,'6281234567890','A',$qty,'DUMAI');
+        $this->import($rows);$r=new NgrsReport;$detail=$r->details($this->filters())->where('rs','6281234567890')->first();
+        $this->assertSame(350,(int)$detail->m10);$this->assertSame(50,(int)$detail->mom_compare);$this->assertSame(60,(int)$detail->m11);$this->assertSame(10,(int)$detail->gap_m11);
+        $this->assertSame(250,(int)$detail->gap_m10);$this->assertSame(-3,(int)$detail->gap_m2);$this->assertNull($detail->gap_m3);$this->assertNull($detail->gap_m12);
+        $this->get(route('surya.ngrs'))->assertOk()->assertSee('Okt-MoM')->assertSee('GAP Nov');
+        $options=['columns'=>['rs'=>['6281234567890'],'gap_m11'=>['10']],'sort'=>'gap_m2','direction'=>'asc'];
+        $csv=$this->get(route('surya.ngrs.export',$options))->assertOk()->streamedContent();$h=fopen('php://temp','w+');fwrite($h,$csv);rewind($h);$header=fgetcsv($h,0,',','"','');$row=fgetcsv($h,0,',','"','');fclose($h);
+        $this->assertSame('350',$row[array_search('2026-10',$header)]);$this->assertSame('50',$row[array_search('2026-10 MoM 1-05',$header)]);$this->assertSame('10',$row[array_search('GAP MoM 2026-11',$header)]);$this->assertSame('-3',$row[array_search('GAP MoM 2026-02',$header)]);
+        $this->getJson(route('surya.ngrs.filter-values',['column'=>'gap_m11','columns'=>['rs'=>['6281234567890']]]))->assertOk()->assertJsonPath('values',['10']);
+        $this->travelTo(\Carbon\Carbon::parse('2026-12-08 12:00:00','Asia/Jakarta'));
+        $closed=(new NgrsReport)->details($this->filters())->where('rs','6281234567890')->first();$this->assertSame(-290,(int)$closed->gap_m11);$this->assertNull($closed->mom_compare);
+        $this->travelBack();
+    }
+    public function test_mom_clamps_short_previous_month_and_missing_previous_month_is_blank():void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-03-31 12:00:00','Asia/Jakarta'));
+        $this->import([$this->row('28/02/2026','6281234567890','A',15),$this->row('31/03/2026','6281234567890','A',20)]);
+        $plan=app(\App\Services\NgrsComparison::class)->plan(2026);$this->assertSame('2026-02-28',$plan['previous_end']);
+        $detail=(new NgrsReport)->details($this->filters())->where('rs','6281234567890')->first();$this->assertSame(5,(int)$detail->gap_m3);$this->assertNull($detail->gap_m2);
+        $this->travelBack();
     }
 }

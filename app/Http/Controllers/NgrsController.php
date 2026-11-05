@@ -24,7 +24,8 @@ class NgrsController extends Controller
         $columns=app(NgrsColumnFilters::class);$options=$columns->options($request);
         $summary=$report->summary($filters);$outlets=$columns->apply($report->details($filters),$options)->paginate($filters['per_page'])->withQueryString();
         $days=$report->dayDivisors($filters['year'],$months);$summaryView=$request->input('summary_view','monthly');$summaryMetric=$request->input('summary_metric','trx');
-        return view('surya.ngrs',compact('filters','taps','months','years','summary','outlets','days','summaryView','summaryMetric'));
+        $comparison=app(\App\Services\NgrsComparison::class)->plan($filters['year']);
+        return view('surya.ngrs',compact('filters','taps','months','years','summary','outlets','days','summaryView','summaryMetric','comparison'));
     }
     public function values(Request $request,NgrsReport $report)
     {
@@ -50,8 +51,9 @@ class NgrsController extends Controller
     {
         $filters=$this->filters($request);$columns=app(NgrsColumnFilters::class);$options=$columns->options($request);
         $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->pluck('month')->map(fn($m)=>(int)substr($m,5,2))->all();
-        return response()->streamDownload(function()use($report,$filters,$months,$columns,$options){$h=fopen('php://output','wb');fwrite($h,"\xEF\xBB\xBF");fputcsv($h,['RS','ID Outlet','Nama Outlet','Status Mapping','TAP','Cluster',...array_map(fn($m)=>sprintf('%04d-%02d',$filters['year'],$m),range(1,12)),'Total '.strtoupper($filters['metric'])],',','"','');
-            foreach($columns->apply($report->details($filters),$options)->cursor()as$r){$matched=(int)$r->candidates===1;$values=[$r->rs,$matched?$r->id_outlet:'',$matched?$r->nama_outlet:'Belum terpetakan',$matched?'Terpetakan':((int)$r->candidates>1?'RS ganda di master':'Belum terpetakan'),$r->tap,$r->cluster];foreach(range(1,12)as$m)$values[]=in_array($m,$months,true)?(int)$r->{'m'.$m}:'';$values[]=(int)$r->total;$values=array_map(fn($v)=>is_string($v)&&preg_match('/^[=+@\t\r\n-]/',$v)?"'".$v:$v,$values);fputcsv($h,$values,',','"','');}fclose($h);
+        $comparison=app(\App\Services\NgrsComparison::class)->plan($filters['year']);
+        return response()->streamDownload(function()use($report,$filters,$months,$columns,$options,$comparison){$h=fopen('php://output','wb');fwrite($h,"\xEF\xBB\xBF");$headers=['RS','ID Outlet','Nama Outlet','Status Mapping','TAP','Cluster'];foreach(range(1,12)as$m){$headers[]=sprintf('%04d-%02d',$filters['year'],$m);if($comparison&&$m===$comparison['previous'])$headers[]=sprintf('%04d-%02d MoM 1-%02d',$filters['year'],$m,(int)substr($comparison['previous_end'],8,2));}$headers[]='Total '.strtoupper($filters['metric']);foreach(range(2,12)as$m)$headers[]=sprintf('GAP MoM %04d-%02d',$filters['year'],$m);fputcsv($h,$headers,',','"','');
+            foreach($columns->apply($report->details($filters),$options)->cursor()as$r){$matched=(int)$r->candidates===1;$values=[$r->rs,$matched?$r->id_outlet:'',$matched?$r->nama_outlet:'Belum terpetakan',$matched?'Terpetakan':((int)$r->candidates>1?'RS ganda di master':'Belum terpetakan'),$r->tap,$r->cluster];foreach(range(1,12)as$m){$values[]=in_array($m,$months,true)?(int)$r->{'m'.$m}:'';if($comparison&&$m===$comparison['previous'])$values[]=$r->mom_compare===null?'':(int)$r->mom_compare;}$values[]=(int)$r->total;foreach(range(2,12)as$m)$values[]=$r->{'gap_m'.$m}===null?'':(int)$r->{'gap_m'.$m};$values=array_map(fn($v)=>is_string($v)&&preg_match('/^[=+@\t\r\n-]/',$v)?"'".$v:$v,$values);fputcsv($h,$values,',','"','');}fclose($h);
         },'NGRS_'.$filters['year'].'_'.strtoupper($filters['metric']).'.csv',['Content-Type'=>'text/csv; charset=UTF-8']);
     }
 }

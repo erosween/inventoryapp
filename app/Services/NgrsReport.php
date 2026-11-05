@@ -104,13 +104,22 @@ class NgrsReport
         if($filters['tap']!=='')$q->where('n.tap',$filters['tap']);
         if($filters['q']!=='')$q->where(fn($q)=>$q->where('n.rs','like','%'.$filters['q'].'%')->orWhere(fn($q)=>$q->where('m.candidates',1)->where(fn($q)=>$q->where('m.nama_outlet','like','%'.$filters['q'].'%')->orWhere('m.id_outlet','like','%'.$filters['q'].'%'))));
         $q->selectRaw($this->unionText('n.rs').' AS rs,'.$this->unionText('n.tap').' AS tap,'.$this->unionText('n.cluster').' AS cluster')->selectRaw("m.candidates,m.id_outlet,m.nama_outlet,'upload' AS tap_source");
-        foreach(range(1,12)as$m)$q->selectRaw("n.{$metric}_m$m AS m$m");$q->selectRaw("n.{$metric}_total AS total");
+        foreach(range(1,12)as$m)$q->selectRaw("n.{$metric}_m$m AS m$m");$q->selectRaw("n.{$metric}_total AS total,n.compare_{$metric} AS compare_qty");
         // Registered RS without any transaction remain visible with zero quantities.
         $zero=DB::query()->fromSub($this->master(),'m')->whereNotIn('m.rs',DB::table('surya_ngrs_annual')->where('year',$year)->select('rs'))
             ->selectRaw($this->unionText('m.rs').' AS rs,'.$this->unionText('m.master_tap').' AS tap,'.$this->unionText("CASE WHEN m.master_tap IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN 'DUMAI BENGKALIS' ELSE 'ROKAN HILIR' END").' AS cluster')->selectRaw("m.candidates,m.id_outlet,m.nama_outlet,'master' AS tap_source");
         $scopes=$this->scopes();if($scopes!==null)$zero->whereIn('m.master_tap',$scopes);
         if($filters['tap']!=='')$zero->where('m.master_tap',$filters['tap']);$this->search($zero,$filters['q']);
-        for($m=1;$m<=12;$m++)$zero->selectRaw("0 AS m$m");$zero->selectRaw('0 AS total');
-        return DB::query()->fromSub($q->unionAll($zero),'details')->orderByDesc('total')->orderBy('rs')->orderBy('tap');
+        for($m=1;$m<=12;$m++)$zero->selectRaw("0 AS m$m");$zero->selectRaw('0 AS total,0 AS compare_qty');
+        $query=DB::query()->fromSub($q->unionAll($zero),'annual_details')->select('annual_details.*');
+        $months=DB::table('surya_ngrs_months')->whereBetween('month',["$year-01-01","$year-12-01"])->pluck('month')->map(fn($date)=>(int)substr($date,5,2))->all();
+        $comparison=app(NgrsComparison::class)->plan($year);
+        $query->selectRaw($comparison&&$comparison['previous_available']?'compare_qty AS mom_compare':'NULL AS mom_compare');
+        foreach(range(2,12)as$m){
+            $available=in_array($m,$months,true)&&in_array($m-1,$months,true);
+            $previous=$comparison&&$comparison['month']===$m?'compare_qty':'m'.($m-1);
+            $query->selectRaw($available?"(CAST(m$m AS SIGNED)-CAST($previous AS SIGNED)) AS gap_m$m":"NULL AS gap_m$m");
+        }
+        return DB::query()->fromSub($query,'details')->orderByDesc('total')->orderBy('rs')->orderBy('tap');
     }
 }
