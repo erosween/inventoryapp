@@ -3,6 +3,7 @@ namespace App\Services;
 
 use App\Support\SuryaTapScope;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class NgrsReport
 {
@@ -62,6 +63,17 @@ class NgrsReport
     }
 
     public function summary(array $filters): array
+    {
+        if($filters['q']!=='')return $this->computeSummary($filters);
+        $this->master();
+        $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->orderBy('month')->pluck('upload_id','month');
+        $version=hash('sha256',$months->toJson().'|'.Cache::get('surya-ngrs-outlet-map-v1',''));
+        $key='surya-ngrs-summary-v1-'.hash('sha256',json_encode([$filters['year'],$filters['metric'],$filters['tap'],$this->scopes()]));
+        $cached=Cache::get($key);if(($cached['version']??null)===$version)return $cached['data'];
+        $data=$this->computeSummary($filters);Cache::put($key,['version'=>$version,'data'=>$data],300);return $data;
+    }
+
+    private function computeSummary(array $filters): array
     {
         $data=$this->base($filters)->select('n.tap','n.cluster','n.month')->selectRaw('SUM(n.trx) AS trx,SUM(n.rech) AS rech')->groupBy('n.tap','n.cluster','n.month')->get();
         $rows=[];$clusters=[];$grand=['tap'=>'Grand Total','months'=>[],'total'=>0];$metric=$filters['metric'];$scopes=$this->scopes();
