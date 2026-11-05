@@ -78,6 +78,14 @@
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Histori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.nota-template') }}">Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
 </form></section>
+<section class="upload-card upload-card-wide" aria-labelledby="ngrs-title">
+<header class="upload-card-header"><span class="upload-icon"><i class="fa fa-signal" aria-hidden="true"></i></span><h2 id="ngrs-title">NGRS</h2><span class="upload-format">CSV</span></header>
+<form class="drop" data-simple-upload method="POST" action="{{ route('surya.ngrs.upload') }}" enctype="multipart/form-data">@csrf
+<label class="file-label" for="ngrs-file">File transaksi NGRS</label><input class="file-input" id="ngrs-file" type="file" name="ngrs_file" accept=".csv,text/csv" required>
+<p class="upload-hint">CSV UTF-8 · Maks. 20 MB / 150.000 baris · Tanggal DD/MM/YYYY atau YYYY-MM-DD · Upload data lengkap per bulan; bulan dalam file menggantikan sebelumnya. RS belum terpetakan tetap dihitung. TAP INFILTRASI memakai cluster INF DB atau INF RH.</p>
+@error('ngrs_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
+<div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload NGRS</button><a class="btn metrics-import-resume" href="{{ route('surya.ngrs.template') }}">Template</a></div><p class="upload-hint" data-simple-status role="status" hidden></p>
+</form></section>
 </div></main></div></div>
 <script src="{{ asset('js/surya-metrics-upload.js') }}?v={{ filemtime(public_path('js/surya-metrics-upload.js')) }}" defer></script>
 <script src="{{ asset('js/surya-simple-upload.js') }}?v={{ filemtime(public_path('js/surya-simple-upload.js')) }}" defer></script>
