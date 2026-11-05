@@ -94,4 +94,46 @@ class OutletNotaBackfillTest extends TestCase
         $this->post(route('surya.outletlist.nota'),['nota_file'=>$file])->assertRedirect(route('surya.transaction-upload'))->assertSessionHasNoErrors();
         $this->assertSame(15,$this->hydrate('2026-10-01')->st_pv_mtd);
     }
+
+    public function test_january_to_september_uploads_fill_all_periods_and_preserve_other_months(): void
+    {
+        $this->seedUpload();
+        $this->upload("2026-01-01,1201034972,1,10\n2026-01-31,1201034972,2,20\n2026-02-01,1201034972,3,30\n2026-02-10,1201034972,4,40\n2026-09-01,1201034972,5,50\n2026-09-30,1201034972,6,60\n");
+        $this->assertSame(30,$this->hydrate('2026-01-31')->st_pv_mtd);
+        $feb=$this->hydrate('2026-02-10');
+        $this->assertSame(70,$feb->st_pv_mtd);$this->assertSame(30,$feb->st_pv_fm1);$this->assertSame(10,$feb->st_pv_m1);
+        $this->assertSame(7,$feb->st_sa_mtd);$this->assertSame(3,$feb->st_sa_fm1);$this->assertSame(1,$feb->st_sa_m1);
+        $oct=$this->hydrate('2026-10-31');$this->assertSame(110,$oct->st_pv_fm1);$this->assertSame(110,$oct->st_pv_m1);$this->assertSame(375,$oct->st_pv_mtd);
+        $this->assertSame(50,$this->hydrate('2026-10-01')->st_pv_m1);
+        $s=app(OutletColumnFilters::class);
+        $row=$s->query(DB::table('appsdumais as outlet'),Carbon::parse('2026-02-10'),['columns'=>['st_pv_fm1'=>['30']]])->first();
+        $this->assertSame(70,(int)$row->st_pv_mtd);
+        $d=app(OutletSalesInsight::class)->data(DB::table('appsdumais')->get(),Carbon::parse('2026-02-10'),'pv_all');
+        $this->assertSame(70,$d['grand']['denominator']['current']);$this->assertSame(10,$d['grand']['denominator']['previous']);
+        $this->upload("2026-01-02,1201034972,0,9\n");
+        $this->assertSame(9,$this->hydrate('2026-01-31')->st_pv_mtd);
+        $this->assertSame(70,$this->hydrate('2026-02-28')->st_pv_mtd);
+        $this->assertSame(110,$this->hydrate('2026-09-30')->st_pv_mtd);
+        $this->assertSame(375,$this->hydrate('2026-10-31')->st_pv_mtd);
+        $this->assertSame(375,$this->hydrate('2026-11-10')->st_pv_fm1);
+    }
+
+    public function test_new_month_snapshot_replaces_old_history_without_overlay_or_invalid_dates(): void
+    {
+        DB::table('surya_outlet_sales_history')->insert([
+            ['id_outlet'=>'1201034972','transaction_date'=>'2026-09-01','sa'=>1,'pv'=>12],
+            ['id_outlet'=>'1201034972','transaction_date'=>'2026-09-30','sa'=>1,'pv'=>18],
+        ]);
+        $this->assertSame(30,$this->hydrate('2026-09-30')->st_pv_mtd);
+        $this->assertSame(30,$this->hydrate('2026-10-10')->st_pv_fm1);
+        $this->upload("2026-09-01,1201034972,0,5\n");
+        $this->assertSame(5,$this->hydrate('2026-09-30')->st_pv_mtd);
+        $this->assertSame(5,$this->hydrate('2026-10-10')->st_pv_fm1);
+        $this->assertSame(5,$this->hydrate('2026-10-10')->st_pv_m1);
+        foreach(['2025-12-31','2026-02-29','2026-04-31','2026-10-16']as$date){
+            try{$this->upload("$date,1201034972,0,9\n");$this->fail('Invalid date accepted');}
+            catch(ValidationException $e){$this->assertArrayHasKey('nota_file',$e->errors());}
+            $this->assertSame(5,(int)DB::table('surya_outlet_nota_backfill')->sum('pv'));
+        }
+    }
 }

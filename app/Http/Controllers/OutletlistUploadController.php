@@ -17,7 +17,7 @@ class OutletlistUploadController extends Controller
             report($e);
             throw ValidationException::withMessages(['nota_file'=>'Upload gagal. Histori sebelumnya tetap tersimpan.']);
         }
-        return redirect()->route('surya.transaction-upload')->with('success', "Histori ST Nota: $count baris menggantikan data 1–15 Oktober 2026 untuk Detail Outlet.");
+        return redirect()->route('surya.transaction-upload')->with('success', "Histori ST Nota: $count baris menggantikan histori bulan yang tercantum di file untuk Detail Outlet.");
     }
 
     public function notaTemplate()
@@ -26,7 +26,7 @@ class OutletlistUploadController extends Controller
         return response()->streamDownload(function () {
             $h=fopen('php://output','wb'); fwrite($h,"\xEF\xBB\xBF");
             fputcsv($h, \App\Services\OutletNotaImport::HEADERS, ',', '"', ''); fclose($h);
-        }, 'template-st-nota-1-15-oktober-2026.csv', ['Content-Type'=>'text/csv; charset=UTF-8']);
+        }, 'template-histori-st-nota-2026.csv', ['Content-Type'=>'text/csv; charset=UTF-8']);
     }
 
     public function categoryStore(Request $request, \App\Services\OutletCategoryImport $importer)
