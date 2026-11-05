@@ -34,18 +34,29 @@ class NgrsSummaryExport extends DefaultValueBinder implements FromArray,WithHead
     public function title():string {return 'Rekap TAP NGRS';}
     public function headings():array
     {
-        $label=$this->metric==='rech'?'Recharge (mio)':'Transaksi';
+        $label=$this->metric==='rech'?'Recharge (Rp)':'Transaksi';
         $cutoff=$this->comparison?'Cutoff '.date('d/m/Y',strtotime($this->comparison['cutoff'])).' | Pembanding 1-'.date('d/m/Y',strtotime($this->comparison['previous_end'])):'Bulan yang sudah selesai dibandingkan full bulan sebelumnya.';
         return [['Rekap TAP NGRS '.$this->year.' · '.$label.' · '.($this->period==='average'?'Average / hari':'Monthly')],[$cutoff],['Sesuai wilayah akses dan filter TAP / pencarian.'],['TAP',...array_column($this->columns,'label')]];
+    }
+    private function quantity(int $trx,int $recharge,int $days):int|float|null
+    {
+        if($days<1)return null;
+        if($this->metric==='rech')return $this->period==='average'?$recharge/$days:$recharge;
+        return NgrsFormat::numericValue($trx,$recharge,$days,$this->period,$this->metric);
     }
     private function value(array $row,array $column):int|float|null
     {
         $kind=$column['kind'];$m=$column['month']??0;
         $compareDays=$this->comparison&&$this->comparison['previous_available']?(int)substr($this->comparison['previous_end'],8,2):0;
-        if($kind==='compare')return NgrsFormat::numericValue($row['compare_trx']??0,$row['compare_rech']??0,$compareDays,$this->period,$this->metric);
-        if($kind==='total')return NgrsFormat::numericValue($row['total'],$row['total_recharge']??0,array_sum($this->days),$this->period,$this->metric);
-        if($kind==='month')return NgrsFormat::numericValue($row['months'][$m]??0,$row['recharge'][$m]??0,$this->days[$m]??0,$this->period,$this->metric);
+        if($kind==='compare')return $this->quantity($row['compare_trx']??0,$row['compare_rech']??0,$compareDays);
+        if($kind==='total')return $this->quantity($row['total'],$row['total_recharge']??0,array_sum($this->days));
+        if($kind==='month')return $this->quantity($row['months'][$m]??0,$row['recharge'][$m]??0,$this->days[$m]??0);
         $fair=$this->comparison&&$this->comparison['month']===$m;
+        if($kind==='gap'&&$this->metric==='rech'){
+            $current=$this->quantity(0,$row['recharge'][$m]??0,$this->days[$m]??0);
+            $previous=$this->quantity(0,$fair?($row['compare_rech']??0):($row['recharge'][$m-1]??0),$fair?$compareDays:($this->days[$m-1]??0));
+            return $current===null||$previous===null?null:$current-$previous;
+        }
         $method=$kind==='percent'?'percent':'gap';$value=NgrsFormat::$method($row['months'][$m]??0,$row['recharge'][$m]??0,$this->days[$m]??0,
             $fair?($row['compare_trx']??0):($row['months'][$m-1]??0),$fair?($row['compare_rech']??0):($row['recharge'][$m-1]??0),$fair?$compareDays:($this->days[$m-1]??0),$this->period,$this->metric)['value'];return $kind==='percent'&&$value!==null?$value/100:$value;
     }
@@ -63,10 +74,10 @@ class NgrsSummaryExport extends DefaultValueBinder implements FromArray,WithHead
     {
         $last=Coordinate::stringFromColumnIndex(count($this->columns)+1);$end=4+count($this->rows);
         $sheet->freezePane('B5');$sheet->setAutoFilter('A4:'.$last.(4+$this->tapCount));$sheet->getColumnDimension('A')->setWidth(29);
-        $format=$this->metric==='rech'?'0.000':'#,##0';$gapFormat=$this->metric==='rech'?'"▲ +"0.000;"▼ -"0.000;0.000':'"▲ +"#,##0;"▼ -"#,##0;0';
+        $decimal=$this->metric==='rech'&&$this->period==='average';$format=$decimal?'#,##0.00':'#,##0';$gapFormat=$decimal?'"▲ +"#,##0.00;"▼ -"#,##0.00;0.00':'"▲ +"#,##0;"▼ -"#,##0;0';
         $sheet->getStyle('B5:'.$last.$end)->getNumberFormat()->setFormatCode($format);
         $sheet->getStyle('A4:'.$last.'4')->getAlignment()->setWrapText(true);$sheet->getRowDimension(4)->setRowHeight(34);
-        foreach($this->columns as$i=>$column)$sheet->getColumnDimension(Coordinate::stringFromColumnIndex($i+2))->setWidth($column['kind']==='compare'?22:17);
+        foreach($this->columns as$i=>$column)$sheet->getColumnDimension(Coordinate::stringFromColumnIndex($i+2))->setWidth($this->metric==='rech'?24:($column['kind']==='compare'?22:17));
         foreach($this->rows as$i=>$entry){
             $line=$i+5;$range='A'.$line.':'.$last.$line;
             if($entry['kind']!=='tap')$sheet->getStyle($range)->applyFromArray(['font'=>['bold'=>true],'fill'=>['fillType'=>'solid','startColor'=>['rgb'=>$entry['kind']==='grand'?'E7F2FF':'F2F5F9']]]);

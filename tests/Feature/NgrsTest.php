@@ -220,7 +220,7 @@ class NgrsTest extends TestCase
         $rows=[];foreach(['01/01/2026'=>[10,100000000],'01/02/2026'=>[7,50000000],'01/10/2026'=>[20,100000000],'05/10/2026'=>[30,200000000],'31/10/2026'=>[300,900000000],'01/11/2026'=>[25,150000000],'05/11/2026'=>[35,200000000]]as$date=>$v)$rows[]=array_replace($this->row($date,'6281234567890','A',$v[0],'DUMAI'),[4=>(string)$v[1]]);
         $rows[]=$this->row('05/11/2026','6281234567892','A',999,'DURI');$this->import($rows);
         $u=new User();$u->username='asmen_dumai';$this->actingAs($u);
-        foreach([['monthly','trx',60,50,10],['average','trx',12,10,2],['monthly','rech',0.350,0.300,0.050],['average','rech',0.070,0.060,0.010]]as[$period,$metric,$nov,$oct,$gap]){
+        foreach([['monthly','trx',60,50,10],['average','trx',12,10,2],['monthly','rech',350000000,300000000,50000000],['average','rech',70000000,60000000,10000000]]as[$period,$metric,$nov,$oct,$gap]){
             $response=$this->get(route('surya.ngrs.summary-export',['year'=>2026,'summary_view'=>$period,'summary_metric'=>$metric]));$response->assertOk()->assertDownload('Rekap_TAP_NGRS_2026_'.strtoupper($metric).'_'.$period.'.xlsx');
             $path=$response->baseResponse->getFile()->getPathname();$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($path);
             try{
@@ -247,5 +247,18 @@ class NgrsTest extends TestCase
         $r=new NgrsReport;$row=$r->details($this->filters())->where('rs','6281234567891')->first();$this->assertNull($row->mom_pct_m2);
         $this->getJson(route('surya.ngrs.filter-values',['column'=>'mom_pct_m2','columns'=>['rs'=>['6281234567890']]]))->assertOk()->assertJsonPath('values',['-30.0']);
         $this->get(route('surya.ngrs',['columns'=>['mom_pct_m2'=>['-30.0']],'sort'=>'mom_pct_m2','direction'=>'asc']))->assertOk()->assertSee('MoM % Feb')->assertSee('▼ -30,0%');
+    }
+    public function test_recharge_excel_preserves_original_rupiah_and_small_gaps():void
+    {
+        $this->import([array_replace($this->row('01/01/2026','6281234567890','A',1,'DUMAI'),[4=>'123456789']),array_replace($this->row('01/02/2026','6281234567890','A',1,'DUMAI'),[4=>'123456790'])]);
+        foreach(['monthly','average']as$period){
+            $response=$this->get(route('surya.ngrs.summary-export',['summary_metric'=>'rech','summary_view'=>$period,'tap'=>'DUMAI']))->assertOk();$path=$response->baseResponse->getFile()->getPathname();$book=\PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+            try{$sheet=$book->getActiveSheet();$header=$sheet->rangeToArray('A4:'.$sheet->getHighestColumn().'4',null,true,false)[0];$cell=fn($label)=>$sheet->getCell(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(array_search($label,$header)+1).'5');
+                $this->assertStringContainsString('Recharge (Rp)',$sheet->getCell('A1')->getValue());
+                $this->assertEqualsWithDelta($period==='monthly'?123456790:123456790/28,$cell('Feb')->getValue(),0.000001);$this->assertSame('n',$cell('Feb')->getDataType());
+                if($period==='monthly')$this->assertSame(1,$cell('GAP Feb')->getValue());
+            }finally{$book->disconnectWorksheets();unlink($path);}
+        }
+        $this->get(route('surya.ngrs',['summary_metric'=>'rech','tap'=>'DUMAI']))->assertOk()->assertSee('0.123');
     }
 }
