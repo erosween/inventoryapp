@@ -66,15 +66,20 @@ class NgrsReport
         return compact('rows','clusters','grand','stats');
     }
 
+    private function unionText(string $sql): string
+    {
+        return DB::getDriverName()==='sqlite'?$sql:"CONVERT($sql USING utf8mb4) COLLATE utf8mb4_unicode_ci";
+    }
+
     public function details(array $filters)
     {
         $metric=$filters['metric'];$year=$filters['year'];
-        $q=$this->base($filters)->select('n.rs','n.tap','n.cluster')->selectRaw("MAX(m.candidates) AS candidates,MAX(m.id_outlet) AS id_outlet,MAX(m.nama_outlet) AS nama_outlet,'upload' AS tap_source");
+        $q=$this->base($filters)->selectRaw($this->unionText('n.rs').' AS rs,'.$this->unionText('n.tap').' AS tap,'.$this->unionText('n.cluster').' AS cluster')->selectRaw("MAX(m.candidates) AS candidates,MAX(m.id_outlet) AS id_outlet,MAX(m.nama_outlet) AS nama_outlet,'upload' AS tap_source");
         for($m=1;$m<=12;$m++)$q->selectRaw("SUM(CASE WHEN n.month=? THEN n.$metric ELSE 0 END) AS m$m",[sprintf('%04d-%02d-01',$year,$m)]);
         $q->selectRaw("SUM(n.$metric) AS total")->groupBy('n.rs','n.tap','n.cluster');
         // Registered RS without any transaction remain visible with zero quantities.
         $zero=DB::query()->fromSub($this->master(),'m')->whereNotIn('m.rs',$this->active($year)->select('n.rs'))
-            ->select('m.rs')->selectRaw("m.master_tap AS tap,CASE WHEN m.master_tap IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN 'DUMAI BENGKALIS' ELSE 'ROKAN HILIR' END AS cluster,m.candidates,m.id_outlet,m.nama_outlet,'master' AS tap_source");
+            ->selectRaw($this->unionText('m.rs').' AS rs,'.$this->unionText('m.master_tap').' AS tap,'.$this->unionText("CASE WHEN m.master_tap IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN 'DUMAI BENGKALIS' ELSE 'ROKAN HILIR' END").' AS cluster')->selectRaw("m.candidates,m.id_outlet,m.nama_outlet,'master' AS tap_source");
         $scopes=$this->scopes();if($scopes!==null)$zero->whereIn('m.master_tap',$scopes);
         if($filters['tap']!=='')$zero->where('m.master_tap',$filters['tap']);$this->search($zero,$filters['q']);
         for($m=1;$m<=12;$m++)$zero->selectRaw("0 AS m$m");$zero->selectRaw('0 AS total');
