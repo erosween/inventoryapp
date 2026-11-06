@@ -28,6 +28,7 @@
 
     <style>
         :root {
+            --login-safe-top: env(safe-area-inset-top, 0px);
             --primary: #ec2028;
             --primary-light: #ff5a62;
             --ink: #111827;
@@ -77,7 +78,7 @@
             box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.05), var(--shadow);
         }
 
-        .login-phone::before {
+        .mobile-login-status-surface {
             content: "";
             position: fixed;
             z-index: 20;
@@ -92,14 +93,21 @@
             box-shadow: none;
         }
 
-        /* Match the proven Inventory login edge, confined to the Mobile login.
-           The opaque band spans the device, not only the 480px phone canvas. */
+        /* A real viewport-level surface stays outside the form's scroll/clipping layer.
+           Only this login uses an inner scroller; authenticated Mobile pages are unchanged. */
         @supports (-webkit-touch-callout: none) {
-            @media (pointer: coarse) {
+            @media (any-pointer: coarse) {
                 :root { --login-status-height: max(12px, env(safe-area-inset-top, 0px)); }
-                html { background: #111827; color-scheme: light; }
-                .login-phone { padding-top: var(--login-status-height); }
-                .login-phone::before {
+                html { height: 100%; min-height: 0; overflow: hidden; background: #111827; color-scheme: light; }
+                body { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; background: #111827; }
+                .login-phone {
+                    height: 100%; min-height: 0;
+                    padding-top: var(--login-status-height);
+                    padding-bottom: env(safe-area-inset-bottom, 0px);
+                    overflow-y: auto; overscroll-behavior-y: contain;
+                    scroll-padding-top: calc(var(--login-status-height) + 16px);
+                }
+                .mobile-login-status-surface {
                     left: 0; right: 0; width: 100%; transform: none;
                     height: var(--login-status-height); background: #111827;
                 }
@@ -434,6 +442,7 @@
 </head>
 
 <body>
+    <div class="mobile-login-status-surface" aria-hidden="true"></div>
     <main class="login-phone">
         <section class="login-hero">
             <div class="brand-row">
