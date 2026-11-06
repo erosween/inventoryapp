@@ -59,6 +59,27 @@
             background: #fff
         }
 
+        .login-status-surface { display: none; }
+
+        /* Safari samples a fixed, opaque edge instead of the red/white split canvas.
+           Reserve the same height in normal flow; never cover inputs or trap scrolling. */
+        @supports (-webkit-touch-callout: none) {
+            @media (pointer: coarse) {
+                :root { --login-status-height: max(12px, env(safe-area-inset-top, 0px)); }
+                html { background: #8e0925; }
+                body { padding-top: var(--login-status-height); background: #fff; }
+                .login-status-surface {
+                    display: block; position: fixed; inset: 0 0 auto;
+                    height: var(--login-status-height); z-index: 100;
+                    background: #8e0925; pointer-events: none;
+                }
+                .auth-shell {
+                    min-height: calc(100vh - var(--login-status-height));
+                    min-height: calc(100dvh - var(--login-status-height));
+                }
+            }
+        }
+
         .brand-panel {
             position: relative;
             display: flex;
@@ -335,13 +356,13 @@
 
         @media(max-width:820px) {
             body {
-                padding: 0;
+                padding: var(--login-status-height, 0px) 0 0;
                 display: block;
                 background: #fff
             }
 
             .auth-shell {
-                min-height: 100dvh;
+                min-height: calc(100dvh - var(--login-status-height, 0px));
                 grid-template-columns: 1fr;
                 border-radius: 0
             }
@@ -393,6 +414,7 @@
 </head>
 
 <body>
+    <div class="login-status-surface" aria-hidden="true"></div>
     <main class="auth-shell">
         <section class="brand-panel">
             <div class="brand"><img src="/assets/img/surya-logo-mobile.webp" alt="Logo SURYA" width="58"
