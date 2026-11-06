@@ -784,10 +784,6 @@
     </div>
     </div>
 
-    <div class="fab" id="fab-top" onclick="window.scrollTo({top:0, behavior:'smooth'})">
-        <i class="fas fa-arrow-up"></i>
-    </div>
-
     <footer class="footer" style="text-align:center; padding:10px; color:#aaa; font-size:12px;">
         <p>© 2025 Made by Rby</p>
     </footer>
@@ -3526,11 +3522,6 @@
             }
         }
 
-        window.onscroll = () => {
-            const fab = document.getElementById('fab-top');
-            if (document.documentElement.scrollTop > 200) fab.style.display = 'flex';
-            else fab.style.display = 'none';
-        };
     </script>
     <div class="visit-modal" id="visit-outlet-modal" hidden aria-hidden="true">
         <div class="visit-modal-card" role="dialog" aria-modal="true" aria-labelledby="visit-outlet-title">
