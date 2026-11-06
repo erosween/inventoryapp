@@ -1,0 +1,41 @@
+/* SURYA reporting canvas. Scoped to the web workspace; inventory/mobile are independent. */
+[data-surya-workspace]{--surya-ink:#22343b;--surya-muted:#718087;--surya-line:#dce2df;--surya-paper:#f6f5ef;--surya-accent:#a91b37;background:#f3f4ef}
+[data-surya-workspace]>.surya-workspace-main{background-color:#f4f4ee!important;background-image:radial-gradient(ellipse at 100% 0,rgba(184,205,193,.32),transparent 62%),radial-gradient(ellipse at 0 0,rgba(181,108,113,.09),transparent 60%),linear-gradient(180deg,#f8f6f0,#f1f4f1)!important;background-size:100% 620px,100% 460px,100% 100%!important;background-repeat:no-repeat!important}
+[data-surya-workspace] .surya-content{background-color:transparent!important;background-image:linear-gradient(rgba(120,142,137,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(120,142,137,.045) 1px,transparent 1px);background-size:48px 48px;background-repeat:repeat;min-height:calc(100vh - 76px)}
+[data-surya-workspace] .surya-navbar{grid-template-columns:40px minmax(0,1fr) auto;background:#20343c!important;color:#f4f6f3;border-bottom:1px solid #30474e;box-shadow:0 3px 14px #152a3210;min-height:76px}
+[data-surya-workspace] .surya-navbar-copy{text-align:left;padding-left:4px}
+[data-surya-workspace] .surya-navbar-title{color:#f4f6f3!important;font-size:15px;font-weight:650;letter-spacing:-.2px}
+[data-surya-workspace] .surya-navbar-subtitle{color:#aebfc0!important;font-size:10px;letter-spacing:.2px}
+[data-surya-workspace] .surya-menu-button{background:#ffffff08!important;border:1px solid #53666b;color:#e2ebea;border-radius:9px;box-shadow:none}
+[data-surya-workspace] .surya-menu-button:hover{background:#ffffff16!important;border-color:#91a5a7}
+.surya-report-context{display:flex;align-items:center;gap:18px;text-align:right;padding-left:20px;border-left:1px solid #51646a}
+.surya-report-context span,.surya-report-context time{display:block}.surya-report-context span{font-size:8px;letter-spacing:1.9px;color:#9fb3b5;font-weight:550}.surya-report-context time{font-size:11px;line-height:1.4;color:#f1f4ef;margin-top:4px;font-weight:550;font-variant-numeric:tabular-nums}
+[data-surya-workspace] .enterprise-sidebar{background:linear-gradient(175deg,#172c34 0%,#25363c 56%,#412530 100%);border-right:1px solid #ffffff0a;box-shadow:none}
+[data-surya-workspace] .enterprise-sidebar .sidebar-brand{padding-bottom:28px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-brand small{font-size:8px;letter-spacing:1.5px;color:#9eb4b6;line-height:1.6}
+[data-surya-workspace] .enterprise-sidebar .sidebar-label{color:#8ea3aa;font-size:8px;letter-spacing:1.9px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link{color:#bdcbce;border-radius:7px;min-height:43px;font-size:11px;font-weight:550;gap:11px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link:hover{color:#fff;background:#ffffff0b}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link.active{background:#f9f7f1;color:#9e1b35;box-shadow:inset 3px 0 0 #b32a44,0 3px 8px #071a2112;font-weight:700}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link i{font-size:13px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-foot{border-color:#ffffff16}
+[data-surya-workspace] .enterprise-sidebar .sidebar-avatar{background:#ffffff0b}
+[data-surya-workspace] .surya-page-heading{position:relative;padding:23px 0 22px;margin-bottom:24px;border-bottom:1px solid #cfd8d3;background:none;box-shadow:none}
+[data-surya-workspace] .surya-page-heading::before{content:'';position:absolute;left:0;top:5px;width:32px;height:3px;border-radius:2px;background:#a91b37;pointer-events:none}
+[data-surya-workspace] .surya-page-heading h1{font-size:29px;color:#23373c;letter-spacing:-1px;font-weight:700}
+[data-surya-workspace] .surya-page-heading p{font-size:12px;color:#77837e;max-width:790px;margin-top:7px;line-height:1.7}
+[data-surya-workspace] :is(.surya-card,.ngrs-card,.card,.outlet-card,.stock-card,.upload-card,.tf-card){border-color:#dce2dd;box-shadow:0 3px 12px #2b463408;background-color:#fff}
+[data-surya-workspace] :is(.ngrs-toolbar,.tf-toolbar,.outlet-filters,.approval-filter-bar){border-color:#dce2dd;background:#fffffff7;box-shadow:0 3px 10px #29473205}
+[data-surya-workspace] .ngrs-stats>div{background:#fffefb;border-color:#dce2dd;box-shadow:0 3px 10px #29473205}
+[data-surya-workspace] :is(.ngrs-report-heading,.surya-report-heading) h2{color:#2d4146}
+[data-surya-workspace] .ngrs-report-heading p{color:#78857f}
+[data-surya-workspace] :is(.btn-primary,.ngrs-button:not(.secondary)){background-color:#ad1d39;border-color:#ad1d39}
+[data-surya-workspace] :is(.ngrs-button.secondary,.btn-secondary){background:#edf1ed;color:#3f5659;border-color:#d8e0da}
+[data-surya-workspace] .surya-warehouse-page>.main-panel,[data-surya-workspace] .surya-inventory-dashboard-page>.main-panel,[data-surya-workspace] .surya-inventory-dashboard-page .main-panel>.content{background:transparent!important}
+[data-surya-workspace] .surya-inventory-dashboard-page .container-fluid{background:transparent!important}
+[data-surya-workspace] .surya-inventory-dashboard-page .dashboard-header{background:transparent!important}
+[data-surya-workspace] .surya-inventory-dashboard-page .stock-summary-card{background:#fffefb}
+[data-surya-workspace] .surya-inventory-dashboard-page .card.sales-summary-card{background:#fffcf6;border-color:#e0dfd3}
+@media(max-width:1100px){[data-surya-workspace] .surya-content{background-size:40px 40px}.surya-report-context{gap:8px;padding-left:14px}}
+@media(max-width:640px){[data-surya-workspace] .surya-navbar{grid-template-columns:36px minmax(0,1fr);gap:9px;min-height:72px}.surya-report-context{display:none}[data-surya-workspace] .surya-navbar-title{font-size:13px}[data-surya-workspace] .surya-navbar-subtitle{font-size:9px}[data-surya-workspace] .surya-page-heading{padding:21px 0 19px;margin-bottom:20px}[data-surya-workspace] .surya-page-heading h1{font-size:25px;letter-spacing:-.7px}[data-surya-workspace] .surya-content{background-image:none}}
+@media print{[data-surya-workspace]>.surya-workspace-main,[data-surya-workspace] .surya-content{background:#fff!important}.surya-report-context{display:none}}

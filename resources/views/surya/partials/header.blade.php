@@ -7,4 +7,7 @@
         <p class="surya-navbar-title">Monitoring &amp; Performance</p>
         <p class="surya-navbar-subtitle">Cluster Dumai, Bengkalis &amp; Rokan Hilir</p>
     </div>
+    <div class="surya-report-context" aria-label="Tanggal workspace">
+        <div><span>REPORTING WORKSPACE</span><time datetime="{{ now('Asia/Jakarta')->toDateString() }}">{{ now('Asia/Jakarta')->locale('id')->isoFormat('ddd, D MMM YYYY') }}</time></div>
+    </div>
 </header>

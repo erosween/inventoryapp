@@ -5,3 +5,5 @@
 <link rel="stylesheet" href="{{ asset('css/surya-sidebar.css') }}?v={{ filemtime(public_path('css/surya-sidebar.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/surya-shell.css') }}?v={{ filemtime(public_path('css/surya-shell.css')) }}">
 <script src="{{ asset('js/surya-shell.js') }}?v={{ filemtime(public_path('js/surya-shell.js')) }}" defer></script>
+
+<link rel="stylesheet" href="{{ asset('css/surya-report-theme.css') }}?v={{ filemtime(public_path('css/surya-report-theme.css')) }}">
