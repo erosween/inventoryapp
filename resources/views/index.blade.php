@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=auto">
     <title>SURYA — Inventory Login</title>
     <link rel="manifest" href="/manifest-admin.json">
     <meta name="application-name" content="Inventory MSP">
@@ -11,7 +11,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SURYA Inventory">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="msapplication-TileColor" content="#bd001c">
     <meta name="msapplication-TileImage" content="/assets/pwa/inventory/icon-144.png">
     <meta name="msapplication-config" content="/browserconfig.xml">
@@ -30,6 +30,9 @@
         * {
             box-sizing: border-box
         }
+
+        /* Keep the iPad Home Screen status area outside the split login canvas. */
+        html { background: #fff; color-scheme: light; }
 
         html,
         body {
