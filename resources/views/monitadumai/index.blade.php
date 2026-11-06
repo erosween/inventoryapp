@@ -3133,12 +3133,6 @@
         function expandOutletMapView() {
             const mapElement = document.getElementById('map');
             if (!mapElement) return;
-            const shell = document.getElementById('app-shell');
-            if (window.innerWidth > 1100 && shell && !shell.classList.contains('sidebar-collapsed')) {
-                shell.dataset.mapAutoCollapsed = '1';
-                shell.classList.add('sidebar-collapsed');
-                document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
-            }
             // Gunakan mode yang sama persis dengan tombol ikon kotak di kanan atas.
             if (!mapElement.classList.contains('map-fullscreen-active')) {
                 toggleMapFullscreen();
@@ -3246,7 +3240,7 @@
             map.addControl(new LocateControl());
             map.addControl(new OverviewControl());
             document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape' && document.getElementById('map').classList.contains('map-fullscreen-active')) {
+                if (!event.defaultPrevented && event.key === 'Escape' && document.getElementById('map').classList.contains('map-fullscreen-active')) {
                     const detailPanel = document.getElementById('map-outlet-detail-panel');
                     if (detailPanel?.classList.contains('is-open')) {
                         closeMapOutletDetail();
@@ -3261,14 +3255,9 @@
             const mapElement = document.getElementById('map');
             const isFullscreen = mapElement.classList.toggle('map-fullscreen-active');
             document.body.classList.toggle('map-fullscreen-open', isFullscreen);
+            window.SuryaSidebar?.setMapFullscreen(isFullscreen);
             if (!isFullscreen) {
                 closeMapOutletDetail();
-                const shell = document.getElementById('app-shell');
-                if (shell?.dataset.mapAutoCollapsed === '1') {
-                    shell.classList.remove('sidebar-collapsed');
-                    delete shell.dataset.mapAutoCollapsed;
-                    document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'true');
-                }
             }
 
             const icon = mapElement.querySelector('.map-fullscreen-button i');

@@ -11,6 +11,8 @@
 
         const root = document.documentElement;
         const mobile = window.matchMedia('(max-width: 1100px)');
+        let mapFullscreen = document.body.classList.contains('map-fullscreen-open');
+        const drawerMode = () => mobile.matches || mapFullscreen;
         const close = document.getElementById('sidebar-close');
         const overlay = document.createElement('button');
         overlay.className = 'surya-sidebar-overlay';
@@ -24,13 +26,13 @@
             catch (_) { return false; }
         };
         const sync = () => {
-            const visible = mobile.matches
+            const visible = drawerMode()
                 ? shell.classList.contains('sidebar-open')
                 : !shell.classList.contains('sidebar-collapsed');
             sidebar.inert = !visible;
             sidebar.setAttribute('aria-hidden', String(!visible));
             toggle.setAttribute('aria-expanded', String(visible));
-            document.body.classList.toggle('surya-menu-open', mobile.matches && visible);
+            document.body.classList.toggle('surya-menu-open', drawerMode() && visible);
         };
         const notifyLayout = () => {
             window.setTimeout(() => window.dispatchEvent(new Event('surya:layout')), 230);
@@ -41,16 +43,18 @@
             if (restoreFocus) toggle.focus();
         };
         const applyViewport = () => {
+            const restoreFocus = sidebar.contains(document.activeElement);
             shell.classList.remove('sidebar-open');
             shell.classList.toggle('sidebar-collapsed', !mobile.matches && readCollapsed());
             root.classList.remove('surya-sidebar-precollapsed');
             sync();
+            if (restoreFocus) toggle.focus();
             notifyLayout();
         };
 
         applyViewport();
         toggle.addEventListener('click', () => {
-            if (mobile.matches) {
+            if (drawerMode()) {
                 shell.classList.toggle('sidebar-open');
             } else {
                 const collapsed = shell.classList.toggle('sidebar-collapsed');
@@ -58,17 +62,22 @@
                 catch (_) {}
             }
             sync();
-            if (mobile.matches && shell.classList.contains('sidebar-open')) close?.focus();
+            if (drawerMode() && shell.classList.contains('sidebar-open')) close?.focus();
             notifyLayout();
         });
         close?.addEventListener('click', () => closeMobile(true));
         overlay.addEventListener('click', () => closeMobile(true));
         sidebar.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
-            if (mobile.matches) closeMobile();
+            if (drawerMode()) closeMobile();
         }));
         document.addEventListener('keydown', event => {
-            if (!mobile.matches || !shell.classList.contains('sidebar-open')) return;
-            if (event.key === 'Escape') closeMobile(true);
+            if (!drawerMode() || !shell.classList.contains('sidebar-open')) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                closeMobile(true);
+                return;
+            }
             if (event.key === 'Tab') {
                 const items = [...sidebar.querySelectorAll('a[href], button:not([disabled])')]
                     .filter(item => item.getClientRects().length);
@@ -79,9 +88,16 @@
                     event.preventDefault(); first?.focus();
                 }
             }
-        });
+        }, true);
         mobile.addEventListener('change', applyViewport);
-        // The map may temporarily collapse navigation while entering fullscreen.
+        // Fullscreen uses the same drawer controller without changing desktop preferences.
+        window.SuryaSidebar = {
+            setMapFullscreen(active) {
+                mapFullscreen = Boolean(active);
+                applyViewport();
+            }
+        };
+        // Keep externally triggered layout changes accessible too.
         // Keep focus/ARIA state correct for those layout changes too.
         new MutationObserver(sync).observe(shell, {attributes: true, attributeFilter: ['class']});
     };
