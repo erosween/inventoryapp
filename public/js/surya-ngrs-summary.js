@@ -28,7 +28,7 @@
    cell.classList.remove('is-positive','is-negative','is-flat','is-missing');cell.classList.add('is-'+direction);cell.textContent=text;
   });
   panel.querySelector('[data-ngrs-summary-unit]').textContent=recharge?(average?'RECH mio / HARI':'RECH (mio)'):(average?'TRX / HARI':'TRX');
-  panel.querySelector('[data-ngrs-summary-total]').textContent=average?'Rata-rata / hari':'Total';
+  panel.querySelector('[data-ngrs-summary-total]').textContent=average?'Rata-rata / hari':'Total '+document.querySelector('[name=year]').value;
   document.querySelector('[data-ngrs-average-note]').hidden=!average;
   document.getElementById('ngrs-average-tab').textContent=recharge?'Average Recharge':'Average TRX';
   document.querySelector('[data-ngrs-summary-input]').value=mode;document.querySelector('[data-ngrs-metric-input]').value=metric;
