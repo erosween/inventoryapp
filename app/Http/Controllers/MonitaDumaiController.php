@@ -397,16 +397,15 @@ class MonitaDumaiController extends Controller
 
     protected function outletSalesCutoff(Request $request): Carbon
     {
-        $default = now('Asia/Jakarta')->subDays(2)->startOfDay();
         $value = trim((string) $request->input('sales_cutoff'));
         if ($value === '') {
-            return $default;
+            return \App\Support\OutletSalesCutoff::latest();
         }
 
         try {
             $selected = Carbon::createFromFormat('!Y-m-d', $value, 'Asia/Jakarta');
         } catch (\Throwable $e) {
-            return $default;
+            return \App\Support\OutletSalesCutoff::latest();
         }
 
         $today = now('Asia/Jakarta')->startOfDay();

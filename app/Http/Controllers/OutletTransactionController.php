@@ -13,7 +13,7 @@ class OutletTransactionController extends Controller
     {
         $v=$request->validate(['cutoff'=>'nullable|date_format:Y-m-d|after_or_equal:2026-01-01|before_or_equal:'.now('Asia/Jakarta')->toDateString(),
             'tap'=>'nullable|string|max:100','q'=>'nullable|string|max:150','per_page'=>'nullable|in:25,50,100','page'=>'nullable|integer|min:1']);
-        $cutoff=Carbon::parse($v['cutoff']??now('Asia/Jakarta')->subDays(2)->toDateString(),'Asia/Jakarta')->startOfDay();
+        $cutoff=Carbon::parse($v['cutoff']??\App\Support\OutletSalesCutoff::latest()->toDateString(),'Asia/Jakarta')->startOfDay();
         $filters=['cutoff'=>$cutoff->toDateString(),'tap'=>trim($v['tap']??''),'q'=>trim($v['q']??''),'per_page'=>(int)($v['per_page']??25)];
         $columns=app(OutletTransactionColumns::class); $options=$columns->options($request);
         $data=app(OutletTransactionReport::class)->data($family,$cutoff,$filters['tap'],$filters['q']);

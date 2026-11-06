@@ -24,7 +24,7 @@ class OutletTransactionTest extends TestCase
         foreach([['A','DUMAI','Senin'],['B','DURI','Selasa'],['C','BAGAN BATU','Rabu'],['X','DUMAI','UNMAPPING']]as[$id,$tap,$pjp])DB::table('appsdumais')->insert(['id_outlet'=>$id,'nama_outlet'=>'Outlet '.$id,'tap'=>$tap,'pjp'=>$pjp,'sf'=>'SF '.$id,'cluster'=>$tap==='BAGAN BATU'?'ROKAN HILIR':'DUMAI BENGKALIS']);
         Schema::create('denom',fn(Blueprint $t)=>[$t->string('iddenom'),$t->string('product_group')]);
         DB::table('denom')->insert([['iddenom'=>'V1','product_group'=>'PV'],['iddenom'=>'SP1','product_group'=>'SA']]);
-        foreach(['keluarsf','mobile_penjualan']as$table)Schema::create($table,function(Blueprint $t){$t->id();foreach(['id_outlet','iddenom','tgl','status','tambahanket']as$c)$t->string($c)->nullable();$t->integer('qty');});
+        foreach(['keluarsf','mobile_penjualan']as$table)Schema::create($table,function(Blueprint $t){$t->id();foreach(['id_outlet','iddenom','tgl','status','tambahanket','idtap']as$c)$t->string($c)->nullable();$t->integer('qty');});
         (require database_path('migrations/2026_11_05_000001_create_outlet_nota_backfill.php'))->up();
         (require database_path('migrations/2026_10_22_000003_create_surya_outlet_sales_history.php'))->up();
         DB::table('surya_outlet_nota_backfill')->insert([
@@ -39,6 +39,7 @@ class OutletTransactionTest extends TestCase
             ['id'=>12,'id_outlet'=>'A','iddenom'=>'V1','tgl'=>'2026-11-02','qty'=>500,'status'=>'pending'],
         ]);
         DB::table('keluarsf')->insert(['id_outlet'=>'A','iddenom'=>'V1','tgl'=>'2026-11-02','qty'=>7,'tambahanket'=>'Mobile Approval ID: 10']);
+        foreach(['keluarsf','mobile_penjualan']as$table)DB::table($table)->update(['idtap'=>'DUMAI']);
     }
     protected function tearDown():void {Carbon::setTestNow();parent::tearDown();}
     private function report(string $family='pv',string $date='2026-11-04'):array{return app(OutletTransactionReport::class)->data($family,Carbon::parse($date));}
@@ -107,6 +108,23 @@ class OutletTransactionTest extends TestCase
             $this->assertStringContainsString('Top 20 TAP',$response->streamedContent());
         }
         $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Kategori Outlet');
+    }
+
+    public function test_default_cutoff_follows_approved_sales_and_is_shared_with_detail_outlet():void
+    {
+        $user=new User;$user->username='admin_super';$this->actingAs($user);
+        foreach(['DUMAI','DURI']as$tap)DB::table('keluarsf')->insert(['id_outlet'=>'A','iddenom'=>'V1','tgl'=>'2026-11-05','qty'=>10,'idtap'=>$tap]);
+        $this->get('/surya/transaksi-outlet/pv')->assertOk()->assertViewHas('filters',fn($f)=>$f['cutoff']==='2026-11-05');
+        $this->get('/surya/transaksi-outlet/sa')->assertOk()->assertViewHas('filters',fn($f)=>$f['cutoff']==='2026-11-05');
+        $method=new \ReflectionMethod(MonitaDumaiController::class,'outletSalesCutoff');$method->setAccessible(true);
+        $this->assertSame('2026-11-05',$method->invoke(app(MonitaDumaiController::class),\Illuminate\Http\Request::create('/'))->toDateString());
+        DB::table('mobile_penjualan')->insert(['id_outlet'=>'A','iddenom'=>'V1','tgl'=>'2026-11-06','qty'=>99,'idtap'=>'DUMAI','status'=>'pending']);
+        $this->assertSame('2026-11-05',\App\Support\OutletSalesCutoff::latest()->toDateString());
+        DB::table('keluarsf')->where('idtap','DURI')->where('tgl','2026-11-05')->update(['tgl'=>'2026-11-04']);
+        $this->assertSame('2026-11-04',\App\Support\OutletSalesCutoff::latest()->toDateString());
+        $user->username='asmen_dumai';$this->actingAs($user);
+        $this->assertSame('2026-11-04',\App\Support\OutletSalesCutoff::latest()->toDateString());
+        $this->get('/surya/transaksi-outlet/pv?cutoff=2026-10-31')->assertOk()->assertViewHas('filters',fn($f)=>$f['cutoff']==='2026-10-31');
     }
 
 }
