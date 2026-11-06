@@ -1,3 +1,4 @@
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 @include('surya.partials.sidebar-boot')
 <link rel="icon" href="{{ asset('assets/img/surya-logo-mobile.webp') }}">
 @include('layout.web-typography')

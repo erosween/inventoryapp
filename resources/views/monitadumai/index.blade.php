@@ -657,20 +657,20 @@
                     <div class="visit-detail-card visit-performance-card">
                         <header class="visit-table-heading"><div><h2>Kinerja Sales Force</h2><p>{{ \Carbon\Carbon::parse($visitDate)->locale('id')->translatedFormat('l, d F Y') }}</p></div><span data-visit-result-count>{{ count($visitDetails) }} Sales Force</span></header>
                     <div class="visit-table-tools" data-visit-tools>
-                        <input type="search" data-visit-search placeholder="Cari SF, kode, TAP, atau cluster..." aria-label="Cari rekap visit">
+                        <input type="search" data-visit-search placeholder="Cari SF, TAP, atau cluster..." aria-label="Cari rekap visit">
                         <select data-visit-tap aria-label="Filter TAP"><option value="">Semua TAP</option>@foreach(collect($visitDetails)->pluck('tap')->filter()->unique()->sort() as $tap)<option value="{{ $tap }}">{{ $tap }}</option>@endforeach</select>
                         <select data-visit-cluster aria-label="Filter cluster"><option value="">Semua Cluster</option>@foreach(collect($visitDetails)->pluck('cluster')->filter()->unique()->sort() as $cluster)<option value="{{ $cluster }}">{{ $cluster }}</option>@endforeach</select>
                         <select data-visit-sort aria-label="Urutkan"><option value="">Urutkan default</option><option value="actual-desc">Actual Call terbesar</option><option value="visitPercent-desc">% Visit terbesar</option><option value="pjp-desc">Total PJP terbesar</option><option value="pv-desc">PV terbesar</option><option value="effective-desc">Effective Call terbesar</option><option value="nonBuying-desc">Non Belanja terbesar</option></select>
                     </div>
                         <div class="visit-detail-table-wrap">
                             <table class="visit-detail-table visit-summary-table" style="min-width:1180px">
-                                <thead><tr><th data-sort="sfcode">SF Code</th><th data-sort="name">Nama SF</th><th data-sort="tap">TAP</th><th data-sort="cluster">Cluster</th><th data-sort="pjp">Total PJP</th><th data-sort="actual">Actual Call</th><th data-sort="visitPercent">% Visit</th><th data-sort="effective">Effective Call</th><th data-sort="nonPjp">Extra Call</th><th data-sort="nonBuying">Non Belanja</th><th data-sort="pv">Total PV</th><th data-sort="sa">Total SA</th></tr></thead>
+                                <colgroup><col class="visit-name-col"><col class="visit-tap-col"><col span="9"></colgroup>
+                                <thead><tr><th class="visit-freeze-name" data-sort="name">Nama SF</th><th class="visit-freeze-tap" data-sort="tap">TAP</th><th data-sort="cluster">Cluster</th><th data-sort="pjp">Total PJP</th><th data-sort="actual">Actual Call</th><th data-sort="visitPercent">% Visit</th><th data-sort="effective">Effective Call</th><th data-sort="nonPjp">Extra Call</th><th data-sort="nonBuying">Non Belanja</th><th data-sort="pv">Total PV</th><th data-sort="sa">Total SA</th></tr></thead>
                                 <tbody>
                                     @forelse($visitDetails as $row)
                                         <tr data-visit-summary-row data-sfcode="{{ $row['sfcode'] }}" data-name="{{ $row['name'] }}" data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}" data-pjp="{{ $row['pjp_total'] }}" data-actual="{{ $row['actual_call'] }}" data-visit-percent="{{ $row['visit_percentage'] }}" data-effective="{{ $row['effective_call'] }}" data-non-pjp="{{ $row['non_pjp'] }}" data-non-buying="{{ $row['non_buying'] }}" data-pv="{{ $row['total_pv'] }}" data-sa="{{ $row['total_sa'] }}">
-                                            <td><span class="visit-code">{{ $row['sfcode'] }}</span></td>
-                                            <td><strong>{{ $row['name'] }}</strong></td>
-                                            <td>{{ $row['tap'] }}</td>
+                                            <td class="visit-freeze-name"><strong>{{ $row['name'] }}</strong></td>
+                                            <td class="visit-freeze-tap">{{ $row['tap'] }}</td>
                                             <td><span class="cluster-chip">{{ $row['cluster'] }}</span></td>
                                             <td><span class="metric-number">{{ number_format($row['pjp_total'], 0, ',', '.') }}</span></td>
                                             <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0, ',', '.') }}</button></td>
@@ -682,7 +682,7 @@
                                             <td><span class="metric-number sa">{{ number_format($row['total_sa'], 0, ',', '.') }}</span></td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="12" class="visit-empty"><i class="fas fa-calendar-xmark"></i><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></td></tr>
+                                        <tr><td colspan="11" class="visit-empty"><i class="fas fa-calendar-xmark"></i><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
