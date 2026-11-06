@@ -1,6 +1,9 @@
 @php
     $sidebarPage = $activePage ?? 'dashboard';
     $sidebarUser = strtolower((string) (auth()->user()->username ?? ''));
+    $sidebarAccount = auth()->user();
+    $sidebarAccountLabel = trim((string) ($sidebarAccount->username ?? '')) ?: 'Pengguna';
+    $sidebarAccountScope = trim((string) (session('idtap') ?: ($sidebarAccount->idtap ?? '')));
     $stockUrl = route('surya.stock-gudang');
     $dashboardPanel = in_array($sidebarPage, ['visit-detail', 'visit-report', 'field-reports'], true) || request('panel') === 'visit-detail'
         ? 'visit-detail'
@@ -40,7 +43,7 @@
         @endif
     </nav>
     <div class="sidebar-foot">
-        <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div class="sidebar-user-copy"><strong>SURYA Leader</strong><small>Secure access</small></div></div>
+        <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div class="sidebar-user-copy"><strong>{{ $sidebarAccountLabel }}</strong><small>{{ $sidebarAccountScope ?: 'Akun aktif' }}</small></div></div>
         <a href="{{ route('surya.leader.logout') }}" class="sidebar-logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Logout</span></a>
     </div>
 </aside>

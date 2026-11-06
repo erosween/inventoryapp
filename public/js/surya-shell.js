@@ -9,6 +9,39 @@
         shell.dataset.sidebarReady = 'true';
         sidebar.querySelectorAll('.sidebar-link.active').forEach(link => link.setAttribute('aria-current', 'page'));
 
+        // Navigation feedback never blocks clicks or adds a delay to navigation.
+        const progress = document.createElement('div');
+        progress.className = 'surya-navigation-progress';
+        progress.hidden = true;
+        progress.setAttribute('role', 'status');
+        progress.setAttribute('aria-live', 'polite');
+        progress.innerHTML = '<span class="surya-navigation-track" aria-hidden="true"></span><span class="surya-navigation-label">Memuat halaman…</span>';
+        document.body.appendChild(progress);
+        let progressDelay, progressTimeout;
+        const resetProgress = () => {
+            clearTimeout(progressDelay);
+            clearTimeout(progressTimeout);
+            progress.hidden = true;
+        };
+        document.addEventListener('click', event => {
+            const link = event.target.closest('a.sidebar-link');
+            if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+                || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+            const destination = new URL(link.href, window.location.href);
+            if (destination.origin !== window.location.origin || !['http:', 'https:'].includes(destination.protocol)) return;
+            if (destination.pathname === location.pathname && destination.search === location.search && destination.hash) return;
+            // Observe cancellation by existing in-page tab handlers before showing feedback.
+            window.setTimeout(() => {
+                if (event.defaultPrevented) return;
+                resetProgress();
+                progressDelay = window.setTimeout(() => { progress.hidden = false; }, 150);
+                progressTimeout = window.setTimeout(resetProgress, 15000);
+            }, 0);
+        });
+        window.addEventListener('pageshow', resetProgress);
+        window.addEventListener('pagehide', resetProgress);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) resetProgress(); });
+
         const root = document.documentElement;
         const mobile = window.matchMedia('(max-width: 1100px)');
         let mapFullscreen = document.body.classList.contains('map-fullscreen-open');
