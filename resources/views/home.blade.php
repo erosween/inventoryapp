@@ -669,9 +669,9 @@
                                     <tr id="val-sales-{{ Str::slug($tap) }}" class="validity-row d-none bg-light">
                                         <td colspan="25" class="p-0 border-0">
                                             <div class="py-2 pr-2 bg-light">
-                                                <div class="d-flex mb-2 pl-5">
-                                                    <button class="btn btn-xs btn-primary mr-1 btn-toggle-rincian" data-target="sf-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">👤 Performance Petugas</button>
-                                                    <button class="btn btn-xs btn-outline-primary btn-toggle-rincian" data-target="validity-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">🎫 {{ $salesDetailHeading }}</button>
+                                                <div class="rincian-tabs" role="group" aria-label="Pilih rincian penjualan">
+                                                    <button class="btn btn-xs btn-primary mr-1 btn-toggle-rincian" data-target="sf-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">Petugas</button>
+                                                    <button class="btn btn-xs btn-outline-primary btn-toggle-rincian" data-target="validity-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">{{ $salesDetailHeading }}</button>
                                                 </div>
 
                                                 {{-- SUB-SECTION: PERFORMANCE SELURUH PETUGAS --}}
