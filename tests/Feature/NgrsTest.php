@@ -17,7 +17,7 @@ class NgrsTest extends TestCase
     {
         parent::setUp();config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:','cache.default'=>'array']);DB::purge('sqlite');
         Schema::create('keluar',function(Blueprint $t){$t->string('penerima')->nullable();$t->integer('status');});
-        Schema::create('appsdumais',function(Blueprint $t){$t->string('id_outlet')->primary();$t->string('nama_outlet');$t->string('nomor_rs')->nullable();$t->string('tap');});
+        Schema::create('appsdumais',function(Blueprint $t){$t->string('id_outlet')->primary();$t->string('nama_outlet');$t->string('nomor_rs')->nullable();$t->string('tap');$t->string('kategori_outlet')->nullable();});
         DB::table('appsdumais')->insert([
             ['id_outlet'=>'1200000001','nama_outlet'=>'Outlet A','nomor_rs'=>'081234567890','tap'=>'DUMAI'],
             ['id_outlet'=>'1200000002','nama_outlet'=>'Outlet Tanpa Trx','nomor_rs'=>'6281234567891','tap'=>'DUMAI'],
@@ -84,7 +84,7 @@ class NgrsTest extends TestCase
         $this->get(route('surya.ngrs',['metric'=>'rech']))->assertOk()->assertDontSee('Total RECH')->assertDontSee('20.450')->assertSee('Detail outlet · TRX');
         $csv=$this->get(route('surya.ngrs.export',['metric'=>'rech','q'=>'6281234567890']))->assertOk()->streamedContent();
         $h=fopen('php://temp','w+');fwrite($h,$csv);rewind($h);$head=fgetcsv($h,0,',','"','');$row=fgetcsv($h,0,',','"','');fclose($h);
-        $this->assertSame('20450',$row[6]);$this->assertSame('',$row[7]);$this->assertSame('20450',$row[array_search('Total RECH',$head)]);
+        $this->assertSame('20450',$row[array_search('2026-01',$head)]);$this->assertSame('',$row[array_search('2026-02',$head)]);$this->assertSame('20450',$row[array_search('Total RECH',$head)]);
         $this->assertContains('Total RECH',$head);
     }
     public function test_header_filters_numeric_sort_facets_and_export_share_scoped_results(): void
@@ -97,7 +97,7 @@ class NgrsTest extends TestCase
         $this->assertStringNotContainsString('6281234567892',$detail);
         $csv=$this->get(route('surya.ngrs.export',$options))->assertOk()->streamedContent();
         $rows=array_map('str_getcsv',array_filter(explode("\n",trim($csv))));
-        $this->assertCount(3,$rows);$this->assertSame('6281234567891',$rows[1][0]);$this->assertSame('10',$rows[1][6]);
+        $this->assertCount(3,$rows);$this->assertSame('6281234567891',$rows[1][0]);$this->assertSame('10',$rows[1][7]);
         $u=new User();$u->username='asmen_dumai';$this->actingAs($u);
         $this->getJson(route('surya.ngrs.filter-values',['column'=>'tap','columns'=>['tap'=>['DURI']]]))->assertOk()->assertJsonPath('values',['DUMAI']);
         $this->getJson(route('surya.ngrs.filter-values',['column'=>'rs','columns'=>['tap'=>['DURI']]]))->assertOk()->assertJsonPath('values',[]);
@@ -272,4 +272,24 @@ class NgrsTest extends TestCase
         foreach($xpath->query('//td[@data-gap-percent="0"]')as$cell){$this->assertDoesNotMatchRegularExpression('/[▲▼+]/u',$cell->textContent);}
         foreach($xpath->query('//table[contains(@class,"ngrs-detail")]//td[contains(@class,"ngrs-gap")][not(contains(text(),"%"))]')as$cell){$this->assertDoesNotMatchRegularExpression('/[▲▼+]/u',$cell->textContent);}
     }
+    public function test_outlet_category_tracks_master_and_supports_filter_sort_and_export(): void
+    {
+        DB::table('appsdumais')->where('id_outlet','1200000001')->update(['kategori_outlet'=>'Top 20 TAP']);
+        $this->import([$this->row(),$this->row('01/01/2026','6289999999999')]);
+        $filters=['year'=>2026,'metric'=>'trx','tap'=>'','q'=>''];
+        $report=app(NgrsReport::class);
+        $rows=$report->details($filters)->get()->keyBy('rs');
+        $this->assertSame('Top 20 TAP',$rows['6281234567890']->kategori_outlet);
+        $this->assertSame('Reguler',$rows['6281234567891']->kategori_outlet);
+        $this->assertNull($rows['6289999999999']->kategori_outlet);
+        DB::table('appsdumais')->where('id_outlet','1200000001')->update(['kategori_outlet'=>'Reguler']);
+        $this->assertSame('Reguler',$report->details($filters)->where('rs','6281234567890')->first()->kategori_outlet);
+        DB::table('appsdumais')->where('id_outlet','1200000001')->update(['kategori_outlet'=>'Top 20 TAP']);
+        $this->get('/surya/ngrs?year=2026&columns[kategori_outlet][]=Top%2020%20TAP&sort=kategori_outlet&direction=asc')
+            ->assertOk()->assertViewHas('outlets',fn($p)=>$p->total()===1)->assertSee('Kategori Outlet');
+        $response=$this->get('/surya/ngrs/export?year=2026&columns[kategori_outlet][]=Top%2020%20TAP')->assertOk();
+        $this->assertStringContainsString('Kategori Outlet',$response->streamedContent());
+        $this->assertStringContainsString('Top 20 TAP',$response->streamedContent());
+    }
+
 }

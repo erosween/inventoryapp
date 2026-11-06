@@ -20,7 +20,7 @@ class OutletTransactionTest extends TestCase
         config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:','cache.default'=>'array','session.driver'=>'array']);DB::purge('sqlite');
         Carbon::setTestNow(Carbon::parse('2026-11-06','Asia/Jakarta'));
         Schema::create('keluar',function(Blueprint $t){$t->string('penerima')->nullable();$t->integer('status');});
-        Schema::create('appsdumais',function(Blueprint $t){foreach(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp']as$c)$t->string($c)->nullable();});
+        Schema::create('appsdumais',function(Blueprint $t){foreach(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet']as$c)$t->string($c)->nullable();});
         foreach([['A','DUMAI','Senin'],['B','DURI','Selasa'],['C','BAGAN BATU','Rabu'],['X','DUMAI','UNMAPPING']]as[$id,$tap,$pjp])DB::table('appsdumais')->insert(['id_outlet'=>$id,'nama_outlet'=>'Outlet '.$id,'tap'=>$tap,'pjp'=>$pjp,'sf'=>'SF '.$id,'cluster'=>$tap==='BAGAN BATU'?'ROKAN HILIR':'DUMAI BENGKALIS']);
         Schema::create('denom',fn(Blueprint $t)=>[$t->string('iddenom'),$t->string('product_group')]);
         DB::table('denom')->insert([['iddenom'=>'V1','product_group'=>'PV'],['iddenom'=>'SP1','product_group'=>'SA']]);
@@ -92,4 +92,21 @@ class OutletTransactionTest extends TestCase
         $queries=collect(DB::getQueryLog())->pluck('query')->implode(' ');DB::disableQueryLog();
         $this->assertStringNotContainsString('mobile_penjualan',$queries);$this->assertStringNotContainsString('surya_outlet_nota_backfill',$queries);
     }
+    public function test_sa_pv_outlet_category_uses_master_even_when_sales_are_cached():void
+    {
+        $user=new User;$user->username='admin_super';$this->actingAs($user);
+        $this->report();
+        DB::table('appsdumais')->where('id_outlet','A')->update(['kategori_outlet'=>'Top 20 TAP']);
+        foreach(['sa','pv']as$family){
+            $data=$this->report($family);$this->assertSame('Top 20 TAP',$data['rows']->keyBy('id_outlet')['A']['kategori_outlet']);
+            $this->assertSame('Reguler',$data['rows']->keyBy('id_outlet')['B']['kategori_outlet']);
+            $this->get('/surya/transaksi-outlet/'.$family.'?cutoff=2026-11-04&columns[kategori_outlet][]=Top%2020%20TAP&sort=kategori_outlet')
+                ->assertOk()->assertViewHas('outlets',fn($p)=>$p->total()===1)->assertSee('Kategori Outlet');
+            $response=$this->get('/surya/transaksi-outlet/'.$family.'/export?cutoff=2026-11-04&columns[kategori_outlet][]=Top%2020%20TAP')->assertOk();
+            $this->assertStringContainsString('Kategori Outlet',$response->streamedContent());
+            $this->assertStringContainsString('Top 20 TAP',$response->streamedContent());
+        }
+        $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Kategori Outlet');
+    }
+
 }

@@ -7,7 +7,7 @@ class NgrsColumnFilters extends OutletColumnFilters
 {
     public function keys(): array
     {
-        return ['rs','id_outlet','nama_outlet','tap','cluster',...array_map(fn($m)=>'m'.$m,range(1,12)),'total','mom_compare',...array_map(fn($m)=>'gap_m'.$m,range(2,12)),...array_map(fn($m)=>'mom_pct_m'.$m,range(2,12))];
+        return ['rs','id_outlet','nama_outlet','tap','cluster','kategori_outlet',...array_map(fn($m)=>'m'.$m,range(1,12)),'total','mom_compare',...array_map(fn($m)=>'gap_m'.$m,range(2,12)),...array_map(fn($m)=>'mom_pct_m'.$m,range(2,12))];
     }
 
     public function apply($query,array $options,?string $facet=null)

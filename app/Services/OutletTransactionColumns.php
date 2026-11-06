@@ -7,7 +7,7 @@ class OutletTransactionColumns extends OutletColumnFilters
 {
     public function keys(): array
     {
-        return ['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp',
+        return ['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet',
             ...array_map(fn($m)=>'m'.$m,range(1,12)), 'compare','total',
             ...array_map(fn($m)=>'gap_m'.$m,range(2,12)),...array_map(fn($m)=>'mom_pct_m'.$m,range(2,12))];
     }

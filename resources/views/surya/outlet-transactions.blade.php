@@ -7,7 +7,7 @@
 @include('surya.partials.page-heading',['title'=>'Transaksi '.strtoupper($family),'description'=>'Transaksi Outlet · Rekap TAP dan outlet berdasarkan ID outlet.'])
 @php
 $monthNames=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
-$identity=['id_outlet'=>'ID Outlet','nama_outlet'=>'Nama Outlet','tap'=>'TAP','cluster'=>'Cluster','nomor_rs'=>'Nomor RS','kecamatan'=>'Kecamatan','sf'=>'SF','pjp'=>'Hari PJP'];
+$identity=['id_outlet'=>'ID Outlet','nama_outlet'=>'Nama Outlet','tap'=>'TAP','cluster'=>'Cluster','nomor_rs'=>'Nomor RS','kecamatan'=>'Kecamatan','sf'=>'SF','pjp'=>'Hari PJP','kategori_outlet'=>'Kategori Outlet'];
 $numeric=[];foreach($monthNames as $i=>$name){$numeric['m'.($i+1)]=$name;if($comparison && $i+1===$cutoff->month-1)$numeric['compare']=$name.'-MoM';}
 $numeric['total']='Total';foreach(range(2,12) as $m){$numeric['gap_m'.$m]='GAP '.$monthNames[$m-1];$numeric['mom_pct_m'.$m]='MoM % '.$monthNames[$m-1];}
 @endphp

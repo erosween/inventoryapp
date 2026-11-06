@@ -127,6 +127,12 @@ class NgrsReport
         if($filters['tap']!=='')$zero->where('m.master_tap',$filters['tap']);$this->search($zero,$filters['q']);
         for($m=1;$m<=12;$m++)$zero->selectRaw("0 AS m$m");$zero->selectRaw('0 AS total,0 AS compare_qty');
         $query=DB::query()->fromSub($q->unionAll($zero),'annual_details')->select('annual_details.*');
+        // Read categories directly from the master, so category uploads need no NGRS re-upload.
+        // Group by outlet ID to preserve one report row even if the master contains duplicates.
+        $categories=DB::table('appsdumais')->select('id_outlet')
+            ->selectRaw("MAX(COALESCE(NULLIF(TRIM(kategori_outlet),''),'Reguler')) AS kategori_outlet")->groupBy('id_outlet');
+        $query->leftJoinSub($categories,'category',fn($j)=>$j->on('category.id_outlet','=','annual_details.id_outlet'))
+            ->selectRaw("CASE WHEN annual_details.candidates=1 THEN COALESCE(category.kategori_outlet,'Reguler') ELSE NULL END AS kategori_outlet");
         $months=DB::table('surya_ngrs_months')->whereBetween('month',["$year-01-01","$year-12-01"])->pluck('month')->map(fn($date)=>(int)substr($date,5,2))->all();
         $comparison=app(NgrsComparison::class)->plan($year);
         $query->selectRaw($comparison&&$comparison['previous_available']?'compare_qty AS mom_compare':'NULL AS mom_compare');

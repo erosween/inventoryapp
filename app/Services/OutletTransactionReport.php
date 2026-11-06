@@ -17,11 +17,12 @@ class OutletTransactionReport
         $master = DB::table('appsdumais')->whereNotNull('pjp')->whereRaw("TRIM(pjp) <> ''")
             ->whereRaw("UPPER(TRIM(pjp)) <> 'UNMAPPING'")
             ->when($scopes !== null, fn ($q) => $q->whereIn('tap', $scopes))
-            ->orderBy('id_outlet')->get(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp'])->unique('id_outlet');
+            ->orderBy('id_outlet')->get(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet'])->unique('id_outlet');
         $taps = $master->pluck('tap')->filter()->unique()->sort()->values();
         $master = $master->filter(function ($o) use ($tap, $search) {
             return ($tap === '' || $o->tap === $tap) && ($search === '' || mb_stripos(implode(' ', (array)$o), $search) !== false);
         });
+        $master = $master->map(function ($o) { $o->kategori_outlet=trim((string)$o->kategori_outlet) ?: 'Reguler'; return $o; });
         $rows = $master->mapWithKeys(fn ($o) => [(string)$o->id_outlet => (array)$o + ['months'=>array_fill(1,12,null),'compare'=>null]]);
         $nota = new OutletNotaSales;
         for ($m = 1; $m <= $cutoff->month; $m++) {

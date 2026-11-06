@@ -47,8 +47,8 @@ class OutletTransactionController extends Controller
         $data=$this->report($request,$family);
         $summary=$request->boolean('summary');
         $rows=$summary?$data['summary']->concat($data['clusters'])->push($data['grand']):$data['columns']->apply($data['rows'],$data['options']);
-        $keys=$summary?['tap']:['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp'];
-        $headers=$summary?['TAP']:['ID Outlet','Nama Outlet','Nomor RS','TAP','Cluster','Kecamatan','SF','Hari PJP'];
+        $keys=$summary?['tap']:['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet'];
+        $headers=$summary?['TAP']:['ID Outlet','Nama Outlet','Nomor RS','TAP','Cluster','Kecamatan','SF','Hari PJP','Kategori Outlet'];
         foreach(range(1,12) as $m){$keys[]='m'.$m;$headers[]=sprintf('%04d-%02d',$data['cutoff']->year,$m);
             if($data['comparison']&&$m===$data['cutoff']->month-1){$keys[]='compare';$headers[]=$data['previousEnd']->format('Y-m').' MoM 1-'.$data['previousEnd']->day;}}
         $keys[]='total';$headers[]='Total '.strtoupper($family);
