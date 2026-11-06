@@ -66,6 +66,10 @@ Route::get('/surya/outletlist/template', [\App\Http\Controllers\OutletlistUpload
 Route::post('/surya/outletlist/category', [\App\Http\Controllers\OutletlistUploadController::class, 'categoryStore'])->name('surya.outletlist.category');
 Route::post('/surya/outletlist/nota', [\App\Http\Controllers\OutletlistUploadController::class, 'notaStore'])->name('surya.outletlist.nota');
 Route::get('/surya/outletlist/nota/template', [\App\Http\Controllers\OutletlistUploadController::class, 'notaTemplate'])->name('surya.outletlist.nota-template');
+// Outlet transaction reports share the SURYA access boundary; NGRS keeps its existing URLs.
+Route::get('/surya/transaksi-outlet/{family}/filter-values', [\App\Http\Controllers\OutletTransactionController::class, 'values'])->where('family','sa|pv')->name('surya.outlet-transactions.values');
+Route::get('/surya/transaksi-outlet/{family}/export', [\App\Http\Controllers\OutletTransactionController::class, 'export'])->where('family','sa|pv')->name('surya.outlet-transactions.export');
+Route::get('/surya/transaksi-outlet/{family}', [\App\Http\Controllers\OutletTransactionController::class, 'index'])->where('family','sa|pv|cvm')->name('surya.outlet-transactions');
 Route::get('/surya/ngrs/filter-values', [\App\Http\Controllers\NgrsController::class, 'values'])->name('surya.ngrs.filter-values');
 Route::get('/surya/ngrs', [\App\Http\Controllers\NgrsController::class, 'index'])->name('surya.ngrs');
 Route::get('/surya/ngrs/summary-export', [\App\Http\Controllers\NgrsController::class, 'summaryExport'])->name('surya.ngrs.summary-export');

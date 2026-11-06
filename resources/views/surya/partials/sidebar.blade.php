@@ -18,7 +18,13 @@
         <a href="{{ route('surya.dashboard', ['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'outlet' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="outlet" @endif><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ in_array($sidebarPage, ['dashboard', 'visit-detail', 'visit-report', 'field-reports'], true) && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
         <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
-        <a href="{{ route('surya.ngrs') }}" class="sidebar-link {{ $sidebarPage === 'ngrs' ? 'active' : '' }}"><i class="fas fa-signal"></i><span>NGRS</span></a>
+        <details class="sidebar-taskforce" @if(in_array($sidebarPage, ['ngrs','transactions-sa','transactions-pv','transactions-cvm'], true)) open @endif>
+            <summary class="sidebar-link"><i class="fas fa-chart-column"></i><span>TRANSAKSI OUTLET</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
+            <a href="{{ route('surya.ngrs') }}" class="sidebar-link {{ $sidebarPage === 'ngrs' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-signal"></i><span>NGRS</span></a>
+            @foreach(['cvm'=>'CVM','sa'=>'SA','pv'=>'PV'] as $key=>$label)
+            <a href="{{ route('surya.outlet-transactions',['family'=>$key]) }}" class="sidebar-link {{ $sidebarPage === 'transactions-'.$key ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-table-list"></i><span>{{ $label }}</span></a>
+            @endforeach
+        </details>
         <details class="sidebar-taskforce" @if($sidebarPage === 'push-so') open @endif>
             <summary class="sidebar-link"><i class="fas fa-people-group"></i><span>TASKFORCE</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
             <a href="{{ route('surya.taskforce.push-so') }}" class="sidebar-link {{ $sidebarPage === 'push-so' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-bullseye"></i><span>PUSH SO</span></a>
