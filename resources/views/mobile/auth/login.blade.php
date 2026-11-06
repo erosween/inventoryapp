@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=auto">
     <title>SURYA - MOBILE</title>
 
     <link rel="manifest" href="/manifest.json">
@@ -14,7 +14,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SURYA">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="msapplication-TileColor" content="#b40012">
     <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/surya/icon-180.png">
@@ -90,6 +90,20 @@
             background: #111827;
             border: 0;
             box-shadow: none;
+        }
+
+        /* Match the proven Inventory login edge, confined to the Mobile login.
+           The opaque band spans the device, not only the 480px phone canvas. */
+        @supports (-webkit-touch-callout: none) {
+            @media (pointer: coarse) {
+                :root { --login-status-height: max(12px, env(safe-area-inset-top, 0px)); }
+                html { background: #111827; color-scheme: light; }
+                .login-phone { padding-top: var(--login-status-height); }
+                .login-phone::before {
+                    left: 0; right: 0; width: 100%; transform: none;
+                    height: var(--login-status-height); background: #111827;
+                }
+            }
         }
 
         .login-hero {
