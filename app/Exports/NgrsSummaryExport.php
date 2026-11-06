@@ -74,7 +74,7 @@ class NgrsSummaryExport extends DefaultValueBinder implements FromArray,WithHead
     {
         $last=Coordinate::stringFromColumnIndex(count($this->columns)+1);$end=4+count($this->rows);
         $sheet->freezePane('B5');$sheet->setAutoFilter('A4:'.$last.(4+$this->tapCount));$sheet->getColumnDimension('A')->setWidth(29);
-        $decimal=$this->metric==='rech'&&$this->period==='average';$format=$decimal?'#,##0.00':'#,##0';$gapFormat=$decimal?'"▲ +"#,##0.00;"▼ -"#,##0.00;0.00':'"▲ +"#,##0;"▼ -"#,##0;0';
+        $decimal=$this->metric==='rech'&&$this->period==='average';$format=$decimal?'#,##0.00':'#,##0';$gapFormat=$format;
         $sheet->getStyle('B5:'.$last.$end)->getNumberFormat()->setFormatCode($format);
         $sheet->getStyle('A4:'.$last.'4')->getAlignment()->setWrapText(true);$sheet->getRowDimension(4)->setRowHeight(34);
         foreach($this->columns as$i=>$column)$sheet->getColumnDimension(Coordinate::stringFromColumnIndex($i+2))->setWidth($this->metric==='rech'?24:($column['kind']==='compare'?22:17));

@@ -25,7 +25,7 @@ class NgrsFormat
             $value=$current-$previous;$text=number_format(abs($value),0,',','.');
         }
         $direction=$value>0?'positive':($value<0?'negative':'flat');
-        return ['direction'=>$direction,'text'=>($value>0?'▲ +':($value<0?'▼ -':'')).$text,'value'=>$value];
+        return ['direction'=>$direction,'text'=>($value<0?'-':'').$text,'value'=>$value];
     }
     public static function percent(int $trx,int $recharge,int $days,int $previousTrx,int $previousRecharge,int $previousDays,string $period,string $metric):array
     {

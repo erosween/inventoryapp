@@ -187,11 +187,11 @@ class NgrsTest extends TestCase
         $rows=[];foreach(['01/01/2026'=>[100,100000000],'01/02/2026'=>[100,100000000],'01/03/2026'=>[50,50000000],'01/04/2026'=>[120,120000000],'01/10/2026'=>[20,100000000],'05/10/2026'=>[30,200000000],'31/10/2026'=>[300,900000000],'01/11/2026'=>[25,150000000],'05/11/2026'=>[35,200000000]]as$date=>$v)$rows[]=array_replace($this->row($date,'6281234567890','A',$v[0],'DUMAI'),[4=>(string)$v[1]]);
         $this->import($rows);$summary=(new NgrsReport)->summary($this->filters());$row=$summary['rows']['DUMAI|DUMAI BENGKALIS'];
         $this->assertSame(50,$row['compare_trx']);$this->assertSame(300000000,$row['compare_rech']);$this->assertSame(50,$summary['grand']['compare_trx']);$this->assertSame(50,$summary['clusters']['Dumai Bengkalis']['compare_trx']);
-        foreach([['monthly','trx','▲ +10'],['average','trx','▲ +2'],['monthly','rech','▲ +0.050'],['average','rech','▲ +0.010']]as[$period,$metric,$gap]){
+        foreach([['monthly','trx','10'],['average','trx','2'],['monthly','rech','0.050'],['average','rech','0.010']]as[$period,$metric,$gap]){
             $html=$this->get(route('surya.ngrs',['summary_view'=>$period,'summary_metric'=>$metric]))->assertOk()->assertSee('Okt-MoM')->assertSee($gap)->getContent();
             $this->assertStringContainsString('ngrs-summary-gap is-positive',$html);$this->assertStringContainsString('ngrs-summary-gap is-negative',$html);$this->assertStringContainsString('ngrs-summary-gap is-flat',$html);
         }
-        $this->assertSame('▼ -50',\App\Support\NgrsFormat::gap(50,0,31,100,0,28,'monthly','trx')['text']);
+        $this->assertSame('-50',\App\Support\NgrsFormat::gap(50,0,31,100,0,28,'monthly','trx')['text']);
         $this->assertSame('flat',\App\Support\NgrsFormat::gap(0,0,31,0,0,28,'average','trx')['direction']);
         $this->assertNull(\App\Support\NgrsFormat::gap(5,0,5,0,0,0,'monthly','trx')['value']);
         // Closing the month invalidates the summary comparison cache as well.
@@ -228,7 +228,7 @@ class NgrsTest extends TestCase
                 $cell=fn($label,$row=5)=>$sheet->getCell(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(array_search($label,$header)+1).$row);
                 $this->assertSame('DUMAI',$sheet->getCell('A5')->getValue());$this->assertSame('CLUSTER · Dumai Bengkalis',$sheet->getCell('A6')->getValue());$this->assertSame('GRAND TOTAL',$sheet->getCell('A7')->getValue());$this->assertSame(7,$sheet->getHighestRow());
                 $this->assertEquals($nov,$cell('Nov')->getValue());$this->assertEquals($oct,$cell('Okt-MoM (1-5)')->getValue());$this->assertEquals($gap,$cell('GAP Nov')->getValue());$this->assertEquals($gap,$cell('GAP Nov',7)->getValue());
-                $this->assertEquals($metric==='trx'?0.2:0.167,$cell('MoM % Nov')->getValue());$this->assertSame('n',$cell('MoM % Nov')->getDataType());$this->assertStringContainsString('%',$cell('MoM % Nov')->getStyle()->getNumberFormat()->getFormatCode());$this->assertSame('n',$cell('GAP Nov')->getDataType());$this->assertSame('12805C',$cell('GAP Nov')->getStyle()->getFont()->getColor()->getRGB());$this->assertStringContainsString('▲',$cell('GAP Nov')->getStyle()->getNumberFormat()->getFormatCode());
+                $this->assertEquals($metric==='trx'?0.2:0.167,$cell('MoM % Nov')->getValue());$this->assertSame('n',$cell('MoM % Nov')->getDataType());$this->assertStringContainsString('%',$cell('MoM % Nov')->getStyle()->getNumberFormat()->getFormatCode());$this->assertSame('n',$cell('GAP Nov')->getDataType());$this->assertSame('12805C',$cell('GAP Nov')->getStyle()->getFont()->getColor()->getRGB());$this->assertStringNotContainsString('▲',$cell('GAP Nov')->getStyle()->getNumberFormat()->getFormatCode());$this->assertStringNotContainsString('+',$cell('GAP Nov')->getStyle()->getNumberFormat()->getFormatCode());$this->assertStringContainsString('▲',$cell('MoM % Nov')->getStyle()->getNumberFormat()->getFormatCode());
                 $this->assertSame('B5',$sheet->getFreezePane());$this->assertStringContainsString('05/11/2026',$sheet->getCell('A2')->getValue());
                 if($period==='monthly'&&$metric==='trx'){$this->assertSame(-3,$cell('GAP Feb')->getValue());$this->assertSame('n',$cell('GAP Feb')->getDataType());$this->assertSame('D92D20',$cell('GAP Feb')->getStyle()->getFont()->getColor()->getRGB());}
                 if($period==='average'&&$metric==='trx'){$this->assertSame(0,$cell('GAP Feb')->getValue());$this->assertSame('172033',$cell('GAP Feb')->getStyle()->getFont()->getColor()->getRGB());$this->assertSame('EEF2F6',$cell('GAP Feb')->getStyle()->getFill()->getStartColor()->getRGB());}
@@ -260,5 +260,16 @@ class NgrsTest extends TestCase
             }finally{$book->disconnectWorksheets();unlink($path);}
         }
         $this->get(route('surya.ngrs',['summary_metric'=>'rech','tap'=>'DUMAI']))->assertOk()->assertSee('0.123');
+    }
+    public function test_nominal_gap_has_no_arrows_or_positive_sign_but_percentage_keeps_them():void
+    {
+        $this->assertSame('122.222',\App\Support\NgrsFormat::gap(122222,0,31,0,0,30,'monthly','trx')['text']);
+        $this->assertSame('-122.222',\App\Support\NgrsFormat::gap(0,0,31,122222,0,30,'monthly','trx')['text']);
+        $this->assertSame('0.100',\App\Support\NgrsFormat::gap(0,200000000,31,0,100000000,30,'monthly','rech')['text']);
+        $this->assertSame('▲ +100,0%',\App\Support\NgrsFormat::percent(20,0,31,10,0,30,'monthly','trx')['text']);
+        $this->import([$this->row('01/01/2026','6281234567890','A',10,'DUMAI'),$this->row('01/02/2026','6281234567890','A',20,'DUMAI')]);
+        $html=$this->get(route('surya.ngrs'))->assertOk()->getContent();$doc=new \DOMDocument;@$doc->loadHTML(mb_convert_encoding($html,'HTML-ENTITIES','UTF-8'));$xpath=new \DOMXPath($doc);
+        foreach($xpath->query('//td[@data-gap-percent="0"]')as$cell){$this->assertDoesNotMatchRegularExpression('/[▲▼+]/u',$cell->textContent);}
+        foreach($xpath->query('//table[contains(@class,"ngrs-detail")]//td[contains(@class,"ngrs-gap")][not(contains(text(),"%"))]')as$cell){$this->assertDoesNotMatchRegularExpression('/[▲▼+]/u',$cell->textContent);}
     }
 }

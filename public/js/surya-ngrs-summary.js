@@ -22,7 +22,7 @@
     if(raw!==null){
      const value=percent?Math.sign(raw)*Math.round(Math.abs(raw)*10)/10:(recharge?Math.sign(raw)*Math.round(Math.abs(raw)/1e6)/1000:raw);
      const formatter=percent?new Intl.NumberFormat('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1}):format;
-     direction=value>0?'positive':value<0?'negative':'flat';text=(value>0?'▲ +':value<0?'▼ -':'')+formatter.format(Math.abs(value))+(percent?'%':'');
+     direction=value>0?'positive':value<0?'negative':'flat';text=(percent?(value>0?'▲ +':value<0?'▼ -':''):(value<0?'-':''))+formatter.format(Math.abs(value))+(percent?'%':'');
     }
    }
    cell.classList.remove('is-positive','is-negative','is-flat','is-missing');cell.classList.add('is-'+direction);cell.textContent=text;
