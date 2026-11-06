@@ -671,7 +671,7 @@
                                             <div class="py-2 pr-2 bg-light">
                                                 <div class="d-flex mb-2 pl-5">
                                                     <button class="btn btn-xs btn-primary mr-1 btn-toggle-rincian" data-target="sf-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">👤 Performance Petugas</button>
-                                                    <button class="btn btn-xs btn-outline-primary btn-toggle-rincian" data-target="validity-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">🎫 Validity Group</button>
+                                                    <button class="btn btn-xs btn-outline-primary btn-toggle-rincian" data-target="validity-sales-{{ Str::slug($tap) }}" data-parent="val-sales-{{ Str::slug($tap) }}">🎫 {{ $salesDetailHeading }}</button>
                                                 </div>
 
                                                 {{-- SUB-SECTION: PERFORMANCE SELURUH PETUGAS --}}
@@ -707,7 +707,7 @@
                                                     <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                         <thead class="bg-white">
                                                             <tr class="text-secondary">
-                                                                <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">Validity Group</th>
+                                                                <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">{{ $salesDetailHeading }}</th>
                                                                 @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                                     <th class="border-0">{{ $m }}</th>
                                                                 @endforeach
@@ -719,7 +719,7 @@
                                                                 $footTotals = array_fill(1, 12, 0); 
                                                                 $footGrand = 0;
                                                             @endphp
-                                                            @foreach($validityGroups as $vg)
+                                                            @foreach($salesDetailGroups as $vg)
                                                                 @php 
                                                                     $totalVG = 0; 
                                                                     $mRow = [];
@@ -806,7 +806,7 @@
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-primary">
-                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Dumai)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">{{ $salesDetailHeading }} (Cluster Dumai)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -818,7 +818,7 @@
                                                         $footTotals = array_fill(1, 12, 0); 
                                                         $footGrand = 0;
                                                     @endphp
-                                                    @foreach($validityGroups as $vg)
+                                                    @foreach($salesDetailGroups as $vg)
                                                         @php 
                                                             $totalVG = 0; 
                                                             $mTotals = array_fill(1, 12, 0);
@@ -900,7 +900,7 @@
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-primary">
-                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Rohil)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">{{ $salesDetailHeading }} (Cluster Rohil)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -912,7 +912,7 @@
                                                         $footTotals = array_fill(1, 12, 0); 
                                                         $footGrand = 0;
                                                     @endphp
-                                                    @foreach($validityGroups as $vg)
+                                                    @foreach($salesDetailGroups as $vg)
                                                         @php 
                                                             $totalVG = 0; 
                                                             $mTotals = array_fill(1, 12, 0);
@@ -994,7 +994,7 @@
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr style="color: #0d47a1">
-                                                        <th class="text-left border-0 sticky-validity-col">Validity (Grand Total)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">{{ $salesDetailHeading }} (Grand Total)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -1006,7 +1006,7 @@
                                                         $footTotals = array_fill(1, 12, 0); 
                                                         $footGrand = 0;
                                                     @endphp
-                                                    @foreach($validityGroups as $vg)
+                                                    @foreach($salesDetailGroups as $vg)
                                                         @php 
                                                             $totalVG = 0; 
                                                             $mTotals = array_fill(1, 12, 0);
@@ -1163,7 +1163,7 @@
                                                 <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                     <thead class="bg-white">
                                                         <tr class="text-secondary">
-                                                            <th class="text-left border-0 sticky-validity-col">Validity Group</th>
+                                                            <th class="text-left border-0 sticky-validity-col">{{ $injectDetailHeading }}</th>
                                                             @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                                 <th class="border-0">{{ $m }}</th>
                                                             @endforeach
@@ -1175,7 +1175,7 @@
                                                             $footTotals = array_fill(1, 12, 0); 
                                                             $footGrand = 0;
                                                         @endphp
-                                                        @foreach($validityGroups as $vg)
+                                                        @foreach($injectDetailGroups as $vg)
                                                             @php 
                                                                 $totalVG = 0; 
                                                                 $mRow = [];
@@ -1254,7 +1254,7 @@
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-success">
-                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Dumai)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">{{ $injectDetailHeading }} (Cluster Dumai)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -1266,7 +1266,7 @@
                                                         $footTotals = array_fill(1, 12, 0); 
                                                         $footGrand = 0;
                                                     @endphp
-                                                    @foreach($validityGroups as $vg)
+                                                    @foreach($injectDetailGroups as $vg)
                                                         @php 
                                                             $totalVG = 0; 
                                                             $mTotals = array_fill(1, 12, 0);
@@ -1348,7 +1348,7 @@
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr class="text-success">
-                                                        <th class="text-left border-0 sticky-validity-col">Validity (Cluster Rohil)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">{{ $injectDetailHeading }} (Cluster Rohil)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -1360,7 +1360,7 @@
                                                         $footTotals = array_fill(1, 12, 0); 
                                                         $footGrand = 0;
                                                     @endphp
-                                                    @foreach($validityGroups as $vg)
+                                                    @foreach($injectDetailGroups as $vg)
                                                         @php 
                                                             $totalVG = 0; 
                                                             $mTotals = array_fill(1, 12, 0);
@@ -1442,7 +1442,7 @@
                                             <table class="table table-sm table-bordered mb-0 bg-white shadow-sm rounded text-center" style="font-size: 11px;">
                                                 <thead class="bg-white">
                                                     <tr style="color: #1b5e20">
-                                                        <th class="text-left border-0 sticky-validity-col">Validity (Grand Total)</th>
+                                                        <th class="text-left border-0 sticky-validity-col">{{ $injectDetailHeading }} (Grand Total)</th>
                                                         @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
                                                             <th class="border-0">{{ $m }}</th>
                                                         @endforeach
@@ -1454,7 +1454,7 @@
                                                         $footTotals = array_fill(1, 12, 0); 
                                                         $footGrand = 0;
                                                     @endphp
-                                                    @foreach($validityGroups as $vg)
+                                                    @foreach($injectDetailGroups as $vg)
                                                         @php 
                                                             $totalVG = 0; 
                                                             $mTotals = array_fill(1, 12, 0);

@@ -35,7 +35,7 @@ class HomeController extends Controller
     {
         $query=$request->query();ksort($query);
         $scope=strtoupper(trim((string)session('idtap')));
-        $key='home-dashboard:v19:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        $key='home-dashboard:v20:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
         return app()->environment('testing') ? $this->dashboardData($request)
             : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
@@ -654,26 +654,42 @@ class HomeController extends Controller
         /* ================= NEW: VALIDITY MATRIX FOR HEATMAP EXPANSION ================= */
         $validityGroups = ['SEGEL', 'UNLIMITED 6 JAM', 'UNLIMITED 12 JAM', 'UNLIMITED 24 JAM', 'UNLIMITED 48 JAM', '1 HARI', '2 HARI', '3 HARI', '5 HARI', '7 HARI', '14 HARI', '28 HARI', '30 HARI', 'VOICE'];
 
-        $fetchValidityMatrix = function ($table, $year, $applyFilter, $applyProductFilter, $productFilter) use ($validityGroups) {
-            $data = DB::table($table)
-                ->join('denom', $table . '.iddenom', '=', 'denom.iddenom')
-                ->selectRaw('idtap, denom.group_name, MONTH(tgl) as bulan, SUM(qty) as total')
-                ->whereYear('tgl', $year)
-                ->whereIn('denom.group_name', $validityGroups)
-                ->groupBy('idtap', 'denom.group_name', DB::raw('MONTH(tgl)'));
+        $fetchValidityMatrix = function ($data, $table, $year, $productFilter) use ($validityGroups, $applyFilter, $applyProductFilter) {
+            $isSa = str_starts_with($productFilter, 'sa_');
+            $detailColumn = $isSa ? 'denom.denom' : 'denom.group_name';
+            $data->join('denom', $table . '.iddenom', '=', 'denom.iddenom')
+                ->selectRaw("{$table}.idtap, {$detailColumn} as detail_label, MONTH({$table}.tgl) as bulan, SUM({$table}.qty) as total")
+                ->whereYear($table . '.tgl', $year)
+                ->groupBy($table . '.idtap', $detailColumn, DB::raw("MONTH({$table}.tgl)"));
+            if (! $isSa) {
+                $data->whereIn('denom.group_name', $validityGroups);
+            }
             $applyFilter($data, $table . '.idtap');
             $applyProductFilter($data, $table, $productFilter);
-            $rows = $data->get();
-
             $matrix = [];
-            foreach ($rows as $row) {
-                $matrix[$row->idtap][$row->group_name][$row->bulan] = $row->total;
+            $groups = [];
+            foreach ($data->get() as $row) {
+                $matrix[$row->idtap][$row->detail_label][$row->bulan] = $row->total;
+                $groups[$row->detail_label] = $row->detail_label;
             }
-            return $matrix;
+            if ($isSa) {
+                natcasesort($groups);
+            }
+            return [$matrix, $isSa ? array_values($groups) : $validityGroups, $isSa ? 'Denom' : 'Validity Group'];
         };
 
-        $validityMatrixSales = $fetchValidityMatrix('keluarsf', $salesYear, $applyFilter, $applyProductFilter, $salesProductFilter);
-        $validityMatrixInject = $fetchValidityMatrix('injectvf', $selectedYear, $applyFilter, $applyProductFilter, $injectProductFilter);
+        $salesDetailQuery = $this->combinedSalesQuery(Carbon::create($salesYear, 1, 1)->startOfDay(), Carbon::create($salesYear, 12, 31)->endOfDay());
+        if ($salesYear === $currentDate->year) {
+            $salesDetailQuery->where(function ($query) use ($currentDate, $momSelectedDate) {
+                $query->whereMonth('combined_sales.tgl', '<', $currentDate->month)
+                    ->orWhere(function ($monthQuery) use ($currentDate, $momSelectedDate) {
+                        $monthQuery->whereMonth('combined_sales.tgl', $currentDate->month)
+                            ->where('combined_sales.tgl', '<=', $momSelectedDate);
+                    });
+            });
+        }
+        [$validityMatrixSales, $salesDetailGroups, $salesDetailHeading] = $fetchValidityMatrix($salesDetailQuery, 'combined_sales', $salesYear, $salesProductFilter);
+        [$validityMatrixInject, $injectDetailGroups, $injectDetailHeading] = $fetchValidityMatrix(DB::table('injectvf'), 'injectvf', $selectedYear, $injectProductFilter);
 
 
         /* ================= NEW: MoM INJECT SUMMARY (CLUSTER & GT) ================= */
@@ -715,6 +731,7 @@ class HomeController extends Controller
             'validityMatrixSales',
             'validityMatrixInject',
             'validityGroups',
+            'salesDetailGroups', 'salesDetailHeading', 'injectDetailGroups', 'injectDetailHeading',
             'pieSales',
             'pieInject',
             'stokSegel',
