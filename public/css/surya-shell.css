@@ -133,3 +133,43 @@ body.surya-menu-open { overflow: hidden; }
     [data-surya-workspace] .surya-page-heading h1 { font-size: 24px; }
     .surya-page-heading-actions { width: 100%; }
 }
+
+/* Keep navigation feedback inside the header's existing footprint. */
+.surya-navbar-copy { position: relative; }
+.surya-navbar.is-navigating .surya-navbar-copy > p { visibility: hidden; }
+.surya-navigation-progress:not([hidden]) {
+    position: absolute; inset: 0; display: flex; align-items: center; gap: 12px;
+    color: #fff; text-align: left; pointer-events: none;
+}
+.surya-navigation-icon {
+    display: grid; place-items: center; flex: 0 0 32px; height: 32px;
+    border: 1px solid #ffffff38; border-radius: 9px; background: #ffffff14;
+}
+.surya-navigation-icon::before {
+    content: ""; width: 15px; height: 15px; box-sizing: border-box;
+    border: 2px solid #ffffff4d; border-top-color: #fff;
+    border-radius: 50%; animation: surya-navigation-spin .85s linear infinite;
+}
+.surya-navigation-copy { display: grid; gap: 3px; min-width: 0; }
+.surya-navigation-label {
+    color: #f4ccd5; font-size: 10px; font-weight: 600;
+    line-height: 1.2; letter-spacing: .08em; text-transform: uppercase;
+}
+.surya-navigation-destination {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 13px; font-weight: 700; line-height: 1.3;
+}
+.surya-navbar.is-navigating::after {
+    content: ""; position: absolute; inset: auto 0 0; height: 2px;
+    background: #ffffff24 linear-gradient(90deg, transparent, #ffd6df 50%, transparent) no-repeat;
+    background-size: 36% 100%; animation: surya-navigation-rail 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes surya-navigation-spin { to { transform: rotate(360deg); } }
+@keyframes surya-navigation-rail {
+    from { background-position: -58% 0; }
+    to { background-position: 158% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .surya-navbar.is-navigating::after { background: #ffd6df; }
+}

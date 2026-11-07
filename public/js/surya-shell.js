@@ -5,6 +5,7 @@
         const shell = document.querySelector('[data-surya-workspace]');
         const sidebar = document.getElementById('surya-sidebar');
         const toggle = document.querySelector('[data-surya-sidebar-toggle]');
+        const navbar = toggle?.closest('.surya-navbar');
         if (!shell || !sidebar || !toggle || shell.dataset.sidebarReady) return;
         shell.dataset.sidebarReady = 'true';
         sidebar.querySelectorAll('.sidebar-link.active').forEach(link => link.setAttribute('aria-current', 'page'));
@@ -15,26 +16,38 @@
         progress.hidden = true;
         progress.setAttribute('role', 'status');
         progress.setAttribute('aria-live', 'polite');
-        progress.innerHTML = '<span class="surya-navigation-track" aria-hidden="true"></span><span class="surya-navigation-label">Memuat halaman…</span>';
-        document.body.appendChild(progress);
+        progress.innerHTML = `
+            <span class="surya-navigation-icon" aria-hidden="true"></span>
+            <span class="surya-navigation-copy">
+                <span class="surya-navigation-label">Memuat menu</span>
+                <strong class="surya-navigation-destination"></strong>
+            </span>`;
+        const destinationLabel = progress.querySelector('.surya-navigation-destination');
+        navbar?.querySelector('.surya-navbar-copy')?.append(progress);
         let progressDelay, progressTimeout;
         const resetProgress = () => {
             clearTimeout(progressDelay);
             clearTimeout(progressTimeout);
             progress.hidden = true;
+            navbar?.classList.remove('is-navigating');
         };
         document.addEventListener('click', event => {
-            const link = event.target.closest('a.sidebar-link');
+            const link = event.target.closest?.('a.sidebar-link');
             if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
                 || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
             const destination = new URL(link.href, window.location.href);
             if (destination.origin !== window.location.origin || !['http:', 'https:'].includes(destination.protocol)) return;
             if (destination.pathname === location.pathname && destination.search === location.search && destination.hash) return;
+            const menuName = link.querySelector('span')?.textContent.trim() || 'SURYA';
             // Observe cancellation by existing in-page tab handlers before showing feedback.
             window.setTimeout(() => {
                 if (event.defaultPrevented) return;
                 resetProgress();
-                progressDelay = window.setTimeout(() => { progress.hidden = false; }, 150);
+                progressDelay = window.setTimeout(() => {
+                    destinationLabel.textContent = menuName;
+                    progress.hidden = false;
+                    navbar?.classList.add('is-navigating');
+                }, 150);
                 progressTimeout = window.setTimeout(resetProgress, 15000);
             }, 0);
         });
