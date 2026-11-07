@@ -85,6 +85,7 @@
             const response = await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Nilai filter gagal dimuat.');
+            if (controller.signal.aborted) return;
             values = [...new Set(append ? values.concat(data.values) : data.values)];
             draw(); more.hidden = !data.has_more;
             message.textContent = values.length ? '' : 'Tidak ada nilai yang sesuai.';
@@ -105,6 +106,10 @@
         apply.disabled = true; apply.textContent = 'Memuat…';
         window.SuryaTaskforceNavigate(url.toString());
     }
+    document.addEventListener('taskforce:navigation-end', () => {
+        apply.textContent = 'Terapkan';
+        apply.disabled = mode === 'include' && chosen?.size === 0;
+    }, {signal:events.signal});
     document.querySelectorAll('.tf-column-filter').forEach(button => button.addEventListener('click', () => {
         if (!menu.hidden && trigger === button) { close(); return; }
         close(); trigger = button; key = button.dataset.column;

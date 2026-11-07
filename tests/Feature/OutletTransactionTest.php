@@ -83,7 +83,7 @@ class OutletTransactionTest extends TestCase
     {
         $user=new User;$user->username='admin_super';$this->actingAs($user);
         $this->get('/surya/transaksi-outlet/pv?cutoff=2026-11-04')->assertOk()->assertSee('TRANSAKSI OUTLET')->assertSee('Rekap per TAP')->assertSee('Dumai Bengkalis')->assertSee('Rokan Hilir')->assertSee('ngrs-frozen-name',false);
-        $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Laporan CVM akan disiapkan');
+        $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Laporan CVM belum tersedia.');
         $this->get('/surya/transaksi-outlet/pv?cutoff=2027-01-01')->assertRedirect();
         $this->get('/surya/transaksi-outlet/other')->assertNotFound();
     }

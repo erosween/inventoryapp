@@ -51,7 +51,7 @@
 <form class="drop" id="outletlist-upload-form" data-simple-upload method="POST" action="{{ route('surya.outletlist.upload') }}" enctype="multipart/form-data">
 @csrf
 <label class="file-label" for="outletlist-file">File outletlist</label><input class="file-input" id="outletlist-file" type="file" name="outletlist_file" accept=".csv,text/csv" aria-describedby="outletlist-hint" required>
-<p class="upload-hint" id="outletlist-hint">Header sesuai template · CSV UTF-8 · Maks. 20 MB · Koordinat check-in tetap tersimpan.</p>
+<p class="upload-hint" id="outletlist-hint">CSV UTF-8 · Maks. 20 MB · Koordinat check-in tetap tersimpan.</p>
 @error('outletlist_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Outletlist</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.template') }}"><i class="fa fa-download" aria-hidden="true"></i> Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
@@ -62,7 +62,7 @@
 @csrf
 <label class="file-label" for="category-file">Daftar Top 20 TAP</label>
 <input class="file-input" id="category-file" type="file" name="category_file" accept=".csv,text/csv" required>
-<p class="upload-hint">Header: id_outlet, kategori_outlet · Isi kategori: Top 20 TAP · Daftar terbaru menggantikan sebelumnya; outlet di luar daftar menjadi Reguler.</p>
+<p class="upload-hint">Kolom: id_outlet, kategori_outlet · Top 20 TAP. Upload mengganti daftar; outlet lainnya Reguler.</p>
 @error('category_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Kategori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.category-template') }}">Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
@@ -73,7 +73,7 @@
 @csrf
 <label class="file-label" for="nota-file">File histori harian per outlet</label>
 <input class="file-input" id="nota-file" type="file" name="nota_file" accept=".csv,text/csv" required>
-<p class="upload-hint">Tanggal 2026-01-01 sampai 2026-10-15 (YYYY-MM-DD) · Qty SA/PV tanpa pemisah ribuan · Isi seluruh data tiap bulan yang diunggah: upload menggantikan bulan tersebut, bulan lain tetap tersimpan. Hanya untuk Detail Outlet; tidak mengubah stok.</p>
+<p class="upload-hint">1 Jan–15 Okt 2026 · Tanggal YYYY-MM-DD · Qty tanpa pemisah ribuan. Upload mengganti bulan dalam file, bukan menambah. Tidak mengubah stok.</p>
 @error('nota_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Histori</button><a class="btn metrics-import-resume" href="{{ route('surya.outletlist.nota-template') }}">Template</a></div>
 <p class="upload-hint" role="status" data-simple-status hidden></p>
@@ -82,7 +82,7 @@
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-signal" aria-hidden="true"></i></span><h2 id="ngrs-title">NGRS</h2><span class="upload-format">CSV</span></header>
 <form class="drop" data-simple-upload method="POST" action="{{ route('surya.ngrs.upload') }}" enctype="multipart/form-data">@csrf
 <label class="file-label" for="ngrs-file">File transaksi NGRS</label><input class="file-input" id="ngrs-file" type="file" name="ngrs_file" accept=".csv,text/csv" required>
-<p class="upload-hint">CSV UTF-8 · Maks. 20 MB / 150.000 baris · Tanggal DD/MM/YYYY atau YYYY-MM-DD · Upload data lengkap per bulan; bulan dalam file menggantikan sebelumnya, bukan ditambahkan. RS belum terpetakan tetap dihitung. TAP INFILTRASI memakai cluster INF DB atau INF RH.</p>
+<p class="upload-hint">CSV UTF-8 · Maks. 20 MB / 150.000 baris · Tanggal DD/MM/YYYY atau YYYY-MM-DD. Upload mengganti bulan dalam file. Infiltrasi: INF DB / INF RH.</p>
 @error('ngrs_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
 <div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload NGRS</button><a class="btn metrics-import-resume" href="{{ route('surya.ngrs.template') }}">Template</a></div><p class="upload-hint" data-simple-status role="status" hidden></p>
 </form></section>

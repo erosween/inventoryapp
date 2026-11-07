@@ -11,16 +11,19 @@
    if(!response.ok)throw Error('Data gagal dimuat. Coba kembali.');
    const doc=new DOMParser().parseFromString(await response.text(),'text/html'),next=doc.querySelector('.detail-table');
    if(!next)throw Error('Sesi berakhir. Muat ulang halaman untuk masuk kembali.');
+   if(ctrl.signal.aborted)return;
    table.innerHTML=next.innerHTML;footer.innerHTML=doc.querySelector('.table-footer').innerHTML;
    document.querySelector('#tf-column-menu').replaceWith(doc.querySelector('#tf-column-menu'));
    const options=document.querySelector('[data-column-options]');if(options)options.innerHTML=doc.querySelector('[data-column-options]').innerHTML;
    const link=document.querySelector('.filters a');link.href=doc.querySelector('.filters a').href;
+   const pageSize=document.querySelector('.filters input[name=per_page]'),nextPageSize=doc.querySelector('.filters input[name=per_page]');
+   if(pageSize&&nextPageSize)pageSize.value=nextPageSize.value;
    if(push)history.pushState({},'',target);
    wrap.style.minHeight=state.height+'px';
    const restore=()=>{wrap.scrollLeft=state.left;wrap.scrollTop=state.top;window.scrollTo(state.x,state.y);};restore();requestAnimationFrame(restore);
    document.dispatchEvent(new Event('taskforce:updated'));
   }catch(error){if(error.name!=='AbortError'){const menu=document.querySelector('#tf-column-menu');menu.hidden=false;menu.querySelector('[data-filter-message]').textContent=error.message;}}
-  finally{if(pending===ctrl)table.removeAttribute('aria-busy');}
+  finally{if(pending===ctrl){table.removeAttribute('aria-busy');document.dispatchEvent(new Event('taskforce:navigation-end'));}}
  };
  document.addEventListener('click',event=>{const link=event.target.closest('.table-footer .page-link');if(!link)return;event.preventDefault();if(!link.classList.contains('disabled'))window.SuryaTaskforceNavigate(link.href);});
  document.addEventListener('submit',event=>{if(!event.target.matches('.page-size'))return;event.preventDefault();const url=new URL(location.href);url.searchParams.set('per_page',new FormData(event.target).get('per_page'));url.searchParams.delete('page');window.SuryaTaskforceNavigate(url.toString());});

@@ -4,10 +4,13 @@
  const tables=[...document.querySelectorAll('[data-transaction-table]')];
  if(!tables.length)return;
  const storageKey='surya-report-layout:'+location.pathname;
- let saved={};try{saved=JSON.parse(sessionStorage.getItem(storageKey)||'{}');}catch{}
+ let saved={};try{const parsed=JSON.parse(sessionStorage.getItem(storageKey)||'{}');if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))saved=parsed;}catch{}
  function enhance(table){
   const kind=table.dataset.transactionTable,card=table.closest('.ngrs-card');
   let state={mode:'monthly',range:3,identities:false,...saved[kind]};
+  if(!['monthly','gap','percent'].includes(state.mode))state.mode='monthly';
+  if(![3,6,12].includes(state.range))state.range=3;
+  state.identities=state.identities===true;
   let tools=card.querySelector('.report-table-tools');
   if(!tools){
    tools=document.createElement('div');tools.className='report-table-tools';

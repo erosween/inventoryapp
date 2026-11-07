@@ -59,7 +59,7 @@
                             <div class="{{ $isSuryaStockPage ? 'col-12 warehouse-controls' : 'col-md-8 col-sm-12' }} d-flex flex-wrap align-items-center justify-content-md-end justify-content-start mt-3 mt-md-0">
                                 <div class="daily-mode-toggle mr-2" role="group" aria-label="Perspektif stok">
                                     <button type="button" class="{{ $initialMode === 'all' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'all' ? 'true' : 'false' }}" data-mode="all">All</button>
-                                    <button type="button" class="{{ $initialMode === 'exc_asmen' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'exc_asmen' ? 'true' : 'false' }}" data-mode="exc_asmen">All Exc Asman</button>
+                                    <button type="button" class="{{ $initialMode === 'exc_asmen' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'exc_asmen' ? 'true' : 'false' }}" data-mode="exc_asmen">{{ $isSuryaStockPage ? 'Tanpa Asmen' : 'All Exc Asman' }}</button>
                                     <button type="button" class="{{ $initialMode === 'tap' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'tap' ? 'true' : 'false' }}" data-mode="tap">TAP</button>
                                     <button type="button" class="{{ $initialMode === 'sf' ? 'active' : '' }}" aria-pressed="{{ $initialMode === 'sf' ? 'true' : 'false' }}" data-mode="sf">SF</button>
                                 </div>
