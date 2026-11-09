@@ -6,7 +6,7 @@ class NgrsFormat
     {
         $value=self::numericValue($trx,$recharge,$days,$period,$metric);
         if($value===null)return '—';
-        return $metric==='rech'?number_format($value,3,'.',','):number_format($value,0,',','.');
+        return $metric==='rech'?number_format($value,3,'.',','):number_format($value,0);
     }
     public static function numericValue(int $trx,int $recharge,int $days,string $period,string $metric):int|float|null
     {
@@ -22,7 +22,7 @@ class NgrsFormat
             $value=round(($current-$previous)/1_000_000_000,3);$text=number_format(abs($value),3,'.',',');
         }else{
             $current=$period==='average'?intdiv($trx+$days-1,$days):$trx;$previous=$period==='average'?intdiv($previousTrx+$previousDays-1,$previousDays):$previousTrx;
-            $value=$current-$previous;$text=number_format(abs($value),0,',','.');
+            $value=$current-$previous;$text=number_format(abs($value),0);
         }
         $direction=$value>0?'positive':($value<0?'negative':'flat');
         return ['direction'=>$direction,'text'=>($value<0?'-':'').$text,'value'=>$value];
@@ -34,6 +34,6 @@ class NgrsFormat
         $previous=$metric==='rech'?$previousRecharge/($period==='average'?$previousDays:1):($period==='average'?intdiv($previousTrx+$previousDays-1,$previousDays):$previousTrx);
         if($previous==0)return ['direction'=>'missing','text'=>'—','value'=>null];
         $value=round(($current/$previous-1)*100,1);$direction=$value>0?'positive':($value<0?'negative':'flat');
-        return ['direction'=>$direction,'value'=>$value,'text'=>($value>0?'▲ +':($value<0?'▼ -':'')).number_format(abs($value),1,',','.').'%'];
+        return ['direction'=>$direction,'value'=>$value,'text'=>($value>0?'▲ +':($value<0?'▼ -':'')).number_format(abs($value),1).'%'];
     }
 }

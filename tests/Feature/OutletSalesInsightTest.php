@@ -22,7 +22,7 @@ class OutletSalesInsightTest extends TestCase {
  public function test_cutoff_sources_scope_and_region_contribution():void{
  $d=$this->report();$this->assertSame(45,$d['grand']['denominator']['current']);$this->assertSame(15,$d['grand']['denominator']['previous']);$this->assertSame(35,$d['grand']['values']['1D']['current']);$this->assertSame(10,$d['grand']['values']['2D']['current']);$this->assertSame(2,count($d['districtRows']));
  $this->assertSame(45,$d['tapRows'][0]['denominator']['current']);$this->assertSame(35,$d['districtRows'][1]['denominator']['current']);
- $html=view('surya.partials.outlet-sales-insight',['insight'=>$d])->render();$this->assertStringContainsString('77,8%',$html);$this->assertStringContainsString('+250,0%',$html);
+ $html=view('surya.partials.outlet-sales-insight',['insight'=>$d])->render();$this->assertStringContainsString('77.8%',$html);$this->assertStringContainsString('+250.0%',$html);
  }
  public function test_variant_share_uses_all_family_not_only_selected_variant():void{
  $d=$this->report('pv_reg');$this->assertSame(45,$d['grand']['denominator']['current']);$this->assertSame(['1D'],$d['columns']);$this->assertSame(35,$d['grand']['values']['1D']['current']);

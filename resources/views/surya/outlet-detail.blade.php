@@ -61,7 +61,7 @@
             <td class="freeze-id">@if($canEditOutlet)<button class="outlet-profile-link" type="button" data-outlet-id="{{ $outlet->id_outlet }}">{{ $outlet->id_outlet }}</button>@else{{ $outlet->id_outlet }}@endif</td>
             <td class="freeze-name">{{ $outlet->nama_outlet ?: '–' }}</td>
             <td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->sf ?: '–' }}</td><td>{{ $outlet->tap ?: '–' }}</td><td>{{ $outlet->pjp ?: '–' }}</td><td>{{ $outlet->kategori_outlet ?? 'Reguler' }}</td>
-            @foreach($groups as $key => $group)@foreach($periods as $period => $label)@php $value=$outlet->{$key.'_'.$period};$isPercent=$period==='mom_pct'; @endphp<td class="metric {{ $loop->first ? 'group-start' : '' }} {{ $group['class'] }} {{ $isPercent && $value !== null ? ($value >= 0 ? 'positive' : 'negative') : '' }} {{ $value === null ? 'blank' : '' }}">{{ $value === null ? '–' : ($isPercent ? ($value > 0 ? '+' : '').number_format($value,1,',','.').'%' : number_format($value,0,',','.')) }}</td>@endforeach @endforeach
+            @foreach($groups as $key => $group)@foreach($periods as $period => $label)@php $value=$outlet->{$key.'_'.$period};$isPercent=$period==='mom_pct'; @endphp<td class="metric {{ $loop->first ? 'group-start' : '' }} {{ $group['class'] }} {{ $isPercent && $value !== null ? ($value >= 0 ? 'positive' : 'negative') : '' }} {{ $value === null ? 'blank' : '' }}">{{ $value === null ? '–' : ($isPercent ? ($value > 0 ? '+' : '').number_format($value,1).'%' : number_format($value,0)) }}</td>@endforeach @endforeach
         </tr>
         @empty<tr><td class="table-empty" colspan="43">Outlet PJP tidak ditemukan.</td></tr>@endforelse
         </tbody></table></div>

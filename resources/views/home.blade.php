@@ -2,6 +2,10 @@
 
 @section('content')
 @php
+    $isSuryaDashboard = request()->routeIs('surya.inventory-dashboard');
+    $formatDashboardNumber = fn ($value, int $decimals) => $isSuryaDashboard
+        ? number_format($value, $decimals)
+        : number_format($value, $decimals, ',', '.');
     $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
     $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
 @endphp
@@ -305,11 +309,11 @@
                                 <div class="row">
                                     <div class="col-6" style="border-right:1px solid #e8edf2">
                                         <small class="text-muted">{{ $stockFamily }} Segel</small>
-                                        <h2 class="mt-2 mb-0 font-weight-bold text-dark">{{ number_format($sealedStock, 0, ',', '.') }}</h2>
+                                        <h2 class="mt-2 mb-0 font-weight-bold text-dark">{{ $formatDashboardNumber($sealedStock, 0) }}</h2>
                                     </div>
                                     <div class="col-6">
                                         <small class="text-muted">{{ $stockFamily }} Inject</small>
-                                        <h2 class="mt-2 mb-0 font-weight-bold text-dark">{{ number_format($injectedStock, 0, ',', '.') }}</h2>
+                                        <h2 class="mt-2 mb-0 font-weight-bold text-dark">{{ $formatDashboardNumber($injectedStock, 0) }}</h2>
                                     </div>
                                 </div>
                             </div>
@@ -323,11 +327,11 @@
                             <span class="sales-summary-label">Penjualan {{ $product }} · {{ $momSelectedDate->copy()->locale('id')->translatedFormat('F Y') }}</span>
                             <span class="sales-summary-tag">MTD</span>
                         </div>
-                        <div class="sales-summary-value">{{ number_format($quantity, 0, ',', '.') }} <span>pcs</span></div>
+                        <div class="sales-summary-value">{{ $formatDashboardNumber($quantity, 0) }} <span>pcs</span></div>
                         <p class="sales-summary-cutoff">Cutoff {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d F Y') }}</p>
                         <div class="sales-summary-footer">
                             <span class="sales-summary-growth {{ $growth < 0 ? 'is-down' : ($growth > 0 ? 'is-up' : 'is-flat') }}">
-                                {{ $growth < 0 ? '▼' : ($growth > 0 ? '▲' : '—') }} {{ number_format(abs($growth), 2, ',', '.') }}%
+                                {{ $growth < 0 ? '▼' : ($growth > 0 ? '▲' : '—') }} {{ $formatDashboardNumber(abs($growth), 2) }}%
                             </span>
                             <span class="sales-summary-comparison">MoM vs 1–{{ $momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M Y') }}</span>
                         </div>
@@ -1554,7 +1558,8 @@
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const nf = v => new Intl.NumberFormat('id-ID').format(v); 
+        const dashboardNumberLocale = @json($isSuryaDashboard ? 'en-US' : 'id-ID');
+        const nf = v => new Intl.NumberFormat(dashboardNumberLocale).format(v);
 
         function setMomExportStatus(text, isError) {
             const el = document.getElementById('mom-export-status');
@@ -2466,9 +2471,9 @@
 
         function compactSalesQty(value) {
             const qty = Number(value || 0);
-            if (qty >= 1000000) return `${Math.round(qty / 1000).toLocaleString('id-ID')}k`;
-            if (qty >= 1000) return `${Math.round(qty / 1000).toLocaleString('id-ID')}k`;
-            return qty.toLocaleString('id-ID');
+            if (qty >= 1000000) return `${Math.round(qty / 1000).toLocaleString(dashboardNumberLocale)}k`;
+            if (qty >= 1000) return `${Math.round(qty / 1000).toLocaleString(dashboardNumberLocale)}k`;
+            return qty.toLocaleString(dashboardNumberLocale);
         }
 
         const annualBarValuePlugin = {

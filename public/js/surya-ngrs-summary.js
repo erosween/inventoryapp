@@ -4,7 +4,7 @@
  if(!panel)return;
  function select(mode,metric){
   const average=mode==='average',recharge=metric==='rech';
-  const format=new Intl.NumberFormat(recharge?'en-US':'id-ID',{minimumFractionDigits:recharge?3:0,maximumFractionDigits:recharge?3:0});
+  const format=new Intl.NumberFormat('en-US',{minimumFractionDigits:recharge?3:0,maximumFractionDigits:recharge?3:0});
   tabs.forEach(tab=>tab.setAttribute('aria-selected',String(tab.dataset.ngrsSummary===mode)));
   metrics.forEach(tab=>tab.setAttribute('aria-pressed',String(tab.dataset.ngrsMetric===metric)));
   panel.setAttribute('aria-labelledby',`ngrs-${mode}-tab`);
@@ -21,7 +21,7 @@
     const raw=percent?(previousValue===0?null:(currentValue/previousValue-1)*100):currentValue-previousValue;
     if(raw!==null){
      const value=percent?Math.sign(raw)*Math.round(Math.abs(raw)*10)/10:(recharge?Math.sign(raw)*Math.round(Math.abs(raw)/1e6)/1000:raw);
-     const formatter=percent?new Intl.NumberFormat('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1}):format;
+     const formatter=percent?new Intl.NumberFormat('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}):format;
      direction=value>0?'positive':value<0?'negative':'flat';text=(percent?(value>0?'▲ +':value<0?'▼ -':''):(value<0?'-':''))+formatter.format(Math.abs(value))+(percent?'%':'');
     }
    }

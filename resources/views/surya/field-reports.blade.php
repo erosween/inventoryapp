@@ -19,7 +19,7 @@
         <tr>
             <td>{{ \Carbon\Carbon::parse($row->reported_at)->format('d M Y H:i') }}</td>
             <td>{{ $row->nama_outlet ?? $row->id_outlet }}</td><td>{{ $row->namasf ?? $row->idsf }}</td>
-            <td>@if($type === 'consignment'){{ $row->serial_number }} · {{ $row->status }}@elseif($type === 'survey'){{ $row->operator }} · {{ $row->product ?: '—' }} · Rp {{ number_format($row->price ?? 0, 0, ',', '.') }}@else{{ $row->operator }} · Sinyal: {{ $row->signal_status }} · Data: {{ $row->data_status ?: '—' }}@endif</td>
+            <td>@if($type === 'consignment'){{ $row->serial_number }} · {{ $row->status }}@elseif($type === 'survey'){{ $row->operator }} · {{ $row->product ?: '—' }} · Rp {{ number_format($row->price ?? 0, 0) }}@else{{ $row->operator }} · Sinyal: {{ $row->signal_status }} · Data: {{ $row->data_status ?: '—' }}@endif</td>
             <td>{{ $row->notes ?: '—' }}</td>
         </tr>
         @empty<tr><td colspan="5" class="surya-table-empty">Belum ada data.</td></tr>@endforelse

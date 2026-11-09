@@ -27,7 +27,7 @@ class SuryaStockStatus
         }
 
         $over = $stock > $daily * self::BUFFER_DAYS;
-        $days = rtrim(rtrim(number_format($stock / $daily, 2, ',', '.'), '0'), ',');
+        $days = rtrim(rtrim(number_format($stock / $daily, 2), '0'), '.');
         // Rounding must not make a quantity just above the buffer look within it.
         if ($over && $days === (string) self::BUFFER_DAYS) {
             $days = '>'.self::BUFFER_DAYS;

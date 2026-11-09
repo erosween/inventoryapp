@@ -47,9 +47,9 @@
         bar.value = value;
         percent.textContent = value + '%';
         label.textContent = state.status === 'complete' ? 'Upload selesai' : 'Menyimpan transaksi';
-        status.textContent = done.toLocaleString('id-ID') + ' dari ' + total.toLocaleString('id-ID') +
-            ' baris · ' + state.imported.toLocaleString('id-ID') + ' diproses · ' +
-            state.skipped.toLocaleString('id-ID') + ' dilewati';
+        status.textContent = done.toLocaleString('en-US') + ' dari ' + total.toLocaleString('en-US') +
+            ' baris · ' + state.imported.toLocaleString('en-US') + ' diproses · ' +
+            state.skipped.toLocaleString('en-US') + ' dilewati';
     }
     function showError(e) {
         error.textContent = e.message || 'Koneksi terputus. Coba lanjutkan upload.';

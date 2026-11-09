@@ -1,6 +1,6 @@
 (function(root) {
     'use strict';
-    const number = value => new Intl.NumberFormat('id-ID').format(Number(value) || 0);
+    const number = value => new Intl.NumberFormat('en-US').format(Number(value) || 0);
     // Yajra escapes string columns for the table. Decode its entities once,
     // then insert via textContent so names stay readable without rendering HTML.
     function ownerText(value) {

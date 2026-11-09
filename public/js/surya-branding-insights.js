@@ -53,7 +53,7 @@
     const photoDialog = document.getElementById('branding-photo-dialog');
     const previewImage = photoDialog.querySelector('[data-photo-image]');
     const previewStatus = photoDialog.querySelector('[data-photo-status]');
-    const number = value => value.toLocaleString('id-ID');
+    const number = value => value.toLocaleString('en-US');
     let outlets = [], filtered = [], page = 1, onMapSelect = null;
     let pageLock = null;
     let photoController = null, photoVersion = 0;

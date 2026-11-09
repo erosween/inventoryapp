@@ -43,7 +43,7 @@
                 items.append(card);
             }
             page = data.page; more.hidden = !data.has_more;
-            status.textContent = data.total ? `${data.total.toLocaleString('id-ID')} kunjungan sesuai rentang tanggal` : 'Belum ada kunjungan pada rentang tanggal ini.';
+            status.textContent = data.total ? `${data.total.toLocaleString('en-US')} kunjungan sesuai rentang tanggal` : 'Belum ada kunjungan pada rentang tanggal ini.';
         } catch (error) {
             if (error.name !== 'AbortError') { status.textContent = error.message; more.textContent = 'Coba lagi'; more.hidden = false; }
         }

@@ -138,7 +138,7 @@ class NgrsTest extends TestCase
     }
     public function test_summary_recharge_mode_and_ceiling_average_do_not_change_outlet_trx(): void
     {
-        $this->assertSame('5.143',\App\Support\NgrsFormat::value(154283,0,30,'average','trx'));
+        $this->assertSame('5,143',\App\Support\NgrsFormat::value(154283,0,30,'average','trx'));
         $this->assertSame('0.100',\App\Support\NgrsFormat::value(0,100000000,30,'monthly','rech'));
         $this->assertSame('0',\App\Support\NgrsFormat::value(0,0,30,'average','trx'));
         $this->import([array_replace($this->row(),[4=>'100000000'])]);
@@ -241,12 +241,12 @@ class NgrsTest extends TestCase
         $this->assertSame(20.0,\App\Support\NgrsFormat::percent(60,0,5,50,0,5,'monthly','trx')['value']);
         $this->assertSame(20.0,\App\Support\NgrsFormat::percent(60,0,5,50,0,5,'average','trx')['value']);
         $this->assertSame(16.7,\App\Support\NgrsFormat::percent(0,350000000,5,0,300000000,5,'average','rech')['value']);
-        $this->assertSame('▼ -100,0%',\App\Support\NgrsFormat::percent(0,0,5,50,0,5,'monthly','trx')['text']);
+        $this->assertSame('▼ -100.0%',\App\Support\NgrsFormat::percent(0,0,5,50,0,5,'monthly','trx')['text']);
         $this->assertNull(\App\Support\NgrsFormat::percent(50,0,5,0,0,5,'monthly','trx')['value']);
         $this->import([$this->row('01/01/2026','6281234567890','A',10,'DUMAI'),$this->row('01/02/2026','6281234567890','A',7,'DUMAI'),$this->row('01/02/2026','6281234567891','A',5,'DUMAI')]);
         $r=new NgrsReport;$row=$r->details($this->filters())->where('rs','6281234567891')->first();$this->assertNull($row->mom_pct_m2);
         $this->getJson(route('surya.ngrs.filter-values',['column'=>'mom_pct_m2','columns'=>['rs'=>['6281234567890']]]))->assertOk()->assertJsonPath('values',['-30.0']);
-        $this->get(route('surya.ngrs',['columns'=>['mom_pct_m2'=>['-30.0']],'sort'=>'mom_pct_m2','direction'=>'asc']))->assertOk()->assertSee('MoM % Feb')->assertSee('▼ -30,0%');
+        $this->get(route('surya.ngrs',['columns'=>['mom_pct_m2'=>['-30.0']],'sort'=>'mom_pct_m2','direction'=>'asc']))->assertOk()->assertSee('MoM % Feb')->assertSee('▼ -30.0%');
     }
     public function test_recharge_excel_preserves_original_rupiah_and_small_gaps():void
     {
@@ -263,10 +263,10 @@ class NgrsTest extends TestCase
     }
     public function test_nominal_gap_has_no_arrows_or_positive_sign_but_percentage_keeps_them():void
     {
-        $this->assertSame('122.222',\App\Support\NgrsFormat::gap(122222,0,31,0,0,30,'monthly','trx')['text']);
-        $this->assertSame('-122.222',\App\Support\NgrsFormat::gap(0,0,31,122222,0,30,'monthly','trx')['text']);
+        $this->assertSame('122,222',\App\Support\NgrsFormat::gap(122222,0,31,0,0,30,'monthly','trx')['text']);
+        $this->assertSame('-122,222',\App\Support\NgrsFormat::gap(0,0,31,122222,0,30,'monthly','trx')['text']);
         $this->assertSame('0.100',\App\Support\NgrsFormat::gap(0,200000000,31,0,100000000,30,'monthly','rech')['text']);
-        $this->assertSame('▲ +100,0%',\App\Support\NgrsFormat::percent(20,0,31,10,0,30,'monthly','trx')['text']);
+        $this->assertSame('▲ +100.0%',\App\Support\NgrsFormat::percent(20,0,31,10,0,30,'monthly','trx')['text']);
         $this->import([$this->row('01/01/2026','6281234567890','A',10,'DUMAI'),$this->row('01/02/2026','6281234567890','A',20,'DUMAI')]);
         $html=$this->get(route('surya.ngrs'))->assertOk()->getContent();$doc=new \DOMDocument;@$doc->loadHTML(mb_convert_encoding($html,'HTML-ENTITIES','UTF-8'));$xpath=new \DOMXPath($doc);
         foreach($xpath->query('//td[@data-gap-percent="0"]')as$cell){$this->assertDoesNotMatchRegularExpression('/[▲▼+]/u',$cell->textContent);}

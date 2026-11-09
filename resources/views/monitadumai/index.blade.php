@@ -107,11 +107,11 @@
                 ['key' => 'pv', 'title' => 'PV', 'color' => '#7c3aed'],
                 ['key' => 'sa', 'title' => 'SA', 'color' => '#0b5cab'],
             ];
-            $fmt = fn($value) => number_format((float) ($value ?? 0), 0, ',', '.');
-            $pct = fn($value) => number_format((float) ($value ?? 0), 1, ',', '.') . '%';
+            $fmt = fn($value) => number_format((float) ($value ?? 0), 0);
+            $pct = fn($value) => number_format((float) ($value ?? 0), 1) . '%';
             $share = fn($value, $pjp) => ((float) ($pjp ?? 0)) > 0
-                ? number_format((((float) ($value ?? 0)) / ((float) $pjp)) * 100, 1, ',', '.') . '%'
-                : '0,0%';
+                ? number_format((((float) ($value ?? 0)) / ((float) $pjp)) * 100, 1) . '%'
+                : '0.0%';
             $shareRaw = fn($value, $pjp) => ((float) ($pjp ?? 0)) > 0
                 ? min(100, max(0, (((float) ($value ?? 0)) / ((float) $pjp)) * 100))
                 : 0;
@@ -539,7 +539,7 @@
                                                 @endphp
                                                 <td data-pv-metric="m1" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($metric['m1']) }}</td>
                                                 <td data-pv-metric="mtd" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($metric['mtd']) }}</td>
-                                                <td data-pv-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ $metric['mom'] > 0 ? 'up' : ($metric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($metric['mom'], 1, ',', '.') }}%</span></td>
+                                                <td data-pv-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ $metric['mom'] > 0 ? 'up' : ($metric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($metric['mom'], 1) }}%</span></td>
                                             @endforeach
                                             @php
                                                 $grandMetric = $row['values'][$defaultCategory]['grand_total']
@@ -547,7 +547,7 @@
                                             @endphp
                                             <td class="pv-grand-col" data-pv-metric="m1" data-validity="grand_total">{{ $fmt($grandMetric['m1']) }}</td>
                                             <td class="pv-grand-col" data-pv-metric="mtd" data-validity="grand_total">{{ $fmt($grandMetric['mtd']) }}</td>
-                                            <td class="pv-grand-col" data-pv-metric="mom" data-validity="grand_total"><span class="pv-mom {{ $grandMetric['mom'] > 0 ? 'up' : ($grandMetric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($grandMetric['mom'], 1, ',', '.') }}%</span></td>
+                                            <td class="pv-grand-col" data-pv-metric="mom" data-validity="grand_total"><span class="pv-mom {{ $grandMetric['mom'] > 0 ? 'up' : ($grandMetric['mom'] < 0 ? 'down' : 'flat') }}">{{ number_format($grandMetric['mom'], 1) }}%</span></td>
                                             @if($showContribution)
                                                 @foreach($monitoringValidities as $validity)
                                                     @php
@@ -555,7 +555,7 @@
                                                             ? (($row['values'][$defaultCategory][$validity]['mtd'] ?? 0) / $grandMetric['mtd']) * 100
                                                             : 0;
                                                     @endphp
-                                                    <td class="pv-contribution-col" data-pv-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($contribution, 1, ',', '.') }}%</td>
+                                                    <td class="pv-contribution-col" data-pv-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($contribution, 1) }}%</td>
                                                 @endforeach
                                             @endif
                                         </tr>
@@ -581,11 +581,11 @@
                                                 @endphp
                                                 <td data-pv-footer-metric="m1" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($clusterMetric['m1'] ?? 0) }}</td>
                                                 <td data-pv-footer-metric="mtd" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}">{{ $fmt($clusterMetric['mtd'] ?? 0) }}</td>
-                                                <td data-pv-footer-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ ($clusterMetric['mom'] ?? 0) > 0 ? 'up' : (($clusterMetric['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterMetric['mom'] ?? 0, 1, ',', '.') }}%</span></td>
+                                                <td data-pv-footer-metric="mom" data-validity="{{ $validity }}" data-pv-validity-cell="{{ $validity }}"><span class="pv-mom {{ ($clusterMetric['mom'] ?? 0) > 0 ? 'up' : (($clusterMetric['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterMetric['mom'] ?? 0, 1) }}%</span></td>
                                             @endforeach
                                             <td class="pv-grand-col" data-pv-footer-metric="m1" data-validity="grand_total">{{ $fmt($clusterGrand['m1'] ?? 0) }}</td>
                                             <td class="pv-grand-col" data-pv-footer-metric="mtd" data-validity="grand_total">{{ $fmt($clusterGrand['mtd'] ?? 0) }}</td>
-                                            <td class="pv-grand-col" data-pv-footer-metric="mom" data-validity="grand_total"><span class="pv-mom {{ ($clusterGrand['mom'] ?? 0) > 0 ? 'up' : (($clusterGrand['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterGrand['mom'] ?? 0, 1, ',', '.') }}%</span></td>
+                                            <td class="pv-grand-col" data-pv-footer-metric="mom" data-validity="grand_total"><span class="pv-mom {{ ($clusterGrand['mom'] ?? 0) > 0 ? 'up' : (($clusterGrand['mom'] ?? 0) < 0 ? 'down' : 'flat') }}">{{ number_format($clusterGrand['mom'] ?? 0, 1) }}%</span></td>
                                             @if($showContribution)
                                                 @foreach($monitoringValidities as $validity)
                                                     @php
@@ -594,7 +594,7 @@
                                                             ? (($clusterMetric['mtd'] ?? 0) / ($clusterGrand['mtd'] ?? 1)) * 100
                                                             : 0;
                                                     @endphp
-                                                    <td class="pv-contribution-col" data-pv-footer-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($clusterContribution, 1, ',', '.') }}%</td>
+                                                    <td class="pv-contribution-col" data-pv-footer-metric="contribution" data-validity="{{ $validity }}" data-pv-contribution-cell="{{ $validity }}">{{ number_format($clusterContribution, 1) }}%</td>
                                                 @endforeach
                                             @endif
                                         </tr>
@@ -642,17 +642,17 @@
                         $visitPercentage = $totalPjp > 0 ? ($totalActualCall / $totalPjp) * 100 : 0;
                     @endphp
                     <div class="visit-kpi-grid">
-                        <article class="visit-kpi"><div class="visit-kpi-label">Total PJP<span class="visit-kpi-icon"><i class="fas fa-route" aria-hidden="true"></i></span></div><strong>{{ number_format($totalPjp,0,',','.') }}</strong><small>Outlet terjadwal</small></article>
-                        <article class="visit-kpi"><div class="visit-kpi-label">Actual Call<span class="visit-kpi-icon blue"><i class="fas fa-location-dot" aria-hidden="true"></i></span></div><strong>{{ number_format($totalActualCall,0,',','.') }}</strong><small>Kunjungan sesuai PJP</small></article>
-                        <article class="visit-kpi visit-kpi-highlight"><div class="visit-kpi-label">Pencapaian Visit<span class="visit-kpi-icon green"><i class="fas fa-chart-simple" aria-hidden="true"></i></span></div><strong>{{ number_format($visitPercentage,1,',','.') }}<span>%</span></strong><progress max="100" value="{{ min(100,max(0,$visitPercentage)) }}" aria-label="Pencapaian visit"></progress><small>Actual Call ÷ Total PJP</small></article>
-                        <article class="visit-kpi"><div class="visit-kpi-label">Effective Call<span class="visit-kpi-icon green"><i class="fas fa-bag-shopping" aria-hidden="true"></i></span></div><strong>{{ number_format($visitRows->sum('effective_call'),0,',','.') }}</strong><small>Kunjungan dengan transaksi</small></article>
+                        <article class="visit-kpi"><div class="visit-kpi-label">Total PJP<span class="visit-kpi-icon"><i class="fas fa-route" aria-hidden="true"></i></span></div><strong>{{ number_format($totalPjp,0) }}</strong><small>Outlet terjadwal</small></article>
+                        <article class="visit-kpi"><div class="visit-kpi-label">Actual Call<span class="visit-kpi-icon blue"><i class="fas fa-location-dot" aria-hidden="true"></i></span></div><strong>{{ number_format($totalActualCall,0) }}</strong><small>Kunjungan sesuai PJP</small></article>
+                        <article class="visit-kpi visit-kpi-highlight"><div class="visit-kpi-label">Pencapaian Visit<span class="visit-kpi-icon green"><i class="fas fa-chart-simple" aria-hidden="true"></i></span></div><strong>{{ number_format($visitPercentage,1) }}<span>%</span></strong><progress max="100" value="{{ min(100,max(0,$visitPercentage)) }}" aria-label="Pencapaian visit"></progress><small>Actual Call ÷ Total PJP</small></article>
+                        <article class="visit-kpi"><div class="visit-kpi-label">Effective Call<span class="visit-kpi-icon green"><i class="fas fa-bag-shopping" aria-hidden="true"></i></span></div><strong>{{ number_format($visitRows->sum('effective_call'),0) }}</strong><small>Kunjungan dengan transaksi</small></article>
                     </div>
                     <div class="visit-secondary-metrics">
-                        <div><span>Sales Force aktif</span><strong>{{ number_format(count($visitDetails),0,',','.') }}</strong></div>
-                        <div><span>Extra Call</span><strong>{{ number_format($visitRows->sum('non_pjp'),0,',','.') }}</strong></div>
-                        <div><span>Outlet non belanja</span><strong>{{ number_format($visitRows->sum('non_buying'),0,',','.') }}</strong></div>
-                        <div><span>Total PV</span><strong>{{ number_format($visitRows->sum('total_pv'),0,',','.') }}</strong></div>
-                        <div><span>Total SA</span><strong>{{ number_format($visitRows->sum('total_sa'),0,',','.') }}</strong></div>
+                        <div><span>Sales Force aktif</span><strong>{{ number_format(count($visitDetails),0) }}</strong></div>
+                        <div><span>Extra Call</span><strong>{{ number_format($visitRows->sum('non_pjp'),0) }}</strong></div>
+                        <div><span>Outlet non belanja</span><strong>{{ number_format($visitRows->sum('non_buying'),0) }}</strong></div>
+                        <div><span>Total PV</span><strong>{{ number_format($visitRows->sum('total_pv'),0) }}</strong></div>
+                        <div><span>Total SA</span><strong>{{ number_format($visitRows->sum('total_sa'),0) }}</strong></div>
                     </div>
                     <div class="visit-detail-card visit-performance-card">
                         <header class="visit-table-heading"><div><h2>Kinerja Sales Force</h2><p>{{ \Carbon\Carbon::parse($visitDate)->locale('id')->translatedFormat('l, d F Y') }}</p></div><span data-visit-result-count>{{ count($visitDetails) }} Sales Force</span></header>
@@ -672,14 +672,14 @@
                                             <td class="visit-freeze-name"><strong>{{ $row['name'] }}</strong></td>
                                             <td class="visit-freeze-tap">{{ $row['tap'] }}</td>
                                             <td><span class="cluster-chip">{{ $row['cluster'] }}</span></td>
-                                            <td><span class="metric-number">{{ number_format($row['pjp_total'], 0, ',', '.') }}</span></td>
-                                            <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0, ',', '.') }}</button></td>
-                                            <td><div class="visit-percent"><span class="visit-percent-value">{{ number_format($row['visit_percentage'], 1, ',', '.') }}%</span><span class="visit-progress"><span style="width: {{ min(100, max(0, $row['visit_percentage'])) }}%"></span></span></div></td>
-                                            <td><button type="button" class="metric-number effective" data-visit-row="{{ $loop->index }}" data-visit-scope="effective">{{ number_format($row['effective_call'], 0, ',', '.') }}</button></td>
-                                            <td><button type="button" class="metric-number non-pjp" data-visit-row="{{ $loop->index }}" data-visit-scope="non-pjp">{{ number_format($row['non_pjp'], 0, ',', '.') }}</button></td>
-                                            <td><button type="button" class="metric-number non-buying" data-visit-row="{{ $loop->index }}" data-visit-scope="non-buying">{{ number_format($row['non_buying'], 0, ',', '.') }}</button></td>
-                                            <td><span class="metric-number pv">{{ number_format($row['total_pv'], 0, ',', '.') }}</span></td>
-                                            <td><span class="metric-number sa">{{ number_format($row['total_sa'], 0, ',', '.') }}</span></td>
+                                            <td><span class="metric-number">{{ number_format($row['pjp_total'], 0) }}</span></td>
+                                            <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0) }}</button></td>
+                                            <td><div class="visit-percent"><span class="visit-percent-value">{{ number_format($row['visit_percentage'], 1) }}%</span><span class="visit-progress"><span style="width: {{ min(100, max(0, $row['visit_percentage'])) }}%"></span></span></div></td>
+                                            <td><button type="button" class="metric-number effective" data-visit-row="{{ $loop->index }}" data-visit-scope="effective">{{ number_format($row['effective_call'], 0) }}</button></td>
+                                            <td><button type="button" class="metric-number non-pjp" data-visit-row="{{ $loop->index }}" data-visit-scope="non-pjp">{{ number_format($row['non_pjp'], 0) }}</button></td>
+                                            <td><button type="button" class="metric-number non-buying" data-visit-row="{{ $loop->index }}" data-visit-scope="non-buying">{{ number_format($row['non_buying'], 0) }}</button></td>
+                                            <td><span class="metric-number pv">{{ number_format($row['total_pv'], 0) }}</span></td>
+                                            <td><span class="metric-number sa">{{ number_format($row['total_sa'], 0) }}</span></td>
                                         </tr>
                                     @empty
                                         <tr><td colspan="11" class="visit-empty"><i class="fas fa-calendar-xmark"></i><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></td></tr>
@@ -692,14 +692,14 @@
                     <div class="visit-subpanel" role="tabpanel" id="visit-panel-non-digipos" aria-labelledby="visit-tab-non-digipos" data-visit-subpanel="non-digipos" @if($activeVisitTab !== 'non-digipos') hidden @endif>
                         @php($nonDigiposRows = collect($nonDigiposVisitDetails))
                         <div class="visit-summary-strip">
-                            <div><small>TOTAL VISIT</small><strong>{{ number_format($nonDigiposRows->count(), 0, ',', '.') }}</strong></div>
-                            <div><small>SF AKTIF</small><strong>{{ number_format($nonDigiposRows->pluck('idsf')->unique()->count(), 0, ',', '.') }}</strong></div>
-                            <div><small>TOTAL PV</small><strong>{{ number_format($nonDigiposRows->sum('total_pv'), 0, ',', '.') }}</strong></div>
-                            <div><small>TOTAL SA</small><strong>{{ number_format($nonDigiposRows->sum('total_sa'), 0, ',', '.') }}</strong></div>
+                            <div><small>TOTAL VISIT</small><strong>{{ number_format($nonDigiposRows->count(), 0) }}</strong></div>
+                            <div><small>SF AKTIF</small><strong>{{ number_format($nonDigiposRows->pluck('idsf')->unique()->count(), 0) }}</strong></div>
+                            <div><small>TOTAL PV</small><strong>{{ number_format($nonDigiposRows->sum('total_pv'), 0) }}</strong></div>
+                            <div><small>TOTAL SA</small><strong>{{ number_format($nonDigiposRows->sum('total_sa'), 0) }}</strong></div>
                         </div>
                         <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table" style="min-width:1680px"><thead><tr><th>Waktu Visit</th><th>Outlet</th><th>Owner / Kontak</th><th>Alamat</th><th>SF yang Visit</th><th>SF Pemilik Stok</th><th>TAP</th><th>Checkout</th><th>Total Qty</th><th>PV</th><th>SA</th><th>Rincian Produk</th><th>Status</th></tr></thead><tbody>
                         @forelse($nonDigiposVisitDetails as $visit)
-                            <tr><td><strong>{{ \Carbon\Carbon::parse($visit['visited_at'])->format('d M Y H:i') }}</strong></td><td><strong>{{ $visit['outlet_name'] }}</strong><small style="display:block;color:#94a3b8">{{ $visit['id_outlet'] }}</small></td><td><strong>{{ $visit['owner_name'] ?: '—' }}</strong><small style="display:block;color:#94a3b8">{{ $visit['phone_number'] ?: '—' }}</small></td><td style="white-space:normal;min-width:240px">{{ $visit['outlet_address'] ?: '—' }}</td><td><span class="visit-code">{{ $visit['idsf'] }}</span><small style="display:block;color:#64748b">{{ $visit['sf_name'] }}</small></td><td>{{ $visit['stock_owner'] }}</td><td>{{ $visit['tap'] }}</td><td>{{ $visit['checkout_at'] ? \Carbon\Carbon::parse($visit['checkout_at'])->format('d M Y H:i') : 'Belum checkout' }}</td><td><span class="metric-number">{{ number_format($visit['total_qty'],0,',','.') }}</span></td><td><span class="metric-number pv">{{ number_format($visit['total_pv'],0,',','.') }}</span></td><td><span class="metric-number sa">{{ number_format($visit['total_sa'],0,',','.') }}</span></td><td style="white-space:normal;min-width:260px">@forelse($visit['products'] as $product)<span class="cluster-chip" style="margin:2px">{{ $product['name'] }} · {{ number_format($product['qty'],0,',','.') }}</span>@empty — @endforelse</td><td><span class="cluster-chip">{{ $visit['gps_status'] }}</span></td></tr>
+                            <tr><td><strong>{{ \Carbon\Carbon::parse($visit['visited_at'])->format('d M Y H:i') }}</strong></td><td><strong>{{ $visit['outlet_name'] }}</strong><small style="display:block;color:#94a3b8">{{ $visit['id_outlet'] }}</small></td><td><strong>{{ $visit['owner_name'] ?: '—' }}</strong><small style="display:block;color:#94a3b8">{{ $visit['phone_number'] ?: '—' }}</small></td><td style="white-space:normal;min-width:240px">{{ $visit['outlet_address'] ?: '—' }}</td><td><span class="visit-code">{{ $visit['idsf'] }}</span><small style="display:block;color:#64748b">{{ $visit['sf_name'] }}</small></td><td>{{ $visit['stock_owner'] }}</td><td>{{ $visit['tap'] }}</td><td>{{ $visit['checkout_at'] ? \Carbon\Carbon::parse($visit['checkout_at'])->format('d M Y H:i') : 'Belum checkout' }}</td><td><span class="metric-number">{{ number_format($visit['total_qty'],0) }}</span></td><td><span class="metric-number pv">{{ number_format($visit['total_pv'],0) }}</span></td><td><span class="metric-number sa">{{ number_format($visit['total_sa'],0) }}</span></td><td style="white-space:normal;min-width:260px">@forelse($visit['products'] as $product)<span class="cluster-chip" style="margin:2px">{{ $product['name'] }} · {{ number_format($product['qty'],0) }}</span>@empty — @endforelse</td><td><span class="cluster-chip">{{ $visit['gps_status'] }}</span></td></tr>
                         @empty
                             <tr><td colspan="13" class="visit-empty"><i class="fas fa-shop-slash"></i><strong>Belum ada visit non-Digipos</strong><span>Tidak ada outlet non-Digipos yang divisit pada tanggal ini.</span></td></tr>
                         @endforelse
@@ -1007,7 +1007,7 @@
         }
 
         function leaderFormatNumber(value) {
-            return Number(value || 0).toLocaleString('id-ID');
+            return Number(value || 0).toLocaleString('en-US');
         }
 
         function leaderFormatMom(current, previous) {
@@ -1015,7 +1015,7 @@
             const previousValue = Number(previous || 0);
             const mom = previousValue > 0 ? ((currentValue / previousValue) - 1) * 100 : 0;
             const tone = mom > 0 ? 'mom-up' : (mom < 0 ? 'mom-down' : 'mom-flat');
-            const text = `${mom.toLocaleString('id-ID', {
+            const text = `${mom.toLocaleString('en-US', {
                 minimumFractionDigits: 1,
                 maximumFractionDigits: 1
             })}%`;
@@ -1275,26 +1275,26 @@
                 const display = leaderCompetitionDisplay(point);
                 const share = Number(display.share || 0);
                 const color = display.color || '#20293a';
-                const shareText = share.toLocaleString('id-ID', {
+                const shareText = share.toLocaleString('en-US', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
                 });
-                const momText = Number(display.mom || 0).toLocaleString('id-ID', {
+                const momText = Number(display.mom || 0).toLocaleString('en-US', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
                 });
-                const winnerShareText = Number(display.winner.share || 0).toLocaleString('id-ID', {
+                const winnerShareText = Number(display.winner.share || 0).toLocaleString('en-US', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
                 });
                 const topOperators = (point.operators || []).slice(0, 4).map((operator) => {
                     const mom = Number(operator.mom || 0);
-                    const momText = `${mom >= 0 ? '+' : ''}${mom.toLocaleString('id-ID', {
+                    const momText = `${mom >= 0 ? '+' : ''}${mom.toLocaleString('en-US', {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 1
                     })}%`;
 
-                    return `${operator.label}: ${Number(operator.share || 0).toLocaleString('id-ID', {
+                    return `${operator.label}: ${Number(operator.share || 0).toLocaleString('en-US', {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 1
                     })}% (${momText})`;
@@ -1303,7 +1303,7 @@
                     <b>${point.kecamatan}</b><br>
                     TAP: ${point.tap}<br>
                     Cluster: ${point.cluster}<br>
-                    Outlet PJP diplot: ${Number(point.outlet_count || 0).toLocaleString('id-ID')}<br>
+                    Outlet PJP diplot: ${Number(point.outlet_count || 0).toLocaleString('en-US')}<br>
                     Mode: <b>${display.viewLabel}</b><br>
                     Operator: <b>${display.operator}</b><br>
                     Share: ${shareText}%<br>
@@ -1457,9 +1457,9 @@
 
                     marker.bindTooltip(`
                         <b>${name}</b><br>
-                        Total outlet: ${Number(district.total).toLocaleString('id-ID')}<br>
-                        Outlet PJP: ${Number(district.pjp).toLocaleString('id-ID')}<br>
-                        Aktif mode ini: ${Number(district.activePjp).toLocaleString('id-ID')} (${pct}%)
+                        Total outlet: ${Number(district.total).toLocaleString('en-US')}<br>
+                        Outlet PJP: ${Number(district.pjp).toLocaleString('en-US')}<br>
+                        Aktif mode ini: ${Number(district.activePjp).toLocaleString('en-US')} (${pct}%)
                     `, {
                         className: 'leader-map-tooltip',
                         direction: 'top',
@@ -1713,14 +1713,14 @@
             return `
                 <tr class="active-group-row">
                     <td>${group}</td>
-                    <td>${Number(summary.cvm || 0).toLocaleString('id-ID')}</td>
-                    <td>${Number(summary.cvmM1 || 0).toLocaleString('id-ID')}</td>
+                    <td>${Number(summary.cvm || 0).toLocaleString('en-US')}</td>
+                    <td>${Number(summary.cvmM1 || 0).toLocaleString('en-US')}</td>
                     <td class="${momClass(summary.cvm || 0, summary.cvmM1 || 0)}">${formatMom(summary.cvm || 0, summary.cvmM1 || 0)}</td>
-                    <td>${Number(summary.pv || 0).toLocaleString('id-ID')}</td>
-                    <td>${Number(summary.pvM1 || 0).toLocaleString('id-ID')}</td>
+                    <td>${Number(summary.pv || 0).toLocaleString('en-US')}</td>
+                    <td>${Number(summary.pvM1 || 0).toLocaleString('en-US')}</td>
                     <td class="${momClass(summary.pv || 0, summary.pvM1 || 0)}">${formatMom(summary.pv || 0, summary.pvM1 || 0)}</td>
-                    <td>${Number(summary.sa || 0).toLocaleString('id-ID')}</td>
-                    <td>${Number(summary.saM1 || 0).toLocaleString('id-ID')}</td>
+                    <td>${Number(summary.sa || 0).toLocaleString('en-US')}</td>
+                    <td>${Number(summary.saM1 || 0).toLocaleString('en-US')}</td>
                     <td class="${momClass(summary.sa || 0, summary.saM1 || 0)}">${formatMom(summary.sa || 0, summary.saM1 || 0)}</td>
                 </tr>
             `;
@@ -1730,14 +1730,14 @@
             return `
                 <tr>
                     <td>${row.label}</td>
-                    <td>${Number(row.cvm).toLocaleString('id-ID')}</td>
-                    <td>${Number(row.cvmM1).toLocaleString('id-ID')}</td>
+                    <td>${Number(row.cvm).toLocaleString('en-US')}</td>
+                    <td>${Number(row.cvmM1).toLocaleString('en-US')}</td>
                     <td class="${momClass(row.cvm, row.cvmM1)}">${formatMom(row.cvm, row.cvmM1)}</td>
-                    <td>${Number(row.pv).toLocaleString('id-ID')}</td>
-                    <td>${Number(row.pvM1).toLocaleString('id-ID')}</td>
+                    <td>${Number(row.pv).toLocaleString('en-US')}</td>
+                    <td>${Number(row.pvM1).toLocaleString('en-US')}</td>
                     <td class="${momClass(row.pv, row.pvM1)}">${formatMom(row.pv, row.pvM1)}</td>
-                    <td>${Number(row.sa).toLocaleString('id-ID')}</td>
-                    <td>${Number(row.saM1).toLocaleString('id-ID')}</td>
+                    <td>${Number(row.sa).toLocaleString('en-US')}</td>
+                    <td>${Number(row.saM1).toLocaleString('en-US')}</td>
                     <td class="${momClass(row.sa, row.saM1)}">${formatMom(row.sa, row.saM1)}</td>
                 </tr>
             `;
@@ -1805,13 +1805,13 @@
                 const value = Number(data[metric] || 0);
                 const pjp = Number(data.pjp || 0);
                 const percent = pjp > 0 ? (value / pjp) * 100 : 0;
-                const percentText = `${percent.toLocaleString('id-ID', {
+                const percentText = `${percent.toLocaleString('en-US', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1
                 })}%`;
 
-                row.querySelector('[data-coverage-value]').textContent = value.toLocaleString('id-ID');
-                row.querySelector('[data-coverage-meta]').textContent = `dari ${pjp.toLocaleString('id-ID')} PJP`;
+                row.querySelector('[data-coverage-value]').textContent = value.toLocaleString('en-US');
+                row.querySelector('[data-coverage-meta]').textContent = `dari ${pjp.toLocaleString('en-US')} PJP`;
                 row.querySelector('[data-coverage-percent]').textContent = percentText;
                 const clampedPercent = Math.max(0, Math.min(100, percent));
                 const gauge = row.querySelector('.coverage-gauge');
@@ -1833,8 +1833,8 @@
         }
 
         function formatMom(current, previous) {
-            if (!previous) return current > 0 ? '100%' : '0,0%';
-            return `${(((current / previous) - 1) * 100).toLocaleString('id-ID', {
+            if (!previous) return current > 0 ? '100%' : '0.0%';
+            return `${(((current / previous) - 1) * 100).toLocaleString('en-US', {
                 minimumFractionDigits: 1,
                 maximumFractionDigits: 1
             })}%`;
@@ -2023,8 +2023,8 @@
                 sf: 'Nama SF',
             };
             const visibleValiditySet = () => new Set(categoryValidities[activeCategory] || categoryValidities[fallbackCategory] || []);
-            const formatNumber = (value) => Number(value || 0).toLocaleString('id-ID');
-            const formatPercent = (value) => `${Number(value || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
+            const formatNumber = (value) => Number(value || 0).toLocaleString('en-US');
+            const formatPercent = (value) => `${Number(value || 0).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
             const momMarkup = (value) => {
                 const state = value > 0 ? 'up' : (value < 0 ? 'down' : 'flat');
                 return `<span class="pv-mom ${state}">${formatPercent(value)}</span>`;
@@ -2325,7 +2325,7 @@
                 if (!startTimestamp) startTimestamp = timestamp;
                 const progress = Math.min((timestamp - startTimestamp) / duration, 1);
                 const value = Math.floor(progress * (end - start) + start);
-                element.innerHTML = value.toLocaleString();
+                element.innerHTML = value.toLocaleString('en-US');
                 if (progress < 1) {
                     window.requestAnimationFrame(step);
                 }
@@ -2551,9 +2551,9 @@
                             ${param.name}
                             ${param.showDetail ? ` <button class="btn-detail" onclick="showPerformanceDetail('${outlet.id_outlet}', '${outlet.nama_outlet}')"><i class="fas fa-chart-line"></i> Detail</button>` : ''}
                         </td>
-                        <td>${Number(param.fm1 || 0).toLocaleString()}</td>
-                        <td>${Number(param.m1 || 0).toLocaleString()}</td>
-                        <td>${Number(param.mtd || 0).toLocaleString()}</td>
+                        <td>${Number(param.fm1 || 0).toLocaleString('en-US')}</td>
+                        <td>${Number(param.m1 || 0).toLocaleString('en-US')}</td>
+                        <td>${Number(param.mtd || 0).toLocaleString('en-US')}</td>
                         <td><div class="mom-indicator ${momClass}">${icon} ${param.mom || "0.0%"}</div></td>
                         <td>${formatDate(param.update)}</td>
                     </tr>
@@ -2600,7 +2600,7 @@
                 const tapAttr = escapeMapDetailHtml(tap);
                 return `<div class="branding-insight-tap"><button type="button" class="branding-tap-open" data-insight-open data-tap="${tapAttr}" aria-label="Lihat semua outlet di ${tapAttr}">${tapAttr} <span>· ${rows.length} outlet</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="visited" aria-label="Lihat outlet sudah visit di ${tapAttr}"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="unvisited" aria-label="Lihat outlet belum visit di ${tapAttr}"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></button><div class="branding-chip-row">${brandingRows}</div></div>`;
             }).join('');
-            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">Klik angka visit atau operator untuk melihat daftar outlet per TAP</div></div><div class="branding-insight-total">${total.toLocaleString()} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total outlet</small><strong>${total.toLocaleString()}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Sudah visit</small><strong>${visited.toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${(total - visited).toLocaleString()} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(total - visited, total)})</small></strong></button></div><div class="branding-insight-grid">${tapCards}</div></div>`;
+            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">Klik angka visit atau operator untuk melihat daftar outlet per TAP</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total outlet</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Sudah visit</small><strong>${visited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${(total - visited).toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(total - visited, total)})</small></strong></button></div><div class="branding-insight-grid">${tapCards}</div></div>`;
         }
 
         function setupMapMobileTabs() {
@@ -2655,7 +2655,7 @@
                     renderBrandingInsights(outlets);
                     outletDataLoaded = true;
                     const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
-                    if (countEl) countEl.textContent = `${outlets.length.toLocaleString()} outlet · ${visitedCount.toLocaleString()} sudah visit`;
+                    if (countEl) countEl.textContent = `${outlets.length.toLocaleString('en-US')} outlet · ${visitedCount.toLocaleString('en-US')} sudah visit`;
                 } catch (error) {
                     console.error('SURYA map gagal dimuat:', error);
                     if (map && !outletClusterLayer) {
@@ -2885,7 +2885,7 @@
 
         function buildOutletPopup(outlet, outletLatLng) {
             const destination = `${outletLatLng.lat},${outletLatLng.lng}`;
-            const metric = value => value === undefined || value === null ? '…' : Number(value).toLocaleString('id-ID');
+            const metric = value => value === undefined || value === null ? '…' : Number(value).toLocaleString('en-US');
             const cvm = metric(outlet.m_cvm);
             const sa = metric(outlet.m_stsa);
             const pv = metric(outlet.m_stpv);
@@ -2995,7 +2995,7 @@
                 ['ST PV', outlet.fm1_stpv, outlet.m1_stpv, outlet.m_stpv, outlet.mom_stpv, outlet.tgl_pv],
                 ['BIOMETRIK', outlet.fm1_bio, outlet.m1_bio, outlet.m_bio, outlet.mom_bio, outlet.tgl_bio]
             ];
-            const number = value => Number(value || 0).toLocaleString('id-ID');
+            const number = value => Number(value || 0).toLocaleString('en-US');
             const rows = parameters.map(parameter =>
                 '<tr>' +
                     '<td>' + escapeMapDetailHtml(parameter[0]) + '</td>' +
@@ -3475,8 +3475,8 @@
                     html += `
                         <tr style="${d.isTotal ? 'font-weight:bold; background:#fff5f5;' : ''}">
                             <td style="text-align:left; font-size:12px;">${d.label}</td>
-                            <td style="font-size:12px;">${Number(d.m1 || 0).toLocaleString()}</td>
-                            <td style="font-size:12px;">${Number(d.mtd || 0).toLocaleString()}</td>
+                            <td style="font-size:12px;">${Number(d.m1 || 0).toLocaleString('en-US')}</td>
+                            <td style="font-size:12px;">${Number(d.mtd || 0).toLocaleString('en-US')}</td>
                             <td><span class="mom-indicator ${momClass}" style="padding:2px 6px; font-size:10px;">${icon} ${d.mom || "0%"}</span></td>
                         </tr>
                     `;
@@ -3592,7 +3592,7 @@
                         ? `<a href="${esc(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener"><img class="visit-photo-thumb" src="${esc(outlet.front_thumbnail_url)}" alt="Foto tampak luar"></a>`
                         : '<div class="visit-photo-thumb" style="display:grid;place-items:center;background:#f1f5f9;color:#94a3b8"><i class="fas fa-image"></i></div>';
                     const activity = outlet.effective ? '<span class="cluster-chip" style="color:#047857;background:#ecfdf5">BELANJA</span>' : '<span class="cluster-chip">TIDAK BELANJA</span>';
-                    return `<div class="visit-outlet-row">${photo}<div><strong>${esc(outlet.outlet_name)}</strong><small>${esc(outlet.id_outlet)} · ${outlet.is_pjp ? 'PJP' : 'EXTRA CALL'}</small></div><div><strong>Masuk ${formatDate(outlet.visited_at)}</strong><small>Keluar ${formatDate(outlet.checkout_at)}</small><small>Durasi ${esc(formatDuration(outlet.duration_minutes))}</small><small>${activity}</small></div><div class="visit-outlet-metric"><small>PV</small><button type="button" data-outlet-metric="pv" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_pv || 0).toLocaleString('id-ID')}</button></div><div class="visit-outlet-metric"><small>SA</small><button type="button" data-outlet-metric="sa" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_sa || 0).toLocaleString('id-ID')}</button></div><div class="visit-outlet-metric"><small>Konsinyasi</small><button type="button" data-outlet-metric="consignment" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.consignment_qty || 0).toLocaleString('id-ID')}</button></div><div class="visit-outlet-detail" data-outlet-detail="${rowIndex}-${outletIndex}"></div></div>`;
+                    return `<div class="visit-outlet-row">${photo}<div><strong>${esc(outlet.outlet_name)}</strong><small>${esc(outlet.id_outlet)} · ${outlet.is_pjp ? 'PJP' : 'EXTRA CALL'}</small></div><div><strong>Masuk ${formatDate(outlet.visited_at)}</strong><small>Keluar ${formatDate(outlet.checkout_at)}</small><small>Durasi ${esc(formatDuration(outlet.duration_minutes))}</small><small>${activity}</small></div><div class="visit-outlet-metric"><small>PV</small><button type="button" data-outlet-metric="pv" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_pv || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-metric"><small>SA</small><button type="button" data-outlet-metric="sa" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_sa || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-metric"><small>Konsinyasi</small><button type="button" data-outlet-metric="consignment" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.consignment_qty || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-detail" data-outlet-detail="${rowIndex}-${outletIndex}"></div></div>`;
                 }).join('') || '<div class="visit-empty"><strong>Belum ada rincian outlet.</strong></div>';
                 modal.hidden = false;
                 modal.setAttribute('aria-hidden', 'false');
@@ -3611,7 +3611,7 @@
                 if (type === 'pv') { heading = 'Detail Penjualan PV'; values = outlet.pv_items || []; }
                 if (type === 'sa') { heading = 'Detail Penjualan SA'; values = outlet.sa_items || []; }
                 if (type === 'consignment') { heading = 'Nomor Konsinyasi'; values = (outlet.consignment_numbers || []).map(number => ({name:number, qty:null})); }
-                detail.innerHTML = `<strong>${heading}</strong>${values.length ? `<ul>${values.map(item => `<li>${esc(item.name)}${item.qty === null ? '' : ` — ${Number(item.qty).toLocaleString('id-ID')} PCS`}</li>`).join('')}</ul>` : '<small>Tidak ada data.</small>'}`;
+                detail.innerHTML = `<strong>${heading}</strong>${values.length ? `<ul>${values.map(item => `<li>${esc(item.name)}${item.qty === null ? '' : ` — ${Number(item.qty).toLocaleString('en-US')} PCS`}</li>`).join('')}</ul>` : '<small>Tidak ada data.</small>'}`;
                 detail.classList.toggle('active', true);
             });
 

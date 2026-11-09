@@ -24,8 +24,9 @@ class ValidityMomTest extends TestCase {
  $this->assertSame(['1D','2D'],$this->report()['columns']);
  }
  public function test_partial_renders_group_headers_controls_and_growth():void{
+ request()->setRouteResolver(fn () => app('router')->getRoutes()->getByName('surya.inventory-dashboard'));
  $html=view('surya.partials.validity-mom',['validityMom'=>$this->report()])->render();
- foreach(['M-1','MTD','MoM','1D','2D','GRAND TOTAL','+150,0%','data-validity-product','data-validity-tab="inject"']as$text)$this->assertStringContainsString($text,$html);
+ foreach(['M-1','MTD','MoM','1D','2D','GRAND TOTAL','+150.0%','data-validity-product','data-validity-tab="inject"']as$text)$this->assertStringContainsString($text,$html);
  }
  public function test_cluster_subtotals_follow_scope_and_add_up_to_grand_total():void{
  DB::table('idsf')->insert(['idtap'=>'BAGAN BATU']);

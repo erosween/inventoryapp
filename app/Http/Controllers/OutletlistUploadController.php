@@ -66,7 +66,7 @@ class OutletlistUploadController extends Controller
             report($e);
             throw ValidationException::withMessages(['outletlist_file'=>'Upload gagal. Data outlet sebelumnya tetap tersimpan.']);
         }
-        return redirect()->route('surya.transaction-upload')->with('success', 'Outletlist: '.number_format($result['count'],0,',','.').' outlet diperbarui.');
+        return redirect()->route('surya.transaction-upload')->with('success', 'Outletlist: '.number_format($result['count'],0).' outlet diperbarui.');
     }
 
     public function template()

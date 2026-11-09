@@ -14,7 +14,7 @@ class SuryaStockStatusTest extends TestCase
             'empty stock' => [0, 100, 1000, 'Stock Kurang', 'low', 'KURANG 100 PCS'],
             'below one day' => [80, 100, 1000, 'Stock Kurang', 'low', 'KURANG 20 PCS'],
             'exactly one day' => [100, 100, 1000, 'Stock Aman', 'safe', 'CUKUP 1 HARI'],
-            'partial day' => [150, 100, 1000, 'Stock Aman', 'safe', 'CUKUP 1,5 HARI'],
+            'partial day' => [150, 100, 1000, 'Stock Aman', 'safe', 'CUKUP 1.5 HARI'],
             'two days' => [200, 100, 1000, 'Stock Aman', 'safe', 'CUKUP 2 HARI'],
             'exactly buffer' => [300, 100, 1000, 'Stock Aman', 'safe', 'CUKUP 3 HARI'],
             'over buffer' => [400, 100, 1000, 'Stock Over', 'over', 'CUKUP 4 HARI · TAHAN PENAMBAHAN'],

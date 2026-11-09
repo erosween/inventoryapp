@@ -46,7 +46,7 @@
 <tbody>@forelse($outlets as $outlet)<tr data-visit-row data-outlet-name="{{ $outlet->nama_outlet }}" data-outlet-id="{{ $outlet->id_outlet }}" data-cutoff="{{ $cutoff->toDateString() }}" data-action-url="{{ route('surya.taskforce.visits.store',['idOutlet'=>$outlet->id_outlet]) }}" data-history-url="{{ route('surya.taskforce.visits.history',['idOutlet'=>$outlet->id_outlet]) }}">
 @foreach($headers as $column=>$header)<td class="tf-upload-cell {{ $column<=$freezeEnd?'tf-frozen':'' }} {{ $column===$freezeEnd?'tf-frozen-edge':'' }}" style="--tf-left:{{ $lefts[$column] }}px">{{ \App\Support\TaskforceCellFormat::display($header,$outlet->uploaded_cells[$column]??'') }}</td>@endforeach
 <td><span class="tf-status {{ $outlet->visited?'done':'pending' }}">{{ $outlet->visited?'Sudah visit':'Belum visit' }}</span></td>
-<td class="tf-visit-count">{{ number_format($outlet->visit_count,0,',','.') }} kali</td>
+<td class="tf-visit-count">{{ number_format($outlet->visit_count,0) }} kali</td>
 <td>{{ $outlet->visited_at?\Carbon\Carbon::parse($outlet->visited_at)->format('d/m/Y'):'—' }}</td>
 <td class="tf-notes">{{ $outlet->notes??'—' }}@if($outlet->action_by)<small class="tf-subtext">{{ $outlet->action_by }} · {{ \Carbon\Carbon::parse($outlet->action_updated_at)->format('d/m H:i') }}</small>@endif</td>
 <td class="tf-notes">{{ $outlet->follow_up??'—' }}</td>
