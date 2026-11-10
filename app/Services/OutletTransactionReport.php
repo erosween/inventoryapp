@@ -8,14 +8,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-/** Read-only annual outlet report; uses exactly the Detail Outlet nota source. */
+/** Annual nota report for every registered outlet within the user’s TAP scope. */
 class OutletTransactionReport
 {
     public function data(string $family, Carbon $cutoff, string $tap = '', string $search = ''): array
     {
         $scopes = SuryaTapScope::forUser(auth()->user(), session('idtap'));
-        $master = DB::table('appsdumais')->whereNotNull('pjp')->whereRaw("TRIM(pjp) <> ''")
-            ->whereRaw("UPPER(TRIM(pjp)) <> 'UNMAPPING'")
+        $master = DB::table('appsdumais')->whereNotNull('id_outlet')
             ->when($scopes !== null, fn ($q) => $q->whereIn('tap', $scopes))
             ->orderBy('id_outlet')->get(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet'])->unique('id_outlet');
         $taps = $master->pluck('tap')->filter()->unique()->sort()->values();

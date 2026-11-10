@@ -53,12 +53,35 @@ class OutletTransactionTest extends TestCase
         $this->assertSame(100,$a['compare']);$this->assertSame(-65,$a['gap_m11']);$this->assertSame(-65.0,$a['mom_pct_m11']);
         $this->assertNull($a['m12']);$this->assertNull($a['gap_m12']);
         $this->assertSame(147,$data['grand']['m11']);$this->assertSame(135,$data['clusters'][0]['m11']);
-        $this->assertCount(3,$data['rows']);
+        $this->assertCount(4,$data['rows']);
         foreach(['pv','sa']as$family){$rows=$this->report($family)['rows']->keyBy('id_outlet');
             $nota=app(OutletNotaSales::class)->totals(Carbon::parse('2026-11-01'),Carbon::parse('2026-11-04'))->get()->keyBy('id_outlet');
             foreach($rows as$id=>$row)$this->assertSame((int)($nota[$id]->{$family}??0),$row['m11']);}
         $this->assertSame(4,$this->report('sa')['grand']['m11']);
     }
+    public function test_annual_sa_and_pv_include_registered_rs_without_pjp(): void
+    {
+        $this->actingAs(new User(['username' => 'asmen_dumai']));
+        DB::table('appsdumais')->insert([
+            ['id_outlet' => 'Y', 'nomor_rs' => '6281000000001', 'tap' => 'DUMAI', 'pjp' => null],
+            ['id_outlet' => 'Z', 'nomor_rs' => '6281000000002', 'tap' => 'DUMAI', 'pjp' => ''],
+        ]);
+        DB::table('keluarsf')->insert([
+            ['id_outlet' => 'X', 'idtap' => 'DUMAI', 'iddenom' => 'SP1', 'tgl' => '2026-11-02', 'qty' => 3],
+            ['id_outlet' => 'Y', 'idtap' => 'DUMAI', 'iddenom' => 'V1', 'tgl' => '2026-11-02', 'qty' => 10],
+        ]);
+
+        $sa = $this->report('sa');
+        $pv = $this->report('pv');
+        $this->assertSame(['A', 'X', 'Y', 'Z'], $pv['rows']->pluck('id_outlet')->all());
+        $this->assertSame(7, $sa['grand']['m11']);
+        $this->assertSame(45, $pv['grand']['m11']);
+        $this->get('/surya/transaksi-outlet/pv?cutoff=2026-11-04&columns[pjp][]=')
+            ->assertOk()->assertViewHas('outlets', fn ($page) => $page->pluck('id_outlet')->sort()->values()->all() === ['Y', 'Z']);
+        $export = $this->get('/surya/transaksi-outlet/sa/export?cutoff=2026-11-04')->assertOk()->streamedContent();
+        $this->assertStringContainsString('Outlet X', $export);
+    }
+
     public function test_closed_month_uses_full_previous_month():void
     {
         $data=$this->report('pv','2026-10-31');$this->assertFalse($data['comparison']);
@@ -67,7 +90,7 @@ class OutletTransactionTest extends TestCase
     public function test_user_scope_applies_to_master_summary_filters_and_downloads():void
     {
         $user=new User;$user->username='asmen_dumai';$this->actingAs($user);
-        $data=$this->report();$this->assertSame(['A'],$data['rows']->pluck('id_outlet')->all());$this->assertSame(35,$data['grand']['m11']);
+        $data=$this->report();$this->assertSame(['A','X'],$data['rows']->pluck('id_outlet')->all());$this->assertSame(35,$data['grand']['m11']);
         $this->get('/surya/transaksi-outlet/pv?cutoff=2026-11-04&tap=DURI')->assertOk()->assertViewHas('rows',fn($r)=>$r->isEmpty());
         $csv=$this->get('/surya/transaksi-outlet/pv/export?cutoff=2026-11-04')->assertOk();$this->assertStringContainsString('Outlet A',$csv->streamedContent());$this->assertStringNotContainsString('Outlet B',$csv->streamedContent());
     }
@@ -75,7 +98,7 @@ class OutletTransactionTest extends TestCase
     {
         $user=new User;$user->username='admin_super';$this->actingAs($user);
         $this->get('/surya/transaksi-outlet/pv?cutoff=2026-11-04&sort=m11&direction=desc')->assertOk()->assertViewHas('outlets',fn($p)=>$p->first()['id_outlet']==='B');
-        $this->get('/surya/transaksi-outlet/sa?cutoff=2026-11-04&columns[tap][]=DUMAI')->assertOk()->assertViewHas('outlets',fn($p)=>$p->total()===1);
+        $this->get('/surya/transaksi-outlet/sa?cutoff=2026-11-04&columns[tap][]=DUMAI')->assertOk()->assertViewHas('outlets',fn($p)=>$p->total()===2);
         $this->get('/surya/transaksi-outlet/pv/filter-values?cutoff=2026-11-04&column=tap&columns[tap][]=DUMAI')->assertOk()->assertJsonCount(3,'values');
         $csv=$this->get('/surya/transaksi-outlet/pv/export?cutoff=2026-11-04&columns[id_outlet][]=A');$csv->assertOk();$content=$csv->streamedContent();
         $this->assertStringContainsString(',-65,-65,',$content);$this->assertStringNotContainsString("'-65",$content);
