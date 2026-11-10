@@ -62,6 +62,11 @@
     @endif
 
     @php
+        $frozenColumns = [
+            'nama_outlet' => 'ngrs-frozen-name',
+            'tap' => 'ngrs-frozen-tap',
+            'cluster' => 'ngrs-frozen-cluster',
+        ];
         $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         $columns = [];
         foreach (range(1, $cutoff->month) as $month) {
@@ -117,7 +122,7 @@
                         <tr>
                             <td>{{ $outlets->firstItem() + $loop->index }}</td>
                             @foreach($identity as $column => $label)
-                                <td>{{ $outlet->{$column} ?: ($column === 'kategori_outlet' ? 'Reguler' : '—') }}</td>
+                                <td @class([$frozenColumns[$column] ?? ''])>{{ $outlet->{$column} ?: ($column === 'kategori_outlet' ? 'Reguler' : '—') }}</td>
                             @endforeach
                             @include('surya.partials.outlet-cvm-values', ['series' => $details->get($outlet->id_outlet, [])])
                         </tr>

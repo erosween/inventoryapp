@@ -16,3 +16,33 @@
 .transaction-report .cvm-transactions-table.ngrs-detail thead [data-report-columns] th {
     top: 42px;
 }
+
+@media (max-width: 480px) {
+    .transaction-report .cvm-transactions-table.ngrs-detail .ngrs-frozen-name {
+        min-width: 96px !important;
+        max-width: 102px;
+        overflow-wrap: anywhere;
+    }
+    .transaction-report .cvm-transactions-table.ngrs-detail .ngrs-frozen-tap,
+    .transaction-report .cvm-transactions-table.ngrs-detail .ngrs-frozen-cluster {
+        min-width: 70px;
+        max-width: 74px;
+    }
+    .cvm-transactions-table .tf-column-heading {
+        gap: 4px;
+    }
+    .cvm-transactions-table .tf-column-heading > span {
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 360px) {
+    .transaction-report .cvm-transactions-table.ngrs-detail .ngrs-frozen-name {
+        max-width: 96px;
+    }
+    .transaction-report .cvm-transactions-table.ngrs-detail .ngrs-frozen-tap,
+    .transaction-report .cvm-transactions-table.ngrs-detail .ngrs-frozen-cluster {
+        min-width: 60px;
+        max-width: 64px;
+    }
+}

@@ -7,7 +7,7 @@
     </tr>
     <tr data-report-columns>
         @foreach($labels as $key => $label)
-            <th scope="col" data-report-key="{{ $key }}">
+            <th scope="col" data-report-key="{{ $key }}" @class([($filterable ?? false) ? ($frozenColumns[$key] ?? '') : ''])>
                 @if(($filterable ?? false) && $key !== 'row_number')
                     @include('surya.partials.outlet-column-heading', ['column' => $key])
                 @else
