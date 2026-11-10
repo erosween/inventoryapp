@@ -30,13 +30,11 @@ $numeric['total']='Total '.$cutoff->year;foreach(range(2,12) as $m){$numeric['ga
 </tbody></table></div><footer class="ngrs-footer"><span>Menampilkan {{ $outlets->firstItem()??0 }}–{{ $outlets->lastItem()??0 }} dari {{ number_format($outlets->total(),0) }} outlet</span><div>@if($outlets->previousPageUrl())<a href="{{ $outlets->previousPageUrl() }}">‹ Sebelumnya</a>@endif<span>{{ $outlets->currentPage() }} / {{ $outlets->lastPage() }}</span>@if($outlets->nextPageUrl())<a href="{{ $outlets->nextPageUrl() }}">Berikutnya ›</a>@endif</div></footer></section>
 <p class="ngrs-note">Sumber: Detail Outlet · bulan selesai dibandingkan penuh, MTD sampai tanggal setara.</p>
 </main></div></div>
-<div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-outlet-search="{{ $filters['q'] }}" data-values-url="{{ route('surya.outlet-transactions.values',['family'=>$family]) }}" data-selection="{{ json_encode(request('columns',new \stdClass())) }}" data-excluded="{{ json_encode(request('exclude',new \stdClass())) }}">
-<div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
-<div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> Urutkan naik</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Urutkan turun</button><button type="button" data-sort-clear>Urutan total transaksi</button></div>
-<input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter">
-<div class="tf-column-menu-tools"><button type="button" data-filter-all>Pilih semua</button><button type="button" data-filter-none>Kosongkan pilihan</button></div>
-<div data-filter-values class="tf-column-values"></div><p data-filter-message role="status" aria-live="polite"></p><button type="button" data-filter-more hidden>Muat lainnya</button>
-</div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div></div>
+@include('surya.partials.outlet-column-menu', [
+    'columnSearch' => $filters['q'],
+    'columnValuesUrl' => route('surya.outlet-transactions.values', ['family' => $family]),
+    'columnResetLabel' => 'Urutan total transaksi',
+])
 <script src="{{ asset('js/surya-ngrs-columns.js') }}?v={{ filemtime(public_path('js/surya-ngrs-columns.js')) }}" defer></script>
 <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
 <script src="{{ asset('js/surya-outlet-transactions.js') }}?v={{ filemtime(public_path('js/surya-outlet-transactions.js')) }}" defer></script><script src="{{ asset('js/surya-transaction-tables.js') }}?v={{ filemtime(public_path('js/surya-transaction-tables.js')) }}" defer></script></body></html>

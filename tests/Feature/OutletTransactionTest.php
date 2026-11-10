@@ -158,6 +158,31 @@ class OutletTransactionTest extends TestCase
         $this->post(route('surya.outlet-cvm.upload', 'sub-cvm'))->assertForbidden();
     }
 
+    public function test_cvm_header_filters_and_numeric_sort_apply_before_pagination(): void
+    {
+        $this->actingAs(new User(['username' => 'admin_super']));
+        $profiles = [];
+        for ($i = 1; $i <= 26; $i++) {
+            $profiles[] = ['id_outlet' => 'Z'.$i, 'nama_outlet' => 'ZZ Outlet '.$i, 'tap' => 'DURI'];
+        }
+        DB::table('appsdumais')->insert($profiles);
+        $this->uploadCvm('cvm', "tanggal,id outlet,cvm\n2026-10-01,Z26,200\n2026-11-01,Z26,1100\n2026-11-01,A,100\n2026-11-01,B,20\n");
+
+        $this->get('/surya/transaksi-outlet/cvm?sort=cvm_m11&direction=desc')->assertOk()
+            ->assertSee('data-column="cvm_m11"', false)->assertSee('data-column="insak_m11"', false)
+            ->assertViewHas('outlets', fn ($page) => $page->items()[0]->id_outlet === 'Z26');
+        $this->get('/surya/transaksi-outlet/cvm?columns[cvm_gap_m11][]=900&exclude[tap][]=DUMAI')
+            ->assertOk()->assertViewHas('outlets', fn ($page) => $page->total() === 1 && $page->items()[0]->id_outlet === 'Z26');
+
+        $values = '/surya/transaksi-outlet/cvm/filter-values';
+        $this->getJson($values.'?column=cvm_m11&columns[tap][]=DURI&columns[cvm_m11][]=20&q=11&outlet_q=ZZ')
+            ->assertOk()->assertExactJson(['values' => ['1100'], 'has_more' => false]);
+        $this->getJson($values.'?column=invalid')->assertUnprocessable();
+
+        $this->actingAs(new User(['username' => 'asmen_dumai']));
+        $this->getJson($values.'?column=cvm_m11')->assertOk()->assertJsonPath('values', ['', '100']);
+    }
+
     private function uploadCvm(string $kind, string $contents): void
     {
         $this->post(route('surya.outlet-cvm.upload', $kind), [

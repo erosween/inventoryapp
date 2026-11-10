@@ -26,12 +26,13 @@
    table.innerHTML=next.innerHTML;footer.innerHTML=doc.querySelector('.ngrs-footer').innerHTML;
    document.querySelector('#tf-column-menu').replaceWith(doc.querySelector('#tf-column-menu'));
    document.querySelector('[data-column-options]').innerHTML=doc.querySelector('[data-column-options]').innerHTML;
-   document.querySelector('[data-ngrs-download]').href=doc.querySelector('[data-ngrs-download]').href;
+   const download=document.querySelector('[data-ngrs-download]');
+   if(download)download.href=doc.querySelector('[data-ngrs-download]').href;
    if(push)history.pushState({},'',target);
    const restore=()=>{wrap.scrollLeft=state.left;wrap.scrollTop=state.top;window.scrollTo(state.x,state.y);};restore();requestAnimationFrame(restore);
    document.dispatchEvent(new Event('taskforce:updated'));
   }catch(error){if(error.name!=='AbortError'){const menu=document.querySelector('#tf-column-menu');menu.hidden=false;menu.querySelector('[data-filter-message]').textContent=error.message;}}
-  finally{if(pending===ctrl)table.removeAttribute('aria-busy');}
+  finally{if(pending===ctrl){table.removeAttribute('aria-busy');document.dispatchEvent(new Event('taskforce:navigation-end'));}}
  };
  document.addEventListener('click',event=>{const link=event.target.closest('.ngrs-footer a');if(!link)return;event.preventDefault();window.SuryaTaskforceNavigate(link.href);});
  window.addEventListener('popstate',()=>window.SuryaTaskforceNavigate(location.href,false));

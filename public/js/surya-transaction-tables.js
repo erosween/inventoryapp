@@ -35,7 +35,8 @@
    const rows=[...table.rows].filter(row=>row.cells.length===headers.length);
 
    headers.forEach((header,index)=>{
-    const key=header.dataset.reportKey||header.querySelector('[data-column]')?.dataset.column||'';
+    const filterKey=header.querySelector('[data-column]')?.dataset.column;
+    const key=header.dataset.reportKey||filterKey||'';
     let visible=true,number=false,current=false;
     const month=key.match(/^m(\d+)$/),gap=key.match(/^gap_m(\d+)$/),percent=key.match(/^mom_pct_m(\d+)$/);
     if(month){number=true;current=Number(month[1])===end;visible=state.mode==='monthly'&&Number(month[1])>=start&&Number(month[1])<=end;}
@@ -43,7 +44,7 @@
     else if(['compare','mom_compare'].includes(key)){number=true;visible=state.mode==='monthly'&&end-1>=start;}
     else if(key==='total'){number=true;visible=state.mode==='monthly';}
     else if(kind==='detail'&&['rs','nomor_rs','kecamatan','sf','pjp'].includes(key))visible=state.identities;
-    if(active.has(key))visible=true;
+    if(active.has(filterKey||key))visible=true;
     for(const row of rows){const cell=row.cells[index];cell.hidden=!visible;cell.classList.toggle('report-numeric',number);cell.classList.toggle('report-current',current);cell.classList.toggle('report-category',key==='kategori_outlet');}
    });
    let first=0;

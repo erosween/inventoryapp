@@ -1,0 +1,7 @@
+<div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-outlet-search="{{ $columnSearch }}" data-values-url="{{ $columnValuesUrl }}" data-selection="{{ json_encode(request('columns',new \stdClass())) }}" data-excluded="{{ json_encode(request('exclude',new \stdClass())) }}">
+<div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
+<div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> Urutkan naik</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Urutkan turun</button><button type="button" data-sort-clear>{{ $columnResetLabel }}</button></div>
+<input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter">
+<div class="tf-column-menu-tools"><button type="button" data-filter-all>Pilih semua</button><button type="button" data-filter-none>Kosongkan pilihan</button></div>
+<div data-filter-values class="tf-column-values"></div><p data-filter-message role="status" aria-live="polite"></p><button type="button" data-filter-more hidden>Muat lainnya</button>
+</div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div></div>

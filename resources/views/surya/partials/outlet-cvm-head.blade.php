@@ -7,11 +7,27 @@
     </tr>
     <tr data-report-columns>
         @foreach($labels as $key => $label)
-            <th scope="col" data-report-key="{{ $key }}">{{ $label }}</th>
+            <th scope="col" data-report-key="{{ $key }}">
+                @if(($filterable ?? false) && $key !== 'row_number')
+                    @include('surya.partials.outlet-column-heading', ['column' => $key])
+                @else
+                    {{ $label }}
+                @endif
+            </th>
         @endforeach
         @foreach($metrics as $metric => $label)
             @foreach($columns as $key => $heading)
-                <th scope="col" data-report-key="{{ $key }}" aria-label="{{ $label }} {{ $heading }}">{{ $heading }}</th>
+                <th scope="col" data-report-key="{{ $key }}" aria-label="{{ $label }} {{ $heading }}">
+                    @if($filterable ?? false)
+                        @include('surya.partials.outlet-column-heading', [
+                            'column' => $metric.'_'.$key,
+                            'filterLabel' => $label.' '.$heading,
+                            'label' => $heading,
+                        ])
+                    @else
+                        {{ $heading }}
+                    @endif
+                </th>
             @endforeach
         @endforeach
     </tr>

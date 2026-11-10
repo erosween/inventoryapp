@@ -15,17 +15,8 @@ class OutletCvmReport
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
         $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
 
-        $details = $outletIds->isEmpty() ? collect() : $this->monthlyQuery($cutoff, $previousEnd, $comparison)
-            ->whereIn('sales.id_outlet', $outletIds->map(fn ($id) => (string) $id))
-            ->selectRaw('sales.id_outlet')
-            ->groupBy('sales.id_outlet')
-            ->get()->groupBy('id_outlet')
-            ->map(fn (Collection $rows) => $this->series($rows, $cutoff, $comparison));
-
-        // Production profiles use BIGINT, while uploaded IDs are stored as text.
-        $profileId = $profiles->getConnection()->getDriverName() === 'sqlite'
-            ? 'CAST(id_outlet AS TEXT)'
-            : 'CAST(id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci';
+        $details = $this->details($outletIds, $cutoff);
+        $profileId = $this->profileId($profiles);
         $outletTaps = (clone $profiles)->selectRaw("$profileId AS id_outlet, MIN(tap) AS tap")
             ->groupBy('appsdumais.id_outlet');
         $tapMonths = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
@@ -47,7 +38,35 @@ class OutletCvmReport
         return compact('details', 'summary', 'clusters', 'grand', 'previousEnd', 'comparison');
     }
 
-    private function monthlyQuery(Carbon $cutoff, Carbon $previousEnd, bool $comparison): Builder
+    public function details(Builder|Collection $outletIds, Carbon $cutoff, ?array $metrics = null): Collection
+    {
+        if ($outletIds instanceof Collection && $outletIds->isEmpty()) {
+            return collect();
+        }
+
+        $previousEnd = OutletReportPeriod::previousEnd($cutoff);
+        $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
+        $ids = $outletIds instanceof Builder
+            ? (clone $outletIds)->selectRaw($this->profileId($outletIds))
+            : $outletIds->map(fn ($id) => (string) $id);
+
+        return $this->monthlyQuery($cutoff, $previousEnd, $comparison, $metrics)
+            ->whereIn('sales.id_outlet', $ids)
+            ->selectRaw('sales.id_outlet')
+            ->groupBy('sales.id_outlet')
+            ->get()->groupBy('id_outlet')
+            ->map(fn (Collection $rows) => $this->series($rows, $cutoff, $comparison, $metrics));
+    }
+
+    private function profileId(Builder $profiles): string
+    {
+        // Production profiles use BIGINT, while uploaded IDs are stored as text.
+        return $profiles->getConnection()->getDriverName() === 'sqlite'
+            ? 'CAST(id_outlet AS TEXT)'
+            : 'CAST(id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci';
+    }
+
+    private function monthlyQuery(Carbon $cutoff, Carbon $previousEnd, bool $comparison, ?array $metrics = null): Builder
     {
         $month = 'SUBSTR(sales.transaction_date, 6, 2)';
         $query = DB::table('surya_outlet_cvm as sales')
@@ -55,7 +74,7 @@ class OutletCvmReport
             ->selectRaw("$month AS month_number")
             ->groupByRaw($month);
 
-        foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
+        foreach ($metrics ?? array_keys(OutletCvmImport::METRICS) as $metric) {
             $query->selectRaw("SUM(sales.{$metric}) AS {$metric}");
             if ($comparison) {
                 $query->selectRaw(
@@ -68,11 +87,11 @@ class OutletCvmReport
         return $query;
     }
 
-    private function series(Collection $rows, Carbon $cutoff, bool $comparison): array
+    private function series(Collection $rows, Carbon $cutoff, bool $comparison, ?array $metrics = null): array
     {
         $byMonth = $rows->groupBy(fn (object $row) => (int) $row->month_number);
         $series = [];
-        foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
+        foreach ($metrics ?? array_keys(OutletCvmImport::METRICS) as $metric) {
             $months = $byMonth->map(fn (Collection $rows) => $this->sum($rows, $metric));
             $compare = $comparison
                 ? $this->sum($byMonth->get($cutoff->month - 1, collect()), 'compare_'.$metric)

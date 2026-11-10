@@ -2,16 +2,75 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\OutletCvmColumns;
 use App\Services\OutletCvmImport;
 use App\Services\OutletCvmReport;
 use App\Support\SuryaTapScope;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class OutletCvmController extends Controller
 {
-    public function index(Request $request, OutletCvmReport $report)
+    public function index(Request $request, OutletCvmReport $report, OutletCvmColumns $filters)
+    {
+        $context = $this->context($request);
+        ['profiles' => $profiles, 'cutoff' => $cutoff, 'pageSize' => $pageSize] = $context;
+        $identity = OutletCvmColumns::IDENTITY;
+        $options = $filters->options($request);
+        $keys = $filters->activeKeys($options);
+        if ($keys === []) {
+            $outlets = (clone $profiles)->orderBy('nama_outlet')->orderBy('id_outlet')
+                ->paginate($pageSize, array_keys($identity));
+        } else {
+            $rows = $filters->apply($filters->rows($profiles, $report, $cutoff, $keys), $options);
+            $page = (int) $request->input('page', 1);
+            $outlets = new LengthAwarePaginator(
+                $rows->forPage($page, $pageSize)->map(fn ($row) => (object) $row)->values(),
+                $rows->count(), $pageSize, $page, ['path' => $request->url()]
+            );
+        }
+        $outlets->withQueryString()->appends(['cutoff' => $cutoff->toDateString()]);
+
+        unset($context['profiles']);
+
+        return view('surya.outlet-transactions-cvm', $context + compact('identity', 'outlets', 'options')
+            + ['metrics' => OutletCvmImport::METRICS]
+            + $report->data($profiles, $outlets->pluck('id_outlet'), $cutoff));
+    }
+
+    public function values(Request $request, OutletCvmReport $report, OutletCvmColumns $filters)
+    {
+        $input = $request->validate([
+            'column' => 'required|string',
+            'q' => 'nullable|string|max:150',
+            'outlet_q' => 'nullable|string|max:150',
+            'value_page' => 'nullable|integer|min:1|max:10000',
+        ]);
+        $column = $input['column'];
+        $filters->check($column);
+        $source = $request->duplicate();
+        $source->merge(['q' => $input['outlet_q'] ?? '']);
+        ['profiles' => $profiles, 'cutoff' => $cutoff] = $this->context($source);
+        $options = $filters->options($request);
+        unset($options['sort'], $options['direction'], $options['columns'][$column], $options['exclude'][$column]);
+
+        $rows = $filters->rows($profiles, $report, $cutoff, [...$filters->activeKeys($options), $column]);
+        $search = $input['q'] ?? '';
+        $values = $filters->apply($rows, $options)->pluck($column)
+            ->map(fn ($value) => (string) $value)->unique()
+            ->filter(fn ($value) => $search === '' || mb_stripos($value, $search) !== false)
+            ->sort(SORT_NATURAL)->values()
+            ->slice(((int) ($input['value_page'] ?? 1) - 1) * 100, 101);
+
+        return response()->json([
+            'values' => $values->take(100)->values(),
+            'has_more' => $values->count() > 100,
+        ]);
+    }
+
+    private function context(Request $request): array
     {
         $today = now('Asia/Jakarta')->toDateString();
         $filters = $request->validate([
@@ -20,6 +79,7 @@ class OutletCvmController extends Controller
             'tap' => 'nullable|string|max:100',
             'q' => 'nullable|string|max:150',
             'per_page' => 'nullable|in:25,50,100',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         $latest = DB::table('surya_outlet_cvm')->max('transaction_date');
@@ -35,17 +95,6 @@ class OutletCvmController extends Controller
         $taps = (clone $profiles)->whereNotNull('tap')->where('tap', '<>', '')
             ->distinct()->orderBy('tap')->pluck('tap');
 
-        $identity = [
-            'id_outlet' => 'ID Outlet',
-            'nama_outlet' => 'Nama Outlet',
-            'tap' => 'TAP',
-            'cluster' => 'Cluster',
-            'nomor_rs' => 'Nomor RS',
-            'kecamatan' => 'Kecamatan',
-            'sf' => 'SF',
-            'pjp' => 'Hari PJP',
-            'kategori_outlet' => 'Kategori Outlet',
-        ];
         $profiles = $profiles
             ->when($tap !== '', fn ($query) => $query->where('tap', $tap))
             ->when($search !== '', function ($query) use ($search) {
@@ -55,12 +104,7 @@ class OutletCvmController extends Controller
                     }
                 });
             });
-        $outlets = (clone $profiles)->orderBy('nama_outlet')->orderBy('id_outlet')
-            ->paginate($pageSize, array_keys($identity))->withQueryString()->appends(['cutoff' => $cutoff->toDateString()]);
-
-        return view('surya.outlet-transactions-cvm', compact(
-            'today', 'latest', 'cutoff', 'tap', 'taps', 'search', 'pageSize', 'identity', 'outlets'
-        ) + ['metrics' => OutletCvmImport::METRICS] + $report->data($profiles, $outlets->pluck('id_outlet'), $cutoff));
+        return compact('profiles', 'today', 'latest', 'cutoff', 'tap', 'taps', 'search', 'pageSize');
     }
 
     public function store(Request $request, string $kind, OutletCvmImport $import)

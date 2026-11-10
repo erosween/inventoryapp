@@ -17,12 +17,23 @@ class OutletTransactionColumns extends OutletColumnFilters
             if ($key===$facet) continue;
             $rows=$rows->filter(fn($r)=>in_array((string)($r[$key]??''),$values,true) === ($mode==='columns'));
         }
-        $sort=$options['sort']??'total'; $this->check($sort); $direction=($options['direction']??'desc')==='asc'?1:-1;
+        $sort=$options['sort']??$this->defaultSort(); $this->check($sort); $direction=($options['direction']??'desc')==='asc'?1:-1;
         return $rows->sort(function($a,$b) use($sort,$direction) {
             $x=$a[$sort]??null; $y=$b[$sort]??null;
             if ($x===null || $y===null) return ($x===null)<=>($y===null);
-            $numeric=$sort==='total'||$sort==='compare'||preg_match('/^(m\d+|gap_m\d+|mom_pct_m\d+)$/',$sort);
+            $numeric=$this->isNumeric($sort);
             return (($numeric?($x<=>$y):strnatcasecmp((string)$x,(string)$y))*$direction) ?: strcmp((string)$a['id_outlet'],(string)$b['id_outlet']);
         })->values();
+    }
+
+    protected function defaultSort(): string
+    {
+        return 'total';
+    }
+
+    protected function isNumeric(string $column): bool
+    {
+        return in_array($column, ['total', 'compare'], true)
+            || preg_match('/^(m\d+|gap_m\d+|mom_pct_m\d+)$/', $column);
     }
 }

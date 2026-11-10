@@ -9,10 +9,13 @@
     <link rel="stylesheet" href="{{ asset('css/surya-ngrs.css') }}?v={{ filemtime(public_path('css/surya-ngrs.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/surya-outlet-transactions.css') }}?v={{ filemtime(public_path('css/surya-outlet-transactions.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/surya-transaction-tables.css') }}?v={{ filemtime(public_path('css/surya-transaction-tables.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}">
 @endpush
 
 @push('scripts')
     <script src="{{ asset('js/surya-transaction-tables.js') }}?v={{ filemtime(public_path('js/surya-transaction-tables.js')) }}" defer></script>
+    <script src="{{ asset('js/surya-ngrs-columns.js') }}?v={{ filemtime(public_path('js/surya-ngrs-columns.js')) }}" defer></script>
+    <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
 @endpush
 
 @section('content')
@@ -38,6 +41,19 @@
                 @endforeach
             </select>
         </label>
+        <span data-column-options hidden>
+            @foreach(['columns', 'exclude'] as $mode)
+                @foreach($options[$mode] ?? [] as $key => $values)
+                    @foreach($values as $value)
+                        <input type="hidden" name="{{ $mode }}[{{ $key }}][]" value="{{ $value }}">
+                    @endforeach
+                @endforeach
+            @endforeach
+            @if(!empty($options['sort']))
+                <input type="hidden" name="sort" value="{{ $options['sort'] }}">
+                <input type="hidden" name="direction" value="{{ $options['direction'] ?? 'desc' }}">
+            @endif
+        </span>
         <button class="ngrs-button" type="submit">Tampilkan</button>
     </form>
 
@@ -95,7 +111,7 @@
     <section class="ngrs-card" aria-label="Transaksi CVM per outlet">
         <div class="ngrs-scroll ngrs-detail-scroll" tabindex="0">
             <table class="ngrs-detail cvm-transactions-table" data-transaction-table="detail" data-report-end-month="{{ $cutoff->month }}" data-report-default-range="12">
-                @include('surya.partials.outlet-cvm-head', ['labels' => ['row_number' => 'No'] + $identity])
+                @include('surya.partials.outlet-cvm-head', ['labels' => ['row_number' => 'No'] + $identity, 'filterable' => true])
                 <tbody>
                     @forelse($outlets as $outlet)
                         <tr>
@@ -124,4 +140,9 @@
             </div>
         </footer>
     </section>
+    @include('surya.partials.outlet-column-menu', [
+        'columnSearch' => $search,
+        'columnValuesUrl' => route('surya.outlet-cvm.values'),
+        'columnResetLabel' => 'Urutan nama outlet',
+    ])
 @endsection
