@@ -6,11 +6,12 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithTitle
+class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMapping, WithStrictNullComparison, WithStyles, WithTitle
 {
     public function __construct(private readonly Collection $rows)
     {
@@ -35,7 +36,7 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
 
         foreach (['st_sa', 'st_pv', 'cvm', 'super_seru', 'comsak', 'hot_promo', 'biometrik'] as $metric) {
             foreach (['fm1', 'm1', 'mtd', 'gap', 'mom_pct'] as $period) {
-                $values[] = $row->{$metric.'_'.$period};
+                $values[] = $row->{$metric.'_'.$period} ?? 0;
             }
         }
 
