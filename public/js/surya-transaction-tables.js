@@ -7,7 +7,7 @@
  let saved={};try{const parsed=JSON.parse(sessionStorage.getItem(storageKey)||'{}');if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))saved=parsed;}catch{}
  function enhance(table){
   const kind=table.dataset.transactionTable,card=table.closest('.ngrs-card');
-  let state={mode:'monthly',range:3,identities:false,...saved[kind]};
+  let state={mode:'monthly',range:Number(table.dataset.reportDefaultRange)||3,identities:false,...saved[kind]};
   if(!['monthly','gap','percent'].includes(state.mode))state.mode='monthly';
   if(![3,6,12].includes(state.range))state.range=3;
   state.identities=state.identities===true;
@@ -30,7 +30,10 @@
    const end=Number(table.dataset.reportEndMonth)||12,start=Math.max(1,end-state.range+1),query=new URL(location.href).searchParams;
    const active=new Set([...query.keys()].filter(key=>/^(columns|exclude)\[/.test(key)).map(key=>key.match(/\[([^\]]+)/)?.[1]));if(query.get('sort'))active.add(query.get('sort'));
    tools.querySelectorAll('[data-report-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.reportMode===state.mode)));
-   const headers=[...table.tHead.rows[0].cells];
+   const columnRow=table.tHead.querySelector('[data-report-columns]')||table.tHead.rows[0];
+   const headers=[...columnRow.cells];
+   const rows=[...table.rows].filter(row=>row.cells.length===headers.length);
+
    headers.forEach((header,index)=>{
     const key=header.dataset.reportKey||header.querySelector('[data-column]')?.dataset.column||'';
     let visible=true,number=false,current=false;
@@ -41,8 +44,16 @@
     else if(key==='total'){number=true;visible=state.mode==='monthly';}
     else if(kind==='detail'&&['rs','nomor_rs','kecamatan','sf','pjp'].includes(key))visible=state.identities;
     if(active.has(key))visible=true;
-    for(const row of table.rows){if(row.cells.length!==headers.length)continue;const cell=row.cells[index];cell.hidden=!visible;cell.classList.toggle('report-numeric',number);cell.classList.toggle('report-current',current);cell.classList.toggle('report-category',key==='kategori_outlet');}
+    for(const row of rows){const cell=row.cells[index];cell.hidden=!visible;cell.classList.toggle('report-numeric',number);cell.classList.toggle('report-current',current);cell.classList.toggle('report-category',key==='kategori_outlet');}
    });
+   let first=0;
+   for(const group of table.tHead.querySelectorAll('[data-report-group]')){
+    const end=first+Number(group.dataset.reportGroup);
+    const visible=headers.slice(first,end).filter(header=>!header.hidden).length;
+    group.hidden=visible===0;
+    group.colSpan=Math.max(1,visible);
+    first=end;
+   }
    tools.querySelector('.report-range-label').textContent=monthNames[start-1]+'–'+monthNames[end-1];
    saved[kind]=state;try{sessionStorage.setItem(storageKey,JSON.stringify(saved));}catch{}
    const name=table.querySelector('thead .ngrs-frozen-name'),tap=table.querySelector('thead .ngrs-frozen-tap');

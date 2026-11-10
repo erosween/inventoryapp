@@ -100,15 +100,38 @@ class OutletTransactionTest extends TestCase
         $this->uploadCvm('cvm', "tanggal,id outlet,cvm\n2026-11-05,A,525\n");
 
         $report = $this->get('/surya/transaksi-outlet/cvm?tap=DUMAI&q=Outlet+A')->assertOk();
-        $report->assertViewHas('from', '2026-01-01')->assertViewHas('to', '2026-11-06')
+        $report->assertViewHas('cutoff', fn (Carbon $date) => $date->toDateString() === '2026-11-06')
             ->assertSeeInOrder(['>CVM</th>', '>Comsak</th>', '>Insak</th>', '>Hot Promo</th>', '>Super Seru</th>', '>BYU</th>', '>Digital</th>'], false)
             ->assertSee('1,525')->assertSee('Outlet A')->assertDontSee('Outlet B');
-        $totals = (array) $report->viewData('totals')->get('A');
-        $this->assertSame(['A', 1525, 15, 14, 21, 23, 16, 19], array_values($totals));
+        $series = $report->viewData('details')->get('A');
+        $this->assertSame([1525, 15, 14, 21, 23, 16, 19], array_column($series, 'total'));
+        $this->assertSame(1000, $series['cvm']['m1']);
+        $this->assertSame(525, $series['cvm']['m11']);
 
-        $november = $this->get('/surya/transaksi-outlet/cvm?from=2026-11-01&to=2026-11-05&q=Outlet+A')->assertOk();
-        $this->assertSame(525, (int) $november->viewData('totals')->get('A')->cvm);
-        $this->assertSame(2, (int) $november->viewData('totals')->get('A')->comsak);
+        $november = $this->get('/surya/transaksi-outlet/cvm?cutoff=2026-11-05&q=Outlet+A')->assertOk();
+        $this->assertSame(2, $november->viewData('details')->get('A')['comsak']['m11']);
+    }
+
+    public function test_cvm_mom_uses_the_same_cutoff_day_and_aggregates_before_calculating_growth(): void
+    {
+        $this->actingAs(new User(['username' => 'admin_super']));
+        $this->uploadCvm('cvm', "tanggal,id outlet,cvm\n2026-09-30,A,50\n2026-10-05,A,100\n2026-10-28,A,900\n2026-11-05,A,525\n2026-10-05,B,100\n2026-11-05,B,0\n");
+
+        $report = $this->get('/surya/transaksi-outlet/cvm')->assertOk()
+            ->assertSee('Okt-MoM')->assertSee('GAP Nov')->assertSee('MoM % Nov');
+        $a = $report->viewData('details')->get('A');
+        $this->assertSame(1000, $a['cvm']['m10']);
+        $this->assertSame(100, $a['cvm']['compare']);
+        $this->assertSame(425, $a['cvm']['gap_m11']);
+        $this->assertSame(425.0, $a['cvm']['mom_pct_m11']);
+        $this->assertNull($a['comsak']['gap_m11']);
+        $this->assertSame(-100.0, $report->viewData('summary')->get('DURI')['cvm']['mom_pct_m11']);
+        $this->assertSame(162.5, $report->viewData('grand')['cvm']['mom_pct_m11']);
+        $this->assertSame(325, $report->viewData('clusters')->get('Dumai Bengkalis')['cvm']['gap_m11']);
+
+        $closed = $this->get('/surya/transaksi-outlet/cvm?cutoff=2026-10-31')->assertOk();
+        $this->assertFalse($closed->viewData('comparison'));
+        $this->assertSame(950, $closed->viewData('details')->get('A')['cvm']['gap_m10']);
     }
 
     public function test_cvm_upload_rolls_back_a_written_batch_when_a_later_row_is_invalid(): void

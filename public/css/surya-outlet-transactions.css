@@ -5,4 +5,14 @@
         grid-template-columns: repeat(3, minmax(145px, 1fr)) minmax(180px, 1.5fr) auto;
     }
 }
-.cvm-transactions-table thead tr:first-child th { position: static; }
+.transaction-report .cvm-transactions-table thead [data-report-group] {
+    height: 42px;
+    padding-block: 0;
+    text-align: center;
+    color: #334155;
+    background: #edf2f8;
+    border-inline-end: 1px solid #dbe3ed;
+}
+.transaction-report .cvm-transactions-table.ngrs-detail thead [data-report-columns] th {
+    top: 42px;
+}

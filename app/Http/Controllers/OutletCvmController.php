@@ -3,18 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Services\OutletCvmImport;
+use App\Services\OutletCvmReport;
 use App\Support\SuryaTapScope;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class OutletCvmController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, OutletCvmReport $report)
     {
         $today = now('Asia/Jakarta')->toDateString();
         $filters = $request->validate([
-            'from' => 'nullable|date_format:Y-m-d|before_or_equal:'.$today,
+            'cutoff' => 'nullable|date_format:Y-m-d|before_or_equal:'.$today,
             'to' => 'nullable|date_format:Y-m-d|before_or_equal:'.$today,
             'tap' => 'nullable|string|max:100',
             'q' => 'nullable|string|max:150',
@@ -22,11 +23,7 @@ class OutletCvmController extends Controller
         ]);
 
         $latest = DB::table('surya_outlet_cvm')->max('transaction_date');
-        $to = $filters['to'] ?? max($latest ?? $today, $filters['from'] ?? '');
-        $from = $filters['from'] ?? substr($to, 0, 4).'-01-01';
-        if ($from > $to) {
-            throw ValidationException::withMessages(['from' => 'Tanggal awal harus sebelum atau sama dengan tanggal akhir.']);
-        }
+        $cutoff = Carbon::parse($filters['cutoff'] ?? $filters['to'] ?? $latest ?? $today, 'Asia/Jakarta');
 
         $tap = trim($filters['tap'] ?? '');
         $search = trim($filters['q'] ?? '');
@@ -49,7 +46,7 @@ class OutletCvmController extends Controller
             'pjp' => 'Hari PJP',
             'kategori_outlet' => 'Kategori Outlet',
         ];
-        $outlets = $profiles
+        $profiles = $profiles
             ->when($tap !== '', fn ($query) => $query->where('tap', $tap))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
@@ -57,28 +54,13 @@ class OutletCvmController extends Controller
                         $query->orWhere($column, 'like', '%'.$search.'%');
                     }
                 });
-            })
-            ->orderBy('nama_outlet')->orderBy('id_outlet')
-            ->paginate($pageSize, array_keys($identity))->withQueryString()->appends(['from' => $from, 'to' => $to]);
-
-        $metrics = OutletCvmImport::METRICS;
-        $totals = collect();
-        if ($outlets->isNotEmpty()) {
-            $totalsQuery = DB::table('surya_outlet_cvm')
-                ->whereIn('id_outlet', $outlets->pluck('id_outlet'))
-                ->whereBetween('transaction_date', [$from, $to])
-                ->select('id_outlet')
-                ->groupBy('id_outlet');
-            foreach (array_keys($metrics) as $metric) {
-                $totalsQuery->selectRaw("SUM({$metric}) AS {$metric}");
-            }
-            $totals = $totalsQuery->get()->keyBy('id_outlet');
-        }
+            });
+        $outlets = (clone $profiles)->orderBy('nama_outlet')->orderBy('id_outlet')
+            ->paginate($pageSize, array_keys($identity))->withQueryString()->appends(['cutoff' => $cutoff->toDateString()]);
 
         return view('surya.outlet-transactions-cvm', compact(
-            'today', 'latest', 'from', 'to', 'tap', 'taps', 'search', 'pageSize',
-            'identity', 'outlets', 'metrics', 'totals'
-        ));
+            'today', 'latest', 'cutoff', 'tap', 'taps', 'search', 'pageSize', 'identity', 'outlets'
+        ) + ['metrics' => OutletCvmImport::METRICS] + $report->data($profiles, $outlets->pluck('id_outlet'), $cutoff));
     }
 
     public function store(Request $request, string $kind, OutletCvmImport $import)
