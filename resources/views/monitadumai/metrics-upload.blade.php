@@ -32,6 +32,28 @@
 <button class="btn metrics-import-resume" type="button" data-import-change hidden>Pilih File Lain</button>
 </div>
 </form></section>
+<section class="upload-card" aria-labelledby="outlet-cvm-title">
+<header class="upload-card-header">
+    <span class="upload-icon"><i class="fa fa-chart-column" aria-hidden="true"></i></span>
+    <h2 id="outlet-cvm-title">Transaksi Outlet · CVM</h2>
+    <span class="upload-format">CSV</span>
+</header>
+@foreach(['cvm' => 'CVM', 'sub-cvm' => 'Sub CVM'] as $kind => $label)
+    <form class="drop" data-simple-upload method="POST" action="{{ route('surya.outlet-cvm.upload', $kind) }}" enctype="multipart/form-data">
+        @csrf
+        <label class="file-label" for="outlet-{{ $kind }}-file">File {{ $label }}</label>
+        <input class="file-input" id="outlet-{{ $kind }}-file" type="file" name="cvm_file" accept=".csv,text/csv" aria-describedby="outlet-{{ $kind }}-hint" required>
+        <p class="upload-hint" id="outlet-{{ $kind }}-hint">
+            Kolom: tanggal, id outlet, {{ str_replace('_', ' ', implode(', ', \App\Services\OutletCvmImport::FILE_COLUMNS[$kind])) }}.
+            CSV UTF-8 · Maks. 20 MB · Tanggal YYYY-MM-DD atau DD/MM/YYYY.
+        </p>
+        <div class="metrics-import-actions">
+            <button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload {{ $label }}</button>
+        </div>
+        <p class="upload-hint" role="status" data-simple-status hidden></p>
+    </form>
+@endforeach
+</section>
 <section class="upload-card" aria-labelledby="taskforce-title">
 <header class="upload-card-header"><span class="upload-icon"><i class="fa fa-bullseye" aria-hidden="true"></i></span><h2 id="taskforce-title">Taskforce</h2><span class="upload-format">Excel / CSV</span></header>
 <form class="drop" id="taskforce-upload-form" data-simple-upload method="POST" action="{{ route('surya.taskforce.upload') }}" enctype="multipart/form-data">

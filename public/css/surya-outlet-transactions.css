@@ -1,1 +1,8 @@
 .outlet-transactions-toolbar{grid-template-columns:175px minmax(150px,1fr) minmax(220px,1.6fr) 100px auto auto}.outlet-transactions-page .ngrs-gap.is-positive{color:#12805c}.outlet-transactions-page .ngrs-gap.is-negative{color:#d92d20}.outlet-transactions-page .ngrs-gap.is-flat{background:#eef2f6;color:#172033}.outlet-transactions-page .ngrs-gap.is-missing{color:#98a2b3}.outlet-transactions-page .ngrs-detail td{text-align:right}.outlet-transactions-page .ngrs-detail td:nth-child(-n+10){text-align:left}.outlet-transactions-page .ngrs-detail td:first-child{text-align:center}.outlet-transactions-page .ngrs-detail-scroll{overscroll-behavior-y:auto}.outlet-transactions-page .ngrs-summary td{min-width:105px}@media(max-width:1300px){.outlet-transactions-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}.outlet-transactions-toolbar .ngrs-search{grid-column:auto}}@media(max-width:760px){.outlet-transactions-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.outlet-transactions-toolbar .ngrs-search{grid-column:1/-1}}@media(max-width:480px){.outlet-transactions-toolbar{grid-template-columns:minmax(0,1fr)}.outlet-transactions-toolbar .ngrs-search{grid-column:auto}}
+
+@media (min-width: 1301px) {
+    .cvm-transactions-toolbar {
+        grid-template-columns: repeat(3, minmax(145px, 1fr)) minmax(180px, 1.5fr) auto;
+    }
+}
+.cvm-transactions-table thead tr:first-child th { position: static; }

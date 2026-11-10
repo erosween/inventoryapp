@@ -8,6 +8,7 @@ use App\Services\OutletTransactionColumns;
 use App\Services\OutletTransactionReport;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -26,6 +27,7 @@ class OutletTransactionTest extends TestCase
         DB::table('denom')->insert([['iddenom'=>'V1','product_group'=>'PV'],['iddenom'=>'SP1','product_group'=>'SA']]);
         foreach(['keluarsf','mobile_penjualan']as$table)Schema::create($table,function(Blueprint $t){$t->id();foreach(['id_outlet','iddenom','tgl','status','tambahanket','idtap']as$c)$t->string($c)->nullable();$t->integer('qty');});
         (require database_path('migrations/2026_11_05_000001_create_outlet_nota_backfill.php'))->up();
+        (require database_path('migrations/2026_11_10_000001_create_surya_outlet_cvm.php'))->up();
         (require database_path('migrations/2026_10_22_000003_create_surya_outlet_sales_history.php'))->up();
         DB::table('surya_outlet_nota_backfill')->insert([
             ['transaction_date'=>'2026-01-01','id_outlet'=>'A','sa'=>3,'pv'=>20],
@@ -79,13 +81,65 @@ class OutletTransactionTest extends TestCase
         $this->assertStringContainsString(',-65,-65,',$content);$this->assertStringNotContainsString("'-65",$content);
         $this->get('/surya/transaksi-outlet/pv?sort=bad')->assertRedirect();
     }
-    public function test_navigation_and_cvm_placeholder_and_invalid_dates():void
+    public function test_navigation_and_empty_cvm_report_and_invalid_dates():void
     {
         $user=new User;$user->username='admin_super';$this->actingAs($user);
         $this->get('/surya/transaksi-outlet/pv?cutoff=2026-11-04')->assertOk()->assertSee('TRANSAKSI OUTLET')->assertSee('Rekap per TAP')->assertSee('Dumai Bengkalis')->assertSee('Rokan Hilir')->assertSee('ngrs-frozen-name',false);
-        $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Laporan CVM belum tersedia.');
+        $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Belum ada data CVM atau Sub CVM yang diupload.');
         $this->get('/surya/transaksi-outlet/pv?cutoff=2027-01-01')->assertRedirect();
         $this->get('/surya/transaksi-outlet/other')->assertNotFound();
+    }
+
+    public function test_cvm_uploads_merge_and_replace_only_their_own_metrics(): void
+    {
+        $user = new User(['username' => 'admin_super']);
+        $this->actingAs($user);
+
+        $this->uploadCvm('cvm', "\xEF\xBB\xBFTanggal;ID Outlet;CVM\n01/01/2026;A;1000\n05/11/2026;A;25\n05/11/2026;B;90\n");
+        $this->uploadCvm('sub-cvm', "tanggal,id outlet,insak,byu,comsak,digital,hot promo,super seru\n2026-11-05,A,3,4,2,5,6,7\n2026-11-06,A,11,12,13,14,15,16\n");
+        $this->uploadCvm('cvm', "tanggal,id outlet,cvm\n2026-11-05,A,525\n");
+
+        $report = $this->get('/surya/transaksi-outlet/cvm?tap=DUMAI&q=Outlet+A')->assertOk();
+        $report->assertViewHas('from', '2026-01-01')->assertViewHas('to', '2026-11-06')
+            ->assertSeeInOrder(['>CVM</th>', '>Comsak</th>', '>Insak</th>', '>Hot Promo</th>', '>Super Seru</th>', '>BYU</th>', '>Digital</th>'], false)
+            ->assertSee('1,525')->assertSee('Outlet A')->assertDontSee('Outlet B');
+        $totals = (array) $report->viewData('totals')->get('A');
+        $this->assertSame(['A', 1525, 15, 14, 21, 23, 16, 19], array_values($totals));
+
+        $november = $this->get('/surya/transaksi-outlet/cvm?from=2026-11-01&to=2026-11-05&q=Outlet+A')->assertOk();
+        $this->assertSame(525, (int) $november->viewData('totals')->get('A')->cvm);
+        $this->assertSame(2, (int) $november->viewData('totals')->get('A')->comsak);
+    }
+
+    public function test_cvm_upload_rolls_back_a_written_batch_when_a_later_row_is_invalid(): void
+    {
+        $this->actingAs(new User(['username' => 'admin_super']));
+        $this->uploadCvm('cvm', "tanggal,id outlet,cvm\n2026-01-01,A,5\n");
+        $csv = "tanggal,id outlet,cvm\n2026-01-01,A,9\n";
+        for ($id = 1; $id <= 499; $id++) {
+            $csv .= "2026-01-01,{$id},1\n";
+        }
+        $csv .= "2026-02-30,A,1\n";
+        $this->post(route('surya.outlet-cvm.upload', 'cvm'), [
+            'cvm_file' => UploadedFile::fake()->createWithContent('cvm.csv', $csv),
+        ])->assertSessionHasErrors('cvm_file');
+
+        $this->assertDatabaseCount('surya_outlet_cvm', 1);
+        $this->assertDatabaseHas('surya_outlet_cvm', ['id_outlet' => 'A', 'cvm' => 5]);
+    }
+
+    public function test_cvm_report_respects_tap_scope_and_upload_requires_admin(): void
+    {
+        $this->actingAs(new User(['username' => 'asmen_dumai']));
+        $this->get('/surya/transaksi-outlet/cvm?tap=DURI')->assertOk()->assertDontSee('Outlet B');
+        $this->post(route('surya.outlet-cvm.upload', 'sub-cvm'))->assertForbidden();
+    }
+
+    private function uploadCvm(string $kind, string $contents): void
+    {
+        $this->post(route('surya.outlet-cvm.upload', $kind), [
+            'cvm_file' => UploadedFile::fake()->createWithContent($kind.'.csv', $contents),
+        ])->assertRedirect(route('surya.transaction-upload'))->assertSessionHasNoErrors();
     }
     public function test_second_family_reuses_monthly_source_cache():void
     {

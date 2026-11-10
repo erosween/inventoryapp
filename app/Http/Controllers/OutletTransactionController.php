@@ -22,7 +22,6 @@ class OutletTransactionController extends Controller
 
     public function index(Request $request, string $family)
     {
-        if ($family==='cvm') return view('surya.outlet-transactions-cvm');
         $data=$this->report($request,$family);
         $rows=$data['columns']->apply($data['rows'],$data['options']);
         $page=(int)$request->input('page',1); $size=$data['filters']['per_page'];

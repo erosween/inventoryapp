@@ -25,7 +25,7 @@
             <summary class="sidebar-link"><i class="fas fa-chart-column"></i><span>TRANSAKSI OUTLET</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
             <a href="{{ route('surya.ngrs') }}" class="sidebar-link {{ $sidebarPage === 'ngrs' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-signal"></i><span>NGRS</span></a>
             @foreach(['cvm'=>'CVM','sa'=>'SA','pv'=>'PV'] as $key=>$label)
-            <a href="{{ route('surya.outlet-transactions',['family'=>$key]) }}" class="sidebar-link {{ $sidebarPage === 'transactions-'.$key ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-table-list"></i><span>{{ $label }}</span></a>
+            <a href="{{ $key === 'cvm' ? route('surya.outlet-cvm') : route('surya.outlet-transactions', ['family' => $key]) }}" class="sidebar-link {{ $sidebarPage === 'transactions-'.$key ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-table-list"></i><span>{{ $label }}</span></a>
             @endforeach
         </details>
         <details class="sidebar-taskforce" @if($sidebarPage === 'push-so') open @endif>
