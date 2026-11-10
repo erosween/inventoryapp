@@ -26,7 +26,7 @@ class OutletCvmReport
         $profileId = $profiles->getConnection()->getDriverName() === 'sqlite'
             ? 'CAST(id_outlet AS TEXT)'
             : 'CAST(id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci';
-        $outletTaps = (clone $profiles)->selectRaw("\$profileId AS id_outlet, MIN(tap) AS tap")
+        $outletTaps = (clone $profiles)->selectRaw("$profileId AS id_outlet, MIN(tap) AS tap")
             ->groupBy('appsdumais.id_outlet');
         $tapMonths = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
             ->joinSub($outletTaps, 'profile', 'profile.id_outlet', '=', 'sales.id_outlet')
