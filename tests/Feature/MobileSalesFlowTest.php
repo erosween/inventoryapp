@@ -1320,9 +1320,22 @@ class MobileSalesFlowTest extends TestCase
             'status' => 'draft_wa',
         ]);
 
-        $this->withSession([
-            'mobile_sf_id' => 'HELPER7', 'mobile_sf_name' => 'ARIF PUTRA GANDA', 'idtap' => 'TAP001',
-        ])->post(route('mobile.receipt.confirm', $receiptId), [
+        $session = ['mobile_sf_id' => 'HELPER7', 'mobile_sf_name' => 'ARIF PUTRA GANDA', 'idtap' => 'TAP001'];
+        $confirmation = route('mobile.receipt.show', $receiptId);
+        $submit = route('mobile.receipt.confirm', $receiptId);
+
+        $this->withSession($session)->get(route('mobile.form', ['id_outlet' => 'HELPER-TAP-2']))
+            ->assertRedirect($confirmation);
+        $this->from($confirmation)->post($submit, [
+            'receipt_photo' => UploadedFile::fake()->create('nota.pdf', 1, 'application/pdf'),
+        ])->assertRedirect($confirmation)->assertSessionHasErrors('receipt_photo');
+        $this->assertDatabaseHas('mobile_penjualan', ['receipt_id' => $receiptId, 'status' => 'draft_wa']);
+        $this->get($confirmation)->assertOk()
+            ->assertSee('Pilih foto nota dari galeri atau file di HP.')
+            ->assertSee('Pilih foto nota dalam format JPG, PNG, atau WebP.')
+            ->assertDontSee('capture="environment"', false);
+
+        $this->withSession($session)->post($submit, [
             'receipt_photo' => UploadedFile::fake()->image('receipt.jpg', 800, 1200),
         ])->assertRedirect(route('mobile.history'));
 

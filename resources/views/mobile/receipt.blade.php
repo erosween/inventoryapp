@@ -60,7 +60,15 @@
         <div class="alert alert-warning rounded-4 small mb-3"><i class="fas fa-circle-info me-2"></i>{{ $items->isNotEmpty() ? 'Setelah dikonfirmasi, stok akan diamankan sementara dan transaksi dikirim ke admin untuk validasi.' : 'Setelah dikonfirmasi, nomor konsinyasi langsung dicatat ke outlet ini tanpa memotong stok.' }}</div>
         <form method="POST" action="{{ route('mobile.receipt.confirm', $receipt) }}" id="confirm-sales-form" enctype="multipart/form-data">
             @csrf
-            <div class="glass-card p-3 mb-3 border-0 shadow-sm"><label for="receipt_photo" class="fw-800 small mb-2"><i class="fas fa-camera me-1 text-danger"></i>Foto Nota Bon (wajib)</label><input type="file" name="receipt_photo" id="receipt_photo" class="form-control" accept="image/jpeg,image/png,image/webp" capture="environment" required><small class="text-muted d-block mt-2">Foto nota disimpan bersama transaksi untuk pemeriksaan admin.</small></div>
+            <div class="glass-card p-3 mb-3 border-0 shadow-sm">
+                <label for="receipt_photo" class="fw-800 small mb-2"><i class="fas fa-camera me-1 text-danger"></i>Foto Nota Bon (wajib)</label>
+                <input type="file" name="receipt_photo" id="receipt_photo" class="form-control @error('receipt_photo') is-invalid @enderror"
+                    accept="image/jpeg,image/png,image/webp" aria-describedby="receipt-photo-help{{ $errors->has('receipt_photo') ? ' receipt-photo-error' : '' }}" required>
+                <small id="receipt-photo-help" class="text-muted d-block mt-2">Pilih foto nota dari galeri atau file di HP.</small>
+                @error('receipt_photo')
+                    <div id="receipt-photo-error" class="invalid-feedback d-block" role="alert">{{ $message }}</div>
+                @enderror
+            </div>
             <button type="submit" class="btn btn-danger rounded-pill w-100 py-3 fw-bold shadow-sm"><i class="fas fa-check-circle me-2"></i>Konfirmasi & Submit Penjualan</button>
         </form>
     @endif
@@ -84,19 +92,26 @@
 @push('scripts')
 <script>
 localStorage.removeItem('sf_sales_form_data');
-document.getElementById('confirm-sales-form')?.addEventListener('submit', function () {
-    const button = this.querySelector('button[type="submit"]');
-    button.disabled = true;
-    button.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Menyimpan Penjualan...';
-});
-
 document.getElementById('confirm-sales-form')?.addEventListener('submit', async function (event) {
     const input = document.getElementById('receipt_photo');
-    if (!input?.files?.[0] || input.dataset.compressed === '1') return;
-    event.preventDefault();
     const file = input.files[0];
-    const image = new Image();
-    image.onload = () => {
+    if (!file) return;
+
+    event.preventDefault();
+    const button = this.querySelector('button[type="submit"]');
+    if (button.disabled) return;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Menyimpan Penjualan...';
+
+    let imageUrl;
+    try {
+        const image = new Image();
+        imageUrl = URL.createObjectURL(file);
+        await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = reject;
+            image.src = imageUrl;
+        });
         const maxSide = 1600;
         const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
         const canvas = document.createElement('canvas');
@@ -127,17 +142,18 @@ document.getElementById('confirm-sales-form')?.addEventListener('submit', async 
             context.putImageData(sample, 0, 0);
         }
 
-        canvas.toBlob((blob) => {
-            if (!blob) return this.submit();
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.84));
+        if (blob) {
             const transfer = new DataTransfer();
             transfer.items.add(new File([blob], 'nota-bon.jpg', { type: 'image/jpeg' }));
             input.files = transfer.files;
-            input.dataset.compressed = '1';
-            this.requestSubmit();
-        }, 'image/jpeg', 0.84);
-    };
-    image.onerror = () => this.submit();
-    image.src = URL.createObjectURL(file);
+        }
+    } catch {
+        // Send the selected file if this browser cannot compress it.
+    } finally {
+        if (imageUrl) URL.revokeObjectURL(imageUrl);
+    }
+    HTMLFormElement.prototype.submit.call(this);
 });
 </script>
 @endpush

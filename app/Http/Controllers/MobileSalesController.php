@@ -1162,6 +1162,13 @@ SQL;
 
         $request->validate([
             'receipt_photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
+        ], [
+            'receipt_photo.required' => 'Pilih foto nota bon sebelum konfirmasi.',
+            'receipt_photo.uploaded' => 'Foto gagal diunggah. Coba pilih foto yang lebih kecil.',
+            'receipt_photo.image' => 'Pilih foto nota dalam format JPG, PNG, atau WebP.',
+            'receipt_photo.mimes' => 'Pilih foto nota dalam format JPG, PNG, atau WebP.',
+            'receipt_photo.max' => 'Ukuran foto maksimal 5 MB.',
+            'receipt_photo.dimensions' => 'Resolusi foto maksimal 6.000 × 6.000 piksel.',
         ]);
 
         $receiptPhoto = $this->imageStorage->store($request->file('receipt_photo'), 'surya-sales/receipts')['path'];
