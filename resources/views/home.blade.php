@@ -1628,6 +1628,8 @@
                         ? (firstText.toUpperCase().includes('GRAND TOTAL') ? 'grand' : 'cluster')
                         : 'tap',
                     cells: [firstText, ...cells.slice(1).map(getMomCellText)],
+                    locationBackground: cells[0].classList.contains('mom-impact-up') || cells[0].classList.contains('mom-impact-down')
+                        ? getComputedStyle(cells[0]).backgroundColor : null,
                     gapColor: cells[4].classList.contains('text-danger') ? '#e75757'
                         : (cells[4].classList.contains('text-success') ? '#32a852' : null),
                     growth1Down: growthText.includes('▼') || /^-/.test(growthText)
@@ -1810,6 +1812,10 @@
 
                 ctx.fillStyle = isGrand ? '#e3f2fd' : (isCluster ? '#f8f9fa' : '#ffffff');
                 ctx.fillRect(0, y, width, rowHeight);
+                if (row.locationBackground) {
+                    ctx.fillStyle = row.locationBackground;
+                    ctx.fillRect(0, y, cols[0], rowHeight);
+                }
 
                 ctx.strokeStyle = isCluster || isGrand ? '#dfe3e7' : '#edf0f2';
                 ctx.lineWidth = isCluster || isGrand ? 1.6 : 1;
