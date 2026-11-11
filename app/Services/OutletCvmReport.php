@@ -22,9 +22,12 @@ class OutletCvmReport
         $outletMonths = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
             ->selectRaw('sales.id_outlet')
             ->groupBy('sales.id_outlet');
+        // Read the monthly groups once on MySQL/MariaDB, then look up each outlet's TAP.
         $tapQuery = DB::query()->fromSub($outletMonths, 'monthly')
             ->joinSub($outletTaps, 'profile', 'profile.id_outlet', '=', 'monthly.id_outlet')
-            ->select('profile.tap', 'monthly.month_number')
+            ->selectRaw(DB::getDriverName() === 'mysql'
+                ? 'STRAIGHT_JOIN profile.tap, monthly.month_number'
+                : 'profile.tap, monthly.month_number')
             ->groupBy('profile.tap', 'monthly.month_number');
         foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
             $tapQuery->selectRaw("SUM(monthly.{$metric}) AS {$metric}");

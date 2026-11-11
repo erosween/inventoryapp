@@ -25,7 +25,12 @@ class NgrsController extends Controller
         $months=DB::table('surya_ngrs_months')->whereBetween('month',[$filters['year'].'-01-01',$filters['year'].'-12-01'])->pluck('month')->map(fn($m)=>(int)substr($m,5,2))->all();
         $years=DB::table('surya_ngrs_months')->selectRaw('SUBSTR(month,1,4) AS year')->distinct()->pluck('year')->map(fn($y)=>(int)$y)->push(now('Asia/Jakarta')->year)->push($filters['year'])->unique()->sortDesc()->values();
         $columns=app(NgrsColumnFilters::class);$options=$columns->options($request);
-        $summary=$report->summary($filters);$outlets=$columns->apply($report->details($filters),$options)->paginate($filters['per_page'])->withQueryString();
+        $includeCategory = ($options['sort'] ?? null) === 'kategori_outlet'
+            || isset($options['columns']['kategori_outlet']) || isset($options['exclude']['kategori_outlet']);
+        $summary = $report->summary($filters);
+        $outlets = $columns->apply($report->details($filters, $includeCategory), $options)
+            ->paginate($filters['per_page'])->withQueryString();
+        if (! $includeCategory) $report->attachCategories($outlets);
         $days=$report->dayDivisors($filters['year'],$months);$summaryView=$request->input('summary_view','monthly');$summaryMetric=$request->input('summary_metric','trx');
         $comparison=app(\App\Services\NgrsComparison::class)->plan($filters['year']);
         return view('surya.ngrs',compact('filters','taps','months','years','summary','outlets','days','summaryView','summaryMetric','comparison'));

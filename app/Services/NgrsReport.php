@@ -113,7 +113,19 @@ class NgrsReport
         return DB::getDriverName()==='sqlite'?$sql:"CONVERT($sql USING utf8mb4) COLLATE utf8mb4_unicode_ci";
     }
 
-    public function details(array $filters)
+    public function attachCategories($page): void
+    {
+        $ids = $page->getCollection()->where('candidates', 1)->pluck('id_outlet')->filter()->unique();
+        $categories = DB::table('appsdumais')->whereIn('id_outlet', $ids)
+            ->selectRaw("id_outlet, MAX(COALESCE(NULLIF(TRIM(kategori_outlet),''),'Reguler')) AS kategori_outlet")
+            ->groupBy('id_outlet')->pluck('kategori_outlet', 'id_outlet');
+        $page->through(function ($row) use ($categories) {
+            $row->kategori_outlet = (int) $row->candidates === 1 ? ($categories[$row->id_outlet] ?? 'Reguler') : null;
+            return $row;
+        });
+    }
+
+    public function details(array $filters, bool $includeCategory = true)
     {
         $metric=$filters['metric'];$year=$filters['year'];
         app(NgrsAnnual::class)->refresh($year);
@@ -130,13 +142,15 @@ class NgrsReport
         if($filters['tap']!=='')$zero->where('m.master_tap',$filters['tap']);$this->search($zero,$filters['q']);
         for($m=1;$m<=12;$m++)$zero->selectRaw("0 AS m$m");$zero->selectRaw('0 AS total,0 AS compare_qty');
         $query=DB::query()->fromSub($q->unionAll($zero),'annual_details')->select('annual_details.*');
-        // Read categories directly from the master, so category uploads need no NGRS re-upload.
-        // Group by outlet ID to preserve one report row even if the master contains duplicates.
-        $categoryId = DB::getDriverName() === 'sqlite' ? 'CAST(id_outlet AS TEXT)' : 'CAST(id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci';
-        $categories=DB::table('appsdumais')->selectRaw("$categoryId AS id_outlet")
-            ->selectRaw("MAX(COALESCE(NULLIF(TRIM(kategori_outlet),''),'Reguler')) AS kategori_outlet")->groupBy('id_outlet');
-        $query->leftJoinSub($categories,'category',fn($j)=>$j->on('category.id_outlet','=',DB::raw($this->unionText('annual_details.id_outlet'))))
-            ->selectRaw("CASE WHEN annual_details.candidates=1 THEN COALESCE(category.kategori_outlet,'Reguler') ELSE NULL END AS kategori_outlet");
+        if ($includeCategory) {
+            // Read categories directly from the master, so category uploads need no NGRS re-upload.
+            // Group by outlet ID to preserve one report row even if the master contains duplicates.
+            $categoryId = DB::getDriverName() === 'sqlite' ? 'CAST(id_outlet AS TEXT)' : 'CAST(id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci';
+            $categories=DB::table('appsdumais')->selectRaw("$categoryId AS id_outlet")
+                ->selectRaw("MAX(COALESCE(NULLIF(TRIM(kategori_outlet),''),'Reguler')) AS kategori_outlet")->groupBy('id_outlet');
+            $query->leftJoinSub($categories,'category',fn($j)=>$j->on('category.id_outlet','=',DB::raw($this->unionText('annual_details.id_outlet'))))
+                ->selectRaw("CASE WHEN annual_details.candidates=1 THEN COALESCE(category.kategori_outlet,'Reguler') ELSE NULL END AS kategori_outlet");
+        }
         $months=DB::table('surya_ngrs_months')->whereBetween('month',["$year-01-01","$year-12-01"])->pluck('month')->map(fn($date)=>(int)substr($date,5,2))->all();
         $comparison=app(NgrsComparison::class)->plan($year);
         $query->selectRaw($comparison&&$comparison['previous_available']?'compare_qty AS mom_compare':'NULL AS mom_compare');

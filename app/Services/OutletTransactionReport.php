@@ -27,11 +27,12 @@ class OutletTransactionReport
             return ($tap === '' || $o->tap === $tap) && ($search === '' || mb_stripos(implode(' ', (array)$o), $search) !== false);
         });
         $master = $master->map(function ($o) { $o->kategori_outlet=trim((string)$o->kategori_outlet) ?: 'Reguler'; return $o; });
+        $cutoffMonth = $cutoff->month;
         $nota = new OutletNotaSales;
         $monthlyTotals = [];
-        for ($m = 1; $m <= $cutoff->month; $m++) {
+        for ($m = 1; $m <= $cutoffMonth; $m++) {
             $start = $cutoff->copy()->startOfYear()->month($m)->startOfMonth();
-            $end = $m === $cutoff->month ? $cutoff : $start->copy()->endOfMonth();
+            $end = $m === $cutoffMonth ? $cutoff : $start->copy()->endOfMonth();
             $monthlyTotals[$m] = $this->totals($nota, $start, $end);
         }
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
@@ -39,13 +40,13 @@ class OutletTransactionReport
         $comparisonTotals = $comparison
             ? $this->totals($nota, $previousEnd->copy()->startOfMonth(), $previousEnd, true)
             : [];
-        $rows = $master->map(function ($outlet, $id) use ($monthlyTotals, $comparisonTotals, $family, $cutoff, $comparison) {
+        $rows = $master->map(function ($outlet, $id) use ($monthlyTotals, $comparisonTotals, $family, $cutoffMonth, $comparison) {
             $months = array_fill(1, 12, null);
             foreach ($monthlyTotals as $month => $totals) {
                 $months[$month] = (int) ($totals[$id][$family] ?? 0);
             }
             $compare = $comparison ? (int) ($comparisonTotals[$id][$family] ?? 0) : null;
-            return $this->calculate((array) $outlet + compact('months', 'compare'), $cutoff, $comparison);
+            return $this->calculate((array) $outlet + compact('months', 'compare'), $cutoffMonth, $comparison);
         })->values();
         $summary = $rows->groupBy('tap')->map(fn ($items, $name) => $this->aggregate($items, $name, $cutoff, $comparison))->sortKeys()->values();
         $clusters = collect();
@@ -67,12 +68,12 @@ class OutletTransactionReport
             ->mapWithKeys(fn ($r) => [(string)$r->id_outlet => ['sa'=>(int)$r->sa,'pv'=>(int)$r->pv]])->all());
     }
 
-    private function calculate(array $row, Carbon $cutoff, bool $comparison): array
+    private function calculate(array $row, int $cutoffMonth, bool $comparison): array
     {
         $row['total'] = array_sum($row['months']);
         for ($m=1; $m<=12; $m++) $row['m'.$m] = $row['months'][$m];
         for ($m=2; $m<=12; $m++) {
-            $current=$row['months'][$m]; $previous=$comparison && $m===$cutoff->month ? $row['compare'] : $row['months'][$m-1];
+            $current=$row['months'][$m]; $previous=$comparison && $m===$cutoffMonth ? $row['compare'] : $row['months'][$m-1];
             $row['gap_m'.$m]=$current===null || $previous===null ? null : $current-$previous;
             $row['mom_pct_m'.$m]=$current===null || !$previous ? null : round(($current/$previous-1)*100,1);
         }
@@ -83,6 +84,6 @@ class OutletTransactionReport
     {
         $row=['tap'=>$name,'months'=>array_fill(1,12,null),'compare'=>$comparison ? $rows->sum('compare') : null];
         for ($m=1; $m<=$cutoff->month; $m++) $row['months'][$m]=$rows->sum(fn ($r) => $r['months'][$m]);
-        return $this->calculate($row,$cutoff,$comparison);
+        return $this->calculate($row,$cutoff->month,$comparison);
     }
 }
