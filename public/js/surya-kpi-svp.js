@@ -11,6 +11,7 @@
     let request;
     let loaded = false;
     let mode = 'mtd';
+    let editing = null;
 
     if (forms.length) {
         try {
@@ -52,7 +53,7 @@
         const local = legacy?.[segment]?.[metric];
         if (local) return { target: local[0], actual: local[1], date: legacy.actualDate ?? null };
 
-        if (month === period.defaultValue) {
+        if (month === '2026-10') {
             const [target, actual] = regions[region][segment][metric];
             return { target, actual, date: monthEnd(month).toISOString().slice(0, 10) };
         }
@@ -91,6 +92,7 @@
         const isProjection = mode === 'projection';
         const daysInMonth = monthEnd(period.value).getUTCDate();
         const panel = document.querySelector(`[data-svp-panel="${regionId}"]`);
+        panel.querySelectorAll('[data-svp-action]').forEach(element => { element.hidden = isProjection; });
         panel.querySelector('[data-svp-cutoff]').textContent = isProjection
             ? 'Proyeksi sampai akhir bulan berdasarkan tanggal update tiap KPI.'
             : '';
@@ -150,12 +152,15 @@
                 row.querySelector('[data-actual]').textContent = format(result.actual, unit);
                 row.querySelector('[data-actual-date]').textContent = result.date
                     ? cutoffFormat.format(new Date(result.date + 'T00:00:00Z')) : '—';
-                row.querySelectorAll('.svp-inline-input, .svp-inline-form').forEach(element => {
-                    element.hidden = isProjection || !loaded;
-                });
-                if (row.querySelector('.svp-inline-form')) {
+                const form = row.querySelector('.svp-inline-form');
+                if (form) {
+                    const canEdit = !isProjection && loaded;
+                    const isEditing = canEdit && editing === form;
+                    row.querySelector('[data-svp-edit]').hidden = !canEdit || isEditing;
+                    form.hidden = !isEditing;
+                    row.querySelectorAll('.svp-inline-input').forEach(input => { input.hidden = !isEditing; });
                     row.querySelectorAll('[data-target], [data-actual], [data-actual-date]').forEach(element => {
-                        element.hidden = !isProjection && loaded;
+                        element.hidden = isEditing;
                     });
                 }
                 row.querySelector('[data-score]').textContent = result.score ?? '—';
@@ -197,6 +202,7 @@
         const controller = new AbortController();
         request = controller;
         loaded = false;
+        editing = null;
         renderPeriod();
         status.textContent = 'Memuat data KPI…';
         const url = new URL(period.dataset.entriesUrl);
@@ -208,7 +214,6 @@
             if (request !== controller) return;
             entries.clear();
             rows.forEach(remember);
-            forms.forEach(fillEditor);
             loaded = true;
             renderPeriod();
             status.textContent = '';
@@ -233,11 +238,23 @@
     forms.forEach(form => {
         const actual = form.elements.actual;
         const date = form.elements['actual-date'];
+        const edit = form.parentElement.querySelector('[data-svp-edit]');
+        edit.addEventListener('click', () => {
+            editing = form;
+            fillEditor(form);
+            renderPeriod();
+            actual.focus();
+        });
+        form.querySelector('[data-svp-cancel]').addEventListener('click', () => {
+            editing = null;
+            renderRegion(form.dataset.region);
+            edit.focus();
+        });
         actual.addEventListener('input', () => { date.required = actual.value !== ''; });
         form.addEventListener('submit', async event => {
             event.preventDefault();
-            if (!loaded || mode !== 'mtd') return;
-            const button = form.querySelector('button');
+            if (!loaded || mode !== 'mtd' || editing !== form) return;
+            const button = form.querySelector('[type="submit"]');
             const month = period.value;
             button.disabled = true;
             const values = {
@@ -260,6 +277,7 @@
                 if (!response.ok) throw new Error(result.message || 'Gagal menyimpan KPI.');
                 if (period.value === month) {
                     remember(result);
+                    if (editing === form) editing = null;
                     renderRegion(values.region);
                     status.textContent = 'Data KPI tersimpan.';
                 }

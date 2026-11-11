@@ -192,3 +192,16 @@
 .svp-inline-form { margin: 0; }
 #svp-status { color: var(--svp-muted); font-size: .8rem; }
 .svp-cutoff:empty { display: none; }
+
+.svp-edit-button {
+    border: 1px solid var(--svp-line);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--svp-red);
+    padding: 5px 10px;
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+}
+.svp-edit-button:hover { background: var(--svp-red-soft); }
+.svp-inline-form:not([hidden]) { display: inline-flex; align-items: center; gap: 5px; }

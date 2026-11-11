@@ -38,7 +38,7 @@
 
     <div class="svp-toolbar">
         <label class="svp-period"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Periode
-            <input type="month" id="svp-period" value="2026-10" min="0002-01" max="9999-12" data-entries-url="{{ route('surya.kpi-svp.entries') }}" required>
+            <input type="month" id="svp-period" value="{{ now('Asia/Jakarta')->format('Y-m') }}" min="0002-01" max="9999-12" data-entries-url="{{ route('surya.kpi-svp.entries') }}" required>
         </label>
         <span id="svp-status" role="status"></span>
     </div>
@@ -102,7 +102,7 @@
                         </header>
                         <div class="svp-table-wrap" tabindex="0" aria-label="Tabel KPI {{ $segment['label'] }}">
                             <table>
-                                <thead><tr><th scope="col">Parameter</th><th scope="col">Target</th><th scope="col" data-svp-actual-heading>Aktual MTD</th><th scope="col">Tanggal Update</th><th scope="col">Capaian</th><th scope="col">Gap</th><th scope="col">Skor</th><th scope="col">Kelas hasil</th>@if($canEdit)<th scope="col">Aksi</th>@endif</tr></thead>
+                                <thead><tr><th scope="col">Parameter</th><th scope="col">Target</th><th scope="col" data-svp-actual-heading>Aktual MTD</th><th scope="col">Tanggal Update</th><th scope="col">Capaian</th><th scope="col">Gap</th><th scope="col">Skor</th><th scope="col">Kelas hasil</th>@if($canEdit)<th scope="col" data-svp-action>Aksi</th>@endif</tr></thead>
                                 <tbody>
                                     @foreach($segment['metrics'] as [$label, $unit])
                                         <tr data-svp-metric data-unit="{{ $unit }}">
@@ -124,9 +124,11 @@
                                                 <td class="svp-result-cell" rowspan="{{ count($segment['metrics']) }}" data-segment-class></td>
                                             @endif
                                             @if($canEdit)
-                                                <td>
+                                                <td data-svp-action>
+                                                    <button type="button" class="svp-edit-button" data-svp-edit hidden aria-label="Edit {{ $label }}"><i class="fas fa-pen" aria-hidden="true"></i> Edit</button>
                                                     <form id="{{ $formId }}" class="svp-inline-form" hidden data-region="{{ $regionId }}" data-segment="{{ $segmentId }}" data-metric="{{ $loop->index }}">
                                                         <button type="submit" class="svp-primary">Simpan</button>
+                                                        <button type="button" class="svp-edit-button" data-svp-cancel>Batal</button>
                                                     </form>
                                                 </td>
                                             @endif
