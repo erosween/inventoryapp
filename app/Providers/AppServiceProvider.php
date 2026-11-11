@@ -23,9 +23,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Tambahkan kode untuk View Composer di sini
     View::composer('*', function ($view) {
-        // Outlet reports do not render the inventory notification badge.
-        // Avoid querying it again for every table-header partial.
-        if (request()->is('surya/transaksi-outlet/*')) return;
+        // These SURYA views do not render the inventory notification badge.
+        if (request()->routeIs('surya.inventory-dashboard') || request()->is('surya/transaksi-outlet/*')) return;
         $idtap = session('idtap'); // Tentukan nilai $idtap sesuai kebutuhan
     
 
