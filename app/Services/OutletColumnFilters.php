@@ -7,16 +7,17 @@ use Illuminate\Validation\ValidationException;
 class OutletColumnFilters {
  public const TEXT=['id_outlet','nama_outlet','kecamatan','sf','tap','pjp','kategori_outlet'];
  public const GROUPS=['st_sa','st_pv','cvm','super_seru','comsak','hot_promo','biometrik'];
- public function keys():array { $keys=self::TEXT;foreach(self::GROUPS as $g)foreach(['fm1','m1','mtd','gap','mom_pct']as$p)$keys[]=$g.'_'.$p;return $keys; }
+ public function keys():array { $keys=self::TEXT;foreach(self::GROUPS as $g)foreach(['fm1','m1','mtd','gap','mom_pct']as$p)$keys[]=$g.'_'.$p;return [...$keys, ...array_keys(OutletConsignmentQuantities::COLUMNS)]; }
  public function options(Request $r):array {
-  $o=$r->validate(['columns'=>'nullable|array|max:42','columns.*'=>'array|min:1|max:100','columns.*.*'=>'nullable|string|max:5000','exclude'=>'nullable|array|max:42','exclude.*'=>'array|min:1|max:100','exclude.*.*'=>'nullable|string|max:5000','sort'=>'nullable|string','direction'=>'nullable|in:asc,desc']);
+  $o=$r->validate(['columns'=>'nullable|array|max:48','columns.*'=>'array|min:1|max:100','columns.*.*'=>'nullable|string|max:5000','exclude'=>'nullable|array|max:48','exclude.*'=>'array|min:1|max:100','exclude.*.*'=>'nullable|string|max:5000','sort'=>'nullable|string','direction'=>'nullable|in:asc,desc']);
   foreach(['columns','exclude']as$mode)foreach($o[$mode]??[]as$key=>$values){$this->check($key);$o[$mode][$key]=array_map(fn($v)=>(string)$v,$values);}
   if(!empty($o['sort']))$this->check($o['sort']);return $o;
  }
  public function check(string $key):void {if(!in_array($key,$this->keys(),true))throw ValidationException::withMessages(['column'=>'Kolom tidak valid.']);}
  public function query($base,Carbon $cutoff,array $options,?string $facet=null){
   $needed=array_merge(array_keys($options['columns']??[]),array_keys($options['exclude']??[]),array_filter([$options['sort']??null,$facet]));
-  $numeric=array_diff($needed,self::TEXT)!==[];
+  $consignmentColumns = array_intersect($needed, array_keys(OutletConsignmentQuantities::COLUMNS));
+  $numeric=array_diff($needed,self::TEXT,$consignmentColumns)!==[];
   $q=$base->select(array_map(fn($c)=>'outlet.'.$c,self::TEXT));
   if($numeric){
    $outletId = DB::raw('CAST(outlet.id_outlet AS '.(DB::getDriverName()==='sqlite'?'TEXT':'CHAR').')');
@@ -38,6 +39,16 @@ class OutletColumnFilters {
      $available="($alias.id_outlet IS NOT NULL AND ($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%'))";
      $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE NULL END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE NULL END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE NULL END";}
     $q->selectRaw("$fm AS {$g}_fm1, $m1 AS {$g}_m1, $m AS {$g}_mtd, ($m-$m1) AS {$g}_gap, CASE WHEN $m1=0 THEN NULL ELSE ROUND((1.0*$m/$m1-1)*100,1) END AS {$g}_mom_pct");
+   }
+  }
+  if ($consignmentColumns !== []) {
+   $consignments = app(OutletConsignmentQuantities::class)->query();
+   if ($consignments !== null) {
+    $outletId = DB::raw('CAST(outlet.id_outlet AS '.(DB::getDriverName()==='sqlite'?'TEXT':'CHAR').')');
+    $q->leftJoinSub($consignments, 'titip', fn ($join) => $join->on('titip.id_outlet', '=', $outletId));
+   }
+   foreach ($consignmentColumns as $column) {
+    $q->selectRaw($consignments === null ? "0 AS $column" : "COALESCE(titip.$column, 0) AS $column");
    }
   }
   $q=DB::query()->fromSub($q,'detail');

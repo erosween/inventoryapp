@@ -137,6 +137,33 @@ class OutletNotaBackfillTest extends TestCase
         }
     }
 
+    public function test_consignment_counts_agree_in_detail_filters_and_export(): void
+    {
+        (require database_path('migrations/2026_10_10_000003_create_surya_field_reports.php'))->up();
+        (require database_path('migrations/2026_10_23_170000_add_denom_to_consignment_numbers.php'))->up();
+        foreach ([['SP7', 'SA', 'BYU'], ['V33', 'PV', 'BYU'], ['V16', 'PV', 'ROAMAX']] as [$denom, $product, $variant]) {
+            DB::table('denom')->insert([
+                'iddenom' => $denom, 'product_group' => $product, 'product' => $product,
+                'product_variant' => $variant, 'group_name' => $product,
+            ]);
+        }
+        foreach ([['SP1','approved'], ['SP7','consigned'], [null,'consigned'], ['V1','consigned'], ['V33','consigned'], ['V16','consigned'], ['V1','draft']] as $index => [$denom, $status]) {
+            DB::table('surya_sa_consignment_numbers')->insert([
+                'id_outlet' => '1201034972', 'idtap' => 'BAGAN BATU', 'idsf' => 'SF1',
+                'reported_at' => '2026-11-01 10:00:00', 'serial_number' => '62812345678'.$index,
+                'iddenom' => $denom, 'status' => $status,
+            ]);
+        }
+        $row = $this->hydrate('2026-11-10');
+        $export = new \App\Exports\SuryaOutletDetailExport(collect([$row]));
+        $this->assertSame([1, 1, 3, 1, 1, 3], array_slice($export->map($row), -6));
+        $filters = app(OutletColumnFilters::class);
+        $filtered = $filters->query(DB::table('appsdumais as outlet'), Carbon::parse('2026-11-10'),
+            ['columns' => ['titip_pv_all' => ['3']]], 'titip_sa_byu')->first();
+        $this->assertSame('1201034972', $filtered->id_outlet);
+        $this->assertSame(1, (int) $filtered->titip_sa_byu);
+    }
+
     public function test_metrics_never_leak_between_months_and_missing_is_not_zero(): void
     {
         DB::table('surya_trx_cvm')->insert(['id_outlet'=>'1201034972','metric_date'=>'2026-11-04','uploaded_metrics'=>'cvm,ss,comsak,hot_promo','cvm_fm1'=>8,'cvm_m1'=>4,'cvm_m'=>0,'ss_m'=>15,'comsak_m'=>25,'hot_promo_m'=>35]);
@@ -146,7 +173,7 @@ class OutletNotaBackfillTest extends TestCase
         $nov=$this->hydrate('2026-11-10');$this->assertSame(0,$nov->cvm_mtd);$this->assertSame(-4,$nov->cvm_gap);$this->assertSame(15,$nov->super_seru_mtd);$this->assertNull($nov->biometrik_mtd);
         $oct=$this->hydrate('2026-10-31');$this->assertSame(50,$oct->biometrik_mtd);$this->assertNull($oct->cvm_mtd);
         $export=new \App\Exports\SuryaOutletDetailExport(collect([$feb]));$cells=array_combine($export->headings(),$export->map($feb));
-        $this->assertNull($cells['CVM MTD']);$this->assertNull($cells['Biometrik MTD']);
+        $this->assertSame(0,$cells['CVM MTD']);$this->assertSame(0,$cells['Biometrik MTD']);
         $s=app(OutletColumnFilters::class);$base=fn()=>DB::table('appsdumais as outlet');
         $this->assertSame(0,$s->query($base(),Carbon::parse('2026-02-28'),['columns'=>['cvm_mtd'=>['0']]])->count());
         $this->assertSame(1,$s->query($base(),Carbon::parse('2026-02-28'),['columns'=>['cvm_mtd'=>['']]])->count());

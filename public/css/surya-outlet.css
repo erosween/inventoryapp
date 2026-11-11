@@ -20,7 +20,7 @@ html,body{max-width:100%;overflow-x:hidden!important}
 @media(min-width:1101px){.filters:not(.non-digipos){grid-template-columns:minmax(200px,1.6fr) repeat(4,minmax(105px,1fr)) minmax(115px,auto) minmax(135px,auto)}.filters .btn{padding-left:12px;padding-right:12px}}
 
 /* Explicit columns keep header and body aligned during both-axis scrolling. */
-.detail-table.outlet-table-v2{table-layout:fixed;width:4534px;min-width:4534px}
+.detail-table.outlet-table-v2{table-layout:fixed;width:5230px;min-width:5230px}
 .detail-table.outlet-table-v2 th,.detail-table.outlet-table-v2 td{box-sizing:border-box}
 .detail-table.outlet-table-v2 .freeze-number{width:34px;min-width:34px;max-width:34px;left:0;padding:12px 4px;text-align:center}
 .detail-table.outlet-table-v2 .freeze-id{width:130px;min-width:130px;max-width:130px;left:34px;text-align:left}

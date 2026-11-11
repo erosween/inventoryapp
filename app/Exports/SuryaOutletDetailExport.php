@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Services\OutletConsignmentQuantities;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -40,6 +41,10 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
             }
         }
 
+        foreach (array_keys(OutletConsignmentQuantities::COLUMNS) as $column) {
+            $values[] = (int) ($row->{$column} ?? 0);
+        }
+
         return $values;
     }
 
@@ -50,6 +55,10 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
             foreach (['FM1', 'M1', 'MTD', 'Gap MoM', '%MoM'] as $period) {
                 $headings[] = "{$metric} {$period}";
             }
+        }
+
+        foreach (OutletConsignmentQuantities::COLUMNS as $label) {
+            $headings[] = 'Titip Jual '.$label;
         }
 
         return $headings;
@@ -64,8 +73,8 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
     {
         $lastRow = max(1, $this->rows->count() + 1);
         $sheet->freezePane('H2');
-        $sheet->setAutoFilter("A1:AP{$lastRow}");
-        $sheet->getStyle('A1:AP1')->applyFromArray([
+        $sheet->setAutoFilter("A1:AV{$lastRow}");
+        $sheet->getStyle('A1:AV1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C8102E']],
             'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
@@ -81,7 +90,7 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
         foreach (range('H', 'Z') as $column) {
             $sheet->getColumnDimension($column)->setWidth(13);
         }
-        foreach (['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP'] as $column) {
+        foreach (['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV'] as $column) {
             $sheet->getColumnDimension($column)->setWidth(13);
         }
 

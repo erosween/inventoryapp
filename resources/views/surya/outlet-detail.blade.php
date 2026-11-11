@@ -47,14 +47,19 @@
         @endif
         @php
             $groups = ['st_sa' => ['label' => 'ST SA', 'class' => 'sales'], 'st_pv' => ['label' => 'ST PV', 'class' => 'sales'], 'cvm' => ['label' => 'CVM', 'class' => 'upload'], 'super_seru' => ['label' => 'Super Seru', 'class' => 'upload'], 'comsak' => ['label' => 'Comsak', 'class' => 'upload'], 'hot_promo' => ['label' => 'Hot Promo', 'class' => 'upload'], 'biometrik' => ['label' => 'Biometrik', 'class' => 'upload']];
+            $consignmentColumns = \App\Services\OutletConsignmentQuantities::COLUMNS;
             $periods = ['fm1' => 'FM1', 'm1' => 'M1', 'mtd' => 'MTD', 'gap' => 'Gap MoM', 'mom_pct' => '%MoM'];
             $paginator = $activeTab === 'digipos' ? $outlets : $nonDigiposOutlets;
             $pageStart = max(1, $paginator->currentPage() - 2); $pageEnd = min($paginator->lastPage(), $paginator->currentPage() + 2);
         @endphp
         @if($activeTab === 'digipos')
         <div class="card"><div class="table-wrap"><table class="detail-table outlet-table-v2">
-        <colgroup><col style="width:34px"><col style="width:130px"><col style="width:230px"><col span="5" style="width:160px"><col span="35" style="width:100px"></colgroup>
-        <thead><tr><th class="freeze-number" rowspan="2">No</th><th class="freeze-id" rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'id_outlet','label'=>'ID Outlet'])</th><th class="freeze-name" rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'nama_outlet','label'=>'Nama Outlet'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'kecamatan','label'=>'Kecamatan'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'sf','label'=>'SF'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'tap','label'=>'TAP'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'pjp','label'=>'Hari PJP'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'kategori_outlet','label'=>'Kategori Outlet'])</th>@foreach($groups as $group)<th class="group" colspan="5">{{ $group['label'] }}</th>@endforeach</tr><tr>@foreach($groups as $key=>$group)@foreach($periods as $period=>$label)<th>@include('surya.partials.outlet-column-heading',['column'=>$key.'_'.$period,'label'=>$label,'filterLabel'=>$group['label'].' '.$label])</th>@endforeach @endforeach</tr></thead><tbody>
+        <colgroup><col style="width:34px"><col style="width:130px"><col style="width:230px"><col span="5" style="width:160px"><col span="35" style="width:100px"><col span="{{ count($consignmentColumns) }}" style="width:116px"></colgroup>
+        <thead><tr><th class="freeze-number" rowspan="2">No</th><th class="freeze-id" rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'id_outlet','label'=>'ID Outlet'])</th><th class="freeze-name" rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'nama_outlet','label'=>'Nama Outlet'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'kecamatan','label'=>'Kecamatan'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'sf','label'=>'SF'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'tap','label'=>'TAP'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'pjp','label'=>'Hari PJP'])</th><th rowspan="2">@include('surya.partials.outlet-column-heading',['column'=>'kategori_outlet','label'=>'Kategori Outlet'])</th>@foreach($groups as $group)<th class="group" colspan="5">{{ $group['label'] }}</th>@endforeach<th class="group" colspan="{{ count($consignmentColumns) }}" title="Posisi titip jual terkini">Titip Jual</th></tr><tr>@foreach($groups as $key=>$group)@foreach($periods as $period=>$label)<th>@include('surya.partials.outlet-column-heading',['column'=>$key.'_'.$period,'label'=>$label,'filterLabel'=>$group['label'].' '.$label])</th>@endforeach @endforeach
+        @foreach($consignmentColumns as $column => $label)
+            <th>@include('surya.partials.outlet-column-heading', ['column' => $column, 'label' => $label, 'filterLabel' => 'Titip Jual '.$label])</th>
+        @endforeach
+        </tr></thead><tbody>
         @forelse($outlets as $outlet)
         <tr>
             <td class="freeze-number">{{ $outlets->firstItem() + $loop->index }}</td>
@@ -62,8 +67,11 @@
             <td class="freeze-name">{{ $outlet->nama_outlet ?: '–' }}</td>
             <td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->sf ?: '–' }}</td><td>{{ $outlet->tap ?: '–' }}</td><td>{{ $outlet->pjp ?: '–' }}</td><td>{{ $outlet->kategori_outlet ?? 'Reguler' }}</td>
             @foreach($groups as $key => $group)@foreach($periods as $period => $label)@php $value=$outlet->{$key.'_'.$period};$isPercent=$period==='mom_pct'; @endphp<td class="metric {{ $loop->first ? 'group-start' : '' }} {{ $group['class'] }} {{ $isPercent && $value !== null ? ($value >= 0 ? 'positive' : 'negative') : '' }} {{ $value === null ? 'blank' : '' }}">{{ $value === null ? '–' : ($isPercent ? ($value > 0 ? '+' : '').number_format($value,1).'%' : number_format($value,0)) }}</td>@endforeach @endforeach
+            @foreach($consignmentColumns as $column => $label)
+                <td class="metric {{ $loop->first ? 'group-start' : '' }} {{ str_ends_with($column, '_all') ? 'sales' : '' }}">{{ number_format($outlet->{$column} ?? 0) }}</td>
+            @endforeach
         </tr>
-        @empty<tr><td class="table-empty" colspan="43">Outlet PJP tidak ditemukan.</td></tr>@endforelse
+        @empty<tr><td class="table-empty" colspan="{{ 43 + count($consignmentColumns) }}">Outlet PJP tidak ditemukan.</td></tr>@endforelse
         </tbody></table></div>
         @else
         <div class="card"><div class="table-wrap"><table class="non-digipos-table"><thead><tr><th>Outlet</th><th>Owner</th><th>Contact</th><th>Alamat</th><th>SF</th><th>TAP</th><th>SA</th><th>PV</th></tr></thead><tbody>@forelse($nonDigiposOutlets as $outlet)<tr><td><strong>{{ $outlet->outlet_name ?: '–' }}</strong></td><td>{{ $outlet->owner_name ?: '–' }}</td><td>{{ $outlet->phone_number ?: '–' }}</td><td class="product-summary">{{ $outlet->outlet_address ?: '–' }}</td><td><strong>{{ $outlet->namasf ?: $outlet->idsf }}</strong></td><td>{{ $outlet->idtap ?: '–' }}</td><td class="number sales">{{ number_format($outlet->total_sa) }}</td><td class="number sales">{{ number_format($outlet->total_pv) }}</td></tr>@empty<tr><td class="table-empty" colspan="8">Outlet non-Digipos tidak ditemukan.</td></tr>@endforelse</tbody></table></div>

@@ -341,12 +341,19 @@ class MonitaDumaiController extends Controller
                 ->groupBy(fn ($row) => (string) $row->id_outlet);
         });
 
-        return $rows->transform(function ($row) use ($current, $fullPrevious, $partialPrevious, $metrics) {
+        $consignmentQuery = $pageIds->isNotEmpty() ? app(\App\Services\OutletConsignmentQuantities::class)->query() : null;
+        $consignments = $consignmentQuery?->whereIn('consignment.id_outlet', $pageIds)->get()->keyBy('id_outlet') ?? collect();
+
+        return $rows->transform(function ($row) use ($current, $fullPrevious, $partialPrevious, $metrics, $consignments) {
             $id = (string) $row->id_outlet;
             $sale = $current->get($id);
             $full = $fullPrevious->get($id);
             $partial = $partialPrevious->get($id);
             $outletMetrics = $metrics->get($id, collect());
+            $consignment = $consignments->get($id);
+            foreach (array_keys(\App\Services\OutletConsignmentQuantities::COLUMNS) as $column) {
+                $row->{$column} = (int) ($consignment->{$column} ?? 0);
+            }
             foreach (['st_sa' => 'sa', 'st_pv' => 'pv'] as $stock => $historyColumn) {
                 $fm1 = (int) ($full->{$historyColumn} ?? 0);
                 $m1 = (int) ($partial->{$historyColumn} ?? 0);
