@@ -331,7 +331,12 @@
                         ->sortDesc();
                 @endphp
                 @foreach ([['PV', $salesBulanIniPv, $momPv, $momPvPrevious], ['SA', $salesBulanIniSa, $momSa, $momSaPrevious]] as [$product, $quantity, $growth, $previous])
-                @php($change = $quantity - $previous)
+                @php
+                    $change = $quantity - $previous;
+                    $clusterInsight = $product === 'PV' && $pvClusterChanges->count() > 1
+                        ? ($change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last())
+                        : '';
+                @endphp
                 <div class="col-md-6 mb-4">
                     <article class="card sales-summary-card h-100" aria-label="Penjualan {{ $product }} bulan berjalan">
                         <div class="sales-summary-top">
@@ -355,7 +360,7 @@
                                 @elseif ($change === 0)
                                     Volume penjualan sama dengan periode pembanding.
                                 @else
-                                    {{ $change > 0 ? 'Naik' : 'Turun' }} {{ $formatDashboardNumber(abs($change), 0) }} pcs@if ($product === 'PV' && $pvClusterChanges->count() > 1){{ $change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last() }}@endif .
+                                    {{ $change > 0 ? 'Naik' : 'Turun' }} {{ $formatDashboardNumber(abs($change), 0) }} pcs{{ $clusterInsight }}.
                                 @endif
                             </p>
                         @endif
