@@ -11,10 +11,10 @@ class ValidityMomTest extends TestCase {
  protected function setUp():void{parent::setUp();config(['database.default'=>'sqlite','database.connections.sqlite.database'=>':memory:']);DB::purge('sqlite');
  Schema::create('keluar',fn(Blueprint$t)=>[$t->integer('status'),$t->string('penerima')]);
  Schema::create('idsf',fn(Blueprint$t)=>$t->string('idtap'));
- Schema::create('denom',function(Blueprint$t){foreach(['iddenom','product','product_variant','group_name']as$c)$t->string($c);});
+ Schema::create('denom',function(Blueprint$t){foreach(['iddenom','denom','product','product_variant','group_name']as$c)$t->string($c);});
  foreach(['keluarsf','mobile_penjualan','injectvf']as$table)Schema::create($table,function(Blueprint$t){$t->string('idtap');$t->string('iddenom');$t->integer('qty');$t->dateTime('tgl');$t->string('status')->nullable();});
  foreach(['DUMAI','DURI']as$tap)DB::table('idsf')->insert(['idtap'=>$tap]);
- foreach([['V1','PV','REGULER','1 HARI'],['V2','PV','BYU','2 HARI'],['SP1','SA','SIMPATI','SA'],['SP5','SA','BYU','SA']]as[$id,$p,$v,$g]){DB::table('denom')->insert(['iddenom'=>$id,'product'=>$p,'product_variant'=>$v,'group_name'=>$g]);
+ foreach([['V1','PV','REGULER','1 HARI'],['V2','PV','BYU','2 HARI'],['SP1','SA','SIMPATI','SA'],['SP5','SA','BYU','SA']]as[$id,$p,$v,$g]){DB::table('denom')->insert(['iddenom'=>$id,'denom'=>'Paket '.$p,'product'=>$p,'product_variant'=>$v,'group_name'=>$g]);
  foreach(['keluarsf','injectvf']as$table)DB::table($table)->insert([['idtap'=>'DUMAI','iddenom'=>$id,'tgl'=>'2026-09-24 12:00:00','qty'=>10],['idtap'=>'DUMAI','iddenom'=>$id,'tgl'=>'2026-09-28 12:00:00','qty'=>999],['idtap'=>'DUMAI','iddenom'=>$id,'tgl'=>'2026-10-24 12:00:00','qty'=>20],['idtap'=>'DURI','iddenom'=>$id,'tgl'=>'2026-10-24 12:00:00','qty'=>999]]);
  foreach([['approved',5],['pending',999]]as[$status,$qty])DB::table('mobile_penjualan')->insert(['idtap'=>'DUMAI','iddenom'=>$id,'tgl'=>'2026-10-24 12:00:00','qty'=>$qty,'status'=>$status]);}
  }
@@ -38,6 +38,26 @@ class ValidityMomTest extends TestCase {
  $this->assertSame($scoped['total'],$scoped['clusters'][0]['values']);
  $html=view('surya.partials.validity-mom',['validityMom'=>$data])->render();
  $this->assertLessThan(strpos($html,'GRAND TOTAL'),strpos($html,'Rokan Hilir'));
+ }
+ public function test_denom_view_preserves_totals_and_keeps_distinct_codes_with_the_same_name(): void
+ {
+    foreach (['pv_all' => ['Paket PV · V1', 'Paket PV · V2'], 'sa_all' => ['Paket SA · SP1', 'Paket SA · SP5']] as $product => $columns) {
+        foreach (['sales', 'inject'] as $tab) {
+            $validity = $this->report($product, $tab);
+            $request = Request::create('/', 'GET', [
+                'validity_product' => $product, 'validity_tab' => $tab, 'validity_group' => 'denom',
+            ]);
+            $denom = app(ValidityMom::class)->data(
+                $request, $validity['cutoff'], $validity['previousEnd'], fn ($q, $col) => $q->where($col, 'DUMAI')
+            );
+            $this->assertSame($columns, $denom['columns']);
+            foreach (['current', 'previous'] as $period) {
+                $this->assertSame(array_sum(array_column($validity['total'], $period)), array_sum(array_column($denom['total'], $period)));
+            }
+            $html = view('surya.partials.validity-mom', ['validityMom' => $denom])->render();
+            $this->assertStringContainsString('MoM per Denom', $html);
+        }
+    }
  }
  public function test_invalid_product_is_rejected():void{$this->expectException(\Illuminate\Validation\ValidationException::class);$this->report('invalid');}
 }

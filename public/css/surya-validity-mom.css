@@ -153,7 +153,7 @@
 
 .validity-filters {
     display: grid;
-    grid-template-columns: minmax(0, 174px) minmax(0, 118px);
+    grid-template-columns: minmax(0, 94px) minmax(0, 174px) minmax(0, 118px);
     gap: 8px;
     max-width: 100%;
 }
@@ -181,8 +181,8 @@
 @container (max-width: 490px) {
     .validity-controls { width: 100%; }
     .validity-filters {
-        width: min(100%, 300px);
-        grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+        width: min(100%, 402px);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) minmax(0, 1.25fr);
     }
 }
 
@@ -195,6 +195,7 @@
     .validity-scroll .validity-tap { min-width: 145px; font-size: 11px; }
 }
 
-@container (max-width: 260px) {
-    .validity-filters { grid-template-columns: minmax(0, 1fr); }
+@container (max-width: 370px) {
+    .validity-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .validity-filters input { grid-column: 1 / -1; grid-row: 2; }
 }

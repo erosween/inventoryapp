@@ -5,6 +5,7 @@
 
     async function load(card, tab) {
         const product = card.querySelector('[data-validity-product]');
+        const grouping = card.querySelector('[data-validity-group]');
         const month = card.querySelector('[data-validity-month]');
         if (!month.reportValidity()) return;
 
@@ -16,9 +17,9 @@
         const status = card.querySelector('.validity-status');
         card.setAttribute('aria-busy', 'true');
         status.hidden = false;
-        status.textContent = 'Memuat MoM per validity…';
+        status.textContent = 'Memuat data MoM…';
 
-        const filters = { validity_product: product.value, validity_tab: tab, validity_month: month.value };
+        const filters = { validity_product: product.value, validity_tab: tab, validity_month: month.value, validity_group: grouping.value };
         const url = new URL(location.href);
         for (const [key, value] of Object.entries(filters)) url.searchParams.set(key, value);
 
@@ -47,12 +48,13 @@
             status.textContent = error.message;
             product.value = card.dataset.currentProduct;
             month.value = month.defaultValue;
+            grouping.value = card.dataset.currentGroup;
             card.removeAttribute('aria-busy');
         }
     }
 
     document.addEventListener('change', event => {
-        if (!event.target.matches('[data-validity-product], [data-validity-month]')) return;
+        if (!event.target.matches('[data-validity-product], [data-validity-month], [data-validity-group]')) return;
         const card = event.target.closest('#validity-mom-card');
         load(card, card.dataset.currentTab);
     });
