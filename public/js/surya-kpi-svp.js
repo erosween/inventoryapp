@@ -18,10 +18,10 @@
         document.querySelector('#svp-storage-note').textContent = 'Data berlaku selama halaman terbuka.';
     }
 
-    function rowsFor(regionId, segmentId) {
+    function rowsFor(regionId, segmentId, month = period.value) {
         const region = regions[regionId];
-        return saved[period.value]?.[regionId]?.[segmentId] ?? region[segmentId].map(
-            values => period.value === '2026-10' ? values : [null, null]
+        return saved[month]?.[regionId]?.[segmentId] ?? region[segmentId].map(
+            values => month === period.defaultValue ? values : [null, null]
         );
     }
 
@@ -127,10 +127,17 @@
 
     document.querySelectorAll('[data-svp-edit]').forEach(button => button.addEventListener('click', () => {
         editing = button.dataset.svpEdit;
-        const month = monthFormat.format(new Date(period.value + '-01T00:00:00Z'));
-        document.querySelector('#svp-editor-region').textContent = regions[editing].name + ' · ' + month;
+        const selectedMonth = new Date(period.value + '-01T00:00:00Z');
+        const monthLabel = monthFormat.format(selectedMonth);
+        selectedMonth.setUTCMonth(selectedMonth.getUTCMonth() - 1);
+        const previousMonth = selectedMonth.toISOString().slice(0, 7);
+        const isNewPeriod = period.value !== period.defaultValue && !saved[period.value]?.[editing];
+        document.querySelector('#svp-editor-region').textContent = regions[editing].name + ' · ' + monthLabel;
         for (const id of segments) {
-            rowsFor(editing, id).forEach(([target, actual], index) => {
+            const rows = isNewPeriod
+                ? rowsFor(editing, id, previousMonth).map(([target]) => [target, null])
+                : rowsFor(editing, id);
+            rows.forEach(([target, actual], index) => {
                 field(`${id}-${index}-target`).value = target ?? '';
                 field(`${id}-${index}-actual`).value = actual ?? '';
             });
