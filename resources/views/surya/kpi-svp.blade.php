@@ -104,7 +104,7 @@
                                             <td><div class="svp-ach"><span data-ach></span><progress max="100" aria-label="Capaian {{ $label }}"></progress></div></td>
                                             <td data-gap></td><td data-score></td>
                                             @if($loop->first)
-                                                <td class="svp-result-cell" rowspan="{{ count($segment['metrics']) }}"><span class="svp-class" data-segment-class></span></td>
+                                                <td class="svp-result-cell" rowspan="{{ count($segment['metrics']) }}" data-segment-class></td>
                                             @endif
                                         </tr>
                                     @endforeach

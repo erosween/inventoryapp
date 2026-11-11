@@ -99,7 +99,7 @@
                 row.querySelector('[data-actual]').textContent = format(result.actual, unit);
                 row.querySelector('[data-score]').textContent = result.score ?? '—';
                 row.querySelector('[data-ach]').textContent = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
-                row.querySelector('[data-gap]').textContent = format(result.gap, unit === '%' ? ' pp' : unit);
+                row.querySelector('[data-gap]').textContent = format(result.gap, unit);
                 row.dataset.trend = result.gap === null ? '' : result.gap < 0 ? 'below' : 'met';
                 progress.hidden = result.achievement === null;
                 progress.value = (result.achievement ?? 0) * 100;
