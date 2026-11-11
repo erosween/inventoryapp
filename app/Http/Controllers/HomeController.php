@@ -98,7 +98,19 @@ class HomeController extends Controller
                 ->endOfDay();
         $validityMom = null;
         if (in_array($request->header('X-Surya-Card','full'), ['full','validity-mom'], true)) {
-            $validityMom = app(\App\Services\ValidityMom::class)->data($request,$momSelectedDate,$momEndPrevMonthPartial,$applyFilter);
+            $latestValidityMonth = $fairCutoffThisMonth->format('Y-m');
+            $period = $request->validate([
+                'validity_month' => ['nullable', 'date_format:Y-m', 'before_or_equal:'.$latestValidityMonth],
+            ])['validity_month'] ?? $latestValidityMonth;
+            $validityCutoff = $period === $latestValidityMonth
+                ? $fairCutoffThisMonth->copy()->endOfDay()
+                : Carbon::createFromFormat('!Y-m', $period)->endOfMonth();
+            $validityPrevious = $validityCutoff->copy()->subMonthNoOverflow();
+            if ($validityCutoff->isLastOfMonth()) {
+                $validityPrevious->endOfMonth();
+            }
+            $validityMom = app(\App\Services\ValidityMom::class)->data($request, $validityCutoff, $validityPrevious, $applyFilter);
+            $validityMom['latestMonth'] = $latestValidityMonth;
             if ($request->header('X-Surya-Card') === 'validity-mom') return $validityMom;
         }
         $momStartM2Month = $momSelectedDate->copy()->subMonthsNoOverflow(2)->startOfMonth();
@@ -236,7 +248,10 @@ class HomeController extends Controller
             ->map(fn($rows) => $rows->sortBy('namasf')->values());
 
         /* ================= NEW: MATRIX TAHUNAN PER TAP ================= */
-        $selectedYear = $request->query('year', date('Y'));
+        $selectedYear = (int) $request->query('year', date('Y'));
+        if ($selectedYear < 2023 || $selectedYear > (int) date('Y')) {
+            $selectedYear = (int) date('Y');
+        }
         $salesYear = (int) $request->query('sales_year', date('Y'));
         if ($salesYear < 2023 || $salesYear > (int) date('Y')) {
             $salesYear = (int) date('Y');

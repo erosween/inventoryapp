@@ -1108,15 +1108,12 @@
                             <small class="text-muted">Inject per TAP</small>
                         </div>
                         <div class="d-flex align-items-center export-actions">
-                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-inject-card" class="mb-0" id="monthly-inject-filter-form">
-                                <input type="hidden" name="year" value="{{ $selectedYear }}">
-                                <input type="hidden" name="mode" value="{{ $mode }}">
-                                <input type="hidden" name="mom_date" value="{{ $momSelectedDate->toDateString() }}">
-                                <input type="hidden" name="sales_year" value="{{ $salesYear }}">
-                                <input type="hidden" name="sales_view" value="{{ $salesView }}">
-                                <input type="hidden" name="sales_period" value="{{ $salesPeriod }}">
-                                <input type="hidden" name="sales_annual_cutoff" value="{{ $annualCutoff }}">
-                                <input type="hidden" name="sales_product" value="{{ $salesProductFilter }}">
+                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-inject-card" class="monthly-sales-filter-form mb-0" id="monthly-inject-filter-form">
+                                <select name="year" id="monthly-inject-year" class="form-control form-control-sm font-weight-bold monthly-sales-year-select" aria-label="Tahun inject">
+                                    @for ($year = (int) date('Y'); $year >= 2023; $year--)
+                                        <option value="{{ $year }}" @selected($selectedYear === $year)>Tahun {{ $year }}</option>
+                                    @endfor
+                                </select>
                                 <select name="inject_product" id="monthly-inject-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk inject">
                                     <optgroup label="PV"><option value="pv_all" {{ $injectProductFilter === 'pv_all' ? 'selected' : '' }}>ALL PV</option><option value="pv_reg" {{ $injectProductFilter === 'pv_reg' ? 'selected' : '' }}>PV Reguler</option><option value="pv_byu" {{ $injectProductFilter === 'pv_byu' ? 'selected' : '' }}>PV By.U</option></optgroup>
                                     <optgroup label="SA"><option value="sa_all" {{ $injectProductFilter === 'sa_all' ? 'selected' : '' }}>ALL SA</option><option value="sa_simpati" {{ $injectProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option><option value="sa_byu" {{ $injectProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option></optgroup>
@@ -2413,7 +2410,11 @@
                 .filter(targetId => !document.getElementById(targetId)?.classList.contains('d-none'));
             const scrollPosition = { x: window.scrollX, y: window.scrollY };
             const requestUrl = new URL(form.action, window.location.href);
-            requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+            requestUrl.search = window.location.search;
+            const fields = new FormData(form);
+            for (const name of ['mom_date', 'mom_product']) {
+                if (fields.has(name)) requestUrl.searchParams.set(name, fields.get(name));
+            }
 
             momLoadController?.abort();
             const controller = new AbortController();
@@ -2643,7 +2644,11 @@
             if (!form || !currentCard || currentCard.dataset.loading === 'true') return;
 
             const requestUrl = new URL(form.action, window.location.href);
-            requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+            requestUrl.search = window.location.search;
+            const fields = new FormData(form);
+            for (const name of ['sales_year', 'sales_view', 'sales_period', 'sales_annual_cutoff', 'sales_product']) {
+                if (fields.has(name)) requestUrl.searchParams.set(name, fields.get(name));
+            }
             currentCard.dataset.loading = 'true';
             currentCard.style.opacity = '.62';
             currentCard.style.pointerEvents = 'none';
@@ -2683,7 +2688,11 @@
             if (!form || !currentCard || currentCard.dataset.loading === 'true') return;
 
             const requestUrl = new URL(form.action, window.location.href);
-            requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+            requestUrl.search = window.location.search;
+            const fields = new FormData(form);
+            for (const name of ['year', 'inject_product']) {
+                if (fields.has(name)) requestUrl.searchParams.set(name, fields.get(name));
+            }
             const currentTableWrap = currentCard.querySelector('#heatmap-inject-wrap');
             const horizontalScroll = currentTableWrap?.scrollLeft || 0;
             currentCard.dataset.loading = 'true';
@@ -2729,7 +2738,7 @@
         });
 
         document.addEventListener('change', event => {
-            if (event.target.id === 'monthly-inject-product') {
+            if (['monthly-inject-product', 'monthly-inject-year'].includes(event.target.id)) {
                 reloadMonthlyInjectCard(event.target.form);
                 return;
             }
@@ -2782,8 +2791,10 @@
         const heatmapInjectConfig = {
             cardId: 'heatmap-inject-card',
             wrapId: 'heatmap-inject-wrap',
-            title: '🪄 Heatmap Inject PV Bulanan (Tahun {{ $selectedYear }})',
-            subtitle: 'Kerapatan transaksi Inject PV per TAP. Warna makin pekat = performa makin tinggi.',
+            get title() {
+                return document.querySelector('#heatmap-inject-card h6')?.textContent.trim() || 'Inject Bulanan';
+            },
+            subtitle: 'Kerapatan transaksi inject per TAP. Warna makin pekat = performa makin tinggi.',
             accent: '#198754',
             grandBg: '#e8f5e9',
             grandColor: '#1b5e20'
@@ -2808,12 +2819,12 @@
                     `penjualan-${payload.period}-${activeView}`
                 );
             }
-        });
-        document.getElementById('heatmap-inject-copy-btn')?.addEventListener('click', () => {
-            copyCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
-        });
-        document.getElementById('heatmap-inject-download-btn')?.addEventListener('click', () => {
-            downloadCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
+            if (event.target.closest('#heatmap-inject-copy-btn')) {
+                copyCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
+            }
+            if (event.target.closest('#heatmap-inject-download-btn')) {
+                downloadCanvasExport(() => renderHeatmapToCanvas(heatmapInjectConfig), 'heatmap-inject-status', 'heatmap-inject');
+            }
         });
 
         // Make sure feather icons inside the header buttons render.
