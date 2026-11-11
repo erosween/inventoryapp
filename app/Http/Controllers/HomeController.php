@@ -574,8 +574,7 @@ class HomeController extends Controller
         /* ================= NEW: PREV YEAR DECEMBER FOR JAN MoM ================= */
         $prevDecSalesData = DB::table('keluarsf')
             ->selectRaw('idtap, SUM(qty) as total')
-            ->whereYear('tgl', $salesYear - 1)
-            ->whereMonth('tgl', 12)
+            ->whereBetween('tgl', [Carbon::create($salesYear - 1, 12, 1)->startOfDay(), Carbon::create($salesYear - 1, 12, 31)->endOfDay()])
             ->groupBy('idtap');
         $applyFilter($prevDecSalesData);
         $applyProductFilter($prevDecSalesData, 'keluarsf', $salesProductFilter);
@@ -583,8 +582,7 @@ class HomeController extends Controller
 
         $prevDecInjectData = DB::table('injectvf')
             ->selectRaw('idtap, SUM(qty) as total')
-            ->whereYear('tgl', $selectedYear - 1)
-            ->whereMonth('tgl', 12)
+            ->whereBetween('tgl', [Carbon::create($selectedYear - 1, 12, 1)->startOfDay(), Carbon::create($selectedYear - 1, 12, 31)->endOfDay()])
             ->groupBy('idtap');
         $applyFilter($prevDecInjectData);
         $applyProductFilter($prevDecInjectData, 'injectvf', $injectProductFilter);
@@ -619,7 +617,7 @@ class HomeController extends Controller
         /* ================= NEW: MATRIX TAHUNAN INJECT PV PER TAP ================= */
         $qMatrixInjectData = DB::table('injectvf')
             ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
-            ->whereYear('tgl', $selectedYear)
+            ->whereBetween('tgl', [Carbon::create($selectedYear, 1, 1)->startOfDay(), Carbon::create($selectedYear, 12, 31)->endOfDay()])
             ->groupBy('idtap', DB::raw('MONTH(tgl)'));
         $applyFilter($qMatrixInjectData);
         $applyProductFilter($qMatrixInjectData, 'injectvf', $injectProductFilter);
@@ -636,7 +634,7 @@ class HomeController extends Controller
         /* ================= NEW: MATRIX TAHUNAN PER SF ================= */
         $qMatrixSalesSfData = DB::table('keluarsf')
             ->selectRaw('idsf, MONTH(tgl) as bulan, SUM(qty) as total')
-            ->whereYear('tgl', $salesYear)
+            ->whereBetween('tgl', [Carbon::create($salesYear, 1, 1)->startOfDay(), Carbon::create($salesYear, 12, 31)->endOfDay()])
             ->groupBy('idsf', DB::raw('MONTH(tgl)'));
         $applyFilter($qMatrixSalesSfData, 'idtap');
         $applyProductFilter($qMatrixSalesSfData, 'keluarsf', $salesProductFilter);
@@ -655,7 +653,7 @@ class HomeController extends Controller
             $detailColumn = $isSa ? 'denom.denom' : 'denom.group_name';
             $data->join('denom', $table . '.iddenom', '=', 'denom.iddenom')
                 ->selectRaw("{$table}.idtap, {$detailColumn} as detail_label, MONTH({$table}.tgl) as bulan, SUM({$table}.qty) as total")
-                ->whereYear($table . '.tgl', $year)
+                ->whereBetween($table . '.tgl', [Carbon::create($year, 1, 1)->startOfDay(), Carbon::create($year, 12, 31)->endOfDay()])
                 ->groupBy($table . '.idtap', $detailColumn, DB::raw("MONTH({$table}.tgl)"));
             if (! $isSa) {
                 $data->whereIn('denom.group_name', $validityGroups);
