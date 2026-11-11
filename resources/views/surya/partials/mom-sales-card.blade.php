@@ -1,4 +1,5 @@
             @php
+                $gapTone = static fn ($gap) => $gap < 0 ? 'text-danger' : ($gap > 0 ? 'text-success' : '');
                 $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
                 $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
                 $showTapInsights = request()->routeIs('surya.inventory-dashboard');
@@ -119,7 +120,7 @@
                                     <td class="text-right font-weight-bold text-dark">{{ number_format($r->curr_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_partial_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_full_qty) }}</td>
-                                    <td class="text-right">{{ number_format($r->curr_qty - $r->prev_partial_qty) }}</td>
+                                    <td class="text-right {{ $gapTone($r->curr_qty - $r->prev_partial_qty) }}">{{ number_format($r->curr_qty - $r->prev_partial_qty) }}</td>
                                     <td class="text-right font-weight-bold {{ $r->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom), 2) }} %
                                     </td>
@@ -152,7 +153,7 @@
                                                             <td class="text-right font-weight-bold border-bottom-0">{{ number_format($sf->curr_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_full_qty) }}</td>
-                                                            <td class="text-right border-bottom-0">{{ number_format($sf->curr_qty - $sf->prev_qty) }}</td>
+                                                            <td class="text-right border-bottom-0 {{ $gapTone($sf->curr_qty - $sf->prev_qty) }}">{{ number_format($sf->curr_qty - $sf->prev_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $sf->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                                                 <span class="badge badge-{{ $sf->mom >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
@@ -178,7 +179,7 @@
                                 <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_full_qty) }}</td>
-                                <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty - $momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
+                                <td class="text-right border-0 {{ $gapTone($momProductClusters['dumai_bengkalis']->curr_qty - $momProductClusters['dumai_bengkalis']->prev_partial_qty) }}">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty - $momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
                                 <td class="text-right border-0 {{ $momProductClusters['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momProductClusters['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momProductClusters['dumai_bengkalis']->mom), 2) }} %
                                 </td>
@@ -197,7 +198,7 @@
                                 <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_full_qty) }}</td>
-                                <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty - $momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
+                                <td class="text-right border-0 {{ $gapTone($momProductClusters['rokan_hilir']->curr_qty - $momProductClusters['rokan_hilir']->prev_partial_qty) }}">{{ number_format($momProductClusters['rokan_hilir']->curr_qty - $momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
                                 <td class="text-right border-0 {{ $momProductClusters['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momProductClusters['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momProductClusters['rokan_hilir']->mom), 2) }} %
                                 </td>
@@ -222,7 +223,7 @@
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevFull) }}</td>
-                                <td class="text-right border-0">{{ number_format($grandCurr - $grandPrevPart) }}</td>
+                                <td class="text-right border-0 {{ $gapTone($grandCurr - $grandPrevPart) }}">{{ number_format($grandCurr - $grandPrevPart) }}</td>
                                 <td class="text-right border-0 font-weight-bold {{ $grandMom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMom), 2) }} %
                                 </td>

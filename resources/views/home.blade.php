@@ -1629,6 +1629,8 @@
                         ? (firstText.toUpperCase().includes('GRAND TOTAL') ? 'grand' : 'cluster')
                         : 'tap',
                     cells: [firstText, ...cells.slice(1).map(getMomCellText)],
+                    gapColor: cells[4].classList.contains('text-danger') ? '#e75757'
+                        : (cells[4].classList.contains('text-success') ? '#32a852' : null),
                     growth1Down: growthText.includes('▼') || /^-/.test(growthText)
                 });
             });
@@ -1863,6 +1865,10 @@
                     let font = '400 16px Geist Variable, sans-serif';
                     if (i === 1 || isCluster || isGrand) {
                         color = isGrand ? '#1657b7' : '#2f3437';
+                        font = '700 16px Geist Variable, sans-serif';
+                    }
+                    if (i === 4 && row.gapColor) {
+                        color = row.gapColor;
                         font = '700 16px Geist Variable, sans-serif';
                     }
                     if (i === 5) {
