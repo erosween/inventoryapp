@@ -6,6 +6,7 @@ use App\Services\OutletCvmColumns;
 use App\Services\OutletCvmImport;
 use App\Services\OutletCvmReport;
 use App\Support\SuryaTapScope;
+use App\Support\OutletReportPeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -17,6 +18,16 @@ class OutletCvmController extends Controller
     {
         $context = $this->context($request);
         ['profiles' => $profiles, 'cutoff' => $cutoff, 'pageSize' => $pageSize] = $context;
+        $metrics = OutletCvmImport::METRICS;
+        $previousEnd = OutletReportPeriod::previousEnd($cutoff);
+        $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
+        $columns = $this->monthColumns($cutoff, $comparison);
+
+        if ($request->boolean('rekap')) {
+            return view('surya.partials.outlet-cvm-summary', compact('metrics', 'cutoff', 'columns')
+                + $report->summary($profiles, $cutoff));
+        }
+
         $identity = OutletCvmColumns::IDENTITY;
         $options = $filters->options($request);
         $keys = $filters->activeKeys($options);
@@ -35,9 +46,31 @@ class OutletCvmController extends Controller
 
         unset($context['profiles']);
 
-        return view('surya.outlet-transactions-cvm', $context + compact('identity', 'outlets', 'options')
-            + ['metrics' => OutletCvmImport::METRICS]
-            + $report->data($profiles, $outlets->pluck('id_outlet'), $cutoff));
+        $details = $report->details($outlets->pluck('id_outlet'), $cutoff);
+        $summaryUrl = route('surya.outlet-cvm', [
+            'rekap' => 1, 'cutoff' => $cutoff->toDateString(), 'tap' => $context['tap'], 'q' => $context['search'],
+        ]);
+        return view('surya.outlet-transactions-cvm', $context + compact(
+            'identity', 'outlets', 'options', 'metrics', 'details', 'summaryUrl', 'previousEnd', 'comparison', 'columns'
+        ));
+    }
+
+    private function monthColumns(Carbon $cutoff, bool $comparison): array
+    {
+        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        $columns = [];
+        for ($month = 1; $month <= $cutoff->month; $month++) {
+            $columns['m'.$month] = $months[$month - 1];
+            if ($comparison && $month === $cutoff->month - 1) {
+                $columns['compare'] = $months[$month - 1].'-MoM';
+            }
+        }
+        $columns['total'] = 'Total '.$cutoff->year;
+        for ($month = 2; $month <= $cutoff->month; $month++) {
+            $columns['gap_m'.$month] = 'GAP '.$months[$month - 1];
+            $columns['mom_pct_m'.$month] = 'MoM % '.$months[$month - 1];
+        }
+        return $columns;
     }
 
     public function values(Request $request, OutletCvmReport $report, OutletCvmColumns $filters)

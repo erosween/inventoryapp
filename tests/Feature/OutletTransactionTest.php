@@ -148,9 +148,11 @@ class OutletTransactionTest extends TestCase
         $this->assertSame(425, $a['cvm']['gap_m11']);
         $this->assertSame(425.0, $a['cvm']['mom_pct_m11']);
         $this->assertNull($a['comsak']['gap_m11']);
-        $this->assertSame(-100.0, $report->viewData('summary')->get('DURI')['cvm']['mom_pct_m11']);
-        $this->assertSame(162.5, $report->viewData('grand')['cvm']['mom_pct_m11']);
-        $this->assertSame(325, $report->viewData('clusters')->get('Dumai Bengkalis')['cvm']['gap_m11']);
+        $report->assertSee('Memuat rekap TAP');
+        $summary = $this->get('/surya/transaksi-outlet/cvm?rekap=1&cutoff=2026-11-05')->assertOk();
+        $this->assertSame(-100.0, $summary->viewData('summary')->get('DURI')['cvm']['mom_pct_m11']);
+        $this->assertSame(162.5, $summary->viewData('grand')['cvm']['mom_pct_m11']);
+        $this->assertSame(325, $summary->viewData('clusters')->get('Dumai Bengkalis')['cvm']['gap_m11']);
 
         $closed = $this->get('/surya/transaksi-outlet/cvm?cutoff=2026-10-31')->assertOk();
         $this->assertFalse($closed->viewData('comparison'));

@@ -11,12 +11,11 @@ use Illuminate\Support\Facades\Cache;
 
 class OutletCvmReport
 {
-    public function data(Builder $profiles, Collection $outletIds, Carbon $cutoff): array
+    public function summary(Builder $profiles, Carbon $cutoff): array
     {
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
         $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
 
-        $details = $this->details($outletIds, $cutoff);
         $outletTaps = (clone $profiles)->selectRaw('id_outlet, MIN(tap) AS tap')->groupBy('id_outlet');
         $tapQuery = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
             ->joinSub($outletTaps, 'profile', function ($join) use ($profiles) {
@@ -50,7 +49,7 @@ class OutletCvmReport
             ->map(fn (Collection $rows) => $this->series($rows, $cutoff, $comparison));
         $grand = $this->series($tapMonths, $cutoff, $comparison);
 
-        return compact('details', 'summary', 'clusters', 'grand', 'previousEnd', 'comparison');
+        return compact('summary', 'clusters', 'grand', 'previousEnd', 'comparison');
     }
 
     public function details(Builder|Collection $outletIds, Carbon $cutoff, ?array $metrics = null): Collection

@@ -67,19 +67,6 @@
             'tap' => 'ngrs-frozen-tap',
             'cluster' => 'ngrs-frozen-cluster',
         ];
-        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-        $columns = [];
-        foreach (range(1, $cutoff->month) as $month) {
-            $columns['m'.$month] = $months[$month - 1];
-            if ($comparison && $month === $cutoff->month - 1) {
-                $columns['compare'] = $months[$month - 1].'-MoM';
-            }
-        }
-        $columns['total'] = 'Total '.$cutoff->year;
-        for ($month = 2; $month <= $cutoff->month; $month++) {
-            $columns['gap_m'.$month] = 'GAP '.$months[$month - 1];
-            $columns['mom_pct_m'.$month] = 'MoM % '.$months[$month - 1];
-        }
     @endphp
 
     <div class="ngrs-report-heading">
@@ -90,27 +77,11 @@
             @endif</p>
         </div>
     </div>
-    <section class="ngrs-card" aria-label="Rekap CVM per TAP">
-        <div class="ngrs-scroll" tabindex="0">
-            <table class="ngrs-summary cvm-transactions-table" data-transaction-table="summary" data-report-end-month="{{ $cutoff->month }}" data-report-default-range="12">
-                @include('surya.partials.outlet-cvm-head', ['labels' => ['tap' => 'TAP']])
-                <tbody>
-                    @foreach($summary as $name => $series)
-                        <tr><th scope="row">{{ $name ?: 'Tanpa TAP' }}</th>@include('surya.partials.outlet-cvm-values')</tr>
-                    @endforeach
-                </tbody>
-                <tfoot>
-                    @foreach($clusters as $name => $series)
-                        <tr class="ngrs-cluster"><th scope="row"><small>Cluster</small>{{ $name }}</th>@include('surya.partials.outlet-cvm-values')</tr>
-                    @endforeach
-                    <tr class="ngrs-grand">
-                        <th scope="row">Grand Total</th>
-                        @include('surya.partials.outlet-cvm-values', ['series' => $grand])
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    </section>
+    <div data-report-summary-url="{{ $summaryUrl }}">
+        <p class="ngrs-note" role="status">Memuat rekap TAP…</p>
+        <button class="ngrs-button" type="button" data-report-summary-retry hidden>Muat ulang rekap</button>
+        <noscript><a href="{{ $summaryUrl }}">Buka rekap TAP</a></noscript>
+    </div>
 
     <div class="ngrs-report-heading"><h2>Detail per outlet</h2></div>
     <section class="ngrs-card" aria-label="Transaksi CVM per outlet">

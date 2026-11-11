@@ -62,5 +62,34 @@
   }
   apply();return apply;
  }
- const refresh=tables.map(enhance);document.addEventListener('taskforce:updated',()=>refresh.forEach(apply=>apply()));
+ const refresh=tables.map(enhance);
+ document.addEventListener('taskforce:updated',()=>refresh.forEach(apply=>apply()));
+
+ const summary=document.querySelector('[data-report-summary-url]');
+ if(summary){
+  const status=summary.querySelector('[role="status"]');
+  const retry=summary.querySelector('[data-report-summary-retry]');
+  async function loadSummary(){
+   summary.setAttribute('aria-busy','true');
+   retry.hidden=true;
+   status.textContent='Memuat rekap TAP…';
+   try{
+    const response=await fetch(summary.dataset.reportSummaryUrl);
+    if(!response.ok)throw new Error('Rekap gagal dimuat');
+    const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+    const table=doc.querySelector('[data-transaction-table="summary"]');
+    const card=table?.closest('.ngrs-card');
+    if(!card)throw new Error('Rekap gagal dimuat');
+    summary.replaceChildren(card);
+    refresh.push(enhance(table));
+   }catch{
+    status.textContent='Rekap TAP gagal dimuat.';
+    retry.hidden=false;
+   }finally{
+    summary.removeAttribute('aria-busy');
+   }
+  }
+  retry.addEventListener('click',loadSummary);
+  loadSummary();
+ }
 })();
