@@ -35,7 +35,7 @@ class HomeController extends Controller
     {
         $query=$request->query();ksort($query);
         $scope=strtoupper(trim((string)session('idtap')));
-        $key='home-dashboard:v21:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        $key='home-dashboard:v22:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
         return app()->environment('testing') ? $this->dashboardData($request)
             : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
@@ -132,7 +132,11 @@ class HomeController extends Controller
         $applyFilter($tapMasuk);
         $tapMasuk = $tapMasuk->pluck('last_masuk', 'idtap');
 
-        $tapKeluar = $this->combinedSalesQuery()
+        [$legacyActivity, $mobileActivity] = $this->salesSources();
+        foreach ([$legacyActivity, $mobileActivity] as $activity) {
+            $activity->select('idtap')->selectRaw('MAX(tgl) AS tgl')->groupBy('idtap');
+        }
+        $tapKeluar = DB::query()->fromSub($legacyActivity->unionAll($mobileActivity), 'sales_activity')
             ->selectRaw('idtap, MAX(tgl) AS last_keluar')
             ->groupBy('idtap');
         $applyFilter($tapKeluar);
@@ -434,29 +438,24 @@ class HomeController extends Controller
             $salesYear = (int) date('Y');
         }
 
-        $qMatrixData = $this->combinedSalesQuery(Carbon::create($salesYear, 1, 1)->startOfDay(), Carbon::create($salesYear, 12, 31)->endOfDay())
-            ->selectRaw('idtap, MONTH(tgl) as bulan, SUM(qty) as total')
-            ->whereYear('tgl', $salesYear)
-            ->groupBy('idtap', DB::raw('MONTH(tgl)'));
-        if ($salesYear === $currentDate->year) {
-            $qMatrixData->where(function ($query) use ($currentDate, $momSelectedDate) {
-                $query->whereMonth('tgl', '<', $currentDate->month)
-                    ->orWhere(function ($monthQuery) use ($currentDate, $momSelectedDate) {
-                        $monthQuery->whereMonth('tgl', $currentDate->month)
-                            ->where('tgl', '<=', $momSelectedDate);
-                    });
-            });
+        $salesStart = Carbon::create($salesYear, 1, 1)->startOfDay();
+        $salesEnd = $salesYear === $currentDate->year
+            ? $momSelectedDate
+            : $salesStart->copy()->endOfYear();
+        [$legacyMonthly, $mobileMonthly] = $this->salesSources($salesStart, $salesEnd);
+        foreach ([$legacyMonthly, $mobileMonthly] as $monthly) {
+            $applyProductFilter($monthly, $monthly->from, $salesProductFilter);
+            $monthly->select('idtap', 'iddenom')
+                ->selectRaw('MONTH(tgl) AS bulan, SUM(qty) AS total')
+                ->groupBy('idtap', 'iddenom', DB::raw('MONTH(tgl)'));
         }
-        $applyFilter($qMatrixData);
-        $applyProductFilter($qMatrixData, 'combined_sales', $salesProductFilter);
-        $matrixSalesData = $qMatrixData->get();
+        $monthlyTotals = DB::query()->fromSub($legacyMonthly->unionAll($mobileMonthly), 'monthly_sales')
+            ->select('idtap', 'iddenom', 'bulan')->selectRaw('SUM(total) AS total')
+            ->groupBy('idtap', 'iddenom', 'bulan')->get();
 
-        $matrixSales = [];
-        foreach ($tapList as $tap) {
-            $matrixSales[$tap] = array_fill(1, 12, 0); // isi 0 untuk 12 bln
-        }
-        foreach ($matrixSalesData as $row) {
-            $matrixSales[$row->idtap][$row->bulan] = $row->total;
+        $matrixSales = array_fill_keys($tapList->all(), array_fill(1, 12, 0));
+        foreach ($monthlyTotals as $row) {
+            $matrixSales[$row->idtap][$row->bulan] += $row->total;
         }
         // ALL PV bulan berjalan harus identik dengan dataset MoM bawah (cutoff yang sama).
         if ($salesProductFilter === 'pv_all' && $salesYear === $currentDate->year) {
@@ -467,101 +466,108 @@ class HomeController extends Controller
         }
 
         /* ================= SALES TAHUNAN PER TAP ================= */
-        $annualSalesData = DB::table('keluarsf')
-            ->selectRaw('idtap, YEAR(tgl) as tahun, SUM(qty) as total')
-            ->whereBetween(DB::raw('YEAR(tgl)'), [2024, $salesYear])
-            ->groupBy('idtap', DB::raw('YEAR(tgl)'));
-        if ($annualCutoff !== 'full') {
-            $annualSalesData->whereMonth('tgl', '<=', (int) $annualCutoff);
-        }
-        $applyFilter($annualSalesData);
-        $applyProductFilter($annualSalesData, 'keluarsf', $salesProductFilter);
-
         $annualSales = [];
-        foreach ($tapList as $tap) {
-            $annualSales[$tap] = [];
-        }
-        foreach ($annualSalesData->get() as $row) {
-            $annualSales[$row->idtap][(int) $row->tahun] = (int) $row->total;
-        }
-
-        /*
-         * Fair cutoff: ambil tanggal input terakhir masing-masing TAP, lalu pilih
-         * yang paling rendah. Contoh 7 TAP tanggal 18 dan 1 TAP tanggal 17 => 17.
-         */
-        $annualComparisonYear = (int) date('Y');
-        $annualComparisonMonth = $annualCutoff === 'full'
-            ? (int) $currentDate->month
-            : (int) $annualCutoff;
-        $annualTapLatestDates = DB::table('keluarsf')
-            ->selectRaw('idtap, MAX(tgl) AS last_input')
-            ->whereYear('tgl', $annualComparisonYear)
-            ->whereMonth('tgl', $annualComparisonMonth)
-            ->groupBy('idtap');
-        $applyFilter($annualTapLatestDates);
-        $applyProductFilter($annualTapLatestDates, 'keluarsf', $salesProductFilter);
-        $annualLowestLatestDate = $annualTapLatestDates->pluck('last_input')->filter()->min();
-        $annualComparisonDate = $annualLowestLatestDate
-            ? Carbon::parse($annualLowestLatestDate)->endOfDay()
-            : Carbon::create($annualComparisonYear, $annualComparisonMonth, 1)->endOfMonth()->endOfDay();
-        $annualComparisonDay = (int) $annualComparisonDate->day;
-
-        /* YTD setiap tahun memakai bulan dan hari cutoff yang sama. */
         $annualCurrentYtdSales = [];
-        foreach ($tapList as $tap) {
-            $annualCurrentYtdSales[$tap] = [];
-        }
-        $annualCurrentYtdQuery = DB::table('keluarsf')
-            ->selectRaw('idtap, YEAR(tgl) as tahun, SUM(qty) as total')
-            ->whereBetween(DB::raw('YEAR(tgl)'), [2024, $annualComparisonYear])
-            ->where(function ($query) use ($annualComparisonMonth, $annualComparisonDay) {
-                $query->whereMonth('tgl', '<', $annualComparisonMonth)
-                    ->orWhere(function ($monthQuery) use ($annualComparisonMonth, $annualComparisonDay) {
-                        $monthQuery->whereMonth('tgl', $annualComparisonMonth)
-                            ->whereDay('tgl', '<=', $annualComparisonDay);
-                    });
-            })
-            ->groupBy('idtap', DB::raw('YEAR(tgl)'));
-        $applyFilter($annualCurrentYtdQuery);
-        $applyProductFilter($annualCurrentYtdQuery, 'keluarsf', $salesProductFilter);
-        foreach ($annualCurrentYtdQuery->get() as $row) {
-            $annualCurrentYtdSales[$row->idtap][(int) $row->tahun] = (int) $row->total;
-        }
-
         $annualPeriodComparisons = [];
-        if ($annualComparisonMonth >= 1) {
-            $comparisonMonth = $annualComparisonMonth;
-            $comparisonYear = $annualComparisonYear;
-            $previousComparisonDate = Carbon::create($comparisonYear, $comparisonMonth, 1)->subMonth();
-            $currentPeriodStart = Carbon::create($comparisonYear, $comparisonMonth, 1)->startOfDay();
-            $currentPeriodEnd = $annualComparisonDate->copy();
-            $previousYearStart = $currentPeriodStart->copy()->subYear();
-            $previousYearEnd = $previousYearStart->copy()
-                ->day(min($annualComparisonDay, $previousYearStart->daysInMonth))
-                ->endOfDay();
-            $previousMonthStart = $previousComparisonDate->copy()->startOfMonth();
-            $previousMonthEnd = $previousMonthStart->copy()
-                ->day(min($annualComparisonDay, $previousMonthStart->daysInMonth))
-                ->endOfDay();
-            $comparisonQuery = DB::table('keluarsf')
-                ->whereBetween('tgl', [$previousYearStart, $currentPeriodEnd])
-                ->selectRaw('idtap,
-                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS current_month,
-                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_year_month,
-                    SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_month', [
-                    $currentPeriodStart, $currentPeriodEnd,
-                    $previousYearStart, $previousYearEnd,
-                    $previousMonthStart, $previousMonthEnd,
-                ])
+        $annualComparisonMonth = null;
+        $annualComparisonDate = null;
+        if ($salesPeriod === 'annual') {
+            $annualSalesData = DB::table('keluarsf')
+                ->selectRaw('idtap, YEAR(tgl) as tahun, SUM(qty) as total')
+                ->whereBetween(DB::raw('YEAR(tgl)'), [2024, $salesYear])
+                ->groupBy('idtap', DB::raw('YEAR(tgl)'));
+            if ($annualCutoff !== 'full') {
+                $annualSalesData->whereMonth('tgl', '<=', (int) $annualCutoff);
+            }
+            $applyFilter($annualSalesData);
+            $applyProductFilter($annualSalesData, 'keluarsf', $salesProductFilter);
+
+            $annualSales = [];
+            foreach ($tapList as $tap) {
+                $annualSales[$tap] = [];
+            }
+            foreach ($annualSalesData->get() as $row) {
+                $annualSales[$row->idtap][(int) $row->tahun] = (int) $row->total;
+            }
+
+            /*
+             * Fair cutoff: ambil tanggal input terakhir masing-masing TAP, lalu pilih
+             * yang paling rendah. Contoh 7 TAP tanggal 18 dan 1 TAP tanggal 17 => 17.
+             */
+            $annualComparisonYear = (int) date('Y');
+            $annualComparisonMonth = $annualCutoff === 'full'
+                ? (int) $currentDate->month
+                : (int) $annualCutoff;
+            $annualTapLatestDates = DB::table('keluarsf')
+                ->selectRaw('idtap, MAX(tgl) AS last_input')
+                ->whereYear('tgl', $annualComparisonYear)
+                ->whereMonth('tgl', $annualComparisonMonth)
                 ->groupBy('idtap');
-            $applyFilter($comparisonQuery);
-            $applyProductFilter($comparisonQuery, 'keluarsf', $salesProductFilter);
-            foreach ($comparisonQuery->get() as $row) {
-                $annualPeriodComparisons[$row->idtap] = [
-                    'current_month' => (int) $row->current_month,
-                    'previous_year_month' => (int) $row->previous_year_month,
-                    'previous_month' => (int) $row->previous_month,
-                ];
+            $applyFilter($annualTapLatestDates);
+            $applyProductFilter($annualTapLatestDates, 'keluarsf', $salesProductFilter);
+            $annualLowestLatestDate = $annualTapLatestDates->pluck('last_input')->filter()->min();
+            $annualComparisonDate = $annualLowestLatestDate
+                ? Carbon::parse($annualLowestLatestDate)->endOfDay()
+                : Carbon::create($annualComparisonYear, $annualComparisonMonth, 1)->endOfMonth()->endOfDay();
+            $annualComparisonDay = (int) $annualComparisonDate->day;
+
+            /* YTD setiap tahun memakai bulan dan hari cutoff yang sama. */
+            $annualCurrentYtdSales = [];
+            foreach ($tapList as $tap) {
+                $annualCurrentYtdSales[$tap] = [];
+            }
+            $annualCurrentYtdQuery = DB::table('keluarsf')
+                ->selectRaw('idtap, YEAR(tgl) as tahun, SUM(qty) as total')
+                ->whereBetween(DB::raw('YEAR(tgl)'), [2024, $annualComparisonYear])
+                ->where(function ($query) use ($annualComparisonMonth, $annualComparisonDay) {
+                    $query->whereMonth('tgl', '<', $annualComparisonMonth)
+                        ->orWhere(function ($monthQuery) use ($annualComparisonMonth, $annualComparisonDay) {
+                            $monthQuery->whereMonth('tgl', $annualComparisonMonth)
+                                ->whereDay('tgl', '<=', $annualComparisonDay);
+                        });
+                })
+                ->groupBy('idtap', DB::raw('YEAR(tgl)'));
+            $applyFilter($annualCurrentYtdQuery);
+            $applyProductFilter($annualCurrentYtdQuery, 'keluarsf', $salesProductFilter);
+            foreach ($annualCurrentYtdQuery->get() as $row) {
+                $annualCurrentYtdSales[$row->idtap][(int) $row->tahun] = (int) $row->total;
+            }
+
+            $annualPeriodComparisons = [];
+            if ($annualComparisonMonth >= 1) {
+                $comparisonMonth = $annualComparisonMonth;
+                $comparisonYear = $annualComparisonYear;
+                $previousComparisonDate = Carbon::create($comparisonYear, $comparisonMonth, 1)->subMonth();
+                $currentPeriodStart = Carbon::create($comparisonYear, $comparisonMonth, 1)->startOfDay();
+                $currentPeriodEnd = $annualComparisonDate->copy();
+                $previousYearStart = $currentPeriodStart->copy()->subYear();
+                $previousYearEnd = $previousYearStart->copy()
+                    ->day(min($annualComparisonDay, $previousYearStart->daysInMonth))
+                    ->endOfDay();
+                $previousMonthStart = $previousComparisonDate->copy()->startOfMonth();
+                $previousMonthEnd = $previousMonthStart->copy()
+                    ->day(min($annualComparisonDay, $previousMonthStart->daysInMonth))
+                    ->endOfDay();
+                $comparisonQuery = DB::table('keluarsf')
+                    ->whereBetween('tgl', [$previousYearStart, $currentPeriodEnd])
+                    ->selectRaw('idtap,
+                        SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS current_month,
+                        SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_year_month,
+                        SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_month', [
+                        $currentPeriodStart, $currentPeriodEnd,
+                        $previousYearStart, $previousYearEnd,
+                        $previousMonthStart, $previousMonthEnd,
+                    ])
+                    ->groupBy('idtap');
+                $applyFilter($comparisonQuery);
+                $applyProductFilter($comparisonQuery, 'keluarsf', $salesProductFilter);
+                foreach ($comparisonQuery->get() as $row) {
+                    $annualPeriodComparisons[$row->idtap] = [
+                        'current_month' => (int) $row->current_month,
+                        'previous_year_month' => (int) $row->previous_year_month,
+                        'previous_month' => (int) $row->previous_month,
+                    ];
+                }
             }
         }
 
@@ -668,17 +674,27 @@ class HomeController extends Controller
             return [$matrix, $isSa ? array_values($groups) : $validityGroups, $isSa ? 'Denom' : 'Validity Group'];
         };
 
-        $salesDetailQuery = $this->combinedSalesQuery(Carbon::create($salesYear, 1, 1)->startOfDay(), Carbon::create($salesYear, 12, 31)->endOfDay());
-        if ($salesYear === $currentDate->year) {
-            $salesDetailQuery->where(function ($query) use ($currentDate, $momSelectedDate) {
-                $query->whereMonth('combined_sales.tgl', '<', $currentDate->month)
-                    ->orWhere(function ($monthQuery) use ($currentDate, $momSelectedDate) {
-                        $monthQuery->whereMonth('combined_sales.tgl', $currentDate->month)
-                            ->where('combined_sales.tgl', '<=', $momSelectedDate);
-                    });
-            });
+        $salesByDenom = $monthlyTotals->groupBy('iddenom');
+        $isSa = str_starts_with($salesProductFilter, 'sa_');
+        $labelColumn = $isSa ? 'denom' : 'group_name';
+        $denomLabels = DB::table('denom')->whereIn('iddenom', $salesByDenom->keys())
+            ->get(['iddenom', $labelColumn]);
+        $validityMatrixSales = [];
+        $salesDetailGroups = [];
+        foreach ($denomLabels as $denom) {
+            $label = $denom->{$labelColumn};
+            if (! $isSa && ! in_array($label, $validityGroups, true)) {
+                continue;
+            }
+            foreach ($salesByDenom[$denom->iddenom] ?? [] as $row) {
+                $previousTotal = $validityMatrixSales[$row->idtap][$label][$row->bulan] ?? 0;
+                $validityMatrixSales[$row->idtap][$label][$row->bulan] = $previousTotal + $row->total;
+                $salesDetailGroups[$label] = $label;
+            }
         }
-        [$validityMatrixSales, $salesDetailGroups, $salesDetailHeading] = $fetchValidityMatrix($salesDetailQuery, 'combined_sales', $salesYear, $salesProductFilter);
+        natcasesort($salesDetailGroups);
+        $salesDetailGroups = $isSa ? array_values($salesDetailGroups) : $validityGroups;
+        $salesDetailHeading = $isSa ? 'Denom' : 'Validity Group';
         [$validityMatrixInject, $injectDetailGroups, $injectDetailHeading] = $fetchValidityMatrix(DB::table('injectvf'), 'injectvf', $selectedYear, $injectProductFilter);
 
 
@@ -761,15 +777,17 @@ class HomeController extends Controller
      */
     private function combinedSalesQuery($start = null, $end = null)
     {
-        $stockOut = \App\Support\SalesSource::legacy()->select([
-            'tgl', 'idtap', 'idsf', 'iddenom', 'qty',
-        ]);
+        [$stockOut, $surya] = $this->salesSources($start, $end);
+        $stockOut->select('tgl', 'idtap', 'idsf', 'iddenom', 'qty');
+        $surya->select('tgl', 'idtap', DB::raw('COALESCE(owner_idsf, idsf) AS idsf'), 'iddenom', 'qty');
 
-        $surya = \App\Support\SalesSource::mobile()
-            ->where('status', 'approved')
-            ->select([
-                'tgl', 'idtap', DB::raw('COALESCE(owner_idsf, idsf) AS idsf'), 'iddenom', 'qty',
-            ]);
+        return DB::query()->fromSub($stockOut->unionAll($surya), 'combined_sales');
+    }
+
+    private function salesSources($start = null, $end = null): array
+    {
+        $stockOut = \App\Support\SalesSource::legacy();
+        $surya = \App\Support\SalesSource::mobile();
 
         foreach ([$stockOut, $surya] as $source) {
             if ($start !== null && $end !== null) $source->whereBetween('tgl', [$start, $end]);
@@ -783,6 +801,6 @@ class HomeController extends Controller
             }
         }
 
-        return DB::query()->fromSub($stockOut->unionAll($surya), 'combined_sales');
+        return [$stockOut, $surya];
     }
 }
