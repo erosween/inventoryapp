@@ -51,11 +51,11 @@ class OutletTransactionReport
         $summary = $rows->groupBy('tap')->map(fn ($items, $name) => $this->aggregate($items, $name, $cutoff, $comparison))->sortKeys()->values();
         $clusters = collect();
         foreach (['Dumai Bengkalis'=>['DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'], 'Rokan Hilir'=>['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']] as $name=>$members) {
-            $items = $rows->whereIn('tap', $members);
+            $items = $summary->whereIn('tap', $members);
             if ($items->isNotEmpty()) $clusters->push($this->aggregate($items, $name, $cutoff, $comparison));
         }
         return compact('rows','summary','clusters','taps','cutoff','previousEnd','comparison') + [
-            'grand'=>$this->aggregate($rows, 'GRAND TOTAL', $cutoff, $comparison),
+            'grand'=>$this->aggregate($summary, 'GRAND TOTAL', $cutoff, $comparison),
         ];
     }
 
@@ -82,8 +82,14 @@ class OutletTransactionReport
 
     private function aggregate(Collection $rows, string $name, Carbon $cutoff, bool $comparison): array
     {
-        $row=['tap'=>$name,'months'=>array_fill(1,12,null),'compare'=>$comparison ? $rows->sum('compare') : null];
-        for ($m=1; $m<=$cutoff->month; $m++) $row['months'][$m]=$rows->sum(fn ($r) => $r['months'][$m]);
+        $month = $cutoff->month;
+        $months = array_fill(1, $month, 0) + array_fill(1, 12, null);
+        $compare = $comparison ? 0 : null;
+        foreach ($rows as $item) {
+            for ($m = 1; $m <= $month; $m++) $months[$m] += $item['months'][$m];
+            if ($comparison) $compare += $item['compare'];
+        }
+        $row = ['tap' => $name, 'months' => $months, 'compare' => $compare];
         return $this->calculate($row,$cutoff->month,$comparison);
     }
 }

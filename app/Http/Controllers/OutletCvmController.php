@@ -115,6 +115,7 @@ class OutletCvmController extends Controller
             'cvm_file' => 'required|file|mimes:csv,txt|extensions:csv|max:20480',
         ]);
         $count = $import->import($request->file('cvm_file'), $kind);
+        \Illuminate\Support\Facades\Cache::put('surya-cvm-upload-revision', (string) \Illuminate\Support\Str::uuid());
         $label = $kind === 'cvm' ? 'CVM' : 'Sub CVM';
 
         return redirect()->route('surya.transaction-upload')

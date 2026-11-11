@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class OutletCvmReport
 {
@@ -16,26 +17,27 @@ class OutletCvmReport
         $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
 
         $details = $this->details($outletIds, $cutoff);
-        $profileId = $this->profileId($profiles);
-        $outletTaps = (clone $profiles)->selectRaw("$profileId AS id_outlet, MIN(tap) AS tap")
-            ->groupBy('appsdumais.id_outlet');
-        $outletMonths = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
-            ->selectRaw('sales.id_outlet')
-            ->groupBy('sales.id_outlet');
-        // Read the monthly groups once on MySQL/MariaDB, then look up each outlet's TAP.
-        $tapQuery = DB::query()->fromSub($outletMonths, 'monthly')
-            ->joinSub($outletTaps, 'profile', 'profile.id_outlet', '=', 'monthly.id_outlet')
-            ->selectRaw(DB::getDriverName() === 'mysql'
-                ? 'STRAIGHT_JOIN profile.tap, monthly.month_number'
-                : 'profile.tap, monthly.month_number')
-            ->groupBy('profile.tap', 'monthly.month_number');
-        foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
-            $tapQuery->selectRaw("SUM(monthly.{$metric}) AS {$metric}");
-            if ($comparison) {
-                $tapQuery->selectRaw("SUM(monthly.compare_{$metric}) AS compare_{$metric}");
-            }
-        }
-        $tapMonths = $tapQuery->get();
+        $outletTaps = (clone $profiles)->selectRaw('id_outlet, MIN(tap) AS tap')->groupBy('id_outlet');
+        $tapQuery = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
+            ->joinSub($outletTaps, 'profile', function ($join) use ($profiles) {
+                if ($profiles->getConnection()->getDriverName() === 'sqlite') {
+                    $join->on(DB::raw('CAST(profile.id_outlet AS TEXT)'), '=', 'sales.id_outlet');
+                    return;
+                }
+
+                // Numeric lookup uses the native profile ID key. Keep the exact text
+                // match as well so uploaded IDs with a different spelling stay unmatched.
+                $join->on('profile.id_outlet', '=', DB::raw('CAST(sales.id_outlet AS UNSIGNED)'))
+                    ->on(DB::raw('CAST(profile.id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci'), '=', 'sales.id_outlet');
+            })
+            ->addSelect('profile.tap')
+            ->groupBy('profile.tap');
+
+        $key = 'surya-cvm-summary:'.hash('sha256', serialize([
+            $tapQuery->toSql(), $tapQuery->getBindings(),
+            Cache::get('surya-cvm-upload-revision'),
+        ]));
+        $tapMonths = Cache::remember($key, 60, fn () => $tapQuery->get());
 
         $summary = $tapMonths->groupBy('tap')->sortKeys()->map(
             fn (Collection $rows) => $this->series($rows, $cutoff, $comparison)

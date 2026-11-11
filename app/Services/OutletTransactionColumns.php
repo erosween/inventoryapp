@@ -18,10 +18,10 @@ class OutletTransactionColumns extends OutletColumnFilters
             $rows=$rows->filter(fn($r)=>in_array((string)($r[$key]??''),$values,true) === ($mode==='columns'));
         }
         $sort=$options['sort']??$this->defaultSort(); $this->check($sort); $direction=($options['direction']??'desc')==='asc'?1:-1;
-        return $rows->sort(function($a,$b) use($sort,$direction) {
+        $numeric = $this->isNumeric($sort);
+        return $rows->sort(function($a,$b) use($sort,$direction,$numeric) {
             $x=$a[$sort]??null; $y=$b[$sort]??null;
             if ($x===null || $y===null) return ($x===null)<=>($y===null);
-            $numeric=$this->isNumeric($sort);
             return (($numeric?($x<=>$y):strnatcasecmp((string)$x,(string)$y))*$direction) ?: strcmp((string)$a['id_outlet'],(string)$b['id_outlet']);
         })->values();
     }
