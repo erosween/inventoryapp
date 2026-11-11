@@ -19,10 +19,20 @@ class OutletCvmReport
         $profileId = $this->profileId($profiles);
         $outletTaps = (clone $profiles)->selectRaw("$profileId AS id_outlet, MIN(tap) AS tap")
             ->groupBy('appsdumais.id_outlet');
-        $tapMonths = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
-            ->joinSub($outletTaps, 'profile', 'profile.id_outlet', '=', 'sales.id_outlet')
-            ->selectRaw('profile.tap')
-            ->groupBy('profile.tap')->get();
+        $outletMonths = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
+            ->selectRaw('sales.id_outlet')
+            ->groupBy('sales.id_outlet');
+        $tapQuery = DB::query()->fromSub($outletMonths, 'monthly')
+            ->joinSub($outletTaps, 'profile', 'profile.id_outlet', '=', 'monthly.id_outlet')
+            ->select('profile.tap', 'monthly.month_number')
+            ->groupBy('profile.tap', 'monthly.month_number');
+        foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
+            $tapQuery->selectRaw("SUM(monthly.{$metric}) AS {$metric}");
+            if ($comparison) {
+                $tapQuery->selectRaw("SUM(monthly.compare_{$metric}) AS compare_{$metric}");
+            }
+        }
+        $tapMonths = $tapQuery->get();
 
         $summary = $tapMonths->groupBy('tap')->sortKeys()->map(
             fn (Collection $rows) => $this->series($rows, $cutoff, $comparison)

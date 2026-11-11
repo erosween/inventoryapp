@@ -38,7 +38,8 @@ class NgrsReport
 
     public function base(array $filters)
     {
-        $q=$this->active($filters['year'])->leftJoinSub($this->master(),'m',fn($j)=>$j->on('m.rs','=','n.rs'));
+        $q=$this->active($filters['year']);
+        if ($filters['q'] !== '') $q->leftJoinSub($this->master(),'m',fn($j)=>$j->on('m.rs','=','n.rs'));
         $scopes=$this->scopes();if($scopes!==null)$q->whereIn('n.tap',$scopes);
         if($filters['tap']!=='')$q->where('n.tap',$filters['tap']);
         // Search RS must also work for transactions not present in the master.
@@ -101,7 +102,9 @@ class NgrsReport
         }
         foreach($rows as$r){$cluster=in_array($r['cluster'],['INF DB','DUMAI BENGKALIS'])?'Dumai Bengkalis':'Rokan Hilir';$clusters[$cluster]??=['tap'=>$cluster,'months'=>[],'total'=>0];foreach($r['months']as$m=>$v){$clusters[$cluster]['months'][$m]=($clusters[$cluster]['months'][$m]??0)+$v;$grand['months'][$m]=($grand['months'][$m]??0)+$v;}$clusters[$cluster]['compare_trx']=($clusters[$cluster]['compare_trx']??0)+($r['compare_trx']??0);$clusters[$cluster]['compare_rech']=($clusters[$cluster]['compare_rech']??0)+($r['compare_rech']??0);$grand['compare_trx']=($grand['compare_trx']??0)+($r['compare_trx']??0);$grand['compare_rech']=($grand['compare_rech']??0)+($r['compare_rech']??0);$clusters[$cluster]['total']+=$r['total'];$grand['total']+=$r['total'];foreach($r['recharge']??[] as $m=>$value){$clusters[$cluster]['recharge'][$m]=($clusters[$cluster]['recharge'][$m]??0)+$value;$grand['recharge'][$m]=($grand['recharge'][$m]??0)+$value;}$clusters[$cluster]['total_recharge']=($clusters[$cluster]['total_recharge']??0)+($r['total_recharge']??0);$grand['total_recharge']=($grand['total_recharge']??0)+($r['total_recharge']??0);}
         uksort($clusters,fn($a,$b)=>array_search($a,['Dumai Bengkalis','Rokan Hilir'])<=>array_search($b,['Dumai Bengkalis','Rokan Hilir']));
-        $stats=$this->base($filters)->selectRaw('COALESCE(SUM(n.trx),0) AS trx,COALESCE(SUM(n.rech),0) AS rech,COUNT(DISTINCT n.rs) AS rs,COUNT(DISTINCT CASE WHEN m.candidates IS NULL OR m.candidates<>1 THEN n.rs END) AS unmapped')->first();
+        $statsQuery = $this->base($filters);
+        if ($filters['q'] === '') $statsQuery->leftJoinSub($this->master(), 'm', fn ($join) => $join->on('m.rs', '=', 'n.rs'));
+        $stats=$statsQuery->selectRaw('COALESCE(SUM(n.trx),0) AS trx,COALESCE(SUM(n.rech),0) AS rech,COUNT(DISTINCT n.rs) AS rs,COUNT(DISTINCT CASE WHEN m.candidates IS NULL OR m.candidates<>1 THEN n.rs END) AS unmapped')->first();
         return compact('rows','clusters','grand','stats');
     }
 
@@ -129,9 +132,10 @@ class NgrsReport
         $query=DB::query()->fromSub($q->unionAll($zero),'annual_details')->select('annual_details.*');
         // Read categories directly from the master, so category uploads need no NGRS re-upload.
         // Group by outlet ID to preserve one report row even if the master contains duplicates.
-        $categories=DB::table('appsdumais')->select('id_outlet')
+        $categoryId = DB::getDriverName() === 'sqlite' ? 'CAST(id_outlet AS TEXT)' : 'CAST(id_outlet AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci';
+        $categories=DB::table('appsdumais')->selectRaw("$categoryId AS id_outlet")
             ->selectRaw("MAX(COALESCE(NULLIF(TRIM(kategori_outlet),''),'Reguler')) AS kategori_outlet")->groupBy('id_outlet');
-        $query->leftJoinSub($categories,'category',fn($j)=>$j->on('category.id_outlet','=','annual_details.id_outlet'))
+        $query->leftJoinSub($categories,'category',fn($j)=>$j->on('category.id_outlet','=',DB::raw($this->unionText('annual_details.id_outlet'))))
             ->selectRaw("CASE WHEN annual_details.candidates=1 THEN COALESCE(category.kategori_outlet,'Reguler') ELSE NULL END AS kategori_outlet");
         $months=DB::table('surya_ngrs_months')->whereBetween('month',["$year-01-01","$year-12-01"])->pluck('month')->map(fn($date)=>(int)substr($date,5,2))->all();
         $comparison=app(NgrsComparison::class)->plan($year);

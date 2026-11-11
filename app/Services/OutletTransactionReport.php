@@ -16,31 +16,37 @@ class OutletTransactionReport
         $scopes = SuryaTapScope::forUser(auth()->user(), session('idtap'));
         $master = DB::table('appsdumais')->whereNotNull('id_outlet')
             ->when($scopes !== null, fn ($q) => $q->whereIn('tap', $scopes))
-            ->orderBy('id_outlet')->get(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet'])->unique('id_outlet');
+            ->orderBy('id_outlet')->get(['id_outlet','nama_outlet','nomor_rs','tap','cluster','kecamatan','sf','pjp','kategori_outlet']);
+        $firstById = [];
+        foreach ($master as $outlet) {
+            $firstById[$outlet->id_outlet] ??= $outlet;
+        }
+        $master = collect($firstById);
         $taps = $master->pluck('tap')->filter()->unique()->sort()->values();
         $master = $master->filter(function ($o) use ($tap, $search) {
             return ($tap === '' || $o->tap === $tap) && ($search === '' || mb_stripos(implode(' ', (array)$o), $search) !== false);
         });
         $master = $master->map(function ($o) { $o->kategori_outlet=trim((string)$o->kategori_outlet) ?: 'Reguler'; return $o; });
-        $rows = $master->mapWithKeys(fn ($o) => [(string)$o->id_outlet => (array)$o + ['months'=>array_fill(1,12,null),'compare'=>null]]);
         $nota = new OutletNotaSales;
+        $monthlyTotals = [];
         for ($m = 1; $m <= $cutoff->month; $m++) {
             $start = $cutoff->copy()->startOfYear()->month($m)->startOfMonth();
-            $end = $m === $cutoff->month ? $cutoff->copy() : $start->copy()->endOfMonth();
-            $totals = $this->totals($nota, $start, $end);
-            $rows = $rows->map(function ($row, $id) use ($totals, $family, $m) {
-                $row['months'][$m] = (int)($totals[$id][$family] ?? 0); return $row;
-            });
+            $end = $m === $cutoff->month ? $cutoff : $start->copy()->endOfMonth();
+            $monthlyTotals[$m] = $this->totals($nota, $start, $end);
         }
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
         $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
-        if ($comparison) {
-            $totals = $this->totals($nota, $previousEnd->copy()->startOfMonth(), $previousEnd, true);
-            $rows = $rows->map(function ($row, $id) use ($totals, $family) {
-                $row['compare'] = (int)($totals[$id][$family] ?? 0); return $row;
-            });
-        }
-        $rows = $rows->map(fn ($row) => $this->calculate($row, $cutoff, $comparison))->values();
+        $comparisonTotals = $comparison
+            ? $this->totals($nota, $previousEnd->copy()->startOfMonth(), $previousEnd, true)
+            : [];
+        $rows = $master->map(function ($outlet, $id) use ($monthlyTotals, $comparisonTotals, $family, $cutoff, $comparison) {
+            $months = array_fill(1, 12, null);
+            foreach ($monthlyTotals as $month => $totals) {
+                $months[$month] = (int) ($totals[$id][$family] ?? 0);
+            }
+            $compare = $comparison ? (int) ($comparisonTotals[$id][$family] ?? 0) : null;
+            return $this->calculate((array) $outlet + compact('months', 'compare'), $cutoff, $comparison);
+        })->values();
         $summary = $rows->groupBy('tap')->map(fn ($items, $name) => $this->aggregate($items, $name, $cutoff, $comparison))->sortKeys()->values();
         $clusters = collect();
         foreach (['Dumai Bengkalis'=>['DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'], 'Rokan Hilir'=>['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']] as $name=>$members) {
