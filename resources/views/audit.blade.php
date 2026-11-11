@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Audit Trail Inventory. Tabel mengambil catatan melalui endpoint audit/data.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

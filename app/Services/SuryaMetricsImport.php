@@ -236,6 +236,8 @@ class SuryaMetricsImport
         }
     }
 
+    // Publikasi dilakukan setelah staging selesai. Ganti snapshot aktif per jenis metrik dalam satu
+    // transaksi database.
     public function publishSnapshot(array $meta): void
     {
         $kind = $meta['type'] === 'bio' ? 'biometrik' : 'cvm';

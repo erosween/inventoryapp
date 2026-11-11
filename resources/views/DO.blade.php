@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Riwayat Input DO. Form input dan koreksi ada di form/formDO dan form/form-edit-DO.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

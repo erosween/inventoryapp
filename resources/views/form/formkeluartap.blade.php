@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Form pengiriman barang antar-TAP. Penerimaan di sisi tujuan memakai halaman Masuk.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

@@ -39,14 +39,14 @@ use App\Http\Controllers\Api\SalesChartController;
 use App\Http\Controllers\DenomController;
 use App\Http\Controllers\SfController;
 
-//login
+// Login web Inventory. Sesi sales force mobile dimulai dari /mobile/login.
 Route::middleware([RedirectIfAuthenticated::class])->group(function () {
 	Route::get('/', [AuthController::class, 'showLoginForm'])->name('/');
 	Route::post('/logins', [AuthController::class, 'login'])->name('login.post');
 });
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 
-//  nocan
+// Nomor cantik. Jalur pencarian, booking, dan penjualan nomor.
 Route::get('/nocan', [NocanController::class, 'index'])->name('nocan.index');
 Route::get('/form/form-nocan', [NocanController::class, 'form'])->name('nocan.form');
 Route::get('/getnumber', [NocanController::class, 'getnumber']);
@@ -57,19 +57,21 @@ Route::get('/jual', [NocanjualController::class, 'index'])->name('nocan.jual');
 
 Route::get('/search', [searchController::class, 'search'])->name('search');
 
-// SURYA performance hub (formerly Monita Dumai)
+// SURYA Web. Akses halaman diperiksa oleh middleware surya.web.
 Route::middleware('surya.web')->group(function () {
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
 Route::get('/surya/dashboard', [HomeController::class, 'index'])->middleware(['auth', 'asmen.access'])->name('surya.inventory-dashboard');
+// KPI SVP. Blade dan surya-kpi-svp.js menangani tampilan, KpiSvpController membaca dan menyimpan entri.
 Route::view('/surya/kpi-svp', 'surya.kpi-svp')->name('surya.kpi-svp');
 Route::get('/surya/kpi-svp/entries', [\App\Http\Controllers\KpiSvpController::class, 'entries'])->name('surya.kpi-svp.entries');
 Route::put('/surya/kpi-svp/entries', [\App\Http\Controllers\KpiSvpController::class, 'save'])->name('surya.kpi-svp.save');
+// Upload Outletlist. Profil outlet, kategori, dan histori nota punya jalur import masing-masing.
 Route::post('/surya/outletlist/upload', [\App\Http\Controllers\OutletlistUploadController::class, 'store'])->name('surya.outletlist.upload');
 Route::get('/surya/outletlist/template', [\App\Http\Controllers\OutletlistUploadController::class, 'template'])->name('surya.outletlist.template');
 Route::post('/surya/outletlist/category', [\App\Http\Controllers\OutletlistUploadController::class, 'categoryStore'])->name('surya.outletlist.category');
 Route::post('/surya/outletlist/nota', [\App\Http\Controllers\OutletlistUploadController::class, 'notaStore'])->name('surya.outletlist.nota');
 Route::get('/surya/outletlist/nota/template', [\App\Http\Controllers\OutletlistUploadController::class, 'notaTemplate'])->name('surya.outletlist.nota-template');
-// Outlet transaction reports share the SURYA access boundary; NGRS keeps its existing URLs.
+// Transaksi Outlet. SA/PV dan CVM memakai URL /surya/transaksi-outlet, NGRS tetap memakai /surya/ngrs.
 Route::get('/surya/transaksi-outlet/{family}/filter-values', [\App\Http\Controllers\OutletTransactionController::class, 'values'])->where('family','sa|pv')->name('surya.outlet-transactions.values');
 Route::get('/surya/transaksi-outlet/{family}/export', [\App\Http\Controllers\OutletTransactionController::class, 'export'])->where('family','sa|pv')->name('surya.outlet-transactions.export');
 Route::get('/surya/transaksi-outlet/cvm/filter-values', [\App\Http\Controllers\OutletCvmController::class, 'values'])->name('surya.outlet-cvm.values');
@@ -83,15 +85,20 @@ Route::get('/surya/ngrs/export', [\App\Http\Controllers\NgrsController::class, '
 Route::post('/surya/ngrs/upload', [\App\Http\Controllers\NgrsController::class, 'store'])->name('surya.ngrs.upload');
 Route::get('/surya/ngrs/template', [\App\Http\Controllers\NgrsController::class, 'template'])->name('surya.ngrs.template');
 Route::get('/surya/outletlist/category/template', [\App\Http\Controllers\OutletlistUploadController::class, 'categoryTemplate'])->name('surya.outletlist.category-template');
+// Upload Transaksi. File metrik bisa diproses bertahap melalui endpoint process.
 Route::get('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUploadForm'])->name('surya.transaction-upload');
 Route::post('/surya/transaction-upload', [MonitaDumaiController::class, 'metricsUpload'])->name('surya.transaction-upload.store');
 Route::post('/surya/transaction-upload/{upload}/process', [MonitaDumaiController::class, 'metricsUploadProcess'])->whereUuid('upload')->name('surya.transaction-upload.process');
+// Stok dan target. Stock On Hand, Stock Gudang per tanggal, dan pengelolaan target.
 Route::get('/surya/stock-on-hand', [SuryaStockController::class, 'stock'])->name('surya.stock-on-hand');
 Route::get('/surya/stock-gudang', [sisaStockController::class, 'index'])->middleware('auth')->name('surya.stock-gudang');
 Route::get('/surya/input-target', [SuryaStockController::class, 'targets'])->name('surya.input-target');
 Route::post('/surya/input-target/upload', [SuryaStockController::class, 'upload'])->name('surya.input-target.upload');
 Route::patch('/surya/input-target/{target}', [SuryaStockController::class, 'update'])->name('surya.input-target.update');
+// Detail Outlet. Halaman utama dan endpoint data, ringkasan, filter, ekspor, serta profil ada di
+// MonitaDumaiController.
 Route::get('/surya/detail-outlet', [MonitaDumaiController::class, 'outletDetail'])->name('surya.outlet-detail');
+// Taskforce Push SO. Daftar penugasan dari upload dan riwayat kunjungan per outlet.
 Route::get('/surya/taskforce/push-so', [\App\Http\Controllers\TaskforceController::class, 'index'])->name('surya.taskforce.push-so');
 Route::get('/surya/taskforce/push-so/visits/download', [\App\Http\Controllers\TaskforceController::class, 'visitWorkbook'])->name('surya.taskforce.visits.download');
 Route::get('/surya/taskforce/push-so/{idOutlet}/visits', [\App\Http\Controllers\TaskforceController::class, 'visitHistory'])->name('surya.taskforce.visits.history');
@@ -101,6 +108,7 @@ Route::get('/surya/taskforce/push-so/filter-values', [\App\Http\Controllers\Task
 Route::post('/surya/taskforce/push-so/{idOutlet}/action', [\App\Http\Controllers\TaskforceController::class, 'store'])->name('surya.taskforce.push-so.store');
 Route::post('/surya/taskforce/upload', [\App\Http\Controllers\TaskforceController::class, 'upload'])->name('surya.taskforce.upload');
 Route::get('/surya/taskforce/template', [\App\Http\Controllers\TaskforceController::class, 'template'])->name('surya.taskforce.template');
+// Endpoint Detail Outlet. Ringkasan dan daftar outlet dapat dimuat terpisah oleh browser.
 Route::get('/surya/detail-outlet/sales-summary/download', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary.download');
 Route::get('/surya/detail-outlet/sales-summary', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary');
 Route::get('/surya/detail-outlet/filter-values', [MonitaDumaiController::class, 'outletColumnValues'])->name('surya.outlet-detail.filter-values');
@@ -112,6 +120,7 @@ Route::get('/surya/export-visits', [MonitaDumaiController::class, 'exportVisits'
 Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
 Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
 Route::get('/surya/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('surya.leader.logout');
+// Peta Outlet. Pencarian, data peta, foto, lokasi sekitar, dan performa outlet.
 Route::get('/surya/search', [MonitaDumaiController::class, 'search']);
 Route::get('/surya/suggest', [MonitaDumaiController::class, 'suggest']);
 Route::get('/surya/outlets', [MonitaDumaiController::class, 'outlets']);
@@ -120,6 +129,7 @@ Route::get('/surya/nearby', [MonitaDumaiController::class, 'nearby']);
 Route::get('/surya/performance', [MonitaDumaiController::class, 'performance']);
 });
 
+// Redirect untuk tautan lama yang masih memakai alamat Monita Dumai.
 Route::redirect('/monitadumai', '/surya', 301);
 Route::redirect('/monitadumai/leader-login', '/surya/leader-login', 301);
 Route::redirect('/monitadumai/leader-logout', '/surya/leader-logout', 301);
@@ -130,9 +140,10 @@ Route::redirect('/monitadumai/nearby', '/surya/nearby', 301);
 Route::redirect('/monitadumai/performance', '/surya/performance', 301);
 
 
-// group middleware
+// Web Inventory. Grup ini memakai sesi web dan pembatasan akses asmen.
 Route::middleware(['auth', 'asmen.access'])->group(function () {
 
+	// Dashboard Inventory berbagi HomeController dengan Dashboard SURYA. Layout mengikuti route aktif.
 	Route::get('/home', [HomeController::class, 'index'])->name('home');
 	Route::get('/chart/sales', [SalesChartController::class, 'sales']);
 
@@ -145,7 +156,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
     Route::get('/stock-adjustment/current', [StockAdjustmentController::class, 'current'])->name('stock-adjustment.current');
     Route::post('/stock-adjustment', [StockAdjustmentController::class, 'update'])->name('stock-adjustment.update');
 
-    // sf master data
+    // Master Sales Force. Data petugas, akun mobile, dan ekspor daftar SF.
     Route::get('/sf', [SfController::class, 'index']);
     Route::post('/sf', [SfController::class, 'store']);
     Route::post('/sf/update/{idsf}', [SfController::class, 'update']);
@@ -154,14 +165,14 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
     Route::get('/sf/sync-login', [SfController::class, 'syncLogin'])->name('sf.sync-login');
     Route::get('/sf/export', [SfController::class, 'export'])->name('sf.export');
 
-    // Denom Management
+    // Master denom. Klasifikasi produk dan varian dipakai oleh stok, inject, dan laporan.
     Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');
     Route::post('/denoms', [DenomController::class, 'store'])->name('denoms.store');
     Route::post('/denoms/{iddenom}', [DenomController::class, 'update'])->name('denoms.update');
     Route::post('/denoms/delete/{iddenom}', [DenomController::class, 'destroy'])->name('denoms.destroy');
     Route::get('/ajax/check-denom/{id}', [DenomController::class, 'checkId'])->name('ajax.check-denom');
 
-	// MASUK
+	// Penerimaan barang. Daftar dan ekspor transaksi masuk tersedia sebelum konfirmasi penerimaan.
 	Route::get('/masuk', [MasukController::class, 'index'])->name('masuk.index');
 	Route::get('/masuk/data', [MasukController::class, 'data'])->name('masuk.data');
 	Route::get('/masuk/summary', [MasukController::class, 'summary']);
@@ -169,43 +180,43 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	// approve / terima barang
 	Route::post('/masuk/{idkeluar}', [MasukController::class, 'masuk'])->name('masuk.approve');
 
-	//menu summary stok
+	// Ringkasan stok. Saldo menurut TAP atau SF dan riwayat perpindahan barang.
 	Route::get('/stock', [StockController::class, 'index']);
 	Route::get('/stocktap', [StockTapController::class, 'index']);
 	Route::get('/stocksf', [StockSfController::class, 'index']);
 	Route::get('/stock-journey', [StockJourneyController::class, 'index'])->name('stock-journey.index');
 
-	//injectvf segel
+	// Riwayat inject. Daftar, ekspor, dan pembatalan transaksi inject.
 	Route::get('/injectvf', [InjectController::class, 'index']);
 	Route::get('/injectvf/data', [InjectController::class, 'data'])->name('inject.data');
 	Route::get('/exportinject', [InjectController::class, 'export']);
 	Route::post('/injectvf/bulk-delete', [InjectController::class, 'bulkDelete'])->name('inject.bulk-delete');
 	Route::post('/injectvf/{idinject}', [InjectController::class, 'delete']);
-	//form inject segel
+	// Input inject. Form segel dan pengecekan stok sumber di TAP.
 	Route::get('/form/forminject', [FormInjectsegelController::class, 'index']);
 	Route::post('/form/forminject', [FormInjectsegelController::class, 'injectProses']);
 	Route::post('/ajax/get-stock-segel-tap', [FormInjectsegelController::class, 'getStockSegelTap'])->name('ajax.get-stock-segel-tap');
 	Route::post('/ajax/get-all-stock-inject', [InjectController::class, 'getAllStockTap'])->name('ajax.get-all-stock-inject');
-	//form inject byu
+	// Jalur form khusus inject by.U.
 	Route::get('/form/forminjectbyu', [FormInjectbyuController::class, 'index']);
 	Route::post('/form/forminjectbyu', [FormInjectbyuController::class, 'injectProses']);
 	Route::post('/ajax/get-stock-byu-tap', [FormInjectbyuController::class, 'getStockSegelTap'])->name('ajax.get-stock-byu-tap');
 
-	// KELUAR TAP
+	// Pengiriman antar-TAP. Riwayat, ringkasan, pembatalan, dan ekspor.
 	Route::get('/keluar', [KeluarController::class, 'index'])->name('keluar.index');
 	Route::get('/keluar/data', [KeluarController::class, 'data'])->name('keluar.data');
 	Route::get('/keluar/summary', [KeluarController::class, 'summary'])->name('keluar.summary');
 	Route::post('/keluar/{idkeluar}/cancel', [KeluarController::class, 'cancel'])->name('keluar.cancel');
 	Route::get('/exporttap', [KeluarController::class, 'exportexcel']);
 
-	//form keluar tap
+	// Form pengiriman antar-TAP dan pengecekan saldo pengirim.
 	Route::get('form/formkeluartap', [FormKeluartapController::class, 'index']);
 	Route::post('form/formkeluartap', [FormKeluartapController::class, 'proseskeluartapform']);
 	Route::post('/ajax/get-stock-tap-pengirim', [FormKeluartapController::class, 'getStockTapPengirim'])
 		->name('ajax.get-stock-tap-pengirim');
 	Route::post('/ajax/get-all-stock-tap-keluar', [FormKeluartapController::class, 'getAllStockTap'])->name('ajax.get-all-stock-tap-keluar');
 
-	//input DO
+	// Input DO. Penerimaan barang dari DO, koreksi transaksi, dan ekspor.
 	Route::get('/DO', [InputDOController::class, 'index'])->name('do.index');
 	Route::get('/DO/DATA', [InputDOController::class, 'data'])->name('do.data');
 	Route::post('/do/get-tap', [InputDOController::class, 'getTap'])
@@ -220,7 +231,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('/DO/update/{id}', [InputDOController::class, 'update'])->name('do.update');
 	Route::get('/exportexceldo', [InputDOController::class, 'exportexcel']);
 
-	// bo retur
+	// Retur BO. Input, koreksi, pembatalan, dan ekspor pengembalian barang.
 	Route::get('/bo', [BOController::class, 'index']);
 	Route::get('/bo/data', [BOController::class, 'data'])->name('bo.data');
 	Route::post('/bo/store', [BOController::class, 'proseskeluarboform'])->name('bo.store');
@@ -231,7 +242,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::get('/bo/edit/{id}', [BOController::class, 'edit'])->name('bo.edit');
 	Route::post('/bo/update/{id}', [BOController::class, 'update'])->name('bo.update');
 
-	// voucher rusak
+	// Voucher rusak. Pencatatan, koreksi, dan pembatalan stok rusak.
 	Route::get('vrusak', [VrusakController::class, 'index'])->name('vrusak.index');
 	Route::get('vrusak/data', [VrusakController::class, 'data'])->name('vrusak.data');
 	Route::get('form/form-vrusak', [VrusakController::class, 'vrusak']);
@@ -242,7 +253,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('vrusak/update/{id}', [VrusakController::class, 'update'])->name('vrusak.update');
 	Route::get('exportrusak', [VrusakController::class, 'exportexcel']);
 
-	//stok masuk sf
+	// SF Masuk. Penyaluran barang dari TAP ke stok petugas.
 	Route::get('sf-masuk', [SfmasukController::class, 'index']);
 	Route::get('/form/form-sfmasuk', [SfmasukController::class, 'formmasuksf']);
 	Route::post('sf-masuk', [SfmasukController::class, 'masuksfproses']);
@@ -259,7 +270,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('sf-masuk/{idmasuk}', [SfmasukController::class, 'delete']);
 	Route::get('/exportsfmasuk', [SfmasukController::class, 'exportexcel']);
 
-	//stok keluar sf
+	// SF Keluar. Input penjualan, daftar dan ekspor gabungan jurnal SF serta approval mobile.
 	Route::get('/sf-keluar', [SfkeluarController::class, 'index']);
 	Route::get('form/form-sfkeluar', [SfkeluarController::class, 'formkeluarsf']);
 	Route::post('/ajax/get-sf-keluar', [SfkeluarController::class, 'getSf'])
@@ -279,7 +290,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('sf-keluar/{idkeluar}', [SfkeluarController::class, 'delete']);
 	Route::post('sf-keluar', [SfkeluarController::class, 'keluarsfproses']);
 
-	//retursf
+	// Retur SF. Pengembalian barang dari SF ke TAP dan pembatalan retur.
 	Route::get('/retursf', [ReturSfController::class, 'index'])->name('retursf.index');
 	Route::get('/retursf/data', [ReturSfController::class, 'data'])->name('retursf.data');
 	Route::get('/exportretursf', [ReturSfController::class, 'exportexcel']);
@@ -291,21 +302,21 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('/retursf', [ReturSfController::class, 'store']);
 	Route::post('/ajax/get-all-stock-sf-retur', [ReturSfController::class, 'getAllStockSf'])->name('ajax.get-all-stock-sf-retur');
 
-	// stock movement ledger
+	// Jalur API internal untuk transfer dan pengeluaran stok lewat ledger.
 	Route::post('/sf-masuk-ledger', [StockMovementController::class, 'transfer']);
 	Route::post('/sf-keluar-ledger', [StockMovementController::class, 'out']);
 
 	// inbox
 	Route::get('inbox', [InboxController::class, 'index']);
 
-	// sisa stock daily
+	// Stock Gudang. Saldo per tanggal dan ekspor Excel atau CSV.
 	Route::get('/sisastock', [sisaStockController::class, 'index'])->name('sisastock.index');
 	Route::match(['get', 'post'], '/sisastock/data', [sisaStockController::class, 'data'])->name('sisastock.data');
 	Route::get('/sisastock/export/{format}', [sisaStockController::class, 'export'])
 		->whereIn('format', ['xlsx', 'csv'])
 		->name('sisastock.export');
 
-	//HOME NOCAN
+	// Administrasi nomor cantik. Daftar, koreksi status, reset, dan ekspor.
 	Route::get('/homenocan', [HomenocanController::class, 'index']);
 	Route::get('/nocanadmin', [NocanadminController::class, 'index'])->name('nocanadmin.index');
 	Route::get('/nocanadmin/data', [NocanadminController::class, 'data'])->name('nocanadmin.data');
@@ -313,7 +324,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('/reset/{id}', [NocanadminController::class, 'reset'])->name('nocanadmin.reset');
 	Route::get('/exportnocan', [HomenocanController::class, 'exportexcel']);
 
-	// mobile approval
+	// Approval dan monitoring lapangan. Modul web untuk transaksi sales mobile, visit, dan field report.
 	Route::get('/mobile-approval', [\App\Http\Controllers\MobileApprovalController::class, 'index'])->name('admin.mobile-approval.index');
 	Route::get('/surya/visits', [\App\Http\Controllers\SuryaVisitReportController::class, 'index'])->name('surya.visits.report');
 	Route::match(['GET', 'POST'], '/surya/visits/auto-approve-pending', [\App\Http\Controllers\SuryaVisitReportController::class, 'autoApprovePending'])->name('surya.visits.auto-approve-pending');
@@ -330,7 +341,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 
 });
 
-// MOBILE SALES FORCE (Independent Access)
+// SURYA Mobile. Login SF terpisah, lalu MobileSFAccess menjaga jalur operasional.
 Route::prefix('mobile')->name('mobile.')->group(function () {
     Route::get('/login', [\App\Http\Controllers\MobileAuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [\App\Http\Controllers\MobileAuthController::class, 'login'])->name('login.post');
@@ -339,22 +350,26 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
     Route::middleware([\App\Http\Middleware\MobileSFAccess::class])->group(function () {
         Route::get('/', [\App\Http\Controllers\MobileSalesController::class, 'index'])->name('index');
         Route::get('/input', [\App\Http\Controllers\MobileSalesController::class, 'form'])->name('form');
+        // Visit SF. Status kunjungan, check-in, pemilik stok, dan checkout.
         Route::get('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'create'])->name('visit');
         Route::get('/visit-menu', [\App\Http\Controllers\SuryaVisitController::class, 'menu'])->name('visit.menu');
         Route::get('/visit-status', [\App\Http\Controllers\SuryaVisitController::class, 'status'])->name('visit.status');
         Route::post('/visit', [\App\Http\Controllers\SuryaVisitController::class, 'store'])->name('visit.store');
         Route::post('/visit-stock-owner', [\App\Http\Controllers\SuryaVisitController::class, 'assignStockOwner'])->name('visit.stock-owner');
         Route::post('/visit-checkout', [\App\Http\Controllers\SuryaVisitController::class, 'checkout'])->name('visit.checkout');
+        // Fitur lapangan tambahan. Titip jual, survei, dan laporan jaringan.
         Route::get('/consignment', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'consignment'])->name('surya.consignment');
         Route::get('/survey', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'survey'])->name('surya.survey');
         Route::get('/network', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'network'])->name('surya.network');
         Route::post('/surya/{type}', [\App\Http\Controllers\MobileSuryaExtrasController::class, 'store'])->name('surya.store');
+        // Submit penjualan, validasi nomor titip jual, dan alur bukti transaksi.
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::post('/consignment/check', [\App\Http\Controllers\MobileSalesController::class, 'checkConsignmentNumbers'])->name('consignment.check');
         Route::get('/receipt/{receipt}', [\App\Http\Controllers\MobileSalesController::class, 'showReceipt'])->name('receipt.show');
         Route::get('/receipt/{receipt}/image.jpg', [\App\Http\Controllers\MobileSalesController::class, 'receiptImage'])->name('receipt.image');
         Route::post('/receipt/{receipt}/whatsapp', [\App\Http\Controllers\MobileSalesController::class, 'prepareReceiptWhatsapp'])->name('receipt.whatsapp');
         Route::post('/receipt/{receipt}/confirm', [\App\Http\Controllers\MobileSalesController::class, 'confirmReceiptWhatsapp'])->name('receipt.confirm');
+        // Riwayat transaksi, pencarian outlet, koreksi penjualan, dan stok petugas.
         Route::get('/history', [\App\Http\Controllers\MobileSalesController::class, 'history'])->name('history');
         Route::get('/history/details', [\App\Http\Controllers\MobileSalesController::class, 'getVisitDetails'])->name('history.details');
         Route::get('/search-outlet', [\App\Http\Controllers\MobileSalesController::class, 'searchOutlet'])->name('search-outlet');

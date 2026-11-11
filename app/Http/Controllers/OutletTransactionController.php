@@ -9,6 +9,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class OutletTransactionController extends Controller
 {
+    // SA dan PV berbagi report. Parameter family memilih jenis transaksi, sementara report menentukan
+    // cakupan outlet.
     private function report(Request $request, string $family): array
     {
         $v=$request->validate(['cutoff'=>'nullable|date_format:Y-m-d|after_or_equal:2026-01-01|before_or_equal:'.now('Asia/Jakarta')->toDateString(),
@@ -30,6 +32,7 @@ class OutletTransactionController extends Controller
         return view('surya.outlet-transactions',$data);
     }
 
+    // Daftar pilihan filter membaca nilai dari outlet yang lolos filter kolom lain.
     public function values(Request $request, string $family)
     {
         $request->validate(['column'=>'required|string','q'=>'nullable|string|max:150','outlet_q'=>'nullable|string|max:150','value_page'=>'nullable|integer|min:1|max:10000']);

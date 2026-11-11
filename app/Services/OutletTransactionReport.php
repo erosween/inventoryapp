@@ -29,6 +29,8 @@ class OutletTransactionReport
         $master = $master->map(function ($o) { $o->kategori_outlet=trim((string)$o->kategori_outlet) ?: 'Reguler'; return $o; });
         $cutoffMonth = $cutoff->month;
         $nota = new OutletNotaSales;
+        // Ambil total setiap bulan sekali. SA/PV memakai sumber nota yang sama sebelum memilih
+        // kuantitas per produk.
         $monthlyTotals = [];
         for ($m = 1; $m <= $cutoffMonth; $m++) {
             $start = $cutoff->copy()->startOfYear()->month($m)->startOfMonth();
@@ -48,6 +50,8 @@ class OutletTransactionReport
             $compare = $comparison ? (int) ($comparisonTotals[$id][$family] ?? 0) : null;
             return $this->calculate((array) $outlet + compact('months', 'compare'), $cutoffMonth, $comparison);
         })->values();
+        // Hitung rekap dari outlet yang lolos filter. Persentase cluster dan grand total dihitung dari
+        // jumlah transaksi gabungan.
         $summary = $rows->groupBy('tap')->map(fn ($items, $name) => $this->aggregate($items, $name, $cutoff, $comparison))->sortKeys()->values();
         $clusters = collect();
         foreach (['Dumai Bengkalis'=>['DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'], 'Rokan Hilir'=>['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']] as $name=>$members) {

@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Approval penjualan mobile di Web Inventory. Tabel dan aksi memanggil MobileApprovalController.
+--}}@extends('layout.layout')
 
 @section('content')
 <div class="main-panel">

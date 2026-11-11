@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Ringkasan stok Inventory dari StockController.
+--}}@extends('layout.layout')
 
 @php
     use Illuminate\Support\Str;

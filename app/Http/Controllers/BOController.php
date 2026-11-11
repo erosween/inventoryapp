@@ -12,6 +12,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\BOExport;
 use App\Helpers\AuditLogger;
 
+// Retur BO. Form dan riwayat transaksi memakai view bo serta form/formkeluarbo. Operasi perubahan
+// retur ada di controller ini.
 class BOController extends Controller
 {
     /* =========================

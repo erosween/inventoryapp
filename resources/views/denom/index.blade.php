@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Halaman master denom. Form dan tabel terhubung ke DenomController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

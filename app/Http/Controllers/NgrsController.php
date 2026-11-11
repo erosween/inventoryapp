@@ -19,6 +19,8 @@ class NgrsController extends Controller
         $v=$r->validate(['year'=>'nullable|integer|min:2026|max:2100','metric'=>'nullable|in:trx,rech','tap'=>'nullable|string|max:40','q'=>'nullable|string|max:150','per_page'=>'nullable|in:25,50,100','summary_view'=>'nullable|in:monthly,average','summary_metric'=>'nullable|in:trx,rech']);
         return ['year'=>(int)($v['year']??now('Asia/Jakarta')->year),'metric'=>$v['metric']??'trx','tap'=>trim($v['tap']??''),'q'=>trim($v['q']??''),'per_page'=>(int)($v['per_page']??25)];
     }
+    // Rekap TAP dan detail RS tahunan memakai NgrsReport. Detail tetap dipaginasi setelah filter dan
+    // urutan diterapkan.
     public function index(Request $request,NgrsReport $report)
     {
         $filters=$this->filters($request);$filters['metric']='trx';$scopes=$report->scopes();$taps=array_merge(NgrsImport::TAPS,['INFILTRASI DUMAI','INFILTRASI ROHIL']);if($scopes!==null)$taps=array_values(array_intersect($taps,$scopes));

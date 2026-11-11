@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Edit transaksi SF Keluar yang sudah tersimpan. Perhitungan ulang saldo ada di SfkeluarController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

@@ -1,4 +1,6 @@
-@extends('surya.layouts.workspace')
+{{--
+    Laporan kegiatan lapangan untuk SURYA Web. Inputnya berasal dari alur laporan SURYA Mobile.
+--}}@extends('surya.layouts.workspace')
 @section('title', 'Laporan Lapangan')
 @section('active-page', 'field-reports')
 @section('description', 'Pantau konsinyasi SA, survei kompetitor, dan kondisi jaringan outlet.')

@@ -37,6 +37,8 @@ class FormInjectsegelController extends Controller
 
     }
 
+    // Konversi stok sumber menjadi denom hasil inject. Pencatatan mutasi dan perubahan saldo dilakukan
+    // dalam transaksi database.
     public function injectProses(Request $request)
     {
         $items = $request->input('items');

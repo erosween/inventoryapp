@@ -1,4 +1,7 @@
-<div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-outlet-search="{{ $columnSearch }}" data-values-url="{{ $columnValuesUrl }}" data-selection="{{ json_encode(request('columns',new \stdClass())) }}" data-excluded="{{ json_encode(request('exclude',new \stdClass())) }}">
+{{--
+    Menu filter dan sort tabel outlet. Pilihan nilainya dimuat dari endpoint yang diberikan oleh halaman
+    pemakai.
+--}}<div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-outlet-search="{{ $columnSearch }}" data-values-url="{{ $columnValuesUrl }}" data-selection="{{ json_encode(request('columns',new \stdClass())) }}" data-excluded="{{ json_encode(request('exclude',new \stdClass())) }}">
 <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
 <div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> Urutkan naik</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Urutkan turun</button><button type="button" data-sort-clear>{{ $columnResetLabel }}</button></div>
 <input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter">

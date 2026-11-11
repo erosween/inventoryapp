@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Riwayat penjualan dan kunjungan sales mobile. Detail tambahan dimuat dari endpoint riwayat.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Riwayat Input')
 

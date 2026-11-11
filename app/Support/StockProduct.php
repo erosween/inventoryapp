@@ -4,6 +4,7 @@ namespace App\Support;
 
 class StockProduct
 {
+    // Pembacaan saldo memakai klasifikasi master jika tersedia, dengan fallback untuk denom lama.
     public static function isSa(object $denom): bool
     {
         if (in_array($denom->product ?? null, ['PV', 'SA'], true)) return $denom->product === 'SA';

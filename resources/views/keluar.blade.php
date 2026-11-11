@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Riwayat pengiriman antar-TAP, termasuk akses ke pembatalan dan ekspor.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

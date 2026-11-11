@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Ringkasan nomor cantik di Web Inventory. Dataset dan ekspor ditangani HomenocanController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

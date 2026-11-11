@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Cookie;
 
+// Sesi akun sales force mobile, mulai dari login sampai ubah kata sandi dan logout.
 class MobileAuthController extends Controller
 {
     public function showLoginForm()

@@ -1,2 +1,4 @@
-<tr class="{{ $kind }}"><th>@if($kind==='ngrs-cluster')<small>CLUSTER</small>@endif{{ $row['tap'] }}</th>@foreach($numeric  as $key=>$label)@php $value=$row[$key]; @endphp@php $pct=str_starts_with($key,'mom_pct_');$gap=str_starts_with($key,'gap_')||$pct;$direction=$value===null?'missing':($value>0?'positive':($value<0?'negative':'flat')); @endphp
+{{--
+    Baris rekap untuk laporan SA/PV, termasuk total, GAP, dan persentase MoM.
+--}}<tr class="{{ $kind }}"><th>@if($kind==='ngrs-cluster')<small>CLUSTER</small>@endif{{ $row['tap'] }}</th>@foreach($numeric  as $key=>$label)@php $value=$row[$key]; @endphp@php $pct=str_starts_with($key,'mom_pct_');$gap=str_starts_with($key,'gap_')||$pct;$direction=$value===null?'missing':($value>0?'positive':($value<0?'negative':'flat')); @endphp
 <td class="{{ $gap?'ngrs-gap is-'.$direction:($key==='compare'?'ngrs-mom-helper':($key==='total'?'ngrs-total':'')) }}">@if($value===null)—@elseif($pct){{ ($value>0?'▲ +':($value<0?'▼ -':'')).number_format(abs($value),1).'%' }}@else{{ number_format($value,0) }}@endif</td>@endforeach</tr>

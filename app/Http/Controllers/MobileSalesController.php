@@ -40,6 +40,8 @@ class MobileSalesController extends Controller
         return response()->json($outlets);
     }
 
+    // Detail performa outlet untuk sales mobile. Periode MTD dan pembanding mengikuti perhitungan pada
+    // bagian ini.
     public function outletPerformance(string $id_outlet)
     {
         $idOutlet = strtoupper(trim($id_outlet));
@@ -354,6 +356,8 @@ SQL;
         return view('mobile.form', compact('denoms', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
     }
 
+    // Submit penjualan mobile. Validasi outlet, stok, nota, dan nomor titip jual sebelum mencatat
+    // transaksi untuk approval.
     public function store(Request $request)
     {
         $products = collect($request->input('products', []))
@@ -647,6 +651,7 @@ SQL;
         );
     }
 
+    // Pisahkan petugas yang login dari pemilik stok saat penjualan dilakukan melalui akun helper.
     private function resolveOutletOwnerIdsf(string $idOutlet): ?string
     {
         $visitOwner = DB::table('surya_visits')
@@ -706,6 +711,7 @@ SQL;
         ]);
     }
 
+    // Riwayat sales mobile dikelompokkan menurut kunjungan atau transaksi outlet.
     public function history(Request $request)
     {
         $idsf = session('mobile_sf_id');
@@ -1040,6 +1046,8 @@ SQL;
         ]);
     }
 
+    // Bukti transaksi. Halaman nota, gambar JPEG, dan persiapan WhatsApp memakai identitas receipt yang
+    // sama.
     public function showReceipt(MobileSalesReceipt $receipt)
     {
         abort_unless($receipt->idsf === session('mobile_sf_id'), 403);

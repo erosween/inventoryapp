@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use App\Support\InjectProductConfig;
 use App\Support\DenomGrouping;
 
+// Jalur form inject by.U, termasuk pemilihan stok sumber dan penyimpanan transaksi.
 class FormInjectbyuController extends Controller
 {   
     public function index(Request $request)

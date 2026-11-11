@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Form penyesuaian saldo stok admin super. Perubahan dicatat oleh StockAdjustmentController.
+--}}@extends('layout.layout')
 
 @section('content')
 <style>

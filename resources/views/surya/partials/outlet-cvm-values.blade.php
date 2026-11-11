@@ -1,4 +1,6 @@
-@foreach($metrics as $metric => $label)
+{{--
+    Sel nilai CVM, GAP, dan MoM. Urutan iterasi metrik dan periode mengikuti header CVM.
+--}}@foreach($metrics as $metric => $label)
     @foreach($columns as $key => $heading)
         @php
             $value = $series[$metric][$key] ?? null;

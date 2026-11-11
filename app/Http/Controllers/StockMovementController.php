@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+// Endpoint mutasi stok melalui ledger. Transfer dan pengeluaran menulis perubahan saldo dalam
+// transaksi database.
 class StockMovementController extends Controller
 {
     /*

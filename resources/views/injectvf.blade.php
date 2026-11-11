@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Tabel riwayat inject. Gunakan form/forminject atau form/forminjectbyu untuk input.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

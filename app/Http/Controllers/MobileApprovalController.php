@@ -324,6 +324,8 @@ class MobileApprovalController extends Controller
         return now()->toDateString();
     }
 
+    // Approval mengunci transaksi dan saldo, menulis jurnal keluarsf, lalu memperbarui status mobile
+    // dalam satu transaksi database.
     public function approve(Request $request)
     {
         $id = $request->id;
@@ -465,6 +467,7 @@ class MobileApprovalController extends Controller
         }
     }
 
+    // Penolakan memproses transaksi pending dan menangani saldo yang sudah dicadangkan pada alur lama.
     private function rejectSale(int $id): void
     {
         DB::transaction(function () use ($id) {

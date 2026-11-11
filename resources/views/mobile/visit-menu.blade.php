@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Menu kunjungan sales mobile. Tautan menuju alur visit yang dijaga SuryaVisitController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Aktivitas Visit')
 

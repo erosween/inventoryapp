@@ -1,4 +1,6 @@
-@extends('surya.layouts.workspace')
+{{--
+    Transaksi Outlet CVM. Detail outlet dirender dulu, rekap TAP dimuat dari respons terpisah.
+--}}@extends('surya.layouts.workspace')
 
 @section('title', 'Transaksi CVM')
 @section('active-page', 'transactions-cvm')

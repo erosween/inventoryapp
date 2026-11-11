@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Halaman laporan lapangan di SURYA Web. Input laporan mobile ditangani MobileSuryaExtrasController.
 class SuryaFieldReportController extends Controller
 {
     public function index(Request $request)

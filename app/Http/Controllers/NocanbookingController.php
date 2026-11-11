@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+// Tampilan daftar booking nomor cantik dan form nomor yang digunakan dari halaman ini.
 class NocanbookingController extends Controller
 {
 

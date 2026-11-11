@@ -76,6 +76,7 @@ class TaskforceController extends MonitaDumaiController
         return [$cutoff,$upload,$headers,$options];
     }
 
+    // Periode tanpa file baru meneruskan penugasan dari upload terakhir yang tersedia sampai bulan cutoff.
     private function activeUpload(Carbon $cutoff)
     {
         return DB::table('taskforce_uploads')
@@ -83,6 +84,8 @@ class TaskforceController extends MonitaDumaiController
             ->orderByDesc('period_month')->orderByDesc('id')->first();
     }
 
+    // Query utama untuk daftar, filter, dan ekspor Taskforce. Penugasan dari file digabung dengan
+    // status dan riwayat visit.
     private function reportQuery(Carbon $cutoff, $upload, array $options)
     {
         $latest=DB::table('taskforce_push_so_actions')->where('period_month',$cutoff->copy()->startOfMonth()->toDateString())
@@ -239,6 +242,7 @@ class TaskforceController extends MonitaDumaiController
         return response()->json(['outlet'=>$outlet,'visits'=>$visits->items(),'total'=>$visits->total(),'page'=>$visits->currentPage(),'has_more'=>$visits->hasMorePages()])->header('Cache-Control','no-store');
     }
 
+    // Simpan kunjungan tambahan untuk outlet yang sudah masuk cakupan penugasan pengguna.
     public function addVisit(Request $request,string $idOutlet)
     {
         abort_unless($this->canAct(),403);

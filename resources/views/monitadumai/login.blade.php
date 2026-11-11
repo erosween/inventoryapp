@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Tampilan login pemimpin SURYA pada jalur leader-login.
+--}}<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">

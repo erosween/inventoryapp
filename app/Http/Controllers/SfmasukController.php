@@ -166,6 +166,8 @@ class SfmasukController extends Controller
         return response()->json($stocks);
     }
 
+// Pindahkan stok TAP ke saldo SF. Jurnal masuk SF dan perubahan kedua saldo ditulis dalam transaksi
+// yang sama.
 public function masuksfproses(Request $request)
 {
     $items = $request->input('items');

@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Form pengembalian barang ke BO. Penyimpanan transaksi ditangani BOController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

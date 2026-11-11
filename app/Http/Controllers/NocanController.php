@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+// Daftar dan form pencarian nomor cantik. Modul booking dan penjualan punya controller masing-masing.
 class NocanController extends Controller
 {
 

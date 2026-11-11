@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Tampilan riwayat pergerakan stok dari StockJourneyController.
+--}}@extends('layout.layout')
 
 @section('content')
     @php

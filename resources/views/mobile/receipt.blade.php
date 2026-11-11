@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Tampilan nota penjualan mobile. Alur gambar nota dan WhatsApp memakai receipt yang sama.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Konfirmasi Penjualan')
 

@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Ringkasan stok menurut TAP dari StockTapController.
+--}}@extends('layout.layout')
 
 @php
     use Illuminate\Support\Str;

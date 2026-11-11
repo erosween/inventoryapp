@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Input penyaluran stok ke SF. Pilihan petugas dan stok TAP dipasok oleh SfmasukController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

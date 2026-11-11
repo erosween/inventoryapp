@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Edit transaksi DO yang sudah tersimpan. Koreksi dikirim ke InputDOController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

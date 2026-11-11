@@ -61,6 +61,7 @@ public function getStockTapPengirim(Request $request)
 
 
 
+// Catat pengiriman dari TAP asal. TAP tujuan mengonfirmasi penerimaan lewat MasukController.
 public function proseskeluartapform(Request $request)
 {
     $items = $request->input('items');

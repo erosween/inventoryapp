@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Layout SURYA Mobile. Navigasi dan aset bersama dimuat di sini.
+--}}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">

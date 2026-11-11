@@ -120,6 +120,7 @@ class SuryaVisitController extends Controller
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
+    // Checkout menutup sesi visit aktif milik sales yang sedang login.
     public function checkout(Request $request)
     {
         $validated = $request->validate([
@@ -187,6 +188,8 @@ class SuryaVisitController extends Controller
         }
     }
 
+    // Check-in dan foto visit diproses di sini. Status dan koordinat yang tampil di Peta Outlet dibaca
+    // melalui SuryaOutletCoordinates.
     public function store(Request $request)
     {
         $started = microtime(true);

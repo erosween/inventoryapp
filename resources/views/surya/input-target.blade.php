@@ -1,4 +1,6 @@
-@extends('surya.layouts.workspace')
+{{--
+    Halaman pengelolaan target. Baca, upload, dan edit ditangani SuryaStockController.
+--}}@extends('surya.layouts.workspace')
 @section('title', 'Input Target')
 @section('active-page', 'input-target')
 @section('description', 'Kelola target PV dan SA per sales force.')

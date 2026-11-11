@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Input penjualan mobile. Pilihan outlet, stok, dan submit mengikuti MobileSalesController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Input Penjualan')
 

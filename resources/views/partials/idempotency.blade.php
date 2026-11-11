@@ -1,4 +1,6 @@
-<script>
+{{--
+    Partial untuk field penanda permintaan formulir. Dipakai oleh form yang memerlukan identitas submit.
+--}}<script>
 (function () {
     const recentAjaxKeys = new Map();
 

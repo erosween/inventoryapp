@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Riwayat penerimaan barang. Konfirmasi pengiriman masuk diproses di MasukController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

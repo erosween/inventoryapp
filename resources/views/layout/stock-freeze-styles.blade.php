@@ -1,4 +1,6 @@
-<style>
+{{--
+    Aturan kolom dan header tetap pada tabel stok yang memuat partial ini.
+--}}<style>
     /* Shared freeze-pane contract for Stock All, Stock Gudang, and Stock SF. */
     .stock-freeze {
         --freeze-no-width: 48px;

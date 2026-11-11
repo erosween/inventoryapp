@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 
+// Controller pengguna yang merender view index. Cek routes/web.php untuk alur login Inventory aktif.
 class UserController extends Controller
 {
     

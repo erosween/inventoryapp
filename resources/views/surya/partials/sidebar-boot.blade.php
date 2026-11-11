@@ -1,4 +1,6 @@
-<script>
+{{--
+    Inisialisasi status sidebar sebelum workspace tampil.
+--}}<script>
     (() => {
         const root = document.documentElement;
         root.classList.add('surya-sidebar-initializing');

@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Beranda sales mobile. Tampilan memakai data visit, outlet, dan penjualan dari MobileSalesController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Dashboard')
 

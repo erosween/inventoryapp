@@ -1,4 +1,6 @@
-<thead>
+{{--
+    Header bertingkat untuk rekap dan detail CVM. Urutan metrik mengikuti kolom pada outlet-cvm-values.
+--}}<thead>
     <tr>
         <th scope="colgroup" colspan="{{ count($labels) }}" data-report-group="{{ count($labels) }}">{{ count($labels) === 1 ? 'Wilayah' : 'Profil Outlet' }}</th>
         @foreach($metrics as $label)

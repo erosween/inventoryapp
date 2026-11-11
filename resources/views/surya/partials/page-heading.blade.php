@@ -1,4 +1,6 @@
-<div class="surya-page-heading">
+{{--
+    Judul dan deskripsi yang dikirim oleh halaman ke layout workspace.
+--}}<div class="surya-page-heading">
     <div class="surya-page-heading-copy">
         <h1>{{ $title }}</h1>
         @if(!empty($description))<p>{{ $description }}</p>@endif

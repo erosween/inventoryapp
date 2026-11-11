@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Tampilan hasil pencarian Web Inventory yang dirender oleh searchController.
+--}}<!DOCTYPE html>
 <html lang="id">
 
 <head>

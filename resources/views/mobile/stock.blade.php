@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Tampilan stok petugas pada SURYA Mobile. Data disiapkan oleh MobileSalesController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Stok Saya')
 

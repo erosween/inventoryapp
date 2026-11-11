@@ -1,4 +1,6 @@
-<div class="outlet-period">
+{{--
+    Kontrol cutoff laporan Detail Outlet. Nilai dipakai oleh tabel, ringkasan, dan ekspor.
+--}}<div class="outlet-period">
     <div class="outlet-period-copy"><label for="sales-cutoff">Periode laporan</label><span id="outlet-period-caption" data-period-caption>@if(\App\Support\OutletReportPeriod::isClosedMonthEnd(\Carbon\Carbon::parse($salesCutoffValue)))Bulan penuh · {{ \Carbon\Carbon::parse($salesCutoffValue)->locale('id')->translatedFormat('F Y') }}@else MTD 1–{{ \Carbon\Carbon::parse($salesCutoffValue)->locale('id')->translatedFormat('d F Y') }}@endif</span></div>
     <div class="outlet-period-controls">
         <div class="outlet-date-control">

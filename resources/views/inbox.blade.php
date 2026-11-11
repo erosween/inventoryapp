@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Tampilan Inbox Inventory. Data halaman disiapkan oleh InboxController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

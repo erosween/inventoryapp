@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Input voucher rusak. Pilihan stok dan penyimpanan mengikuti VrusakController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

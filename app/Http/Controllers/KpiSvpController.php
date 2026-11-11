@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 class KpiSvpController extends Controller
 {
+    // Ambil periode terpilih dan bulan sebelumnya agar browser bisa mengisi target awal. Skor dan
+    // proyeksi dihitung di surya-kpi-svp.js.
     public function entries(Request $request)
     {
         $input = $request->validate(['period' => ['required', 'date_format:Y-m']]);
@@ -19,6 +21,7 @@ class KpiSvpController extends Controller
         return response()->json($rows);
     }
 
+    // Penyimpanan khusus admin super. Satu baris KPI dikenali dari periode, wilayah, segmen, dan parameter.
     public function save(Request $request)
     {
         abort_unless($request->user()?->isSuperAdmin(), 403);

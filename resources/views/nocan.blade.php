@@ -1,4 +1,6 @@
-@extends('layout.layoutcuan')
+{{--
+    Daftar nomor cantik. Form pendamping ada di form/form-nocan.
+--}}@extends('layout.layoutcuan')
 
 
 @section('content')

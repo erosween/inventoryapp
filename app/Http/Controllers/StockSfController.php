@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
 
+// Ringkasan saldo menurut sales force. Input dan koreksi mutasi SF berada di controller transaksi SF.
 class StockSfController extends Controller
 {
     public function index()

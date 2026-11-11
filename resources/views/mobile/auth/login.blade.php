@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Login sales force di SURYA Mobile. Submit ditangani MobileAuthController.
+--}}<!DOCTYPE html>
 <html lang="id">
 
 <head>

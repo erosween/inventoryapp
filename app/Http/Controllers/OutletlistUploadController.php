@@ -56,6 +56,8 @@ class OutletlistUploadController extends Controller
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
     }
 
+    // Upload profil outlet utama diteruskan ke OutletlistImport. Kategori outlet dan histori nota punya
+    // jalur upload terpisah.
     public function store(Request $request, OutletlistImport $importer)
     {
         $this->authorizeUpload();

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
+// Administrasi nomor cantik, termasuk perubahan dan reset status dari halaman nocanadmin.
 class NocanadminController extends Controller
 {
 

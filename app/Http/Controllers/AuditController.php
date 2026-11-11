@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 
+// Audit Trail Inventory. Halaman dan endpoint data membaca catatan audit untuk ditampilkan di tabel.
 class AuditController extends Controller
 {
     public function index()

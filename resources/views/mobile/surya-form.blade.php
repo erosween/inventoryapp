@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Tampilan form lapangan yang dipakai oleh MobileSuryaExtrasController.
+--}}@extends('layout.mobile_layout')
 @section('title', $title)
 @section('content')
 <div class="glass-card p-4"><h5 class="fw-bold mb-1">{{ $title }}</h5><p class="text-muted small mb-4">Dicatat otomatis atas nama {{ session('mobile_sf_name') }}.</p>

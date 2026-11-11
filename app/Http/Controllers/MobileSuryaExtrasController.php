@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Form tambahan mobile untuk titip jual, survei, dan jaringan. Penjualan dan nota ada di
+// MobileSalesController.
 class MobileSuryaExtrasController extends Controller
 {
     public function consignment()

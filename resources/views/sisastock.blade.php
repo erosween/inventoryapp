@@ -1,4 +1,7 @@
-@extends(request()->routeIs('surya.stock-gudang') ? 'surya.layouts.inventory-stock' : 'layout.layout')
+{{--
+    Stock Gudang per tanggal untuk Inventory dan SURYA. Data snapshot dan ekspor berasal dari
+    sisaStockController.
+--}}@extends(request()->routeIs('surya.stock-gudang') ? 'surya.layouts.inventory-stock' : 'layout.layout')
 
 @php
     use Illuminate\Support\Str;

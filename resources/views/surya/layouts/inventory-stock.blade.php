@@ -1,4 +1,6 @@
-@extends('surya.layouts.workspace')
+{{--
+    Layout SURYA untuk view Stock Gudang bersama di sisastock.blade.php.
+--}}@extends('surya.layouts.workspace')
 @section('title', 'Stock Gudang')
 @section('active-page', 'stock-gudang')
 @section('description', 'Pantau stok TAP dan sales force beserta histori hariannya.')

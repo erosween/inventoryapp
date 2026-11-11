@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Input pengembalian stok SF ke TAP. Kirim ke ReturSfController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

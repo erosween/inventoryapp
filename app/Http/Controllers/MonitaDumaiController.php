@@ -20,6 +20,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class MonitaDumaiController extends Controller
 {
+    // Peta Outlet dan Detail Visit berbagi halaman Monita Dumai. Data panel dibangun sesuai panel aktif.
     public function index(Request $request)
     {
         $showLeaderDashboard = $this->hasSuryaAccess($request);
@@ -62,6 +63,7 @@ class MonitaDumaiController extends Controller
         return view('monitadumai.metrics-upload');
     }
 
+    // Editor profil Digipos mengubah SF dan PJP di appsdumais. Pilihan SF mengikuti TAP outlet.
     public function outletProfile(string $idOutlet)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
@@ -103,6 +105,8 @@ class MonitaDumaiController extends Controller
         return response()->json(['message' => "Profil outlet {$idOutlet} berhasil diperbarui."]);
     }
 
+    // Detail Outlet memuat halaman pertama sesuai tab dan filter. Endpoint outletDetailData juga
+    // menyediakan data Digipos untuk pembaruan tabel.
     public function outletDetail(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
@@ -321,6 +325,7 @@ class MonitaDumaiController extends Controller
         });
     }
 
+    // Gabungkan metrik penjualan, transaksi upload, dan data titip jual untuk outlet yang sudah dipilih.
     protected function hydrateOutletDetailPage($rows, Carbon $cutoff)
     {
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
@@ -442,6 +447,8 @@ class MonitaDumaiController extends Controller
             });
     }
 
+    // Upload CSV metrik. Klien bertahap memanggil metricsUploadProcess, sedangkan submit biasa menunggu
+    // batch selesai.
     public function metricsUpload(Request $request, \App\Services\SuryaMetricsImport $importer)
     {
         abort_unless($this->isSuryaAdminSuper(), 403);
@@ -484,6 +491,7 @@ class MonitaDumaiController extends Controller
         }
     }
 
+    // Unduhan Detail Visit membaca rentang tanggal dari request dan mengikuti cakupan TAP pengguna.
     public function exportVisits(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
@@ -714,6 +722,7 @@ class MonitaDumaiController extends Controller
         return Auth::user()?->isSuperAdmin() ?? false;
     }
 
+    // Dataset panel Detail Visit. Rekap visit, outlet Non-Digipos, dan approval dirakit di bagian ini.
     private function buildLeaderDashboard(string $visitDate): array
     {
         $tapScopes = $this->suryaTapScopes();
@@ -2004,6 +2013,7 @@ class MonitaDumaiController extends Controller
         ];
     }
 
+    // Endpoint Peta Outlet. Pencarian dan daftar outlet di bawah memakai cakupan akses SURYA.
     public function search(Request $request)
     {
         if (!$this->hasSuryaAccess($request)) {

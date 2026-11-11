@@ -1,4 +1,6 @@
-<div class="surya-table-footer">
+{{--
+    Navigasi halaman bersama untuk daftar SURYA yang memakai partial ini.
+--}}<div class="surya-table-footer">
     <span>Menampilkan {{ $paginator->firstItem() ?? 0 }}–{{ $paginator->lastItem() ?? 0 }} dari {{ number_format($paginator->total()) }} data</span>
     @if($paginator->hasPages())
     <nav class="surya-pagination" aria-label="Halaman tabel">

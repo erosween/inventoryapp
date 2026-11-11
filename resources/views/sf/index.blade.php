@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Halaman master sales force dan pengelolaan akun mobile. Data dikelola oleh SfController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

@@ -11,6 +11,8 @@ use App\Support\StockProduct;
 
 class HomeController extends Controller
 {
+    // Permintaan halaman penuh dan refresh kartu masuk dari route yang sama. Header X-Surya-Card
+    // menentukan respons yang dibutuhkan.
     public function index(Request $request)
     {
         $request->validate(['mom_date'=>['nullable','date_format:Y-m-d']]);
@@ -31,6 +33,7 @@ class HomeController extends Controller
         return view($momOnly ? 'surya.partials.mom-sales-card' : 'home', $data);
     }
 
+    // Cache dipisah berdasarkan cakupan TAP, kartu yang diminta, dan parameter filter.
     private function cachedDashboardData(Request $request): array
     {
         $query=$request->query();ksort($query);
@@ -797,6 +800,8 @@ class HomeController extends Controller
         return DB::query()->fromSub($stockOut->unionAll($surya), 'combined_sales');
     }
 
+    // Sumber penjualan gabungan mengikuti SalesSource. Cakupan TAP dan tanggal dipasang sebelum UNION
+    // agar agregasi membaca baris yang relevan.
     private function salesSources($start = null, $end = null): array
     {
         $stockOut = \App\Support\SalesSource::legacy();

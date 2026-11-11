@@ -1,4 +1,6 @@
-@php
+{{--
+    Navigasi utama SURYA Web. Akses endpoint tetap diperiksa oleh route dan controller.
+--}}@php
     $sidebarPage = $activePage ?? 'dashboard';
     $sidebarAccount = auth()->user();
     $sidebarAccountLabel = trim((string) ($sidebarAccount->username ?? '')) ?: 'Pengguna';

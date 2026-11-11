@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Tabel administrasi nomor cantik, termasuk koreksi dan reset melalui NocanadminController.
+--}}@extends('layout.layout')
 
 @section('content')
 <div class="main-panel"><div class="content"><div class="page-inner">

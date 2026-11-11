@@ -311,6 +311,8 @@ public function getTap(Request $request)
     return response($html);
 }
 
+    // Klasifikasi denom menentukan jalur saldo DO. Input, koreksi, dan pembatalan harus memakai aturan
+    // yang sama.
     private function isDirectPackage(?string $iddenom): bool
     {
         return in_array(strtoupper((string) $iddenom), ['SP1', 'SP6', 'SP7', 'SP9'], true);

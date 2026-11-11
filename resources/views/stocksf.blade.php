@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Ringkasan stok menurut sales force dari StockSfController.
+--}}@extends('layout.layout')
 
 @php
     use Illuminate\Support\Str;

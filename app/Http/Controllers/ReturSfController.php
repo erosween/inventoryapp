@@ -291,6 +291,8 @@ class ReturSfController extends Controller
     }
 
     /** Reverse one return while the enclosing transaction holds the journal and stock locks. */
+    // Pembatalan retur mengembalikan perubahan saldo. Penghapusan tunggal dan massal memakai jalur yang
+    // sama.
     private function cancelReturn(string $idretur, string $action): bool
     {
         $data = DB::table('retursf')->where('idretur',$idretur)->lockForUpdate()->first();

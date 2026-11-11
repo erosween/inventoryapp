@@ -1,4 +1,7 @@
-@php
+{{--
+    Field produk dan varian untuk form master denom. Gunakan partial ini agar pilihan tambah dan edit
+    selaras.
+--}}@php
     $metadata = isset($groupingDenom) ? (array) $groupingDenom : [];
 @endphp
 <div class="col-sm-12"><div class="form-group">

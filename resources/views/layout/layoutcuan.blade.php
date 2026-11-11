@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Layout halaman nomor cantik. Konten transaksi diisi oleh view yang memakai layout ini.
+--}}<!DOCTYPE html>
 <html lang="en">
 
 <head>

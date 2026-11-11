@@ -1,4 +1,6 @@
-<!doctype html>
+{{--
+    Layout utama SURYA Web. Header, sidebar, dan area konten dipakai bersama antarhalaman.
+--}}<!doctype html>
 <html lang="id">
 <head>
     <meta charset="utf-8">

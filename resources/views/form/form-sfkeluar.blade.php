@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Input penjualan manual SF. Pilihan sales, outlet, dan stok dipasok oleh SfkeluarController.
+--}}@extends('layout.layout')
 
 @section('content')
     <style>

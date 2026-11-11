@@ -5,6 +5,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 class ValidityMom {
+ // Rekap MoM Penjualan/Inject. Mode Validity dan Denom membaca periode serta cakupan TAP yang sama.
  public function data(Request $request,Carbon $cutoff,Carbon $previousEnd,callable $scope):array {
   $input=$request->validate(['validity_product'=>'nullable|in:pv_all,pv_reg,pv_byu,sa_all,sa_simpati,sa_byu','validity_tab'=>'nullable|in:sales,inject','validity_group'=>'nullable|in:validity,denom']);
   $product=$input['validity_product']??'pv_all';$tab=$input['validity_tab']??'sales';
@@ -23,6 +24,8 @@ class ValidityMom {
    $rows=$q->selectRaw("t.idtap, {$labelExpression} AS group_label, SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS current_qty, SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS previous_qty",[$start,$cutoff,$prev,$previousEnd])->groupBy('t.idtap', ...$groupColumns);
    if ($byDenom) $rows->addSelect('d.iddenom AS denom_code');
    $rows = $rows->get();
+   // Kode denom menjaga kolom dengan nama sama tetap terpisah. Blade memakai columnLabels untuk nama
+   // yang terlihat.
    foreach($rows as$row){$name=$byDenom ? $row->group_label.' · '.$row->denom_code : $this->label($row->group_label);$groups[$name]=true;if($byDenom)$columnLabels[$name]=$row->group_label;$quantities[$row->idtap][$name]['current']=($quantities[$row->idtap][$name]['current']??0)+(int)$row->current_qty;$quantities[$row->idtap][$name]['previous']=($quantities[$row->idtap][$name]['previous']??0)+(int)$row->previous_qty;}
   }
   $columns=array_keys($groups);usort($columns,function($a,$b){$weight=fn($s)=>preg_match('/^(\d+)D$/',$s,$m)?(int)$m[1]:1000;return ($weight($a)<=>$weight($b))?:strnatcasecmp($a,$b);});

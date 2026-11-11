@@ -63,6 +63,7 @@ class NgrsReport
         return $days;
     }
 
+    // Cache rekap mengikuti upload aktif, versi mapping RS, periode, dan cakupan TAP.
     public function summary(array $filters): array
     {
         if($filters['q']!=='')return $this->computeSummary($filters);
@@ -113,6 +114,8 @@ class NgrsReport
         return DB::getDriverName()==='sqlite'?$sql:"CONVERT($sql USING utf8mb4) COLLATE utf8mb4_unicode_ci";
     }
 
+    // Pada daftar biasa, baca kategori untuk outlet di halaman aktif. Filter atau sort kategori tetap
+    // perlu join sebelum paginasi.
     public function attachCategories($page): void
     {
         $ids = $page->getCollection()->where('candidates', 1)->pluck('id_outlet')->filter()->unique();

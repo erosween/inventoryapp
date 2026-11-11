@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Input barang dari DO. Pilihan penerima dan penyimpanan mengikuti InputDOController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

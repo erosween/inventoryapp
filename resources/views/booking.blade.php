@@ -1,4 +1,6 @@
-@extends('layout.layoutcuan')
+{{--
+    Daftar nomor cantik dengan status booking, dirender dari NocanbookingController.
+--}}@extends('layout.layoutcuan')
 
 @section('content')
     <div class="main-panel">

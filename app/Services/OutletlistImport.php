@@ -18,6 +18,8 @@ class OutletlistImport
         return mb_strtoupper(preg_replace('/\s+/u', ' ', trim($value)));
     }
 
+    // Upsert profil menurut ID outlet. Nama SF dicocokkan di dalam TAP dan koordinat check-in disimpan
+    // lewat alur visit.
     public function import(UploadedFile $file): array
     {
         $lock = Cache::lock('surya-outletlist-import', 120);

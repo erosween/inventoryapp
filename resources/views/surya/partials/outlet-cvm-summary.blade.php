@@ -1,4 +1,6 @@
-    <section class="ngrs-card" aria-label="Rekap CVM per TAP">
+{{--
+    Fragmen rekap TAP CVM untuk pemuatan terpisah dari halaman utama.
+--}}    <section class="ngrs-card" aria-label="Rekap CVM per TAP">
         <div class="ngrs-scroll" tabindex="0">
             <table class="ngrs-summary cvm-transactions-table" data-transaction-table="summary" data-report-end-month="{{ $cutoff->month }}" data-report-default-range="12">
                 @include('surya.partials.outlet-cvm-head', ['labels' => ['tap' => 'TAP']])

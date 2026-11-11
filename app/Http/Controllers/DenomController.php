@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Support\DenomGrouping;
 
+// Master denom. Daftar dan form ada di resources/views/denom. Aturan klasifikasi yang dipakai
+// transaksi ada di DenomGrouping.
 class DenomController extends Controller
 {
     public function __construct()

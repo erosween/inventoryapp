@@ -17,6 +17,7 @@ class SuryaStockController extends Controller
         'Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
     ];
 
+    // Stock On Hand. Tampilan ini terpisah dari snapshot per tanggal di sisaStockController.
     public function stock(Request $request)
     {
         // The PV tab covers regular vouchers only.
@@ -67,6 +68,7 @@ class SuryaStockController extends Controller
         return view('surya.stock-on-hand', compact('family', 'rows', 'daysLeft', 'taps', 'selectedTap', 'search', 'stockBufferDays'));
     }
 
+    // Input Target. Halaman, upload, dan perubahan target memakai controller ini.
     public function targets()
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);

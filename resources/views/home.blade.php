@@ -1,4 +1,7 @@
-@extends(request()->routeIs('surya.inventory-dashboard') ? 'surya.layouts.inventory-dashboard' : 'layout.layout')
+{{--
+    Dashboard bersama Web Inventory dan SURYA. HomeController menyiapkan data, route aktif memilih
+    layout.
+--}}@extends(request()->routeIs('surya.inventory-dashboard') ? 'surya.layouts.inventory-dashboard' : 'layout.layout')
 
 @section('content')
 @php

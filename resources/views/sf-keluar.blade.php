@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Riwayat SF Keluar. Data dan ekspor membaca sumber penjualan yang ditangani SfkeluarController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

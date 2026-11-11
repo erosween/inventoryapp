@@ -1,4 +1,6 @@
-@extends('layout.layoutcuan')
+{{--
+    Daftar penjualan nomor cantik, dirender dari NocanjualController.
+--}}@extends('layout.layoutcuan')
 
 @section('content')
     <div class="main-panel">

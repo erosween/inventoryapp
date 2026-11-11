@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\AuditLogger;
 
+// Login dan logout Web Inventory. Autentikasi SF untuk aplikasi mobile ditangani MobileAuthController.
 class AuthController extends Controller
 {
     public function showLoginForm()

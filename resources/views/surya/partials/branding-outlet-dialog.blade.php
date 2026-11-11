@@ -1,4 +1,6 @@
-<dialog id="branding-outlet-dialog" class="branding-outlet-dialog" aria-labelledby="branding-outlet-title" aria-describedby="branding-outlet-description" data-photo-url="{{ route('surya.outlet-branding-photos', [], false) }}">
+{{--
+    Dialog daftar outlet dan foto branding di Peta Outlet.
+--}}<dialog id="branding-outlet-dialog" class="branding-outlet-dialog" aria-labelledby="branding-outlet-title" aria-describedby="branding-outlet-description" data-photo-url="{{ route('surya.outlet-branding-photos', [], false) }}">
     <div class="insight-outlet-header">
         <div><h2 id="branding-outlet-title" data-insight-title>Daftar Outlet</h2><p id="branding-outlet-description" data-insight-description></p></div>
         <button type="button" class="insight-outlet-close" data-insight-close aria-label="Tutup daftar outlet"><i class="fas fa-times" aria-hidden="true"></i></button>

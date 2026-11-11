@@ -1,4 +1,6 @@
-<style>
+{{--
+    Gaya visual bersama form Inventory. Perubahan di sini dapat memengaruhi beberapa jenis formulir.
+--}}<style>
     .form-premium-page {
         --form-primary: #4f46e5;
         --form-primary-dark: #3730a3;

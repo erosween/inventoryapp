@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\User;
 
+// Pembatasan TAP yang dipakai laporan SURYA. Periksa kontrak nilai kembali sebelum mengubah filter akses.
 class SuryaTapScope
 {
     /** Null means unrestricted; an empty list means no permitted TAP. */

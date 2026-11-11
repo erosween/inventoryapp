@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Edit pencatatan voucher rusak. Validasi dan penyimpanan ada di VrusakController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

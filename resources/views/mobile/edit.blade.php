@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Koreksi transaksi penjualan mobile yang dapat diedit. Submit kembali ke MobileSalesController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Edit Penjualan')
 

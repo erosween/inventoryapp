@@ -1,4 +1,6 @@
-@include('layout.web-typography')
+{{--
+    Gaya tema bersama Web Inventory. Cek halaman pemakai partial saat mengubah aturan global.
+--}}@include('layout.web-typography')
 <style>
     :root {
         --app-primary: #4f46e5;

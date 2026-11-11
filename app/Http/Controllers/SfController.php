@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SfMasterExport;
 
+// Master sales force. Perubahan profil SF, login mobile, dan ekspor ditangani di sini.
 class SfController extends Controller
 {
     public function __construct()

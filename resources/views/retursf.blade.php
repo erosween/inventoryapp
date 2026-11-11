@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Daftar retur SF ke TAP. Input dan koreksi ada di folder form, perubahan saldo di ReturSfController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

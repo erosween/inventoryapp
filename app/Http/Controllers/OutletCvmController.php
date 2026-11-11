@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class OutletCvmController extends Controller
 {
+    // Halaman awal CVM memuat detail outlet. Permintaan rekap=1 melayani tabel TAP secara terpisah.
     public function index(Request $request, OutletCvmReport $report, OutletCvmColumns $filters)
     {
         $context = $this->context($request);
@@ -140,6 +141,8 @@ class OutletCvmController extends Controller
         return compact('profiles', 'today', 'latest', 'cutoff', 'tap', 'taps', 'search', 'pageSize');
     }
 
+    // Upload memperbarui kolom CVM atau Sub CVM sesuai jenis file. Cache rekap mendapat versi baru
+    // setelah import berhasil.
     public function store(Request $request, string $kind, OutletCvmImport $import)
     {
         abort_unless($request->user()?->isSuperAdmin(), 403);

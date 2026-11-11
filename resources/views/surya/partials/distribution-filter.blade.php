@@ -1,4 +1,6 @@
-<div class="distribution-controls">
+{{--
+    Filter produk pada grafik distribusi Penjualan atau Inject di dashboard.
+--}}<div class="distribution-controls">
     <label for="distribution-{{ $kind }}">Produk</label>
     <select id="distribution-{{ $kind }}" class="distribution-product" data-kind="{{ $kind }}" aria-label="Produk distribusi {{ $kind }}">
         @foreach(['pv_all'=>'PV ALL','pv_reg'=>'PV REGULER','pv_byu'=>'PV BYU','sa_all'=>'SA ALL','sa_simpati'=>'SA SIMPATI','sa_byu'=>'SA BYU'] as $value => $label)

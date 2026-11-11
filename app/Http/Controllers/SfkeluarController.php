@@ -182,6 +182,7 @@ use Illuminate\Validation\ValidationException;
     /* =========================
        PROSES KELUAR SF
     ========================= */
+    // Input manual SF Keluar. Satu formulir bisa berisi beberapa denom untuk sales dan outlet yang sama.
     public function keluarsfproses(Request $request)
 {
     $items = $request->input('items');
@@ -538,6 +539,7 @@ public function updateSfKeluar(Request $request, $id)
      * tanggal tersebut, sehingga transaksi backdate tidak dapat memakai stok
      * yang baru diterima pada tanggal berikutnya.
      */
+    // Saldo SF pada tanggal transaksi dipakai untuk validasi pengeluaran bertanggal mundur.
     private function sfStockAtDate(
         string $idsf,
         string $iddenom,

@@ -1,4 +1,6 @@
-@extends('layout.layoutcuan')
+{{--
+    Form nomor cantik yang dipakai alur daftar, booking, dan jual.
+--}}@extends('layout.layoutcuan')
 
 @section('content')
     <div class="main-panel form-premium-page">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Pencarian di Web Inventory. Pencarian Peta Outlet SURYA ditangani MonitaDumaiController.
 class SearchController extends Controller
 {
     public function index()

@@ -8,6 +8,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+// Ringkasan dan ekspor nomor cantik di Web Inventory. Administrasi per nomor ada di
+// NocanadminController.
 class HomenocanController extends Controller
 {
     public function index(Request $request)

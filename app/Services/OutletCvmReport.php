@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 
 class OutletCvmReport
 {
+    // Rekap TAP memakai profil outlet yang sudah dibatasi oleh controller. Cache mengikuti kueri
+    // profil, cutoff, dan revisi upload.
     public function summary(Builder $profiles, Carbon $cutoff): array
     {
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);

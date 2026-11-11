@@ -6,6 +6,8 @@ use App\Helpers\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Penyesuaian saldo stok oleh admin super. Halaman menampilkan saldo saat ini sebelum perubahan
+// dicatat.
 class StockAdjustmentController extends Controller
 {
     public function __construct()

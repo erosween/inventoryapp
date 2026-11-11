@@ -14,6 +14,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
+// Voucher rusak. Riwayat, input, koreksi, pembatalan, dan ekspor transaksi dikelola di sini.
 class VrusakController extends Controller
 {
     /* ===============================

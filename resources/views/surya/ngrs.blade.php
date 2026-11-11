@@ -1,4 +1,6 @@
-<!doctype html>
+{{--
+    Transaksi NGRS. Rekap TAP, detail RS, dan filter terhubung ke NgrsController dan NgrsReport.
+--}}<!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NGRS · SURYA</title>
 @include('surya.partials.assets')
 <link rel="stylesheet" href="{{ asset('css/surya-ngrs.css') }}?v={{ filemtime(public_path('css/surya-ngrs.css')) }}">

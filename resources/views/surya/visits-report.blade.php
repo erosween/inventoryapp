@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Halaman rekap visit pada /surya/visits dari SuryaVisitReportController.
+--}}<!DOCTYPE html>
 <html lang="id">
 
 <head>

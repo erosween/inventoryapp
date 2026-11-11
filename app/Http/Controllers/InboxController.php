@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Halaman Inbox Inventory. View inbox menampilkan daftar yang disiapkan oleh controller ini.
 class InboxController extends Controller
 {
     public function index()

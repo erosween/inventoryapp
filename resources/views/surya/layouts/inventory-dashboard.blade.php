@@ -1,4 +1,6 @@
-@extends('surya.layouts.workspace')
+{{--
+    Layout SURYA untuk view dashboard bersama di home.blade.php.
+--}}@extends('surya.layouts.workspace')
 @section('title', 'Dashboard')
 @section('active-page', 'inventory-dashboard')
 @section('description', 'Ringkasan stok, penjualan, inject, dan pertumbuhan sesuai wilayah akses Anda.')

@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Daftar retur BO. Form input dan koreksi dipisah di folder form.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

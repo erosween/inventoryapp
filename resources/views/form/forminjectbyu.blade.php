@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Form khusus inject by.U. Submit ditangani FormInjectbyuController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

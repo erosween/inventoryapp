@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Edit retur BO yang sudah tersimpan. Koreksi dikirim ke BOController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

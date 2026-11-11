@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Riwayat perjalanan stok. Tampilan mengelompokkan mutasi yang sudah dicatat oleh modul transaksi.
 class StockJourneyController extends Controller
 {
     public function index(Request $request)

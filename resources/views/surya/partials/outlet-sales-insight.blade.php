@@ -1,4 +1,6 @@
-@php $columns=$insight['columns'];$labels=['pv_all'=>'PV All','pv_reg'=>'PV Reguler','pv_byu'=>'PV Byu','sa_all'=>'SA All','sa_simpati'=>'SA Simpati','sa_byu'=>'SA Byu']; @endphp
+{{--
+    Ringkasan penjualan Detail Outlet per TAP dan kecamatan dari dataset OutletSalesInsight.
+--}}@php $columns=$insight['columns'];$labels=['pv_all'=>'PV All','pv_reg'=>'PV Reguler','pv_byu'=>'PV Byu','sa_all'=>'SA All','sa_simpati'=>'SA Simpati','sa_byu'=>'SA Byu']; @endphp
 <div class="outlet-insight-meta"><strong>{{ $labels[$insight['product']] }}</strong><span>MTD 1–{{ $insight['cutoff']->translatedFormat('d M Y') }} · M-1 1–{{ $insight['prevEnd']->translatedFormat('d M Y') }}</span><span>{{ number_format($insight['outletCount'],0) }} outlet sesuai filter</span></div>
 @foreach(['tap'=>'Summary per TAP','district'=>'Summary per Kecamatan'] as $type=>$title)
 @php $rows=$type==='tap'?array_merge($insight['tapRows'],$insight['clusters']):$insight['districtRows'];$rows[]=array_merge($insight['grand'],['grand'=>true]); @endphp

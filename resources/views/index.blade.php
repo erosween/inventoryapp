@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Halaman login Web Inventory. Submit memakai route login.post dari AuthController.
+--}}<!DOCTYPE html>
 <html lang="id">
 
 <head>

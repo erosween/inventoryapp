@@ -11,6 +11,7 @@ use App\Exports\InjectExport;
 use Yajra\DataTables\Facades\DataTables;
 use App\Helpers\TapFilter;
 
+// Riwayat inject, ekspor, dan pembatalan. Input inject ditangani controller form inject.
 class InjectController extends Controller
 {
     /* =========================

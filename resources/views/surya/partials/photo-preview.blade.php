@@ -1,4 +1,6 @@
-    <dialog id="surya-visit-photo-preview" class="surya-visit-photo-preview" aria-labelledby="visit-photo-caption">
+{{--
+    Tampilan pratinjau foto SURYA yang dipakai halaman pemanggil.
+--}}    <dialog id="surya-visit-photo-preview" class="surya-visit-photo-preview" aria-labelledby="visit-photo-caption">
         <header><strong id="visit-photo-caption" data-photo-caption>Foto Visit</strong>
             <button type="button" data-photo-out aria-label="Perkecil foto">−</button>
             <button type="button" data-photo-reset aria-label="Reset ukuran foto">Pas layar</button>

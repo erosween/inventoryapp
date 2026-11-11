@@ -1,4 +1,7 @@
-@extends('surya.layouts.workspace')
+{{--
+    Tabel, editor, dan matriks KPI SVP. Kalkulasi tampilan ada di surya-kpi-svp.js, penyimpanan di
+    KpiSvpController.
+--}}@extends('surya.layouts.workspace')
 
 @section('title', 'KPI SVP')
 @section('active-page', 'kpi-svp')

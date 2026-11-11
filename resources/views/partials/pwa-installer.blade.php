@@ -1,4 +1,6 @@
-<style>
+{{--
+    Kontrol pemasangan PWA bersama untuk layout yang memuat partial ini.
+--}}<style>
     [data-pwa-install][hidden] {
         display: none !important;
     }

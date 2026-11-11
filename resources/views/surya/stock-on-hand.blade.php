@@ -1,4 +1,6 @@
-@extends('surya.layouts.workspace')
+{{--
+    Halaman Stock On Hand SURYA dari SuryaStockController.
+--}}@extends('surya.layouts.workspace')
 @section('title', 'Stock on Hand')
 @section('active-page', 'stock-on-hand')
 @section('description', 'Pantau kebutuhan stok sales berdasarkan target harian.')

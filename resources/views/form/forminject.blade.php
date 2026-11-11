@@ -1,4 +1,7 @@
-@extends('layout.layout')
+{{--
+    Input inject dari stok sumber. Pilihan produk dan validasi penyimpanan ada di
+    FormInjectsegelController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

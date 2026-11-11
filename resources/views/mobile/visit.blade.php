@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Form visit mobile. Check-in, foto, status, dan checkout mengikuti SuryaVisitController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Visit PJP')
 

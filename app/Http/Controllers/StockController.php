@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+// Tampilan ringkasan stok Inventory. Saldo per tanggal untuk menu Stock Gudang dihitung oleh
+// sisaStockController.
 class StockController extends Controller
 {
     public function index(Request $request)

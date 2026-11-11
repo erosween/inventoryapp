@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
 
+// Ringkasan saldo menurut TAP. Mutasi pengiriman dan penerimaan ditangani controller keluar dan masuk.
 class StocktapController extends Controller
 {
     public function index()

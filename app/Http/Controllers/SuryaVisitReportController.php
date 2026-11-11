@@ -24,6 +24,7 @@ class SuryaVisitReportController extends Controller
         );
     }
 
+    // Approval visit di web. Pengesahan koordinat diteruskan ke SuryaOutletCoordinates.
     public function approve(SuryaVisit $visit)
     {
         // The approval poller and a user click can arrive at nearly the same
@@ -98,6 +99,8 @@ class SuryaVisitReportController extends Controller
         return back()->with('info', $message);
     }
 
+    // Halaman rekap visit yang terdaftar di /surya/visits. Panel Detail Visit di /surya dirakit oleh
+    // MonitaDumaiController.
     public function index(Request $request)
     {
         $idtap = session('idtap');

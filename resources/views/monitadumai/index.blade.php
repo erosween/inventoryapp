@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+{{--
+    Peta Outlet dan Detail Visit di SURYA Web. MonitaDumaiController menyiapkan panel yang dipilih.
+--}}<!DOCTYPE html>
 <html lang="id">
 
 <head>

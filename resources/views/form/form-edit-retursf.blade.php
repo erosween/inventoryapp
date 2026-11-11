@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Edit retur dari SF ke TAP. Perubahan saldo diproses di ReturSfController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

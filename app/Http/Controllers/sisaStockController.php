@@ -31,6 +31,8 @@ class sisaStockController extends Controller
         return view('sisastock', compact('idtap', 'date', 'groups', 'initialMode'));
     }
 
+    // Stock Gudang merekonstruksi saldo pada tanggal pilihan dari saldo saat ini dan mutasi. Dashboard
+    // juga meminta hasil snapshot melalui metode ini.
     public function data(Request $request, bool $snapshotOnly = false)
     {
         $idtap = session('idtap');

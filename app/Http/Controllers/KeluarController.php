@@ -81,6 +81,7 @@ class KeluarController extends Controller
 
     }
 
+    // Pembatalan pengiriman mengembalikan saldo pengirim untuk transaksi yang masih bisa dibatalkan.
     public function cancel($idkeluar)
     {
         DB::transaction(function () use ($idkeluar) {

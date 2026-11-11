@@ -1,4 +1,6 @@
-<section class="tf-tap-summary card" aria-labelledby="tf-tap-summary-title">
+{{--
+    Rekap kunjungan Push SO per TAP untuk halaman Taskforce.
+--}}<section class="tf-tap-summary card" aria-labelledby="tf-tap-summary-title">
     <header><div><h2 id="tf-tap-summary-title">Rekap Visit per TAP</h2><p>Sesuai filter · setiap outlet dihitung sekali.</p></div></header>
     <div class="tf-summary-scroll">
         <table>

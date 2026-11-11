@@ -13,6 +13,8 @@ class NgrsImport
     public const HEADERS=['TANGGAL','RS','TOP ORGANIZATION','TRX','RECH','TAP','CLUSTER'];
     public const TAPS=['BAGAN BATU','BAGAN SIAPI-API','BENGKALIS','DUMAI','DURI','RUPAT','SEI PAKNING','UJUNG TANJUNG'];
 
+    // Simpan baris detail dengan ID upload baru. Perbarui pointer upload aktif per bulan setelah
+    // seluruh file lolos validasi.
     public function import(UploadedFile $file, ?int $userId): array
     {
         $lock=Cache::lock('surya-ngrs-import',180);

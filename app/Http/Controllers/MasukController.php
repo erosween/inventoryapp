@@ -151,6 +151,8 @@ class MasukController extends Controller
     /* =====================================================
        TERIMA BARANG (APPROVAL)
     ===================================================== */
+    // Konfirmasi penerimaan memakai ID pengiriman. Perubahan status dan penerimaan stok diproses dalam
+    // satu transaksi database.
     public function masuk(Request $request, $idkeluar)
     {
         try {

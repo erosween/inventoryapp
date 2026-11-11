@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SumPenjualanExport;
 
+// Controller ringkasan penjualan. Cek registrasi route sebelum mengaitkannya dengan menu dashboard
+// aktif.
 class SumController extends Controller
 {
     public function index(Request $request)

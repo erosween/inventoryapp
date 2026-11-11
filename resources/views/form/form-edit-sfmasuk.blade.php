@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Edit penyaluran stok dari TAP ke SF. Koreksi jurnal dan saldo ada di SfmasukController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel form-premium-page">

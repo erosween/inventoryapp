@@ -1,4 +1,6 @@
-@extends('layout.mobile_layout')
+{{--
+    Form perubahan kata sandi akun sales force. Validasi dan penyimpanan ada di MobileAuthController.
+--}}@extends('layout.mobile_layout')
 
 @section('title', 'Ganti Password')
 

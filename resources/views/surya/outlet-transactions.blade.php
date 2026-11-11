@@ -1,4 +1,7 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transaksi {{ strtoupper($family) }} · SURYA</title>
+{{--
+    Tampilan bersama Transaksi Outlet SA dan PV. Dataset dan ekspor mengikuti
+    OutletTransactionController.
+--}}<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transaksi {{ strtoupper($family) }} · SURYA</title>
 @include('surya.partials.assets')
 @foreach(['surya-ngrs','surya-outlet-columns'] as $css)<link rel="stylesheet" href="{{ asset('css/'.$css.'.css') }}?v={{ filemtime(public_path('css/'.$css.'.css')) }}">@endforeach
 <link rel="stylesheet" href="{{ asset('vendor/flatpickr/flatpickr.min.css') }}"><script src="{{ asset('vendor/flatpickr/flatpickr.min.js') }}" defer></script><script src="{{ asset('vendor/flatpickr/id.js') }}" defer></script>

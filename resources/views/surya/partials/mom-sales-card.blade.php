@@ -1,4 +1,6 @@
-            @php
+{{--
+    MoM Sales TAP. Partial ini dipakai saat halaman penuh dibuka dan saat kartu diperbarui sendiri.
+--}}            @php
                 $gapTone = static fn ($gap) => $gap < 0 ? 'text-danger' : ($gap > 0 ? 'text-success' : '');
                 $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
                 $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));

@@ -1,4 +1,6 @@
-@extends('layout.layout')
+{{--
+    Riwayat penyaluran stok TAP ke SF. Aksi input dan koreksi terhubung ke SfmasukController.
+--}}@extends('layout.layout')
 
 @section('content')
     <div class="main-panel">

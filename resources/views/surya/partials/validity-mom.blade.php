@@ -1,4 +1,7 @@
-@php
+{{--
+    Kartu MoM per Validity atau Denom. Dataset berasal dari ValidityMom, pergantian filter memakai
+    surya-validity-mom.js.
+--}}@php
     $isSuryaDashboard = request()->routeIs('surya.inventory-dashboard');
     $formatValidityNumber = fn ($value, int $decimals) => $isSuryaDashboard
         ? number_format($value, $decimals)

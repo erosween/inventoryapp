@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+// Tampilan daftar penjualan nomor cantik dan form nomor yang digunakan dari halaman ini.
 class NocanjualController extends Controller
 {
 

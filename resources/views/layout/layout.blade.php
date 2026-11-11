@@ -1,4 +1,6 @@
-@php
+{{--
+    Layout utama Web Inventory. Sidebar, aset, dan area konten dipakai bersama antarhalaman.
+--}}@php
     $idtap = session('idtap');
     $isAsmen = auth()->check() && \Illuminate\Support\Str::startsWith(
         \Illuminate\Support\Str::lower(auth()->user()->username),
