@@ -56,6 +56,8 @@ class ValidityMomTest extends TestCase {
             }
             $html = view('surya.partials.validity-mom', ['validityMom' => $denom])->render();
             $this->assertStringContainsString('MoM per Denom', $html);
+            $this->assertStringContainsString('>'.$denom['columnLabels'][$columns[0]].'</th>', $html);
+            $this->assertStringNotContainsString($columns[0], $html);
         }
     }
  }
