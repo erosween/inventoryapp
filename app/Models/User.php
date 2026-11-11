@@ -30,11 +30,11 @@ class User extends Authenticatable
 
     public function hasClusterAdminAccess(): bool
     {
-        return in_array($this->username, ['admin_cluster', 'admin_super'], true);
+        return $this->isSuperAdmin() || strtolower(trim((string) $this->username)) === 'admin_cluster';
     }
 
     public function isSuperAdmin(): bool
     {
-        return $this->username === 'admin_super';
+        return in_array(strtolower(trim((string) $this->username)), ['admin_super', 'indihome_msp'], true);
     }
 }

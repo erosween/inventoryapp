@@ -346,7 +346,8 @@ class sisaStockController extends Controller
             ->values();
 
         $clusterTotals = [];
-        if (in_array(auth()->user()?->username, ['admin_cluster', 'admin_super', 'gm_cluster', 'branch_dumai'], true)
+        if (auth()->user()?->hasClusterAdminAccess()
+            || in_array(auth()->user()?->username, ['gm_cluster', 'branch_dumai'], true)
             && in_array($mode, ['all', 'exc_asmen', 'tap', 'sf'], true)) {
             $clusterTapMap = [
                 'CLUSTER DUMAI' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],

@@ -53,7 +53,7 @@ class OutletlistUploadController extends Controller
 
     private function authorizeUpload(): void
     {
-        abort_unless(auth()->check() && strtolower((string)auth()->user()->username) === 'admin_super', 403);
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
     }
 
     public function store(Request $request, OutletlistImport $importer)

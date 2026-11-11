@@ -159,7 +159,7 @@ use Illuminate\Validation\ValidationException;
 
     private function isGlobalAdmin(): bool
     {
-        return in_array(strtolower((string) auth()->user()?->username), ['admin_cluster', 'admin_super'], true);
+        return auth()->user()?->hasClusterAdminAccess() ?? false;
     }
 
     private function requestedTap(Request $request): string

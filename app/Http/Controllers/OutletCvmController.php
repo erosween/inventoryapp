@@ -109,7 +109,7 @@ class OutletCvmController extends Controller
 
     public function store(Request $request, string $kind, OutletCvmImport $import)
     {
-        abort_unless(strtolower(trim((string) $request->user()?->username)) === 'admin_super', 403);
+        abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $request->validate([
             'cvm_file' => 'required|file|mimes:csv,txt|extensions:csv|max:20480',

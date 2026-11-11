@@ -697,14 +697,14 @@ class MonitaDumaiController extends Controller
 
         $username = strtolower(trim((string) Auth::user()->username));
 
-        return in_array($username, ['gm', 'gm_cluster', 'branch_dumai', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
+        return Auth::user()->isSuperAdmin()
+            || in_array($username, ['gm', 'gm_cluster', 'branch_dumai', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_');
     }
 
     private function isSuryaAdminSuper(): bool
     {
-        return Auth::check()
-            && strtolower(trim((string) Auth::user()->username)) === 'admin_super';
+        return Auth::user()?->isSuperAdmin() ?? false;
     }
 
     private function buildLeaderDashboard(string $visitDate): array

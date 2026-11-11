@@ -46,7 +46,7 @@ class AuthController extends Controller
         }
 
         $username = strtolower(trim((string) auth()->user()->username));
-        if (in_array($username, ['admin_super', 'gm_cluster', 'branch_dumai', 'cluster_dumai', 'cluster_rohil'], true)
+        if (Auth::user()->isSuperAdmin() || in_array($username, ['gm_cluster', 'branch_dumai', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_')) {
             return redirect()->intended(route('surya.dashboard'));
         }

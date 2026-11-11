@@ -10,7 +10,10 @@ use Illuminate\Validation\ValidationException;
 
 class NgrsController extends Controller
 {
-    private function admin(): void {abort_unless(auth()->check()&&strtolower((string)auth()->user()->username)==='admin_super',403);}
+    private function admin(): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+    }
     private function filters(Request $r): array
     {
         $v=$r->validate(['year'=>'nullable|integer|min:2026|max:2100','metric'=>'nullable|in:trx,rech','tap'=>'nullable|string|max:40','q'=>'nullable|string|max:150','per_page'=>'nullable|in:25,50,100','summary_view'=>'nullable|in:monthly,average','summary_metric'=>'nullable|in:trx,rech']);

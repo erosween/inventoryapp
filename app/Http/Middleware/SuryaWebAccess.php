@@ -13,7 +13,8 @@ class SuryaWebAccess
     {
         $username = strtolower(trim((string) optional(Auth::user())->username));
         $allowed = $request->session()->has('monita_leader_auth')
-            || in_array($username, ['gm', 'gm_cluster', 'branch_dumai', 'admin_super', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
+            || Auth::user()?->isSuperAdmin()
+            || in_array($username, ['gm', 'gm_cluster', 'branch_dumai', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_');
 
         if (! $allowed) {

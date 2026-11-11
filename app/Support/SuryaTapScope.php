@@ -10,7 +10,7 @@ class SuryaTapScope
     public static function forUser(?User $user, ?string $sessionTap): ?array
     {
         $username = strtolower(trim((string) $user?->username));
-        if (in_array($username, ['admin_super', 'gm_cluster', 'branch_dumai'], true)) {
+        if ($user?->isSuperAdmin() || in_array($username, ['gm_cluster', 'branch_dumai'], true)) {
             return null;
         }
 

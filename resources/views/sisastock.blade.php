@@ -4,7 +4,8 @@
     use Illuminate\Support\Str;
     $isSuryaStockPage = request()->routeIs('surya.stock-gudang');
     $isCurrentStockPage = $isCurrentStockPage ?? false;
-    $showClusterFooters = in_array(auth()->user()?->username, ['admin_cluster', 'admin_super', 'gm_cluster', 'branch_dumai'], true);
+    $showClusterFooters = auth()->user()?->hasClusterAdminAccess()
+        || in_array(auth()->user()?->username, ['gm_cluster', 'branch_dumai'], true);
     $initialMode = $initialMode ?? 'all';
     $mobileStockGroups = collect($groups)->map(fn ($validities) => collect($validities)->map(
         fn ($items) => collect($items)->map(fn ($d) => ['id' => (string) $d->iddenom, 'label' => $d->denom])->values()
