@@ -11,6 +11,7 @@
 
 @section('content')
     @php
+        $canEdit = auth()->user()?->isSuperAdmin();
         $regions = [
             'dumai' => [
                 'name' => 'Dumai Bengkalis',
@@ -37,9 +38,9 @@
 
     <div class="svp-toolbar">
         <label class="svp-period"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Periode
-            <input type="month" id="svp-period" value="2026-10" required>
+            <input type="month" id="svp-period" value="2026-10" min="0002-01" max="9999-12" data-entries-url="{{ route('surya.kpi-svp.entries') }}" required>
         </label>
-        <span class="svp-preview">Pratinjau</span>
+        <span id="svp-status" role="status"></span>
     </div>
 
     <div class="svp-mode" role="group" aria-label="Tampilan KPI">
@@ -64,7 +65,6 @@
         <section id="svp-detail-{{ $regionId }}" data-svp-panel="{{ $regionId }}" @if(!$loop->first) hidden @endif aria-labelledby="svp-title-{{ $regionId }}">
             <div class="svp-detail-heading">
                 <h2 id="svp-title-{{ $regionId }}">Detail KPI · {{ $region['name'] }}</h2>
-                <button type="button" class="svp-primary" data-svp-edit="{{ $regionId }}"><i class="fas fa-pen" aria-hidden="true"></i> Input manual</button>
             </div>
             <p class="svp-cutoff" data-svp-cutoff></p>
             <article class="svp-matrix-card" data-svp-matrix="{{ $regionId }}">
@@ -102,15 +102,33 @@
                         </header>
                         <div class="svp-table-wrap" tabindex="0" aria-label="Tabel KPI {{ $segment['label'] }}">
                             <table>
-                                <thead><tr><th scope="col">Parameter</th><th scope="col">Target</th><th scope="col" data-svp-actual-heading>Aktual MTD</th><th scope="col">Capaian</th><th scope="col">Gap</th><th scope="col">Skor</th><th scope="col">Kelas hasil</th></tr></thead>
+                                <thead><tr><th scope="col">Parameter</th><th scope="col">Target</th><th scope="col" data-svp-actual-heading>Aktual MTD</th><th scope="col">Tanggal Update</th><th scope="col">Capaian</th><th scope="col">Gap</th><th scope="col">Skor</th><th scope="col">Kelas hasil</th>@if($canEdit)<th scope="col">Aksi</th>@endif</tr></thead>
                                 <tbody>
                                     @foreach($segment['metrics'] as [$label, $unit])
                                         <tr data-svp-metric data-unit="{{ $unit }}">
-                                            <th scope="row">{{ $label }}</th><td data-target></td><td data-actual></td>
+                                            @php($formId = "svp-{$regionId}-{$segmentId}-{$loop->index}")
+                                            <th scope="row">{{ $label }}</th>
+                                            @foreach(['target' => 'Target', 'actual' => 'Aktual', 'actual-date' => 'Tanggal Update'] as $field => $fieldLabel)
+                                                <td>
+                                                    <span data-{{ $field }}></span>
+                                                    @if($canEdit)
+                                                        <input class="svp-inline-input" hidden form="{{ $formId }}" name="{{ $field }}"
+                                                            aria-label="{{ $fieldLabel }} {{ $label }}"
+                                                            @if($field === 'actual-date') type="date" @else type="number" min="0" step="0.0001" @endif>
+                                                    @endif
+                                                </td>
+                                            @endforeach
                                             <td><div class="svp-ach"><span data-ach></span><progress max="100" aria-label="Capaian {{ $label }}"></progress></div></td>
                                             <td data-gap></td><td data-score></td>
                                             @if($loop->first)
                                                 <td class="svp-result-cell" rowspan="{{ count($segment['metrics']) }}" data-segment-class></td>
+                                            @endif
+                                            @if($canEdit)
+                                                <td>
+                                                    <form id="{{ $formId }}" class="svp-inline-form" hidden data-region="{{ $regionId }}" data-segment="{{ $segmentId }}" data-metric="{{ $loop->index }}">
+                                                        <button type="submit" class="svp-primary">Simpan</button>
+                                                    </form>
+                                                </td>
                                             @endif
                                         </tr>
                                     @endforeach
@@ -134,29 +152,6 @@
         </section>
     @endforeach
 
-    <dialog class="svp-dialog" id="svp-editor" aria-labelledby="svp-editor-title">
-        <form id="svp-form">
-            <header><div><h2 id="svp-editor-title">Input manual</h2><p id="svp-editor-region"></p></div><button type="button" class="svp-close" data-svp-close aria-label="Tutup">×</button></header>
-            <div class="svp-form-body">
-                <label>Tanggal Aktual<input type="date" name="actual-date" aria-describedby="svp-date-help"></label>
-                <small id="svp-date-help">Tanggal terakhir yang tercakup dalam angka MTD cluster ini.</small>
-                @foreach($segments as $segmentId => $segment)
-                    <fieldset>
-                        <legend>{{ $segment['label'] }}</legend>
-                        @foreach($segment['metrics'] as [$label, $unit])
-                            @php($prefix = $segmentId.'-'.$loop->index)
-                            <p class="svp-field-title">{{ $label }} @if($unit)<small>({{ $unit }})</small>@endif</p>
-                            <div class="svp-fields svp-fields-pair" role="group" aria-label="{{ $label }}">
-                                <label>Target<input name="{{ $prefix }}-target" type="number" min="0" step="any"></label>
-                                <label>Aktual<input name="{{ $prefix }}-actual" data-svp-actual-input type="number" min="0" step="any"></label>
-                            </div>
-                        @endforeach
-                    </fieldset>
-                @endforeach
-            </div>
-            <footer><small id="svp-storage-note">Tersimpan di browser ini per periode.</small><button class="svp-primary" type="submit">Terapkan</button></footer>
-        </form>
-    </dialog>
     <script type="application/json" id="svp-demo-data">@json($regions)</script>
 @endsection
 

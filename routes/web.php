@@ -62,6 +62,8 @@ Route::middleware('surya.web')->group(function () {
 Route::get('/surya', [MonitaDumaiController::class, 'index'])->name('surya.dashboard');
 Route::get('/surya/dashboard', [HomeController::class, 'index'])->middleware(['auth', 'asmen.access'])->name('surya.inventory-dashboard');
 Route::view('/surya/kpi-svp', 'surya.kpi-svp')->name('surya.kpi-svp');
+Route::get('/surya/kpi-svp/entries', [\App\Http\Controllers\KpiSvpController::class, 'entries'])->name('surya.kpi-svp.entries');
+Route::put('/surya/kpi-svp/entries', [\App\Http\Controllers\KpiSvpController::class, 'save'])->name('surya.kpi-svp.save');
 Route::post('/surya/outletlist/upload', [\App\Http\Controllers\OutletlistUploadController::class, 'store'])->name('surya.outletlist.upload');
 Route::get('/surya/outletlist/template', [\App\Http\Controllers\OutletlistUploadController::class, 'template'])->name('surya.outletlist.template');
 Route::post('/surya/outletlist/category', [\App\Http\Controllers\OutletlistUploadController::class, 'categoryStore'])->name('surya.outletlist.category');

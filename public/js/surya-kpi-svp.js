@@ -1,48 +1,62 @@
 (() => {
     const regions = JSON.parse(document.querySelector('#svp-demo-data').textContent);
-    const segments = ['mobile', 'household'];
     const period = document.querySelector('#svp-period');
-    const editor = document.querySelector('#svp-editor');
-    const form = document.querySelector('#svp-form');
-    const field = name => form.elements.namedItem(name);
+    const status = document.querySelector('#svp-status');
+    const forms = [...document.querySelectorAll('.svp-inline-form')];
     const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
     const scoreFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-    const monthFormat = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-    const storageKey = 'surya-kpi-svp-periods-v1';
-    let saved = {};
-    let editing;
+    const cutoffFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const entries = new Map();
+    let localEntries = {};
+    let request;
+    let loaded = false;
     let mode = 'mtd';
-    const actualDate = field('actual-date');
-    const actualFields = [...form.querySelectorAll('[data-svp-actual-input]')];
-    const cutoffFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeZone: 'UTC' });
 
-    function monthEnd() {
-        const end = new Date(period.value + '-01T00:00:00Z');
+    if (forms.length) {
+        try {
+            localEntries = JSON.parse(localStorage.getItem('surya-kpi-svp-periods-v1')) ?? {};
+        } catch {
+            localEntries = {};
+        }
+    }
+
+    function monthEnd(month) {
+        const end = new Date(month + '-01T00:00:00Z');
         end.setUTCMonth(end.getUTCMonth() + 1, 0);
         return end;
     }
 
-    function cutoffFor(regionId) {
-        const entry = saved[period.value]?.[regionId];
-        return entry ? entry.actualDate : period.value === period.defaultValue ? monthEnd().toISOString().slice(0, 10) : null;
+    function previousMonth() {
+        const date = new Date(period.value + '-01T00:00:00Z');
+        date.setUTCMonth(date.getUTCMonth() - 1);
+        return date.toISOString().slice(0, 7);
     }
 
-    function updateDateRequirement() {
-        actualDate.required = actualFields.some(input => input.value !== '');
-    }
-    form.addEventListener('input', updateDateRequirement);
-
-    try {
-        saved = JSON.parse(localStorage.getItem(storageKey)) ?? {};
-    } catch {
-        document.querySelector('#svp-storage-note').textContent = 'Data berlaku selama halaman terbuka.';
+    function key(month, region, segment, metric) {
+        return [month, region, segment, metric].join(':');
     }
 
-    function rowsFor(regionId, segmentId, month = period.value) {
-        const region = regions[regionId];
-        return saved[month]?.[regionId]?.[segmentId] ?? region[segmentId].map(
-            values => month === period.defaultValue ? values : [null, null]
-        );
+    function remember(entry) {
+        entries.set(key(entry.period.slice(0, 7), entry.region, entry.segment, entry.metric), {
+            target: entry.target === null ? null : Number(entry.target),
+            actual: entry.actual === null ? null : Number(entry.actual),
+            date: entry.actual_date,
+        });
+    }
+
+    function entryFor(month, region, segment, metric, includeLocal = false) {
+        const shared = entries.get(key(month, region, segment, metric));
+        if (shared) return shared;
+
+        const legacy = includeLocal ? localEntries[month]?.[region] : null;
+        const local = legacy?.[segment]?.[metric];
+        if (local) return { target: local[0], actual: local[1], date: legacy.actualDate ?? null };
+
+        if (month === period.defaultValue) {
+            const [target, actual] = regions[region][segment][metric];
+            return { target, actual, date: monthEnd(month).toISOString().slice(0, 10) };
+        }
+        return null;
     }
 
     function calculate([target, actual]) {
@@ -74,20 +88,21 @@
     }
 
     function renderRegion(regionId) {
-        const cutoff = cutoffFor(regionId);
-        const cutoffDate = cutoff ? new Date(cutoff + 'T00:00:00Z') : null;
         const isProjection = mode === 'projection';
-        const daysInMonth = monthEnd().getUTCDate();
-        const factor = cutoffDate ? daysInMonth / cutoffDate.getUTCDate() : null;
+        const daysInMonth = monthEnd(period.value).getUTCDate();
         const panel = document.querySelector(`[data-svp-panel="${regionId}"]`);
-        panel.querySelector('[data-svp-cutoff]').textContent = cutoffDate
-            ? 'Aktual s.d. ' + cutoffFormat.format(cutoffDate) + (isProjection ? ' · Proyeksi sampai akhir bulan' : '')
-            : 'Isi Tanggal Aktual untuk menghitung proyeksi.';
+        panel.querySelector('[data-svp-cutoff]').textContent = isProjection
+            ? 'Proyeksi sampai akhir bulan berdasarkan tanggal update tiap KPI.'
+            : '';
 
-        const results = segmentId => rowsFor(regionId, segmentId).map(([target, actual], index) => {
-            // The third KPI in each segment is a rate: Market Share or C3MR.
-            if (isProjection && index < 2) actual = actual === null || factor === null ? null : actual * factor;
-            return calculate([target, actual]);
+        const results = segment => regions[regionId][segment].map((_, index) => {
+            const entry = entryFor(period.value, regionId, segment, index);
+            const { target, actual, date } = entry ?? { target: null, actual: null, date: null };
+            // Market Share and C3MR are rates, so they retain their actual values.
+            const value = isProjection && index < 2 && actual !== null
+                ? (date ? actual * daysInMonth / Number(date.slice(-2)) : null)
+                : actual;
+            return { ...calculate([target, value]), date };
         });
         const mobileRows = results('mobile');
         const householdRows = results('household');
@@ -133,6 +148,16 @@
                 const progress = row.querySelector('progress');
                 row.querySelector('[data-target]').textContent = format(result.target, unit);
                 row.querySelector('[data-actual]').textContent = format(result.actual, unit);
+                row.querySelector('[data-actual-date]').textContent = result.date
+                    ? cutoffFormat.format(new Date(result.date + 'T00:00:00Z')) : '—';
+                row.querySelectorAll('.svp-inline-input, .svp-inline-form').forEach(element => {
+                    element.hidden = isProjection || !loaded;
+                });
+                if (row.querySelector('.svp-inline-form')) {
+                    row.querySelectorAll('[data-target], [data-actual], [data-actual-date]').forEach(element => {
+                        element.hidden = !isProjection && loaded;
+                    });
+                }
                 row.querySelector('[data-score]').textContent = result.score ?? '—';
                 row.querySelector('[data-ach]').textContent = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
                 row.querySelector('[data-gap]').textContent = format(result.gap, unit);
@@ -154,10 +179,47 @@
         renderPeriod();
     }));
 
-    renderPeriod();
-    period.addEventListener('change', () => {
-        if (!period.value) period.value = period.defaultValue;
+    function fillEditor(form) {
+        const { region, segment, metric } = form.dataset;
+        const entry = entryFor(period.value, region, segment, metric, true);
+        const previous = entryFor(previousMonth(), region, segment, metric, true);
+        form.elements.target.value = (entry ? entry.target : previous?.target) ?? '';
+        form.elements.actual.value = entry?.actual ?? '';
+        const date = form.elements['actual-date'];
+        date.min = period.value + '-01';
+        date.max = monthEnd(period.value).toISOString().slice(0, 10);
+        date.value = entry?.date ?? '';
+        date.required = form.elements.actual.value !== '';
+    }
+
+    async function loadPeriod() {
+        request?.abort();
+        const controller = new AbortController();
+        request = controller;
+        loaded = false;
         renderPeriod();
+        status.textContent = 'Memuat data KPI…';
+        const url = new URL(period.dataset.entriesUrl);
+        url.searchParams.set('period', period.value);
+        try {
+            const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Gagal memuat data KPI.');
+            const rows = await response.json();
+            if (request !== controller) return;
+            entries.clear();
+            rows.forEach(remember);
+            forms.forEach(fillEditor);
+            loaded = true;
+            renderPeriod();
+            status.textContent = '';
+        } catch (error) {
+            if (error.name !== 'AbortError') status.textContent = 'Gagal memuat data KPI. Muat ulang halaman untuk mencoba lagi.';
+        }
+    }
+
+    period.addEventListener('change', () => {
+        if (!period.checkValidity()) period.value = period.defaultValue;
+        loadPeriod();
     });
 
     const switches = document.querySelectorAll('[data-svp-region]');
@@ -168,49 +230,45 @@
         panels.forEach(panel => { panel.hidden = panel.dataset.svpPanel !== active; });
     }));
 
-    document.querySelectorAll('[data-svp-edit]').forEach(button => button.addEventListener('click', () => {
-        editing = button.dataset.svpEdit;
-        const selectedMonth = new Date(period.value + '-01T00:00:00Z');
-        const monthLabel = monthFormat.format(selectedMonth);
-        selectedMonth.setUTCMonth(selectedMonth.getUTCMonth() - 1);
-        const previousMonth = selectedMonth.toISOString().slice(0, 7);
-        const isNewPeriod = period.value !== period.defaultValue && !saved[period.value]?.[editing];
-        document.querySelector('#svp-editor-region').textContent = regions[editing].name + ' · ' + monthLabel;
-        for (const id of segments) {
-            const rows = isNewPeriod
-                ? rowsFor(editing, id, previousMonth).map(([target]) => [target, null])
-                : rowsFor(editing, id);
-            rows.forEach(([target, actual], index) => {
-                field(`${id}-${index}-target`).value = target ?? '';
-                field(`${id}-${index}-actual`).value = actual ?? '';
-            });
-        }
-        actualDate.min = period.value + '-01';
-        actualDate.max = monthEnd().toISOString().slice(0, 10);
-        actualDate.value = cutoffFor(editing) ?? '';
-        updateDateRequirement();
-        editor.showModal();
-        editor.querySelector('.svp-form-body').scrollTop = 0;
-    }));
-
-    editor.querySelector('[data-svp-close]').addEventListener('click', () => editor.close());
-    form.addEventListener('submit', event => {
-        event.preventDefault();
-        const entry = { actualDate: actualDate.value || null };
-        for (const id of segments) {
-            entry[id] = rowsFor(editing, id).map((_, index) => ['target', 'actual'].map(key => {
-                const value = field(`${id}-${index}-${key}`).valueAsNumber;
-                return Number.isFinite(value) ? value : null;
-            }));
-        }
-        saved[period.value] ??= {};
-        saved[period.value][editing] = entry;
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(saved));
-        } catch {
-            document.querySelector('#svp-storage-note').textContent = 'Data berlaku selama halaman terbuka.';
-        }
-        renderRegion(editing);
-        editor.close();
+    forms.forEach(form => {
+        const actual = form.elements.actual;
+        const date = form.elements['actual-date'];
+        actual.addEventListener('input', () => { date.required = actual.value !== ''; });
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!loaded || mode !== 'mtd') return;
+            const button = form.querySelector('button');
+            const month = period.value;
+            button.disabled = true;
+            const values = {
+                ...form.dataset, period: month,
+                target: form.elements.target.value || null,
+                actual: actual.value || null,
+                actual_date: date.value || null,
+            };
+            try {
+                const response = await fetch(period.dataset.entriesUrl, {
+                    method: 'PUT',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify(values),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Gagal menyimpan KPI.');
+                if (period.value === month) {
+                    remember(result);
+                    renderRegion(values.region);
+                    status.textContent = 'Data KPI tersimpan.';
+                }
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+            }
+        });
     });
+    loadPeriod();
 })();
