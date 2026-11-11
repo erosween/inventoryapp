@@ -355,7 +355,7 @@
                                 @elseif ($change === 0)
                                     Volume penjualan sama dengan periode pembanding.
                                 @else
-                                    {{ $change > 0 ? 'Naik' : 'Turun' }} {{ $formatDashboardNumber(abs($change), 0) }} pcs@if ($product === 'PV' && $pvClusterChanges->count() > 1){{ $change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last() }}@endif.
+                                    {{ $change > 0 ? 'Naik' : 'Turun' }} {{ $formatDashboardNumber(abs($change), 0) }} pcs@if ($product === 'PV' && $pvClusterChanges->count() > 1){{ $change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last() }}@endif .
                                 @endif
                             </p>
                         @endif
