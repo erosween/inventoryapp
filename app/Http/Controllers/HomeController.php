@@ -35,7 +35,7 @@ class HomeController extends Controller
     {
         $query=$request->query();ksort($query);
         $scope=strtoupper(trim((string)session('idtap')));
-        $key='home-dashboard:v20:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        $key='home-dashboard:v21:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
         return app()->environment('testing') ? $this->dashboardData($request)
             : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
@@ -280,32 +280,6 @@ class HomeController extends Controller
             }
         }
 
-        // KPI penjualan bulan berjalan dipisah agar total PV tidak tercampur dengan SA.
-        $salesBulanIniByProduct = [];
-        foreach (['pv_all', 'sa_all'] as $product) {
-            $qSalesBulanIniProduct = $this->combinedSalesQuery($startThisMonth, $fairCutoffThisMonth->copy()->endOfDay())
-                ->whereBetween('tgl', [$startThisMonth, $fairCutoffThisMonth->copy()->endOfDay()]);
-            $applyFilter($qSalesBulanIniProduct);
-            $applyProductFilter($qSalesBulanIniProduct, 'combined_sales', $product);
-            $salesBulanIniByProduct[$product] = (int) $qSalesBulanIniProduct->sum('qty');
-        }
-        $salesBulanIniPv = $salesBulanIniByProduct['pv_all'];
-        $salesBulanIniSa = $salesBulanIniByProduct['sa_all'];
-
-        $momByProduct = [];
-        foreach (['pv_all' => $salesBulanIniPv, 'sa_all' => $salesBulanIniSa] as $product => $currentQty) {
-            $qSalesPrevProduct = $this->combinedSalesQuery($startPrevMonth, $endPrevMonthPartial)
-                ->whereBetween('tgl', [$startPrevMonth, $endPrevMonthPartial]);
-            $applyFilter($qSalesPrevProduct);
-            $applyProductFilter($qSalesPrevProduct, 'combined_sales', $product);
-            $previousQty = (int) $qSalesPrevProduct->sum('qty');
-            $momByProduct[$product] = $previousQty > 0
-                ? (($currentQty - $previousQty) / $previousQty) * 100
-                : 0;
-        }
-        $momPv = $momByProduct['pv_all'];
-        $momSa = $momByProduct['sa_all'];
-
         // Use the exact historical balance and visible denominations from Stock Gudang.
         $stockSnapshot = app(sisaStockController::class)->data(new Request([
             'date' => $momSelectedDate->toDateString(), 'mode' => 'all',
@@ -366,6 +340,22 @@ class HomeController extends Controller
         $momPv = $momPvPrevious > 0
             ? (($salesBulanIniPv - $momPvPrevious) / $momPvPrevious) * 100
             : 0;
+
+        $salesBulanIniSa = 0;
+        $momSaPrevious = 0;
+        if ($request->header('X-Surya-Card') !== 'mom') {
+            $saSales = $this->combinedSalesQuery($momStartPrevMonth, $momSelectedDate);
+            $applyFilter($saSales);
+            $applyProductFilter($saSales, 'combined_sales', 'sa_all');
+            $saTotals = $saSales->selectRaw(
+                'SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS current_qty,
+                 SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_qty',
+                [$momStartThisMonth, $momSelectedDate, $momStartPrevMonth, $momEndPrevMonthPartial]
+            )->first();
+            $salesBulanIniSa = (int) $saTotals->current_qty;
+            $momSaPrevious = (int) $saTotals->previous_qty;
+        }
+        $momSa = $momSaPrevious > 0 ? (($salesBulanIniSa - $momSaPrevious) / $momSaPrevious) * 100 : 0;
 
         $momClusterSales = [];
         $momClusterSalesRows = [];
@@ -741,6 +731,8 @@ class HomeController extends Controller
             'salesBulanIniSa',
             'momPv',
             'momSa',
+            'momPvPrevious',
+            'momSaPrevious',
             'stockGudangByTap',
             'mom',
             'validityMom',

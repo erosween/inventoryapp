@@ -1,6 +1,12 @@
             @php
                 $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
                 $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
+                $showTapInsights = request()->routeIs('surya.inventory-dashboard');
+                $tapChanges = $showTapInsights
+                    ? $momProductRows->sortBy(fn ($row) => $row->curr_qty - $row->prev_partial_qty)
+                    : collect();
+                $topIncrease = $tapChanges->last(fn ($row) => $row->curr_qty > $row->prev_partial_qty);
+                $topDecrease = $tapChanges->first(fn ($row) => $row->curr_qty < $row->prev_partial_qty);
             @endphp
             <div class="card enterprise-shadow mb-4" id="mom-cluster-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
@@ -50,6 +56,22 @@
                         <small id="mom-export-status" class="text-muted w-100 export-status"></small>
                     </div>
                 </div>
+                @if ($topIncrease || $topDecrease)
+                    <div class="mom-insights" aria-label="Perubahan volume penjualan per TAP">
+                        @foreach ([['Kenaikan terbesar', $topIncrease, '+', 'text-success'], ['Penurunan terbesar', $topDecrease, '−', 'text-danger']] as [$label, $tap, $sign, $tone])
+                            @if ($tap)
+                                <span>{{ $label }} <strong>{{ $tap->idtap }}</strong>
+                                    <strong class="{{ $tone }}">{{ $sign }}{{ number_format(abs($tap->curr_qty - $tap->prev_partial_qty)) }} pcs</strong>
+                                    @if ($tap->prev_partial_qty > 0)
+                                        ({{ $sign }}{{ number_format(abs($tap->mom), 2) }}%)
+                                    @else
+                                        (basis M-1 nol)
+                                    @endif
+                                </span>
+                            @endif
+                        @endforeach
+                    </div>
+                @endif
                 <div class="table-responsive" id="mom-cluster-table-wrap">
                     <table class="table table-hover mb-0">
                         <colgroup>
@@ -85,7 +107,7 @@
                                     $stockDays = $dailySt > 0 ? $stockGudang / $dailySt : 0;
                                 @endphp
                                 <tr class="bg-white">
-                                    <td class="font-weight-bold text-dark">
+                                    <td class="font-weight-bold text-dark {{ $r === $topIncrease ? 'mom-impact-up' : ($r === $topDecrease ? 'mom-impact-down' : '') }}">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
                                             data-target="sf-{{ Str::slug($r->idtap) }}">
                                             +

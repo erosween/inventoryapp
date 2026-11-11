@@ -25,6 +25,7 @@
     .sales-summary-footer { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-top:18px; border-top:1px solid #e8e2d9; }
     .sales-summary-growth { font-size:21px; font-weight:800; letter-spacing:-.4px; }
     .sales-summary-growth.is-up { color:#287757; }.sales-summary-growth.is-down { color:#c8102e; }.sales-summary-growth.is-flat { color:#78766f; }
+    .sales-summary-insight { margin:8px 0 0; font-size:13px; font-weight:600; }
     .sales-summary-comparison { color:#78766f; font-size:12px; font-weight:500; }
     @media(max-width:640px) { .card.sales-summary-card { padding:22px; } }
     #mom-cluster-card { position:relative; }
@@ -237,6 +238,9 @@
     }
     #mom-cluster-card .card-header h6 { font-size: 16px; letter-spacing: -.01em; }
     #mom-cluster-card .card-header small { color: #7b8497 !important; font-weight: 600; }
+    .mom-insights { display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 16px; background:#f7f9fc; border-top:1px solid #e5ebf2; font-size:13px; }
+    #mom-cluster-table-wrap .mom-impact-up { background:#edf8f2; }
+    #mom-cluster-table-wrap .mom-impact-down { background:#fff0f2; }
     #mom-cluster-card .metric-daily-st { color: #4f46e5; font-weight: 800; }
     #mom-cluster-card .metric-stock { color: #0f766e; font-weight: 800; }
     #mom-cluster-card .metric-stock-days { color: #b45309; font-weight: 800; }
@@ -320,7 +324,14 @@
                         </article>
                     </div>
                 @endforeach
-                @foreach ([['PV', $salesBulanIniPv, $momPv], ['SA', $salesBulanIniSa, $momSa]] as [$product, $quantity, $growth])
+                @php
+                    $pvClusterChanges = collect(['dumai_bengkalis' => 'Dumai Bengkalis', 'rokan_hilir' => 'Rokan Hilir'])
+                        ->filter(fn ($label, $key) => $momClusterSalesRows[$key]->curr_qty || $momClusterSalesRows[$key]->prev_partial_qty)
+                        ->mapWithKeys(fn ($label, $key) => [$label => $momClusterSalesRows[$key]->curr_qty - $momClusterSalesRows[$key]->prev_partial_qty])
+                        ->sortDesc();
+                @endphp
+                @foreach ([['PV', $salesBulanIniPv, $momPv, $momPvPrevious], ['SA', $salesBulanIniSa, $momSa, $momSaPrevious]] as [$product, $quantity, $growth, $previous])
+                @php($change = $quantity - $previous)
                 <div class="col-md-6 mb-4">
                     <article class="card sales-summary-card h-100" aria-label="Penjualan {{ $product }} bulan berjalan">
                         <div class="sales-summary-top">
@@ -330,11 +341,24 @@
                         <div class="sales-summary-value">{{ $formatDashboardNumber($quantity, 0) }} <span>pcs</span></div>
                         <p class="sales-summary-cutoff">Cutoff {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d F Y') }}</p>
                         <div class="sales-summary-footer">
+                            @if (!$isSuryaDashboard || $previous > 0)
                             <span class="sales-summary-growth {{ $growth < 0 ? 'is-down' : ($growth > 0 ? 'is-up' : 'is-flat') }}">
                                 {{ $growth < 0 ? '▼' : ($growth > 0 ? '▲' : '—') }} {{ $formatDashboardNumber(abs($growth), 2) }}%
                             </span>
-                            <span class="sales-summary-comparison">MoM vs 1–{{ $momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M Y') }}</span>
+                            @endif
+                            <span class="sales-summary-comparison">@if($isSuryaDashboard)1–{{ $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') }} vs @else MoM vs @endif 1–{{ $momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M Y') }}</span>
                         </div>
+                        @if ($isSuryaDashboard)
+                            <p class="sales-summary-insight">
+                                @if ($previous <= 0)
+                                    Belum ada volume pembanding untuk menghitung MoM.
+                                @elseif ($change === 0)
+                                    Volume penjualan sama dengan periode pembanding.
+                                @else
+                                    {{ $change > 0 ? 'Naik' : 'Turun' }} {{ $formatDashboardNumber(abs($change), 0) }} pcs@if ($product === 'PV' && $pvClusterChanges->count() > 1){{ $change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last() }}@endif.
+                                @endif
+                            </p>
+                        @endif
                     </article>
                 </div>
                 @endforeach
