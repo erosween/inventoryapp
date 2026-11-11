@@ -221,7 +221,7 @@
     }
     #mom-cluster-table-wrap > table {
         table-layout: fixed;
-        min-width: 920px;
+        min-width: 1030px;
     }
     #mom-cluster-table-wrap th,
     #mom-cluster-table-wrap td {
@@ -252,9 +252,8 @@
         font-size: 13px;
         border-top: 1px solid #edf0f2 !important;
     }
-    #mom-cluster-table-wrap .mom-location-col { width: 34%; }
-    #mom-cluster-table-wrap .mom-number-col { width: 16.5%; }
-    #mom-cluster-table-wrap .mom-growth-col { width: 16.5%; }
+    #mom-cluster-table-wrap .mom-location-col { width: 20%; }
+    #mom-cluster-table-wrap .mom-number-col { width: 10%; }
     #mom-cluster-table-wrap .toggle-sf {
         width: 24px;
         height: 24px;
@@ -1622,9 +1621,9 @@
                 // Penting: pakai tr.cells dari row utama saja, jangan querySelectorAll,
                 // supaya baris nested Performance Petugas/SF tidak ikut ke-export.
                 const cells = Array.from(tr.cells || []);
-                if (cells.length < 5) return;
+                if (cells.length !== 9) return;
                 const firstText = getMomCellText(cells[0]).replace(/^CLUSTER\s+/i, '');
-                const growthText = getMomCellText(cells[4]);
+                const growthText = getMomCellText(cells[5]);
                 rows.push({
                     type: tr.parentElement?.tagName === 'TFOOT'
                         ? (firstText.toUpperCase().includes('GRAND TOTAL') ? 'grand' : 'cluster')
@@ -1640,12 +1639,13 @@
             const table = document.querySelector('#mom-cluster-table-wrap > table');
             const headerCells = Array.from(table?.tHead?.rows?.[0]?.cells || []);
 
-            if (headerCells.length < 5) {
+            if (headerCells.length !== 9) {
                 return [
                     'LOKASI (TAP / SF)',
                     'MTD',
                     'M-1',
                     'M-1 FULL',
+                    'GAP MOM QTY',
                     'GROWTH (M-1)', 'DAILY ST', 'STOCK GUDANG', 'STOCK DAYS'
                 ];
             }
@@ -1732,7 +1732,7 @@
 
             // Render dibuat mengikuti tampilan card asli, bukan versi export yang beda layout.
             const pixelRatio = 2;
-            const cols = [350, 160, 180, 180, 180, 150, 180, 160];
+            const cols = [350, 160, 180, 180, 160, 180, 150, 180, 160];
             const width = cols.reduce((total, col) => total + col, 0);
             const titleHeight = 118;
             const headHeight = 62;
@@ -1865,12 +1865,12 @@
                         color = isGrand ? '#1657b7' : '#2f3437';
                         font = '700 16px Geist Variable, sans-serif';
                     }
-                    if (i === 4) {
+                    if (i === 5) {
                         color = row.growth1Down ? '#e75757' : '#32a852';
                         font = '700 16px Geist Variable, sans-serif';
                     }
-                    if (i >= 5 && !isGrand && !isCluster) {
-                        color = ['#4f46e5', '#0f766e', '#b45309'][i - 5];
+                    if (i >= 6 && !isGrand && !isCluster) {
+                        color = ['#4f46e5', '#0f766e', '#b45309'][i - 6];
                         font = '700 16px Geist Variable, sans-serif';
                     }
 

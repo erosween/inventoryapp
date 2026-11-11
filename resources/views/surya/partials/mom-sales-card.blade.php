@@ -79,7 +79,8 @@
                             <col class="mom-number-col">
                             <col class="mom-number-col">
                             <col class="mom-number-col">
-                            <col class="mom-growth-col">
+                            <col class="mom-number-col">
+                            <col class="mom-number-col">
                             <col class="mom-number-col">
                             <col class="mom-number-col">
                             <col class="mom-number-col">
@@ -91,6 +92,7 @@
                                 <th class="text-right border-0">M-1 ({{ $momPreviousLabel }})</th>
                                 <!-- <th class="text-right border-0">M-2 PARTIAL</th> -->
                                 <th class="text-right border-0">M-1 FULL</th>
+                                <th class="text-right border-0" title="MTD dikurangi M-1 pada periode pembanding">GAP MOM QTY</th>
                                 <th class="text-right border-0">GROWTH (M-1)</th>
                                 <th class="text-right border-0">DAILY ST</th>
                                 <th class="text-right border-0">STOCK GUDANG</th>
@@ -117,6 +119,7 @@
                                     <td class="text-right font-weight-bold text-dark">{{ number_format($r->curr_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_partial_qty) }}</td>
                                     <td class="text-right text-muted">{{ number_format($r->prev_full_qty) }}</td>
+                                    <td class="text-right">{{ number_format($r->curr_qty - $r->prev_partial_qty) }}</td>
                                     <td class="text-right font-weight-bold {{ $r->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                         {!! $r->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($r->mom), 2) }} %
                                     </td>
@@ -126,7 +129,7 @@
                                 </tr>
 
                                 <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light">
-                                    <td colspan="8" class="p-0 border-0">
+                                    <td colspan="9" class="p-0 border-0">
                                         <div class="p-3 bg-light border-left border-right">
                                             <table class="table table-sm mb-0 bg-white shadow-sm rounded">
                                                 <thead class="bg-white">
@@ -135,6 +138,7 @@
                                                         <th class="text-right border-top-0">MTD ({{ $momCurrentLabel }})</th>
                                                         <th class="text-right border-top-0">M-1 ({{ $momPreviousLabel }})</th>
                                                         <th class="text-right border-top-0">M-1 Full</th>
+                                                        <th class="text-right border-top-0">Gap MoM Qty</th>
                                                         <th class="text-right border-top-0">Growth (M-1)</th>
                                                         <th class="text-right border-top-0">Daily ST</th>
                                                         <th class="text-right border-top-0">Stok SF</th>
@@ -148,6 +152,7 @@
                                                             <td class="text-right font-weight-bold border-bottom-0">{{ number_format($sf->curr_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_qty) }}</td>
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_full_qty) }}</td>
+                                                            <td class="text-right border-bottom-0">{{ number_format($sf->curr_qty - $sf->prev_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $sf->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                                                 <span class="badge badge-{{ $sf->mom >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
@@ -173,6 +178,7 @@
                                 <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_full_qty) }}</td>
+                                <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty - $momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
                                 <td class="text-right border-0 {{ $momProductClusters['dumai_bengkalis']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momProductClusters['dumai_bengkalis']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momProductClusters['dumai_bengkalis']->mom), 2) }} %
                                 </td>
@@ -191,6 +197,7 @@
                                 <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_full_qty) }}</td>
+                                <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty - $momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
                                 <td class="text-right border-0 {{ $momProductClusters['rokan_hilir']->mom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $momProductClusters['rokan_hilir']->mom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($momProductClusters['rokan_hilir']->mom), 2) }} %
                                 </td>
@@ -215,6 +222,7 @@
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevFull) }}</td>
+                                <td class="text-right border-0">{{ number_format($grandCurr - $grandPrevPart) }}</td>
                                 <td class="text-right border-0 font-weight-bold {{ $grandMom >= 0 ? 'text-success' : 'text-danger' }}">
                                     {!! $grandMom >= 0 ? '▲' : '▼' !!} {{ number_format(abs($grandMom), 2) }} %
                                 </td>
