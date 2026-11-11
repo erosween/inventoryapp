@@ -11,6 +11,26 @@
     const storageKey = 'surya-kpi-svp-periods-v1';
     let saved = {};
     let editing;
+    let mode = 'mtd';
+    const actualDate = field('actual-date');
+    const actualFields = [...form.querySelectorAll('[data-svp-actual-input]')];
+    const cutoffFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeZone: 'UTC' });
+
+    function monthEnd() {
+        const end = new Date(period.value + '-01T00:00:00Z');
+        end.setUTCMonth(end.getUTCMonth() + 1, 0);
+        return end;
+    }
+
+    function cutoffFor(regionId) {
+        const entry = saved[period.value]?.[regionId];
+        return entry ? entry.actualDate : period.value === period.defaultValue ? monthEnd().toISOString().slice(0, 10) : null;
+    }
+
+    function updateDateRequirement() {
+        actualDate.required = actualFields.some(input => input.value !== '');
+    }
+    form.addEventListener('input', updateDateRequirement);
 
     try {
         saved = JSON.parse(localStorage.getItem(storageKey)) ?? {};
@@ -54,8 +74,23 @@
     }
 
     function renderRegion(regionId) {
-        const mobileRows = rowsFor(regionId, 'mobile').map(calculate);
-        const householdRows = rowsFor(regionId, 'household').map(calculate);
+        const cutoff = cutoffFor(regionId);
+        const cutoffDate = cutoff ? new Date(cutoff + 'T00:00:00Z') : null;
+        const isProjection = mode === 'projection';
+        const daysInMonth = monthEnd().getUTCDate();
+        const factor = cutoffDate ? daysInMonth / cutoffDate.getUTCDate() : null;
+        const panel = document.querySelector(`[data-svp-panel="${regionId}"]`);
+        panel.querySelector('[data-svp-cutoff]').textContent = cutoffDate
+            ? 'Aktual s.d. ' + cutoffFormat.format(cutoffDate) + (isProjection ? ' · Proyeksi sampai akhir bulan' : '')
+            : 'Isi Tanggal Aktual untuk menghitung proyeksi.';
+
+        const results = segmentId => rowsFor(regionId, segmentId).map(([target, actual], index) => {
+            // The third KPI in each segment is a rate: Market Share or C3MR.
+            if (isProjection && index < 2) actual = actual === null || factor === null ? null : actual * factor;
+            return calculate([target, actual]);
+        });
+        const mobileRows = results('mobile');
+        const householdRows = results('household');
         const [all, broadband, marketShare] = mobileRows.map(row => row.score);
         const [newSales, ps, c3mr] = householdRows.map(row => row.score);
         const weight = regions[regionId].revenueWeight;
@@ -87,6 +122,7 @@
             const key = regionId + '-' + segmentId;
             const card = document.querySelector(`[data-svp-segment="${key}"]`);
             document.querySelector(`[data-summary-score="${key}"]`).textContent = showScore(score);
+            card.querySelector('[data-svp-actual-heading]').textContent = isProjection ? 'Proyeksi / Aktual' : 'Aktual MTD';
             card.querySelector('[data-segment-score]').textContent = showScore(score);
             setClass(document.querySelector(`[data-summary-class="${key}"]`), resultClass(score));
             setClass(card.querySelector('[data-segment-class]'), resultClass(score));
@@ -110,6 +146,13 @@
     function renderPeriod() {
         for (const regionId of Object.keys(regions)) renderRegion(regionId);
     }
+
+    const modes = document.querySelectorAll('[data-svp-mode]');
+    modes.forEach(button => button.addEventListener('click', () => {
+        mode = button.dataset.svpMode;
+        modes.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        renderPeriod();
+    }));
 
     renderPeriod();
     period.addEventListener('change', () => {
@@ -142,6 +185,10 @@
                 field(`${id}-${index}-actual`).value = actual ?? '';
             });
         }
+        actualDate.min = period.value + '-01';
+        actualDate.max = monthEnd().toISOString().slice(0, 10);
+        actualDate.value = cutoffFor(editing) ?? '';
+        updateDateRequirement();
         editor.showModal();
         editor.querySelector('.svp-form-body').scrollTop = 0;
     }));
@@ -149,7 +196,7 @@
     editor.querySelector('[data-svp-close]').addEventListener('click', () => editor.close());
     form.addEventListener('submit', event => {
         event.preventDefault();
-        const entry = {};
+        const entry = { actualDate: actualDate.value || null };
         for (const id of segments) {
             entry[id] = rowsFor(editing, id).map((_, index) => ['target', 'actual'].map(key => {
                 const value = field(`${id}-${index}-${key}`).valueAsNumber;

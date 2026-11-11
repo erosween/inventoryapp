@@ -173,3 +173,8 @@
 @media (prefers-reduced-motion: reduce) {
     .svp-region { transition: none; }
 }
+
+.svp-mode { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 14px; border: 1px solid var(--svp-line); border-radius: 10px; background: #fff; }
+.svp-mode button { border: 0; border-radius: 6px; padding: 6px 15px; background: transparent; color: var(--svp-muted); font: inherit; font-weight: 650; cursor: pointer; }
+.svp-mode button[aria-pressed="true"] { background: var(--svp-red-soft); color: var(--svp-red); }
+.svp-cutoff { margin: -4px 0 12px; color: var(--svp-muted); font-size: .8rem; }

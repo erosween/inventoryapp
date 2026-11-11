@@ -42,6 +42,11 @@
         <span class="svp-preview">Pratinjau</span>
     </div>
 
+    <div class="svp-mode" role="group" aria-label="Tampilan KPI">
+        <button type="button" data-svp-mode="mtd" aria-pressed="true">MTD</button>
+        <button type="button" data-svp-mode="projection" aria-pressed="false">Proyeksi</button>
+    </div>
+
     <section class="svp-overview" aria-label="Ringkasan wilayah">
         @foreach($regions as $regionId => $region)
             <button type="button" class="svp-region" data-svp-region="{{ $regionId }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" aria-controls="svp-detail-{{ $regionId }}">
@@ -61,6 +66,7 @@
                 <h2 id="svp-title-{{ $regionId }}">Detail KPI · {{ $region['name'] }}</h2>
                 <button type="button" class="svp-primary" data-svp-edit="{{ $regionId }}"><i class="fas fa-pen" aria-hidden="true"></i> Input manual</button>
             </div>
+            <p class="svp-cutoff" data-svp-cutoff></p>
             <article class="svp-matrix-card" data-svp-matrix="{{ $regionId }}">
                 <div class="svp-matrix-result">
                     <h3>Matriks kelas gabungan</h3>
@@ -96,7 +102,7 @@
                         </header>
                         <div class="svp-table-wrap" tabindex="0" aria-label="Tabel KPI {{ $segment['label'] }}">
                             <table>
-                                <thead><tr><th scope="col">Parameter</th><th scope="col">Target</th><th scope="col">Aktual</th><th scope="col">Capaian</th><th scope="col">Gap</th><th scope="col">Skor</th><th scope="col">Kelas hasil</th></tr></thead>
+                                <thead><tr><th scope="col">Parameter</th><th scope="col">Target</th><th scope="col" data-svp-actual-heading>Aktual MTD</th><th scope="col">Capaian</th><th scope="col">Gap</th><th scope="col">Skor</th><th scope="col">Kelas hasil</th></tr></thead>
                                 <tbody>
                                     @foreach($segment['metrics'] as [$label, $unit])
                                         <tr data-svp-metric data-unit="{{ $unit }}">
@@ -132,6 +138,8 @@
         <form id="svp-form">
             <header><div><h2 id="svp-editor-title">Input manual</h2><p id="svp-editor-region"></p></div><button type="button" class="svp-close" data-svp-close aria-label="Tutup">×</button></header>
             <div class="svp-form-body">
+                <label>Tanggal Aktual<input type="date" name="actual-date" aria-describedby="svp-date-help"></label>
+                <small id="svp-date-help">Tanggal terakhir yang tercakup dalam angka MTD cluster ini.</small>
                 @foreach($segments as $segmentId => $segment)
                     <fieldset>
                         <legend>{{ $segment['label'] }}</legend>
@@ -140,7 +148,7 @@
                             <p class="svp-field-title">{{ $label }} @if($unit)<small>({{ $unit }})</small>@endif</p>
                             <div class="svp-fields svp-fields-pair" role="group" aria-label="{{ $label }}">
                                 <label>Target<input name="{{ $prefix }}-target" type="number" min="0" step="any"></label>
-                                <label>Aktual<input name="{{ $prefix }}-actual" type="number" min="0" step="any"></label>
+                                <label>Aktual<input name="{{ $prefix }}-actual" data-svp-actual-input type="number" min="0" step="any"></label>
                             </div>
                         @endforeach
                     </fieldset>
