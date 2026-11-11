@@ -57,6 +57,7 @@
             @endif
         </span>
         <button class="ngrs-button" type="submit">Tampilkan</button>
+        <a class="ngrs-button secondary" href="{{ route('surya.outlet-cvm.export', array_merge(request()->only(['tap', 'q', 'columns', 'exclude', 'sort', 'direction']), ['cutoff' => $cutoff->toDateString()])) }}">Download Outlet</a>
     </form>
 
     @if($latest === null)
@@ -78,6 +79,7 @@
                 · Pembanding MTD 1–{{ $previousEnd->translatedFormat('d M Y') }}
             @endif</p>
         </div>
+        <a class="ngrs-button secondary" href="{{ route('surya.outlet-cvm.export', ['cutoff' => $cutoff->toDateString(), 'tap' => $tap, 'q' => $search, 'summary' => 1]) }}">Download Rekap</a>
     </div>
     <div data-report-summary-url="{{ $summaryUrl }}">
         <p class="ngrs-note" role="status">Memuat rekap TAP…</p>

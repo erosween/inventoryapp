@@ -208,6 +208,24 @@ class OutletTransactionTest extends TestCase
         $this->getJson($values.'?column=cvm_m11')->assertOk()->assertJsonPath('values', ['', '100']);
     }
 
+    public function test_cvm_download_respects_scope_cutoff_and_column_filters(): void
+    {
+        $this->actingAs(new User(['username' => 'admin_super']));
+        $this->uploadCvm('cvm', "tanggal,id outlet,cvm\n2026-10-01,A,100\n2026-11-01,A,20\n2026-11-01,B,99\n2026-11-06,A,500\n");
+        $this->actingAs(new User(['username' => 'asmen_dumai']));
+        $this->get('/surya/transaksi-outlet/cvm')->assertOk()->assertSee('Download Outlet')->assertSee('Download Rekap');
+
+        $url = '/surya/transaksi-outlet/cvm/export?cutoff=2026-11-05';
+        $detail = $this->get($url.'&columns[cvm_m11][]=20')->assertOk()->streamedContent();
+        $this->assertStringContainsString('Outlet A', $detail);
+        $this->assertStringNotContainsString('Outlet B', $detail);
+        $this->assertStringContainsString(',-80,-80,', $detail);
+        $recap = $this->get($url.'&summary=1')->assertOk()->streamedContent();
+        $this->assertStringContainsString('Grand Total', $recap);
+        $this->assertStringContainsString(',-80,-80,', $recap);
+        $this->assertStringNotContainsString('DURI', $recap);
+    }
+
     private function uploadCvm(string $kind, string $contents): void
     {
         $this->post(route('surya.outlet-cvm.upload', $kind), [

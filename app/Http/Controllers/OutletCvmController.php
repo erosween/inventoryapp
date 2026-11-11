@@ -74,6 +74,62 @@ class OutletCvmController extends Controller
         return $columns;
     }
 
+    // Ekspor seluruh hasil filter. Muat angka detail per batch agar CSV tidak menahan seluruh matriks outlet.
+    public function export(Request $request, OutletCvmReport $report, OutletCvmColumns $filters)
+    {
+        ['profiles' => $profiles, 'cutoff' => $cutoff] = $this->context($request);
+        $summary = $request->boolean('summary');
+        $identity = $summary ? ['tap' => 'TAP'] : OutletCvmColumns::IDENTITY;
+        $previousEnd = OutletReportPeriod::previousEnd($cutoff);
+        $columns = $this->monthColumns($cutoff, $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth);
+        $metrics = OutletCvmImport::METRICS;
+        $headers = array_values($identity);
+        foreach ($metrics as $label) {
+            foreach ($columns as $column) {
+                $headers[] = $label.' '.$column;
+            }
+        }
+
+        $options = $filters->options($request);
+        $keys = $filters->activeKeys($options);
+        $rows = $summary ? null : ($keys === []
+            ? $profiles->orderBy('nama_outlet')->orderBy('id_outlet')->get(array_keys($identity))->map(fn ($row) => (array) $row)
+            : $filters->apply($filters->rows($profiles, $report, $cutoff, $keys), $options));
+        $recap = $summary ? $report->summary($profiles, $cutoff) : null;
+
+        return response()->streamDownload(function () use ($headers, $identity, $metrics, $columns, $rows, $recap, $report, $cutoff) {
+            $out = fopen('php://output', 'wb');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $headers, ',', '"', '');
+            $write = function (array $profile, array $series) use ($out, $identity, $metrics, $columns) {
+                $values = [];
+                foreach ($identity as $key => $label) {
+                    $value = $profile[$key] ?? '';
+                    if ($key === 'kategori_outlet' && $value === '') $value = 'Reguler';
+                    $values[] = is_string($value) && preg_match('/^[=+@\t\r\n-]/', $value) ? "'".$value : $value;
+                }
+                foreach ($metrics as $metric => $label) {
+                    foreach ($columns as $period => $column) {
+                        $values[] = $series[$metric][$period] ?? '';
+                    }
+                }
+                fputcsv($out, $values, ',', '"', '');
+            };
+
+            if ($recap !== null) {
+                foreach ([$recap['summary'], $recap['clusters'], ['Grand Total' => $recap['grand']]] as $group) {
+                    foreach ($group as $tap => $series) $write(['tap' => $tap ?: 'Tanpa TAP'], $series);
+                }
+            } else {
+                foreach ($rows->chunk(500) as $batch) {
+                    $details = $report->details($batch->pluck('id_outlet'), $cutoff);
+                    foreach ($batch as $row) $write($row, $details->get($row['id_outlet'], []));
+                }
+            }
+            fclose($out);
+        }, ($summary ? 'Rekap_TAP_CVM_' : 'Detail_Outlet_CVM_').$cutoff->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function values(Request $request, OutletCvmReport $report, OutletCvmColumns $filters)
     {
         $input = $request->validate([
