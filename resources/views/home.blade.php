@@ -242,6 +242,8 @@
     .mom-insights { display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 16px; background:#f7f9fc; border-top:1px solid #e5ebf2; font-size:13px; }
     #mom-cluster-table-wrap th,
     #mom-cluster-table-wrap td:not(.text-success):not(.text-danger) { color: #171717 !important; }
+    #mom-cluster-table-wrap .mom-impact-up { background: #edf8f2; }
+    #mom-cluster-table-wrap .mom-impact-down { background: #fff0f2; }
     #mom-cluster-table-wrap :is(.metric-daily-st, .metric-stock, .metric-stock-days) { font-weight: 800; }
     #mom-cluster-card tfoot tr:last-child td { border-top: 2px solid #bfdbfe !important; }
     #mom-cluster-table-wrap tbody td,

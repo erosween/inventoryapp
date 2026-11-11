@@ -110,7 +110,7 @@
                                     $stockDays = $dailySt > 0 ? $stockGudang / $dailySt : 0;
                                 @endphp
                                 <tr class="bg-white">
-                                    <td class="font-weight-bold text-dark">
+                                    <td class="font-weight-bold text-dark {{ $r === $topIncrease ? 'mom-impact-up' : ($r === $topDecrease ? 'mom-impact-down' : '') }}">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
                                             data-target="sf-{{ Str::slug($r->idtap) }}">
                                             +
