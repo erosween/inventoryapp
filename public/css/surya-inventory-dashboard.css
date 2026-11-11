@@ -99,22 +99,19 @@
     display: inline-flex; align-items: center; justify-content: center;
 }
 @media(max-width: 700px) {
-    .surya-inventory-dashboard-page #heatmap-sales-card .export-actions,
-    .surya-inventory-dashboard-page #heatmap-inject-card .export-actions { width: 100%; flex-basis: 100%; }
+    .surya-inventory-dashboard-page #heatmap-sales-card .export-actions { width: 100%; flex-basis: 100%; }
     .surya-inventory-dashboard-page #monthly-sales-filter-form {
         display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); width: 100%; gap: 8px;
         padding-bottom: 8px; border-bottom: 1px solid #edf0f3;
     }
     .surya-inventory-dashboard-page #monthly-sales-filter-form input[type="hidden"] { display: none; }
-    .surya-inventory-dashboard-page #monthly-sales-filter-form .monthly-sales-year-select,
-    .surya-inventory-dashboard-page #monthly-inject-filter-form .monthly-sales-year-select {
+    .surya-inventory-dashboard-page #monthly-sales-filter-form .monthly-sales-year-select {
         width: 100% !important; min-width: 0 !important; font-size: 16px !important;
     }
     .surya-inventory-dashboard-page #monthly-sales-filter-form .monthly-sales-view-toggle { justify-content: stretch; }
     .surya-inventory-dashboard-page #monthly-sales-filter-form .monthly-sales-view-btn { flex: 1; min-width: 0; }
     .surya-inventory-dashboard-page #monthly-sales-year-wrap,
     .surya-inventory-dashboard-page #annual-sales-cutoff-wrap { grid-column: 1 / -1; }
-    .surya-inventory-dashboard-page #monthly-inject-filter-form { flex: 1 1 100%; }
     .surya-inventory-dashboard-page .card .btn { min-height: 44px; }
     .surya-inventory-dashboard-page .card .monthly-sales-view-btn { min-height: 40px; }
     .surya-inventory-dashboard-page .card .monthly-sales-year-select { height: 44px !important; }

@@ -9,6 +9,7 @@
     $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
     $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
 @endphp
+<link rel="stylesheet" href="{{ asset('css/surya-validity-mom.css') }}?v={{ filemtime(public_path('css/surya-validity-mom.css')) }}">
 <style>
     .distribution-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 8px; }
     .distribution-controls label { margin:0; font-size:11px; color:#667085; font-weight:700; }
@@ -1102,29 +1103,35 @@
             {{-- ================= YEARLY MATRIX INJECT (HEATMAP) ================= --}}
             <div class="card enterprise-shadow mb-4" id="heatmap-inject-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
-                    <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
+                    <div class="dashboard-period-header">
                         <div>
                             <h6 class="font-weight-bold text-dark mb-0">🪄Inject Bulanan (Tahun {{ $selectedYear }})</h6>
                             <small class="text-muted">Inject per TAP</small>
                         </div>
-                        <div class="d-flex align-items-center export-actions">
-                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-inject-card" class="monthly-sales-filter-form mb-0" id="monthly-inject-filter-form">
-                                <select name="year" id="monthly-inject-year" class="form-control form-control-sm font-weight-bold monthly-sales-year-select" aria-label="Tahun inject">
-                                    @for ($year = (int) date('Y'); $year >= 2023; $year--)
-                                        <option value="{{ $year }}" @selected($selectedYear === $year)>Tahun {{ $year }}</option>
-                                    @endfor
-                                </select>
-                                <select name="inject_product" id="monthly-inject-product" class="form-control form-control-sm font-weight-bold monthly-sales-year-select monthly-product-select" aria-label="Kategori produk inject">
-                                    <optgroup label="PV"><option value="pv_all" {{ $injectProductFilter === 'pv_all' ? 'selected' : '' }}>ALL PV</option><option value="pv_reg" {{ $injectProductFilter === 'pv_reg' ? 'selected' : '' }}>PV Reguler</option><option value="pv_byu" {{ $injectProductFilter === 'pv_byu' ? 'selected' : '' }}>PV By.U</option></optgroup>
-                                    <optgroup label="SA"><option value="sa_all" {{ $injectProductFilter === 'sa_all' ? 'selected' : '' }}>ALL SA</option><option value="sa_simpati" {{ $injectProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option><option value="sa_byu" {{ $injectProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option></optgroup>
-                                </select>
+                        <div class="inject-period-toolbar">
+                            <form method="GET" action="{{ request()->routeIs('surya.inventory-dashboard') ? route('surya.inventory-dashboard') : url('home') }}#heatmap-inject-card" class="dashboard-period-filters" id="monthly-inject-filter-form">
+                                <label class="dashboard-period-field">Tahun
+                                    <select name="year" id="monthly-inject-year" aria-label="Tahun inject">
+                                        @for ($year = (int) date('Y'); $year >= 2023; $year--)
+                                            <option value="{{ $year }}" @selected($selectedYear === $year)>{{ $year }}</option>
+                                        @endfor
+                                    </select>
+                                </label>
+                                <label class="dashboard-period-field">Produk
+                                    <select name="inject_product" id="monthly-inject-product" aria-label="Kategori produk inject">
+                                        <optgroup label="PV"><option value="pv_all" {{ $injectProductFilter === 'pv_all' ? 'selected' : '' }}>ALL PV</option><option value="pv_reg" {{ $injectProductFilter === 'pv_reg' ? 'selected' : '' }}>PV Reguler</option><option value="pv_byu" {{ $injectProductFilter === 'pv_byu' ? 'selected' : '' }}>PV By.U</option></optgroup>
+                                        <optgroup label="SA"><option value="sa_all" {{ $injectProductFilter === 'sa_all' ? 'selected' : '' }}>ALL SA</option><option value="sa_simpati" {{ $injectProductFilter === 'sa_simpati' ? 'selected' : '' }}>SA Simpati</option><option value="sa_byu" {{ $injectProductFilter === 'sa_byu' ? 'selected' : '' }}>SA By.U</option></optgroup>
+                                    </select>
+                                </label>
                             </form>
-                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-copy-btn" title="Copy heatmap inject sebagai gambar" style="gap:6px;">
-                                <i data-feather="copy" style="width:14px;height:14px"></i> Copy
-                            </button>
-                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-download-btn" title="Download heatmap inject PNG" style="gap:6px;">
-                                <i data-feather="download" style="width:14px;height:14px"></i> PNG
-                            </button>
+                            <div class="inject-period-exports">
+                                <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-copy-btn" title="Copy heatmap inject sebagai gambar" style="gap:6px;">
+                                    <i data-feather="copy" style="width:14px;height:14px"></i> Copy
+                                </button>
+                                <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="heatmap-inject-download-btn" title="Download heatmap inject PNG" style="gap:6px;">
+                                    <i data-feather="download" style="width:14px;height:14px"></i> PNG
+                                </button>
+                            </div>
                         </div>
                         <small id="heatmap-inject-status" class="text-muted w-100 export-status"></small>
                     </div>
@@ -1533,7 +1540,6 @@
             {{-- ================= CHARTS LINE & BAR ================= --}}
             <div class="row mb-4 align-items-stretch">
                 <div class="col-12 mb-4">
-                    <link rel="stylesheet" href="{{ asset('css/surya-validity-mom.css') }}?v={{ filemtime(public_path('css/surya-validity-mom.css')) }}">
                     @include('surya.partials.validity-mom')
                     <script src="{{ asset('js/surya-validity-mom.js') }}?v={{ filemtime(public_path('js/surya-validity-mom.js')) }}" defer></script>
                 </div>
