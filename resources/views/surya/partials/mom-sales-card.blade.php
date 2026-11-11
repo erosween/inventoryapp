@@ -110,7 +110,7 @@
                                     $stockDays = $dailySt > 0 ? $stockGudang / $dailySt : 0;
                                 @endphp
                                 <tr class="bg-white">
-                                    <td class="font-weight-bold text-dark {{ $r === $topIncrease ? 'mom-impact-up' : ($r === $topDecrease ? 'mom-impact-down' : '') }}">
+                                    <td class="font-weight-bold text-dark">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
                                             data-target="sf-{{ Str::slug($r->idtap) }}">
                                             +
@@ -155,7 +155,7 @@
                                                             <td class="text-right text-muted border-bottom-0">{{ number_format($sf->prev_full_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $gapTone($sf->curr_qty - $sf->prev_qty) }}">{{ number_format($sf->curr_qty - $sf->prev_qty) }}</td>
                                                             <td class="text-right border-bottom-0 {{ $sf->mom >= 0 ? 'text-success' : 'text-danger' }}">
-                                                                <span class="badge badge-{{ $sf->mom >= 0 ? 'success' : 'danger' }} badge-pill bg-{{ $sf->mom >= 0 ? 'success' : 'danger' }} text-white font-weight-bold px-2 py-1">
+                                                                <span class="font-weight-bold">
                                                                     {!! $sf->mom >= 0 ? '&#43;' : '' !!} {{ number_format($sf->mom, 2) }} %
                                                                 </span>
                                                             </td>
@@ -175,7 +175,7 @@
                         <tfoot class="bg-light text-dark font-weight-bold" style="border-top: 2px solid #ddd">
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                             <tr>
-                                <td class="border-0"><span class="badge badge-secondary mr-2">CLUSTER</span> Dumai Bengkalis</td>
+                                <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Dumai Bengkalis</td>
                                 <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_full_qty) }}</td>
@@ -218,8 +218,8 @@
                                 $grandPrevFull = $momProductClusters['dumai_bengkalis']->prev_full_qty + $momProductClusters['rokan_hilir']->prev_full_qty;
                                 $grandMom = $grandPrevPart > 0 ? (($grandCurr - $grandPrevPart) / $grandPrevPart) * 100 : 0;
                             @endphp
-                            <tr style="background-color: #e3f2fd; color: #0d47a1;">
-                                <td class="border-0 font-weight-bold">✨ GRAND TOTAL MOM</td>
+                            <tr style="background-color: #e3f2fd;">
+                                <td class="border-0 font-weight-bold">GRAND TOTAL MOM</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevFull) }}</td>

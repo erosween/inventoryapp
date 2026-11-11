@@ -240,12 +240,9 @@
     #mom-cluster-card .card-header h6 { font-size: 16px; letter-spacing: -.01em; }
     #mom-cluster-card .card-header small { color: #7b8497 !important; font-weight: 600; }
     .mom-insights { display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 16px; background:#f7f9fc; border-top:1px solid #e5ebf2; font-size:13px; }
-    #mom-cluster-table-wrap .mom-impact-up { background:#edf8f2; }
-    #mom-cluster-table-wrap .mom-impact-down { background:#fff0f2; }
-    #mom-cluster-card .metric-daily-st { color: #4f46e5; font-weight: 800; }
-    #mom-cluster-card .metric-stock { color: #0f766e; font-weight: 800; }
-    #mom-cluster-card .metric-stock-days { color: #b45309; font-weight: 800; }
-    #mom-cluster-card thead th:nth-last-child(-n+3) { background: #f0fdf9; color: #166534; }
+    #mom-cluster-table-wrap th,
+    #mom-cluster-table-wrap td:not(.text-success):not(.text-danger) { color: #171717 !important; }
+    #mom-cluster-table-wrap :is(.metric-daily-st, .metric-stock, .metric-stock-days) { font-weight: 800; }
     #mom-cluster-card tfoot tr:last-child td { border-top: 2px solid #bfdbfe !important; }
     #mom-cluster-table-wrap tbody td,
     #mom-cluster-table-wrap tfoot td {
@@ -1758,7 +1755,7 @@
             // Header card seperti UI.
             drawText(ctx, heading.title, 28, 38, {
                 font: '700 15px Geist Variable, sans-serif',
-                color: '#2f3437'
+                color: '#171717'
             });
             drawText(ctx, heading.subtitle, 28, 62, {
                 font: '400 16px Geist Variable, sans-serif',
@@ -1798,7 +1795,7 @@
                 const x = index === 0 ? lefts[index] + 18 : lefts[index] + cols[index] - 18;
                 drawText(ctx, header, x, titleHeight + 32, {
                     font: '700 16px Geist Variable, sans-serif',
-                    color: '#55554c',
+                    color: '#171717',
                     align: index === 0 ? 'left' : 'right'
                 });
             });
@@ -1832,39 +1829,37 @@
                     });
                     drawText(ctx, row.cells[0], 68, centerY, {
                         font: '700 16px Geist Variable, sans-serif',
-                        color: '#2f3437',
+                        color: '#171717',
                         maxWidth: cols[0] - 78
                     });
                 } else if (row.type === 'cluster') {
-                    const purple = rowIndex % 2 === 0;
                     roundRect(ctx, 18, centerY - 15, 90, 30, 14);
-                    ctx.fillStyle = purple ? '#7467d4' : '#ffffff';
+                    ctx.fillStyle = '#ffffff';
                     ctx.fill();
-                    ctx.strokeStyle = purple ? '#7467d4' : '#dfe4ea';
+                    ctx.strokeStyle = '#dfe4ea';
                     ctx.stroke();
                     drawText(ctx, 'CLUSTER', 63, centerY, {
                         font: '400 14px Geist Variable, sans-serif',
-                        color: purple ? '#ffffff' : '#55554c',
+                        color: '#171717',
                         align: 'center'
                     });
                     drawText(ctx, row.cells[0], 118, centerY, {
                         font: '700 16px Geist Variable, sans-serif',
-                        color: '#2f3437',
+                        color: '#171717',
                         maxWidth: cols[0] - 126
                     });
                 } else {
                     drawText(ctx, row.cells[0], 18, centerY, {
                         font: '700 16px Geist Variable, sans-serif',
-                        color: '#1657b7',
+                        color: '#171717',
                         maxWidth: cols[0] - 36
                     });
                 }
 
                 for (let i = 1; i < row.cells.length; i++) {
-                    let color = '#8a8f98';
+                    let color = '#171717';
                     let font = '400 16px Geist Variable, sans-serif';
                     if (i === 1 || isCluster || isGrand) {
-                        color = isGrand ? '#1657b7' : '#2f3437';
                         font = '700 16px Geist Variable, sans-serif';
                     }
                     if (i === 4 && row.gapColor) {
@@ -1876,7 +1871,6 @@
                         font = '700 16px Geist Variable, sans-serif';
                     }
                     if (i >= 6 && !isGrand && !isCluster) {
-                        color = ['#4f46e5', '#0f766e', '#b45309'][i - 6];
                         font = '700 16px Geist Variable, sans-serif';
                     }
 
