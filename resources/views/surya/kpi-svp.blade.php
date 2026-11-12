@@ -49,6 +49,7 @@
     <div class="svp-mode" role="group" aria-label="Tampilan KPI">
         <button type="button" data-svp-mode="mtd" aria-pressed="true">MTD</button>
         <button type="button" data-svp-mode="projection" aria-pressed="false">Proyeksi</button>
+        <button type="button" data-svp-mode="gold" aria-pressed="false">Simulasi Gold</button>
     </div>
 
     <section class="svp-overview" aria-label="Ringkasan wilayah">
@@ -69,7 +70,8 @@
             <div class="svp-detail-heading">
                 <h2 id="svp-title-{{ $regionId }}">Detail KPI · {{ $region['name'] }}</h2>
             </div>
-            <p class="svp-cutoff" data-svp-cutoff></p>
+            <p class="svp-cutoff" data-svp-cutoff aria-live="polite"></p>
+            <button type="button" class="svp-edit-button" data-svp-reset hidden>Reset simulasi</button>
             <article class="svp-matrix-card" data-svp-matrix="{{ $regionId }}">
                 <div class="svp-matrix-result">
                     <h3>Matriks kelas gabungan</h3>
@@ -114,6 +116,10 @@
                                             @foreach(['target' => 'Target', 'actual' => 'Aktual', 'actual-date' => 'Tanggal Update'] as $field => $fieldLabel)
                                                 <td>
                                                     <span data-{{ $field }}></span>
+                                                    @if($field === 'actual')
+                                                        <input class="svp-inline-input" data-svp-simulation hidden type="number" min="0" step="any"
+                                                            aria-label="Simulasi {{ $label }} ({{ $unit === '%' ? 'persen' : ($unit ?: 'unit') }})">
+                                                    @endif
                                                     @if($canEdit)
                                                         <input class="svp-inline-input" hidden form="{{ $formId }}" name="{{ $field }}"
                                                             aria-label="{{ $fieldLabel }} {{ $label }}"

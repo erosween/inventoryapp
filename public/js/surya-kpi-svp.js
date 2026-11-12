@@ -7,6 +7,8 @@
     const scoreFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
     const cutoffFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const entries = new Map();
+    const simulations = new Map();
+    const goldThreshold = 2.2;
     let localEntries = {};
     let request;
     let loaded = false;
@@ -69,7 +71,7 @@
 
     function resultClass(score) {
         if (score === null) return '—';
-        const bands = [[2.6, 'Platinum'], [2.2, 'Gold'], [1.8, 'Silver'], [1.4, 'Bronze'], [1, 'Black']];
+        const bands = [[2.6, 'Platinum'], [goldThreshold, 'Gold'], [1.8, 'Silver'], [1.4, 'Bronze'], [1, 'Black']];
         return bands.find(([threshold]) => score >= threshold)[1];
     }
 
@@ -90,21 +92,30 @@
 
     function renderRegion(regionId) {
         const isProjection = mode === 'projection';
+        const isSimulation = mode === 'gold';
         const daysInMonth = monthEnd(period.value).getUTCDate();
         const panel = document.querySelector(`[data-svp-panel="${regionId}"]`);
-        panel.querySelectorAll('[data-svp-action]').forEach(element => { element.hidden = isProjection; });
+        panel.querySelectorAll('[data-svp-action]').forEach(element => { element.hidden = mode !== 'mtd'; });
         panel.querySelector('[data-svp-cutoff]').textContent = isProjection
             ? 'Proyeksi sampai akhir bulan berdasarkan tanggal update tiap KPI.'
             : '';
 
+        const reset = panel.querySelector('[data-svp-reset]');
+        reset.hidden = !isSimulation;
+        reset.disabled = !loaded;
+
         const results = segment => regions[regionId][segment].map((_, index) => {
             const entry = entryFor(period.value, regionId, segment, index);
-            const { target, actual, date } = entry ?? { target: null, actual: null, date: null };
+            const { actual, date } = entry ?? { actual: null, date: null };
+            const target = entry ? entry.target : isSimulation
+                ? entryFor(previousMonth(), regionId, segment, index)?.target ?? null : null;
+            const simulationKey = key(period.value, regionId, segment, index);
             // Market Share and C3MR are rates, so they retain their actual values.
-            const value = isProjection && index < 2 && actual !== null
+            const baseline = (isProjection || isSimulation) && index < 2 && actual !== null
                 ? (date ? actual * daysInMonth / Number(date.slice(-2)) : null)
                 : actual;
-            return { ...calculate([target, value]), date };
+            const value = isSimulation ? simulations.get(simulationKey) ?? baseline : baseline;
+            return { ...calculate([target, value]), date, simulationKey };
         });
         const mobileRows = results('mobile');
         const householdRows = results('household');
@@ -123,6 +134,11 @@
             showScore(newSalesPsPoints === null ? null : newSalesPsPoints / 100);
         const complete = mobile !== null && household !== null;
         const finalClass = resultClass(complete ? Math.min(mobile, household) : null);
+        if (isSimulation) {
+            const remaining = score => score === null ? '—' : showScore(Math.max(0, goldThreshold - score));
+            panel.querySelector('[data-svp-cutoff]').textContent =
+                `Target Gold 2.20 per segmen · Kekurangan skor Mobile ${remaining(mobile)} · Household ${remaining(household)}. Nilai awal mengikuti proyeksi dan perubahan hanya berlaku di simulasi.`;
+        }
         const matrix = document.querySelector(`[data-svp-matrix="${regionId}"]`);
         setClass(document.querySelector(`[data-region-class="${regionId}"]`), finalClass);
         setClass(matrix.querySelector('[data-matrix-class]'), finalClass);
@@ -139,7 +155,7 @@
             const key = regionId + '-' + segmentId;
             const card = document.querySelector(`[data-svp-segment="${key}"]`);
             document.querySelector(`[data-summary-score="${key}"]`).textContent = showScore(score);
-            card.querySelector('[data-svp-actual-heading]').textContent = isProjection ? 'Proyeksi / Aktual' : 'Aktual MTD';
+            card.querySelector('[data-svp-actual-heading]').textContent = isSimulation ? 'Nilai simulasi' : isProjection ? 'Proyeksi / Aktual' : 'Aktual MTD';
             card.querySelector('[data-segment-score]').textContent = showScore(score);
             setClass(document.querySelector(`[data-summary-class="${key}"]`), resultClass(score));
             setClass(card.querySelector('[data-segment-class]'), resultClass(score));
@@ -153,16 +169,24 @@
                 row.querySelector('[data-actual-date]').textContent = result.date
                     ? cutoffFormat.format(new Date(result.date + 'T00:00:00Z')) : '—';
                 const form = row.querySelector('.svp-inline-form');
+                const canEdit = mode === 'mtd' && loaded && form !== null;
+                const isEditing = canEdit && editing === form;
                 if (form) {
-                    const canEdit = !isProjection && loaded;
-                    const isEditing = canEdit && editing === form;
                     row.querySelector('[data-svp-edit]').hidden = !canEdit || isEditing;
                     form.hidden = !isEditing;
                     row.querySelectorAll('.svp-inline-input').forEach(input => { input.hidden = !isEditing; });
-                    row.querySelectorAll('[data-target], [data-actual], [data-actual-date]').forEach(element => {
+                    row.querySelectorAll('[data-target], [data-actual-date]').forEach(element => {
                         element.hidden = isEditing;
                     });
                 }
+                const simulation = row.querySelector('[data-svp-simulation]');
+                simulation.hidden = !isSimulation;
+                simulation.disabled = !loaded;
+                simulation.dataset.key = result.simulationKey;
+                if (document.activeElement !== simulation) {
+                    simulation.value = result.actual === null ? '' : String(result.actual);
+                }
+                row.querySelector('[data-actual]').hidden = isSimulation || isEditing;
                 row.querySelector('[data-score]').textContent = result.score ?? '—';
                 row.querySelector('[data-ach]').textContent = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
                 row.querySelector('[data-gap]').textContent = format(result.gap, unit);
@@ -229,9 +253,51 @@
 
     const switches = document.querySelectorAll('[data-svp-region]');
     const panels = document.querySelectorAll('[data-svp-panel]');
+    panels.forEach(panel => {
+        const region = panel.dataset.svpPanel;
+        panel.addEventListener('input', event => {
+            const input = event.target;
+            if (!input.matches('[data-svp-simulation]') || !input.validity.valid) return;
+            if (input.value === '') simulations.delete(input.dataset.key);
+            else simulations.set(input.dataset.key, input.valueAsNumber);
+            renderRegion(region);
+        });
+        panel.addEventListener('focusout', event => {
+            if (event.target.matches('[data-svp-simulation]')) renderRegion(region);
+        });
+        panel.querySelector('[data-svp-reset]').addEventListener('click', () => {
+            for (const segment of ['mobile', 'household']) {
+                regions[region][segment].forEach((_, index) => {
+                    simulations.delete(key(period.value, region, segment, index));
+                });
+            }
+            renderRegion(region);
+        });
+    });
     switches.forEach(button => button.addEventListener('click', () => {
         const active = button.dataset.svpRegion;
-        switches.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        panels.forEach(panel => {
+        const region = panel.dataset.svpPanel;
+        panel.addEventListener('input', event => {
+            const input = event.target;
+            if (!input.matches('[data-svp-simulation]') || !input.validity.valid) return;
+            if (input.value === '') simulations.delete(input.dataset.key);
+            else simulations.set(input.dataset.key, input.valueAsNumber);
+            renderRegion(region);
+        });
+        panel.addEventListener('focusout', event => {
+            if (event.target.matches('[data-svp-simulation]')) renderRegion(region);
+        });
+        panel.querySelector('[data-svp-reset]').addEventListener('click', () => {
+            for (const segment of ['mobile', 'household']) {
+                regions[region][segment].forEach((_, index) => {
+                    simulations.delete(key(period.value, region, segment, index));
+                });
+            }
+            renderRegion(region);
+        });
+    });
+    switches.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
         panels.forEach(panel => { panel.hidden = panel.dataset.svpPanel !== active; });
     }));
 
