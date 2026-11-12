@@ -222,3 +222,6 @@
 .svp-guide [data-svp-apply-goal]:disabled { opacity: .55; cursor: default; }
 .svp-inline-input[data-svp-simulation="achievement"] { width: 82px; }
 .svp-inline-input[data-svp-simulation="score"] { width: 54px; }
+.svp-percent-input { position: relative; display: inline-block; }
+.svp-percent-input > span { position: absolute; inset-inline-end: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.svp-percent-input .svp-inline-input { padding-inline-end: 24px; }

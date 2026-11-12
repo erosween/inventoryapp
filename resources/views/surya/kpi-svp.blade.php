@@ -135,7 +135,10 @@
                                             @endforeach
                                             <td>
                                                 <div class="svp-ach"><span data-ach></span><progress max="100" aria-label="Capaian {{ $label }}"></progress></div>
-                                                <input class="svp-inline-input" data-svp-simulation="achievement" hidden type="text" inputmode="decimal" autocomplete="off" aria-label="Capaian (%) {{ $label }}">
+                                                <span class="svp-percent-input" data-svp-percent-input hidden>
+                                                    <input class="svp-inline-input" data-svp-simulation="achievement" hidden type="text" inputmode="decimal" autocomplete="off" aria-label="Capaian (%) {{ $label }}">
+                                                    <span aria-hidden="true">%</span>
+                                                </span>
                                             </td>
                                             <td data-gap></td>
                                             <td>

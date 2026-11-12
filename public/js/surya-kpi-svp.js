@@ -276,6 +276,7 @@
                 const achievementLabel = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
                 achievement.textContent = result.score === 3 && achievementLabel === '100.0%' ? '>100%' : achievementLabel;
                 achievement.parentElement.hidden = isSimulation;
+                row.querySelector('[data-svp-percent-input]').hidden = !isSimulation;
                 row.querySelector('[data-gap]').textContent = format(result.gap, unit);
                 row.dataset.trend = result.gap === null ? '' : result.gap < 0 ? 'below' : 'met';
                 progress.hidden = result.achievement === null;
