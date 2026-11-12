@@ -4,6 +4,7 @@
     const status = document.querySelector('#svp-status');
     const forms = [...document.querySelectorAll('.svp-inline-form')];
     const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+    const wholeNumber = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
     const simulationFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 16 });
     const scoreFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
     const cutoffFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -265,7 +266,8 @@
                     input.dataset.key = result.simulationKey;
                     input.dataset.target = result.target ?? '';
                     if (document.activeElement !== input || input.tagName === 'SELECT') {
-                        input.value = values[type] === null ? '' : simulationFormat.format(values[type]);
+                        const formatter = type === 'value' && unit !== '%' ? wholeNumber : simulationFormat;
+                        input.value = values[type] === null ? '' : formatter.format(values[type]);
                     }
                 });
                 row.querySelector('[data-actual]').hidden = isSimulation || isEditing;
