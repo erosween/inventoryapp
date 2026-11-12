@@ -199,10 +199,11 @@
         const complete = mobile !== null && household !== null;
         const finalClass = resultClass(complete ? Math.min(mobile, household) : null);
         const guide = panel.querySelector('[data-svp-guide]');
+        const inputMode = guide.querySelector('[data-svp-input-mode]').value;
         guide.hidden = !isSimulation;
         if (isSimulation) {
             panel.querySelector('[data-svp-cutoff]').textContent =
-                'Isi nilai akhir bulan untuk simulasi. Skor berubah saat capaian mencapai 95% atau melewati 100%.';
+                'Skor 1 di bawah 95%, skor 2 pada 95–100%, dan skor 3 di atas 100%. Input skor memakai capaian 94%, 100%, atau 101%.';
             const goal = Number(guide.querySelector('[data-svp-goal]').value);
             const mobilePlan = updateGuide(panel, 'mobile', 'Mobile', mobileRows, mobileWeights, goal);
             const householdPlan = updateGuide(panel, 'household', 'Household', householdRows, householdWeights, goal);
@@ -247,23 +248,43 @@
                 if (form) {
                     row.querySelector('[data-svp-edit]').hidden = !canEdit || isEditing;
                     form.hidden = !isEditing;
-                    row.querySelectorAll('.svp-inline-input').forEach(input => { input.hidden = !isEditing; });
+                    row.querySelectorAll('.svp-inline-input[form]').forEach(input => { input.hidden = !isEditing; });
                     row.querySelectorAll('[data-target], [data-actual-date]').forEach(element => {
                         element.hidden = isEditing;
                     });
                 }
                 const simulation = row.querySelector('[data-svp-simulation]');
+                const actual = row.querySelector('[data-actual]');
+                const achievement = row.querySelector('[data-ach]');
+                const score = row.querySelector('[data-score]');
+                const editValue = isSimulation && inputMode === 'value';
+                const editAchievement = isSimulation && inputMode === 'achievement';
+                const editScore = isSimulation && inputMode === 'score';
+                const cell = editScore ? score : editAchievement ? achievement.closest('td') : actual.closest('td');
+                if (simulation.parentElement !== cell) cell.append(simulation);
                 simulation.hidden = !isSimulation;
-                simulation.disabled = !loaded;
+                simulation.disabled = !loaded || (!editValue && !(result.target > 0));
+                simulation.title = simulation.disabled && loaded ? 'Target KPI diperlukan' : '';
                 simulation.dataset.key = result.simulationKey;
+                simulation.dataset.target = result.target ?? '';
+                const label = editScore ? 'Skor (1–3)' : editAchievement ? 'Capaian (%)' : 'Nilai simulasi';
+                simulation.setAttribute('aria-label', label + ' ' + row.querySelector('th').textContent.trim());
                 if (document.activeElement !== simulation) {
-                    simulation.value = result.actual === null ? '' : simulationFormat.format(result.actual);
+                    const value = editScore ? result.score : editAchievement
+                        ? (result.achievement === null ? null : result.achievement * 100) : result.actual;
+                    simulation.value = value === null ? '' : simulationFormat.format(value);
                 }
-                row.querySelector('[data-actual]').hidden = isSimulation || isEditing;
-                row.querySelector('[data-score]').textContent = result.score ?? '—';
+                actual.hidden = editValue || isEditing;
+                let scoreLabel = score.querySelector('span');
+                if (!scoreLabel) {
+                    scoreLabel = document.createElement('span');
+                    score.prepend(scoreLabel);
+                }
+                scoreLabel.textContent = result.score ?? '—';
+                scoreLabel.hidden = editScore;
                 const achievementLabel = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
-                row.querySelector('[data-ach]').textContent =
-                    result.score === 3 && achievementLabel === '100.0%' ? '>100%' : achievementLabel;
+                achievement.textContent = result.score === 3 && achievementLabel === '100.0%' ? '>100%' : achievementLabel;
+                achievement.parentElement.hidden = editAchievement;
                 row.querySelector('[data-gap]').textContent = format(result.gap, unit);
                 row.dataset.trend = result.gap === null ? '' : result.gap < 0 ? 'below' : 'met';
                 progress.hidden = result.achievement === null;
@@ -346,7 +367,17 @@
             const valid = value === '' || /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d*)?$/.test(value);
             const numeric = value === '' ? null : Number(value.replaceAll(',', ''));
             if (!valid || (numeric !== null && !Number.isFinite(numeric))) return;
-            simulations.set(input.dataset.key, numeric);
+            const inputMode = panel.querySelector('[data-svp-input-mode]').value;
+            const target = Number(input.dataset.target);
+            let actual = numeric;
+            if (numeric !== null && inputMode !== 'value') {
+                if (!(target > 0)) return;
+                const scoreRates = { 1: 0.94, 2: 1, 3: 1.01 };
+                const rate = inputMode === 'score' ? scoreRates[numeric] : numeric / 100;
+                actual = target * rate;
+                if (!Number.isFinite(actual)) return;
+            }
+            simulations.set(input.dataset.key, actual);
             renderRegion(region);
         });
         panel.addEventListener('focusin', event => {
@@ -360,6 +391,7 @@
             for (const [metric, value] of suggestedValues.get(panel)) simulations.set(metric, value);
             renderRegion(region);
         });
+        panel.querySelector('[data-svp-input-mode]').addEventListener('change', () => renderRegion(region));
         panel.querySelector('[data-svp-goal]').addEventListener('change', () => renderRegion(region));
         panel.querySelector('[data-svp-reset]').addEventListener('click', () => {
             for (const segment of ['mobile', 'household']) {
