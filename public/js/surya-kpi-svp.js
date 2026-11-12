@@ -67,7 +67,7 @@
     function calculate([target, actual]) {
         const gap = target === null || actual === null ? null : actual - target;
         const achievement = target > 0 && actual !== null ? actual / target : null;
-        const score = achievement === null ? null : actual > target ? 3 : achievement < 0.95 ? 1 : 2;
+        const score = achievement === null ? null : actual > target ? 3 : actual < target * 0.95 ? 1 : 2;
         return { target, actual, gap, achievement, score };
     }
 
@@ -202,7 +202,7 @@
         guide.hidden = !isSimulation;
         if (isSimulation) {
             panel.querySelector('[data-svp-cutoff]').textContent =
-                'Skor 1 di bawah 95%, skor 2 pada 95–100%, dan skor 3 di atas 100%. Input skor memakai capaian 94%, 100%, atau 101%.';
+                'Skor 1 di bawah 95%, skor 2 pada 95–100%, dan skor 3 di atas 100%. Input skor memakai capaian 80%, 95%, atau 101%.';
             const goal = Number(guide.querySelector('[data-svp-goal]').value);
             const mobilePlan = updateGuide(panel, 'mobile', 'Mobile', mobileRows, mobileWeights, goal);
             const householdPlan = updateGuide(panel, 'household', 'Household', householdRows, householdWeights, goal);
@@ -365,7 +365,7 @@
             let actual = numeric;
             if (numeric !== null && inputMode !== 'value') {
                 if (!(target > 0)) return;
-                const scoreRates = { 1: 0.94, 2: 1, 3: 1.01 };
+                const scoreRates = { 1: 0.8, 2: 0.95, 3: 1.01 };
                 const rate = inputMode === 'score' ? scoreRates[numeric] : numeric / 100;
                 actual = target * rate;
                 if (!Number.isFinite(actual)) return;
