@@ -73,9 +73,6 @@
             <p class="svp-cutoff" data-svp-cutoff aria-live="polite"></p>
             <button type="button" class="svp-edit-button" data-svp-reset hidden>Reset simulasi</button>
             <div class="svp-guide" data-svp-guide hidden>
-                <label>Input simulasi
-                    <select data-svp-input-mode><option value="value">Nilai</option><option value="achievement">Capaian (%)</option><option value="score">Skor (1–3)</option></select>
-                </label>
                 <label>Kelas tujuan <select data-svp-goal><option value="1.8">Silver</option><option value="2.2" selected>Gold</option><option value="2.6">Platinum</option></select></label>
                 <button type="button" class="svp-edit-button" data-svp-apply-goal disabled>Terapkan</button>
                 <p data-svp-guide-segment="mobile"></p>
@@ -126,7 +123,7 @@
                                                 <td>
                                                     <span data-{{ $field }}></span>
                                                     @if($field === 'actual')
-                                                        <input class="svp-inline-input" data-svp-simulation hidden type="text" inputmode="decimal" autocomplete="off"
+                                                        <input class="svp-inline-input" data-svp-simulation="value" hidden type="text" inputmode="decimal" autocomplete="off"
                                                             aria-label="Simulasi {{ $label }} ({{ $unit === '%' ? 'persen' : ($unit ?: 'unit') }})">
                                                     @endif
                                                     @if($canEdit)
@@ -136,8 +133,17 @@
                                                     @endif
                                                 </td>
                                             @endforeach
-                                            <td><div class="svp-ach"><span data-ach></span><progress max="100" aria-label="Capaian {{ $label }}"></progress></div></td>
-                                            <td data-gap></td><td data-score></td>
+                                            <td>
+                                                <div class="svp-ach"><span data-ach></span><progress max="100" aria-label="Capaian {{ $label }}"></progress></div>
+                                                <input class="svp-inline-input" data-svp-simulation="achievement" hidden type="text" inputmode="decimal" autocomplete="off" aria-label="Capaian (%) {{ $label }}">
+                                            </td>
+                                            <td data-gap></td>
+                                            <td>
+                                                <span data-score></span>
+                                                <select class="svp-inline-input" data-svp-simulation="score" hidden aria-label="Skor {{ $label }}">
+                                                    <option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                                                </select>
+                                            </td>
                                             @if($loop->first)
                                                 <td class="svp-result-cell" rowspan="{{ count($segment['metrics']) }}" data-segment-class></td>
                                             @endif

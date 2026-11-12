@@ -220,3 +220,5 @@
 .svp-guide p { margin: 8px 0 0; }
 .svp-guide [data-svp-apply-goal] { margin-inline-start: 6px; padding: 5px 10px; font-size: .8rem; }
 .svp-guide [data-svp-apply-goal]:disabled { opacity: .55; cursor: default; }
+.svp-inline-input[data-svp-simulation="achievement"] { width: 82px; }
+.svp-inline-input[data-svp-simulation="score"] { width: 54px; }

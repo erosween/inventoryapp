@@ -199,7 +199,6 @@
         const complete = mobile !== null && household !== null;
         const finalClass = resultClass(complete ? Math.min(mobile, household) : null);
         const guide = panel.querySelector('[data-svp-guide]');
-        const inputMode = guide.querySelector('[data-svp-input-mode]').value;
         guide.hidden = !isSimulation;
         if (isSimulation) {
             panel.querySelector('[data-svp-cutoff]').textContent =
@@ -253,38 +252,30 @@
                         element.hidden = isEditing;
                     });
                 }
-                const simulation = row.querySelector('[data-svp-simulation]');
-                const actual = row.querySelector('[data-actual]');
-                const achievement = row.querySelector('[data-ach]');
+                const values = {
+                    value: result.actual,
+                    achievement: result.achievement === null ? null : result.achievement * 100,
+                    score: result.score,
+                };
+                row.querySelectorAll('[data-svp-simulation]').forEach(input => {
+                    const type = input.dataset.svpSimulation;
+                    input.hidden = !isSimulation;
+                    input.disabled = !loaded || (type !== 'value' && !(result.target > 0));
+                    input.title = input.disabled && loaded ? 'Target KPI diperlukan' : '';
+                    input.dataset.key = result.simulationKey;
+                    input.dataset.target = result.target ?? '';
+                    if (document.activeElement !== input || input.tagName === 'SELECT') {
+                        input.value = values[type] === null ? '' : simulationFormat.format(values[type]);
+                    }
+                });
+                row.querySelector('[data-actual]').hidden = isSimulation || isEditing;
                 const score = row.querySelector('[data-score]');
-                const editValue = isSimulation && inputMode === 'value';
-                const editAchievement = isSimulation && inputMode === 'achievement';
-                const editScore = isSimulation && inputMode === 'score';
-                const cell = editScore ? score : editAchievement ? achievement.closest('td') : actual.closest('td');
-                if (simulation.parentElement !== cell) cell.append(simulation);
-                simulation.hidden = !isSimulation;
-                simulation.disabled = !loaded || (!editValue && !(result.target > 0));
-                simulation.title = simulation.disabled && loaded ? 'Target KPI diperlukan' : '';
-                simulation.dataset.key = result.simulationKey;
-                simulation.dataset.target = result.target ?? '';
-                const label = editScore ? 'Skor (1–3)' : editAchievement ? 'Capaian (%)' : 'Nilai simulasi';
-                simulation.setAttribute('aria-label', label + ' ' + row.querySelector('th').textContent.trim());
-                if (document.activeElement !== simulation) {
-                    const value = editScore ? result.score : editAchievement
-                        ? (result.achievement === null ? null : result.achievement * 100) : result.actual;
-                    simulation.value = value === null ? '' : simulationFormat.format(value);
-                }
-                actual.hidden = editValue || isEditing;
-                let scoreLabel = score.querySelector('span');
-                if (!scoreLabel) {
-                    scoreLabel = document.createElement('span');
-                    score.prepend(scoreLabel);
-                }
-                scoreLabel.textContent = result.score ?? '—';
-                scoreLabel.hidden = editScore;
+                score.textContent = result.score ?? '—';
+                score.hidden = isSimulation;
+                const achievement = row.querySelector('[data-ach]');
                 const achievementLabel = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
                 achievement.textContent = result.score === 3 && achievementLabel === '100.0%' ? '>100%' : achievementLabel;
-                achievement.parentElement.hidden = editAchievement;
+                achievement.parentElement.hidden = isSimulation;
                 row.querySelector('[data-gap]').textContent = format(result.gap, unit);
                 row.dataset.trend = result.gap === null ? '' : result.gap < 0 ? 'below' : 'met';
                 progress.hidden = result.achievement === null;
@@ -367,7 +358,7 @@
             const valid = value === '' || /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d*)?$/.test(value);
             const numeric = value === '' ? null : Number(value.replaceAll(',', ''));
             if (!valid || (numeric !== null && !Number.isFinite(numeric))) return;
-            const inputMode = panel.querySelector('[data-svp-input-mode]').value;
+            const inputMode = input.dataset.svpSimulation;
             const target = Number(input.dataset.target);
             let actual = numeric;
             if (numeric !== null && inputMode !== 'value') {
@@ -391,7 +382,6 @@
             for (const [metric, value] of suggestedValues.get(panel)) simulations.set(metric, value);
             renderRegion(region);
         });
-        panel.querySelector('[data-svp-input-mode]').addEventListener('change', () => renderRegion(region));
         panel.querySelector('[data-svp-goal]').addEventListener('change', () => renderRegion(region));
         panel.querySelector('[data-svp-reset]').addEventListener('click', () => {
             for (const segment of ['mobile', 'household']) {
