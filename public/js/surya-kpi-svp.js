@@ -13,7 +13,8 @@
     let localEntries = {};
     let request;
     let loaded = false;
-    let mode = 'mtd';
+    const requestedMode = new URL(location.href).searchParams.get('mode');
+    let mode = ['projection', 'simulation'].includes(requestedMode) ? requestedMode : 'mtd';
     let editing = null;
 
     if (forms.length) {
@@ -66,7 +67,7 @@
     function calculate([target, actual]) {
         const gap = target === null || actual === null ? null : actual - target;
         const achievement = target > 0 && actual !== null ? actual / target : null;
-        const score = achievement === null ? null : achievement < 0.95 ? 1 : achievement <= 1 ? 2 : 3;
+        const score = achievement === null ? null : actual > target ? 3 : achievement < 0.95 ? 1 : 2;
         return { target, actual, gap, achievement, score };
     }
 
@@ -226,6 +227,7 @@
             const card = document.querySelector(`[data-svp-segment="${key}"]`);
             document.querySelector(`[data-summary-score="${key}"]`).textContent = showScore(score);
             card.querySelector('[data-svp-actual-heading]').textContent = isSimulation ? 'Nilai simulasi' : isProjection ? 'Proyeksi / Aktual' : 'Aktual MTD';
+            card.querySelector('[data-svp-date-heading]').textContent = isSimulation ? 'Tanggal Closing' : 'Tanggal Update';
             card.querySelector('[data-segment-score]').textContent = showScore(score);
             setClass(document.querySelector(`[data-summary-class="${key}"]`), resultClass(score));
             setClass(card.querySelector('[data-segment-class]'), resultClass(score));
@@ -236,8 +238,9 @@
                 const progress = row.querySelector('progress');
                 row.querySelector('[data-target]').textContent = format(result.target, unit);
                 row.querySelector('[data-actual]').textContent = format(result.actual, unit);
-                row.querySelector('[data-actual-date]').textContent = result.date
-                    ? cutoffFormat.format(new Date(result.date + 'T00:00:00Z')) : '—';
+                const date = isSimulation && result.actual !== null
+                    ? monthEnd(period.value) : result.date ? new Date(result.date + 'T00:00:00Z') : null;
+                row.querySelector('[data-actual-date]').textContent = date ? cutoffFormat.format(date) : '—';
                 const form = row.querySelector('.svp-inline-form');
                 const canEdit = mode === 'mtd' && loaded && form !== null;
                 const isEditing = canEdit && editing === form;
@@ -258,7 +261,9 @@
                 }
                 row.querySelector('[data-actual]').hidden = isSimulation || isEditing;
                 row.querySelector('[data-score]').textContent = result.score ?? '—';
-                row.querySelector('[data-ach]').textContent = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
+                const achievementLabel = result.achievement === null ? '—' : (result.achievement * 100).toFixed(1) + '%';
+                row.querySelector('[data-ach]').textContent =
+                    result.score === 3 && achievementLabel === '100.0%' ? '>100%' : achievementLabel;
                 row.querySelector('[data-gap]').textContent = format(result.gap, unit);
                 row.dataset.trend = result.gap === null ? '' : result.gap < 0 ? 'below' : 'met';
                 progress.hidden = result.achievement === null;
@@ -272,9 +277,18 @@
     }
 
     const modes = document.querySelectorAll('[data-svp-mode]');
+    function updateModeButtons() {
+        modes.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.svpMode === mode)));
+    }
+
+    updateModeButtons();
     modes.forEach(button => button.addEventListener('click', () => {
         mode = button.dataset.svpMode;
-        modes.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        const url = new URL(location.href);
+        if (mode === 'mtd') url.searchParams.delete('mode');
+        else url.searchParams.set('mode', mode);
+        history.replaceState(history.state, '', url);
+        updateModeButtons();
         renderPeriod();
     }));
 
