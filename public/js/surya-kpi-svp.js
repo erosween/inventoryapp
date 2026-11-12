@@ -4,6 +4,7 @@
     const status = document.querySelector('#svp-status');
     const forms = [...document.querySelectorAll('.svp-inline-form')];
     const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+    const simulationFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 16 });
     const scoreFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
     const cutoffFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const entries = new Map();
@@ -253,7 +254,7 @@
                 simulation.disabled = !loaded;
                 simulation.dataset.key = result.simulationKey;
                 if (document.activeElement !== simulation) {
-                    simulation.value = result.actual === null ? '' : String(result.actual);
+                    simulation.value = result.actual === null ? '' : simulationFormat.format(result.actual);
                 }
                 row.querySelector('[data-actual]').hidden = isSimulation || isEditing;
                 row.querySelector('[data-score]').textContent = result.score ?? '—';
@@ -327,9 +328,16 @@
         panel.addEventListener('input', event => {
             const input = event.target;
             if (!input.matches('[data-svp-simulation]')) return;
-            if (input.validity.badInput || input.validity.rangeUnderflow) return;
-            simulations.set(input.dataset.key, input.value === '' ? null : input.valueAsNumber);
+            const value = input.value.trim();
+            const valid = value === '' || /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d*)?$/.test(value);
+            const numeric = value === '' ? null : Number(value.replaceAll(',', ''));
+            if (!valid || (numeric !== null && !Number.isFinite(numeric))) return;
+            simulations.set(input.dataset.key, numeric);
             renderRegion(region);
+        });
+        panel.addEventListener('focusin', event => {
+            const input = event.target;
+            if (input.matches('[data-svp-simulation]')) input.value = input.value.replaceAll(',', '');
         });
         panel.addEventListener('focusout', event => {
             if (event.target.matches('[data-svp-simulation]')) renderRegion(region);

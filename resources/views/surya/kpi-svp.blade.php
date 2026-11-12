@@ -123,7 +123,7 @@
                                                 <td>
                                                     <span data-{{ $field }}></span>
                                                     @if($field === 'actual')
-                                                        <input class="svp-inline-input" data-svp-simulation hidden type="number" min="0" step="any"
+                                                        <input class="svp-inline-input" data-svp-simulation hidden type="text" inputmode="decimal" autocomplete="off"
                                                             aria-label="Simulasi {{ $label }} ({{ $unit === '%' ? 'persen' : ($unit ?: 'unit') }})">
                                                     @endif
                                                     @if($canEdit)
