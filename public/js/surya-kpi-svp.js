@@ -103,12 +103,16 @@
         }
 
         const metrics = [...panel.querySelectorAll(`[data-svp-segment$="-${segment}"] [data-svp-metric]`)];
+        const goalClass = resultClass(goal);
         const options = rows.map((row, index) => {
             const scale = metrics[index].dataset.unit === '%' ? 100 : 1;
-            const thresholds = [0, Math.ceil(row.target * 0.95 * scale) / scale,
-                (Math.floor(row.target * scale) + 1) / scale];
-            return thresholds.map((minimum, position) => ({ minimum, score: position + 1 }))
-                .filter(option => option.score >= (row.score ?? 1));
+            const silverMinimum = Math.ceil(row.target * 0.95 * scale) / scale;
+            const upper = [Math.max(0, silverMinimum - 1 / scale), row.target, Infinity];
+            const lower = [0, silverMinimum, (Math.floor(row.target * scale) + 1) / scale];
+            return lower.map((minimum, index) => {
+                const value = Math.min(upper[index], Math.max(minimum, row.actual ?? minimum));
+                return { value, score: calculate([row.target, value]).score };
+            });
         });
 
         // Six metrics are split into two groups of three, so each segment has at most 27 scenarios.
@@ -118,25 +122,31 @@
                 for (const third of options[2]) {
                     const combination = [first, second, third];
                     const score = weightedScore(combination.map(option => option.score), weights);
-                    if (score < goal) continue;
+                    if (resultClass(score) !== goalClass) continue;
                     const cost = combination.reduce((total, option, index) => {
                         const row = rows[index];
-                        return total + Math.max(0, option.minimum - (row.actual ?? 0)) / row.target;
+                        return total + Math.abs(option.value - (row.actual ?? 0)) / row.target;
                     }, 0);
                     if (!best || cost < best.cost) best = { combination, score, cost };
                 }
             }
         }
 
+        if (!best) {
+            output.textContent = `${title} · Kelas ${goalClass} tidak dapat dibentuk dengan target ini.`;
+            return;
+        }
+
         const values = new Map();
-        const changes = best.combination.flatMap(({ minimum, score }, index) => {
-            if (rows[index].score >= score) return [];
-            values.set(rows[index].simulationKey, minimum);
-            return [metrics[index].querySelector('th').textContent + ' ≥ ' + format(minimum, metrics[index].dataset.unit)];
+        const changes = best.combination.flatMap(({ value }, index) => {
+            if (rows[index].actual === value) return [];
+            values.set(rows[index].simulationKey, value);
+            const unit = metrics[index].dataset.unit;
+            return [metrics[index].querySelector('th').textContent + ' = ' + format(value, unit)];
         });
         output.textContent = changes.length
             ? `${title} · ${changes.join(' · ')} → skor ${showScore(best.score)}`
-            : `${title} · Sudah memenuhi kelas tujuan.`;
+            : `${title} · Sudah di kelas ${goalClass}.`;
         return values;
     }
 

@@ -218,3 +218,5 @@
 .svp-guide label { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; }
 .svp-guide select { font: inherit; padding: 5px 10px; border: 1px solid var(--svp-line); border-radius: 6px; }
 .svp-guide p { margin: 8px 0 0; }
+.svp-guide [data-svp-apply-goal] { margin-inline-start: 6px; padding: 5px 10px; font-size: .8rem; }
+.svp-guide [data-svp-apply-goal]:disabled { opacity: .55; cursor: default; }
