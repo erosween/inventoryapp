@@ -8,6 +8,7 @@
     const cutoffFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const entries = new Map();
     const simulations = new Map();
+    const suggestedValues = new WeakMap();
     let localEntries = {};
     let request;
     let loaded = false;
@@ -127,13 +128,16 @@
             }
         }
 
+        const values = new Map();
         const changes = best.combination.flatMap(({ minimum, score }, index) => {
             if (rows[index].score >= score) return [];
+            values.set(rows[index].simulationKey, minimum);
             return [metrics[index].querySelector('th').textContent + ' ≥ ' + format(minimum, metrics[index].dataset.unit)];
         });
         output.textContent = changes.length
             ? `${title} · ${changes.join(' · ')} → skor ${showScore(best.score)}`
             : `${title} · Sudah memenuhi kelas tujuan.`;
+        return values;
     }
 
     function renderRegion(regionId) {
@@ -188,8 +192,11 @@
             panel.querySelector('[data-svp-cutoff]').textContent =
                 'Isi nilai akhir bulan untuk simulasi. Skor berubah saat capaian mencapai 95% atau melewati 100%.';
             const goal = Number(guide.querySelector('[data-svp-goal]').value);
-            updateGuide(panel, 'mobile', 'Mobile', mobileRows, mobileWeights, goal);
-            updateGuide(panel, 'household', 'Household', householdRows, householdWeights, goal);
+            const mobilePlan = updateGuide(panel, 'mobile', 'Mobile', mobileRows, mobileWeights, goal);
+            const householdPlan = updateGuide(panel, 'household', 'Household', householdRows, householdWeights, goal);
+            const plan = mobilePlan && householdPlan ? new Map([...mobilePlan, ...householdPlan]) : new Map();
+            suggestedValues.set(panel, plan);
+            guide.querySelector('[data-svp-apply-goal]').disabled = !loaded || plan.size === 0;
         }
         const matrix = document.querySelector(`[data-svp-matrix="${regionId}"]`);
         setClass(document.querySelector(`[data-region-class="${regionId}"]`), finalClass);
@@ -316,6 +323,10 @@
         });
         panel.addEventListener('focusout', event => {
             if (event.target.matches('[data-svp-simulation]')) renderRegion(region);
+        });
+        panel.querySelector('[data-svp-apply-goal]').addEventListener('click', () => {
+            for (const [metric, value] of suggestedValues.get(panel)) simulations.set(metric, value);
+            renderRegion(region);
         });
         panel.querySelector('[data-svp-goal]').addEventListener('change', () => renderRegion(region));
         panel.querySelector('[data-svp-reset]').addEventListener('click', () => {

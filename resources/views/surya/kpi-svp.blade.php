@@ -74,6 +74,7 @@
             <button type="button" class="svp-edit-button" data-svp-reset hidden>Reset simulasi</button>
             <div class="svp-guide" data-svp-guide hidden>
                 <label>Kelas tujuan <select data-svp-goal><option value="1.8">Silver</option><option value="2.2" selected>Gold</option><option value="2.6">Platinum</option></select></label>
+                <button type="button" class="svp-primary" data-svp-apply-goal disabled>Terapkan skenario</button>
                 <p data-svp-guide-segment="mobile"></p>
                 <p data-svp-guide-segment="household"></p>
             </div>
