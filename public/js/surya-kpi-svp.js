@@ -84,7 +84,6 @@
 
     function format(value, unit) {
         if (value === null) return '—';
-        if (unit === 'Rp') return 'Rp ' + number.format(value);
         return number.format(value) + unit;
     }
 

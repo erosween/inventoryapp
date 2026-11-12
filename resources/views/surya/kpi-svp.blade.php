@@ -31,10 +31,10 @@
         ];
         $segments = [
             'mobile' => ['label' => 'Mobile', 'icon' => 'fa-mobile-screen-button', 'metrics' => [
-                ['Revenue All', 'Rp'], ['Revenue Broadband', 'Rp'], ['Market Share', '%'],
+                ['Revenue All', ''], ['Revenue Broadband', ''], ['Market Share', '%'],
             ]],
             'household' => ['label' => 'Household', 'icon' => 'fa-house-signal', 'metrics' => [
-                ['Revenue New Sales', 'Rp'], ['PS', ''], ['C3MR', '%'],
+                ['Revenue New Sales', ''], ['PS', ''], ['C3MR', '%'],
             ]],
         ];
     @endphp
