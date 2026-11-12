@@ -207,3 +207,14 @@
 .svp-inline-form:not([hidden]) { display: inline-flex; align-items: center; gap: 5px; }
 
 .svp-edit-button[data-svp-reset] { margin-bottom: 12px; }
+
+.svp-guide {
+    background: #fff;
+    border: 1px solid var(--svp-line);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+}
+.svp-guide label { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; }
+.svp-guide select { font: inherit; padding: 5px 10px; border: 1px solid var(--svp-line); border-radius: 6px; }
+.svp-guide p { margin: 8px 0 0; }

@@ -8,7 +8,6 @@
     const cutoffFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const entries = new Map();
     const simulations = new Map();
-    const goldThreshold = 2.2;
     let localEntries = {};
     let request;
     let loaded = false;
@@ -71,7 +70,7 @@
 
     function resultClass(score) {
         if (score === null) return '—';
-        const bands = [[2.6, 'Platinum'], [goldThreshold, 'Gold'], [1.8, 'Silver'], [1.4, 'Bronze'], [1, 'Black']];
+        const bands = [[2.6, 'Platinum'], [2.2, 'Gold'], [1.8, 'Silver'], [1.4, 'Bronze'], [1, 'Black']];
         return bands.find(([threshold]) => score >= threshold)[1];
     }
 
@@ -90,9 +89,56 @@
         return score === null ? '—' : scoreFormat.format(score);
     }
 
+    function weightedScore(scores, weights) {
+        if (scores.includes(null)) return null;
+        return scores.reduce((total, score, index) => total + score * weights[index], 0) / 10000;
+    }
+
+    function updateGuide(panel, segment, title, rows, weights, goal) {
+        const output = panel.querySelector(`[data-svp-guide-segment="${segment}"]`);
+        if (rows.some(row => !(row.target > 0))) {
+            output.textContent = `${title} · Lengkapi target KPI untuk menghitung kebutuhan.`;
+            return;
+        }
+
+        const metrics = [...panel.querySelectorAll(`[data-svp-segment$="-${segment}"] [data-svp-metric]`)];
+        const options = rows.map((row, index) => {
+            const scale = metrics[index].dataset.unit === '%' ? 100 : 1;
+            const thresholds = [0, Math.ceil(row.target * 0.95 * scale) / scale,
+                (Math.floor(row.target * scale) + 1) / scale];
+            return thresholds.map((minimum, position) => ({ minimum, score: position + 1 }))
+                .filter(option => option.score >= (row.score ?? 1));
+        });
+
+        // Six metrics are split into two groups of three, so each segment has at most 27 scenarios.
+        let best;
+        for (const first of options[0]) {
+            for (const second of options[1]) {
+                for (const third of options[2]) {
+                    const combination = [first, second, third];
+                    const score = weightedScore(combination.map(option => option.score), weights);
+                    if (score < goal) continue;
+                    const cost = combination.reduce((total, option, index) => {
+                        const row = rows[index];
+                        return total + Math.max(0, option.minimum - (row.actual ?? 0)) / row.target;
+                    }, 0);
+                    if (!best || cost < best.cost) best = { combination, score, cost };
+                }
+            }
+        }
+
+        const changes = best.combination.flatMap(({ minimum, score }, index) => {
+            if (rows[index].score >= score) return [];
+            return [metrics[index].querySelector('th').textContent + ' ≥ ' + format(minimum, metrics[index].dataset.unit)];
+        });
+        output.textContent = changes.length
+            ? `${title} · ${changes.join(' · ')} → skor ${showScore(best.score)}`
+            : `${title} · Sudah memenuhi kelas tujuan.`;
+    }
+
     function renderRegion(regionId) {
         const isProjection = mode === 'projection';
-        const isSimulation = mode === 'gold';
+        const isSimulation = mode === 'simulation';
         const daysInMonth = monthEnd(period.value).getUTCDate();
         const panel = document.querySelector(`[data-svp-panel="${regionId}"]`);
         panel.querySelectorAll('[data-svp-action]').forEach(element => { element.hidden = mode !== 'mtd'; });
@@ -114,30 +160,36 @@
             const baseline = (isProjection || isSimulation) && index < 2 && actual !== null
                 ? (date ? actual * daysInMonth / Number(date.slice(-2)) : null)
                 : actual;
-            const value = isSimulation ? simulations.get(simulationKey) ?? baseline : baseline;
+            const value = isSimulation && simulations.has(simulationKey) ? simulations.get(simulationKey) : baseline;
             return { ...calculate([target, value]), date, simulationKey };
         });
         const mobileRows = results('mobile');
         const householdRows = results('household');
-        const [all, broadband, marketShare] = mobileRows.map(row => row.score);
-        const [newSales, ps, c3mr] = householdRows.map(row => row.score);
         const weight = regions[regionId].revenueWeight;
+        const mobileWeights = [40 * weight, 60 * weight, (100 - weight) * 100];
+        const householdWeights = [60 * 55, 40 * 55, 45 * 100];
+        const mobileScores = mobileRows.map(row => row.score);
+        const householdScores = householdRows.map(row => row.score);
+        const [all, broadband] = mobileScores;
+        const [newSales, ps] = householdScores;
         const revenuePoints = all === null || broadband === null ? null : all * 40 + broadband * 60;
-        const mobile = revenuePoints === null || marketShare === null
-            ? null : (revenuePoints * weight + marketShare * (100 - weight) * 100) / 10000;
         const newSalesPsPoints = newSales === null || ps === null ? null : newSales * 60 + ps * 40;
-        const household = newSalesPsPoints === null || c3mr === null
-            ? null : (newSalesPsPoints * 55 + c3mr * 45 * 100) / 10000;
+        const mobile = weightedScore(mobileScores, mobileWeights);
+        const household = weightedScore(householdScores, householdWeights);
         document.querySelector(`[data-svp-segment="${regionId}-mobile"] [data-revenue-score]`).textContent =
             showScore(revenuePoints === null ? null : revenuePoints / 100);
         document.querySelector(`[data-svp-segment="${regionId}-household"] [data-new-sales-ps-score]`).textContent =
             showScore(newSalesPsPoints === null ? null : newSalesPsPoints / 100);
         const complete = mobile !== null && household !== null;
         const finalClass = resultClass(complete ? Math.min(mobile, household) : null);
+        const guide = panel.querySelector('[data-svp-guide]');
+        guide.hidden = !isSimulation;
         if (isSimulation) {
-            const remaining = score => score === null ? '—' : showScore(Math.max(0, goldThreshold - score));
             panel.querySelector('[data-svp-cutoff]').textContent =
-                `Target Gold 2.20 per segmen · Kekurangan skor Mobile ${remaining(mobile)} · Household ${remaining(household)}. Nilai awal mengikuti proyeksi dan perubahan hanya berlaku di simulasi.`;
+                'Isi nilai akhir bulan untuk simulasi. Skor berubah saat capaian mencapai 95% atau melewati 100%.';
+            const goal = Number(guide.querySelector('[data-svp-goal]').value);
+            updateGuide(panel, 'mobile', 'Mobile', mobileRows, mobileWeights, goal);
+            updateGuide(panel, 'household', 'Household', householdRows, householdWeights, goal);
         }
         const matrix = document.querySelector(`[data-svp-matrix="${regionId}"]`);
         setClass(document.querySelector(`[data-region-class="${regionId}"]`), finalClass);
@@ -257,14 +309,15 @@
         const region = panel.dataset.svpPanel;
         panel.addEventListener('input', event => {
             const input = event.target;
-            if (!input.matches('[data-svp-simulation]') || !input.validity.valid) return;
-            if (input.value === '') simulations.delete(input.dataset.key);
-            else simulations.set(input.dataset.key, input.valueAsNumber);
+            if (!input.matches('[data-svp-simulation]')) return;
+            if (input.validity.badInput || input.validity.rangeUnderflow) return;
+            simulations.set(input.dataset.key, input.value === '' ? null : input.valueAsNumber);
             renderRegion(region);
         });
         panel.addEventListener('focusout', event => {
             if (event.target.matches('[data-svp-simulation]')) renderRegion(region);
         });
+        panel.querySelector('[data-svp-goal]').addEventListener('change', () => renderRegion(region));
         panel.querySelector('[data-svp-reset]').addEventListener('click', () => {
             for (const segment of ['mobile', 'household']) {
                 regions[region][segment].forEach((_, index) => {
@@ -276,28 +329,7 @@
     });
     switches.forEach(button => button.addEventListener('click', () => {
         const active = button.dataset.svpRegion;
-        panels.forEach(panel => {
-        const region = panel.dataset.svpPanel;
-        panel.addEventListener('input', event => {
-            const input = event.target;
-            if (!input.matches('[data-svp-simulation]') || !input.validity.valid) return;
-            if (input.value === '') simulations.delete(input.dataset.key);
-            else simulations.set(input.dataset.key, input.valueAsNumber);
-            renderRegion(region);
-        });
-        panel.addEventListener('focusout', event => {
-            if (event.target.matches('[data-svp-simulation]')) renderRegion(region);
-        });
-        panel.querySelector('[data-svp-reset]').addEventListener('click', () => {
-            for (const segment of ['mobile', 'household']) {
-                regions[region][segment].forEach((_, index) => {
-                    simulations.delete(key(period.value, region, segment, index));
-                });
-            }
-            renderRegion(region);
-        });
-    });
-    switches.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        switches.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
         panels.forEach(panel => { panel.hidden = panel.dataset.svpPanel !== active; });
     }));
 

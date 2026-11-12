@@ -49,7 +49,7 @@
     <div class="svp-mode" role="group" aria-label="Tampilan KPI">
         <button type="button" data-svp-mode="mtd" aria-pressed="true">MTD</button>
         <button type="button" data-svp-mode="projection" aria-pressed="false">Proyeksi</button>
-        <button type="button" data-svp-mode="gold" aria-pressed="false">Simulasi Gold</button>
+        <button type="button" data-svp-mode="simulation" aria-pressed="false">Simulasi</button>
     </div>
 
     <section class="svp-overview" aria-label="Ringkasan wilayah">
@@ -72,6 +72,11 @@
             </div>
             <p class="svp-cutoff" data-svp-cutoff aria-live="polite"></p>
             <button type="button" class="svp-edit-button" data-svp-reset hidden>Reset simulasi</button>
+            <div class="svp-guide" data-svp-guide hidden>
+                <label>Kelas tujuan <select data-svp-goal><option value="1.8">Silver</option><option value="2.2" selected>Gold</option><option value="2.6">Platinum</option></select></label>
+                <p data-svp-guide-segment="mobile"></p>
+                <p data-svp-guide-segment="household"></p>
+            </div>
             <article class="svp-matrix-card" data-svp-matrix="{{ $regionId }}">
                 <div class="svp-matrix-result">
                     <h3>Matriks kelas gabungan</h3>
