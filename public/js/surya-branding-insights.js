@@ -7,9 +7,16 @@
 
     const visitOf = outlet => outlet.insight_visit || (outlet.has_front_photo ? 'visited' : 'unvisited');
 
+    function priorityOf(outlet) {
+        if (outlet.branding_dominance === 'No Branding') return 'install';
+        if (outlet.branding_dominance === 'Tsel' && ['Kurang Bagus', 'Tidak Bagus'].includes(qualityOf(outlet))) return 'repair';
+        return '';
+    }
+
     function selectOutlets(outlets, filters = {}) {
         const terms = String(filters.search || '').trim().toLocaleLowerCase('id-ID').split(/\s+/).filter(Boolean);
         return outlets.filter(outlet => {
+            if (filters.priority && priorityOf(outlet) !== filters.priority) return false;
             if (filters.tap && tapOf(outlet) !== filters.tap) return false;
             if (filters.visit && visitOf(outlet) !== filters.visit) return false;
             if (filters.location === 'missing' && outlet.valid_coordinates !== false) return false;
@@ -17,8 +24,16 @@
             if (filters.quality && qualityOf(outlet) !== filters.quality) return false;
             const haystack = [outlet.id_outlet, outlet.nama_outlet, outlet.sf, tapOf(outlet)].join(' ').toLocaleLowerCase('id-ID');
             return terms.every(term => haystack.includes(term));
-        }).sort((a, b) => String(a.nama_outlet || '').localeCompare(String(b.nama_outlet || ''), 'id-ID')
-            || String(a.id_outlet).localeCompare(String(b.id_outlet)));
+        }).sort((a, b) => {
+            if (filters.priority) {
+                const category = Number(b.kategori_outlet === 'Top 20 TAP') - Number(a.kategori_outlet === 'Top 20 TAP');
+                if (category) return category;
+                const volume = outlet => (outlet.sales?.pv ?? 0) + (outlet.sales?.sa ?? 0);
+                if (volume(b) !== volume(a)) return volume(b) - volume(a);
+            }
+            return String(a.nama_outlet || '').localeCompare(String(b.nama_outlet || ''), 'id-ID')
+                || String(a.id_outlet).localeCompare(String(b.id_outlet));
+        });
     }
     function createPhotoLoader(request, now = Date.now) {
         const cache = new Map();
@@ -34,7 +49,7 @@
             return Object.fromEntries(ids.map(id => [id, cache.get(id)?.photo || null]));
         };
     }
-    root.SuryaBrandingInsights = { selectOutlets, qualityOf, createPhotoLoader };
+    root.SuryaBrandingInsights = { selectOutlets, priorityOf, qualityOf, createPhotoLoader };
     if (!root.document) return;
 
     const dialog = document.getElementById('branding-outlet-dialog');
@@ -57,7 +72,7 @@
     const previewStatus = photoDialog.querySelector('[data-photo-status]');
     const number = value => value.toLocaleString('en-US');
     let outlets = [], filtered = [], page = 1, onMapSelect = null;
-    let cutoff = '', locationFilter = '';
+    let cutoff = '', locationFilter = '', priority = '';
     let pageLock = null;
     let photoController = null, photoVersion = 0;
     const displayedPhotos = new Map();
@@ -172,12 +187,13 @@
 
     function render() {
         const filters = Object.fromEntries(Object.entries(fields).map(([name, field]) => [name, field.value]));
-        filtered = selectOutlets(outlets, { ...filters, location: locationFilter });
+        filtered = selectOutlets(outlets, { ...filters, location: locationFilter, priority });
         const perPage = Number(size.value);
         const pages = Math.max(1, Math.ceil(filtered.length / perPage));
         page = Math.min(page, pages);
         const start = (page - 1) * perPage;
-        title.textContent = filters.tap ? 'Outlet ' + filters.tap : 'Daftar Outlet';
+        const listTitle = {install:'Peluang pemasangan',repair:'Perbaikan branding Tsel'}[priority] || 'Daftar Outlet';
+        title.textContent = filters.tap ? listTitle + ' · ' + filters.tap : listTitle;
         const selected = [
             fields.visit.selectedOptions[0].textContent,
             fields.brand.selectedOptions[0].textContent,
@@ -202,6 +218,13 @@
             const id = document.createElement('small');
             id.textContent = String(outlet.id_outlet);
             identity.append(name, id);
+            if (priority) {
+                const sales = document.createElement('small');
+                sales.className = 'insight-priority-sales';
+                const category = outlet.kategori_outlet === 'Top 20 TAP' ? 'Top 20 TAP' : 'Reguler';
+                sales.textContent = category + ' · PV ' + number(outlet.sales?.pv ?? 0) + ' · SA ' + number(outlet.sales?.sa ?? 0);
+                identity.appendChild(sales);
+            }
             const photoCell = cell(tr, 'Foto Branding', '', 'insight-branding-cell');
             photoPlaceholder(photoCell, outlet.has_front_photo ? 'Memuat foto…' : 'Belum ada foto');
             if (outlet.has_front_photo) photoSlots.set(String(outlet.id_outlet), {slot:photoCell, outlet});
@@ -253,6 +276,7 @@
         const trigger = event.target.closest('[data-insight-open]');
         if (!trigger) return;
         locationFilter = trigger.dataset.location || '';
+        priority = trigger.dataset.priority || '';
         fields.tap.value = trigger.dataset.tap || '';
         fields.visit.value = trigger.dataset.visit || '';
         fields.brand.value = trigger.dataset.brand || '';

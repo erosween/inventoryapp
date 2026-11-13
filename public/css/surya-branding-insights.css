@@ -118,3 +118,17 @@
     border-radius: 8px;
     background: #fff;
 }
+
+.branding-priority-summary { margin: 14px 0; padding: 14px; border: 1px solid #dce4eb; border-radius: 12px; }
+.branding-priority-summary h4 { margin: 0 0 4px; font-size: 1rem; }
+.branding-priority-summary p { margin: 0 0 10px; font-size: .85rem; color: #475569; }
+.branding-priority-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 6px; }
+.branding-insight-tap .branding-priority-actions { margin-top: 10px; }
+.branding-priority-action {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border: 1px solid #dce4eb; border-radius: 8px;
+    background: #fff; color: #334155; text-align: left; font-size: .8rem;
+}
+.branding-priority-action:hover { border-color: #a10e28; }
+.branding-priority-action strong { color: #a10e28; font-variant-numeric: tabular-nums; }
+.insight-priority-sales { color: #475569; }

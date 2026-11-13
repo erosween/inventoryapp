@@ -2178,9 +2178,11 @@ class MonitaDumaiController extends Controller
         $scopes = $this->suryaTapScopes();
         $coordinates = app(SuryaOutletCoordinates::class);
         $coordinates->approveExpiredVisits($scopes);
-        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'])
+        $hasCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
+        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', ...($hasCategory ? ['kategori_outlet'] : [])])
             ->when($scopes !== null, fn ($query) => $query->whereIn('o.tap', $scopes))
             ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.latitude', 'o.longitude')
+            ->addSelect($hasCategory ? 'o.kategori_outlet' : DB::raw('NULL AS kategori_outlet'))
             ->get()->unique('id_outlet')->values();
         $ids = $outlets->pluck('id_outlet')->all();
         $end = Carbon::parse($request->input('to'))->addDay()->toDateString();
@@ -2192,10 +2194,27 @@ class MonitaDumaiController extends Controller
         $brands = $coordinates->latestVisitRecords($ids, true, $end)
             ->get(['id_outlet', 'branding_dominance', 'branding_quality'])->keyBy('id_outlet');
 
-        return response()->json($outlets->map(function ($outlet) use ($visits, $brands) {
+        $priorityIds = $brands->filter(fn ($brand) => $brand->branding_dominance === 'No Branding'
+            || ($brand->branding_dominance === 'Tsel' && in_array($brand->branding_quality, ['Kurang Bagus', 'Tidak Bagus'], true)))
+            ->keys()->all();
+        $salesByOutlet = [];
+        if ($priorityIds !== []) {
+            $nota = app(\App\Services\OutletNotaSales::class);
+            $lastDay = Carbon::parse($request->input('to'));
+            for ($start = Carbon::parse($request->input('from')); $start <= $lastDay; $start = $start->copy()->addMonthNoOverflow()->startOfMonth()) {
+                $monthEnd = min($start->copy()->endOfMonth(), $lastDay);
+                foreach ($nota->totals($start, $monthEnd, $priorityIds)->get() as $sale) {
+                    $salesByOutlet[$sale->id_outlet]['pv'] = ($salesByOutlet[$sale->id_outlet]['pv'] ?? 0) + (int) $sale->pv;
+                    $salesByOutlet[$sale->id_outlet]['sa'] = ($salesByOutlet[$sale->id_outlet]['sa'] ?? 0) + (int) $sale->sa;
+                }
+            }
+        }
+
+        return response()->json($outlets->map(function ($outlet) use ($visits, $brands, $salesByOutlet) {
             $id = $outlet->id_outlet;
             $brand = $brands->get($id);
             $outlet->insight_visit = $visits->has($id) ? ($visits[$id] ? 'visited' : 'pending') : 'unvisited';
+            $outlet->sales = $salesByOutlet[$id] ?? null;
             $outlet->has_front_photo = $brand !== null;
             $dominance = $brand->branding_dominance ?? null;
             $outlet->branding_dominance = in_array($dominance, ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'], true) ? $dominance : null;
