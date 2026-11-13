@@ -73,8 +73,8 @@
         vertical-align: middle !important;
     }
 
-    /* STICKY HEADER */
-    .table-scroll-heatmap thead th {
+    /* Pin the report header. Expanded details scroll with their summary rows. */
+    .table-scroll-heatmap > table > thead > tr > th {
         position: sticky;
         top: 0;
         z-index: 100 !important;
@@ -82,19 +82,17 @@
         border-bottom: 2px solid #ddd !important;
     }
 
-    /* STICKY FOOTER (CLUSTER & GRAND TOTAL) */
-    .table-scroll-heatmap tfoot tr td {
-        position: sticky;
-        bottom: 0;
-        z-index: 100 !important;
-        background: #f8fafc !important; /* Solid background to prevent bleed-through */
-        box-shadow: 0 -4px 8px rgba(0,0,0,0.05);
+    .table-scroll-heatmap > table > tfoot > tr:not(.validity-row) > td {
+        background: #f8fafc !important;
         border-top: 2px solid #ddd !important;
     }
 
-    
-
-    
+    .table-scroll-heatmap > .annual-sales-table > tfoot > tr > td {
+        position: sticky;
+        bottom: 0;
+        z-index: 100 !important;
+        box-shadow: 0 -4px 8px rgba(0,0,0,0.05);
+    }
 
     /* Header specific overrides */
     .table-scroll-heatmap thead th.sticky-tap-col { z-index: 110 !important; }
@@ -123,7 +121,7 @@
     }
     .table-scroll-heatmap thead th.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
     .table-scroll-heatmap thead th.sticky-validity-col { z-index: 105 !important; background: #f8fafc !important; }
-    .table-scroll-heatmap tfoot td.sticky-tap-col { z-index: 110 !important; background: #f8fafc !important; }
+    .table-scroll-heatmap > table > tfoot > tr > td.sticky-tap-col { background: #f8fafc !important; }
     .export-actions {
         gap: 10px;
         flex-wrap: wrap;
@@ -659,9 +657,7 @@
                                     <tr>
                                         <td class="text-left font-weight-bold bg-white text-dark sticky-tap-col">
                                             <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
-                                                data-target="val-sales-{{ Str::slug($tap) }}">
-                                                +
-                                            </button>
+                                                type="button" aria-expanded="false" aria-controls="val-sales-{{ Str::slug($tap) }}" aria-label="Tampilkan rincian">+</button>
                                             {{ $tap }}
                                         </td>
                                         @for($i=1; $i<=12; $i++)
@@ -804,9 +800,7 @@
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
-                                            data-target="val-sales-cluster-dumai">
-                                            +
-                                        </button>
+                                            type="button" aria-expanded="false" aria-controls="val-sales-cluster-dumai" aria-label="Tampilkan rincian">+</button>
                                         <span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis
                                     </td>
                                     @for($i=1; $i<=12; $i++)
@@ -898,9 +892,7 @@
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
-                                            data-target="val-sales-cluster-rohil">
-                                            +
-                                        </button>
+                                            type="button" aria-expanded="false" aria-controls="val-sales-cluster-rohil" aria-label="Tampilkan rincian">+</button>
                                         <span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir
                                     </td>
                                     @for($i=1; $i<=12; $i++)
@@ -992,9 +984,7 @@
                                 <tr style="background-color: #e3f2fd; color: #0d47a1;">
                                     <td class="text-left border-0 font-weight-bold sticky-tap-col">
                                         <button class="btn btn-sm btn-primary border toggle-validity rounded py-0 px-2 mr-2"
-                                            data-target="val-sales-grand-total">
-                                            +
-                                        </button>
+                                            type="button" aria-expanded="false" aria-controls="val-sales-grand-total" aria-label="Tampilkan rincian">+</button>
                                         ✨ GRAND TOTAL
                                     </td>
                                     @for($i=1; $i<=12; $i++)
@@ -1154,9 +1144,7 @@
                                     <tr>
                                         <td class="text-left font-weight-bold bg-white text-dark sticky-tap-col">
                                             <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
-                                                data-target="val-inject-{{ Str::slug($tap) }}">
-                                                +
-                                            </button>
+                                                type="button" aria-expanded="false" aria-controls="val-inject-{{ Str::slug($tap) }}" aria-label="Tampilkan rincian">+</button>
                                             {{ $tap }}
                                         </td>
                                         @for($i=1; $i<=12; $i++)
@@ -1255,9 +1243,7 @@
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
-                                            data-target="val-inject-cluster-dumai">
-                                            +
-                                        </button>
+                                            type="button" aria-expanded="false" aria-controls="val-inject-cluster-dumai" aria-label="Tampilkan rincian">+</button>
                                         <span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis
                                     </td>
                                     @for($i=1; $i<=12; $i++)
@@ -1349,9 +1335,7 @@
                                 <tr>
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
-                                            data-target="val-inject-cluster-rohil">
-                                            +
-                                        </button>
+                                            type="button" aria-expanded="false" aria-controls="val-inject-cluster-rohil" aria-label="Tampilkan rincian">+</button>
                                         <span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir
                                     </td>
                                     @for($i=1; $i<=12; $i++)
@@ -1443,9 +1427,7 @@
                                 <tr style="background-color: #e8f5e9; color: #1b5e20;">
                                     <td class="text-left border-0 font-weight-bold sticky-tap-col">
                                         <button class="btn btn-sm btn-success border toggle-validity rounded py-0 px-2 mr-2"
-                                            data-target="val-inject-grand-total">
-                                            +
-                                        </button>
+                                            type="button" aria-expanded="false" aria-controls="val-inject-grand-total" aria-label="Tampilkan rincian">+</button>
                                         ✨ GRAND TOTAL
                                     </td>
                                     @for($i=1; $i<=12; $i++)
@@ -1606,7 +1588,7 @@
         function getMomCellText(cell) {
             return (cell?.innerText || '')
                 .replace(/\s+/g, ' ')
-                .replace(/^\+\s*/, '')
+                .replace(/^[+−]\s*/, '')
                 .trim();
         }
 
@@ -2937,17 +2919,14 @@
 
         // ================= INTERACTIVE TOGGLES ================= 
         $(document).off('click.dashboardToggle', '.toggle-validity').on('click.dashboardToggle', '.toggle-validity', function() {
-                const target = document.getElementById(this.dataset.target);
-                if (!target) return;
-                if (target.classList.contains('d-none')) {
-                    target.classList.remove('d-none');
-                    this.innerText = '-';
-                    this.classList.add('bg-secondary', 'text-white');
-                } else {
-                    target.classList.add('d-none');
-                    this.innerText = '+';
-                    this.classList.remove('bg-secondary', 'text-white');
-                }
+            const target = document.getElementById(this.getAttribute('aria-controls'));
+            if (!target) return;
+
+            const expanded = target.classList.contains('d-none');
+            target.classList.toggle('d-none', !expanded);
+            this.textContent = expanded ? '−' : '+';
+            this.setAttribute('aria-expanded', String(expanded));
+            this.setAttribute('aria-label', expanded ? 'Tutup rincian' : 'Tampilkan rincian');
         });
     
         // Logic for toggling rincian sub-sections (SF vs Validity)

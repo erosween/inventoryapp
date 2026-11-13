@@ -124,3 +124,8 @@
     .surya-inventory-dashboard-page .card .export-actions { gap: 6px; }
     .surya-inventory-dashboard-page .card .export-action-btn { min-width: 56px; padding: 8px 10px !important; }
 }
+
+.surya-inventory-dashboard-page .card .toggle-validity[aria-expanded="true"] {
+    background: #475467 !important;
+    color: #fff !important;
+}
