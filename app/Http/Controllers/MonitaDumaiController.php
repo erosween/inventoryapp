@@ -2167,6 +2167,13 @@ class MonitaDumaiController extends Controller
             ->header('Server-Timing', 'outlets;dur='.round((microtime(true) - $started) * 1000));
     }
 
+    private function onlyPjpOutlets($query, string $prefix = ''): void
+    {
+        $query->whereRaw("UPPER(TRIM({$prefix}pjp)) IN (?, ?, ?, ?, ?, ?, ?)", [
+            'SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'SABTU', 'MINGGU',
+        ])->whereRaw("UPPER(TRIM({$prefix}sf)) NOT IN ('', 'UNMAPPING')");
+    }
+
     public function outletInsights(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
@@ -2179,8 +2186,9 @@ class MonitaDumaiController extends Controller
         $coordinates = app(SuryaOutletCoordinates::class);
         $coordinates->approveExpiredVisits($scopes);
         $hasCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
-        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', ...($hasCategory ? ['kategori_outlet'] : [])])
+        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', 'pjp', ...($hasCategory ? ['kategori_outlet'] : [])])
             ->when($scopes !== null, fn ($query) => $query->whereIn('o.tap', $scopes))
+            ->tap(fn ($query) => $this->onlyPjpOutlets($query, 'o.'))
             ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.latitude', 'o.longitude')
             ->addSelect($hasCategory ? 'o.kategori_outlet' : DB::raw('NULL AS kategori_outlet'))
             ->get()->unique('id_outlet')->values();
@@ -2240,7 +2248,8 @@ class MonitaDumaiController extends Controller
         $scopes = $this->suryaTapScopes();
         $ids = DB::table('appsdumais')->whereIn('id_outlet', $validated['outlets'])
             ->when($scopes !== null, fn ($query) => $query->whereIn('tap', $scopes))
-            ->when(empty($validated['cutoff']), fn ($query) => $query->where('sf', '!=', 'UNMAPPING'))->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+            ->when(isset($validated['cutoff']), fn ($query) => $this->onlyPjpOutlets($query),
+                fn ($query) => $query->where('sf', '!=', 'UNMAPPING'))->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
         $photos = [];
         // Only the current dialog page is requested. Keep file checks and photo
         // metadata out of the initial all-outlets map payload.

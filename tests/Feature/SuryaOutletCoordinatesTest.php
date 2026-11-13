@@ -401,11 +401,15 @@ class SuryaOutletCoordinatesTest extends TestCase
         $approved = 990011091;
         $pending = 990011092;
         $unmapped = 990011093;
-        foreach ([$approved, $pending, $unmapped] as $id) {
+        $withoutPjp = 990011094;
+        $withoutCoordinates = 990011095;
+        foreach ([$approved, $pending, $unmapped, $withoutPjp, $withoutCoordinates] as $id) {
             $this->outlet($id);
         }
         DB::table('appsdumais')->where('id_outlet', $unmapped)
-            ->update(['sf' => 'UNMAPPING', 'latitude' => 0, 'longitude' => 0]);
+            ->update(['sf' => ' unmapping ']);
+        DB::table('appsdumais')->where('id_outlet', $withoutPjp)->update(['pjp' => 'UNMAPPING']);
+        DB::table('appsdumais')->where('id_outlet', $withoutCoordinates)->update(['latitude' => 0, 'longitude' => 0]);
         $this->visit($approved, ['branding_dominance' => 'No Branding']);
         $this->visit($approved, ['visited_at' => now(), 'gps_status' => 'rejected', 'branding_dominance' => 'Tsel']);
         $this->visit($pending, ['visited_at' => now(), 'gps_status' => 'pending_admin', 'branding_dominance' => 'Tsel']);
@@ -418,9 +422,10 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertSame('No Branding', $rows[$approved]['branding_dominance']);
         $this->assertSame('pending', $rows[$pending]['insight_visit']);
         $this->assertSame('XL-Smart', $rows[$pending]['branding_dominance']);
-        $this->assertSame('unvisited', $rows[$unmapped]['insight_visit']);
-        $this->assertFalse($rows[$unmapped]['valid_coordinates']);
-        $this->assertNull($rows[$unmapped]['branding_dominance']);
+        $this->assertFalse($rows->has($unmapped));
+        $this->assertFalse($rows->has($withoutPjp));
+        $this->assertSame('unvisited', $rows[$withoutCoordinates]['insight_visit']);
+        $this->assertFalse($rows[$withoutCoordinates]['valid_coordinates']);
     }
 
     public function test_branding_photo_batch_uses_the_latest_photo_and_thumbnail_without_loading_sales(): void
