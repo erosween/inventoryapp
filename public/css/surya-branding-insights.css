@@ -155,3 +155,24 @@
 .branding-matrix-tap { text-align: left; font-weight: 700 !important; }
 .branding-matrix button small { display: block; color: #475569; font-size: .75rem; }
 .branding-matrix-coverage progress { display: block; width: 70px; height: 5px; margin: 2px auto 0; accent-color: #167456; }
+
+#branding-insights [data-visit="visited"] { --insight-accent: #116149; --insight-tint: #d6f2e6; }
+#branding-insights [data-visit="pending"] { --insight-accent: #854200; --insight-tint: #ffe8bc; }
+#branding-insights [data-visit="unvisited"],
+#branding-insights [data-priority="repair"] { --insight-accent: #a31237; --insight-tint: #fbdce5; }
+#branding-insights [data-priority="install"] { --insight-accent: #194c9b; --insight-tint: #dfebff; }
+#branding-insights :is(.branding-kpi[data-visit], .branding-priority-action, .branding-matrix-count[data-visit], .branding-matrix-count[data-priority]) {
+    background: var(--insight-tint);
+    color: var(--insight-accent);
+    border-color: currentColor;
+}
+#branding-insights :is(.branding-kpi[data-visit], .branding-priority-action, .branding-matrix-count[data-visit], .branding-matrix-count[data-priority]) :is(strong, small) {
+    color: inherit;
+}
+#branding-insights :is(.branding-kpi[data-visit], .branding-priority-action, .branding-matrix-count[data-visit], .branding-matrix-count[data-priority]):hover {
+    box-shadow: inset 0 0 0 1px currentColor;
+}
+#branding-insights .branding-matrix thead tr:first-child th {
+    background: #243650;
+    color: #fff;
+}
