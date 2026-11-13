@@ -2588,38 +2588,56 @@
             const total = outlets.length;
             const visited = outlets.filter(outlet => outlet.insight_visit === 'visited').length;
             const pct = (value, base) => base ? `${((value / base) * 100).toFixed(1)}%` : '0.0%';
-            const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding', 'Belum dinilai'];
-            const brandingLogos = {
-                'Tsel': ['/static/images/operators/telkomsel.svg'],
-                'Indosat-Tri': ['/static/images/operators/indosat.svg', '/static/images/operators/tri.svg'],
-                'XL-Smart': ['/static/images/operators/xl.svg', '/static/images/operators/smartfren.svg'],
-                'No Branding': [],
-                'Belum dinilai': []
-            };
+            const operators = ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'];
             const priorityOf = window.SuryaBrandingInsights.priorityOf;
-            const priorityButtons = (rows, tap = '') => ['install', 'repair'].map(priority => {
-                const count = rows.filter(outlet => priorityOf(outlet) === priority).length;
-                const label = priority === 'install' ? 'Peluang pemasangan' : 'Perbaikan branding Tsel';
-                return `<button type="button" class="branding-priority-action" data-insight-open data-priority="${priority}" data-tap="${escapeMapDetailHtml(tap)}"><span>${label}</span><strong>${count.toLocaleString('en-US')}</strong></button>`;
+            const formatCount = value => value.toLocaleString('en-US');
+            const priorities = [
+                ['install', 'Peluang pemasangan'],
+                ['repair', 'Perbaikan branding Tsel']
+            ];
+            const priorityButtons = priorities.map(([key, label]) => {
+                const count = outlets.filter(outlet => priorityOf(outlet) === key).length;
+                return `<button type="button" class="branding-priority-action" data-insight-open data-priority="${key}"><span>${label}</span><strong>${formatCount(count)}</strong></button>`;
             }).join('');
-            const tapCards = taps.map(tap => {
+            const tapRows = taps.map(tap => {
                 const rows = byTap[tap];
-                const tapVisited = rows.filter(outlet => outlet.insight_visit === 'visited').length;
-                const assessed = rows.filter(outlet => brandingNames.slice(0, 4).includes(outlet.branding_dominance)).length;
-                const brandingRows = brandingNames.map(name => {
-                    const missing = name === 'Belum dinilai';
-                    const qty = missing ? rows.length - assessed : rows.filter(outlet => outlet.branding_dominance === name).length;
-                    const chipClass = name === 'Tsel' ? 'tsel' : (name === 'Indosat-Tri' ? 'io' : (name === 'XL-Smart' ? 'xl' : 'none'));
-                    const logos = brandingLogos[name].map(src => `<img src="${src}" alt="" loading="lazy">`).join('');
-                    return `<button type="button" class="branding-chip ${chipClass}" data-insight-open data-tap="${escapeMapDetailHtml(tap)}" data-brand="${missing ? 'missing' : escapeMapDetailHtml(name)}" aria-label="Lihat outlet dominan ${escapeMapDetailHtml(name)} di ${escapeMapDetailHtml(tap)}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, missing ? rows.length : assessed)}</button>`;
-                }).join('');
                 const tapAttr = escapeMapDetailHtml(tap);
-                return `<div class="branding-insight-tap"><button type="button" class="branding-tap-open" data-insight-open data-tap="${tapAttr}" aria-label="Lihat semua outlet di ${tapAttr}">${tapAttr} <span>· ${rows.length} outlet</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="visited" aria-label="Lihat outlet sudah visit di ${tapAttr}"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Visit disetujui</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="unvisited" aria-label="Lihat outlet belum visit di ${tapAttr}"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.filter(outlet => outlet.insight_visit === 'unvisited').length}</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="pending"><span>Menunggu review</span><b>${rows.filter(outlet => outlet.insight_visit === 'pending').length}</b></button><div class="branding-chip-row">${brandingRows}</div><div class="branding-priority-actions">${priorityButtons(rows, tap)}</div></div>`;
+                const countButton = (label, qty, detail = '', filter = '') =>
+                    `<button type="button" class="branding-matrix-count" data-insight-open data-tap="${tapAttr}" ${filter} aria-label="${label} · ${tapAttr} · ${formatCount(qty)}"><strong>${formatCount(qty)}</strong>${detail ? `<small>${detail}</small>` : ''}</button>`;
+                const visits = ['visited', 'pending', 'unvisited'].map(state =>
+                    rows.filter(outlet => outlet.insight_visit === state).length);
+                const operatorCounts = operators.map(operator => rows.filter(outlet => outlet.branding_dominance === operator).length);
+                const assessed = operatorCounts.reduce((sum, count) => sum + count, 0);
+                const operatorCells = operators.map((operator, index) =>
+                    `<td>${countButton(operator, operatorCounts[index], assessed ? pct(operatorCounts[index], assessed) : '—', `data-brand="${operator}"${operator === 'No Branding' ? ' data-priority="install"' : ''}`)}</td>`
+                ).join('');
+                return `<tr>
+                    <th scope="row"><button type="button" class="branding-matrix-tap" data-insight-open data-tap="${tapAttr}">${tapAttr}<small>${formatCount(rows.length)} RS</small></button></th>
+                    <td class="branding-matrix-coverage">
+                        ${countButton('Visit disetujui', visits[0], pct(visits[0], rows.length), 'data-visit="visited"')}
+                        <progress max="${rows.length}" value="${visits[0]}" aria-label="Coverage visit ${tapAttr}"></progress>
+                    </td>
+                    <td>${countButton('Menunggu review', visits[1], '', 'data-visit="pending"')}</td>
+                    <td>${countButton('Belum visit', visits[2], '', 'data-visit="unvisited"')}</td>
+                    ${operatorCells}
+                    <td>${countButton('Belum dinilai', rows.length - assessed, '', 'data-brand="missing"')}</td>
+                    <td>${countButton('Perbaikan branding Tsel', rows.filter(outlet => priorityOf(outlet) === 'repair').length, '', 'data-priority="repair"')}</td>
+                </tr>`;
             }).join('');
             const pending = outlets.filter(outlet => outlet.insight_visit === 'pending').length;
             const unvisited = total - visited - pending;
             const missingCoordinates = outlets.filter(outlet => !outlet.valid_coordinates).length;
-            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">${escapeMapDetailHtml(from)} – ${escapeMapDetailHtml(cutoff)} · Persentase operator dari outlet yang sudah dinilai.</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total RS PJP</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Visit disetujui</small><strong>${visited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${unvisited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(unvisited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="pending"><small>Menunggu review</small><strong>${pending.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi" data-insight-open data-location="missing"><small>Koordinat belum valid</small><strong>${missingCoordinates.toLocaleString('en-US')}</strong></button></div><section class="branding-priority-summary"><h4>Prioritas branding</h4><p>Top 20 TAP didahulukan, lalu volume PV + SA pada periode pilihan.</p><div class="branding-priority-actions">${priorityButtons(outlets)}</div></section><div class="branding-insight-grid">${tapCards}</div></div>`;
+            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">${escapeMapDetailHtml(from)} – ${escapeMapDetailHtml(cutoff)} · Persentase operator dari outlet yang sudah dinilai.</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total RS PJP</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Visit disetujui</small><strong>${visited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${unvisited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(unvisited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="pending"><small>Menunggu review</small><strong>${pending.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi" data-insight-open data-location="missing"><small>Koordinat belum valid</small><strong>${missingCoordinates.toLocaleString('en-US')}</strong></button></div><section class="branding-priority-summary"><h4>Prioritas branding</h4><p>Top 20 TAP didahulukan, lalu volume PV + SA pada periode pilihan.</p><div class="branding-priority-actions">${priorityButtons}</div></section><section class="branding-matrix-section">
+                <h4>Perbandingan per TAP</h4>
+                <div class="branding-matrix-scroll" tabindex="0" role="region" aria-label="Perbandingan visit dan branding per TAP">
+                    <table class="branding-matrix">
+                        <thead><tr><th scope="col" rowspan="2">TAP</th><th scope="colgroup" colspan="3">Kunjungan</th><th scope="colgroup" colspan="5">Branding</th><th scope="col" rowspan="2">Perbaikan Tsel</th></tr>
+                        <tr><th scope="col">Disetujui</th><th scope="col">Review</th><th scope="col">Belum visit</th>
+                        ${operators.map(operator => `<th scope="col">${operator}</th>`).join('')}<th scope="col">Belum dinilai</th></tr></thead>
+                        <tbody>${tapRows || '<tr><td colspan="10">Belum ada RS PJP.</td></tr>'}</tbody>
+                    </table>
+                </div>
+            </section></div>`;
         }
 
         let insightRequest;

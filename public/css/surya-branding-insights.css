@@ -123,7 +123,6 @@
 .branding-priority-summary h4 { margin: 0 0 4px; font-size: 1rem; }
 .branding-priority-summary p { margin: 0 0 10px; font-size: .85rem; color: #475569; }
 .branding-priority-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 6px; }
-.branding-insight-tap .branding-priority-actions { margin-top: 10px; }
 .branding-priority-action {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
     padding: 8px 10px; border: 1px solid #dce4eb; border-radius: 8px;
@@ -132,3 +131,27 @@
 .branding-priority-action:hover { border-color: #a10e28; }
 .branding-priority-action strong { color: #a10e28; font-variant-numeric: tabular-nums; }
 .insight-priority-sales { color: #475569; }
+
+.branding-insight-card .branding-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+}
+.branding-matrix-section h4 { margin: 16px 0 8px; font-size: 1rem; }
+.branding-matrix-scroll { overflow-x: auto; border: 1px solid #dce4eb; border-radius: 12px; }
+.branding-matrix { width: 100%; min-width: 860px; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.branding-matrix :is(th, td) { padding: 8px; text-align: center; border-bottom: 1px solid #e2e8f0; }
+.branding-matrix thead th { background: #f1f5f9; color: #334155; font-size: .78rem; }
+.branding-matrix tbody tr:last-child > * { border-bottom: 0; }
+.branding-matrix :is(th[scope="row"], th[rowspan]:first-child) {
+    position: sticky; inset-inline-start: 0; z-index: 1; min-width: 132px; text-align: left;
+    box-shadow: 1px 0 #e2e8f0;
+}
+.branding-matrix tbody th { background: #fff; }
+.branding-matrix tbody tr:hover > * { background: #f8fafc; }
+.branding-matrix :is(.branding-matrix-count, .branding-matrix-tap) {
+    background: transparent; color: #24324a; border: 0; border-radius: 6px;
+    font: inherit; font-size: .84rem; padding: 4px 6px; min-height: 34px;
+}
+.branding-matrix :is(.branding-matrix-count, .branding-matrix-tap):hover { background: #eaf0f7; }
+.branding-matrix-tap { text-align: left; font-weight: 700 !important; }
+.branding-matrix button small { display: block; color: #475569; font-size: .75rem; }
+.branding-matrix-coverage progress { display: block; width: 70px; height: 5px; margin: 2px auto 0; accent-color: #167456; }
