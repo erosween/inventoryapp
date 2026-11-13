@@ -2167,21 +2167,65 @@ class MonitaDumaiController extends Controller
             ->header('Server-Timing', 'outlets;dur='.round((microtime(true) - $started) * 1000));
     }
 
+    public function outletInsights(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+        $request->validate([
+            'from' => 'required|date_format:Y-m-d|before_or_equal:today',
+            'to' => 'required|date_format:Y-m-d|after_or_equal:from|before_or_equal:today',
+        ]);
+
+        $scopes = $this->suryaTapScopes();
+        $coordinates = app(SuryaOutletCoordinates::class);
+        $coordinates->approveExpiredVisits($scopes);
+        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'])
+            ->when($scopes !== null, fn ($query) => $query->whereIn('o.tap', $scopes))
+            ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.latitude', 'o.longitude')
+            ->get()->unique('id_outlet')->values();
+        $ids = $outlets->pluck('id_outlet')->all();
+        $end = Carbon::parse($request->input('to'))->addDay()->toDateString();
+        $visits = DB::table('surya_visits')->whereIn('id_outlet', $ids)
+            ->where('visited_at', '>=', $request->input('from'))->where('visited_at', '<', $end)
+            ->whereIn('gps_status', ['valid', 'approved', 'pending_admin'])
+            ->selectRaw("id_outlet, MAX(CASE WHEN gps_status IN ('valid', 'approved') THEN 1 ELSE 0 END) as approved")
+            ->groupBy('id_outlet')->pluck('approved', 'id_outlet');
+        $brands = $coordinates->latestVisitRecords($ids, true, $end)
+            ->get(['id_outlet', 'branding_dominance', 'branding_quality'])->keyBy('id_outlet');
+
+        return response()->json($outlets->map(function ($outlet) use ($visits, $brands) {
+            $id = $outlet->id_outlet;
+            $brand = $brands->get($id);
+            $outlet->insight_visit = $visits->has($id) ? ($visits[$id] ? 'visited' : 'pending') : 'unvisited';
+            $outlet->has_front_photo = $brand !== null;
+            $dominance = $brand->branding_dominance ?? null;
+            $outlet->branding_dominance = in_array($dominance, ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'], true) ? $dominance : null;
+            $outlet->branding_quality = $brand->branding_quality ?? null;
+            $lat = $outlet->latitude;
+            $lng = $outlet->longitude;
+            $outlet->valid_coordinates = is_numeric($lat) && is_numeric($lng)
+                && abs($lat) <= 90 && abs($lng) <= 180 && ((float) $lat !== 0.0 || (float) $lng !== 0.0);
+
+
+            return $outlet;
+        }))->header('Cache-Control', 'no-store');
+    }
+
     public function outletBrandingPhotos(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
         $validated = $request->validate([
+            'cutoff' => 'nullable|date_format:Y-m-d|before_or_equal:today',
             'outlets' => ['required', 'array', 'min:1', 'max:100'],
             'outlets.*' => ['required', 'string', 'regex:/^[0-9]{1,20}$/'],
         ]);
         $scopes = $this->suryaTapScopes();
         $ids = DB::table('appsdumais')->whereIn('id_outlet', $validated['outlets'])
             ->when($scopes !== null, fn ($query) => $query->whereIn('tap', $scopes))
-            ->where('sf', '!=', 'UNMAPPING')->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+            ->when(empty($validated['cutoff']), fn ($query) => $query->where('sf', '!=', 'UNMAPPING'))->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
         $photos = [];
         // Only the current dialog page is requested. Keep file checks and photo
         // metadata out of the initial all-outlets map payload.
-        foreach (app(SuryaOutletCoordinates::class)->latestVisitRecords($ids, true)
+        foreach (app(SuryaOutletCoordinates::class)->latestVisitRecords($ids, true, isset($validated['cutoff']) ? Carbon::parse($validated['cutoff'])->addDay()->toDateString() : null)
             ->get(['id_outlet', 'photo_front_path', 'visited_at']) as $visit) {
             $url = $this->visitPhotoUrl($visit->photo_front_path);
             if ($url === null) continue;

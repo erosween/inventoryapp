@@ -395,6 +395,34 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertSame($approved, $search[0]['coordinate_visit_id']);
     }
 
+    public function test_insight_counts_approved_visits_in_period_and_uses_approved_branding_at_cutoff(): void
+    {
+        $this->freezeTime();
+        $approved = 990011091;
+        $pending = 990011092;
+        $unmapped = 990011093;
+        foreach ([$approved, $pending, $unmapped] as $id) {
+            $this->outlet($id);
+        }
+        DB::table('appsdumais')->where('id_outlet', $unmapped)
+            ->update(['sf' => 'UNMAPPING', 'latitude' => 0, 'longitude' => 0]);
+        $this->visit($approved, ['branding_dominance' => 'No Branding']);
+        $this->visit($approved, ['visited_at' => now(), 'gps_status' => 'rejected', 'branding_dominance' => 'Tsel']);
+        $this->visit($pending, ['visited_at' => now(), 'gps_status' => 'pending_admin', 'branding_dominance' => 'Tsel']);
+        $this->visit($pending, ['visited_at' => now()->subDays(5), 'branding_dominance' => 'XL-Smart']);
+        $this->admin();
+
+        $query = http_build_query(['from' => now()->subDay()->toDateString(), 'to' => now()->toDateString()]);
+        $rows = collect($this->getJson('/surya/outlet-insights?'.$query)->assertOk()->json())->keyBy('id_outlet');
+        $this->assertSame('visited', $rows[$approved]['insight_visit']);
+        $this->assertSame('No Branding', $rows[$approved]['branding_dominance']);
+        $this->assertSame('pending', $rows[$pending]['insight_visit']);
+        $this->assertSame('XL-Smart', $rows[$pending]['branding_dominance']);
+        $this->assertSame('unvisited', $rows[$unmapped]['insight_visit']);
+        $this->assertFalse($rows[$unmapped]['valid_coordinates']);
+        $this->assertNull($rows[$unmapped]['branding_dominance']);
+    }
+
     public function test_branding_photo_batch_uses_the_latest_photo_and_thumbnail_without_loading_sales(): void
     {
         $this->admin();

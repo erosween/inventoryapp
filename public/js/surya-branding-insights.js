@@ -5,12 +5,14 @@
     const qualityOf = outlet => outlet.branding_dominance === 'No Branding'
         ? 'not_applicable' : String(outlet.branding_quality || '').trim() || 'missing';
 
+    const visitOf = outlet => outlet.insight_visit || (outlet.has_front_photo ? 'visited' : 'unvisited');
+
     function selectOutlets(outlets, filters = {}) {
         const terms = String(filters.search || '').trim().toLocaleLowerCase('id-ID').split(/\s+/).filter(Boolean);
         return outlets.filter(outlet => {
             if (filters.tap && tapOf(outlet) !== filters.tap) return false;
-            if (filters.visit === 'visited' && !outlet.has_front_photo) return false;
-            if (filters.visit === 'unvisited' && outlet.has_front_photo) return false;
+            if (filters.visit && visitOf(outlet) !== filters.visit) return false;
+            if (filters.location === 'missing' && outlet.valid_coordinates !== false) return false;
             if (filters.brand && (outlet.branding_dominance || 'missing') !== filters.brand) return false;
             if (filters.quality && qualityOf(outlet) !== filters.quality) return false;
             const haystack = [outlet.id_outlet, outlet.nama_outlet, outlet.sf, tapOf(outlet)].join(' ').toLocaleLowerCase('id-ID');
@@ -55,18 +57,21 @@
     const previewStatus = photoDialog.querySelector('[data-photo-status]');
     const number = value => value.toLocaleString('en-US');
     let outlets = [], filtered = [], page = 1, onMapSelect = null;
+    let cutoff = '', locationFilter = '';
     let pageLock = null;
     let photoController = null, photoVersion = 0;
     const displayedPhotos = new Map();
-    const loadPhotoData = createPhotoLoader(async (ids, signal) => {
+    const requestPhotos = async (ids, signal) => {
         const query = new URLSearchParams();
+        if (cutoff) query.set('cutoff', cutoff);
         ids.forEach(id => query.append('outlets[]', id));
         const response = await fetch(dialog.dataset.photoUrl + '?' + query, {
             credentials:'same-origin', headers:{Accept:'application/json'}, cache:'no-store', signal
         });
         if (!response.ok) throw new Error('Photo request failed: ' + response.status);
         return (await response.json()).photos || {};
-    });
+    };
+    let loadPhotoData = createPhotoLoader(requestPhotos);
 
     function photoPlaceholder(slot, text) {
         const placeholder = document.createElement('span');
@@ -167,7 +172,7 @@
 
     function render() {
         const filters = Object.fromEntries(Object.entries(fields).map(([name, field]) => [name, field.value]));
-        filtered = selectOutlets(outlets, filters);
+        filtered = selectOutlets(outlets, { ...filters, location: locationFilter });
         const perPage = Number(size.value);
         const pages = Math.max(1, Math.ceil(filtered.length / perPage));
         page = Math.min(page, pages);
@@ -204,17 +209,11 @@
             cell(tr, 'TAP', tapOf(outlet));
             const visit = cell(tr, 'Visit', '');
             const badge = document.createElement('span');
-            badge.className = 'insight-visit-badge ' + (outlet.has_front_photo ? 'visited' : 'unvisited');
-            badge.textContent = outlet.has_front_photo ? 'Sudah Visit' : 'Belum Visit';
+            const state = visitOf(outlet);
+            badge.className = 'insight-visit-badge ' + (state === 'visited' ? 'visited' : 'unvisited');
+            badge.textContent = {visited:'Disetujui',pending:'Menunggu review',unvisited:'Belum visit'}[state];
             visit.appendChild(badge);
-            if (outlet.has_front_photo) {
-                const approval = document.createElement('small');
-                approval.className = 'insight-approval';
-                const labels = {verified:'Disetujui',rejected:'Foto ditolak',pending:'Menunggu persetujuan',unverified:'Perlu diperiksa'};
-                approval.textContent = labels[outlet.map_visit_state] || 'Perlu diperiksa';
-                visit.appendChild(approval);
-            }
-            cell(tr, 'Dominan Branding', outlet.branding_dominance || 'Belum diisi');
+            cell(tr, 'Dominan Branding', outlet.branding_dominance || 'Belum dinilai');
             const quality = qualityOf(outlet);
             const qualityLabel = quality === 'not_applicable' ? 'Tidak berlaku' : quality === 'missing' ? 'Belum diisi' : quality;
             const qualityCell = cell(tr, 'Kelayakan', '');
@@ -227,7 +226,8 @@
             button.type = 'button';
             button.className = 'insight-map-link';
             button.dataset.insightMapId = String(outlet.id_outlet);
-            button.textContent = 'Lihat di Peta';
+            button.disabled = outlet.valid_coordinates === false;
+            button.textContent = button.disabled ? 'Koordinat belum valid' : 'Lihat di Peta';
             button.setAttribute('aria-label', 'Lihat ' + (outlet.nama_outlet || outlet.id_outlet) + ' di peta');
             action.appendChild(button);
             fragment.appendChild(tr);
@@ -237,7 +237,9 @@
         loadPagePhotos(photoSlots);
     }
 
-    root.SuryaBrandingInsights.setOutlets = function (rows, selectOnMap) {
+    root.SuryaBrandingInsights.setOutlets = function (rows, selectOnMap, nextCutoff) {
+        if (cutoff !== nextCutoff) loadPhotoData = createPhotoLoader(requestPhotos);
+        cutoff = nextCutoff;
         outlets = rows;
         onMapSelect = selectOnMap;
         const currentTap = fields.tap.value;
@@ -250,6 +252,7 @@
     insights.addEventListener('click', event => {
         const trigger = event.target.closest('[data-insight-open]');
         if (!trigger) return;
+        locationFilter = trigger.dataset.location || '';
         fields.tap.value = trigger.dataset.tap || '';
         fields.visit.value = trigger.dataset.visit || '';
         fields.brand.value = trigger.dataset.brand || '';

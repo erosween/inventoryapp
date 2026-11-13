@@ -102,3 +102,19 @@
     .branding-photo-footer { padding:12px 16px;font-size:11px; }
 }
 
+
+.branding-insight-period {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px 12px;
+    padding: 12px;
+}
+.branding-insight-period label { display: grid; gap: 4px; font-size: .85rem; }
+.branding-insight-period input, .branding-insight-period button {
+    min-height: 36px;
+    padding: 4px 9px;
+    border: 1px solid #dce4eb;
+    border-radius: 8px;
+    background: #fff;
+}

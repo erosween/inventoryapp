@@ -433,7 +433,12 @@
             <button type="button" class="map-mobile-tab" data-map-panel="insight" role="tab"><i class="fas fa-chart-pie me-1"></i>Insight</button>
         </div>
         <div id="branding-insights" class="branding-insights map-mobile-panel is-hidden" aria-live="polite">
-            <div class="branding-insight-loading">Memuat insight visit & branding...</div>
+            <form id="branding-insight-period" class="branding-insight-period">
+                <label>Dari <input type="date" name="from" value="{{ now()->startOfMonth()->toDateString() }}" max="{{ now()->toDateString() }}" required></label>
+                <label>Sampai <input type="date" name="to" value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" required></label>
+                <button type="submit">Terapkan</button>
+            </form>
+            <div id="branding-insight-results"></div>
         </div>
         <div id="map" class="map-mobile-panel"></div>
         <div id="empty-state" class="empty-state" style="display:none;"></div>
@@ -2563,17 +2568,17 @@
             });
         }
 
-        function renderBrandingInsights(outlets) {
-            const container = document.getElementById('branding-insights');
+        function renderBrandingInsights(outlets, from, cutoff) {
+            const container = document.getElementById('branding-insight-results');
             if (!container) return;
             window.SuryaBrandingInsights?.setOutlets(outlets, outlet => {
                 document.querySelector('[data-map-panel="map"]')?.click();
                 expandOutletMapView();
                 requestAnimationFrame(() => {
                     map.invalidateSize({pan: false, animate: false});
-                    focusOutletOnMap(outlet);
+                    focusOutletOnMap(loadedOutletPoints.find(point => String(point.id_outlet) === String(outlet.id_outlet)) || outlet);
                 });
-            });
+            }, cutoff);
             const byTap = outlets.reduce((groups, outlet) => {
                 const tap = outlet.tap || 'Tanpa TAP';
                 (groups[tap] ||= []).push(outlet);
@@ -2581,37 +2586,82 @@
             }, {});
             const taps = Object.keys(byTap).sort();
             const total = outlets.length;
-            const visited = outlets.filter(outlet => outlet.has_front_photo).length;
+            const visited = outlets.filter(outlet => outlet.insight_visit === 'visited').length;
             const pct = (value, base) => base ? `${((value / base) * 100).toFixed(1)}%` : '0.0%';
-            const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'];
+            const brandingNames = ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding', 'Belum dinilai'];
             const brandingLogos = {
                 'Tsel': ['/static/images/operators/telkomsel.svg'],
                 'Indosat-Tri': ['/static/images/operators/indosat.svg', '/static/images/operators/tri.svg'],
                 'XL-Smart': ['/static/images/operators/xl.svg', '/static/images/operators/smartfren.svg'],
-                'No Branding': []
+                'No Branding': [],
+                'Belum dinilai': []
             };
             const tapCards = taps.map(tap => {
                 const rows = byTap[tap];
-                const tapVisited = rows.filter(outlet => outlet.has_front_photo).length;
+                const tapVisited = rows.filter(outlet => outlet.insight_visit === 'visited').length;
+                const assessed = rows.filter(outlet => brandingNames.slice(0, 4).includes(outlet.branding_dominance)).length;
                 const brandingRows = brandingNames.map(name => {
-                    const qty = rows.filter(outlet => outlet.branding_dominance === name).length;
+                    const missing = name === 'Belum dinilai';
+                    const qty = missing ? rows.length - assessed : rows.filter(outlet => outlet.branding_dominance === name).length;
                     const chipClass = name === 'Tsel' ? 'tsel' : (name === 'Indosat-Tri' ? 'io' : (name === 'XL-Smart' ? 'xl' : 'none'));
                     const logos = brandingLogos[name].map(src => `<img src="${src}" alt="" loading="lazy">`).join('');
-                    return `<button type="button" class="branding-chip ${chipClass}" data-insight-open data-tap="${escapeMapDetailHtml(tap)}" data-brand="${escapeMapDetailHtml(name)}" aria-label="Lihat outlet dominan ${escapeMapDetailHtml(name)} di ${escapeMapDetailHtml(tap)}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, tapVisited)}</button>`;
+                    return `<button type="button" class="branding-chip ${chipClass}" data-insight-open data-tap="${escapeMapDetailHtml(tap)}" data-brand="${missing ? 'missing' : escapeMapDetailHtml(name)}" aria-label="Lihat outlet dominan ${escapeMapDetailHtml(name)} di ${escapeMapDetailHtml(tap)}"><span class="branding-logos">${logos}</span>${name} <b>${qty}</b> · ${pct(qty, missing ? rows.length : assessed)}</button>`;
                 }).join('');
                 const tapAttr = escapeMapDetailHtml(tap);
-                return `<div class="branding-insight-tap"><button type="button" class="branding-tap-open" data-insight-open data-tap="${tapAttr}" aria-label="Lihat semua outlet di ${tapAttr}">${tapAttr} <span>· ${rows.length} outlet</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="visited" aria-label="Lihat outlet sudah visit di ${tapAttr}"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Sudah visit</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="unvisited" aria-label="Lihat outlet belum visit di ${tapAttr}"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.length - tapVisited} (${pct(rows.length - tapVisited, rows.length)})</b></button><div class="branding-chip-row">${brandingRows}</div></div>`;
+                return `<div class="branding-insight-tap"><button type="button" class="branding-tap-open" data-insight-open data-tap="${tapAttr}" aria-label="Lihat semua outlet di ${tapAttr}">${tapAttr} <span>· ${rows.length} outlet</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="visited" aria-label="Lihat outlet sudah visit di ${tapAttr}"><span><i class="fas fa-circle-check" style="color:#16a34a"></i> Visit disetujui</span><b>${tapVisited} (${pct(tapVisited, rows.length)})</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="unvisited" aria-label="Lihat outlet belum visit di ${tapAttr}"><span><i class="fas fa-clock" style="color:#d97706"></i> Belum visit</span><b>${rows.filter(outlet => outlet.insight_visit === 'unvisited').length}</b></button><button type="button" class="branding-insight-line" data-insight-open data-tap="${tapAttr}" data-visit="pending"><span>Menunggu review</span><b>${rows.filter(outlet => outlet.insight_visit === 'pending').length}</b></button><div class="branding-chip-row">${brandingRows}</div></div>`;
             }).join('');
-            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">Klik angka visit atau operator untuk melihat daftar outlet per TAP</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total outlet</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Sudah visit</small><strong>${visited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${(total - visited).toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(total - visited, total)})</small></strong></button></div><div class="branding-insight-grid">${tapCards}</div></div>`;
+            const pending = outlets.filter(outlet => outlet.insight_visit === 'pending').length;
+            const unvisited = total - visited - pending;
+            const missingCoordinates = outlets.filter(outlet => !outlet.valid_coordinates).length;
+            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">${escapeMapDetailHtml(from)} – ${escapeMapDetailHtml(cutoff)} · Persentase operator dari outlet yang sudah dinilai.</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total outlet</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Visit disetujui</small><strong>${visited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${unvisited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(unvisited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="pending"><small>Menunggu review</small><strong>${pending.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi" data-insight-open data-location="missing"><small>Koordinat belum valid</small><strong>${missingCoordinates.toLocaleString('en-US')}</strong></button></div><div class="branding-insight-grid">${tapCards}</div></div>`;
+        }
+
+        let insightRequest;
+        let insightLoaded = false;
+        async function loadOutletInsights() {
+            const form = document.getElementById('branding-insight-period');
+            const results = document.getElementById('branding-insight-results');
+            if (!form.reportValidity()) return;
+            const params = new URLSearchParams(new FormData(form));
+            if (params.get('from') > params.get('to')) {
+                results.textContent = 'Tanggal mulai harus sebelum atau sama dengan tanggal akhir.';
+                return;
+            }
+
+            insightRequest?.abort();
+            const controller = new AbortController();
+            insightRequest = controller;
+            results.textContent = 'Memuat insight…';
+            try {
+                const response = await fetch('/surya/outlet-insights?' + params, {
+                    headers: { Accept: 'application/json' }, signal: controller.signal
+                });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const rows = await response.json();
+                if (controller !== insightRequest) return;
+                renderBrandingInsights(rows, params.get('from'), params.get('to'));
+                insightLoaded = true;
+            } catch (error) {
+                if (controller === insightRequest && error.name !== 'AbortError') {
+                    results.textContent = 'Insight gagal dimuat. Klik Terapkan untuk mencoba lagi.';
+                }
+            } finally {
+                if (controller === insightRequest) insightRequest = null;
+            }
         }
 
         function setupMapMobileTabs() {
+            document.getElementById('branding-insight-period').addEventListener('submit', event => {
+                event.preventDefault();
+                loadOutletInsights();
+            });
             document.querySelectorAll('[data-map-panel]').forEach(button => {
                 button.addEventListener('click', () => {
                     const panel = button.dataset.mapPanel;
                     document.querySelectorAll('[data-map-panel]').forEach(tab => tab.classList.toggle('active', tab === button));
                     document.getElementById('branding-insights')?.classList.toggle('is-hidden', panel !== 'insight');
                     document.getElementById('map')?.classList.toggle('is-hidden', panel !== 'map');
+                    if (panel === 'insight' && !insightLoaded && !insightRequest) loadOutletInsights();
                     if (panel === 'map' && map) setTimeout(() => map.invalidateSize(), 80);
                 });
             });
@@ -2654,8 +2704,8 @@
 
                     loadedOutletPoints = outlets;
                     await initMap(outlets);
-                    renderBrandingInsights(outlets);
                     outletDataLoaded = true;
+                    if (!window.matchMedia('(max-width: 680px)').matches && !insightLoaded && !insightRequest) loadOutletInsights();
                     const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
                     if (countEl) countEl.textContent = `${outlets.length.toLocaleString('en-US')} outlet · ${visitedCount.toLocaleString('en-US')} sudah visit`;
                 } catch (error) {
@@ -2669,7 +2719,7 @@
                         errorEl.querySelector('[data-map-error-message]').textContent = 'Titik outlet belum dapat dimuat. Periksa koneksi, lalu coba lagi.';
                         errorEl.hidden = false;
                     }
-                    if (insightEl) insightEl.innerHTML = '<div class="branding-insight-error">Insight menunggu data titik outlet. Klik Coba Lagi untuk melanjutkan.</div>';
+                    if (insightEl && !insightLoaded) document.getElementById('branding-insight-results').textContent = 'Pilih Insight atau klik Terapkan untuk memuat data.';
                 } finally {
                     clearTimeout(timeout);
                     outletLoadPromise = null;

@@ -114,14 +114,16 @@ class SuryaOutletCoordinates
     }
 
     /** Fetch one latest record per outlet in SQL, rather than loading all history. */
-    public function latestVisitRecords(array $outletIds, bool $withFrontPhoto = false): Builder
+    public function latestVisitRecords(array $outletIds, bool $withFrontPhoto = false, ?string $approvedBefore = null): Builder
     {
         return DB::table('surya_visits as record')->whereIn('record.id_outlet', $outletIds)
             ->when($withFrontPhoto, fn ($query) => $query->whereNotNull('record.photo_front_path'))
-            ->whereNotExists(function ($newer) use ($withFrontPhoto) {
+            ->when($approvedBefore, fn ($query) => $query->whereIn('record.gps_status', ['valid', 'approved'])->where('record.visited_at', '<', $approvedBefore))
+            ->whereNotExists(function ($newer) use ($withFrontPhoto, $approvedBefore) {
                 $newer->selectRaw('1')->from('surya_visits as newer_record')
                     ->whereColumn('newer_record.id_outlet', 'record.id_outlet')
                     ->when($withFrontPhoto, fn ($query) => $query->whereNotNull('newer_record.photo_front_path'))
+                    ->when($approvedBefore, fn ($query) => $query->whereIn('newer_record.gps_status', ['valid', 'approved'])->where('newer_record.visited_at', '<', $approvedBefore))
                     ->where(function ($order) {
                         $order->whereColumn('newer_record.visited_at', '>', 'record.visited_at')
                             ->orWhere(fn ($query) => $query->whereNull('record.visited_at')->whereNotNull('newer_record.visited_at'))
