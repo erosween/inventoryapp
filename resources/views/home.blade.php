@@ -254,6 +254,10 @@
     }
     #mom-cluster-table-wrap .mom-location-col { width: 20%; }
     #mom-cluster-table-wrap .mom-number-col { width: 10%; }
+    #mom-cluster-table-wrap .toggle-sf[aria-expanded="true"] {
+        background: #475467 !important;
+        color: #fff !important;
+    }
     #mom-cluster-table-wrap .toggle-sf {
         width: 24px;
         height: 24px;
@@ -2388,14 +2392,14 @@
             }
         }
 
-        function toggleMomSfDetail(button) {
-            const target = document.getElementById(button.dataset.target);
+        function setMomSfDetail(button, expanded = button.getAttribute('aria-expanded') !== 'true') {
+            const target = document.getElementById(button.getAttribute('aria-controls'));
             if (!target) return;
-            const willOpen = target.classList.contains('d-none');
-            target.classList.toggle('d-none', !willOpen);
-            button.innerText = willOpen ? '-' : '+';
-            button.classList.toggle('bg-secondary', willOpen);
-            button.classList.toggle('text-white', willOpen);
+
+            target.classList.toggle('d-none', !expanded);
+            button.textContent = expanded ? '−' : '+';
+            button.setAttribute('aria-expanded', String(expanded));
+            button.setAttribute('aria-label', expanded ? 'Tutup rincian' : 'Tampilkan rincian');
         }
 
         let momLoadController = null;
@@ -2404,9 +2408,8 @@
             const currentCard = document.getElementById('mom-cluster-card');
             if (!form || !currentCard) return;
 
-            const expandedTargets = Array.from(currentCard.querySelectorAll('.toggle-sf'))
-                .map(button => button.dataset.target)
-                .filter(targetId => !document.getElementById(targetId)?.classList.contains('d-none'));
+            const expandedTargets = Array.from(currentCard.querySelectorAll('.toggle-sf[aria-expanded="true"]'))
+                .map(button => button.getAttribute('aria-controls'));
             const scrollPosition = { x: window.scrollX, y: window.scrollY };
             const requestUrl = new URL(form.action, window.location.href);
             requestUrl.search = window.location.search;
@@ -2442,12 +2445,8 @@
 
                 currentCard.replaceWith(nextCard);
                 expandedTargets.forEach(targetId => {
-                    const target = document.getElementById(targetId);
-                    const button = nextCard.querySelector(`.toggle-sf[data-target="${targetId}"]`);
-                    if (!target || !button) return;
-                    target.classList.remove('d-none');
-                    button.innerText = '-';
-                    button.classList.add('bg-secondary', 'text-white');
+                    const button = nextCard.querySelector(`.toggle-sf[aria-controls="${targetId}"]`);
+                    if (button) setMomSfDetail(button, true);
                 });
 
                 if (window.feather) feather.replace();
@@ -2476,7 +2475,7 @@
         document.addEventListener('click', function(event) {
             const sfButton = event.target.closest('.toggle-sf');
             if (sfButton) {
-                toggleMomSfDetail(sfButton);
+                setMomSfDetail(sfButton);
                 return;
             }
             if (event.target.closest('#mom-copy-btn')) copyMomClusterAsImage();

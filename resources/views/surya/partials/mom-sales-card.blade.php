@@ -114,7 +114,8 @@
                                 <tr class="bg-white">
                                     <td class="font-weight-bold text-dark {{ $r === $topIncrease ? 'mom-impact-up' : ($r === $topDecrease ? 'mom-impact-down' : '') }}">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
-                                            data-target="sf-{{ Str::slug($r->idtap) }}">
+                                            type="button" aria-expanded="false" aria-label="Tampilkan rincian"
+                                            aria-controls="sf-{{ Str::slug($r->idtap) }}">
                                             +
                                         </button>
                                         {{ $r->idtap }}
