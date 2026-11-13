@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'inventory-msp-pwa-';
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const STATIC_CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -47,27 +47,8 @@ async function networkFirst(request) {
   try {
     return await fetch(request, { cache: 'no-store' });
   } catch (error) {
-    return (await caches.match(OFFLINE_URL)) || Response.error();
+    return (await caches.match(OFFLINE_URL, { cacheName: STATIC_CACHE })) || Response.error();
   }
-}
-
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(STATIC_CACHE);
-  const cachedResponse = await cache.match(request);
-  const networkResponse = fetch(request)
-    .then(response => {
-      if (response && (response.ok || response.type === 'opaque')) {
-        cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch(() => null);
-
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-
-  return (await networkResponse) || Response.error();
 }
 
 self.addEventListener('fetch', event => {
@@ -84,20 +65,14 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  const isLocalStatic = requestUrl.origin === self.location.origin && (
-    requestUrl.pathname.startsWith('/assets/') ||
-    requestUrl.pathname.startsWith('/build/') ||
-    requestUrl.pathname === '/manifest.json' ||
-    requestUrl.pathname === '/manifest-admin.json' ||
-    requestUrl.pathname === OFFLINE_URL ||
-    requestUrl.pathname === '/favicon.ico'
-  );
-
-  const isTrustedExternalAsset = requestUrl.origin !== self.location.origin &&
-    ['font', 'image', 'script', 'style'].includes(request.destination);
-
-  if (isLocalStatic || isTrustedExternalAsset) {
-    event.respondWith(staleWhileRevalidate(request));
+  // Keep Cache Storage limited to the install-time list. Other assets use HTTP caching.
+  if (requestUrl.origin === self.location.origin &&
+      !requestUrl.search && PRECACHE_ASSETS.includes(requestUrl.pathname)) {
+    event.respondWith(
+      caches.match(request, { cacheName: STATIC_CACHE })
+        .catch(() => undefined)
+        .then(response => response || fetch(request))
+    );
   }
 });
 
