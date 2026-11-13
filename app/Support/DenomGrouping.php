@@ -7,6 +7,15 @@ use Illuminate\Validation\ValidationException;
 final class DenomGrouping
 {
     public const DO_CODES = ['SEGEL', 'V33', 'SP6', 'SP7', 'SP1', 'SP9'];
+    public const LEGACY_DIRECT_DO_CODES = ['SP1', 'SP6', 'SP7', 'SP9'];
+
+    public static function legacyDoAtTapSql(string $alias): string
+    {
+        $codes = implode("','", self::LEGACY_DIRECT_DO_CODES);
+
+        return "($alias.do_received_at_bo IS NULL AND $alias.iddenom IN ('$codes'))";
+    }
+
     public const SOURCES = ['SEGEL', 'V33', 'SP6', 'SP7', 'V16'];
     public const FILTERS = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
 

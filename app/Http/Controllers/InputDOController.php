@@ -46,6 +46,10 @@ class InputDOController extends Controller
                 $join->on('m.penerima', '=', 'sf.idsf')
                      ->on('m.iddenom', '=', 'sf.iddenom');
             })
+            ->leftJoin('stockawaltap as tap_stock', function ($join) {
+                $join->on('m.idtap', '=', 'tap_stock.idtap')
+                    ->on('m.iddenom', '=', 'tap_stock.iddenom');
+            })
             ->select(
                 'm.idmasuk',
                 'm.tgl',
@@ -58,7 +62,7 @@ class InputDOController extends Controller
                 'm.sn',
                 'm.penerima',
                 'm.iddenom',
-                DB::raw('COALESCE(sf.stock, 0) as sf_stock')
+                DB::raw('CASE WHEN '.DenomGrouping::legacyDoAtTapSql('m').' THEN COALESCE(tap_stock.stock, 0) ELSE COALESCE(sf.stock, 0) END as available_stock')
             )
             ->where('m.pengirim', 'DO')
             ->whereBetween('m.tgl', [$start . ' 00:00:00', $end . ' 23:59:59']);
@@ -78,7 +82,7 @@ class InputDOController extends Controller
                 // Sebenarnya kalau Qty diganti juga harus hati-hati. 
                 // Untuk sekarang kita tampilkan tombol Delete sesuai logic stok.
 
-                if ($row->sf_stock < $row->qty) {
+                if ($row->available_stock < $row->qty) {
                     $btnDelete = '<span class="badge badge-secondary">USED</span>';
                 } else {
                     $btnDelete = '
@@ -119,7 +123,7 @@ class InputDOController extends Controller
     }
 
     /* =====================================================
-       SIMPAN DO (MASUK KE SF)
+       SIMPAN DO (MASUK KE BO)
     ===================================================== */
     public function masukProses(Request $request)
     {
@@ -131,6 +135,7 @@ class InputDOController extends Controller
             $newId = DB::table('masuk')->insertGetId([
                 'iddenom'        => $request->kategorisegel,
                 'pengirim'       => 'DO',
+                'do_received_at_bo' => true,
                 'penerima'       => $request->penerima, // idsf
                 'qty'            => $request->qty,
                 'sn'             => $request->sn,
@@ -144,15 +149,7 @@ class InputDOController extends Controller
             // 📝 LOG
             AuditLogger::log('INSERT', 'Input DO', $newId, null, $request->all());
 
-            // Semua paket/blank starter langsung menjadi stok TAP.
-            if ($this->isDirectPackage($request->kategorisegel)) {
-                $this->incrementTapStock($request->idtap, $request->kategorisegel, $request->qty);
-            } else {
-                DB::table('stockawalsf')
-                    ->where('idsf', $request->penerima)
-                    ->where('iddenom', $request->kategorisegel)
-                    ->increment('stock', $request->qty);
-            }
+            $this->incrementBoStock($request->penerima, $request->kategorisegel, (int) $request->qty);
         });
 
         return redirect()
@@ -166,7 +163,7 @@ class InputDOController extends Controller
     public function edit($id)
     {
         $idtap_session = session('idtap');
-        $edit = DB::table('masuk')->where('idmasuk', $id)->first();
+        $edit = $this->doQuery($id)->first();
         
         if (!$edit) return redirect()->route('do.index')->with('error', 'Data tidak ditemukan');
 
@@ -183,38 +180,38 @@ class InputDOController extends Controller
     {
         $this->validateDo($request);
         DB::transaction(function () use ($request, $id) {
-            $oldData = DB::table('masuk')->where('idmasuk', $id)->lockForUpdate()->first();
-            
-            // 1. Rollback stok lama dari lokasi asalnya.
-            if ($this->isDirectPackage($oldData->iddenom)) {
-                DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
-            } else {
-                DB::table('stockawalsf')->where('idsf', $oldData->penerima)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
+            $oldData = $this->doQuery($id)->lockForUpdate()->first();
+            abort_unless($oldData, 404);
+
+            $stock = $this->stockForDo($oldData);
+            $atTap = $this->wasReceivedAtTap($oldData);
+            $sameStock = $oldData->iddenom === $request->kategorisegel
+                && ($atTap ? $oldData->idtap === $request->idtap : $oldData->penerima === $request->penerima);
+
+            $available = (int) (clone $stock)->lockForUpdate()->value('stock');
+            $qtyToRemove = $sameStock ? max(0, $oldData->qty - $request->qty) : (int) $oldData->qty;
+            if ($available < $qtyToRemove) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'qty' => 'Stok penerimaan lama tidak mencukupi untuk koreksi DO.',
+                ]);
             }
 
-            // 2. Cek stok SF sekarang (untuk keamanan agar tidak minus setelah rollback)
-            // Sebenarnya rollback di sini adalah mengurangi stok SF (karena DO adalah barang masuk).
-            // Jadi kita harus pastikan stok SF mencukupi untuk dikurangi (dibatalkan masuknya).
-            $currentSfStock = DB::table($this->isDirectPackage($oldData->iddenom) ? 'stockawaltap' : 'stockawalsf')
-                ->where($this->isDirectPackage($oldData->iddenom) ? 'idtap' : 'idsf', $this->isDirectPackage($oldData->iddenom) ? $oldData->idtap : $oldData->penerima)
-                ->where('iddenom', $oldData->iddenom)
-                ->lockForUpdate()
-                ->value('stock');
-
-            if ($currentSfStock < 0) {
-                 throw new \Exception('Gagal update: Stok SF akan menjadi negatif jika data lama dibatalkan');
+            if ($qtyToRemove > 0) {
+                (clone $stock)->decrement('stock', $qtyToRemove);
             }
 
-            // 3. Tambahkan paket/blank starter langsung ke TAP, selain itu ke SF.
-            if ($this->isDirectPackage($request->kategorisegel)) {
-                $this->incrementTapStock($request->idtap, $request->kategorisegel, $request->qty);
-            } else {
-                DB::table('stockawalsf')->where('idsf', $request->penerima)->where('iddenom', $request->kategorisegel)->increment('stock', $request->qty);
+            $qtyToAdd = $sameStock ? max(0, $request->qty - $oldData->qty) : (int) $request->qty;
+            if ($qtyToAdd > 0) {
+                if ($atTap && $sameStock) {
+                    $this->incrementTapStock($request->idtap, $request->kategorisegel, $qtyToAdd);
+                } else {
+                    $this->incrementBoStock($request->penerima, $request->kategorisegel, $qtyToAdd);
+                }
             }
 
-            // 4. Update record
             DB::table('masuk')->where('idmasuk', $id)->update([
                 'iddenom'        => $request->kategorisegel,
+                'do_received_at_bo' => $atTap && $sameStock ? null : true,
                 'penerima'       => $request->penerima,
                 'qty'            => $request->qty,
                 'sn'             => $request->sn,
@@ -240,33 +237,18 @@ class InputDOController extends Controller
         try {
             DB::transaction(function () use ($idmasuk) {
 
-                $data = DB::table('masuk')
-                    ->where('idmasuk', $idmasuk)
-                    ->lockForUpdate()
-                    ->first();
-
+                $data = $this->doQuery($idmasuk)->lockForUpdate()->first();
                 if (!$data) {
                     throw new \Exception('Data DO tidak ditemukan');
                 }
 
-                // ambil stok sekarang
-                $directPackage = $this->isDirectPackage($data->iddenom);
-                $stokSekarang = DB::table($directPackage ? 'stockawaltap' : 'stockawalsf')
-                    ->where($directPackage ? 'idtap' : 'idsf', $directPackage ? $data->idtap : $data->penerima)
-                    ->where('iddenom', $data->iddenom)
-                    ->lockForUpdate()
-                    ->value('stock');
-
-                // ❌ kalau sudah dipakai → STOP
-                if ($stokSekarang < $data->qty) {
+                $stock = $this->stockForDo($data);
+                $available = (int) (clone $stock)->lockForUpdate()->value('stock');
+                if ($available < $data->qty) {
                     throw new \Exception('DO sudah digunakan, tidak bisa dihapus');
                 }
 
-                // balikin stok
-                DB::table($directPackage ? 'stockawaltap' : 'stockawalsf')
-                    ->where($directPackage ? 'idtap' : 'idsf', $directPackage ? $data->idtap : $data->penerima)
-                    ->where('iddenom', $data->iddenom)
-                    ->decrement('stock', $data->qty);
+                $stock->decrement('stock', $data->qty);
 
                 // hapus DO
                 DB::table('masuk')
@@ -311,11 +293,32 @@ public function getTap(Request $request)
     return response($html);
 }
 
-    // Klasifikasi denom menentukan jalur saldo DO. Input, koreksi, dan pembatalan harus memakai aturan
-    // yang sama.
-    private function isDirectPackage(?string $iddenom): bool
+    private function doQuery($id)
     {
-        return in_array(strtoupper((string) $iddenom), ['SP1', 'SP6', 'SP7', 'SP9'], true);
+        $query = DB::table('masuk')->where('idmasuk', $id)->where('pengirim', 'DO');
+        TapFilter::apply($query, 'idtappenerima');
+
+        return $query;
+    }
+
+    private function wasReceivedAtTap(object $do): bool
+    {
+        return $do->do_received_at_bo === null
+            && in_array(strtoupper($do->iddenom), DenomGrouping::LEGACY_DIRECT_DO_CODES, true);
+    }
+
+    private function stockForDo(object $do)
+    {
+        return ($this->wasReceivedAtTap($do)
+            ? DB::table('stockawaltap')->where('idtap', $do->idtap)
+            : DB::table('stockawalsf')->where('idsf', $do->penerima))
+            ->where('iddenom', $do->iddenom);
+    }
+
+    private function incrementBoStock(string $bo, string $denom, int $qty): void
+    {
+        DB::table('stockawalsf')->insertOrIgnore(['idsf' => $bo, 'iddenom' => $denom, 'stock' => 0]);
+        DB::table('stockawalsf')->where('idsf', $bo)->where('iddenom', $denom)->increment('stock', $qty);
     }
 
     private function validateDo(Request $request): void

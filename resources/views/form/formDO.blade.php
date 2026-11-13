@@ -8,7 +8,7 @@
             <div class="page-inner">
 
                 <div class="page-header">
-                    <h4 class="page-title">Input DO Masuk TAP</h4>
+                    <h4 class="page-title">Input DO Masuk BO</h4>
                 </div>
 
                 <div class="row">
@@ -18,7 +18,7 @@
                             <div class="card-header">
                                 <strong>Form Input</strong>
                                 <div class="text-muted small">
-                                    Input DO masuk ke TAP
+                                    Input DO masuk ke BO
                                 </div>
                             </div>
 

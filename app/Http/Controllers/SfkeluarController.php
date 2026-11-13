@@ -555,6 +555,7 @@ public function updateSfKeluar(Request $request, $id)
 
         $futureIn += (int) DB::table('masuk')
             ->where('pengirim', 'DO')
+            ->whereRaw('NOT '.\App\Support\DenomGrouping::legacyDoAtTapSql('masuk'))
             ->where('penerima', $idsf)
             ->where('iddenom', $iddenom)
             ->whereDate('tgl', '>', $date)

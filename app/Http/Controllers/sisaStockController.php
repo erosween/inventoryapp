@@ -124,12 +124,12 @@ class sisaStockController extends Controller
 
             // c. DO Masuk
             $doMasuk = DB::table('masuk')
-                ->select('idtap', 'penerima as idsf', 'iddenom', DB::raw('SUM(qty) as total'))
+                ->select('idtap', 'penerima as idsf', 'iddenom', 'do_received_at_bo', DB::raw('SUM(qty) as total'))
                 ->where('pengirim', 'DO')
                 ->where('tgl', '>=', $afterDate);
             $applyFilter($doMasuk);
-            foreach ($doMasuk->groupBy('idtap', 'penerima', 'iddenom')->get() as $r) {
-                if (in_array($r->iddenom, ['SP1', 'SP6', 'SP7'], true)) {
+            foreach ($doMasuk->groupBy('idtap', 'penerima', 'iddenom', 'do_received_at_bo')->get() as $r) {
+                if ($r->do_received_at_bo === null && in_array($r->iddenom, \App\Support\DenomGrouping::LEGACY_DIRECT_DO_CODES, true)) {
                     $key = $r->idtap.'|'.$r->iddenom;
                     $tapStock[$key] = ($tapStock[$key] ?? 0) - $r->total;
                 } else {

@@ -367,6 +367,8 @@ public function getTap(Request $request)
             'V33' => 'PV BYU SEGEL',
             'SP6' => 'PERDANA SEGEL SIMPATI',
             'SP7' => 'PERDANA SEGEL BYU',
+            'SP1' => 'SIMPATI 3GB',
+            'SP9' => 'SIMPATI 15GB',
         ];
     }
 

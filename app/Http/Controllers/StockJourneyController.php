@@ -186,9 +186,10 @@ class StockJourneyController extends Controller
 
     private function movementUnion(string $startDate, string $endDate)
     {
+        $legacyTap = \App\Support\DenomGrouping::legacyDoAtTapSql('x');
         $do = DB::table('masuk as x')
             ->where('x.pengirim', 'DO')->whereBetween('x.tgl', [$startDate, $endDate])
-            ->selectRaw("x.tgl event_date, 'DO_MASUK' movement_type, 'OUTSIDE' from_type, 'DO' from_id, 'SF' to_type, x.penerima to_id, x.idtap, x.penerima idsf, x.iddenom, x.qty, 'masuk' source_table, x.idmasuk source_id, COALESCE(x.nomor_do, x.sn, '') note");
+            ->selectRaw("x.tgl event_date, 'DO_MASUK' movement_type, 'OUTSIDE' from_type, 'DO' from_id, CASE WHEN {$legacyTap} THEN 'TAP' ELSE 'SF' END to_type, CASE WHEN {$legacyTap} THEN x.idtap ELSE x.penerima END to_id, x.idtap, CASE WHEN {$legacyTap} THEN NULL ELSE x.penerima END idsf, x.iddenom, x.qty, 'masuk' source_table, x.idmasuk source_id, COALESCE(x.nomor_do, x.sn, '') note");
 
         $tapTransfer = DB::table('keluar as x')
             ->leftJoin('idsf as sf', 'sf.idsf', '=', 'x.pengirim')
