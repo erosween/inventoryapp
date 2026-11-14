@@ -10,7 +10,11 @@ html { color-scheme: light; scrollbar-gutter: stable; overflow-y: scroll; }
 body { margin: 0; background: #edf2f7; color: var(--surya-ink); font-family: var(--surya-font); font-size: 13px; }
 
 /* Reserve the iPadOS status-bar fade area before rendering header controls. */
-html.surya-ios-standalone { background: #8e0925; }
+html.surya-ios-standalone {
+    color-scheme: dark;
+    background: #8e0925;
+}
+.surya-ios-standalone body { color-scheme: light; }
 .surya-ios-standalone [data-surya-workspace] {
     --surya-status-height: max(52px, env(safe-area-inset-top, 0px));
     padding-top: var(--surya-status-height);

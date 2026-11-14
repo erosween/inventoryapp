@@ -12,6 +12,11 @@
 <script>
     if (navigator.standalone === true) {
         document.documentElement.classList.add('surya-ios-standalone');
+        // Match the system chrome to the dark red canvas before the stylesheets load.
+        const scheme = document.createElement('meta');
+        scheme.name = 'color-scheme';
+        scheme.content = 'dark';
+        document.head.appendChild(scheme);
     }
 </script>
 @include('layout.web-typography')
