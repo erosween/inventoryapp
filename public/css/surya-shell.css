@@ -174,3 +174,30 @@ body.surya-menu-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
     .surya-navbar.is-navigating::after { background: #ffd6df; }
 }
+
+.surya-status-surface { display: none; }
+
+/* Match the login page's opaque top edge on iOS touch devices. */
+@supports (-webkit-touch-callout: none) {
+    @media (pointer: coarse) {
+        html:has(.surya-status-surface) {
+            --surya-status-height: max(12px, env(safe-area-inset-top, 0px));
+            background: #8e0925;
+        }
+        body:has(.surya-status-surface) { padding-top: var(--surya-status-height); }
+        .surya-status-surface {
+            display: block;
+            position: fixed;
+            inset: 0 0 auto;
+            height: var(--surya-status-height);
+            z-index: 1101;
+            background: #8e0925;
+            pointer-events: none;
+        }
+        [data-surya-workspace] .surya-navbar { top: var(--surya-status-height); }
+        [data-surya-workspace] .enterprise-sidebar {
+            top: var(--surya-status-height);
+            height: auto;
+        }
+    }
+}

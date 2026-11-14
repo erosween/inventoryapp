@@ -10,6 +10,7 @@
         ? 'visit-detail'
         : 'outlet';
 @endphp
+<div class="surya-status-surface" aria-hidden="true"></div>
 <aside class="enterprise-sidebar" id="surya-sidebar" aria-label="Navigasi utama SURYA">
     <div class="sidebar-brand">
         <div class="sidebar-logo"><img src="/assets/img/surya-logo-mobile.webp" alt="SURYA"></div>

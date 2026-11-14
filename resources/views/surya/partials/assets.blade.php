@@ -1,10 +1,9 @@
 {{--
     Referensi aset bersama SURYA Web. Layout workspace memuat partial ini.
---}}<meta name="viewport" content="width=device-width,initial-scale=1">
+--}}<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=auto">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#8e0925" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#8e0925" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#bd001c">
 <meta name="mobile-web-app-capable" content="yes">
 @include('surya.partials.sidebar-boot')
 <link rel="manifest" href="{{ asset('manifest-surya-web.json') }}">
