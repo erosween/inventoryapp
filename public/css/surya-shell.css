@@ -8,6 +8,31 @@
 }
 html { color-scheme: light; scrollbar-gutter: stable; overflow-y: scroll; }
 body { margin: 0; background: #edf2f7; color: var(--surya-ink); font-family: var(--surya-font); font-size: 13px; }
+
+/* Give iOS an opaque edge to sample, including when the sidebar is open. */
+@supports (-webkit-touch-callout: none) {
+    @media (pointer: coarse) {
+        html:has([data-surya-workspace]) { background: #8e0925; }
+        [data-surya-workspace] {
+            --surya-status-height: max(12px, env(safe-area-inset-top, 0px));
+            padding-top: var(--surya-status-height);
+        }
+        [data-surya-workspace]::before {
+            content: "";
+            position: fixed;
+            inset: 0 0 auto;
+            height: var(--surya-status-height);
+            background: #8e0925;
+            z-index: 1101;
+            pointer-events: none;
+        }
+        [data-surya-workspace] .surya-navbar { top: var(--surya-status-height); }
+        [data-surya-workspace] .enterprise-sidebar {
+            top: var(--surya-status-height);
+            height: auto;
+        }
+    }
+}
 [data-surya-workspace], [data-surya-workspace] input, [data-surya-workspace] button,
 [data-surya-workspace] select, [data-surya-workspace] textarea { font-family: var(--surya-font); }
 [data-surya-workspace] { --app-font: var(--surya-font); display: flex; min-height: 100vh; color: var(--surya-ink); font-size: 13px; }
