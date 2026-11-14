@@ -176,3 +176,28 @@
     background: #243650;
     color: #fff;
 }
+
+.branding-matrix tfoot > tr > * { background: #e4edf8; border-top: 2px solid #a5b9d1; }
+.insight-map-cell .insight-map-link + .insight-map-link { margin-top: 6px; }
+#outlet-branding-editor {
+    width: min(400px, calc(100% - 32px));
+    padding: 22px;
+    border: 1px solid #dce4eb;
+    border-radius: 14px;
+    color: #172033;
+}
+#outlet-branding-editor::backdrop { background: #0f172a80; }
+#outlet-branding-editor form, #outlet-branding-editor label { display: grid; gap: 8px; }
+#outlet-branding-editor form { gap: 14px; }
+#outlet-branding-editor :is(h2, p) { margin: 0; }
+#outlet-branding-editor select, .branding-editor-actions button {
+    min-height: 40px;
+    padding: 6px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #172033;
+}
+.branding-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.branding-editor-actions button[type="submit"] { background: #a31237; color: #fff; }
+#outlet-branding-editor [role="alert"] { color: #a31237; }

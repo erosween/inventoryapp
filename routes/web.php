@@ -126,6 +126,8 @@ Route::get('/surya/search', [MonitaDumaiController::class, 'search']);
 Route::get('/surya/suggest', [MonitaDumaiController::class, 'suggest']);
 Route::get('/surya/outlets', [MonitaDumaiController::class, 'outlets']);
 Route::get('/surya/outlet-insights', [MonitaDumaiController::class, 'outletInsights']);
+Route::patch('/surya/outlet-insights/{outlet}/branding', [MonitaDumaiController::class, 'updateOutletBranding'])
+    ->whereNumber('outlet')->name('surya.outlet-branding.update');
 Route::get('/surya/outlet-branding-photos', [MonitaDumaiController::class, 'outletBrandingPhotos'])->name('surya.outlet-branding-photos');
 Route::get('/surya/nearby', [MonitaDumaiController::class, 'nearby']);
 Route::get('/surya/performance', [MonitaDumaiController::class, 'performance']);

@@ -2174,6 +2174,30 @@ class MonitaDumaiController extends Controller
         ])->whereRaw("UPPER(TRIM({$prefix}sf)) NOT IN ('', 'UNMAPPING')");
     }
 
+    public function updateOutletBranding(Request $request, string $outlet)
+    {
+        abort_unless($this->isSuryaAdminSuper(), 403);
+        $data = $request->validate([
+            'branding_dominance' => 'required|in:Tsel,Indosat-Tri,XL-Smart,No Branding',
+            'branding_quality' => 'nullable|required_unless:branding_dominance,No Branding|in:Bagus,Kurang Bagus,Tidak Bagus',
+        ]);
+        $scopes = $this->suryaTapScopes();
+        $eligible = DB::table('appsdumais')->where('id_outlet', $outlet)
+            ->when($scopes !== null, fn ($query) => $query->whereIn('tap', $scopes))
+            ->tap(fn ($query) => $this->onlyPjpOutlets($query))->exists();
+        abort_unless($eligible, 404);
+
+        DB::table('surya_outlet_branding_overrides')->upsert([[
+            'id_outlet' => $outlet,
+            'branding_dominance' => $data['branding_dominance'],
+            'branding_quality' => $data['branding_dominance'] === 'No Branding' ? null : $data['branding_quality'],
+            'updated_by' => Auth::id(),
+            'updated_at' => now(),
+        ]], ['id_outlet'], ['branding_dominance', 'branding_quality', 'updated_by', 'updated_at']);
+
+        return response()->noContent();
+    }
+
     public function outletInsights(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
@@ -2202,7 +2226,11 @@ class MonitaDumaiController extends Controller
         $brands = $coordinates->latestVisitRecords($ids, true, $end)
             ->get(['id_outlet', 'branding_dominance', 'branding_quality'])->keyBy('id_outlet');
 
-        $priorityIds = $brands->filter(fn ($brand) => $brand->branding_dominance === 'No Branding'
+        $overrides = Schema::hasTable('surya_outlet_branding_overrides')
+            ? DB::table('surya_outlet_branding_overrides')->whereIn('id_outlet', $ids)->get()->keyBy('id_outlet')
+            : collect();
+        $effectiveBrands = $brands->replace($overrides);
+        $priorityIds = $effectiveBrands->filter(fn ($brand) => $brand->branding_dominance === 'No Branding'
             || ($brand->branding_dominance === 'Tsel' && in_array($brand->branding_quality, ['Kurang Bagus', 'Tidak Bagus'], true)))
             ->keys()->all();
         $salesByOutlet = [];
@@ -2218,12 +2246,12 @@ class MonitaDumaiController extends Controller
             }
         }
 
-        return response()->json($outlets->map(function ($outlet) use ($visits, $brands, $salesByOutlet) {
+        return response()->json($outlets->map(function ($outlet) use ($visits, $brands, $effectiveBrands, $salesByOutlet) {
             $id = $outlet->id_outlet;
-            $brand = $brands->get($id);
+            $brand = $effectiveBrands->get($id);
             $outlet->insight_visit = $visits->has($id) ? ($visits[$id] ? 'visited' : 'pending') : 'unvisited';
             $outlet->sales = $salesByOutlet[$id] ?? null;
-            $outlet->has_front_photo = $brand !== null;
+            $outlet->has_front_photo = $brands->has($id);
             $dominance = $brand->branding_dominance ?? null;
             $outlet->branding_dominance = in_array($dominance, ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'], true) ? $dominance : null;
             $outlet->branding_quality = $brand->branding_quality ?? null;

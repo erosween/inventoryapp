@@ -428,6 +428,27 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertFalse($rows[$withoutCoordinates]['valid_coordinates']);
     }
 
+    public function test_manual_branding_updates_insight_without_changing_visit_history(): void
+    {
+        $this->admin();
+        $id = 990011096;
+        $this->outlet($id);
+        $visit = $this->visit($id, ['branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus']);
+        $url = "/surya/outlet-insights/{$id}/branding";
+        $this->patchJson($url, ['branding_dominance' => 'XL-Smart'])->assertUnprocessable();
+        $this->patchJson($url, ['branding_dominance' => 'No Branding', 'branding_quality' => 'Bagus'])->assertNoContent();
+        $this->assertDatabaseHas('surya_visits', ['id' => $visit, 'branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus']);
+
+        $query = http_build_query(['from' => now()->subDay()->toDateString(), 'to' => now()->toDateString()]);
+        $rows = collect($this->getJson('/surya/outlet-insights?'.$query)->assertOk()->json())->keyBy('id_outlet');
+        $this->assertSame('No Branding', $rows[$id]['branding_dominance']);
+        $this->assertNull($rows[$id]['branding_quality']);
+        $this->assertSame('visited', $rows[$id]['insight_visit']);
+
+        $this->actingAs(User::where('username', 'asmen_dumai')->firstOrFail())->withSession(['idtap' => 'DUMAI']);
+        $this->patchJson($url, ['branding_dominance' => 'Tsel', 'branding_quality' => 'Bagus'])->assertForbidden();
+    }
+
     public function test_branding_photo_batch_uses_the_latest_photo_and_thumbnail_without_loading_sales(): void
     {
         $this->admin();

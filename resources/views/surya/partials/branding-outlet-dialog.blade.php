@@ -28,3 +28,20 @@
     <div class="branding-photo-stage"><img data-photo-image alt=""><p data-photo-status role="status">Memuat foto…</p></div>
     <div class="branding-photo-footer"><span>Foto tampak depan terbaru</span><a data-photo-original target="_blank" rel="noopener noreferrer">Buka Foto Asli <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div>
 </dialog>
+
+@if(auth()->user()?->isSuperAdmin())
+<dialog id="outlet-branding-editor" aria-labelledby="outlet-branding-editor-title">
+    <form data-url="{{ route('surya.outlet-branding.update', ['outlet' => '0'], false) }}">
+        <h2 id="outlet-branding-editor-title">Edit branding</h2>
+        <p data-branding-outlet></p>
+        <label>Dominan branding
+            <select name="branding_dominance" required><option value="">Pilih branding</option><option>Tsel</option><option>Indosat-Tri</option><option>XL-Smart</option><option>No Branding</option></select>
+        </label>
+        <label>Kelayakan branding
+            <select name="branding_quality" required><option value="">Pilih kelayakan</option><option>Bagus</option><option>Kurang Bagus</option><option>Tidak Bagus</option></select>
+        </label>
+        <p role="alert" data-branding-error hidden></p>
+        <div class="branding-editor-actions"><button type="button" data-branding-cancel>Batal</button><button type="submit">Simpan</button></div>
+    </form>
+</dialog>
+@endif

@@ -56,6 +56,7 @@
     const insights = document.getElementById('branding-insights');
     if (!dialog || !insights) return;
 
+    const editor = document.getElementById('outlet-branding-editor');
     const fields = Object.fromEntries(['tap', 'visit', 'brand', 'quality', 'search'].map(name => [name, dialog.querySelector('[data-insight-filter="' + name + '"]')]));
     const body = dialog.querySelector('tbody');
     const count = dialog.querySelector('[data-insight-count]');
@@ -253,11 +254,72 @@
             button.textContent = button.disabled ? 'Koordinat belum valid' : 'Lihat di Peta';
             button.setAttribute('aria-label', 'Lihat ' + (outlet.nama_outlet || outlet.id_outlet) + ' di peta');
             action.appendChild(button);
+            if (editor) {
+                const edit = document.createElement('button');
+                edit.type = 'button';
+                edit.className = 'insight-map-link';
+                edit.textContent = 'Edit Branding';
+                edit.addEventListener('click', () => openBrandingEditor(outlet));
+                action.appendChild(edit);
+            }
             fragment.appendChild(tr);
         });
         body.replaceChildren(fragment);
         dialog.querySelector('.insight-outlet-table-wrap').scrollTop = 0;
         loadPagePhotos(photoSlots);
+    }
+
+    function openBrandingEditor(outlet) {
+        const form = editor.querySelector('form');
+        form.dataset.outlet = String(outlet.id_outlet);
+        editor.querySelector('[data-branding-outlet]').textContent = outlet.nama_outlet + ' · ' + outlet.id_outlet;
+        editor.querySelector('[data-branding-error]').hidden = true;
+        form.elements.branding_dominance.value = outlet.branding_dominance || '';
+        form.elements.branding_quality.value = outlet.branding_quality || '';
+        form.elements.branding_dominance.dispatchEvent(new Event('change'));
+        editor.showModal();
+    }
+
+    if (editor) {
+        const form = editor.querySelector('form');
+        const dominance = form.elements.branding_dominance;
+        const quality = form.elements.branding_quality;
+        const submit = form.querySelector('[type="submit"]');
+        const errorMessage = editor.querySelector('[data-branding-error]');
+        dominance.addEventListener('change', () => {
+            quality.disabled = dominance.value === 'No Branding';
+        });
+        editor.querySelector('[data-branding-cancel]').addEventListener('click', () => {
+            if (!submit.disabled) editor.close();
+        });
+        editor.addEventListener('cancel', event => {
+            if (submit.disabled) event.preventDefault();
+        });
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const data = Object.fromEntries(new FormData(form));
+            submit.disabled = true;
+            errorMessage.hidden = true;
+            try {
+                const response = await fetch(form.dataset.url.replace('/0/branding', '/' + encodeURIComponent(form.dataset.outlet) + '/branding'), {
+                    method: 'PATCH',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) throw new Error();
+                editor.close();
+                dialog.dispatchEvent(new Event('branding-saved'));
+            } catch {
+                errorMessage.textContent = 'Branding gagal disimpan. Silakan coba lagi.';
+                errorMessage.hidden = false;
+            } finally {
+                submit.disabled = false;
+            }
+        });
     }
 
     root.SuryaBrandingInsights.setOutlets = function (rows, selectOnMap, nextCutoff) {
