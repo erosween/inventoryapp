@@ -395,9 +395,9 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertSame($approved, $search[0]['coordinate_visit_id']);
     }
 
-    public function test_insight_counts_approved_visits_in_period_and_uses_approved_branding_at_cutoff(): void
+    public function test_insight_counts_approved_visits_in_period_and_keeps_latest_branding(): void
     {
-        $this->freezeTime();
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-14 10:00:00'));
         $approved = 990011091;
         $pending = 990011092;
         $unmapped = 990011093;
@@ -426,6 +426,10 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertFalse($rows->has($withoutPjp));
         $this->assertSame('unvisited', $rows[$withoutCoordinates]['insight_visit']);
         $this->assertFalse($rows[$withoutCoordinates]['valid_coordinates']);
+        $historicalQuery = http_build_query(['from' => '2026-10-01', 'to' => '2026-10-01']);
+        $historical = collect($this->getJson('/surya/outlet-insights?'.$historicalQuery)->assertOk()->json())->keyBy('id_outlet');
+        $this->assertSame('unvisited', $historical[$approved]['insight_visit']);
+        $this->assertSame('No Branding', $historical[$approved]['branding_dominance']);
     }
 
     public function test_manual_branding_updates_insight_without_changing_visit_history(): void

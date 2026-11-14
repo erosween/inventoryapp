@@ -20,6 +20,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class MonitaDumaiController extends Controller
 {
+    private const BRANDING_INSIGHT_START = '2026-10-01';
+
     // Peta Outlet dan Detail Visit berbagi halaman Monita Dumai. Data panel dibangun sesuai panel aktif.
     public function index(Request $request)
     {
@@ -2223,13 +2225,15 @@ class MonitaDumaiController extends Controller
             ->whereIn('gps_status', ['valid', 'approved', 'pending_admin'])
             ->selectRaw("id_outlet, MAX(CASE WHEN gps_status IN ('valid', 'approved') THEN 1 ELSE 0 END) as approved")
             ->groupBy('id_outlet')->pluck('approved', 'id_outlet');
-        $brands = $coordinates->latestVisitRecords($ids, true, $end)
-            ->get(['id_outlet', 'branding_dominance', 'branding_quality'])->keyBy('id_outlet');
+        $brands = $coordinates->latestVisitRecords($ids, true, now()->addDay()->toDateString(), self::BRANDING_INSIGHT_START)
+            ->get(['id_outlet', 'branding_dominance', 'branding_quality', 'visited_at'])->keyBy('id_outlet');
 
         $overrides = Schema::hasTable('surya_outlet_branding_overrides')
             ? DB::table('surya_outlet_branding_overrides')->whereIn('id_outlet', $ids)->get()->keyBy('id_outlet')
             : collect();
-        $effectiveBrands = $brands->replace($overrides);
+        $effectiveBrands = $brands->replace($overrides->filter(
+            fn ($override, $id) => ! $brands->has($id) || $override->updated_at >= $brands[$id]->visited_at
+        ));
         $priorityIds = $effectiveBrands->filter(fn ($brand) => $brand->branding_dominance === 'No Branding'
             || ($brand->branding_dominance === 'Tsel' && in_array($brand->branding_quality, ['Kurang Bagus', 'Tidak Bagus'], true)))
             ->keys()->all();
@@ -2271,18 +2275,22 @@ class MonitaDumaiController extends Controller
         abort_unless($this->hasSuryaAccess($request), 403);
         $validated = $request->validate([
             'cutoff' => 'nullable|date_format:Y-m-d|before_or_equal:today',
+            'insight' => 'sometimes|boolean',
             'outlets' => ['required', 'array', 'min:1', 'max:100'],
             'outlets.*' => ['required', 'string', 'regex:/^[0-9]{1,20}$/'],
         ]);
         $scopes = $this->suryaTapScopes();
         $ids = DB::table('appsdumais')->whereIn('id_outlet', $validated['outlets'])
             ->when($scopes !== null, fn ($query) => $query->whereIn('tap', $scopes))
-            ->when(isset($validated['cutoff']), fn ($query) => $this->onlyPjpOutlets($query),
+            ->when($request->boolean('insight') || isset($validated['cutoff']), fn ($query) => $this->onlyPjpOutlets($query),
                 fn ($query) => $query->where('sf', '!=', 'UNMAPPING'))->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
         $photos = [];
         // Only the current dialog page is requested. Keep file checks and photo
         // metadata out of the initial all-outlets map payload.
-        foreach (app(SuryaOutletCoordinates::class)->latestVisitRecords($ids, true, isset($validated['cutoff']) ? Carbon::parse($validated['cutoff'])->addDay()->toDateString() : null)
+        $insight = $request->boolean('insight');
+        $before = $insight ? now()->addDay()->toDateString()
+            : (isset($validated['cutoff']) ? Carbon::parse($validated['cutoff'])->addDay()->toDateString() : null);
+        foreach (app(SuryaOutletCoordinates::class)->latestVisitRecords($ids, true, $before, $insight ? self::BRANDING_INSIGHT_START : null)
             ->get(['id_outlet', 'photo_front_path', 'visited_at']) as $visit) {
             $url = $this->visitPhotoUrl($visit->photo_front_path);
             if ($url === null) continue;

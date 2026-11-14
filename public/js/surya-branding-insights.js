@@ -74,13 +74,12 @@
     const previewStatus = photoDialog.querySelector('[data-photo-status]');
     const number = value => value.toLocaleString('en-US');
     let outlets = [], filtered = [], page = 1, onMapSelect = null;
-    let cutoff = '', locationFilter = '', priority = '';
+    let locationFilter = '', priority = '';
     let pageLock = null;
     let photoController = null, photoVersion = 0;
     const displayedPhotos = new Map();
     const requestPhotos = async (ids, signal) => {
-        const query = new URLSearchParams();
-        if (cutoff) query.set('cutoff', cutoff);
+        const query = new URLSearchParams({ insight: '1' });
         ids.forEach(id => query.append('outlets[]', id));
         const response = await fetch(dialog.dataset.photoUrl + '?' + query, {
             credentials:'same-origin', headers:{Accept:'application/json'}, cache:'no-store', signal
@@ -325,9 +324,8 @@
         });
     }
 
-    root.SuryaBrandingInsights.setOutlets = function (rows, selectOnMap, nextCutoff) {
-        if (cutoff !== nextCutoff) loadPhotoData = createPhotoLoader(requestPhotos);
-        cutoff = nextCutoff;
+    root.SuryaBrandingInsights.setOutlets = function (rows, selectOnMap) {
+        loadPhotoData = createPhotoLoader(requestPhotos);
         outlets = rows;
         onMapSelect = selectOnMap;
         const currentTap = fields.tap.value;
