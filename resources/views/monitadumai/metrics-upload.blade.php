@@ -3,7 +3,7 @@
 --}}<!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Upload TRX · SURYA</title>
+<meta charset="utf-8"><title>Upload TRX · SURYA</title>
 @include('surya.partials.assets')
 <link rel="stylesheet" href="{{ asset('css/surya-upload.css') }}?v={{ filemtime(public_path('css/surya-upload.css')) }}">
 </head>

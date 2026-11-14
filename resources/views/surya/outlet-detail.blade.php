@@ -4,8 +4,7 @@
 --}}<!doctype html>
 <html lang="id">
 <head>
-    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Detail Outlet · SURYA</title>
+    <meta charset="utf-8"><title>Detail Outlet · SURYA</title>
 
 <link rel="stylesheet" href="{{ asset('css/surya-outlet.css') }}?v={{ filemtime(public_path('css/surya-outlet.css')) }}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">

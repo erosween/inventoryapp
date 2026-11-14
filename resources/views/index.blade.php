@@ -5,7 +5,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=auto">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>SURYA — Inventory Login</title>
     <link rel="manifest" href="/manifest-admin.json">
     <meta name="application-name" content="Inventory MSP">
@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SURYA Inventory">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="msapplication-TileColor" content="#bd001c">
     <meta name="msapplication-TileImage" content="/assets/pwa/inventory/icon-144.png">
     <meta name="msapplication-config" content="/browserconfig.xml">
@@ -66,7 +66,7 @@
         /* Safari samples a fixed, opaque edge instead of the red/white split canvas.
            Reserve the same height in normal flow; never cover inputs or trap scrolling. */
         @supports (-webkit-touch-callout: none) {
-            @media (pointer: coarse) {
+            @media (pointer: coarse), (display-mode: standalone) {
                 :root { --login-status-height: max(12px, env(safe-area-inset-top, 0px)); }
                 html { background: #8e0925; }
                 body { padding-top: var(--login-status-height); background: #fff; }
