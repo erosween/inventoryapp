@@ -9,29 +9,25 @@
 html { color-scheme: light; scrollbar-gutter: stable; overflow-y: scroll; }
 body { margin: 0; background: #edf2f7; color: var(--surya-ink); font-family: var(--surya-font); font-size: 13px; }
 
-/* Keep the iOS Home Screen status area above both the navbar and sidebar. */
-@supports (-webkit-touch-callout: none) {
-    @media (display-mode: standalone) {
-        html:has([data-surya-workspace]) { background: #8e0925; }
-        [data-surya-workspace] {
-            --surya-status-height: max(12px, env(safe-area-inset-top, 0px));
-            padding-top: var(--surya-status-height);
-        }
-        [data-surya-workspace]::before {
-            content: "";
-            position: fixed;
-            inset: 0 0 auto;
-            height: var(--surya-status-height);
-            background: #8e0925;
-            z-index: 1101;
-            pointer-events: none;
-        }
-        [data-surya-workspace] .surya-navbar { top: var(--surya-status-height); }
-        [data-surya-workspace] .enterprise-sidebar {
-            top: var(--surya-status-height);
-            height: auto;
-        }
-    }
+/* Reserve the iPadOS status-bar fade area before rendering header controls. */
+html.surya-ios-standalone { background: #8e0925; }
+.surya-ios-standalone [data-surya-workspace] {
+    --surya-status-height: max(52px, env(safe-area-inset-top, 0px));
+    padding-top: var(--surya-status-height);
+}
+.surya-ios-standalone [data-surya-workspace]::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: var(--surya-status-height);
+    background: #8e0925;
+    z-index: 1101;
+    pointer-events: none;
+}
+.surya-ios-standalone [data-surya-workspace] .surya-navbar { top: var(--surya-status-height); }
+.surya-ios-standalone [data-surya-workspace] .enterprise-sidebar {
+    top: var(--surya-status-height);
+    height: auto;
 }
 [data-surya-workspace], [data-surya-workspace] input, [data-surya-workspace] button,
 [data-surya-workspace] select, [data-surya-workspace] textarea { font-family: var(--surya-font); }
