@@ -2251,6 +2251,7 @@ class MonitaDumaiController extends Controller
             $brand = $effectiveBrands->get($id);
             $outlet->insight_visit = $visits->has($id) ? ($visits[$id] ? 'visited' : 'pending') : 'unvisited';
             $outlet->sales = $salesByOutlet[$id] ?? null;
+            $outlet->cluster = $this->clusterForTap((string) $outlet->tap);
             $outlet->has_front_photo = $brands->has($id);
             $dominance = $brand->branding_dominance ?? null;
             $outlet->branding_dominance = in_array($dominance, ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'], true) ? $dominance : null;

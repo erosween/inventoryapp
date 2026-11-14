@@ -201,3 +201,4 @@
 .branding-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .branding-editor-actions button[type="submit"] { background: #a31237; color: #fff; }
 #outlet-branding-editor [role="alert"] { color: #a31237; }
+.branding-matrix tfoot > tr:not(:last-child) > * { background: #f0f4f9; border-top: 1px solid #dce4eb; }

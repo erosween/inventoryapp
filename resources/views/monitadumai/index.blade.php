@@ -2598,10 +2598,10 @@
                 const count = outlets.filter(outlet => priorityOf(outlet) === key).length;
                 return `<button type="button" class="branding-priority-action" data-insight-open data-priority="${key}"><span>${label}</span><strong>${formatCount(count)}</strong></button>`;
             }).join('');
-            const renderTapRow = (tap, rows, scope = tap) => {
+            const renderTapRow = (tap, rows, scope = tap, cluster = '') => {
                 const tapAttr = escapeMapDetailHtml(tap);
                 const countButton = (label, qty, detail = '', filter = '') =>
-                    `<button type="button" class="branding-matrix-count" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" ${filter} aria-label="${label} · ${tapAttr} · ${formatCount(qty)}"><strong>${formatCount(qty)}</strong>${detail ? `<small>${detail}</small>` : ''}</button>`;
+                    `<button type="button" class="branding-matrix-count" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" data-cluster="${escapeMapDetailHtml(cluster)}" ${filter} aria-label="${label} · ${tapAttr} · ${formatCount(qty)}"><strong>${formatCount(qty)}</strong>${detail ? `<small>${detail}</small>` : ''}</button>`;
                 const visits = ['visited', 'pending', 'unvisited'].map(state =>
                     rows.filter(outlet => outlet.insight_visit === state).length);
                 const operatorCounts = operators.map(operator => rows.filter(outlet => outlet.branding_dominance === operator).length);
@@ -2610,7 +2610,7 @@
                     `<td>${countButton(operator, operatorCounts[index], assessed ? pct(operatorCounts[index], assessed) : '—', `data-brand="${operator}"${operator === 'No Branding' ? ' data-priority="install"' : ''}`)}</td>`
                 ).join('');
                 return `<tr>
-                    <th scope="row"><button type="button" class="branding-matrix-tap" data-insight-open data-tap="${escapeMapDetailHtml(scope)}">${tapAttr}<small>${formatCount(rows.length)} RS</small></button></th>
+                    <th scope="row"><button type="button" class="branding-matrix-tap" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" data-cluster="${escapeMapDetailHtml(cluster)}">${tapAttr}<small>${formatCount(rows.length)} RS</small></button></th>
                     <td class="branding-matrix-coverage">
                         ${countButton('Visit disetujui', visits[0], pct(visits[0], rows.length), 'data-visit="visited"')}
                         <progress max="${rows.length}" value="${visits[0]}" aria-label="Coverage visit ${tapAttr}"></progress>
@@ -2623,6 +2623,11 @@
                 </tr>`;
             };
             const tapRows = taps.map(tap => renderTapRow(tap, byTap[tap])).join('');
+            const clusterRows = ['DUMAI BENGKALIS', 'ROKAN HILIR'].map(cluster => {
+                const rows = outlets.filter(outlet => outlet.cluster === cluster);
+                const label = cluster === 'DUMAI BENGKALIS' ? 'Dumai Bengkalis' : 'Rokan Hilir';
+                return rows.length ? renderTapRow(label, rows, '', cluster) : '';
+            }).join('');
             const pending = outlets.filter(outlet => outlet.insight_visit === 'pending').length;
             const unvisited = total - visited - pending;
             const missingCoordinates = outlets.filter(outlet => !outlet.valid_coordinates).length;
@@ -2634,7 +2639,7 @@
                         <tr><th scope="col">Disetujui</th><th scope="col">Review</th><th scope="col">Belum visit</th>
                         ${operators.map(operator => `<th scope="col">${operator}</th>`).join('')}<th scope="col">Belum dinilai</th></tr></thead>
                         <tbody>${tapRows || '<tr><td colspan="10">Belum ada RS PJP.</td></tr>'}</tbody>
-                        <tfoot>${renderTapRow('Grand Total', outlets, '')}</tfoot>
+                        <tfoot>${clusterRows}${renderTapRow('Grand Total', outlets, '')}</tfoot>
                     </table>
                 </div>
             </section></div>`;

@@ -17,6 +17,7 @@
         const terms = String(filters.search || '').trim().toLocaleLowerCase('id-ID').split(/\s+/).filter(Boolean);
         return outlets.filter(outlet => {
             if (filters.priority && priorityOf(outlet) !== filters.priority) return false;
+            if (filters.cluster && outlet.cluster !== filters.cluster) return false;
             if (filters.tap && tapOf(outlet) !== filters.tap) return false;
             if (filters.visit && visitOf(outlet) !== filters.visit) return false;
             if (filters.location === 'missing' && outlet.valid_coordinates !== false) return false;
@@ -186,15 +187,17 @@
         return td;
     }
 
+    let clusterFilter = '';
+
     function render() {
         const filters = Object.fromEntries(Object.entries(fields).map(([name, field]) => [name, field.value]));
-        filtered = selectOutlets(outlets, { ...filters, location: locationFilter, priority });
+        filtered = selectOutlets(outlets, { ...filters, location: locationFilter, priority, cluster: clusterFilter });
         const perPage = Number(size.value);
         const pages = Math.max(1, Math.ceil(filtered.length / perPage));
         page = Math.min(page, pages);
         const start = (page - 1) * perPage;
         const listTitle = {install:'Peluang pemasangan',repair:'Perbaikan branding Tsel'}[priority] || 'Daftar Outlet';
-        title.textContent = filters.tap ? listTitle + ' · ' + filters.tap : listTitle;
+        title.textContent = [listTitle, clusterFilter, filters.tap].filter(Boolean).join(' · ');
         const selected = [
             fields.visit.selectedOptions[0].textContent,
             fields.brand.selectedOptions[0].textContent,
@@ -339,6 +342,7 @@
         if (!trigger) return;
         locationFilter = trigger.dataset.location || '';
         priority = trigger.dataset.priority || '';
+        clusterFilter = trigger.dataset.cluster || '';
         fields.tap.value = trigger.dataset.tap || '';
         fields.visit.value = trigger.dataset.visit || '';
         fields.brand.value = trigger.dataset.brand || '';
