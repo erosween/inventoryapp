@@ -9,30 +9,6 @@
 html { color-scheme: light; scrollbar-gutter: stable; overflow-y: scroll; }
 body { margin: 0; background: #edf2f7; color: var(--surya-ink); font-family: var(--surya-font); font-size: 13px; }
 
-/* Reserve the iPadOS status-bar fade area before rendering header controls. */
-html.surya-ios-standalone {
-    color-scheme: dark;
-    background: #8e0925;
-}
-.surya-ios-standalone body { color-scheme: light; }
-.surya-ios-standalone [data-surya-workspace] {
-    --surya-status-height: max(52px, env(safe-area-inset-top, 0px));
-    padding-top: var(--surya-status-height);
-}
-.surya-ios-standalone [data-surya-workspace]::before {
-    content: "";
-    position: fixed;
-    inset: 0 0 auto;
-    height: var(--surya-status-height);
-    background: #8e0925;
-    z-index: 1101;
-    pointer-events: none;
-}
-.surya-ios-standalone [data-surya-workspace] .surya-navbar { top: var(--surya-status-height); }
-.surya-ios-standalone [data-surya-workspace] .enterprise-sidebar {
-    top: var(--surya-status-height);
-    height: auto;
-}
 [data-surya-workspace], [data-surya-workspace] input, [data-surya-workspace] button,
 [data-surya-workspace] select, [data-surya-workspace] textarea { font-family: var(--surya-font); }
 [data-surya-workspace] { --app-font: var(--surya-font); display: flex; min-height: 100vh; color: var(--surya-ink); font-size: 13px; }
