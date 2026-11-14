@@ -9,9 +9,9 @@
 html { color-scheme: light; scrollbar-gutter: stable; overflow-y: scroll; }
 body { margin: 0; background: #edf2f7; color: var(--surya-ink); font-family: var(--surya-font); font-size: 13px; }
 
-/* Give iOS an opaque edge to sample, including when the sidebar is open. */
+/* Keep the iOS Home Screen status area above both the navbar and sidebar. */
 @supports (-webkit-touch-callout: none) {
-    @media (pointer: coarse) {
+    @media (display-mode: standalone) {
         html:has([data-surya-workspace]) { background: #8e0925; }
         [data-surya-workspace] {
             --surya-status-height: max(12px, env(safe-area-inset-top, 0px));
