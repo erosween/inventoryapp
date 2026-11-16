@@ -22,9 +22,11 @@ atau posisi SF yang diperkirakan tidak dipakai untuk menebak lokasi outlet.
 6. Hasil pencarian memperbarui posisi marker beserta clusternya. Cache rincian
    dibatasi 30 detik; pencarian baru selalu memakai koordinat dari server.
 7. Hijau menandai visit terbaru valid/disetujui dengan dua foto dan GPS yang
-   dipakai oleh titik peta. Foto pada visit ditolak/pending tidak membuat marker
-   hijau. Oranye menandai visit yang perlu diperiksa. Popup menampilkan status,
-   sumber koordinat, dan tautan GPS visit terakhir, terpisah dari navigasi titik.
+   dipakai oleh titik peta. Persetujuan otomatis tetap berjalan agar SF tahu
+   check-in diperiksa; jarak tidak menahan approval. Foto pada visit ditolak/
+   pending tidak membuat marker hijau. Oranye menandai visit yang perlu diperiksa.
+   Popup dan laporan membandingkan GPS check-in langsung dengan koordinat Digipos
+   asli (toleransi sesuai 10 m), sambil tetap menempatkan marker di GPS visit terbaru.
 8. Form mengosongkan GPS sebelumnya sebelum membaca ulang, memeriksa timestamp
    GPS (maksimal 30 detik), dan mengabaikan callback permintaan lama yang datang
    terlambat. Koordinat serta akurasi ditampilkan agar SF bisa memeriksanya.
@@ -134,6 +136,9 @@ koordinat baru berdasarkan TAP.
 - Status terakhir dan foto/branding terakhir dipilih per outlet di SQL, memakai
   waktu visit lalu ID sebagai pembeda, bukan menarik seluruh riwayat ke PHP.
   Indeks `surya_visits_outlet_time_id_idx` mendukung pencarian ini.
+- Koordinat Digipos asli tetap tersedia sebagai kolom pembanding terpisah dari
+  koordinat aktif peta. Popup dan tabel Detail Visit menampilkan selisih visit
+  terhadap Digipos; unduhan Visit & Koordinat memakai pembanding Digipos yang sama.
 - Tile/alat peta dimulai sebelum unduhan metadata selesai. Pembuatan marker
   memakai batch 80 pada animation frame berikutnya. Fokus pencarian cepat tidak
   ditimpa fitBounds ketika metadata menyusul. Enter juga dapat mencari langsung

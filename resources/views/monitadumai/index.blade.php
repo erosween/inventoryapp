@@ -712,21 +712,23 @@
                         </tbody></table></div></div>
                     </div>
                     <div class="visit-subpanel" role="tabpanel" id="visit-panel-approval" aria-labelledby="visit-tab-approval" data-visit-subpanel="approval" @if($activeVisitTab !== 'approval') hidden @endif>
-                        <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1360px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status</th><th>Jarak</th><th>Notes</th><th>Tampak Depan</th><th>Foto Etalase</th><th>Foto Nota Bon</th><th>Aksi</th></tr></thead><tbody>
+                        <div class="visit-detail-card"><div class="visit-detail-table-wrap"><table class="visit-detail-table approval-visit-table" style="min-width:1460px"><thead><tr><th>Outlet</th><th>TAP</th><th>Sales Force</th><th>Visit</th><th>Status visit</th><th>Jarak dari Digipos</th><th>Kecocokan titik</th><th>Notes</th><th>Tampak Depan</th><th>Foto Etalase</th><th>Foto Nota Bon</th><th>Aksi</th></tr></thead><tbody>
                         @forelse($approvalVisits as $visit)
                             <tr>
                                 <td><strong>{{ $visit->nama_outlet ?? $visit->id_outlet }}</strong><small style="display:block;color:#94a3b8">{{ $visit->id_outlet }}</small></td>
                                 <td>{{ $visit->idtap }}</td><td>{{ $visit->namasf ?? $visit->idsf }}</td>
                                 <td>{{ \Carbon\Carbon::parse($visit->visited_at)->format('d M Y H:i') }}</td>
                                 <td><span class="cluster-chip">{{ strtoupper(str_replace('_',' ',$visit->gps_status)) }}</span></td>
-                                <td>{{ $visit->distance_meters !== null ? number_format($visit->distance_meters,0).' m' : '—' }}</td><td>{{ $visit->notes ?: '—' }}</td>
+                                <td>{{ $visit->digipos_distance_meters !== null ? number_format($visit->digipos_distance_meters, 0, ',', '.').' m' : '—' }}</td>
+                                <td>@if($visit->digipos_match === true)<span class="cluster-chip" style="color:#087443;background:#e7f8ef">Sesuai (≤10 m)</span>@elseif($visit->digipos_match === false)<span class="cluster-chip" style="color:#b42336;background:#fff0f1">Berbeda dari Digipos</span>@else<span class="cluster-chip">Koordinat Digipos tidak tersedia</span>@endif</td>
+                                <td>{{ $visit->notes ?: '—' }}</td>
                                 <td>@if($visit->front_photo_url)<a href="{{ $visit->front_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->front_thumbnail_url }}" loading="lazy" alt="Tampak depan"></a>@else — @endif</td>
                                 <td>@if($visit->inside_photo_url)<a href="{{ $visit->inside_photo_url }}" target="_blank"><img class="visit-photo-thumb" src="{{ $visit->inside_thumbnail_url }}" loading="lazy" alt="Foto etalase"></a>@else — @endif</td>
                                 <td>@forelse($visit->receipt_photos ?? [] as $index => $photo)<a href="{{ $photo['url'] }}" target="_blank" title="Foto nota bon {{ $index + 1 }}"><img class="visit-photo-thumb" src="{{ $photo['thumbnail_url'] }}" loading="lazy" alt="Foto nota bon {{ $index + 1 }}"></a>@empty — @endforelse</td>
                                 <td>@if($visit->gps_status === 'pending_admin')<div class="visit-action-buttons"><form method="POST" action="{{ route('surya.visits.approve',$visit->id) }}">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button class="visit-approve-btn">Setujui Koordinat</button></form><form method="POST" action="{{ route('surya.visits.reject',$visit->id) }}" class="reject-photo-form">@csrf<input type="hidden" name="return_to" value="visit-detail"><input type="hidden" name="visit_date" value="{{ $visitDate }}"><input type="hidden" name="visit_tab" value="approval"><button type="submit" class="visit-reject-btn">Tolak Foto</button></form></div>@else — @endif</td>
                             </tr>
                         @empty
-                            <tr><td colspan="11" class="visit-empty"><strong>Belum ada visit pada tanggal ini</strong></td></tr>
+                            <tr><td colspan="12" class="visit-empty"><strong>Belum ada visit pada tanggal ini</strong></td></tr>
                         @endforelse
                         </tbody></table></div></div>
                     </div>
@@ -2974,13 +2976,26 @@
             const pv = metric(outlet.m_stpv);
             const gpsLabels = {verified: 'Visit disetujui', rejected: 'Foto visit ditolak', pending: 'Menunggu persetujuan', unverified: 'GPS/foto perlu diperiksa', unvisited: 'Belum ada visit'};
             const gpsState = outlet.map_visit_state || 'unvisited';
-            const gpsSource = outlet.coordinate_source === 'visit' ? 'Titik dari GPS visit valid/disetujui' : 'Titik dari master outlet';
+            const gpsSource = outlet.coordinate_source === 'visit' ? 'Titik peta mengikuti GPS check-in terbaru yang valid/disetujui' : 'Titik peta mengikuti koordinat master outlet';
             const visitLat = Number(outlet.latest_visit_latitude), visitLng = Number(outlet.latest_visit_longitude);
             const visitGps = outlet.latest_visit_latitude !== null && outlet.latest_visit_latitude !== undefined
                 && outlet.latest_visit_longitude !== null && outlet.latest_visit_longitude !== undefined
                 && Number.isFinite(visitLat) && Number.isFinite(visitLng) && Math.abs(visitLat) <= 90 && Math.abs(visitLng) <= 180 && (visitLat !== 0 || visitLng !== 0)
                 ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(visitLat + ',' + visitLng)}" target="_blank" rel="noopener noreferrer">GPS visit: ${visitLat.toFixed(6)}, ${visitLng.toFixed(6)}</a>` : '';
-            const gpsHtml = `<div class="outlet-gps-summary ${gpsState === 'verified' ? 'verified' : 'attention'}"><strong>${gpsLabels[gpsState] || 'GPS perlu diperiksa'}</strong><span>${gpsSource}</span>${visitGps}</div>`;
+            const digiposLat = Number(outlet.digipos_latitude), digiposLng = Number(outlet.digipos_longitude);
+            const digiposAvailable = outlet.digipos_latitude !== null && outlet.digipos_latitude !== undefined
+                && outlet.digipos_longitude !== null && outlet.digipos_longitude !== undefined
+                && Number.isFinite(digiposLat) && Number.isFinite(digiposLng)
+                && Math.abs(digiposLat) <= 90 && Math.abs(digiposLng) <= 180 && (digiposLat !== 0 || digiposLng !== 0);
+            const digiposLink = digiposAvailable
+                ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(digiposLat + ',' + digiposLng)}" target="_blank" rel="noopener noreferrer">Titik Digipos: ${digiposLat.toFixed(6)}, ${digiposLng.toFixed(6)}</a>` : '';
+            const comparisonDistance = Number(outlet.visit_digipos_distance_meters);
+            const comparisonHtml = visitGps
+                ? `<span>${outlet.visit_digipos_match === null || outlet.visit_digipos_match === undefined
+                    ? 'Belum bisa dibandingkan dengan Digipos'
+                    : `${outlet.visit_digipos_match ? 'Sesuai Digipos' : 'Berbeda dari Digipos'} · ${comparisonDistance < 1000 ? `${Math.round(comparisonDistance)} m` : `${(comparisonDistance / 1000).toFixed(2)} km`} (toleransi 10 m)`}</span>`
+                : '';
+            const gpsHtml = `<div class="outlet-gps-summary ${gpsState === 'verified' ? 'verified' : 'attention'}"><strong>${gpsLabels[gpsState] || 'GPS perlu diperiksa'}</strong><span>${gpsSource}</span>${digiposLink}${visitGps}${comparisonHtml}</div>`;
             let distanceHtml = '<div class="outlet-distance"><i class="fas fa-location-crosshairs"></i> Aktifkan lokasi untuk melihat jarak</div>';
 
             if (userLocationLatLng) {

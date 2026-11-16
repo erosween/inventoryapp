@@ -10,6 +10,7 @@ class SuryaOutletCoordinates
 {
     // Approval permits the visit workflow; only precise fixes may reposition an outlet.
     public const MAX_COORDINATE_ACCURACY_METERS = 100;
+    public const DIGIPOS_MATCH_TOLERANCE_METERS = 10;
 
     private function eligibleVisits(string $alias, ?array $outletIds = null): Builder
     {
@@ -77,6 +78,9 @@ class SuryaOutletCoordinates
             ->leftJoinSub($this->latestVisits(), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(outlet_master.id_outlet AS CHAR)'))
             ->select($columns)
             ->addSelect('coordinates.coordinate_visit_id', 'coordinates.coordinate_visited_at')
+            // Keep the uploaded Digipos point alongside the resolved map point so
+            // reporting can compare a visit against its original reference.
+            ->addSelect('outlet_master.latitude as digipos_latitude', 'outlet_master.longitude as digipos_longitude')
             ->selectRaw("CASE WHEN coordinates.coordinate_visit_id IS NULL THEN $source ELSE 'visit' END as coordinate_source")
             ->selectRaw("COALESCE(coordinates.visit_latitude, $latitude) as latitude")
             ->selectRaw("COALESCE(coordinates.visit_longitude, $longitude) as longitude");
@@ -99,6 +103,16 @@ class SuryaOutletCoordinates
             $outlet->latest_visit_latitude = $visit->latitude ?? null;
             $outlet->latest_visit_longitude = $visit->longitude ?? null;
             $outlet->latest_visit_accuracy = $visit->accuracy ?? null;
+            $comparisonDistance = $visit === null ? null : $this->coordinateDistance(
+                $visit->latitude,
+                $visit->longitude,
+                $outlet->digipos_latitude ?? null,
+                $outlet->digipos_longitude ?? null,
+            );
+            $outlet->visit_digipos_distance_meters = $comparisonDistance === null ? null : round($comparisonDistance, 1);
+            $outlet->visit_digipos_match = $comparisonDistance === null
+                ? null
+                : $comparisonDistance <= self::DIGIPOS_MATCH_TOLERANCE_METERS;
             $outlet->map_visit_state = match (true) {
                 $visit === null => 'unvisited',
                 $visit->gps_status === 'rejected' => 'rejected',
@@ -111,6 +125,30 @@ class SuryaOutletCoordinates
 
             return $outlet;
         });
+    }
+
+    /** Compare a captured visit with the original Digipos point, independent of map location. */
+    public function coordinateDistance($latitudeA, $longitudeA, $latitudeB, $longitudeB): ?float
+    {
+        foreach ([[$latitudeA, $longitudeA], [$latitudeB, $longitudeB]] as [$latitude, $longitude]) {
+            if (! is_numeric($latitude) || ! is_numeric($longitude)
+                || (float) $latitude < -90 || (float) $latitude > 90
+                || (float) $longitude < -180 || (float) $longitude > 180
+                || ((float) $latitude === 0.0 && (float) $longitude === 0.0)) {
+                return null;
+            }
+        }
+
+        $lat1 = (float) $latitudeA;
+        $lon1 = (float) $longitudeA;
+        $lat2 = (float) $latitudeB;
+        $lon2 = (float) $longitudeB;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return 2 * 6371000 * asin(min(1, sqrt($a)));
     }
 
     /** Fetch one latest record per outlet in SQL, rather than loading all history. */

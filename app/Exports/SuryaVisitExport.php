@@ -25,8 +25,8 @@ class SuryaVisitExport implements FromCollection, ShouldAutoSize, WithHeadings, 
     {
         return [
             'Tanggal Visit', 'Check In', 'Check Out', 'SF Code', 'Nama SF', 'TAP', 'Cluster',
-            'ID Outlet', 'Nama Outlet', 'Hari PJP', 'Latitude Master', 'Longitude Master',
-            'Latitude Visit', 'Longitude Visit', 'Jarak (Meter)', 'Kesesuaian Longlat',
+            'ID Outlet', 'Nama Outlet', 'Hari PJP', 'Latitude Digipos', 'Longitude Digipos',
+            'Latitude Visit', 'Longitude Visit', 'Jarak Visit ke Digipos (Meter)', 'Kesesuaian dengan Digipos (≤10 m)',
             'Status Approval', 'Alasan Check-out', 'Dominasi Branding', 'Kelayakan Branding',
         ];
     }

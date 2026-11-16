@@ -277,6 +277,23 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertFalse($service->syncOutlet((string)$id));
     }
 
+    public function test_map_and_visit_state_keep_digipos_reference_and_report_checkin_mismatch(): void
+    {
+        $id = 990011031;
+        $this->outlet($id);
+        $this->visit($id, ['latitude' => 0.493166, 'longitude' => 101.418248]);
+
+        $service = app(SuryaOutletCoordinates::class);
+        $resolved = $service->outlets()->where('id_outlet', $id)->first();
+        $outlet = $service->withVisitState(collect([$resolved]))->first();
+
+        $this->assertEqualsWithDelta(0.53449532, (float) $outlet->digipos_latitude, 0.00000001);
+        $this->assertEqualsWithDelta(0.493166, (float) $outlet->latitude, 0.00000001);
+        $this->assertFalse($outlet->visit_digipos_match);
+        $this->assertGreaterThan(1000, $outlet->visit_digipos_distance_meters);
+        $this->assertSame('verified', $outlet->map_visit_state);
+    }
+
     public function test_stale_admin_approval_does_not_override_a_rejection_or_move_the_outlet(): void
     {
         $id = 990011007;
@@ -390,9 +407,14 @@ class SuryaOutletCoordinatesTest extends TestCase
         $this->assertSame($approved, $rows[0]['coordinate_visit_id']);
         $this->assertEqualsWithDelta(1.47, $rows[0]['latitude'], 0.00000001);
         $this->assertEqualsWithDelta(102.12, $rows[0]['longitude'], 0.00000001);
+        $this->assertEqualsWithDelta(0.53449532, $rows[0]['digipos_latitude'], 0.00000001);
+        $this->assertFalse($rows[0]['visit_digipos_match']);
+        $this->assertGreaterThan(1000, $rows[0]['visit_digipos_distance_meters']);
         $search = $this->getJson('/surya/search?keyword='.$id)->assertOk()->json();
         $this->assertCount(1, $search);
         $this->assertSame($approved, $search[0]['coordinate_visit_id']);
+        $this->assertEqualsWithDelta($rows[0]['digipos_latitude'], $search[0]['digipos_latitude'], 0.00000001);
+        $this->assertFalse($search[0]['visit_digipos_match']);
     }
 
     public function test_insight_counts_approved_visits_in_period_and_keeps_latest_branding(): void

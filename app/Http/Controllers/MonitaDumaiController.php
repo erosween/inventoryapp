@@ -529,16 +529,13 @@ class MonitaDumaiController extends Controller
                 'o.pjp', 's.namasf',
             ]))
             ->map(function ($row) {
-                $distance = null;
-                if ($row->visit_latitude !== null && $row->visit_longitude !== null
-                    && $row->outlet_latitude !== null && $row->outlet_longitude !== null) {
-                    $distance = round($this->distanceInMeters(
-                        (float) $row->visit_latitude,
-                        (float) $row->visit_longitude,
-                        (float) $row->outlet_latitude,
-                        (float) $row->outlet_longitude
-                    ), 1);
-                }
+                $distance = app(SuryaOutletCoordinates::class)->coordinateDistance(
+                    $row->visit_latitude,
+                    $row->visit_longitude,
+                    $row->outlet_latitude,
+                    $row->outlet_longitude,
+                );
+                $distance = $distance === null ? null : round($distance, 1);
 
                 return [
                     Carbon::parse($row->visited_at)->format('d/m/Y'),
@@ -556,7 +553,7 @@ class MonitaDumaiController extends Controller
                     $row->visit_latitude,
                     $row->visit_longitude,
                     $distance,
-                    $distance === null ? 'BELUM ADA KOORDINAT MASTER' : ($distance <= 10 ? 'SESUAI' : 'TIDAK SESUAI'),
+                    $distance === null ? 'BELUM ADA KOORDINAT DIGIPOS' : ($distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS ? 'SESUAI' : 'TIDAK SESUAI'),
                     strtoupper(str_replace('_', ' ', (string) $row->gps_status)),
                     $row->checkout_reason,
                     $row->branding_dominance ?? null,
@@ -671,17 +668,6 @@ class MonitaDumaiController extends Controller
     public function showLeaderLogin()
     {
         return redirect('/');
-    }
-
-    private function distanceInMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earthRadius = 6371000;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-        $a = sin($dLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
-
-        return 2 * $earthRadius * asin(min(1, sqrt($a)));
     }
 
     public function leaderLogin(Request $request)
@@ -1048,7 +1034,8 @@ class MonitaDumaiController extends Controller
 
         $approvalSelects = [
             'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
-            'v.distance_meters', 'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
+            'v.distance_meters', 'v.latitude as visit_latitude', 'v.longitude as visit_longitude',
+            'v.photo_front_path', 'v.photo_inside_path', 'v.notes',
         ];
         if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
             $approvalSelects[] = 'v.branding_dominance';
@@ -1063,7 +1050,7 @@ class MonitaDumaiController extends Controller
             ->orderByRaw("CASE WHEN v.gps_status = 'pending_admin' THEN 0 ELSE 1 END")
             ->orderByDesc('v.visited_at')
             ->get(array_merge($approvalSelects, [
-                'o.nama_outlet', 's.namasf',
+                'o.nama_outlet', 'o.latitude as digipos_latitude', 'o.longitude as digipos_longitude', 's.namasf',
             ]));
 
         $receiptPhotos = collect();
@@ -1083,6 +1070,16 @@ class MonitaDumaiController extends Controller
 
         return $visits
             ->map(function ($visit) {
+                $distanceToDigipos = app(SuryaOutletCoordinates::class)->coordinateDistance(
+                    $visit->visit_latitude,
+                    $visit->visit_longitude,
+                    $visit->digipos_latitude,
+                    $visit->digipos_longitude,
+                );
+                $visit->digipos_distance_meters = $distanceToDigipos === null ? null : round($distanceToDigipos, 1);
+                $visit->digipos_match = $distanceToDigipos === null
+                    ? null
+                    : $distanceToDigipos <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
                 $visit->front_photo_url = $this->visitPhotoUrl($visit->photo_front_path);
                 $visit->front_thumbnail_url = $this->visitPhotoUrl($visit->photo_front_path, true);
                 $visit->inside_photo_url = $this->visitPhotoUrl($visit->photo_inside_path);
@@ -2140,6 +2137,7 @@ class MonitaDumaiController extends Controller
                 'o.tap'
             )
             ->addSelect('o.latitude', 'o.longitude', 'o.coordinate_source', 'o.coordinate_visit_id', 'o.coordinate_visited_at')
+            ->addSelect('o.digipos_latitude', 'o.digipos_longitude')
             ->get();
         $outlets = app(SuryaOutletCoordinates::class)->withVisitState($outlets);
 
