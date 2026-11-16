@@ -74,6 +74,49 @@ class OutletCvmReport
             ->map(fn (Collection $rows) => $this->series($rows, $cutoff, $comparison, $metrics));
     }
 
+    /**
+     * Shared per-outlet FM-1/M-1/MTD values for Detail Outlet filters and display.
+     * These are calculated from the same daily CVM transaction rows as this report.
+     */
+    public function outletPeriodsQuery(Carbon $cutoff, array $metrics): Builder
+    {
+        $allowed = array_keys(OutletCvmImport::METRICS);
+        $metrics = array_values(array_intersect($metrics, $allowed));
+        $currentStart = $cutoff->copy()->startOfMonth();
+        $previousStart = $currentStart->copy()->subMonth();
+        $previousFullEnd = $previousStart->copy()->endOfMonth();
+        $previousComparableEnd = OutletReportPeriod::previousEnd($cutoff)->toDateString();
+        $query = DB::table('surya_outlet_cvm as sales')
+            ->whereBetween('sales.transaction_date', [$previousStart->toDateString(), $cutoff->toDateString()])
+            ->select('sales.id_outlet')
+            ->selectRaw(
+                'MAX(CASE WHEN sales.transaction_date BETWEEN ? AND ? THEN sales.transaction_date END) AS source_updated_at',
+                [$currentStart->toDateString(), $cutoff->toDateString()]
+            )
+            ->groupBy('sales.id_outlet');
+
+        foreach ($metrics as $metric) {
+            if ($cutoff->month === 1) {
+                $query->selectRaw("NULL AS {$metric}_fm1, NULL AS {$metric}_m1");
+            } else {
+                $query->selectRaw(
+                    "SUM(CASE WHEN sales.transaction_date BETWEEN ? AND ? THEN sales.{$metric} END) AS {$metric}_fm1",
+                    [$previousStart->toDateString(), $previousFullEnd->toDateString()]
+                );
+                $query->selectRaw(
+                    "SUM(CASE WHEN sales.transaction_date BETWEEN ? AND ? THEN sales.{$metric} END) AS {$metric}_m1",
+                    [$previousStart->toDateString(), $previousComparableEnd]
+                );
+            }
+            $query->selectRaw(
+                "SUM(CASE WHEN sales.transaction_date BETWEEN ? AND ? THEN sales.{$metric} END) AS {$metric}_mtd",
+                [$currentStart->toDateString(), $cutoff->toDateString()]
+            );
+        }
+
+        return $query;
+    }
+
     private function profileId(Builder $profiles): string
     {
         // Production profiles use BIGINT, while uploaded IDs are stored as text.

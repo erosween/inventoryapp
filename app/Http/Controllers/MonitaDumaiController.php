@@ -327,7 +327,8 @@ class MonitaDumaiController extends Controller
         });
     }
 
-    // Gabungkan metrik penjualan, transaksi upload, dan data titip jual untuk outlet yang sudah dipilih.
+    // Detail Outlet shares SA/PV and CVM transaction sources with Transaksi Outlet.
+    // Biometrik remains sourced from the dedicated uploaded metric table.
     protected function hydrateOutletDetailPage($rows, Carbon $cutoff)
     {
         $pageIds = $rows->pluck('id_outlet')->map(fn ($id) => (string) $id);
@@ -341,7 +342,14 @@ class MonitaDumaiController extends Controller
         $current = $nota->totals($monthStart, $cutoff, $ids)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
         $fullPrevious = $nota->totals($previousMonthStart, $previousMonthEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
         $partialPrevious = $nota->totals($previousMonthStart, $previousComparableEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
-        $metrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds, $monthStart) {
+        $cvmMetrics = $this->safeOutletDetailSource('surya_outlet_cvm', function () use ($pageIds, $cutoff) {
+            return app(\App\Services\OutletCvmReport::class)
+                ->outletPeriodsQuery($cutoff, ['cvm', 'super_seru', 'comsak', 'hot_promo'])
+                ->whereIn('sales.id_outlet', $pageIds)
+                ->get()
+                ->keyBy(fn ($row) => (string) $row->id_outlet);
+        });
+        $uploadedMetrics = $this->safeOutletDetailSource('surya_daily_metrics', function () use ($pageIds, $monthStart) {
             return \App\Support\SuryaTransactions::query()->whereIn('id_outlet', $pageIds)
                 ->whereBetween('metric_date', [$monthStart->toDateString(), $monthStart->copy()->endOfMonth()->toDateString()])
                 ->orderByDesc('metric_date')->orderByDesc('id')->get()
@@ -351,12 +359,13 @@ class MonitaDumaiController extends Controller
         $consignmentQuery = $pageIds->isNotEmpty() ? app(\App\Services\OutletConsignmentQuantities::class)->query() : null;
         $consignments = $consignmentQuery?->whereIn('consignment.id_outlet', $pageIds)->get()->keyBy('id_outlet') ?? collect();
 
-        return $rows->transform(function ($row) use ($current, $fullPrevious, $partialPrevious, $metrics, $consignments) {
+        return $rows->transform(function ($row) use ($current, $fullPrevious, $partialPrevious, $cvmMetrics, $uploadedMetrics, $consignments) {
             $id = (string) $row->id_outlet;
             $sale = $current->get($id);
             $full = $fullPrevious->get($id);
             $partial = $partialPrevious->get($id);
-            $outletMetrics = $metrics->get($id, collect());
+            $cvm = $cvmMetrics->get($id);
+            $outletMetrics = $uploadedMetrics->get($id, collect());
             $consignment = $consignments->get($id);
             foreach (array_keys(\App\Services\OutletConsignmentQuantities::COLUMNS) as $column) {
                 $row->{$column} = (int) ($consignment->{$column} ?? 0);
@@ -371,24 +380,32 @@ class MonitaDumaiController extends Controller
                 $row->{$stock . '_gap'} = $mtd - $m1;
                 $row->{$stock . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
             }
-            foreach (['cvm' => 'cvm', 'super_seru' => 'ss', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo', 'biometrik' => 'bio'] as $alias => $column) {
-                $metric = $outletMetrics->first(function ($candidate) use ($column) {
-                    $uploaded = array_filter(explode(',', (string) ($candidate->uploaded_metrics ?? '')));
-
-                    return $uploaded === [] || in_array($column, $uploaded, true);
-                });
-                if ($metric === null) {
-                    foreach (['fm1','m1','mtd','gap','mom_pct'] as $period) $row->{$alias.'_'.$period} = null;
-                    continue;
-                }
-                $fm1 = (int) ($metric->{$column . '_fm1'} ?? 0);
-                $m1 = (int) ($metric->{$column . '_m1'} ?? 0);
-                $mtd = (int) ($metric->{$column . '_m'} ?? 0);
+            foreach (['cvm' => 'cvm', 'super_seru' => 'super_seru', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
+                $fm1 = $cvm?->{$column.'_fm1'} === null ? null : (int) $cvm->{$column.'_fm1'};
+                $m1 = $cvm?->{$column.'_m1'} === null ? null : (int) $cvm->{$column.'_m1'};
+                $mtd = $cvm?->{$column.'_mtd'} === null ? null : (int) $cvm->{$column.'_mtd'};
                 $row->{$alias . '_fm1'} = $fm1;
                 $row->{$alias . '_m1'} = $m1;
                 $row->{$alias . '_mtd'} = $mtd;
-                $row->{$alias . '_gap'} = $mtd - $m1;
-                $row->{$alias . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
+                $row->{$alias . '_gap'} = $mtd === null || $m1 === null ? null : $mtd - $m1;
+                $row->{$alias . '_mom_pct'} = $m1 === null || $m1 === 0 || $mtd === null ? null : (($mtd / $m1) - 1) * 100;
+            }
+            $bioMetric = $outletMetrics->first(function ($candidate) {
+                $uploaded = array_filter(explode(',', (string) ($candidate->uploaded_metrics ?? '')));
+
+                return $uploaded === [] || in_array('bio', $uploaded, true);
+            });
+            if ($bioMetric === null) {
+                foreach (['fm1','m1','mtd','gap','mom_pct'] as $period) $row->{'biometrik_'.$period} = null;
+            } else {
+                $fm1 = (int) ($bioMetric->bio_fm1 ?? 0);
+                $m1 = (int) ($bioMetric->bio_m1 ?? 0);
+                $mtd = (int) ($bioMetric->bio_m ?? 0);
+                $row->biometrik_fm1 = $fm1;
+                $row->biometrik_m1 = $m1;
+                $row->biometrik_mtd = $mtd;
+                $row->biometrik_gap = $mtd - $m1;
+                $row->biometrik_mom_pct = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
             }
 
             return $row;
@@ -2044,13 +2061,18 @@ class MonitaDumaiController extends Controller
             ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $partialPreviousByOutlet = $notaSales->totals($previousStart, $previousComparableEnd, $outletIds, true)
             ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        $cvmMetricsByOutlet = app(\App\Services\OutletCvmReport::class)
+            ->outletPeriodsQuery($salesCutoff, ['cvm', 'super_seru', 'hot_promo', 'comsak', 'digital'])
+            ->whereIn('sales.id_outlet', $outletIds)
+            ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $metricRowsByOutlet = \App\Support\SuryaTransactions::query()
             ->whereIn('id_outlet', $outletIds)
             ->orderByDesc('metric_date')
             ->get()
             ->groupBy(fn ($row) => (string) $row->id_outlet);
-        $data = $data->map(function ($row) use ($currentByOutlet, $fullPreviousByOutlet, $partialPreviousByOutlet, $metricRowsByOutlet, $salesCutoff) {
+        $data = $data->map(function ($row) use ($currentByOutlet, $fullPreviousByOutlet, $partialPreviousByOutlet, $cvmMetricsByOutlet, $metricRowsByOutlet, $salesCutoff) {
                 $metricRows = $metricRowsByOutlet->get((string) $row->id_outlet, collect());
+                $cvmTransactions = $cvmMetricsByOutlet->get((string) $row->id_outlet);
                 $metric = function (string $name) use ($metricRows) {
                     return $metricRows->first(function ($candidate) use ($name) {
                         $uploaded = array_filter(explode(',', (string) ($candidate->uploaded_metrics ?? '')));
@@ -2058,27 +2080,21 @@ class MonitaDumaiController extends Controller
                         return $uploaded === [] || in_array($name, $uploaded, true);
                     });
                 };
-                $cvm = $metric('cvm');
-                $super = $metric('ss');
-                $hot = $metric('hot_promo');
-                $comsak = $metric('comsak');
                 $bio = $metric('bio');
-                $digital = $metric('digital');
-                // The uploaded workbook calls this metric `cvm`; the detail
-                // panel presents it as the first CVM row.
-                $row->fm1_digipos = (int) ($cvm->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($cvm->cvm_m1 ?? 0); $row->m_digipos = (int) ($cvm->cvm_m ?? 0);
+                // Map detail follows the same CVM transaction rows as Transaksi Outlet.
+                $row->fm1_digipos = (int) ($cvmTransactions->cvm_fm1 ?? 0); $row->m1_digipos = (int) ($cvmTransactions->cvm_m1 ?? 0); $row->m_digipos = (int) ($cvmTransactions->cvm_mtd ?? 0);
                 $row->m_cvm = $row->m_digipos;
-                $row->fm1_super = (int) ($super->ss_fm1 ?? 0); $row->m1_super = (int) ($super->ss_m1 ?? 0); $row->m_super = (int) ($super->ss_m ?? 0);
-                $row->fm1_hot = (int) ($hot->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($hot->hot_promo_m1 ?? 0); $row->m_hot = (int) ($hot->hot_promo_m ?? 0);
-                $row->fm1_comsak = (int) ($comsak->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($comsak->comsak_m1 ?? 0); $row->m_comsak = (int) ($comsak->comsak_m ?? 0);
+                $row->fm1_super = (int) ($cvmTransactions->super_seru_fm1 ?? 0); $row->m1_super = (int) ($cvmTransactions->super_seru_m1 ?? 0); $row->m_super = (int) ($cvmTransactions->super_seru_mtd ?? 0);
+                $row->fm1_hot = (int) ($cvmTransactions->hot_promo_fm1 ?? 0); $row->m1_hot = (int) ($cvmTransactions->hot_promo_m1 ?? 0); $row->m_hot = (int) ($cvmTransactions->hot_promo_mtd ?? 0);
+                $row->fm1_comsak = (int) ($cvmTransactions->comsak_fm1 ?? 0); $row->m1_comsak = (int) ($cvmTransactions->comsak_m1 ?? 0); $row->m_comsak = (int) ($cvmTransactions->comsak_mtd ?? 0);
                 $row->fm1_bio = (int) ($bio->bio_fm1 ?? 0); $row->m1_bio = (int) ($bio->bio_m1 ?? 0); $row->m_bio = (int) ($bio->bio_m ?? 0);
-                $row->fm1_digital = (int) ($digital->digital_fm1 ?? 0); $row->m1_digital = (int) ($digital->digital_m1 ?? 0); $row->m_digital = (int) ($digital->digital_m ?? 0);
+                $row->fm1_digital = (int) ($cvmTransactions->digital_fm1 ?? 0); $row->m1_digital = (int) ($cvmTransactions->digital_m1 ?? 0); $row->m_digital = (int) ($cvmTransactions->digital_mtd ?? 0);
                 $row->mom_digipos = $this->metricMom($row->m_digipos, $row->m1_digipos);
                 $row->mom_super = $this->metricMom($row->m_super, $row->m1_super);
                 $row->mom_hot = $this->metricMom($row->m_hot, $row->m1_hot);
                 $row->mom_comsak = $this->metricMom($row->m_comsak, $row->m1_comsak);
                 $row->mom_bio = $this->metricMom($row->m_bio, $row->m1_bio);
-                $row->tgl_pack = $cvm->source_updated_at ?? $cvm->metric_date ?? null;
+                $row->tgl_pack = $cvmTransactions->source_updated_at ?? null;
                 $row->tgl_bio = $bio->source_updated_at ?? $bio->metric_date ?? null;
                 $sales = $currentByOutlet->get((string) $row->id_outlet);
                 $salesFm1 = $fullPreviousByOutlet->get((string) $row->id_outlet);

@@ -30,14 +30,24 @@ class OutletColumnFilters {
    $q->leftJoinSub($nota->totals($prev,$compare,null,true),'hp',fn($j)=>$j->on('hp.id_outlet','=',$outletId));
    }
    $metricMonth=[$start->toDateString(),$start->copy()->endOfMonth()->toDateString()];
-   $q->leftJoin('surya_trx_cvm as c',fn($j)=>$j->on('c.id_outlet','=',$outletId)->whereBetween('c.metric_date',$metricMonth))
-     ->leftJoin('surya_biometrik as b',fn($j)=>$j->on('b.id_outlet','=',$outletId)->whereBetween('b.metric_date',$metricMonth));
    foreach(self::GROUPS as$g){
-    if (str_starts_with($g,'st_') && !$salesNeeded) continue;
+    $groupKeys=array_map(fn($period)=>$g.'_'.$period,['fm1','m1','mtd','gap','mom_pct']);
+    if(array_intersect($needed,$groupKeys)===[])continue;
     if(str_starts_with($g,'st_')){$p=substr($g,3);$fm="COALESCE(hf.{$p},0)";$m1="COALESCE(hp.{$p},0)";$m="COALESCE(k.$p,0)";}
-    else{$column=['super_seru'=>'ss','biometrik'=>'bio'][$g]??$g;$alias=$g==='biometrik'?'b':'c';$marker = DB::getDriverName()==='sqlite' ? "(',' || COALESCE($alias.uploaded_metrics,'') || ',')" : "CONCAT(',',COALESCE($alias.uploaded_metrics,''),',')";
+    elseif($g==='biometrik'){
+     $alias='b';
+     $q->leftJoin('surya_biometrik as b',fn($j)=>$j->on('b.id_outlet','=',$outletId)->whereBetween('b.metric_date',$metricMonth));
+     $column='bio';$marker = DB::getDriverName()==='sqlite' ? "(',' || COALESCE($alias.uploaded_metrics,'') || ',')" : "CONCAT(',',COALESCE($alias.uploaded_metrics,''),',')";
      $available="($alias.id_outlet IS NOT NULL AND ($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%'))";
-     $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE NULL END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE NULL END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE NULL END";}
+     $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE NULL END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE NULL END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE NULL END";
+    }else{
+     $column=['super_seru'=>'super_seru'][$g]??$g;
+     if(!isset($cvmPeriods)){
+      $cvmPeriods=app(OutletCvmReport::class)->outletPeriodsQuery($cutoff,['cvm','super_seru','comsak','hot_promo']);
+      $q->leftJoinSub($cvmPeriods,'c',fn($j)=>$j->on('c.id_outlet','=',$outletId));
+     }
+     $fm="c.{$column}_fm1";$m1="c.{$column}_m1";$m="c.{$column}_mtd";
+    }
     $q->selectRaw("$fm AS {$g}_fm1, $m1 AS {$g}_m1, $m AS {$g}_mtd, ($m-$m1) AS {$g}_gap, CASE WHEN $m1=0 THEN NULL ELSE ROUND((1.0*$m/$m1-1)*100,1) END AS {$g}_mom_pct");
    }
   }
