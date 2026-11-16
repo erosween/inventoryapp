@@ -4,11 +4,11 @@ namespace App\Exports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 
-class SuryaAdminSalesExport implements FromCollection, ShouldAutoSize, WithHeadings, WithTitle
+class SuryaAdminSalesExport implements FromCollection, WithColumnWidths, WithHeadings, WithTitle
 {
     public function __construct(private readonly Collection $rows)
     {
@@ -34,6 +34,11 @@ class SuryaAdminSalesExport implements FromCollection, ShouldAutoSize, WithHeadi
     public function title(): string
     {
         return 'Penjualan Admin SF';
+    }
+
+    public function columnWidths(): array
+    {
+        return ['A' => 14, 'B' => 18, 'C' => 16, 'D' => 26, 'E' => 30, 'F' => 34, 'G' => 12];
     }
 
     public function headings(): array
