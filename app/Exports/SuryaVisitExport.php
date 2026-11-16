@@ -8,6 +8,8 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Style\Conditional;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SuryaVisitExport implements FromCollection, WithColumnWidths, WithHeadings, WithStyles, WithTitle
@@ -57,12 +59,13 @@ class SuryaVisitExport implements FromCollection, WithColumnWidths, WithHeadings
         ]);
         $sheet->getRowDimension(1)->setRowHeight(24);
 
-        for ($row = 2; $row <= $lastRow; $row++) {
-            if ($sheet->getCell("P{$row}")->getValue() === 'TIDAK SESUAI') {
-                $sheet->getStyle("A{$row}:T{$row}")->getFill()
-                    ->setFillType('solid')
-                    ->getStartColor()->setRGB('FEE2E2');
-            }
+        if ($this->rows->isNotEmpty()) {
+            $mismatchHighlight = new Conditional();
+            $mismatchHighlight->setConditionType(Conditional::CONDITION_EXPRESSION);
+            $mismatchHighlight->addCondition('$P2="TIDAK SESUAI"');
+            $mismatchHighlight->getStyle()->getFill()->setFillType(Fill::FILL_SOLID);
+            $mismatchHighlight->getStyle()->getFill()->getStartColor()->setRGB('FEE2E2');
+            $sheet->getStyle("A2:T{$lastRow}")->setConditionalStyles([$mismatchHighlight]);
         }
 
         return [];
