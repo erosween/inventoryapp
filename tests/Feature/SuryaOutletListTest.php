@@ -465,9 +465,12 @@ class SuryaOutletListTest extends TestCase
         $mapDetailResponse->assertOk()->assertJsonCount(1);
         $this->assertSame(7, (int) $mapDetailResponse->json('0.m_stsa'));
         $this->assertSame(3, (int) $mapDetailResponse->json('0.m_stpv'));
-        $this->assertNull($mapDetailResponse->json('0.fm1_stsa'));
-        $this->assertNull($mapDetailResponse->json('0.m1_stpv'));
-        $this->assertNull($mapDetailResponse->json('0.mom_stsa'));
+        $this->assertSame(17, (int) $mapDetailResponse->json('0.fm1_stsa'));
+        $this->assertSame(16, (int) $mapDetailResponse->json('0.m1_stsa'));
+        $this->assertSame(31, (int) $mapDetailResponse->json('0.fm1_stpv'));
+        $this->assertSame(29, (int) $mapDetailResponse->json('0.m1_stpv'));
+        $this->assertSame(-56.3, (float) $mapDetailResponse->json('0.mom_stsa'));
+        $this->assertSame(-89.7, (float) $mapDetailResponse->json('0.mom_stpv'));
         $this->assertSame(8, (int) $mapDetailResponse->json('0.fm1_digipos'));
         $this->assertSame(9, (int) $mapDetailResponse->json('0.m1_digipos'));
         $this->assertSame(10, (int) $mapDetailResponse->json('0.m_digipos'));

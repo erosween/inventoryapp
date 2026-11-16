@@ -2031,13 +2031,23 @@ class MonitaDumaiController extends Controller
             })
             ->get();
         $data = app(SuryaOutletCoordinates::class)->withVisitState($data);
-        $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $data->pluck('id_outlet'));
+        $outletIds = $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+        $salesByOutlet = $this->currentMonthSalesByOutlet($tapScopes, $outletIds);
+        $salesCutoff = \App\Support\OutletSalesCutoff::latest();
+        $previousStart = $salesCutoff->copy()->startOfMonth()->subMonth();
+        $previousEnd = $previousStart->copy()->endOfMonth();
+        $previousComparableEnd = \App\Support\OutletReportPeriod::previousEnd($salesCutoff);
+        $notaSales = app(\App\Services\OutletNotaSales::class);
+        $fullPreviousByOutlet = $notaSales->totals($previousStart, $previousEnd, $outletIds, true)
+            ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
+        $partialPreviousByOutlet = $notaSales->totals($previousStart, $previousComparableEnd, $outletIds, true)
+            ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
         $metricRowsByOutlet = \App\Support\SuryaTransactions::query()
-            ->whereIn('id_outlet', $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all())
+            ->whereIn('id_outlet', $outletIds)
             ->orderByDesc('metric_date')
             ->get()
             ->groupBy(fn ($row) => (string) $row->id_outlet);
-        $data = $data->map(function ($row) use ($salesByOutlet, $metricRowsByOutlet) {
+        $data = $data->map(function ($row) use ($salesByOutlet, $fullPreviousByOutlet, $partialPreviousByOutlet, $metricRowsByOutlet) {
                 $metricRows = $metricRowsByOutlet->get((string) $row->id_outlet, collect());
                 $metric = function (string $name) use ($metricRows) {
                     return $metricRows->first(function ($candidate) use ($name) {
@@ -2069,14 +2079,16 @@ class MonitaDumaiController extends Controller
                 $row->tgl_pack = $cvm->source_updated_at ?? $cvm->metric_date ?? null;
                 $row->tgl_bio = $bio->source_updated_at ?? $bio->metric_date ?? null;
                 $sales = $salesByOutlet[(string) $row->id_outlet] ?? null;
-                $row->fm1_stsa = null;
-                $row->m1_stsa = null;
+                $salesFm1 = $fullPreviousByOutlet->get((string) $row->id_outlet);
+                $salesM1 = $partialPreviousByOutlet->get((string) $row->id_outlet);
+                $row->fm1_stsa = (int) ($salesFm1->sa ?? 0);
+                $row->m1_stsa = (int) ($salesM1->sa ?? 0);
                 $row->m_stsa = (int) ($sales->m_stsa ?? 0);
-                $row->fm1_stpv = null;
-                $row->m1_stpv = null;
+                $row->fm1_stpv = (int) ($salesFm1->pv ?? 0);
+                $row->m1_stpv = (int) ($salesM1->pv ?? 0);
                 $row->m_stpv = (int) ($sales->m_stpv ?? 0);
-                $row->mom_stsa = null;
-                $row->mom_stpv = null;
+                $row->mom_stsa = $this->metricMom($row->m_stsa, $row->m1_stsa);
+                $row->mom_stpv = $this->metricMom($row->m_stpv, $row->m1_stpv);
                 $row->tgl_sa = null;
                 $row->tgl_pv = null;
                 return $this->decorateOutletVisitPhoto($row);
