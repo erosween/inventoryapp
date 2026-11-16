@@ -2895,7 +2895,9 @@
             });
 
             marker.outletData = outlet;
-            marker.bindPopup(() => buildOutletPopup(marker.outletData, marker.getLatLng()));
+            marker.bindPopup(() => buildOutletPopup(marker.outletData, marker.getLatLng()), {
+                className: 'surya-outlet-popup', maxWidth: 380, minWidth: 280
+            });
             marker.on('popupopen', () => loadOutletDetailsForMarker(marker));
 
             markers.push(marker);
@@ -2976,26 +2978,28 @@
             const pv = metric(outlet.m_stpv);
             const gpsLabels = {verified: 'Visit disetujui', rejected: 'Foto visit ditolak', pending: 'Menunggu persetujuan', unverified: 'GPS/foto perlu diperiksa', unvisited: 'Belum ada visit'};
             const gpsState = outlet.map_visit_state || 'unvisited';
-            const gpsSource = outlet.coordinate_source === 'visit' ? 'Titik peta mengikuti GPS check-in terbaru yang valid/disetujui' : 'Titik peta mengikuti koordinat master outlet';
+            const gpsSource = outlet.coordinate_source === 'visit' ? 'GPS check-in terbaru' : 'Koordinat master Digipos';
             const visitLat = Number(outlet.latest_visit_latitude), visitLng = Number(outlet.latest_visit_longitude);
             const visitGps = outlet.latest_visit_latitude !== null && outlet.latest_visit_latitude !== undefined
                 && outlet.latest_visit_longitude !== null && outlet.latest_visit_longitude !== undefined
                 && Number.isFinite(visitLat) && Number.isFinite(visitLng) && Math.abs(visitLat) <= 90 && Math.abs(visitLng) <= 180 && (visitLat !== 0 || visitLng !== 0)
-                ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(visitLat + ',' + visitLng)}" target="_blank" rel="noopener noreferrer">GPS visit: ${visitLat.toFixed(6)}, ${visitLng.toFixed(6)}</a>` : '';
+                ? `<a class="outlet-coordinate-link" href="https://www.google.com/maps?q=${encodeURIComponent(visitLat + ',' + visitLng)}" target="_blank" rel="noopener noreferrer">${visitLat.toFixed(6)}, ${visitLng.toFixed(6)} <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>` : '';
             const digiposLat = Number(outlet.digipos_latitude), digiposLng = Number(outlet.digipos_longitude);
             const digiposAvailable = outlet.digipos_latitude !== null && outlet.digipos_latitude !== undefined
                 && outlet.digipos_longitude !== null && outlet.digipos_longitude !== undefined
                 && Number.isFinite(digiposLat) && Number.isFinite(digiposLng)
                 && Math.abs(digiposLat) <= 90 && Math.abs(digiposLng) <= 180 && (digiposLat !== 0 || digiposLng !== 0);
             const digiposLink = digiposAvailable
-                ? `<a href="https://www.google.com/maps?q=${encodeURIComponent(digiposLat + ',' + digiposLng)}" target="_blank" rel="noopener noreferrer">Titik Digipos: ${digiposLat.toFixed(6)}, ${digiposLng.toFixed(6)}</a>` : '';
+                ? `<a class="outlet-coordinate-link" href="https://www.google.com/maps?q=${encodeURIComponent(digiposLat + ',' + digiposLng)}" target="_blank" rel="noopener noreferrer">${digiposLat.toFixed(6)}, ${digiposLng.toFixed(6)} <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>` : '';
             const comparisonDistance = Number(outlet.visit_digipos_distance_meters);
-            const comparisonHtml = visitGps
-                ? `<span>${outlet.visit_digipos_match === null || outlet.visit_digipos_match === undefined
-                    ? 'Belum bisa dibandingkan dengan Digipos'
-                    : `${outlet.visit_digipos_match ? 'Sesuai Digipos' : 'Berbeda dari Digipos'} · ${comparisonDistance < 1000 ? `${Math.round(comparisonDistance)} m` : `${(comparisonDistance / 1000).toFixed(2)} km`} (toleransi 10 m)`}</span>`
+            const comparisonLabel = outlet.visit_digipos_match === true ? 'Sesuai Digipos' : 'Berbeda dari Digipos';
+            const comparisonClass = outlet.visit_digipos_match === true ? 'is-match'
+                : outlet.visit_digipos_match === false ? 'is-mismatch' : 'is-unavailable';
+            const comparisonAvailable = outlet.visit_digipos_match === true || outlet.visit_digipos_match === false;
+            const comparisonHtml = visitGps && digiposAvailable
+                ? `<div class="outlet-coordinate-result ${comparisonClass}"><span>${comparisonAvailable ? comparisonLabel : 'Belum bisa dibandingkan'}</span>${comparisonAvailable && Number.isFinite(comparisonDistance) ? `<strong>${comparisonDistance < 1000 ? `${Math.round(comparisonDistance)} m` : `${(comparisonDistance / 1000).toFixed(2)} km`}</strong>` : ''}<small>Batas sesuai: 10 m</small></div>`
                 : '';
-            const gpsHtml = `<div class="outlet-gps-summary ${gpsState === 'verified' ? 'verified' : 'attention'}"><strong>${gpsLabels[gpsState] || 'GPS perlu diperiksa'}</strong><span>${gpsSource}</span>${digiposLink}${visitGps}${comparisonHtml}</div>`;
+            const gpsHtml = `<section class="outlet-visit-status ${gpsState === 'verified' ? 'is-verified' : 'is-attention'}"><span class="outlet-visit-status-icon"><i class="fas ${gpsState === 'verified' ? 'fa-check' : 'fa-location-dot'}" aria-hidden="true"></i></span><div><strong>${gpsLabels[gpsState] || 'GPS perlu diperiksa'}</strong><small>Titik peta: ${gpsSource}</small></div></section><section class="outlet-coordinate-card"><header><strong>Koordinat outlet</strong><small>Ketuk angka untuk membuka peta</small></header><div class="outlet-coordinate-row"><span>Digipos</span>${digiposLink || '<small>Koordinat tidak tersedia</small>'}</div><div class="outlet-coordinate-row"><span>Check-in</span>${visitGps || '<small>Belum ada data</small>'}</div>${comparisonHtml}</section>`;
             let distanceHtml = '<div class="outlet-distance"><i class="fas fa-location-crosshairs"></i> Aktifkan lokasi untuk melihat jarak</div>';
 
             if (userLocationLatLng) {
@@ -3011,8 +3015,7 @@
                 : `<div style="padding:7px 0;color:#64748b;font-size:11px">${Object.prototype.hasOwnProperty.call(outlet, 'front_photo_url') ? 'Foto visit belum tersedia.' : 'Memuat foto dan rincian outlet...'}</div>`;
 
             return `
-                <b>${outlet.nama_outlet}</b><br>
-                ${outlet.id_outlet} • ${outlet.tap}
+                <div class="outlet-popup-heading"><strong>${escapeMapDetailHtml(outlet.nama_outlet)}</strong><span>${escapeMapDetailHtml(outlet.id_outlet)} · ${escapeMapDetailHtml(outlet.tap)}</span></div>
                 ${gpsHtml}
                 ${photoHtml}
                 <div class="outlet-metrics">
