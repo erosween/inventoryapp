@@ -2,6 +2,7 @@
     'use strict';
 
     const tapOf = outlet => String(outlet.tap || 'Tanpa TAP');
+    const districtOf = outlet => String(outlet.kecamatan || 'Kecamatan Belum Ada');
     const qualityOf = outlet => outlet.branding_dominance === 'No Branding'
         ? 'not_applicable' : String(outlet.branding_quality || '').trim() || 'missing';
 
@@ -19,11 +20,12 @@
             if (filters.priority && priorityOf(outlet) !== filters.priority) return false;
             if (filters.cluster && outlet.cluster !== filters.cluster) return false;
             if (filters.tap && tapOf(outlet) !== filters.tap) return false;
+            if (filters.kecamatan && districtOf(outlet) !== filters.kecamatan) return false;
             if (filters.visit && visitOf(outlet) !== filters.visit) return false;
             if (filters.location === 'missing' && outlet.valid_coordinates !== false) return false;
             if (filters.brand && (outlet.branding_dominance || 'missing') !== filters.brand) return false;
             if (filters.quality && qualityOf(outlet) !== filters.quality) return false;
-            const haystack = [outlet.id_outlet, outlet.nama_outlet, outlet.sf, tapOf(outlet)].join(' ').toLocaleLowerCase('id-ID');
+            const haystack = [outlet.id_outlet, outlet.nama_outlet, outlet.sf, tapOf(outlet), districtOf(outlet)].join(' ').toLocaleLowerCase('id-ID');
             return terms.every(term => haystack.includes(term));
         }).sort((a, b) => {
             if (filters.priority) {
@@ -186,17 +188,17 @@
         return td;
     }
 
-    let clusterFilter = '';
+    let clusterFilter = '', districtFilter = '';
 
     function render() {
         const filters = Object.fromEntries(Object.entries(fields).map(([name, field]) => [name, field.value]));
-        filtered = selectOutlets(outlets, { ...filters, location: locationFilter, priority, cluster: clusterFilter });
+        filtered = selectOutlets(outlets, { ...filters, location: locationFilter, priority, cluster: clusterFilter, kecamatan: districtFilter });
         const perPage = Number(size.value);
         const pages = Math.max(1, Math.ceil(filtered.length / perPage));
         page = Math.min(page, pages);
         const start = (page - 1) * perPage;
         const listTitle = {install:'Peluang pemasangan',repair:'Perbaikan branding Tsel'}[priority] || 'Daftar Outlet';
-        title.textContent = [listTitle, clusterFilter, filters.tap].filter(Boolean).join(' · ');
+        title.textContent = [listTitle, clusterFilter, filters.tap, districtFilter].filter(Boolean).join(' · ');
         const selected = [
             fields.visit.selectedOptions[0].textContent,
             fields.brand.selectedOptions[0].textContent,
@@ -341,6 +343,7 @@
         locationFilter = trigger.dataset.location || '';
         priority = trigger.dataset.priority || '';
         clusterFilter = trigger.dataset.cluster || '';
+        districtFilter = trigger.dataset.kecamatan || '';
         fields.tap.value = trigger.dataset.tap || '';
         fields.visit.value = trigger.dataset.visit || '';
         fields.brand.value = trigger.dataset.brand || '';

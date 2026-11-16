@@ -2242,10 +2242,10 @@ class MonitaDumaiController extends Controller
         $coordinates = app(SuryaOutletCoordinates::class);
         $coordinates->approveExpiredVisits($scopes);
         $hasCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
-        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', 'pjp', ...($hasCategory ? ['kategori_outlet'] : [])])
+        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', 'kecamatan', 'pjp', ...($hasCategory ? ['kategori_outlet'] : [])])
             ->when($scopes !== null, fn ($query) => $query->whereIn('o.tap', $scopes))
             ->tap(fn ($query) => $this->onlyPjpOutlets($query, 'o.'))
-            ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.latitude', 'o.longitude')
+            ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.kecamatan', 'o.latitude', 'o.longitude')
             ->addSelect($hasCategory ? 'o.kategori_outlet' : DB::raw('NULL AS kategori_outlet'))
             ->get()->unique('id_outlet')->values();
         $ids = $outlets->pluck('id_outlet')->all();
