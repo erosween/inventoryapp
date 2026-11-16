@@ -3027,7 +3027,7 @@
                 <a class="outlet-navigation-link" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-diamond-turn-right"></i> Go to Outlet
                 </a>
-                <button onclick="openMapOutletDetail('${outlet.id_outlet}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openMapOutletDetail('${escapeMapDetailHtml(outlet.id_outlet)}')" style="margin-top:6px; background:#d10000; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%;">Lihat Detail</button>
             `;
         }
 
@@ -3149,12 +3149,6 @@
         }
 
         async function openMapOutletDetail(id) {
-            const mapElement = document.getElementById('map');
-            if (!mapElement.classList.contains('map-fullscreen-active')) {
-                selectFromMap(id);
-                return;
-            }
-
             const panel = ensureMapOutletDetailPanel();
             panel.classList.add('is-open');
             document.getElementById('map-detail-title').textContent = 'Memuat detail outlet...';
