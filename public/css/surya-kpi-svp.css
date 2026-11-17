@@ -12,6 +12,11 @@
 .svp-result, .svp-period, .svp-dialog header, .svp-dialog footer { display: flex; align-items: center; gap: 12px; }
 .svp-toolbar, .svp-region-top, .svp-detail-heading, .svp-segment header,
 .svp-dialog header, .svp-dialog footer { justify-content: space-between; }
+.svp-toolbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.svp-copy-button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--svp-red); border-radius: 8px; padding: 8px 12px; color: var(--svp-red); background: #fff; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.svp-copy-button:hover { background: var(--svp-red-soft); }
+.svp-copy-button:disabled { opacity: .6; cursor: wait; }
+#svp-status { color: var(--svp-muted); font-size: .78rem; text-align: right; }
 .svp-toolbar { margin: 0 0 14px; }
 .svp-period { color: var(--svp-ink); }
 .svp-period i { color: var(--svp-red); }
@@ -77,6 +82,8 @@
 .kpi-svp button:focus-visible, .kpi-svp input:focus-visible, .svp-table-wrap:focus-visible { outline: 2px solid #ad1334; outline-offset: 2px; }
 
 @media (max-width: 620px) {
+    .svp-toolbar-actions { align-items: flex-end; flex-direction: column-reverse; gap: 6px; }
+    #svp-status { max-width: min(70vw, 260px); }
     .svp-overview { grid-template-columns: 1fr; gap: 9px; }
     .svp-region { padding: 12px; }
     .svp-region-scores { margin-top: 8px; }

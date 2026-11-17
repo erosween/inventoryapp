@@ -43,7 +43,10 @@
         <label class="svp-period"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Periode
             <input type="month" id="svp-period" value="{{ now('Asia/Jakarta')->format('Y-m') }}" min="0002-01" max="9999-12" data-entries-url="{{ route('surya.kpi-svp.entries') }}" required>
         </label>
-        <span id="svp-status" role="status"></span>
+        <div class="svp-toolbar-actions">
+            <span id="svp-status" role="status" aria-live="polite"></span>
+            <button type="button" class="svp-copy-button" id="svp-copy-png"><i class="fas fa-copy" aria-hidden="true"></i> Copy PNG</button>
+        </div>
     </div>
 
     <div class="svp-mode" role="group" aria-label="Tampilan KPI">
@@ -185,5 +188,6 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('js/vendor/html2canvas.min.js') }}?v=1.4.1" defer></script>
     <script src="{{ asset('js/surya-kpi-svp.js') }}?v={{ filemtime(public_path('js/surya-kpi-svp.js')) }}" defer></script>
 @endpush

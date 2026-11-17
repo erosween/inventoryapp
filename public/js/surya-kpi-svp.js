@@ -2,6 +2,7 @@
     const regions = JSON.parse(document.querySelector('#svp-demo-data').textContent);
     const period = document.querySelector('#svp-period');
     const status = document.querySelector('#svp-status');
+    const copyPng = document.querySelector('#svp-copy-png');
     const forms = [...document.querySelectorAll('.svp-inline-form')];
     const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
     const wholeNumber = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
@@ -346,6 +347,45 @@
     period.addEventListener('change', () => {
         if (!period.checkValidity()) period.value = period.defaultValue;
         loadPeriod();
+    });
+
+    copyPng.addEventListener('click', async () => {
+        const content = document.querySelector('main.kpi-svp');
+        if (!content || typeof window.html2canvas !== 'function') {
+            status.textContent = 'Fitur salin PNG belum siap. Muat ulang halaman lalu coba lagi.';
+            return;
+        }
+        copyPng.disabled = true;
+        status.textContent = 'Membuat gambar KPI…';
+        try {
+            const canvas = await window.html2canvas(content, {
+                backgroundColor: '#eef2f6',
+                scale: Math.min(window.devicePixelRatio || 1, 2),
+                useCORS: true,
+                windowWidth: Math.max(window.innerWidth, 1280),
+                ignoreElements: element => element.id === 'svp-copy-png' || element.id === 'svp-status',
+            });
+            const png = await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG tidak dapat dibuat.')), 'image/png'));
+            const region = document.querySelector('[data-svp-region][aria-pressed="true"]')?.dataset.svpRegion || 'kpi';
+            const filename = `KPI-SVP-${period.value}-${region}.png`;
+            if (navigator.clipboard?.write && window.ClipboardItem) {
+                await navigator.clipboard.write([new ClipboardItem({'image/png': png})]);
+                status.textContent = 'PNG KPI berhasil disalin. Siap ditempel untuk dibagikan.';
+            } else {
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = URL.createObjectURL(png);
+                link.click();
+                window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+                status.textContent = 'Browser belum mendukung salin gambar; PNG sudah diunduh.';
+            }
+        } catch (error) {
+            status.textContent = error.name === 'NotAllowedError'
+                ? 'Browser menolak akses clipboard. Izinkan akses clipboard lalu coba lagi.'
+                : 'Gagal membuat atau menyalin PNG KPI.';
+        } finally {
+            copyPng.disabled = false;
+        }
     });
 
     const switches = document.querySelectorAll('[data-svp-region]');
