@@ -139,7 +139,7 @@
                                     $rowCluster = in_array(strtoupper($r->idtap), $dumaiTaps, true) ? 'dumai_bengkalis' : (in_array(strtoupper($r->idtap), $rohilTaps, true) ? 'rokan_hilir' : 'other');
                                 @endphp
                                 <tr class="bg-white" data-mom-cluster="{{ $rowCluster }}">
-                                    <td class="font-weight-bold text-dark {{ $r === $topIncrease ? 'mom-impact-up' : ($r === $topDecrease ? 'mom-impact-down' : '') }}">
+                                    <td class="font-weight-bold text-dark {{ $r === $momInsightsByCluster[$rowCluster]['increase'] ? 'mom-impact-up' : ($r === $momInsightsByCluster[$rowCluster]['decrease'] ? 'mom-impact-down' : '') }}">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
                                             type="button" aria-expanded="false" aria-label="Tampilkan rincian"
                                             aria-controls="sf-{{ Str::slug($r->idtap) }}">
