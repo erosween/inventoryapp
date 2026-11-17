@@ -61,7 +61,7 @@
                                                 <td>{{ $row->namasf ?: $row->idsf }}</td>
                                                 <td>{{ $row->denom ?: $row->iddenom ?: '—' }}</td>
                                                 <td class="font-monospace fw-bold">{{ $row->serial_number }}</td>
-                                                <td><span class="badge badge-{{ $row->status === 'approved' ? 'success' : ($row->status === 'consigned' ? 'info' : 'secondary') }}">{{ strtoupper($row->status) }}</span></td>
+                                                <td><span class="badge badge-info">{{ $row->status === 'draft' ? 'DRAFT' : 'CONSIGNED' }}</span></td>
                                                 <td>{{ $row->notes ?: '—' }}</td>
                                             </tr>
                                         @empty

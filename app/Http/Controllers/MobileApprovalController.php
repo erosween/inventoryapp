@@ -379,19 +379,6 @@ class MobileApprovalController extends Controller
                     'updated_at' => now()
                 ]);
 
-                if ($sale->receipt_id && ! DB::table('mobile_penjualan')
-                    ->where('receipt_id', $sale->receipt_id)
-                    ->where('status', 'pending')
-                    ->exists()) {
-                    DB::table('surya_sa_consignment_numbers')
-                        ->where('receipt_id', $sale->receipt_id)
-                        ->where('status', 'consigned')
-                        ->update([
-                            'status' => 'approved',
-                            'updated_at' => now(),
-                        ]);
-                }
-
                 AuditLogger::log('APPROVE', 'Mobile Sales', $id, (array)$sale);
             });
 
