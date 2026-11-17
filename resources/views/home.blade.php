@@ -2425,6 +2425,11 @@
             card.querySelectorAll('#mom-cluster-table-wrap tr[data-mom-cluster]').forEach(row => {
                 row.hidden = cluster !== 'all' && row.dataset.momCluster !== cluster;
             });
+            card.querySelectorAll('#mom-cluster-table-wrap .mom-tap-name').forEach(cell => {
+                const useGlobal = cluster === 'all';
+                cell.classList.toggle('mom-impact-up', cell.classList.contains(useGlobal ? 'mom-impact-up-global' : 'mom-impact-up-cluster'));
+                cell.classList.toggle('mom-impact-down', cell.classList.contains(useGlobal ? 'mom-impact-down-global' : 'mom-impact-down-cluster'));
+            });
             const insightItems = [...card.querySelectorAll('.mom-insights [data-mom-cluster]')];
             insightItems.forEach(item => {
                 item.hidden = cluster === 'all'
