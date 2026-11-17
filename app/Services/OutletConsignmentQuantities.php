@@ -24,8 +24,17 @@ final class OutletConsignmentQuantities
             return null;
         }
 
+        // Resolve one current owner per serial first. Legacy duplicates can
+        // exist across outlets; counting distinct within each outlet alone
+        // would still inflate both outlets.
+        $currentRecordIds = DB::table('surya_sa_consignment_numbers')
+            ->whereIn('status', ['consigned', 'approved'])
+            ->select('serial_number')
+            ->selectRaw('MAX(id) AS current_id')
+            ->groupBy('serial_number');
+
         $query = DB::table('surya_sa_consignment_numbers as consignment')
-            ->whereIn('consignment.status', ['consigned', 'approved'])
+            ->joinSub($currentRecordIds, 'current_consignment', fn ($join) => $join->on('current_consignment.current_id', '=', 'consignment.id'))
             ->select('consignment.id_outlet')
             ->groupBy('consignment.id_outlet');
 

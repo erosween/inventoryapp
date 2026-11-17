@@ -602,7 +602,11 @@
                                                     <span class="sub-item text-warning fw-bold">Approval Sales Mobile</span>
                                                 </a>
                                             </li>
-                                            <li class="nav-item {{ request()->is('surya/field-reports') ? 'active' : '' }}"><a href="{{ route('surya.field-reports') }}"><span class="sub-item">Reporting SURYA</span></a></li>
+                                            <li class="nav-item {{ request()->is('consignment-report') ? 'active' : '' }}">
+                                                <a href="{{ route('admin.consignment-report') }}">
+                                                    <span class="sub-item">Rekap Konsinyasi</span>
+                                                </a>
+                                            </li>
                                         </ul>
                                     </div>
                                 </li>
