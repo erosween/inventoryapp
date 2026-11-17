@@ -3039,7 +3039,7 @@
         function applyOutletDetailsToMarker(marker, detail) {
             marker.outletData = { ...marker.outletData, ...detail };
             const lat = Number(detail.latitude), lng = Number(detail.longitude);
-            if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0)) {
+            if (isWithinSuryaMapCoverage(detail.latitude, detail.longitude)) {
                 const previous = marker.getLatLng();
                 if (previous.lat !== lat || previous.lng !== lng) {
                     // Reinsert so marker clustering follows the new location too.

@@ -2160,9 +2160,9 @@ class MonitaDumaiController extends Controller
 
         $tapScopes = $this->suryaTapScopes();
         $coordinateService = app(SuryaOutletCoordinates::class);
-        // Keep the first paint independent of visit history. Resolving the
-        // latest GPS visit per outlet here made this endpoint exceed the
-        // browser's 30-second request timeout as the history grew.
+        // Fetch the master point first, then resolve the latest validated GPS
+        // point in one indexed query. This is the same coordinate resolver
+        // used by search/detail, so a marker never jumps when its popup opens.
         $outlets = DB::table('appsdumais')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->where('sf', '!=', 'UNMAPPING')
@@ -2175,21 +2175,13 @@ class MonitaDumaiController extends Controller
             ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")
             ->get();
 
-        // Only consult visit history for master coordinates outside SURYA's
-        // service area. This keeps the fast first paint while allowing a
-        // validated GPS check-in to replace a clearly misassigned point.
-        $outsideOutletIds = $outlets->filter(fn ($outlet) => ! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude))
-            ->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
-        $trustedVisitCoordinates = $outsideOutletIds === []
+        $outletIds = $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+        $trustedVisitCoordinates = $outletIds === []
             ? collect()
-            : $coordinateService->latestVisits($outsideOutletIds)->get()->keyBy('coordinate_outlet_id');
+            : $coordinateService->latestVisits($outletIds)->get()->keyBy('coordinate_outlet_id');
         $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
-            if (! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude)) {
-                $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
-                if (! $visit || ! $coordinateService->isWithinMapCoverage($visit->visit_latitude, $visit->visit_longitude)) {
-                    return null;
-                }
-
+            $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
+            if ($visit && $coordinateService->isWithinMapCoverage($visit->visit_latitude, $visit->visit_longitude)) {
                 $outlet->latitude = $visit->visit_latitude;
                 $outlet->longitude = $visit->visit_longitude;
                 $outlet->coordinate_source = 'visit';
@@ -2206,6 +2198,8 @@ class MonitaDumaiController extends Controller
                 );
                 $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
                 $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
+            } elseif (! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude)) {
+                return null;
             }
 
             return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
