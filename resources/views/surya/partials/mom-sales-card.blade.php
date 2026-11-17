@@ -12,11 +12,21 @@
                 $dumaiTaps = ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'];
                 $rohilTaps = ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
                 $showTapInsights = request()->routeIs('surya.inventory-dashboard');
-                $tapChanges = $showTapInsights
-                    ? $momProductRows->sortBy(fn ($row) => $row->curr_qty - $row->prev_partial_qty)
-                    : collect();
-                $topIncrease = $tapChanges->last(fn ($row) => $row->curr_qty > $row->prev_partial_qty);
-                $topDecrease = $tapChanges->first(fn ($row) => $row->curr_qty < $row->prev_partial_qty);
+                $momInsightScopes = [
+                    'all' => $momProductRows,
+                    'dumai_bengkalis' => $momProductRows->filter(fn ($row) => in_array(strtoupper(trim($row->idtap)), $dumaiTaps, true)),
+                    'rokan_hilir' => $momProductRows->filter(fn ($row) => in_array(strtoupper(trim($row->idtap)), $rohilTaps, true)),
+                ];
+                $momInsightsByCluster = [];
+                foreach ($momInsightScopes as $cluster => $rows) {
+                    $changes = $rows->sortBy(fn ($row) => $row->curr_qty - $row->prev_partial_qty);
+                    $momInsightsByCluster[$cluster] = [
+                        'increase' => $changes->last(fn ($row) => $row->curr_qty > $row->prev_partial_qty),
+                        'decrease' => $changes->first(fn ($row) => $row->curr_qty < $row->prev_partial_qty),
+                    ];
+                }
+                $topIncrease = $momInsightsByCluster['all']['increase'];
+                $topDecrease = $momInsightsByCluster['all']['decrease'];
             @endphp
             <div class="card enterprise-shadow mb-4" id="mom-cluster-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
@@ -66,24 +76,21 @@
                         <small id="mom-export-status" class="mom-export-status text-muted w-100 export-status"></small>
                     </div>
                 </div>
-                @if ($topIncrease || $topDecrease)
+                @if ($showTapInsights && collect($momInsightsByCluster)->flatten(1)->contains(fn ($tap) => $tap))
                     <div class="mom-insights" aria-label="Perubahan volume penjualan per TAP">
-                        @foreach ([['Kenaikan terbesar', $topIncrease, '+', 'text-success'], ['Penurunan terbesar', $topDecrease, '−', 'text-danger']] as [$label, $tap, $sign, $tone])
-                            @if ($tap)
-                                @php
-                                    $insightCluster = in_array(strtoupper($tap->idtap), $dumaiTaps, true)
-                                        ? 'dumai_bengkalis'
-                                        : (in_array(strtoupper($tap->idtap), $rohilTaps, true) ? 'rokan_hilir' : 'other');
-                                @endphp
-                                <span data-mom-cluster="{{ $insightCluster }}">{{ $label }} <strong>{{ $tap->idtap }}</strong>
-                                    <strong class="{{ $tone }}">{{ $sign }}{{ number_format(abs($tap->curr_qty - $tap->prev_partial_qty)) }} pcs</strong>
-                                    @if ($tap->prev_partial_qty > 0)
-                                        ({{ $sign }}{{ number_format(abs($tap->mom), 2) }}%)
-                                    @else
-                                        (basis M-1 nol)
-                                    @endif
-                                </span>
-                            @endif
+                        @foreach ($momInsightsByCluster as $cluster => $insights)
+                            @foreach ([['Kenaikan terbesar', $insights['increase'], '+', 'text-success'], ['Penurunan terbesar', $insights['decrease'], '−', 'text-danger']] as [$label, $tap, $sign, $tone])
+                                @if ($tap)
+                                    <span data-mom-cluster="{{ $cluster }}">{{ $label }} <strong>{{ $tap->idtap }}</strong>
+                                        <strong class="{{ $tone }}">{{ $sign }}{{ number_format(abs($tap->curr_qty - $tap->prev_partial_qty)) }} pcs</strong>
+                                        @if ($tap->prev_partial_qty > 0)
+                                            ({{ $sign }}{{ number_format(abs($tap->mom), 2) }}%)
+                                        @else
+                                            (basis M-1 nol)
+                                        @endif
+                                    </span>
+                                @endif
+                            @endforeach
                         @endforeach
                     </div>
                 @endif

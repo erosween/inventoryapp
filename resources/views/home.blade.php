@@ -2426,7 +2426,11 @@
                 row.hidden = cluster !== 'all' && row.dataset.momCluster !== cluster;
             });
             const insightItems = [...card.querySelectorAll('.mom-insights [data-mom-cluster]')];
-            insightItems.forEach(item => { item.hidden = cluster !== 'all' && item.dataset.momCluster !== cluster; });
+            insightItems.forEach(item => {
+                item.hidden = cluster === 'all'
+                    ? item.dataset.momCluster !== 'all'
+                    : item.dataset.momCluster !== cluster;
+            });
             const insights = card.querySelector('.mom-insights');
             if (insights) insights.hidden = insightItems.length > 0 && insightItems.every(item => item.hidden);
         }
