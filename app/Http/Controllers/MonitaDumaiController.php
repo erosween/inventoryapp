@@ -2038,14 +2038,20 @@ class MonitaDumaiController extends Controller
 
         $keyword = $request->input('keyword');
         $tapScopes = $this->suryaTapScopes();
-        app(SuryaOutletCoordinates::class)->approveExpiredVisits($tapScopes);
-        $data = app(SuryaOutletCoordinates::class)->outlets()
+        $outletIds = DB::table('appsdumais')
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
-            ->select('appsdumais.*')
             ->where(function ($query) use ($keyword) {
                 $query->where('appsdumais.id_outlet', $keyword)
                     ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
             })
+            ->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+        $data = app(SuryaOutletCoordinates::class)->outlets('appsdumais', null, $tapScopes, $outletIds)
+            ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
+            ->where(function ($query) use ($keyword) {
+                $query->where('appsdumais.id_outlet', $keyword)
+                    ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
+            })
+            ->select('appsdumais.*')
             ->get();
         $data = app(SuryaOutletCoordinates::class)->withVisitState($data);
         $outletIds = $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
@@ -2153,45 +2159,44 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        $outlets = app(SuryaOutletCoordinates::class)->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'], $tapScopes)
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
-            ->where('o.sf', '!=', 'UNMAPPING')
-            ->whereNotNull('o.latitude')->whereNotNull('o.longitude')
-            ->whereRaw("TRIM(o.latitude) <> ''")->whereRaw("TRIM(o.longitude) <> ''")
-            ->whereBetween(DB::raw('CAST(o.latitude AS DECIMAL(12,8))'), [-90, 90])
-            ->whereBetween(DB::raw('CAST(o.longitude AS DECIMAL(12,8))'), [-180, 180])
-            ->where(fn ($query) => $query->where('o.latitude', '!=', 0)->orWhere('o.longitude', '!=', 0))
-            ->select(
-                'o.id_outlet',
-                'o.nama_outlet',
-                'o.sf',
-                'o.tap'
-            )
-            ->addSelect('o.latitude', 'o.longitude', 'o.coordinate_source', 'o.coordinate_visit_id', 'o.coordinate_visited_at')
-            ->addSelect('o.digipos_latitude', 'o.digipos_longitude')
-            ->get();
-        $outlets = app(SuryaOutletCoordinates::class)->withVisitState($outlets);
+        // Limit visit-coordinate lookups to this map's outlets. Computing the
+        // latest GPS visit for every historical visit outlet makes the first
+        // map request expensive as the visit table grows.
+        $mapOutletIds = DB::table('appsdumais')
+            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+            ->where('sf', '!=', 'UNMAPPING')
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
 
-        // The map only needs lightweight metadata for its first paint. Resolving
-        // storage paths and checking every thumbnail here made the initial map
-        // request needlessly expensive. Photo details are fetched on marker click.
-        $photoColumns = ['id_outlet', 'visited_at'];
-        if (Schema::hasColumn('surya_visits', 'branding_dominance')) {
-            $photoColumns = array_merge($photoColumns, ['branding_dominance', 'branding_quality']);
+        $outlets = collect();
+        foreach (array_chunk($mapOutletIds, 400) as $outletIdChunk) {
+            $outlets = $outlets->concat(app(SuryaOutletCoordinates::class)
+                ->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'], null, $outletIdChunk)
+                ->whereIn('o.id_outlet', $outletIdChunk)
+                ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap')
+                ->addSelect('o.latitude', 'o.longitude', 'o.coordinate_source', 'o.coordinate_visit_id', 'o.coordinate_visited_at')
+                ->addSelect('o.digipos_latitude', 'o.digipos_longitude')
+                ->get());
         }
-        $latestBrandingByOutlet = app(SuryaOutletCoordinates::class)
-            ->latestVisitRecords($outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all(), true)
-            ->get($photoColumns)->keyBy(fn ($visit) => (string) $visit->id_outlet);
 
-        $data = $outlets->map(function ($outlet) use ($latestBrandingByOutlet) {
-            $outlet->has_front_photo = $latestBrandingByOutlet->has((string) $outlet->id_outlet);
-            $branding = $latestBrandingByOutlet->get((string) $outlet->id_outlet);
-            $outlet->branding_dominance = $branding->branding_dominance ?? null;
-            $outlet->branding_quality = $branding->branding_quality ?? null;
-            // Absent details are loaded on click; do not transmit dozens of
-            // repeated zero/null fields for every unvisited outlet.
-            return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
+        // Return map markers immediately from outlet/coordinate data. Visit
+        // status and photos are optional popup details and must not block map
+        // rendering when visit history is large or temporarily unavailable.
+        $outlets = $outlets->map(function ($outlet) {
+            $outlet->map_visit_state = 'unvisited';
+            $outlet->latest_visit_status = null;
+            $outlet->latest_visit_at = null;
+            $outlet->latest_visit_latitude = null;
+            $outlet->latest_visit_longitude = null;
+            $outlet->latest_visit_accuracy = null;
+            $outlet->visit_digipos_distance_meters = null;
+            $outlet->visit_digipos_match = null;
+            $outlet->has_front_photo = false;
+
+            return $outlet;
         });
+
+        $data = $outlets->map(fn ($outlet) => array_filter(get_object_vars($outlet), fn ($value) => $value !== null));
 
         return response()->json($data)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')

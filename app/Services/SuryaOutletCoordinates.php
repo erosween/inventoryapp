@@ -12,7 +12,7 @@ class SuryaOutletCoordinates
     public const MAX_COORDINATE_ACCURACY_METERS = 100;
     public const DIGIPOS_MATCH_TOLERANCE_METERS = 10;
 
-    private function eligibleVisits(string $alias, ?array $outletIds = null, ?array $tapScopes = null): Builder
+    private function eligibleVisits(string $alias, ?array $outletIds = null): Builder
     {
         return DB::table('surya_visits as '.$alias)
             ->whereIn($alias.'.gps_status', ['valid', 'approved'])
@@ -24,19 +24,16 @@ class SuryaOutletCoordinates
             ->whereBetween($alias.'.latitude', [-90, 90])
             ->whereBetween($alias.'.longitude', [-180, 180])
             ->where(fn ($query) => $query->where($alias.'.latitude', '!=', 0)->orWhere($alias.'.longitude', '!=', 0))
-            ->when($outletIds !== null, fn ($query) => $query->whereIn($alias.'.id_outlet', $outletIds))
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn($alias.'.id_outlet', function ($outlets) use ($tapScopes) {
-                $outlets->from('appsdumais')->selectRaw('CAST(id_outlet AS CHAR)')->whereIn('tap', $tapScopes);
-            }));
+            ->when($outletIds !== null, fn ($query) => $query->whereIn($alias.'.id_outlet', $outletIds));
     }
 
     /** Pick by visit time, using ID only to break a tie (imports can have newer IDs). */
-    public function latestVisits(?array $outletIds = null, ?array $tapScopes = null): Builder
+    public function latestVisits(?array $outletIds = null): Builder
     {
-        $times = $this->eligibleVisits('dated_visit', $outletIds, $tapScopes)
+        $times = $this->eligibleVisits('dated_visit', $outletIds)
             ->select('dated_visit.id_outlet')->selectRaw('MAX(dated_visit.visited_at) as coordinate_time')
             ->groupBy('dated_visit.id_outlet');
-        $ids = $this->eligibleVisits('selected_visit', $outletIds, $tapScopes)
+        $ids = $this->eligibleVisits('selected_visit', $outletIds)
             ->joinSub($times, 'latest_time', fn ($join) => $join
                 ->on('latest_time.id_outlet', '=', 'selected_visit.id_outlet')
                 ->on('latest_time.coordinate_time', '=', 'selected_visit.visited_at'))
@@ -55,7 +52,7 @@ class SuryaOutletCoordinates
     }
 
     /** Every map/search reader gets the same coordinates, even before a backfill. */
-    public function outlets(string $alias = 'appsdumais', ?array $selectedColumns = null, ?array $tapScopes = null): Builder
+    public function outlets(string $alias = 'appsdumais', ?array $selectedColumns = null, ?array $tapScopes = null, ?array $coordinateOutletIds = null): Builder
     {
         $schema = DB::getSchemaBuilder()->getColumnListing('appsdumais');
         $hasCheckin = in_array('latitude_checkin', $schema, true) && in_array('longitude_checkin', $schema, true);
@@ -78,7 +75,7 @@ class SuryaOutletCoordinates
             // Master IDs can be BIGINT while visit IDs are VARCHAR. Expose the
             // grouped string key and compare strings so the derived lookup can
             // use an index instead of scanning every visit group per outlet.
-            ->leftJoinSub($this->latestVisits(null, $tapScopes), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(outlet_master.id_outlet AS CHAR)'))
+            ->leftJoinSub($this->latestVisits($coordinateOutletIds), 'coordinates', 'coordinates.coordinate_outlet_id', '=', DB::raw('CAST(outlet_master.id_outlet AS CHAR)'))
             ->select($columns)
             ->addSelect('coordinates.coordinate_visit_id', 'coordinates.coordinate_visited_at')
             // Keep the uploaded Digipos point alongside the resolved map point so

@@ -2764,8 +2764,7 @@
                     loadedOutletPoints = outlets;
                     await initMap(outlets);
                     outletDataLoaded = true;
-                    const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
-                    if (countEl) countEl.textContent = `${outlets.length.toLocaleString('en-US')} outlet · ${visitedCount.toLocaleString('en-US')} sudah visit`;
+                    if (countEl) countEl.textContent = `${outlets.length.toLocaleString('en-US')} outlet`;
                 } catch (error) {
                     console.error('SURYA map gagal dimuat:', error);
                     if (map && !outletClusterLayer) {
@@ -2774,7 +2773,10 @@
                     }
                     if (countEl) countEl.textContent = 'Titik outlet belum selesai dimuat';
                     if (errorEl) {
-                        errorEl.querySelector('[data-map-error-message]').textContent = 'Titik outlet belum dapat dimuat. Periksa koneksi, lalu coba lagi.';
+                        const reason = error?.name === 'AbortError'
+                            ? 'Permintaan data outlet melewati batas waktu.'
+                            : (error?.message || 'Terjadi kesalahan saat mengambil data outlet.');
+                        errorEl.querySelector('[data-map-error-message]').textContent = `Titik outlet belum dapat dimuat (${reason}). Coba lagi.`;
                         errorEl.hidden = false;
                     }
                     if (insightEl && !insightLoaded) document.getElementById('branding-insight-results').textContent = 'Pilih Insight atau klik Terapkan untuk memuat data.';
