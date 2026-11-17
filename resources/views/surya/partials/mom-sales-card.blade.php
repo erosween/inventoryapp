@@ -70,7 +70,11 @@
                     <div class="mom-insights" aria-label="Perubahan volume penjualan per TAP">
                         @foreach ([['Kenaikan terbesar', $topIncrease, '+', 'text-success'], ['Penurunan terbesar', $topDecrease, '−', 'text-danger']] as [$label, $tap, $sign, $tone])
                             @if ($tap)
-                                @php($insightCluster = in_array(strtoupper($tap->idtap), $dumaiTaps, true) ? 'dumai_bengkalis' : (in_array(strtoupper($tap->idtap), $rohilTaps, true) ? 'rokan_hilir' : 'other'))
+                                @php
+                                    $insightCluster = in_array(strtoupper($tap->idtap), $dumaiTaps, true)
+                                        ? 'dumai_bengkalis'
+                                        : (in_array(strtoupper($tap->idtap), $rohilTaps, true) ? 'rokan_hilir' : 'other');
+                                @endphp
                                 <span data-mom-cluster="{{ $insightCluster }}">{{ $label }} <strong>{{ $tap->idtap }}</strong>
                                     <strong class="{{ $tone }}">{{ $sign }}{{ number_format(abs($tap->curr_qty - $tap->prev_partial_qty)) }} pcs</strong>
                                     @if ($tap->prev_partial_qty > 0)
