@@ -2175,7 +2175,7 @@ class MonitaDumaiController extends Controller
             ->get()
             ->map(fn ($outlet) => array_filter(get_object_vars($outlet), fn ($value) => $value !== null));
 
-        return response()->json($data)
+        return response()->json($outlets)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Server-Timing', 'outlets;dur='.round((microtime(true) - $started) * 1000));
     }
