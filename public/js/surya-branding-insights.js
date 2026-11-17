@@ -21,7 +21,8 @@
             if (filters.cluster && outlet.cluster !== filters.cluster) return false;
             if (filters.tap && tapOf(outlet) !== filters.tap) return false;
             if (filters.kecamatan && districtOf(outlet) !== filters.kecamatan) return false;
-            if (filters.visit && visitOf(outlet) !== filters.visit) return false;
+            if (filters.visit === 'visited_any' && !['visited', 'pending'].includes(visitOf(outlet))) return false;
+            if (filters.visit && filters.visit !== 'visited_any' && visitOf(outlet) !== filters.visit) return false;
             if (filters.location === 'missing' && outlet.valid_coordinates !== false) return false;
             if (filters.brand && (outlet.branding_dominance || 'missing') !== filters.brand) return false;
             if (filters.quality && qualityOf(outlet) !== filters.quality) return false;

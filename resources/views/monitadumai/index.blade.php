@@ -2589,7 +2589,7 @@
             }, {});
             const taps = Object.keys(byTap).sort();
             const total = outlets.length;
-            const visited = outlets.filter(outlet => outlet.insight_visit === 'visited').length;
+            const visited = outlets.filter(outlet => ['visited', 'pending'].includes(outlet.insight_visit)).length;
             const pct = (value, base) => base ? `${((value / base) * 100).toFixed(1)}%` : '0.0%';
             const operators = ['Tsel', 'Indosat-Tri', 'XL-Smart', 'No Branding'];
             const priorityOf = window.SuryaBrandingInsights.priorityOf;
@@ -2604,22 +2604,24 @@
             }).join('');
             const renderTapRow = (tap, rows, scope = tap, cluster = '', kecamatan = '', rowClass = '') => {
                 const tapAttr = escapeMapDetailHtml(tap);
+                const valueButton = (label, value, detail = '', filter = '') =>
+                    `<button type="button" class="branding-matrix-count" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" data-cluster="${escapeMapDetailHtml(cluster)}" data-kecamatan="${escapeMapDetailHtml(kecamatan)}" ${filter} aria-label="${label} · ${tapAttr} · ${escapeMapDetailHtml(value)}"><strong>${value}</strong>${detail ? `<small>${detail}</small>` : ''}</button>`;
                 const countButton = (label, qty, detail = '', filter = '') =>
-                    `<button type="button" class="branding-matrix-count" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" data-cluster="${escapeMapDetailHtml(cluster)}" data-kecamatan="${escapeMapDetailHtml(kecamatan)}" ${filter} aria-label="${label} · ${tapAttr} · ${formatCount(qty)}"><strong>${formatCount(qty)}</strong>${detail ? `<small>${detail}</small>` : ''}</button>`;
+                    valueButton(label, formatCount(qty), detail, filter);
                 const visits = ['visited', 'pending', 'unvisited'].map(state =>
                     rows.filter(outlet => outlet.insight_visit === state).length);
+                const completedVisits = visits[0] + visits[1];
+                const visitRate = pct(completedVisits, rows.length);
                 const operatorCounts = operators.map(operator => rows.filter(outlet => outlet.branding_dominance === operator).length);
                 const assessed = operatorCounts.reduce((sum, count) => sum + count, 0);
                 const operatorCells = operators.map((operator, index) =>
                     `<td>${countButton(operator, operatorCounts[index], assessed ? pct(operatorCounts[index], assessed) : '—', `data-brand="${operator}"${operator === 'No Branding' ? ' data-priority="install"' : ''}`)}</td>`
                 ).join('');
                 return `<tr${rowClass ? ` class="${rowClass}"` : ''}>
-                    <th scope="row"><button type="button" class="branding-matrix-tap" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" data-cluster="${escapeMapDetailHtml(cluster)}" data-kecamatan="${escapeMapDetailHtml(kecamatan)}">${tapAttr}<small>${formatCount(rows.length)} RS</small></button></th>
-                    <td class="branding-matrix-coverage">
-                        ${countButton('Visit disetujui', visits[0], pct(visits[0], rows.length), 'data-visit="visited"')}
-                        <progress max="${rows.length}" value="${visits[0]}" aria-label="Coverage visit ${tapAttr}"></progress>
-                    </td>
-                    <td>${countButton('Menunggu review', visits[1], '', 'data-visit="pending"')}</td>
+                    <th scope="row"><button type="button" class="branding-matrix-tap" data-insight-open data-tap="${escapeMapDetailHtml(scope)}" data-cluster="${escapeMapDetailHtml(cluster)}" data-kecamatan="${escapeMapDetailHtml(kecamatan)}">${tapAttr}</button></th>
+                    <td>${countButton('PJP', rows.length)}</td>
+                    <td>${countButton('Sudah Visit', completedVisits, '', 'data-visit="visited_any"')}</td>
+                    <td>${valueButton('% Visit', visitRate, '', 'data-visit="visited_any"')}</td>
                     <td>${countButton('Belum visit', visits[2], '', 'data-visit="unvisited"')}</td>
                     ${operatorCells}
                     <td>${countButton('Belum dinilai', rows.length - assessed, '', 'data-brand="missing"')}</td>
@@ -2650,17 +2652,16 @@
             const matrixRows = brandingMatrixView === 'district' ? districtRows : tapRows;
             const matrixTitle = brandingMatrixView === 'district' ? 'Per Kecamatan' : 'Per TAP';
             const matrixLabel = brandingMatrixView === 'district' ? 'Kecamatan' : 'TAP';
-            const pending = outlets.filter(outlet => outlet.insight_visit === 'pending').length;
-            const unvisited = total - visited - pending;
+            const unvisited = outlets.filter(outlet => outlet.insight_visit === 'unvisited').length;
             const missingCoordinates = outlets.filter(outlet => !outlet.valid_coordinates).length;
-            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">${escapeMapDetailHtml(from)} – ${escapeMapDetailHtml(cutoff)} · Branding terbaru sejak Okt 2026.</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>Total RS PJP</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited" aria-label="Lihat semua outlet sudah visit"><small>Visit disetujui</small><strong>${visited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(visited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum visit</small><strong>${unvisited.toLocaleString('en-US')} <small style="display:inline;text-transform:none;letter-spacing:0">(${pct(unvisited, total)})</small></strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="pending"><small>Menunggu review</small><strong>${pending.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi" data-insight-open data-location="missing"><small>Koordinat belum valid</small><strong>${missingCoordinates.toLocaleString('en-US')}</strong></button></div><section class="branding-priority-summary"><h4>Prioritas branding</h4><p>Top 20 TAP didahulukan, lalu volume PV + SA pada periode pilihan.</p><div class="branding-priority-actions">${priorityButtons}</div></section><section class="branding-matrix-section">
+            container.innerHTML = `<div class="branding-insight-card"><div class="branding-insight-head"><div><h4><i class="fas fa-chart-pie me-1"></i> Insight Visit & Dominasi Branding</h4><div class="branding-insight-subtitle">${escapeMapDetailHtml(from)} – ${escapeMapDetailHtml(cutoff)} · Branding terbaru sejak Okt 2026.</div></div><div class="branding-insight-total">${total.toLocaleString('en-US')} outlet terdata</div></div><div class="branding-kpi-grid"><button type="button" class="branding-kpi" data-insight-open aria-label="Lihat semua outlet"><small>PJP</small><strong>${total.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited_any" aria-label="Lihat semua outlet sudah visit"><small>Sudah Visit</small><strong>${visited.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi visit" data-insight-open data-visit="visited_any" aria-label="Lihat persentase visit"><small>% Visit</small><strong>${pct(visited, total)}</strong></button><button type="button" class="branding-kpi pending" data-insight-open data-visit="unvisited" aria-label="Lihat semua outlet belum visit"><small>Belum Visit</small><strong>${unvisited.toLocaleString('en-US')}</strong></button><button type="button" class="branding-kpi" data-insight-open data-location="missing"><small>Koordinat belum valid</small><strong>${missingCoordinates.toLocaleString('en-US')}</strong></button></div><section class="branding-priority-summary"><h4>Prioritas branding</h4><p>Top 20 TAP didahulukan, lalu volume PV + SA pada periode pilihan.</p><div class="branding-priority-actions">${priorityButtons}</div></section><section class="branding-matrix-section">
                 <div class="branding-matrix-toolbar"><h4>Perbandingan ${matrixTitle}</h4><div class="branding-matrix-tabs" role="tablist" aria-label="Kelompokkan insight"><button type="button" role="tab" aria-selected="${brandingMatrixView === 'tap'}" data-branding-matrix-view="tap">Per TAP</button><button type="button" role="tab" aria-selected="${brandingMatrixView === 'district'}" data-branding-matrix-view="district">Per Kecamatan</button></div></div>
                 <div class="branding-matrix-scroll" tabindex="0" role="region" aria-label="Perbandingan visit dan branding ${matrixTitle.toLocaleLowerCase('id-ID')}">
                     <table class="branding-matrix">
-                        <thead><tr><th scope="col" rowspan="2">${matrixLabel}</th><th scope="colgroup" colspan="3">Kunjungan</th><th scope="colgroup" colspan="5">Branding</th><th scope="col" rowspan="2">Perbaikan Tsel</th></tr>
-                        <tr><th scope="col">Disetujui</th><th scope="col">Review</th><th scope="col">Belum visit</th>
+                        <thead><tr><th scope="col" rowspan="2">${matrixLabel}</th><th scope="colgroup" colspan="4">Kunjungan</th><th scope="colgroup" colspan="5">Branding</th><th scope="col" rowspan="2">Perbaikan Tsel</th></tr>
+                        <tr><th scope="col">PJP</th><th scope="col">Sudah Visit</th><th scope="col">% Visit</th><th scope="col">Belum Visit</th>
                         ${operators.map(operator => `<th scope="col">${operator}</th>`).join('')}<th scope="col">Belum dinilai</th></tr></thead>
-                        <tbody>${matrixRows || '<tr><td colspan="10">Belum ada RS PJP.</td></tr>'}</tbody>
+                        <tbody>${matrixRows || '<tr><td colspan="11">Belum ada RS PJP.</td></tr>'}</tbody>
                         ${brandingMatrixView === 'tap' ? `<tfoot>${clusterRows}${renderTapRow('Grand Total', outlets, '')}</tfoot>` : `<tfoot>${renderTapRow('Grand Total', outlets, '')}</tfoot>`}
                     </table>
                 </div>

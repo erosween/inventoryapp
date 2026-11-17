@@ -8,7 +8,7 @@
     <div class="insight-outlet-controls">
         <label class="insight-outlet-search"><span>Cari outlet atau sales</span><input type="search" data-insight-filter="search" placeholder="ID outlet, nama, atau SF…" autocomplete="off"></label>
         <label><span>TAP</span><select data-insight-filter="tap"><option value="">Semua TAP</option></select></label>
-        <label><span>Status visit</span><select data-insight-filter="visit"><option value="">Semua Visit</option><option value="visited">Disetujui</option><option value="pending">Menunggu review</option><option value="unvisited">Belum Visit</option></select></label>
+        <label><span>Status visit</span><select data-insight-filter="visit"><option value="">Semua Visit</option><option value="visited_any">Sudah Visit</option><option value="visited">Disetujui</option><option value="pending">Menunggu review</option><option value="unvisited">Belum Visit</option></select></label>
         <label><span>Dominan branding</span><select data-insight-filter="brand"><option value="">Semua Branding</option><option>Tsel</option><option>Indosat-Tri</option><option>XL-Smart</option><option>No Branding</option><option value="missing">Belum Diisi</option></select></label>
         <label><span>Kelayakan branding</span><select data-insight-filter="quality"><option value="">Semua Kelayakan</option><option>Bagus</option><option>Kurang Bagus</option><option>Tidak Bagus</option><option value="missing">Belum Diisi</option><option value="not_applicable">Tidak Berlaku</option></select></label>
     </div>
