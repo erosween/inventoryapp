@@ -34,6 +34,18 @@
 <button class="btn metrics-import-resume" type="button" data-import-change hidden>Pilih File Lain</button>
 </div>
 </form></section>
+@if(auth()->user()?->isSuperAdmin())
+<section class="upload-card" aria-labelledby="historical-sa-title">
+<header class="upload-card-header"><span class="upload-icon"><i class="fa fa-clock-rotate-left" aria-hidden="true"></i></span><h2 id="historical-sa-title">Histori Penjualan SA · 1 Jan–15 Okt 2026</h2><span class="upload-format">Excel / CSV</span></header>
+<form class="drop" method="POST" action="{{ route('surya.historical-sa.store') }}" enctype="multipart/form-data">
+@csrf
+<label class="file-label" for="historical-sa-file">File penjualan SA historis</label>
+<input class="file-input" id="historical-sa-file" type="file" name="historical_sa_file" accept=".xlsx,.xls,.csv" aria-describedby="historical-sa-hint" required>
+<p class="upload-hint" id="historical-sa-hint">Header: Tanggal Jual, Nama SF, TAP, Paket SA/BYU, Qty. Maks. 20 MB. Tanggal dibatasi 1 Jan–15 Okt 2026. SF yang tidak ada di master ditambahkan sebagai N/A dan disembunyikan dari pilihan transaksi. ID outlet kosong; stok tidak berubah.</p>
+@error('historical_sa_file')<div class="field-error" role="alert">{{ $message }}</div>@enderror
+<div class="metrics-import-actions"><button class="btn" type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload Histori SA</button></div>
+</form></section>
+@endif
 <section class="upload-card" aria-labelledby="outlet-cvm-title">
 <header class="upload-card-header">
     <span class="upload-icon"><i class="fa fa-chart-column" aria-hidden="true"></i></span>
