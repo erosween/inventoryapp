@@ -20,8 +20,8 @@
             @endphp
             <div class="card enterprise-shadow mb-4" id="mom-cluster-card">
                 <div class="card-header bg-white border-0 pt-4 pb-3">
-                    <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
-                        <div>
+                    <div class="mom-card-heading">
+                        <div class="mom-card-title">
                             <h6 class="font-weight-bold text-dark mb-0">📊 MoM Sales Tap</h6>
                             <small class="text-muted">
                                 1–{{ $momCurrentLabel }} vs 1–{{ $momPreviousLabel }} · Stok Gudang + SF per {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') }}
@@ -63,7 +63,7 @@
                                 <i data-feather="download" style="width:14px;height:14px"></i> PNG
                             </button>
                         </div>
-                        <small id="mom-export-status" class="text-muted w-100 export-status"></small>
+                        <small id="mom-export-status" class="mom-export-status text-muted w-100 export-status"></small>
                     </div>
                 </div>
                 @if ($topIncrease || $topDecrease)
