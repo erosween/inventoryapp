@@ -2730,6 +2730,18 @@
         let outletDataLoaded = false;
         let mapMobileTabsBound = false;
         let loadedOutletPoints = [];
+        const suryaMapCoverage = @json(\App\Services\SuryaOutletCoordinates::MAP_COVERAGE);
+
+        function isWithinSuryaMapCoverage(latitude, longitude) {
+            if (latitude === null || latitude === undefined || String(latitude).trim() === ''
+                || longitude === null || longitude === undefined || String(longitude).trim() === '') return false;
+            const lat = Number(latitude);
+            const lng = Number(longitude);
+            return Number.isFinite(lat) && Number.isFinite(lng)
+                && lat >= suryaMapCoverage.latitude[0] && lat <= suryaMapCoverage.latitude[1]
+                && lng >= suryaMapCoverage.longitude[0] && lng <= suryaMapCoverage.longitude[1]
+                && (lat !== 0 || lng !== 0);
+        }
 
         async function loadAllOutlets() {
             if (outletDataLoaded || outletLoadPromise) return outletLoadPromise;
@@ -2761,10 +2773,10 @@
                     const outlets = await response.json();
                     if (!Array.isArray(outlets)) throw new Error('Format data outlet tidak valid');
 
-                    loadedOutletPoints = outlets;
-                    await initMap(outlets);
+                    loadedOutletPoints = outlets.filter(outlet => isWithinSuryaMapCoverage(outlet.latitude, outlet.longitude));
+                    await initMap(loadedOutletPoints);
                     outletDataLoaded = true;
-                    if (countEl) countEl.textContent = `${outlets.length.toLocaleString('en-US')} outlet`;
+                    if (countEl) countEl.textContent = `${loadedOutletPoints.length.toLocaleString('en-US')} outlet`;
                 } catch (error) {
                     console.error('SURYA map gagal dimuat:', error);
                     if (map && !outletClusterLayer) {
@@ -2851,10 +2863,10 @@
         }
 
         function fitAndQueueOutletMarkers(outlets) {
-            const bounds = outlets.map(outlet => [Number(outlet.latitude), Number(outlet.longitude)])
-                .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0));
+            const validOutlets = outlets.filter(outlet => isWithinSuryaMapCoverage(outlet.latitude, outlet.longitude));
+            const bounds = validOutlets.map(outlet => [Number(outlet.latitude), Number(outlet.longitude)]);
             if (bounds.length && !selectedOutletMarker) map.fitBounds(bounds, {padding: [24, 24]});
-            return queueOutletMarkers(outlets);
+            return queueOutletMarkers(validOutlets);
         }
 
         function queueOutletMarkers(outlets) {
@@ -2900,7 +2912,7 @@
             pendingOutletFocus = null;
             map.closePopup();
             const bounds = loadedOutletPoints.map(outlet => [Number(outlet.latitude), Number(outlet.longitude)])
-                .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0));
+                .filter(([lat, lng]) => isWithinSuryaMapCoverage(lat, lng));
             map.invalidateSize({ pan: false });
             if (bounds.length) map.fitBounds(bounds, {padding: [24, 24], maxZoom: 16});
         }
@@ -2925,7 +2937,7 @@
 
             const lat = Number(outlet.latitude);
             const lon = Number(outlet.longitude);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || (lat === 0 && lon === 0)) return null;
+            if (!isWithinSuryaMapCoverage(lat, lon)) return null;
 
             const marker = L.marker([lat, lon], {
                 icon: createOutletIcon(outlet)

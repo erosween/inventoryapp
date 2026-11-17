@@ -2169,6 +2169,8 @@ class MonitaDumaiController extends Controller
             ->whereRaw("TRIM(latitude) <> ''")->whereRaw("TRIM(longitude) <> ''")
             ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [-90, 90])
             ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [-180, 180])
+            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), SuryaOutletCoordinates::MAP_COVERAGE['latitude'])
+            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), SuryaOutletCoordinates::MAP_COVERAGE['longitude'])
             ->where(fn ($query) => $query->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0))
             ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
             ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")

@@ -12,6 +12,13 @@ class SuryaOutletCoordinates
     public const MAX_COORDINATE_ACCURACY_METERS = 100;
     public const DIGIPOS_MATCH_TOLERANCE_METERS = 10;
 
+    // SURYA's assigned outlets are in the Dumai/Bengkalis and Rokan Hilir
+    // operating area. Keep obviously misassigned global coordinates off the map.
+    public const MAP_COVERAGE = [
+        'latitude' => [-1.2, 3.0],
+        'longitude' => [99.5, 103.2],
+    ];
+
     private function eligibleVisits(string $alias, ?array $outletIds = null): Builder
     {
         return DB::table('surya_visits as '.$alias)
