@@ -2815,7 +2815,7 @@
                     const count = event.layer.getChildCount();
                     L.tooltip({direction: 'top', sticky: true, opacity: 0.96, className: 'surya-cluster-hover-tooltip'})
                         .setLatLng(event.latlng)
-                        .setContent(`${count.toLocaleString('id-ID')} outlet · klik untuk zoom`)
+                        .setContent(`${count.toLocaleString('id-ID')} outlet`)
                         .addTo(map);
                 });
                 outletClusterLayer.on('clustermouseout', () => map.closeTooltip());
