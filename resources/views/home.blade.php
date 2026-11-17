@@ -2425,6 +2425,32 @@
             card.querySelectorAll('#mom-cluster-table-wrap tr[data-mom-cluster]').forEach(row => {
                 row.hidden = cluster !== 'all' && row.dataset.momCluster !== cluster;
             });
+            const momBody = card.querySelector('#mom-cluster-table-wrap tbody');
+            if (momBody) {
+                const originalRows = [...momBody.rows];
+                originalRows.forEach((row, index) => {
+                    if (row.dataset.momOriginalOrder === undefined) row.dataset.momOriginalOrder = String(index);
+                });
+                if (cluster === 'all') {
+                    const tapRows = originalRows.filter(row => row.querySelector('.mom-tap-name'));
+                    const pairedRows = new Set();
+                    const orderedPairs = tapRows
+                        .sort((a, b) => Number(a.dataset.momAllOrder) - Number(b.dataset.momAllOrder))
+                        .map(row => {
+                            const detailId = row.querySelector('.toggle-sf')?.getAttribute('aria-controls');
+                            const detailRow = detailId ? momBody.querySelector(`#${CSS.escape(detailId)}`) : null;
+                            pairedRows.add(row);
+                            if (detailRow) pairedRows.add(detailRow);
+                            return detailRow ? [row, detailRow] : [row];
+                        });
+                    const trailingRows = originalRows.filter(row => !pairedRows.has(row));
+                    [...orderedPairs.flat(), ...trailingRows].forEach(row => momBody.appendChild(row));
+                } else {
+                    originalRows
+                        .sort((a, b) => Number(a.dataset.momOriginalOrder) - Number(b.dataset.momOriginalOrder))
+                        .forEach(row => momBody.appendChild(row));
+                }
+            }
             card.querySelectorAll('#mom-cluster-table-wrap .mom-tap-name').forEach(cell => {
                 const useGlobal = cluster === 'all';
                 cell.classList.toggle('mom-impact-up', cell.classList.contains(useGlobal ? 'mom-impact-up-global' : 'mom-impact-up-cluster'));
