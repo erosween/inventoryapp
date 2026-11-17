@@ -2809,6 +2809,16 @@
                 console.warn('SURYA cluster tidak tersedia; tampilkan titik langsung.', error);
                 outletClusterLayer = L.layerGroup().addTo(map);
             }
+            if (typeof outletClusterLayer.on === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                outletClusterLayer.on('clustermouseover', event => {
+                    const count = event.layer.getChildCount();
+                    L.tooltip({direction: 'top', sticky: true, opacity: 0.96, className: 'surya-cluster-hover-tooltip'})
+                        .setLatLng(event.latlng)
+                        .setContent(`${count.toLocaleString('id-ID')} outlet · klik untuk zoom`)
+                        .addTo(map);
+                });
+                outletClusterLayer.on('clustermouseout', () => map.closeTooltip());
+            }
             // Semua outlet masuk cluster. Menampilkan ratusan thumbnail sekaligus
             // membuat browser lambat dan peta terasa belum selesai memuat.
             outletVisitedLayer = L.layerGroup();
@@ -2923,6 +2933,45 @@
             marker.bindPopup(() => buildOutletPopup(marker.outletData, marker.getLatLng()), {
                 className: 'surya-outlet-popup', maxWidth: 380, minWidth: 280
             });
+            let hoverOpenTimer = null;
+            let hoverCloseTimer = null;
+            let popupOpenedByHover = false;
+            const clearHoverTimers = () => {
+                clearTimeout(hoverOpenTimer);
+                clearTimeout(hoverCloseTimer);
+            };
+            if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                marker.on('mouseover', () => {
+                    clearTimeout(hoverCloseTimer);
+                    if (marker.isPopupOpen()) return;
+                    hoverOpenTimer = setTimeout(() => {
+                        popupOpenedByHover = true;
+                        marker.openPopup();
+                    }, 350);
+                });
+                marker.on('mouseout', () => {
+                    clearTimeout(hoverOpenTimer);
+                    if (!popupOpenedByHover) return;
+                    hoverCloseTimer = setTimeout(() => marker.closePopup(), 300);
+                });
+                marker.on('popupopen', () => {
+                    const popupElement = marker.getPopup()?.getElement();
+                    if (!popupElement || popupElement.dataset.suryaHoverBound) return;
+                    popupElement.dataset.suryaHoverBound = '1';
+                    popupElement.addEventListener('mouseenter', () => clearTimeout(hoverCloseTimer));
+                    popupElement.addEventListener('mouseleave', () => {
+                        if (popupOpenedByHover) hoverCloseTimer = setTimeout(() => marker.closePopup(), 250);
+                    });
+                });
+                marker.on('click', () => {
+                    clearHoverTimers();
+                    popupOpenedByHover = false;
+                });
+                marker.on('popupclose', () => {
+                    clearHoverTimers();
+                    popupOpenedByHover = false;
+                });
+            }
             marker.on('popupopen', () => loadOutletDetailsForMarker(marker));
 
             markers.push(marker);
