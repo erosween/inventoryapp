@@ -2045,7 +2045,8 @@ class MonitaDumaiController extends Controller
                     ->orWhere('appsdumais.nama_outlet', 'like', '%' . $keyword . '%');
             })
             ->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
-        $data = app(SuryaOutletCoordinates::class)->outlets('appsdumais', null, $tapScopes, $outletIds)
+        $coordinateService = app(SuryaOutletCoordinates::class);
+        $data = $coordinateService->outlets('appsdumais', null, $tapScopes, $outletIds)
             ->when($tapScopes !== null, fn ($q) => $q->whereIn('tap', $tapScopes))
             ->where(function ($query) use ($keyword) {
                 $query->where('appsdumais.id_outlet', $keyword)
@@ -2053,7 +2054,14 @@ class MonitaDumaiController extends Controller
             })
             ->select('appsdumais.*')
             ->get();
-        $data = app(SuryaOutletCoordinates::class)->withVisitState($data);
+        $data = $coordinateService->withVisitState($data)
+            ->filter(fn ($outlet) => $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude))
+            ->values();
+        if ($data->isEmpty()) {
+            return response()->json([])
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                ->header('Pragma', 'no-cache');
+        }
         $outletIds = $data->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
         $salesCutoff = \App\Support\OutletSalesCutoff::latest();
         $currentStart = $salesCutoff->copy()->startOfMonth();
@@ -2181,7 +2189,11 @@ class MonitaDumaiController extends Controller
             : $coordinateService->latestVisits($outletIds)->get()->keyBy('coordinate_outlet_id');
         $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
             $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
-            if ($visit && $coordinateService->isWithinMapCoverage($visit->visit_latitude, $visit->visit_longitude)) {
+            if ($visit) {
+                if (! $coordinateService->isWithinMapCoverage($visit->visit_latitude, $visit->visit_longitude)) {
+                    return null;
+                }
+
                 $outlet->latitude = $visit->visit_latitude;
                 $outlet->longitude = $visit->visit_longitude;
                 $outlet->coordinate_source = 'visit';
@@ -2199,6 +2211,10 @@ class MonitaDumaiController extends Controller
                 $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
                 $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
             } elseif (! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude)) {
+                return null;
+            }
+
+            if (! $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude)) {
                 return null;
             }
 
@@ -2257,7 +2273,9 @@ class MonitaDumaiController extends Controller
             ->tap(fn ($query) => $this->onlyPjpOutlets($query, 'o.'))
             ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.kecamatan', 'o.latitude', 'o.longitude')
             ->addSelect($hasCategory ? 'o.kategori_outlet' : DB::raw('NULL AS kategori_outlet'))
-            ->get()->unique('id_outlet')->values();
+            ->get()->unique('id_outlet')
+            ->filter(fn ($outlet) => $coordinates->isInSuryaCounties($outlet->latitude, $outlet->longitude))
+            ->values();
         $ids = $outlets->pluck('id_outlet')->all();
         $end = Carbon::parse($request->input('to'))->addDay()->toDateString();
         $visits = DB::table('surya_visits')->whereIn('id_outlet', $ids)

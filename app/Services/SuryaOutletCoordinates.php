@@ -13,11 +13,14 @@ class SuryaOutletCoordinates
     public const DIGIPOS_MATCH_TOLERANCE_METERS = 10;
 
     // SURYA's assigned outlets are in the Dumai/Bengkalis and Rokan Hilir
-    // operating area. Keep obviously misassigned global coordinates off the map.
+    // operating area. This is only a fast prefilter; county membership is
+    // decided by the official polygons loaded by isInSuryaCounties().
     public const MAP_COVERAGE = [
-        'latitude' => [-1.2, 3.0],
-        'longitude' => [99.5, 103.2],
+        'latitude' => [-1.3, 2.7],
+        'longitude' => [99.9, 103.6],
     ];
+
+    private ?array $suryaAdministrativeAreas = null;
 
     public function isWithinMapCoverage($latitude, $longitude): bool
     {
@@ -30,6 +33,121 @@ class SuryaOutletCoordinates
             && (float) $longitude >= self::MAP_COVERAGE['longitude'][0]
             && (float) $longitude <= self::MAP_COVERAGE['longitude'][1]
             && ((float) $latitude !== 0.0 || (float) $longitude !== 0.0);
+    }
+
+    public function isInSuryaCounties($latitude, $longitude): bool
+    {
+        if (! $this->isWithinMapCoverage($latitude, $longitude)) {
+            return false;
+        }
+
+        $lat = (float) $latitude;
+        $lng = (float) $longitude;
+        foreach ($this->suryaAdministrativeAreas() as $area) {
+            [$minLng, $minLat, $maxLng, $maxLat] = $area['bounds'];
+            if ($lng < $minLng || $lng > $maxLng || $lat < $minLat || $lat > $maxLat) {
+                continue;
+            }
+
+            foreach ($area['polygons'] as $polygon) {
+                [$polygonMinLng, $polygonMinLat, $polygonMaxLng, $polygonMaxLat] = $polygon['bounds'];
+                if ($lng < $polygonMinLng || $lng > $polygonMaxLng || $lat < $polygonMinLat || $lat > $polygonMaxLat) {
+                    continue;
+                }
+
+                $rings = $polygon['rings'];
+                if (! isset($rings[0]) || ! $this->pointInRing($rings[0], $lng, $lat)) {
+                    continue;
+                }
+
+                $insideHole = false;
+                for ($ringIndex = 1, $ringCount = count($rings); $ringIndex < $ringCount; $ringIndex++) {
+                    if ($this->pointInRing($rings[$ringIndex], $lng, $lat)) {
+                        $insideHole = true;
+                        break;
+                    }
+                }
+
+                if (! $insideHole) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function suryaAdministrativeAreas(): array
+    {
+        if ($this->suryaAdministrativeAreas !== null) {
+            return $this->suryaAdministrativeAreas;
+        }
+
+        $path = resource_path('data/surya_admin_boundaries.geojson');
+        $geoJson = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $areas = [];
+        foreach ($geoJson['features'] as $feature) {
+            $geometry = $feature['geometry'];
+            $polygons = match ($geometry['type']) {
+                'Polygon' => [$geometry['coordinates']],
+                'MultiPolygon' => $geometry['coordinates'],
+                default => [],
+            };
+            $featureMinLng = $featureMinLat = INF;
+            $featureMaxLng = $featureMaxLat = -INF;
+            $preparedPolygons = [];
+            foreach ($polygons as $rings) {
+                $minLng = $minLat = INF;
+                $maxLng = $maxLat = -INF;
+                foreach ($rings as $ring) {
+                    foreach ($ring as [$pointLng, $pointLat]) {
+                        $minLng = min($minLng, $pointLng);
+                        $minLat = min($minLat, $pointLat);
+                        $maxLng = max($maxLng, $pointLng);
+                        $maxLat = max($maxLat, $pointLat);
+                    }
+                }
+
+                $featureMinLng = min($featureMinLng, $minLng);
+                $featureMinLat = min($featureMinLat, $minLat);
+                $featureMaxLng = max($featureMaxLng, $maxLng);
+                $featureMaxLat = max($featureMaxLat, $maxLat);
+                $preparedPolygons[] = [
+                    'bounds' => [$minLng, $minLat, $maxLng, $maxLat],
+                    'rings' => $rings,
+                ];
+            }
+
+            $areas[] = [
+                'bounds' => [$featureMinLng, $featureMinLat, $featureMaxLng, $featureMaxLat],
+                'polygons' => $preparedPolygons,
+            ];
+        }
+
+        return $this->suryaAdministrativeAreas = $areas;
+    }
+
+    private function pointInRing(array $ring, float $longitude, float $latitude): bool
+    {
+        $inside = false;
+        $count = count($ring);
+        for ($i = 0, $j = $count - 1; $i < $count; $j = $i++) {
+            [$xi, $yi] = $ring[$i];
+            [$xj, $yj] = $ring[$j];
+            $cross = ($longitude - $xi) * ($yj - $yi) - ($latitude - $yi) * ($xj - $xi);
+            if (abs($cross) <= 1.0e-10
+                && $longitude >= min($xi, $xj) - 1.0e-10 && $longitude <= max($xi, $xj) + 1.0e-10
+                && $latitude >= min($yi, $yj) - 1.0e-10 && $latitude <= max($yi, $yj) + 1.0e-10) {
+                return true;
+            }
+
+            if (($yi > $latitude) !== ($yj > $latitude)
+                && $longitude < ($xj - $xi) * ($latitude - $yi) / ($yj - $yi) + $xi) {
+                $inside = ! $inside;
+            }
+        }
+
+        return $inside;
     }
 
     private function eligibleVisits(string $alias, ?array $outletIds = null): Builder
