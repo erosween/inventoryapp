@@ -2168,28 +2168,28 @@ class MonitaDumaiController extends Controller
 
         $tapScopes = $this->suryaTapScopes();
         $coordinateService = app(SuryaOutletCoordinates::class);
-        // Fetch the master point first, then resolve the latest validated GPS
-        // point in one indexed query. This is the same coordinate resolver
-        // used by search/detail, so a marker never jumps when its popup opens.
+        // Restrict candidates to the service-area bounding box in SQL before
+        // looking up visit coordinates. Exact membership is still checked
+        // against the official county polygons below.
         $outlets = DB::table('appsdumais')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->where('sf', '!=', 'UNMAPPING')
             ->whereNotNull('latitude')->whereNotNull('longitude')
             ->whereRaw("TRIM(latitude) <> ''")->whereRaw("TRIM(longitude) <> ''")
-            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [-90, 90])
-            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [-180, 180])
+            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [SuryaOutletCoordinates::MAP_COVERAGE['latitude'][0], SuryaOutletCoordinates::MAP_COVERAGE['latitude'][1]])
+            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [SuryaOutletCoordinates::MAP_COVERAGE['longitude'][0], SuryaOutletCoordinates::MAP_COVERAGE['longitude'][1]])
             ->where(fn ($query) => $query->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0))
             ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
             ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")
             ->get();
 
+        $outlets = $outlets->filter(fn ($outlet) => $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude))->values();
         $outletIds = $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
         $trustedVisitCoordinates = $outletIds === []
             ? collect()
             : $coordinateService->latestVisits($outletIds)->get()->keyBy('coordinate_outlet_id');
         $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
             $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
-            $masterIsInSuryaCounties = $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude);
             $visitIsInSuryaCounties = $visit
                 && $coordinateService->isInSuryaCounties($visit->visit_latitude, $visit->visit_longitude);
 
@@ -2213,8 +2213,6 @@ class MonitaDumaiController extends Controller
                 );
                 $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
                 $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
-            } elseif (! $masterIsInSuryaCounties) {
-                return null;
             }
 
             return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
