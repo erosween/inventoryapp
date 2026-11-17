@@ -2189,11 +2189,14 @@ class MonitaDumaiController extends Controller
             : $coordinateService->latestVisits($outletIds)->get()->keyBy('coordinate_outlet_id');
         $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
             $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
-            if ($visit) {
-                if (! $coordinateService->isWithinMapCoverage($visit->visit_latitude, $visit->visit_longitude)) {
-                    return null;
-                }
+            $masterIsInSuryaCounties = $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude);
+            $visitIsInSuryaCounties = $visit
+                && $coordinateService->isInSuryaCounties($visit->visit_latitude, $visit->visit_longitude);
 
+            // A visit may only move a map marker when it remains in the same
+            // service area. Otherwise keep the verified master point so the
+            // marker cannot jump outside Bengkalis, Dumai, or Rokan Hilir.
+            if ($visit && $visitIsInSuryaCounties) {
                 $outlet->latitude = $visit->visit_latitude;
                 $outlet->longitude = $visit->visit_longitude;
                 $outlet->coordinate_source = 'visit';
@@ -2210,11 +2213,7 @@ class MonitaDumaiController extends Controller
                 );
                 $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
                 $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
-            } elseif (! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude)) {
-                return null;
-            }
-
-            if (! $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude)) {
+            } elseif (! $masterIsInSuryaCounties) {
                 return null;
             }
 
