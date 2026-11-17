@@ -737,7 +737,7 @@
                                                                 <tr>
                                                                     <td class="text-left font-weight-bold sticky-validity-col">{{ $sf->namasf }}</td>
                                                                     @for($m=1; $m<=12; $m++)
-                                                                        @php $mv = $matrixSalesSf[$sf->idsf][$m] ?? 0; $sfTotal += $mv; @endphp
+                                                                        @php $mv = collect($sf->idsfs ?? [$sf->idsf])->sum(fn ($idsf) => $matrixSalesSf[$idsf][$m] ?? 0); $sfTotal += $mv; @endphp
                                                                         <td>{{ $mv > 0 ? number_format($mv) : '-' }}</td>
                                                                     @endfor
                                                                     <td class="bg-light font-weight-bold">{{ number_format($sfTotal) }}</td>

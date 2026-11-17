@@ -248,7 +248,24 @@ class HomeController extends Controller
         /* ================= COLLAPSE SELURUH PETUGAS BY TAP ================= */
         $sfByTap = $momSf
             ->groupBy('idtap')
-            ->map(fn($rows) => $rows->sortBy('namasf')->values());
+            ->map(function ($rows) {
+                $isUnmapped = fn ($sf) => preg_match('/^N\/A(?:\s|$)/i', trim((string) $sf->namasf)) === 1;
+                $unmapped = $rows->filter($isUnmapped);
+                $displayRows = $rows->reject($isUnmapped)
+                    ->map(function ($sf) {
+                        $sf->idsfs = [$sf->idsf];
+                        return $sf;
+                    });
+
+                if ($unmapped->isNotEmpty()) {
+                    $displayRows->push((object) [
+                        'namasf' => 'N/A',
+                        'idsfs' => $unmapped->pluck('idsf')->values()->all(),
+                    ]);
+                }
+
+                return $displayRows->sortBy('namasf')->values();
+            });
 
         /* ================= NEW: MATRIX TAHUNAN PER TAP ================= */
         $selectedYear = (int) $request->query('year', date('Y'));
