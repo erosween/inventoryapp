@@ -4,6 +4,13 @@
                 $gapTone = static fn ($gap) => $gap < 0 ? 'text-danger' : ($gap > 0 ? 'text-success' : '');
                 $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
                 $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
+                $momScope = session('idtap');
+                $canSeeDumaiCluster = in_array($momScope, ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI'], true);
+                $canSeeRohilCluster = in_array($momScope, ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL'], true);
+                $canSeeAllClusters = in_array($momScope, ['SBP_DUMAI', 'ALL TAP'], true);
+                $momDefaultCluster = $momScope === 'CLUSTER_DUMAI' ? 'dumai_bengkalis' : ($momScope === 'CLUSTER_ROHIL' ? 'rokan_hilir' : 'all');
+                $dumaiTaps = ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'];
+                $rohilTaps = ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
                 $showTapInsights = request()->routeIs('surya.inventory-dashboard');
                 $tapChanges = $showTapInsights
                     ? $momProductRows->sortBy(fn ($row) => $row->curr_qty - $row->prev_partial_qty)
@@ -63,7 +70,8 @@
                     <div class="mom-insights" aria-label="Perubahan volume penjualan per TAP">
                         @foreach ([['Kenaikan terbesar', $topIncrease, '+', 'text-success'], ['Penurunan terbesar', $topDecrease, '−', 'text-danger']] as [$label, $tap, $sign, $tone])
                             @if ($tap)
-                                <span>{{ $label }} <strong>{{ $tap->idtap }}</strong>
+                                @php($insightCluster = in_array(strtoupper($tap->idtap), $dumaiTaps, true) ? 'dumai_bengkalis' : (in_array(strtoupper($tap->idtap), $rohilTaps, true) ? 'rokan_hilir' : 'other'))
+                                <span data-mom-cluster="{{ $insightCluster }}">{{ $label }} <strong>{{ $tap->idtap }}</strong>
                                     <strong class="{{ $tone }}">{{ $sign }}{{ number_format(abs($tap->curr_qty - $tap->prev_partial_qty)) }} pcs</strong>
                                     @if ($tap->prev_partial_qty > 0)
                                         ({{ $sign }}{{ number_format(abs($tap->mom), 2) }}%)
@@ -73,6 +81,13 @@
                                 </span>
                             @endif
                         @endforeach
+                    </div>
+                @endif
+                @if($canSeeDumaiCluster || $canSeeRohilCluster)
+                    <div class="mom-cluster-tabs" role="tablist" aria-label="Filter cluster MoM">
+                        @if($canSeeDumaiCluster)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'dumai_bengkalis' ? 'true' : 'false' }}" data-mom-cluster-tab="dumai_bengkalis">Dumai Bengkalis</button>@endif
+                        @if($canSeeRohilCluster)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'rokan_hilir' ? 'true' : 'false' }}" data-mom-cluster-tab="rokan_hilir">Rokan Hilir</button>@endif
+                        @if($canSeeAllClusters)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'all' ? 'true' : 'false' }}" data-mom-cluster-tab="all">All Cluster</button>@endif
                     </div>
                 @endif
                 <div class="table-responsive" id="mom-cluster-table-wrap">
@@ -110,8 +125,9 @@
                                     $dailySt = $momSelectedDate->day > 0 ? $r->curr_qty / $momSelectedDate->day : 0;
                                     $stockGudang = (float) ($stockGudangByTap[$r->idtap] ?? 0);
                                     $stockDays = $dailySt > 0 ? $stockGudang / $dailySt : 0;
+                                    $rowCluster = in_array(strtoupper($r->idtap), $dumaiTaps, true) ? 'dumai_bengkalis' : (in_array(strtoupper($r->idtap), $rohilTaps, true) ? 'rokan_hilir' : 'other');
                                 @endphp
-                                <tr class="bg-white">
+                                <tr class="bg-white" data-mom-cluster="{{ $rowCluster }}">
                                     <td class="font-weight-bold text-dark {{ $r === $topIncrease ? 'mom-impact-up' : ($r === $topDecrease ? 'mom-impact-down' : '') }}">
                                         <button class="btn btn-sm btn-light border toggle-sf rounded py-0 px-2 mr-2"
                                             type="button" aria-expanded="false" aria-label="Tampilkan rincian"
@@ -132,7 +148,7 @@
                                     <td class="text-right metric-stock-days">{{ number_format($stockDays, 0) }} hari</td>
                                 </tr>
 
-                                <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light">
+                                <tr id="sf-{{ Str::slug($r->idtap) }}" class="sf-row d-none bg-light" data-mom-cluster="{{ $rowCluster }}">
                                     <td colspan="9" class="p-0 border-0">
                                         <div class="p-3 bg-light border-left border-right">
                                             <table class="table table-sm mb-0 bg-white shadow-sm rounded">
@@ -177,7 +193,7 @@
 
                         <tfoot class="bg-light text-dark font-weight-bold" style="border-top: 2px solid #ddd">
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
-                            <tr>
+                            <tr data-mom-cluster="dumai_bengkalis">
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Dumai Bengkalis</td>
                                 <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
@@ -196,7 +212,7 @@
                             </tr>
                             @endif
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
-                            <tr>
+                            <tr data-mom-cluster="rokan_hilir">
                                 <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
                                 <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
@@ -221,7 +237,7 @@
                                 $grandPrevFull = $momProductClusters['dumai_bengkalis']->prev_full_qty + $momProductClusters['rokan_hilir']->prev_full_qty;
                                 $grandMom = $grandPrevPart > 0 ? (($grandCurr - $grandPrevPart) / $grandPrevPart) * 100 : 0;
                             @endphp
-                            <tr style="background-color: #e3f2fd;">
+                            <tr data-mom-cluster="all" style="background-color: #e3f2fd;">
                                 <td class="border-0 font-weight-bold">GRAND TOTAL MOM</td>
                                 <td class="text-right border-0 font-weight-bold">{{ number_format($grandCurr) }}</td>
                                 <td class="text-right opacity-75 border-0 font-weight-bold">{{ number_format($grandPrevPart) }}</td>

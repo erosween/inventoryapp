@@ -241,6 +241,9 @@
     #mom-cluster-card .card-header h6 { font-size: 16px; letter-spacing: -.01em; }
     #mom-cluster-card .card-header small { color: #7b8497 !important; font-weight: 600; }
     .mom-insights { display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 16px; background:#f7f9fc; border-top:1px solid #e5ebf2; font-size:13px; }
+    #mom-cluster-card .mom-cluster-tabs { display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px 0; }
+    #mom-cluster-card .mom-cluster-tabs [role="tab"] { border:1px solid #dce4eb; border-radius:8px; padding:7px 12px; background:#fff; color:#526174; font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+    #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"] { border-color:#c8102e; background:#fff2f4; color:#ad1334; }
     #mom-cluster-table-wrap th,
     #mom-cluster-table-wrap td:not(.text-success):not(.text-danger) { color: #171717 !important; }
     #mom-cluster-table-wrap .mom-impact-up { background: #edf8f2; }
@@ -1602,8 +1605,8 @@
 
             const rows = [];
             const mainBodyRows = Array.from(table.tBodies?.[0]?.rows || [])
-                .filter(tr => !tr.classList.contains('sf-row'));
-            const mainFootRows = Array.from(table.tFoot?.rows || []);
+                .filter(tr => !tr.classList.contains('sf-row') && !tr.hidden);
+            const mainFootRows = Array.from(table.tFoot?.rows || []).filter(tr => !tr.hidden);
 
             [...mainBodyRows, ...mainFootRows].forEach(tr => {
                 // Penting: pakai tr.cells dari row utama saja, jangan querySelectorAll,
@@ -2402,6 +2405,27 @@
             button.setAttribute('aria-label', expanded ? 'Tutup rincian' : 'Tampilkan rincian');
         }
 
+        let activeMomCluster = document.querySelector('#mom-cluster-card [data-mom-cluster-tab][aria-selected="true"]')?.dataset.momClusterTab || 'all';
+        function applyMomClusterFilter(cluster = activeMomCluster) {
+            const card = document.getElementById('mom-cluster-card');
+            if (!card) return;
+            const tabs = [...card.querySelectorAll('[data-mom-cluster-tab]')];
+            if (tabs.length && !tabs.some(tab => tab.dataset.momClusterTab === cluster)) {
+                cluster = tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.dataset.momClusterTab || tabs[0].dataset.momClusterTab;
+            }
+            activeMomCluster = cluster;
+            tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.momClusterTab === cluster)));
+            card.querySelectorAll('#mom-cluster-table-wrap tr[data-mom-cluster]').forEach(row => {
+                row.hidden = cluster !== 'all' && row.dataset.momCluster !== cluster;
+            });
+            const insightItems = [...card.querySelectorAll('.mom-insights [data-mom-cluster]')];
+            insightItems.forEach(item => { item.hidden = cluster !== 'all' && item.dataset.momCluster !== cluster; });
+            const insights = card.querySelector('.mom-insights');
+            if (insights) insights.hidden = insightItems.length > 0 && insightItems.every(item => item.hidden);
+        }
+
+        applyMomClusterFilter(activeMomCluster);
+
         let momLoadController = null;
         async function loadMomDateWithoutRefresh(input) {
             const form = input.form;
@@ -2444,6 +2468,7 @@
                 if (controller !== momLoadController) return;
 
                 currentCard.replaceWith(nextCard);
+                applyMomClusterFilter(activeMomCluster);
                 expandedTargets.forEach(targetId => {
                     const button = nextCard.querySelector(`.toggle-sf[aria-controls="${targetId}"]`);
                     if (button) setMomSfDetail(button, true);
@@ -2473,6 +2498,11 @@
         });
 
         document.addEventListener('click', function(event) {
+            const clusterTab = event.target.closest('[data-mom-cluster-tab]');
+            if (clusterTab) {
+                applyMomClusterFilter(clusterTab.dataset.momClusterTab);
+                return;
+            }
             const sfButton = event.target.closest('.toggle-sf');
             if (sfButton) {
                 setMomSfDetail(sfButton);
