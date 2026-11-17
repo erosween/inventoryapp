@@ -27,6 +27,7 @@
 .branding-outlet-dialog .insight-outlet-table { width:100%;min-width:1120px;border-spacing:0;border-collapse:separate;font-size:12px; }
 .branding-outlet-dialog .insight-outlet-table th { position:sticky;top:0;z-index:1;padding:13px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;font-weight:750;letter-spacing:.025em;text-align:left;white-space:nowrap; }
 .branding-outlet-dialog .insight-outlet-table td { padding:14px 16px;border-bottom:1px solid #edf1f6;color:#334155;line-height:1.45;text-align:left;vertical-align:middle;background:#fff; }
+.branding-outlet-dialog .insight-outlet-table :is(th:first-child, td:first-child) { position:static;inset-inline-start:auto;z-index:auto;box-shadow:none; }
 .branding-outlet-dialog .insight-outlet-table tr:hover td { background:#fbfcfe; }
 .branding-outlet-dialog .insight-outlet-table .insight-outlet-identity { min-width:180px; }
 .insight-outlet-identity strong { display:block;color:#172033;font-size:12px;font-weight:700; }
