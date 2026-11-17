@@ -19,6 +19,19 @@ class SuryaOutletCoordinates
         'longitude' => [99.5, 103.2],
     ];
 
+    public function isWithinMapCoverage($latitude, $longitude): bool
+    {
+        if (! is_numeric($latitude) || ! is_numeric($longitude)) {
+            return false;
+        }
+
+        return (float) $latitude >= self::MAP_COVERAGE['latitude'][0]
+            && (float) $latitude <= self::MAP_COVERAGE['latitude'][1]
+            && (float) $longitude >= self::MAP_COVERAGE['longitude'][0]
+            && (float) $longitude <= self::MAP_COVERAGE['longitude'][1]
+            && ((float) $latitude !== 0.0 || (float) $longitude !== 0.0);
+    }
+
     private function eligibleVisits(string $alias, ?array $outletIds = null): Builder
     {
         return DB::table('surya_visits as '.$alias)
@@ -55,6 +68,7 @@ class SuryaOutletCoordinates
                 'coordinate_visit.visited_at as coordinate_visited_at',
                 'coordinate_visit.latitude as visit_latitude',
                 'coordinate_visit.longitude as visit_longitude',
+                'coordinate_visit.gps_status as coordinate_gps_status',
             ]);
     }
 

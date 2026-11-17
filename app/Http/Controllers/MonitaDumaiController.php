@@ -2159,6 +2159,7 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
+        $coordinateService = app(SuryaOutletCoordinates::class);
         // Keep the first paint independent of visit history. Resolving the
         // latest GPS visit per outlet here made this endpoint exceed the
         // browser's 30-second request timeout as the history grew.
@@ -2169,13 +2170,46 @@ class MonitaDumaiController extends Controller
             ->whereRaw("TRIM(latitude) <> ''")->whereRaw("TRIM(longitude) <> ''")
             ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [-90, 90])
             ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [-180, 180])
-            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), SuryaOutletCoordinates::MAP_COVERAGE['latitude'])
-            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), SuryaOutletCoordinates::MAP_COVERAGE['longitude'])
             ->where(fn ($query) => $query->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0))
             ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
             ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")
-            ->get()
-            ->map(fn ($outlet) => array_filter(get_object_vars($outlet), fn ($value) => $value !== null));
+            ->get();
+
+        // Only consult visit history for master coordinates outside SURYA's
+        // service area. This keeps the fast first paint while allowing a
+        // validated GPS check-in to replace a clearly misassigned point.
+        $outsideOutletIds = $outlets->filter(fn ($outlet) => ! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude))
+            ->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+        $trustedVisitCoordinates = $outsideOutletIds === []
+            ? collect()
+            : $coordinateService->latestVisits($outsideOutletIds)->get()->keyBy('coordinate_outlet_id');
+        $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
+            if (! $coordinateService->isWithinMapCoverage($outlet->latitude, $outlet->longitude)) {
+                $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
+                if (! $visit || ! $coordinateService->isWithinMapCoverage($visit->visit_latitude, $visit->visit_longitude)) {
+                    return null;
+                }
+
+                $outlet->latitude = $visit->visit_latitude;
+                $outlet->longitude = $visit->visit_longitude;
+                $outlet->coordinate_source = 'visit';
+                $outlet->latest_visit_latitude = $visit->visit_latitude;
+                $outlet->latest_visit_longitude = $visit->visit_longitude;
+                $outlet->latest_visit_at = $visit->coordinate_visited_at;
+                $outlet->latest_visit_status = $visit->coordinate_gps_status;
+                $outlet->map_visit_state = 'unverified';
+                $distance = $coordinateService->coordinateDistance(
+                    $visit->visit_latitude,
+                    $visit->visit_longitude,
+                    $outlet->digipos_latitude,
+                    $outlet->digipos_longitude,
+                );
+                $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
+                $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
+            }
+
+            return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
+        })->filter()->values();
 
         return response()->json($outlets)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
