@@ -412,9 +412,19 @@ SQL;
             $registered = DB::table('surya_sa_consignment_numbers as c')
                 ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
                 ->whereIn('c.serial_number', $consignmentNumbers)
-                ->get(['c.serial_number', 'c.id_outlet', 'o.nama_outlet']);
-            // Existing numbers are allowed: they will be moved to the outlet
-            // currently selected in this transaction.
+                ->whereIn('c.status', ['draft', 'consigned', 'approved'])
+                ->orderByDesc('c.id')
+                ->get(['c.serial_number', 'c.id_outlet', 'c.status', 'o.nama_outlet'])
+                ->unique('serial_number')->keyBy('serial_number');
+            $targetOutlet = strtoupper((string) $request->id_outlet);
+            $sameOutletNumbers = collect($consignmentNumbers)->filter(function ($number) use ($registered, $targetOutlet) {
+                return (string) ($registered->get($number)->id_outlet ?? '') === $targetOutlet;
+            })->values();
+            if ($sameOutletNumbers->isNotEmpty()) {
+                return back()->withInput()->withErrors([
+                    'consignments' => 'Nomor sudah tercatat di outlet ini: '.implode(', ', $sameOutletNumbers->take(5)->all()).'.',
+                ]);
+            }
         }
 
         if ($products === [] && $consignmentNumbers === []) {
@@ -580,9 +590,25 @@ SQL;
                     $timestamp = now();
                     $existingConsignments = DB::table('surya_sa_consignment_numbers')
                         ->whereIn('serial_number', $consignmentNumbers)
+                        ->whereIn('status', ['draft', 'consigned', 'approved'])
                         ->where('id_outlet', '<>', $requestedOutlet)
                         ->whereNotNull('id_outlet')
-                        ->get(['serial_number', 'id_outlet']);
+                        ->orderByDesc('id')
+                        ->lockForUpdate()
+                        ->get(['id', 'serial_number', 'id_outlet'])
+                        ->unique('serial_number')->keyBy('serial_number');
+                    $existingAtTarget = DB::table('surya_sa_consignment_numbers')
+                        ->whereIn('serial_number', $consignmentNumbers)
+                        ->where('id_outlet', $requestedOutlet)
+                        ->whereIn('status', ['draft', 'consigned', 'approved'])
+                        ->orderByDesc('id')
+                        ->lockForUpdate()
+                        ->first(['serial_number']);
+                    if ($existingAtTarget) {
+                        throw ValidationException::withMessages([
+                            'consignments' => "Nomor {$existingAtTarget->serial_number} sudah tercatat di outlet ini.",
+                        ]);
+                    }
                     foreach ($existingConsignments as $existing) {
                         DB::table('surya_sa_consignment_movements')->insert([
                             'serial_number' => $existing->serial_number,
@@ -598,21 +624,14 @@ SQL;
                     }
                     DB::table('surya_sa_consignment_numbers')
                         ->whereIn('serial_number', $consignmentNumbers)
-                        ->get(['id', 'serial_number'])
-                        ->each(function ($existing) use ($receipt, $timestamp, $requestedOutlet, $idsf, $request, $consignmentDenomByNumber) {
-                            DB::table('surya_sa_consignment_numbers')->where('id', $existing->id)->update([
-                                'receipt_id' => $receipt->id,
-                                'reported_at' => $timestamp,
-                                'id_outlet' => $requestedOutlet,
-                                'idtap' => session('idtap'),
-                                'idsf' => $idsf,
-                                'iddenom' => $consignmentDenomByNumber[$existing->serial_number] ?? null,
-                                'status' => 'draft',
-                                'notes' => $request->keterangan,
-                                'updated_at' => $timestamp,
-                            ]);
-                        });
-                    DB::table('surya_sa_consignment_numbers')->insertOrIgnore(
+                        ->whereIn('status', ['draft', 'consigned', 'approved'])
+                        ->where('id_outlet', '<>', $requestedOutlet)
+                        ->whereNotNull('id_outlet')
+                        ->update([
+                            'status' => 'migrated',
+                            'updated_at' => $timestamp,
+                        ]);
+                    DB::table('surya_sa_consignment_numbers')->insert(
                         collect($consignmentNumbers)->map(fn (string $number) => [
                             'receipt_id' => $receipt->id,
                             'reported_at' => $timestamp,
@@ -691,19 +710,28 @@ SQL;
         $registered = DB::table('surya_sa_consignment_numbers as c')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
             ->whereIn('c.serial_number', $numbers)
+            ->whereIn('c.status', ['draft', 'consigned', 'approved'])
+            ->orderByDesc('c.id')
             ->get(['c.serial_number', 'c.id_outlet', 'c.status', 'o.nama_outlet'])
-            ->keyBy('serial_number');
+            ->unique('serial_number')->keyBy('serial_number');
 
         $targetOutlet = $validated['id_outlet'] ?? null;
 
+        if ($targetOutlet && $numbers->contains(fn ($number) => (string) ($registered->get($number)->id_outlet ?? '') === strtoupper((string) $targetOutlet))) {
+            $sameOutletNumbers = $numbers->filter(fn ($number) => (string) ($registered->get($number)->id_outlet ?? '') === strtoupper((string) $targetOutlet));
+        } else {
+            $sameOutletNumbers = collect();
+        }
+
         return response()->json([
-            'results' => $numbers->map(function ($number) use ($registered, $targetOutlet) {
+            'results' => $numbers->map(function ($number) use ($registered, $targetOutlet, $sameOutletNumbers) {
                 $match = $registered->get($number);
+                $sameOutlet = $sameOutletNumbers->contains($number);
 
                 return [
                     'number' => $number,
-                    'available' => ! $match || ($targetOutlet && $match->id_outlet !== $targetOutlet),
-                    'will_move' => (bool) ($targetOutlet && $match && $match->id_outlet !== $targetOutlet),
+                    'available' => ! $sameOutlet && (! $match || (bool) ($targetOutlet && (string) $match->id_outlet !== strtoupper((string) $targetOutlet))),
+                    'will_move' => (bool) (! $sameOutlet && $targetOutlet && $match && (string) $match->id_outlet !== strtoupper((string) $targetOutlet)),
                     'id_outlet' => $match->id_outlet ?? null,
                     'nama_outlet' => $match->nama_outlet ?? null,
                 ];
