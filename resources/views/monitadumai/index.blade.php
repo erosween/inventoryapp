@@ -2764,7 +2764,6 @@
                     loadedOutletPoints = outlets;
                     await initMap(outlets);
                     outletDataLoaded = true;
-                    if (!window.matchMedia('(max-width: 680px)').matches && !insightLoaded && !insightRequest) loadOutletInsights();
                     const visitedCount = outlets.filter(outlet => outlet.has_front_photo).length;
                     if (countEl) countEl.textContent = `${outlets.length.toLocaleString('en-US')} outlet · ${visitedCount.toLocaleString('en-US')} sudah visit`;
                 } catch (error) {

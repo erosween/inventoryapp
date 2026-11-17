@@ -2153,8 +2153,7 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        app(SuryaOutletCoordinates::class)->approveExpiredVisits($tapScopes);
-        $outlets = app(SuryaOutletCoordinates::class)->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'])
+        $outlets = app(SuryaOutletCoordinates::class)->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'], $tapScopes)
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('o.tap', $tapScopes))
             ->where('o.sf', '!=', 'UNMAPPING')
             ->whereNotNull('o.latitude')->whereNotNull('o.longitude')
@@ -2240,9 +2239,8 @@ class MonitaDumaiController extends Controller
 
         $scopes = $this->suryaTapScopes();
         $coordinates = app(SuryaOutletCoordinates::class);
-        $coordinates->approveExpiredVisits($scopes);
         $hasCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
-        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', 'kecamatan', 'pjp', ...($hasCategory ? ['kategori_outlet'] : [])])
+        $outlets = $coordinates->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap', 'kecamatan', 'pjp', ...($hasCategory ? ['kategori_outlet'] : [])], $scopes)
             ->when($scopes !== null, fn ($query) => $query->whereIn('o.tap', $scopes))
             ->tap(fn ($query) => $this->onlyPjpOutlets($query, 'o.'))
             ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap', 'o.kecamatan', 'o.latitude', 'o.longitude')
