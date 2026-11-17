@@ -17,7 +17,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class HistoricalSaSalesImport
 {
-    private const START_DATE = '2026-01-01';
+    private const START_DATE = '2025-01-01';
     private const END_DATE = '2026-10-15';
 
     public function import(UploadedFile $file): array
@@ -51,7 +51,7 @@ class HistoricalSaSalesImport
             try {
                 $date = $this->parseDate($values[$columns['date']] ?? null);
                 if ($date < self::START_DATE || $date > self::END_DATE) {
-                    throw new \InvalidArgumentException('tanggal harus 1 Jan–15 Okt 2026');
+                    throw new \InvalidArgumentException('tanggal harus 1 Jan 2025–15 Okt 2026');
                 }
                 $name = mb_strtoupper(preg_replace('/\s+/u', ' ', trim((string) ($values[$columns['sf']] ?? ''))));
                 if ($name === '') throw new \InvalidArgumentException('Nama SF kosong');
@@ -91,8 +91,9 @@ class HistoricalSaSalesImport
             $row['date'], $row['tap'], $row['sf_name'], $row['iddenom'], $row['qty'],
         ])->sortBy(fn ($row) => implode('|', $row))->values()->all();
         $fingerprint = substr(hash('sha256', json_encode($canonicalRows, JSON_THROW_ON_ERROR)), 0, 20);
-        $marker = 'Histori SA 2026-01-01..2026-10-15 #'.$fingerprint;
-        if (Schema::hasColumn('keluarsf', 'tambahanket') && DB::table('keluarsf')->where('tambahanket', $marker)->exists()) {
+        $marker = 'Histori SA 2025-01-01..2026-10-15 #'.$fingerprint;
+        $legacyMarker = 'Histori SA 2026-01-01..2026-10-15 #'.$fingerprint;
+        if (Schema::hasColumn('keluarsf', 'tambahanket') && DB::table('keluarsf')->whereIn('tambahanket', [$marker, $legacyMarker])->exists()) {
             $this->fail('File ini sudah pernah diimpor. Tidak ada data yang ditambahkan ulang.');
         }
 
