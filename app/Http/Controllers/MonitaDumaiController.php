@@ -2159,44 +2159,21 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        // Limit visit-coordinate lookups to this map's outlets. Computing the
-        // latest GPS visit for every historical visit outlet makes the first
-        // map request expensive as the visit table grows.
-        $mapOutletIds = DB::table('appsdumais')
+        // Keep the first paint independent of visit history. Resolving the
+        // latest GPS visit per outlet here made this endpoint exceed the
+        // browser's 30-second request timeout as the history grew.
+        $outlets = DB::table('appsdumais')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->where('sf', '!=', 'UNMAPPING')
             ->whereNotNull('latitude')->whereNotNull('longitude')
-            ->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
-
-        $outlets = collect();
-        foreach (array_chunk($mapOutletIds, 400) as $outletIdChunk) {
-            $outlets = $outlets->concat(app(SuryaOutletCoordinates::class)
-                ->outlets('o', ['id_outlet', 'nama_outlet', 'sf', 'tap'], null, $outletIdChunk)
-                ->whereIn('o.id_outlet', $outletIdChunk)
-                ->select('o.id_outlet', 'o.nama_outlet', 'o.sf', 'o.tap')
-                ->addSelect('o.latitude', 'o.longitude', 'o.coordinate_source', 'o.coordinate_visit_id', 'o.coordinate_visited_at')
-                ->addSelect('o.digipos_latitude', 'o.digipos_longitude')
-                ->get());
-        }
-
-        // Return map markers immediately from outlet/coordinate data. Visit
-        // status and photos are optional popup details and must not block map
-        // rendering when visit history is large or temporarily unavailable.
-        $outlets = $outlets->map(function ($outlet) {
-            $outlet->map_visit_state = 'unvisited';
-            $outlet->latest_visit_status = null;
-            $outlet->latest_visit_at = null;
-            $outlet->latest_visit_latitude = null;
-            $outlet->latest_visit_longitude = null;
-            $outlet->latest_visit_accuracy = null;
-            $outlet->visit_digipos_distance_meters = null;
-            $outlet->visit_digipos_match = null;
-            $outlet->has_front_photo = false;
-
-            return $outlet;
-        });
-
-        $data = $outlets->map(fn ($outlet) => array_filter(get_object_vars($outlet), fn ($value) => $value !== null));
+            ->whereRaw("TRIM(latitude) <> ''")->whereRaw("TRIM(longitude) <> ''")
+            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [-90, 90])
+            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [-180, 180])
+            ->where(fn ($query) => $query->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0))
+            ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
+            ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")
+            ->get()
+            ->map(fn ($outlet) => array_filter(get_object_vars($outlet), fn ($value) => $value !== null));
 
         return response()->json($data)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
