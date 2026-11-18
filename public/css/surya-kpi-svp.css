@@ -25,7 +25,7 @@
 .svp-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .svp-region, .svp-segment { background: var(--svp-surface); border: 1px solid var(--svp-line); border-radius: 14px; }
 .svp-region { padding: 16px 18px; text-align: left; color: var(--svp-ink); font: inherit; cursor: pointer; }
-.svp-region[aria-pressed="true"] { border-color: var(--svp-red); box-shadow: inset 0 3px var(--svp-red); }
+.svp-region[aria-pressed="true"] { border-color: var(--svp-red); background-color: #fff6f7; background-image: none; }
 .svp-region-top strong { font-size: 1rem; }
 .svp-region-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 13px; }
 .svp-region-scores > span { padding-top: 10px; border-top: 1px solid var(--svp-line); }
@@ -146,7 +146,7 @@
 .svp-region, .svp-segment, .svp-matrix-card { box-shadow: 0 4px 18px #14243a08; }
 .svp-region { transition: border-color .16s, background-color .16s; }
 .svp-region:hover { border-color: #b58c97; }
-.svp-region[aria-pressed="true"] { background: linear-gradient(140deg, #fff6f7, #fff 58%); }
+.svp-region[aria-pressed="true"] { background-color: #fff6f7; background-image: none; }
 .svp-region-scores b { font-size: clamp(1.25rem, 2.6vw, 1.8rem); }
 .svp-matrix-result { padding-block: 8px; }
 .svp-matrix-scores > span {

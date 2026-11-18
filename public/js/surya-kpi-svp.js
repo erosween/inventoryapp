@@ -362,8 +362,16 @@
                 backgroundColor: '#eef2f6',
                 scale: Math.min(window.devicePixelRatio || 1, 2),
                 useCORS: true,
-                windowWidth: Math.max(window.innerWidth, 1280),
+                scrollX: 0,
+                scrollY: 0,
                 ignoreElements: element => element.id === 'svp-copy-png' || element.id === 'svp-status',
+                onclone: clonedDocument => {
+                    clonedDocument.querySelectorAll('.svp-region[aria-pressed="true"]').forEach(regionCard => {
+                        regionCard.style.setProperty('background-color', '#fff6f7');
+                        regionCard.style.setProperty('background-image', 'none');
+                        regionCard.style.setProperty('box-shadow', 'none');
+                    });
+                },
             });
             const png = await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG tidak dapat dibuat.')), 'image/png'));
             const region = document.querySelector('[data-svp-region][aria-pressed="true"]')?.dataset.svpRegion || 'kpi';
