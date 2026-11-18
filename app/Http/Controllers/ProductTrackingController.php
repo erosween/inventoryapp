@@ -49,19 +49,23 @@ class ProductTrackingController extends MonitaDumaiController
             ->orderBy('outlet.tap')->orderBy('outlet.nama_outlet');
 
         // Aggregate at the database so validation stays responsive for large sales periods.
-        $outletQuery = DB::query()->fromSub(clone $sourceQuery, 'rows')
+        $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
             ->selectRaw('id_outlet, MAX(nama_outlet) AS nama_outlet, COALESCE(MAX(tap), ?) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty', ['Tanpa TAP'])
             ->groupBy('id_outlet');
-        $outlets = DB::query()->fromSub($outletQuery, 'outlets')
-            ->selectRaw('id_outlet, nama_outlet, tap, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty')
+        $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
+            ->selectRaw('id_outlet, nama_outlet, tap, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
+        $outlets = (clone $outletQuery)
             ->orderBy('nama_outlet')->get();
 
         $tapSummaries = DB::query()->fromSub($outletQuery, 'outlets')
             ->selectRaw('tap AS `key`, tap AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty')
             ->groupBy('tap')->orderBy('tap')->get();
 
-        $sfSummaries = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw('idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COUNT(DISTINCT id_outlet) AS outlet_count, COUNT(DISTINCT CASE WHEN matched_qty >= qty THEN id_outlet END) AS matched_outlets, COUNT(DISTINCT CASE WHEN matched_qty < qty THEN id_outlet END) AS mismatch_outlets, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty', ['Tanpa Sales Force'])
+        $sfTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
+            ->selectRaw('idsf, id_outlet, MAX(namasf) AS namasf, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
+            ->groupBy('idsf', 'id_outlet');
+        $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
+            ->selectRaw('idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty', ['Tanpa Sales Force'])
             ->groupBy('idsf')->orderBy('label')->get();
 
         $totals = DB::query()->fromSub($outletQuery, 'outlets')->selectRaw('COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS serial_count, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty')->first();
