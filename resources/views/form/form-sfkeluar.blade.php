@@ -135,7 +135,7 @@
 
         .sf-field label i { margin-right: 6px; color: #9299aa; }
         .sf-field .form-control,
-        .sf-out-table .form-control,
+        .sf-item-card .form-control,
         .sf-out-page .select2-container .select2-selection--single {
             height: 40px !important;
             border: 1px solid #dfe3eb !important;
@@ -153,7 +153,7 @@
         .sf-out-page .select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; right: 7px; }
         .sf-out-page .select2-container--focus .select2-selection--single,
         .sf-field .form-control:focus,
-        .sf-out-table .form-control:focus {
+        .sf-item-card .form-control:focus {
             border-color: #7771ea !important;
             box-shadow: 0 0 0 4px rgba(79, 70, 229, .1) !important;
         }
@@ -191,30 +191,34 @@
         }
         .sf-add-btn:hover { border-color: #c3bffa !important; background: #e9e7ff !important; }
 
-        .sf-out-table { min-width: 780px; margin: 0 !important; }
-        .sf-out-table thead th {
-            padding: 9px 13px !important;
-            border: 0 !important;
-            border-bottom: 1px solid var(--sf-line) !important;
-            background: #fff;
-            color: #788296;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-        }
-        .sf-out-table tbody td { padding: 8px 13px !important; border-color: #edf0f4 !important; vertical-align: middle; }
-        .sf-out-table tbody tr:last-child td { border-bottom: 0; }
-        .sf-out-table .form-control { height: 36px !important; font-size: 12px; }
-        .sf-out-table .select2-container .select2-selection--single { height: 36px !important; padding: 3px 8px !important; }
-        .sf-out-table .select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; }
-        .sf-out-table .bulk-stock { color: #39445a; font-size: 13px; font-weight: 700; }
-        .sf-out-table .bulk-qty.is-invalid {
+        .sf-item-list { display:grid; gap:12px; padding:14px; }
+        .sf-item-card { display:grid; grid-template-columns:minmax(190px,1.1fr) 92px 128px minmax(380px,1.8fr) minmax(220px,1fr) 34px; align-items:start; gap:12px; padding:14px; border:1px solid #e8ebf2; border-radius:13px; background:#fff; }
+        .sf-item-card > * { min-width:0; }
+        .sf-item-label { display:block; margin-bottom:6px; color:#788296; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+        .sf-item-stock { display:flex; align-items:center; min-height:40px; color:#39445a; font-size:13px; font-weight:750; font-variant-numeric:tabular-nums; }
+        .sf-item-card .form-control,
+        .sf-item-card .select2-container .select2-selection--single { height:40px !important; font-size:12px; }
+        .sf-item-card .select2-container .select2-selection--single { padding:5px 8px !important; }
+        .sf-item-card .select2-container--default .select2-selection--single .select2-selection__arrow { height:38px; }
+        .sf-qty-display { display:flex; align-items:center; justify-content:center; min-height:40px; border:1px solid #e3e7ef; border-radius:9px; background:#f8f9fc; color:#334155; font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; }
+        .sf-qty-display.is-empty { color:#9aa3b2; }
+        .sf-serial-top { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:12px; margin-bottom:6px; }
+        .sf-serial-fields { display:grid; grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr); align-items:start; gap:8px; }
+        .sf-serial-field { min-width:0; }
+        .sf-serial-field-label { display:none; }
+        .sf-serial-separator { display:flex; align-items:center; justify-content:center; height:40px; color:#8b95a5; font-size:12px; font-weight:800; text-align:center; }
+        .sf-serial-hint { display:block; min-height:15px; margin-top:6px; color:#718096; font-size:10px; line-height:1.4; }
+        .sf-serial-hint.is-invalid { color:#d11a3f; }
+        .sf-serial-hint.is-valid { color:#059669; }
+        .sf-item-note { grid-column:5; grid-row:1; padding-top:0; }
+        .sf-item-note .sf-item-label { margin-bottom:8px; }
+        .sf-item-note .form-control { min-height:40px; }
+        .sf-item-card .bulk-qty.is-invalid {
             border-color: #e11d48 !important;
             background: #fff7f8;
             box-shadow: 0 0 0 4px rgba(225, 29, 72, .08) !important;
         }
-        .sf-out-table .bulk-error {
+        .sf-item-card .bulk-error {
             display: none;
             margin-top: 7px;
             color: #d11a3f;
@@ -222,9 +226,9 @@
             font-weight: 600;
             line-height: 1.35;
         }
-        .sf-out-table .bulk-error.is-visible { display: flex; align-items: flex-start; gap: 5px; }
-        .sf-out-table .bulk-error i { margin-top: 1px; }
-        .sf-out-table .remove-bulk-row {
+        .sf-item-card .bulk-error.is-visible { display: flex; align-items: flex-start; gap: 5px; }
+        .sf-item-card .bulk-error i { margin-top: 1px; }
+        .sf-item-card .remove-bulk-row {
             width: 32px;
             height: 32px;
             padding: 0 !important;
@@ -256,10 +260,36 @@
             .sf-out-status { margin-top: 16px; }
             .sf-out-card .card-header, .sf-out-card .card-body, .sf-out-card .card-footer { padding-left: 18px; padding-right: 18px; }
             .sf-form-grid { grid-template-columns: 1fr; gap: 16px; }
-            .sf-denom-toolbar { align-items: flex-start; flex-direction: column; }
-            .sf-add-btn { width: 100%; }
+            .sf-denom-toolbar { align-items: flex-start; flex-direction: row; }
+            .sf-add-btn { flex:0 0 auto; }
             .sf-out-card .card-footer { justify-content: stretch !important; }
             .sf-back-btn, .sf-save-btn { flex: 1; }
+        }
+        @media (max-width: 1100px) {
+            .sf-item-card { grid-template-columns:minmax(0,1fr) 82px 130px 36px; }
+            .sf-item-product { grid-column:1 / 3; }
+            .sf-item-stock-wrap { grid-column:3; }
+            .sf-item-qty-wrap { grid-column:1 / 3; grid-row:2; }
+            .sf-item-remove { grid-column:4; grid-row:1; }
+            .sf-item-serial { grid-column:1 / -1; grid-row:3; }
+            .sf-item-note { grid-column:1 / -1; grid-row:4; }
+            .sf-item-note .sf-item-label { margin-bottom:6px; }
+        }
+        @media (max-width: 575.98px) {
+            .sf-out-page .card-header,.sf-out-page .card-body,.sf-out-page .card-footer { padding-left:14px; padding-right:14px; }
+            .sf-denom-toolbar { gap:8px; padding:12px; }
+            .sf-denom-hint { max-width:230px; line-height:1.4; }
+            .sf-add-btn { white-space:nowrap; padding:9px 10px!important; }
+            .sf-item-list { padding:10px; }
+            .sf-item-card { grid-template-columns:minmax(0,1fr) 78px 34px; gap:10px; padding:12px; }
+            .sf-item-product { grid-column:1 / 3; }
+            .sf-item-stock-wrap { grid-column:1; grid-row:2; }
+            .sf-item-qty-wrap { grid-column:2; grid-row:2; }
+            .sf-item-remove { grid-column:3; grid-row:1; }
+            .sf-item-serial { grid-column:1 / -1; grid-row:3; }
+            .sf-item-note { grid-column:1 / -1; grid-row:4; }
+            .sf-serial-fields { gap:5px; grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr); }
+            .sf-serial-fields .form-control { min-width:0; padding:0 9px; }
         }
     </style>
 
@@ -340,25 +370,18 @@
                                             </div>
                                         </div>
 
-                                        <input type="hidden" id="input_mode" value="bulk">
-
                                     </div>
 
                                     <div id="bulk-entry">
                                         <div class="sf-denom-section">
                                             <div class="sf-denom-toolbar">
                                                 <div>
-                                                    <div class="sf-denom-title">Daftar Denom</div>
-                                                    <p class="sf-denom-hint">Pilih denom lalu masukkan jumlah stok yang akan dikeluarkan.</p>
+                                                    <div class="sf-denom-title">Daftar Denom & Nomor Seri</div>
+                                                <p class="sf-denom-hint">Isi SN awal. SN akhir opsional untuk rentang; kosongkan untuk 1 pcs. Qty dihitung otomatis.</p>
                                                 </div>
                                                 <button type="button" class="btn sf-add-btn" id="add-bulk-row"><i class="fas fa-plus mr-1"></i> Tambah Denom</button>
                                             </div>
-                                            <div class="table-responsive">
-                                                <table class="table sf-out-table">
-                                                    <thead><tr><th>Denom</th><th width="130">Stok Tersedia</th><th width="130">Jumlah Keluar</th><th>SN / Keterangan</th><th width="64"><span class="sr-only">Aksi</span></th></tr></thead>
-                                                    <tbody id="bulk-rows"></tbody>
-                                                </table>
-                                            </div>
+                                            <div id="bulk-rows" class="sf-item-list" aria-live="polite"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -462,7 +485,6 @@
                     .done(res => {
                         sfStockData = res;
                         refreshAvailableDenoms();
-                        if ($('#input_mode').val() === 'bulk') $('#submitBtn').prop('disabled', false);
                     });
             });
 
@@ -504,41 +526,24 @@
                 }
             });
 
-            /* ================= ANTI DOUBLE SUBMIT ================= */
-            let submitting = false;
-            $('#mainForm').on('submit', function(e) {
-                if (submitting) return false;
-
-                if ($('#input_mode').val() === 'bulk') {
-                    let valid = true;
-                    const requested = {};
-                    $('#bulk-rows tr').each(function() {
-                        const denom = $(this).find('.bulk-denom').val();
-                        const qty = parseInt($(this).find('.bulk-qty').val()) || 0;
-                        if (!denom || qty < 1) {
-                            valid = false;
-                            return;
-                        }
-                        requested[denom] = (requested[denom] || 0) + qty;
-                    });
-                    Object.entries(requested).forEach(([denom, qty]) => {
-                        if (qty > (parseInt(sfStockData[denom]) || 0)) valid = false;
-                    });
-                    if (!valid) {
-                        e.preventDefault();
-                        Swal.fire({ icon: 'error', title: 'Periksa Daftar Denom', text: 'Qty salah satu denom melebihi stok petugas atau data belum lengkap.' });
-                        return false;
-                    }
-                }
-                submitting = true;
-
-                $('#submitBtn')
-                    .prop('disabled', true)
-                    .text('Menyimpan...');
-            });
-
-            const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
+            /* ================= SERIAL INPUT ================= */
+            const bulkDenoms = @json($bulkDenomMetadata);
             let bulkIndex = 0;
+            function bulkStarterPack(iddenom) {
+                const denom = bulkDenoms.find(item => String(item.id) === String(iddenom));
+                if (!denom) return false;
+                const id = String(denom.id || '').trim().toUpperCase();
+                return ['SA', 'SP'].includes(String(denom.product_group || '').trim().toUpperCase())
+                    || ['SA', 'SEGEL'].includes(String(denom.kategori_inject || '').trim().toUpperCase())
+                    || ['SA', 'SEGEL'].includes(String(denom.group_name || '').trim().toUpperCase())
+                    || id.startsWith('SP');
+            }
+            function bulkSerialRangeQty(start, end, starterPack) {
+                const pattern = starterPack ? /^0\d{15}$/ : /^\d{12}$/;
+                if (!pattern.test(start || '') || !pattern.test(end || '')) return 0;
+                const qty = BigInt(end) - BigInt(start) + 1n;
+                return qty > 0n && qty <= 2000000n ? Number(qty) : 0;
+            }
             function availableDenoms() {
                 return bulkDenoms.filter(d => (parseInt(sfStockData[d.id]) || 0) > 0);
             }
@@ -547,16 +552,10 @@
             }
             function refreshAvailableDenoms() {
                 const options = denomOptions();
-                const bulk = $('#input_mode').val() === 'bulk';
-                $('#iddenom')
-                    .html(`<option value="">Pilih / cari denom</option>${options}`)
-                    .prop('disabled', !$('#idsf').val() || bulk)
-                    .val(null)
-                    .trigger('change');
                 $('.bulk-denom').each(function() {
                     $(this)
                         .html(`<option value="">Pilih / cari denom</option>${options}`)
-                        .prop('disabled', !$('#idsf').val() || !bulk)
+                        .prop('disabled', !$('#idsf').val())
                         .val(null)
                         .trigger('change');
                 });
@@ -565,19 +564,51 @@
             function validateBulkRows() {
                 const requested = {};
                 let hasStockError = false;
+                let hasSerialError = false;
+                let hasIncompleteRow = false;
 
-                $('#bulk-rows tr').each(function() {
+                $('#bulk-rows .sf-item-card').each(function() {
                     const $row = $(this);
                     const denom = $row.find('.bulk-denom').val();
                     const $qty = $row.find('.bulk-qty');
+                    const $qtyDisplay = $row.find('.sf-qty-display');
                     const $error = $row.find('.bulk-error');
-                    const qty = parseInt($qty.val(), 10) || 0;
+                    const $hint = $row.find('.sf-serial-hint');
                     const stock = parseInt(sfStockData[denom], 10) || 0;
+                    const starterPack = bulkStarterPack(denom);
+                    let qty = 0;
+                    let error = '';
 
+                    $qty.val('');
+                    $qtyDisplay.text('—').addClass('is-empty');
                     $qty.removeClass('is-invalid').removeAttr('aria-invalid');
                     $error.removeClass('is-visible').empty();
+                    $row.find('.bulk-serial-value, .bulk-sn-start, .bulk-sn-end').removeClass('is-invalid').removeAttr('aria-invalid');
+                    $hint.removeClass('is-invalid is-valid').text('');
 
-                    if (!denom || qty < 1) return;
+                    if (!denom) {
+                        hasIncompleteRow = true;
+                        return;
+                    }
+
+                    const start = String($row.find('.bulk-sn-start').val() || '');
+                    const end = String($row.find('.bulk-sn-end').val() || '');
+                    const expected = starterPack ? 'SN perdana tepat 16 digit, diawali 0.' : 'SN voucher tepat 12 digit.';
+                    if (!start) error = `SN awal wajib diisi. ${expected}`;
+                    else {
+                        qty = bulkSerialRangeQty(start, end || start, starterPack);
+                        if (!qty) error = `${expected} Rentang harus berurutan dan maksimal 2.000.000 SN.`;
+                    }
+
+                    if (error) {
+                        hasSerialError = true;
+                        $row.find('.bulk-sn-start, .bulk-sn-end').addClass('is-invalid').attr('aria-invalid', 'true');
+                        $hint.text(error).addClass('is-invalid');
+                    } else if (qty > 0) {
+                        $qty.val(qty);
+                        $qtyDisplay.text(qty.toLocaleString('id-ID')).removeClass('is-empty');
+                        $hint.text(end ? `${qty.toLocaleString('id-ID')} SN terhitung dari rentang.` : '1 pcs terhitung dari SN awal.').addClass('is-valid');
+                    }
 
                     requested[denom] = (requested[denom] || 0) + qty;
                     if (qty > stock || requested[denom] > stock) {
@@ -589,53 +620,63 @@
                     }
                 });
 
-                $('#submitBtn').prop('disabled', hasStockError || !$('#idsf').val());
-                return !hasStockError;
+                const canSave = $('#idsf').val() && Object.keys(requested).length > 0 && !hasIncompleteRow && !hasStockError && !hasSerialError;
+                $('#submitBtn').prop('disabled', !canSave);
+                return Boolean(canSave);
             }
             function addBulkRow() {
                 const index = bulkIndex++;
                 const options = denomOptions();
                 const disabled = $('#idsf').val() ? '' : 'disabled';
-                const row = $(`<tr>
-                    <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${options}</select></td>
-                    <td class="bulk-stock text-right align-middle">-</td>
-                    <td><input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-qty" min="1" required><div class="bulk-error" role="alert" aria-live="polite"></div></td>
-                    <td><input type="text" name="items[${index}][tambahanket]" class="form-control form-control-sm"></td>
-                    <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row">×</button></td>
-                </tr>`);
+                const row = $(`<div class="sf-item-card">
+                    <div class="sf-item-product"><label class="sf-item-label">Produk</label><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${options}</select></div>
+                    <div class="sf-item-stock-wrap"><label class="sf-item-label">Stok</label><div class="sf-item-stock">—</div></div>
+                    <div class="sf-item-qty-wrap"><label class="sf-item-label">Qty otomatis</label><div class="sf-qty-display is-empty">—</div><input type="hidden" name="items[${index}][qty]" class="bulk-qty"><div class="bulk-error" role="alert" aria-live="polite"></div></div>
+                    <div class="sf-item-serial"><div class="sf-serial-top"><label class="sf-item-label mb-0">Identitas penjualan</label></div>
+                        <input type="hidden" name="items[${index}][serial_mode]" value="range">
+                        <input type="hidden" name="items[${index}][identifier_type]" value="sn">
+                        <div class="sf-serial-fields"><div class="sf-serial-field"><label class="sf-serial-field-label" for="sn-start-${index}">SN awal</label><input type="text" id="sn-start-${index}" name="items[${index}][sn_start]" class="form-control bulk-sn-start" inputmode="numeric" autocomplete="off" aria-label="SN awal" placeholder="SN awal"></div><span class="sf-serial-separator" aria-hidden="true">–</span><div class="sf-serial-field"><label class="sf-serial-field-label" for="sn-end-${index}">SN akhir (opsional)</label><input type="text" id="sn-end-${index}" name="items[${index}][sn_end]" class="form-control bulk-sn-end" inputmode="numeric" autocomplete="off" aria-label="SN akhir (opsional)" placeholder="SN akhir · kosongkan untuk 1 pcs"></div></div>
+                        <small class="sf-serial-hint" role="status" aria-live="polite">SN awal wajib. Isi SN akhir untuk rentang; kosongkan untuk 1 pcs.</small></div>
+                    <div class="sf-item-remove"><button type="button" class="btn btn-link text-danger remove-bulk-row" aria-label="Hapus baris">×</button></div>
+                    <div class="sf-item-note"><label class="sf-item-label" for="item-note-${index}">Keterangan <span class="text-muted font-weight-normal">(opsional)</span></label><input type="text" id="item-note-${index}" name="items[${index}][tambahanket]" class="form-control" maxlength="255" placeholder="Tambahkan catatan"></div>
+                </div>`);
                 $('#bulk-rows').append(row);
                 row.find('.bulk-denom').select2({
                     placeholder: 'Pilih / cari denom',
                     allowClear: true,
                     width: '100%',
-                    dropdownParent: $(document.body)
+                    dropdownParent: $('.sf-out-page')
                 });
             }
-            $('#input_mode').on('change', function() {
-                const bulk = this.value === 'bulk';
-                $('.single-entry').toggleClass('d-none', bulk).find(':input').prop('disabled', bulk);
-                $('#bulk-entry').toggleClass('d-none', !bulk).find(':input').prop('disabled', !bulk);
-                if (bulk && !$('#bulk-rows tr').length) addBulkRow();
-                $('.bulk-denom').prop('disabled', !bulk || !$('#idsf').val());
-                $('#iddenom').prop('disabled', bulk || !$('#idsf').val());
-                if (bulk) $('#submitBtn').prop('disabled', false);
-            });
             $('#add-bulk-row').on('click', addBulkRow);
             $('#bulk-rows').on('click', '.remove-bulk-row', function() {
-                if ($('#bulk-rows tr').length > 1) {
-                    $(this).closest('tr').remove();
+                if ($('#bulk-rows .sf-item-card').length > 1) {
+                    $(this).closest('.sf-item-card').remove();
                     validateBulkRows();
                 }
             }).on('change', '.bulk-denom', function() {
                 const stock = parseInt(sfStockData[$(this).val()]) || 0;
-                $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
+                const $row = $(this).closest('.sf-item-card');
+                $row.find('.sf-item-stock').text(stock.toLocaleString('id-ID'));
+                $row.find('.bulk-sn-start, .bulk-sn-end').val('');
                 validateBulkRows();
-            }).on('input change', '.bulk-qty', function() {
+            }).on('input change', '.bulk-sn-start, .bulk-sn-end', function() {
                 validateBulkRows();
+            });
+            let submitting = false;
+            $('#mainForm').on('submit', function(e) {
+                if (submitting) return false;
+                if (!$('#idsf').val() || !validateBulkRows()) {
+                    e.preventDefault();
+                    Swal.fire({ icon: 'error', title: 'Periksa Daftar Denom', text: 'Pilih denom dan isi SN awal dengan format yang benar. SN akhir opsional untuk rentang; Qty dihitung otomatis dan tidak boleh melebihi stok.' });
+                    return false;
+                }
+                submitting = true;
+                $('#submitBtn').prop('disabled', true).text('Menyimpan...');
             });
             // Load outlets immediately when the TAP is preselected (e.g. admin Dumai).
             $('#kategoritap').trigger('change');
-            $('#input_mode').trigger('change');
+            if (!$('#bulk-rows .sf-item-card').length) addBulkRow();
 
         });
 

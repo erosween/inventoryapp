@@ -26,7 +26,11 @@
         <div class="confirmation-items">
             @foreach($items as $item)
                 <div class="confirmation-item">
-                    <div><strong>{{ $item->denom }}</strong><small>Produk / denom penjualan</small></div>
+                    <div><strong>{{ $item->denom }}</strong><small>Produk / denom penjualan</small>
+                        @foreach($item->serial_entries as $serial)
+                            <small class="d-block">{{ strtoupper($serial->identifier_type) }} · {{ $serial->input_mode === 'range' ? $serial->serial_start.' – '.$serial->serial_end : $serial->serial_start }}</small>
+                        @endforeach
+                    </div>
                     <div class="confirmation-qty">{{ number_format($item->qty, 0, ',', '.') }} <small>PCS</small></div>
                 </div>
             @endforeach

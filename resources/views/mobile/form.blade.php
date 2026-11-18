@@ -6,10 +6,21 @@
 
 @section('content')
 <div class="reveal">
-    <form action="{{ route('mobile.store') }}" method="POST" id="sales-form">
+    <form action="{{ route('mobile.store') }}" method="POST" id="sales-form" class="sales-input-form">
         @csrf
         <input type="hidden" name="latitude" id="latitude">
         <input type="hidden" name="longitude" id="longitude">
+
+        @if($errors->any())
+            <div class="alert alert-danger rounded-4 mb-3" role="alert" aria-live="assertive">
+                <strong class="d-block mb-1">Penjualan belum tersimpan</strong>
+                <ul class="mb-0 ps-3">
+                    @foreach($errors->all() as $message)
+                        <li>{{ $message }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
         
         <!-- Outlet Details - Blue Bento Card -->
         <div class="glass-card outlet-details-card mb-4 p-0 border-0 shadow-sm" style="background: white; border-radius: 24px;">
@@ -127,15 +138,19 @@
             </div>
         </div>
 
-        <div class="sticky-bottom pb-4 pt-2 px-1" style="background: var(--bg-body); z-index: 10;">
-            <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-800 shadow" style="font-size: 0.95rem; background: var(--primary); border: none;">
-                Lihat Detail & Konfirmasi <i class="fas fa-arrow-right ms-1"></i>
-            </button>
-        </div>
     </form>
 </div>
 
+@section('mobile_action')
+    <div class="sales-submit-bar">
+        <button type="submit" form="sales-form" class="btn btn-primary w-100 rounded-pill py-3 fw-800 shadow sales-submit-button">
+            Lihat Detail & Konfirmasi <i class="fas fa-arrow-right ms-1"></i>
+        </button>
+    </div>
+@endsection
+
 @push('styles')
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
 <style>
     .outlet-inline-results {
         position: absolute;
@@ -242,10 +257,47 @@
         resize: vertical;
     }
     .consignment-denom-row { position:relative;margin-bottom:10px;padding:12px;border:1px solid #e2e8f0;border-radius:15px;background:#fff; }
+    .consignment-denom-row .select2-container { width:100%!important;margin-bottom:9px; }
+    .consignment-denom-row .select2-selection--single { height:42px!important;border:1px solid #dbe3ee!important;border-radius:12px!important;background:#f8fafc!important; }
+    .consignment-denom-row .select2-selection__rendered { padding:6px 36px 6px 12px!important;color:#1f2937!important;font-size:.72rem;font-weight:800;line-height:28px!important; }
+    .consignment-denom-row .select2-selection__arrow { top:7px!important;right:7px!important; }
+    .select2-container--open .select2-dropdown { z-index:1085;border-color:#dbe3ee;border-radius:12px;overflow:hidden;box-shadow:0 14px 32px rgba(15,23,42,.18); }
+    .select2-container--open .select2-search__field { min-height:38px;border:1px solid #dbe3ee!important;border-radius:8px;padding:7px 10px;outline:none; }
+    .select2-results__option { padding:10px 12px;font-size:.76rem; }
     .consignment-denom-row select { min-height:42px;margin-bottom:9px;font-size:.7rem;font-weight:800!important; }
     .consignment-denom-row .consignment-textarea { min-height:96px; }
     .consignment-row-count { color:#059669;font-size:.58rem;font-weight:850; }
-    .remove-consignment-row { position:absolute;top:7px;right:8px;z-index:2;width:27px;height:27px;border:0;border-radius:50%;background:#fee2e2;color:#dc2626; }
+    .consignment-row-head { display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px; }
+    .consignment-row-title { color:#64748b;font-size:.65rem;font-weight:850; }
+    .remove-consignment-row { flex:0 0 auto;width:30px;height:30px;border:1px solid #fecaca;border-radius:10px;background:#fff1f2;color:#dc2626; }
+    .serial-input-area { padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+    .serial-section-heading { display:flex;align-items:flex-start;gap:10px;margin-bottom:14px; }
+    .serial-section-icon { display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:#fff1f2;color:#c8102e; }
+    .serial-section-heading strong { display:block;color:#172033;font-size:.78rem;font-weight:850; }
+    .serial-section-heading small { display:block;margin-top:2px;color:#64748b;font-size:.64rem;line-height:1.45; }
+    .serial-field-label { display:block;margin-bottom:7px;color:#475569;font-size:.65rem;font-weight:850; }
+    .serial-segmented { display:flex;gap:3px;width:100%;padding:4px;border:1px solid #e2e8f0;border-radius:12px;background:#f1f5f9; }
+    .serial-segment { display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:0;min-height:38px;padding:7px 9px;border:1px solid transparent;border-radius:9px;background:transparent;color:#64748b;font-size:.68rem;font-weight:800;line-height:1.2;white-space:nowrap;transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease; }
+    .serial-segment i { font-size:.68rem; }
+    .serial-segment.active { border-color:#fecdd3;background:#fff;color:#be123c;box-shadow:0 1px 3px rgba(15,23,42,.08); }
+    .serial-segment:focus-visible { outline:2px solid #e11d48;outline-offset:2px; }
+    .serial-segment:disabled { opacity:.5;cursor:not-allowed; }
+    .serial-hidden-select { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important; }
+    .serial-single-wrap,.serial-range-wrap { margin-top:14px; }
+    .serial-input-area .form-control { min-height:44px;border:1px solid #dbe3ee;border-radius:12px;background:#fff;font-size:.78rem;font-weight:750; }
+    .serial-range-fields { display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:8px; }
+    .serial-range-field { min-width:0; }
+    .serial-range-field label { display:block;margin:0 0 5px;color:#64748b;font-size:.59rem;font-weight:800; }
+    .serial-range-separator { padding-bottom:12px;color:#94a3b8;font-size:.7rem;font-weight:850; }
+    .serial-qty-hint { display:block;margin-top:8px;color:#64748b!important;font-size:.61rem;font-weight:700;line-height:1.45; }
+    .serial-qty-hint.text-danger { color:#dc2626!important; }
+    .serial-qty-hint.text-success { color:#059669!important; }
+    .serial-range-hint { padding:8px 10px;border-radius:10px;background:#f1f5f9; }
+    @media(max-width:360px){.serial-segment{gap:5px;padding-inline:6px;font-size:.62rem}.serial-segment i{font-size:.62rem}}
+    .sales-input-form { padding-bottom:185px; }
+    .sales-submit-bar { position:fixed;z-index:1050;bottom:calc(84px + env(safe-area-inset-bottom, 0px));left:50%;width:min(calc(100% - 24px),456px);padding:10px 12px;transform:translateX(-50%);border:1px solid rgba(226,232,240,.9);border-radius:20px;background:rgba(255,255,255,.96);box-shadow:0 12px 30px rgba(15,23,42,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:none; }
+    .sales-submit-button { min-height:56px;font-size:.95rem!important;background:linear-gradient(110deg,#c1121f,#ef233c)!important;border:0!important;box-shadow:0 8px 18px rgba(193,18,31,.2)!important;pointer-events:auto;position:relative;z-index:1; }
+    @media (max-width:360px) { .sales-submit-bar { width:calc(100% - 16px);padding:8px; } .sales-submit-button { min-height:52px;font-size:.85rem!important; } }
     .consignment-add-denom { width:100%;min-height:36px;border:1px dashed #fca5a5;border-radius:12px;background:#fff7f7;color:var(--primary);font-size:.64rem;font-weight:850; }
     .consignment-feedback,
     .consignment-server-error {
@@ -374,6 +426,7 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
         // Prevent scroll changing number values
@@ -392,7 +445,8 @@
         });
         let activeRow = null;
         const stockMap = {!! json_encode($denoms->pluck('stock_qty', 'iddenom')) !!};
-        const consignmentDenoms = @json($consignmentDenoms->map(fn($denom) => ['id' => $denom->iddenom, 'name' => $denom->denom])->values());
+        const starterPackMap = @json($starterPackByDenom);
+        const consignmentDenoms = @json($consignmentDenomOptions);
         const oldConsignments = @json(old('consignments', []));
         let consignmentRowIndex = 0;
         let outletSearchTimer = null;
@@ -406,11 +460,24 @@
             const index = consignmentRowIndex++;
             const disabled = $('#consignment_enabled').val() === '1' ? '' : 'disabled';
             $('#consignment-rows').append(`<div class="consignment-denom-row">
-                <button type="button" class="remove-consignment-row" aria-label="Hapus denom"><i class="fas fa-times"></i></button>
+                <div class="consignment-row-head"><span class="consignment-row-title">Denom konsinyasi</span><button type="button" class="remove-consignment-row" aria-label="Hapus denom"><i class="fas fa-times"></i></button></div>
                 <select name="consignments[${index}][iddenom]" class="form-select consignment-denom-select" required ${disabled}>${consignmentOptions(iddenom)}</select>
                 <div class="d-flex justify-content-between mb-1"><small class="fw-bold text-muted">Nomor perdana — satu nomor per baris</small><span class="consignment-row-count">0 nomor</span></div>
                 <textarea name="consignments[${index}][numbers]" class="form-control consignment-textarea consignment-row-numbers" rows="4" inputmode="text" enterkeyhint="enter" autocomplete="off" required ${disabled} placeholder="081234567890&#10;081234567891">${escapeHtml(numbers)}</textarea>
             </div>`);
+            const select = $('#consignment-rows .consignment-denom-row').last().find('.consignment-denom-select');
+            if ($.fn.select2) {
+                select.select2({
+                    width: '100%',
+                    placeholder: 'Cari atau pilih denom konsinyasi...',
+                    minimumResultsForSearch: 0,
+                    dropdownParent: $('body'),
+                    language: {
+                        noResults: () => 'Denom tidak ditemukan',
+                        searching: () => 'Mencari denom...'
+                    }
+                });
+            }
             syncConsignmentRows();
         }
         function syncConsignmentRows() {
@@ -537,7 +604,10 @@
                 const id = $(this).find('.iddenom-input').val();
                 const qty = $(this).find('.qty-input').val();
                 const name = $(this).find('.product-placeholder').text();
-                if (id || qty) formData.products.push({ id, name, qty });
+                const serialRow = $(this);
+                if (id || qty || serialRow.find('.serial-value-input, .serial-start-input, .serial-end-input').filter(function() { return $(this).val(); }).length) {
+                    formData.products.push({ id, name, qty, serial_mode: serialRow.find('.serial-mode-select').val(), identifier_type: 'sn', serial_value: serialRow.find('.serial-value-input').val(), serial_start: serialRow.find('.serial-start-input').val(), serial_end: serialRow.find('.serial-end-input').val() });
+                }
             });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
         }
@@ -726,16 +796,9 @@
                 setConsignmentOpen(Boolean(data.consignment_enabled));
                 if (data.products && data.products.length > 0) {
                     $('#product-container').empty();
-                    const restoredDenoms = new Set();
                     data.products
                         .filter(p => !p.id || Number(stockMap[p.id] || 0) > 0)
-                        .filter(p => {
-                            if (!p.id) return true;
-                            if (restoredDenoms.has(String(p.id))) return false;
-                            restoredDenoms.add(String(p.id));
-                            return true;
-                        })
-                        .forEach(p => addProductRow(p.id, p.name, p.qty));
+                        .forEach(p => addProductRow(p.id, p.name, p.qty, p));
                     recalcTotal();
                 }
             } catch (e) { console.error(e); }
@@ -751,7 +814,7 @@
         (oldConsignments.length ? oldConsignments : [{ iddenom: '', numbers: '' }])
             .forEach(row => addConsignmentRow(row.iddenom || '', row.numbers || ''));
 
-        function addProductRow(id = '', name = 'Select item...', qty = '') {
+        function addProductRow(id = '', name = 'Select item...', qty = '', serial = {}) {
             const rowId = Date.now() + Math.random().toString(36).substr(2, 5);
             const stock = id ? Number(stockMap[id] || 0) : 0;
             const safeName = escapeHtml(name);
@@ -778,14 +841,118 @@
                                 <div class="col-4"><label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Quantity</label></div>
                                 <div class="col-8">
                                     <input type="number" name="products[${rowId}][qty]" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark qty-input" 
-                                           placeholder="0" value="${qty}" min="1" style="font-size: 0.85rem;" inputmode="numeric">
+                                           placeholder="Otomatis dari SN" value="${qty}" min="1" style="font-size: 0.85rem;" inputmode="numeric" readonly>
                                     <div class="stock-warning mt-2 d-none rounded-3 px-3 py-2 fw-bold" style="font-size: 0.68rem; background: rgba(239, 68, 68, 0.08); color: #dc2626;"></div>
                                 </div>
+                            </div>
+                            <div class="serial-input-area mt-3 ${id ? '' : 'd-none'}">
+                                <div class="serial-section-heading"><span class="serial-section-icon"><i class="fas fa-barcode"></i></span><div><strong>Serial Number</strong><small>Masukkan SN untuk menghitung jumlah otomatis.</small></div></div>
+                                <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${serial.serial_mode !== 'range' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${serial.serial_mode !== 'range' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${serial.serial_mode !== 'range'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button></div></div>
+                                <input type="hidden" name="products[${rowId}][identifier_type]" class="identifier-type-select" value="sn">
+                                <div class="serial-single-wrap ${serial.serial_mode === 'range' ? 'd-none' : ''}"><label class="serial-field-label">SN</label><input name="products[${rowId}][serial_value]" class="form-control form-control-sm serial-value-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_value || '')}" placeholder="Masukkan SN"><small class="serial-qty-hint serial-single-hint text-muted"></small></div>
+                                <div class="serial-range-wrap ${serial.serial_mode === 'range' ? '' : 'd-none'}"><label class="serial-field-label">Rentang SN</label><div class="serial-range-fields"><div class="serial-range-field"><label>SN awal</label><input name="products[${rowId}][serial_start]" class="form-control form-control-sm serial-start-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_start || '')}" placeholder="SN awal"></div><span class="serial-range-separator">SAMPAI</span><div class="serial-range-field"><label>SN akhir</label><input name="products[${rowId}][serial_end]" class="form-control form-control-sm serial-end-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_end || '')}" placeholder="SN akhir"></div></div><small class="serial-qty-hint serial-range-hint text-muted">Masukkan SN awal dan SN akhir; Qty dihitung otomatis.</small></div>
                             </div>
                         </div>
                     </div>
                 </div>`;
             $('#product-container').append(html);
+            const row = $('#product-container .glass-card').last();
+            syncSerialFields(row);
+            updateSerialQuantity(row);
+        }
+
+        function syncSerialFields(row) {
+            const id = row.find('.iddenom-input').val();
+            const isStarterPack = Boolean(starterPackMap[id]);
+            const mode = row.find('.serial-mode-select').val() || 'single';
+            let identifierType = row.find('.identifier-type-select').val() || 'sn';
+            row.find('.serial-input-area').toggleClass('d-none', !id);
+            row.find('.identifier-type-wrap').toggleClass('d-none', mode === 'range');
+            row.find('.serial-single-wrap').toggleClass('d-none', mode !== 'single');
+            row.find('.serial-range-wrap').toggleClass('d-none', mode !== 'range');
+            const numberOption = row.find('.identifier-type-select option[value="number"]');
+            numberOption.prop('disabled', !isStarterPack);
+            if (!isStarterPack || mode === 'range') {
+                row.find('.identifier-type-select').val('sn');
+                identifierType = 'sn';
+            }
+            row.find('.serial-mode-choices .serial-segment').each(function() {
+                const active = String($(this).data('serial-mode')) === mode;
+                $(this).toggleClass('active', active).attr('aria-pressed', active).prop('disabled', !id);
+            });
+            row.find('.identifier-type-choices .serial-segment').each(function() {
+                const type = String($(this).data('identifier-type'));
+                const active = type === identifierType;
+                $(this).toggleClass('active', active).attr('aria-pressed', active).prop('disabled', !id || (type === 'number' && !isStarterPack));
+            });
+            row.find('.serial-value-input').prop('disabled', !id || mode !== 'single');
+            row.find('.serial-start-input, .serial-end-input').prop('disabled', !id || mode !== 'range');
+            row.find('.serial-mode-select, .identifier-type-select').prop('disabled', !id);
+            const serialPattern = identifierType === 'number' ? '08 + 9–12 digit' : (isStarterPack ? '16 digit, diawali 0' : '12 digit');
+            row.find('.serial-single-hint').text(identifierType === 'number'
+                ? 'Nomor perdana: awali 08, panjang 9–12 digit.'
+                : `Format SN: ${serialPattern}.`);
+            const snLength = isStarterPack ? 16 : 12;
+            row.find('.serial-start-input, .serial-end-input').attr('maxlength', snLength);
+            row.find('.serial-value-input').attr('maxlength', identifierType === 'number' ? 12 : snLength);
+        }
+
+        function updateSerialQuantity(row) {
+            const mode = row.find('.serial-mode-select').val();
+            const id = row.find('.iddenom-input').val();
+            const isStarterPack = Boolean(starterPackMap[id]);
+            const identifierType = row.find('.identifier-type-select').val() || 'sn';
+            let qty = 0;
+            if (mode === 'single') {
+                const value = row.find('.serial-value-input').val() || '';
+                const valid = identifierType === 'number' ? /^08\d{7,10}$/.test(value) : (isStarterPack ? /^0\d{15}$/.test(value) : /^\d{12}$/.test(value));
+                if (valid) qty = 1;
+                row.find('.serial-single-hint').toggleClass('text-danger', Boolean(value) && !valid).toggleClass('text-success', valid);
+            } else {
+                const start = row.find('.serial-start-input').val() || '';
+                const end = row.find('.serial-end-input').val() || '';
+                const validFormat = isStarterPack
+                    ? /^0\d{15}$/.test(start) && /^0\d{15}$/.test(end)
+                    : /^\d{12}$/.test(start) && /^\d{12}$/.test(end);
+                if (validFormat) {
+                    const first = start.replace(/^0+(?=\d)/, '');
+                    const last = end.replace(/^0+(?=\d)/, '');
+                    if (last.length > first.length || (last.length === first.length && last >= first)) {
+                        let borrow = 0;
+                        let difference = '';
+                        for (let i = 0; i < last.length; i++) {
+                            const endDigit = Number(last[last.length - 1 - i]);
+                            const startDigit = Number(first[first.length - 1 - i] || 0) + borrow;
+                            let digit = endDigit - startDigit;
+                            borrow = digit < 0 ? 1 : 0;
+                            if (borrow) digit += 10;
+                            difference = String(digit) + difference;
+                        }
+                        difference = difference.replace(/^0+(?=\d)/, '');
+                        let carry = 1;
+                        let inclusiveCount = '';
+                        for (let i = difference.length - 1; i >= 0; i--) {
+                            const digit = Number(difference[i]) + carry;
+                            inclusiveCount = String(digit % 10) + inclusiveCount;
+                            carry = digit >= 10 ? 1 : 0;
+                        }
+                        if (carry) inclusiveCount = '1' + inclusiveCount;
+                        if (inclusiveCount.length < 7 || (inclusiveCount.length === 7 && inclusiveCount <= '2000000')) {
+                            qty = Number(inclusiveCount);
+                        }
+                    }
+                }
+            }
+            row.find('.qty-input').val(qty || '');
+            if (mode === 'range') {
+                const start = row.find('.serial-start-input').val() || '';
+                const end = row.find('.serial-end-input').val() || '';
+                const hasInput = Boolean(start || end);
+                row.find('.serial-range-hint').text(qty ? `${qty.toLocaleString('id-ID')} SN terhitung dari rentang.` : (hasInput ? `Format wajib: ${isStarterPack ? '16 digit diawali 0' : '12 digit'}; rentang maksimal 2.000.000 SN.` : `SN harus ${isStarterPack ? '16 digit diawali 0' : '12 digit'}.`));
+                row.find('.serial-range-hint').toggleClass('text-danger', hasInput && !qty).toggleClass('text-success', Boolean(qty));
+            }
+            recalcTotal();
+            validateStock(row, qty);
         }
 
         function recalcTotal() {
@@ -831,36 +998,23 @@
             return true;
         }
 
-        function selectedDenomIdsExceptActiveRow() {
-            const selected = new Set();
-            const activeCard = activeRow?.closest('.glass-card')[0];
-            $('.iddenom-input').each(function() {
-                if ($(this).closest('.glass-card')[0] === activeCard) return;
-                const id = String($(this).val() || '');
-                if (id) selected.add(id);
-            });
-            return selected;
-        }
-
         $(document).on('click', '.product-trigger', function() { activeRow = $(this); $('#productPickerModal').modal('show'); $('#product-search-modal').val('').trigger('input').focus(); });
         $('#product-search-modal').on('input', function() {
             const val = $(this).val().toLowerCase().trim();
-            const selectedDenoms = selectedDenomIdsExceptActiveRow();
             let matches = 0;
             $('.select-product-btn').each(function() {
                 const name = $(this).data('name').toString().toLowerCase();
                 const id = $(this).data('id').toString().toLowerCase();
                 const stock = parseInt($(this).data('stock')) || 0;
-                const alreadySelected = selectedDenoms.has(String($(this).data('id')));
                 
                 if (val === '') {
-                    if (stock > 0 && !alreadySelected) {
+                    if (stock > 0) {
                         $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); 
                         matches++; 
                     }
                     else { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: none !important;'); }
                 } else {
-                    if (stock > 0 && !alreadySelected && (name.includes(val) || id.includes(val))) { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); matches++; }
+                    if (stock > 0 && (name.includes(val) || id.includes(val))) { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); matches++; }
                     else { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: none !important;'); }
                 }
             });
@@ -870,15 +1024,34 @@
 
         $(document).on('click', '.select-product-btn', function() {
             const id = $(this).data('id'), name = $(this).data('name'), stock = Number(stockMap[id] || 0);
-            if (selectedDenomIdsExceptActiveRow().has(String(id))) return;
             activeRow.find('.product-placeholder').text(name).removeClass('text-muted').addClass('text-dark');
             activeRow.find('.iddenom-input').prop('disabled', false).val(id);
             activeRow.closest('.glass-card').find('.qty-input').prop('disabled', false);
             activeRow.closest('.p-4').find('.stock-info').text(stock);
+            const productRow = activeRow.closest('.glass-card');
+            productRow.find('.serial-mode-select').val('single');
+            productRow.find('.identifier-type-select').val('sn');
+            productRow.find('.serial-value-input, .serial-start-input, .serial-end-input').val('');
+            syncSerialFields(productRow);
+            updateSerialQuantity(productRow);
             $('#productPickerModal').modal('hide');
             recalcTotal(); validateStock(activeRow.closest('.glass-card')); saveFormState();
         });
 
+        $(document).on('input change', '.serial-mode-select, .identifier-type-select, .serial-value-input, .serial-start-input, .serial-end-input', function() {
+            const row = $(this).closest('.glass-card');
+            syncSerialFields(row);
+            updateSerialQuantity(row);
+            saveFormState();
+        });
+        $(document).on('click', '.serial-mode-choices .serial-segment', function() {
+            const row = $(this).closest('.glass-card');
+            row.find('.serial-mode-select').val(String($(this).data('serial-mode'))).trigger('change');
+        });
+        $(document).on('click', '.identifier-type-choices .serial-segment:not(:disabled)', function() {
+            const row = $(this).closest('.glass-card');
+            row.find('.identifier-type-select').val(String($(this).data('identifier-type'))).trigger('change');
+        });
         $(document).on('input', '.qty-input', function() { recalcTotal(); validateStock($(this).closest('.glass-card')); saveFormState(); });
         $('#add-item-btn').click(() => { addProductRow(); saveFormState(); });
         $(document).on('click', '.remove-row', function() { $(this).closest('.glass-card').fadeOut(200, function() { $(this).remove(); recalcTotal(); saveFormState(); }); });
@@ -928,7 +1101,6 @@
                 }
             }
             const requested = {};
-            let duplicateDenom = false;
             let hasProduct = false;
             let incompleteProduct = false;
             $('.iddenom-input').each(function() {
@@ -938,7 +1110,6 @@
                     hasProduct = true;
                     if (!id || qty < 1) incompleteProduct = true;
                 }
-                if (id && Object.prototype.hasOwnProperty.call(requested, id)) duplicateDenom = true;
                 if (id) requested[id] = (requested[id] || 0) + qty;
             });
             const hasConsignment = $('#consignment_enabled').val() === '1' && parseConsignmentNumbers($('#consignment_numbers').val()).numbers.length > 0;
@@ -953,11 +1124,6 @@
                 return;
             }
             $('#sales-activity-feedback').addClass('d-none').empty();
-            if (duplicateDenom) {
-                e.preventDefault();
-                Swal.fire({ icon: 'warning', title: 'Produk Duplikat', text: 'Satu denom hanya boleh dimasukkan satu kali.', confirmButtonColor: 'var(--primary)' });
-                return;
-            }
             let valid = true;
             $('#product-container .glass-card').each(function() {
                 const id = $(this).find('.iddenom-input').val();

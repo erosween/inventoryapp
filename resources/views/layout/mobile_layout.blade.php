@@ -358,6 +358,7 @@
             position: fixed;
             bottom: calc(7px + env(safe-area-inset-bottom, 0px));
             left: 50%;
+            right: auto;
             transform: translateX(-50%);
             width: calc(100% - 28px);
             max-width: 444px;
@@ -369,6 +370,7 @@
             justify-content: space-between;
             align-items: center;
             z-index: 1000;
+            pointer-events: auto;
             box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
         }
 
@@ -585,8 +587,10 @@
             @yield('content')
         </main>
 
+        @yield('mobile_action')
+
         <!-- Floating Premium Navigation -->
-        <nav class="floating-nav fixed-bottom">
+        <nav class="floating-nav">
             <a href="{{ route('mobile.index') }}" class="nav-item {{ request()->is('mobile') ? 'active' : '' }}">
                 <i class="fas fa-home"></i>
                 <div>Home</div>

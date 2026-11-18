@@ -110,6 +110,20 @@ Route::get('/surya/taskforce/push-so/filter-values', [\App\Http\Controllers\Task
 Route::post('/surya/taskforce/push-so/{idOutlet}/action', [\App\Http\Controllers\TaskforceController::class, 'store'])->name('surya.taskforce.push-so.store');
 Route::post('/surya/taskforce/upload', [\App\Http\Controllers\TaskforceController::class, 'upload'])->name('surya.taskforce.upload');
 Route::get('/surya/taskforce/template', [\App\Http\Controllers\TaskforceController::class, 'template'])->name('surya.taskforce.template');
+// Product Tracking: daftar SN terjual, import Digipos, rekonsiliasi outlet, dan pencarian SN/nomor.
+Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->controller(\App\Http\Controllers\ProductTrackingController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/sales', fn () => redirect()->route('surya.product-tracking.sold'))->name('sales');
+    Route::get('/sold-serials', 'soldSerials')->name('sold');
+    Route::get('/sold-serials/download', 'downloadSoldSerials')->name('sold.download');
+    Route::get('/imports', 'imports')->name('imports');
+    Route::post('/imports', 'stageImport')->name('imports.stage');
+    Route::get('/imports/{upload}/mapping', 'mapping')->whereNumber('upload')->name('mapping');
+    Route::post('/imports/{upload}/cancel', 'cancelImport')->whereNumber('upload')->name('imports.cancel');
+    Route::post('/imports/{upload}/complete', 'completeImport')->whereNumber('upload')->name('imports.complete');
+    Route::get('/report', 'report')->name('report');
+    Route::get('/tracking', 'tracking')->name('tracking');
+});
 // Endpoint Detail Outlet. Ringkasan dan daftar outlet dapat dimuat terpisah oleh browser.
 Route::get('/surya/detail-outlet/sales-summary/download', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary.download');
 Route::get('/surya/detail-outlet/sales-summary', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary');

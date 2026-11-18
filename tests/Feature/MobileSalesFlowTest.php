@@ -230,13 +230,67 @@ class MobileSalesFlowTest extends TestCase
         ];
         $payload = [
             'id_outlet' => 'OUTLET-VALIDATION',
-            'products' => [['iddenom' => 'SA-VALIDATION', 'qty' => 1]],
+            'products' => [[
+                'iddenom' => 'SA-VALIDATION', 'qty' => 1, 'serial_mode' => 'single',
+                'identifier_type' => 'number', 'serial_value' => '08111111111',
+            ]],
             'consignment_enabled' => '1',
         ];
 
         $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $payload)
             ->assertRedirect(route('mobile.form'))
             ->assertSessionHasErrors('consignments');
+
+        $invalidStarterSn = $payload;
+        $invalidStarterSn['products'][0]['identifier_type'] = 'sn';
+        $invalidStarterSn['products'][0]['serial_value'] = '012345678901234';
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $invalidStarterSn)
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('products.0.serial_value');
+
+        $invalidSnResponse = $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $invalidStarterSn);
+        $invalidSnResponse->assertRedirect(route('mobile.form'));
+        $this->get(route('mobile.form'))
+            ->assertOk()
+            ->assertSee('Penjualan belum tersimpan')
+            ->assertSee('SN perdana harus tepat 16 digit.');
+
+        $invalidStarterNumber = $payload;
+        $invalidStarterNumber['products'][0]['serial_value'] = '628111111111';
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $invalidStarterNumber)
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('products.0.serial_value');
+
+        $duplicateSerials = $payload;
+        $duplicateSerials['products'][] = $payload['products'][0];
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $duplicateSerials)
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('products');
+
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), ['products' => 'invalid'])
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('products');
+
+        DB::table('denom')->insert([
+            'iddenom' => 'PV-VALIDATION', 'denom' => 'PV VALIDATION', 'group_name' => '1 HARI', 'harga_jual' => 0,
+        ]);
+        $invalidVoucherSn = $payload;
+        $invalidVoucherSn['products'][0] = [
+            'iddenom' => 'PV-VALIDATION', 'qty' => 1, 'serial_mode' => 'single',
+            'identifier_type' => 'sn', 'serial_value' => '12345678901',
+        ];
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $invalidVoucherSn)
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('products.0.serial_value');
+
+        $invalidVoucherRange = $payload;
+        $invalidVoucherRange['products'][0] = [
+            'iddenom' => 'PV-VALIDATION', 'qty' => 1, 'serial_mode' => 'range',
+            'identifier_type' => 'sn', 'serial_start' => '12345678901', 'serial_end' => '12345678902',
+        ];
+        $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $invalidVoucherRange)
+            ->assertRedirect(route('mobile.form'))
+            ->assertSessionHasErrors('products.0.serial_start');
 
         $this->withSession($session)->from(route('mobile.form'))->post(route('mobile.store'), $payload + [
             'consignments' => [['iddenom' => 'SA-VALIDATION', 'numbers' => "081234567890\n+62 812-3456-7890"]],
@@ -295,7 +349,10 @@ class MobileSalesFlowTest extends TestCase
             ->assertSee('Konsinyasi SA')
             ->assertSee('6281299900001');
 
-        $this->withSession($session)->post(route('mobile.receipt.confirm', $receipt))
+        Storage::fake('public');
+        $this->withSession($session)->post(route('mobile.receipt.confirm', $receipt), [
+            'receipt_photo' => UploadedFile::fake()->image('receipt.jpg', 800, 1200),
+        ])
             ->assertRedirect(route('mobile.history'));
         $this->assertSame(2, DB::table('surya_sa_consignment_numbers')->where('status', 'consigned')->count());
     }
@@ -378,7 +435,9 @@ class MobileSalesFlowTest extends TestCase
             ->assertSee('Nama Outlet')
             ->assertSee('ELLY PONSEL')
             ->assertSee('Lihat performansi')
-            ->assertSee('outlet-performance-panel', false);
+            ->assertSee('outlet-performance-panel', false)
+            ->assertSee('sales-submit-bar', false)
+            ->assertSee('form="sales-form"', false);
     }
 
     public function test_mobile_outlet_performance_uses_shared_metrics_and_approved_sales_only(): void
@@ -498,6 +557,8 @@ class MobileSalesFlowTest extends TestCase
                 [
                     'iddenom' => 'D001',
                     'qty' => 3,
+                    'serial_mode' => 'range', 'identifier_type' => 'sn',
+                    'serial_start' => '100000000001', 'serial_end' => '100000000003',
                 ],
             ],
             'consignment_enabled' => '1',
@@ -525,6 +586,18 @@ class MobileSalesFlowTest extends TestCase
             'tgl' => '2026-04-01',
             'id_outlet' => 'OUTLET-1',
         ]);
+        $this->assertDatabaseHas('mobile_sales_serials', [
+            'receipt_id' => $receipt->id,
+            'iddenom' => 'D001',
+            'identifier_type' => 'sn',
+            'input_mode' => 'range',
+            'serial_start' => '100000000001',
+            'serial_end' => '100000000003',
+            'qty' => 3,
+        ]);
+        $this->withSession($session)->get(route('mobile.receipt.show', $receipt))
+            ->assertOk()
+            ->assertSee('100000000001 – 100000000003');
         $this->assertDatabaseHas('surya_sa_consignment_numbers', [
             'receipt_id' => $receipt->id,
             'serial_number' => '6281234567890',
@@ -553,8 +626,11 @@ class MobileSalesFlowTest extends TestCase
             'status' => 'draft_wa',
         ]);
 
+        Storage::fake('public');
         $this->withSession($session)
-            ->post(route('mobile.receipt.confirm', $receipt))
+            ->post(route('mobile.receipt.confirm', $receipt), [
+                'receipt_photo' => UploadedFile::fake()->image('receipt.jpg', 800, 1200),
+            ])
             ->assertRedirect(route('mobile.history'));
 
         $this->assertDatabaseHas('mobile_sales_receipts', [
@@ -668,6 +744,7 @@ class MobileSalesFlowTest extends TestCase
                 'products' => [[
                     'iddenom' => 'D-ZERO',
                     'qty' => 1,
+                    'serial_mode' => 'single', 'identifier_type' => 'sn', 'serial_value' => '0123456789012345',
                 ]],
             ]);
 
@@ -749,6 +826,7 @@ class MobileSalesFlowTest extends TestCase
             'products' => [[
                 'iddenom' => 'D-VISIT-ACCESS',
                 'qty' => 1,
+                'serial_mode' => 'single', 'identifier_type' => 'sn', 'serial_value' => '300000000001',
             ]],
         ]);
 
@@ -1175,7 +1253,7 @@ class MobileSalesFlowTest extends TestCase
 
         $this->withSession($session)->post(route('mobile.store'), [
             'id_outlet' => 'OUTLET-ULANG',
-            'products' => [['iddenom' => 'PV-1', 'qty' => 2]],
+            'products' => [['iddenom' => 'PV-1', 'qty' => 2, 'serial_mode' => 'range', 'identifier_type' => 'sn', 'serial_start' => '400000000001', 'serial_end' => '400000000002']],
         ])->assertRedirect();
 
         $this->assertSame(2, DB::table('mobile_penjualan')->where('id_outlet', 'OUTLET-ULANG')->count());
@@ -1282,7 +1360,7 @@ class MobileSalesFlowTest extends TestCase
 
         $this->post(route('mobile.store'), [
             'id_outlet' => 'HELPER-TAP-2',
-            'products' => [['iddenom' => 'D-OWNER', 'qty' => 8]],
+            'products' => [['iddenom' => 'D-OWNER', 'qty' => 8, 'serial_mode' => 'range', 'identifier_type' => 'sn', 'serial_start' => '500000000001', 'serial_end' => '500000000008']],
         ])->assertSessionHas('error', fn ($message) => str_contains($message, 'Stok tersedia di mobile: 7'));
     }
 
@@ -1476,7 +1554,10 @@ class MobileSalesFlowTest extends TestCase
             ->assertDontSee('WhatsApp')
             ->assertDontSee('PREVIEW NOTA JPEG');
 
-        $this->withSession($session)->post(route('mobile.receipt.confirm', $receiptId))
+        Storage::fake('public');
+        $this->withSession($session)->post(route('mobile.receipt.confirm', $receiptId), [
+            'receipt_photo' => UploadedFile::fake()->image('receipt.jpg', 800, 1200),
+        ])
             ->assertRedirect(route('mobile.history'));
 
         $this->assertDatabaseHas('mobile_penjualan', [
@@ -2009,6 +2090,19 @@ class MobileSalesFlowTest extends TestCase
             $table->text('keterangan')->nullable();
             $table->string('status', 20)->default('pending');
             $table->timestamp('stock_reserved_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('mobile_sales_serials', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('mobile_penjualan_id');
+            $table->unsignedBigInteger('receipt_id')->nullable();
+            $table->string('iddenom', 25);
+            $table->string('identifier_type', 10);
+            $table->string('input_mode', 10);
+            $table->string('serial_start', 24);
+            $table->string('serial_end', 24);
+            $table->unsignedInteger('qty');
             $table->timestamps();
         });
 

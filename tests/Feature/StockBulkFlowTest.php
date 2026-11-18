@@ -262,7 +262,7 @@ class StockBulkFlowTest extends TestCase
                 'items' => [[
                     'iddenom' => $denom->iddenom,
                     'qty' => 1,
-                ]],
+                ] + $this->serialRangeForDenom($denom->iddenom, 1)],
             ])->assertRedirect('/form/form-sfkeluar')
             ->assertSessionHasErrors('id_outlet');
     }
@@ -369,11 +369,11 @@ class StockBulkFlowTest extends TestCase
     {
         [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
 
-        $items = $stocks->map(fn ($row) => [
+        $items = $stocks->values()->map(fn ($row, $index) => [
             'iddenom' => $row->iddenom,
             'qty' => 1,
             'tambahanket' => 'Uji bulk otomatis',
-        ])->all();
+        ] + $this->serialRangeForDenom($row->iddenom, 1, $index + 1))->all();
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
             ->post('/sf-keluar', [
@@ -392,6 +392,103 @@ class StockBulkFlowTest extends TestCase
                     ->value('stock')
             );
         }
+        $firstItem = $items[0];
+        $this->assertDatabaseHas('keluarsf', [
+            'idsf' => $sales->idsf,
+            'iddenom' => $firstItem['iddenom'],
+            'qty' => 1,
+            'sn_awal' => $firstItem['sn_start'],
+            'sn_akhir' => $firstItem['sn_end'],
+        ]);
+    }
+
+    public function test_sf_keluar_accepts_only_start_serial_for_one_piece_and_calculates_quantity(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+        $stock = $stocks->first();
+        $serial = $this->serialRangeForDenom($stock->iddenom, 1);
+        $beforeStock = (int) $stock->stock;
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'items' => [[
+                    'iddenom' => $stock->iddenom,
+                    'sn_start' => $serial['sn_start'],
+                    'sn_end' => '',
+                ]],
+            ])
+            ->assertRedirect('sf-keluar')
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('keluarsf', [
+            'idsf' => $sales->idsf,
+            'iddenom' => $stock->iddenom,
+            'qty' => 1,
+            'sn_awal' => $serial['sn_start'],
+            'sn_akhir' => $serial['sn_start'],
+        ]);
+        $this->assertSame(
+            $beforeStock - 1,
+            (int) DB::table('stockawalsf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->value('stock')
+        );
+    }
+
+    public function test_sf_keluar_requires_a_valid_serial_range_matching_quantity(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+        $stock = $stocks->first();
+        $item = ['iddenom' => $stock->iddenom, 'qty' => 2] + $this->serialRangeForDenom($stock->iddenom, 1);
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'items' => [$item],
+            ])->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('items.0.sn_end');
+
+        $item['qty'] = 1;
+        $item['sn_start'] = '123';
+        $item['sn_end'] = '124';
+        $this->from('/form/form-sfkeluar')->post('/sf-keluar', [
+            'tgl' => now()->toDateString(),
+            'idtap' => $sales->idtap,
+            'idsf' => $sales->idsf,
+            'items' => [$item],
+        ])->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('items.0.sn_start');
+    }
+
+    public function test_sf_keluar_rejects_overlapping_serials_inside_one_submission(): void
+    {
+        [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
+        $stock = $stocks->first();
+        $serial = $this->serialRangeForDenom($stock->iddenom, 1);
+        $beforeStock = (int) DB::table('stockawalsf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->value('stock');
+        $items = [
+            ['iddenom' => $stock->iddenom, 'qty' => 1] + $serial,
+            ['iddenom' => $stock->iddenom, 'qty' => 1] + $serial,
+        ];
+
+        $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
+            ->from('/form/form-sfkeluar')
+            ->post('/sf-keluar', [
+                'tgl' => now()->toDateString(),
+                'idtap' => $sales->idtap,
+                'idsf' => $sales->idsf,
+                'items' => $items,
+            ])
+            ->assertRedirect('/form/form-sfkeluar')
+            ->assertSessionHasErrors('items');
+
+        $this->assertSame($beforeStock, (int) DB::table('stockawalsf')->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->value('stock'));
+        $this->assertSame(0, DB::table('keluarsf')->where('idsf', $sales->idsf)->where('sn_awal', $serial['sn_start'])->count());
     }
 
     public function test_failed_bulk_sf_keluar_does_not_change_any_stock(): void
@@ -399,8 +496,8 @@ class StockBulkFlowTest extends TestCase
         [$admin, $sales, $stocks] = $this->bulkFixture('stockawalsf', 'idsf');
 
         $items = [
-            ['iddenom' => $stocks[0]->iddenom, 'qty' => 1],
-            ['iddenom' => $stocks[1]->iddenom, 'qty' => (int) $stocks[1]->stock + 1],
+            ['iddenom' => $stocks[0]->iddenom, 'qty' => 1] + $this->serialRangeForDenom($stocks[0]->iddenom, 1),
+            ['iddenom' => $stocks[1]->iddenom, 'qty' => (int) $stocks[1]->stock + 1] + $this->serialRangeForDenom($stocks[1]->iddenom, (int) $stocks[1]->stock + 1),
         ];
 
         $this->actingAs($admin)->withSession(['idtap' => 'SBP_DUMAI'])
@@ -462,7 +559,7 @@ class StockBulkFlowTest extends TestCase
                     'iddenom' => $stock->iddenom,
                     'qty' => $qty,
                     'tambahanket' => 'Uji saldo historis',
-                ]],
+                ] + $this->serialRangeForDenom($stock->iddenom, $qty)],
             ])
             ->assertRedirect('/form/form-sfkeluar')
             ->assertSessionHasErrors('items');
@@ -507,7 +604,7 @@ class StockBulkFlowTest extends TestCase
                 'items' => [[
                     'iddenom' => $stock->iddenom,
                     'qty' => 1,
-                ]],
+                ] + $this->serialRangeForDenom($stock->iddenom, 1)],
             ])->assertRedirect('sf-keluar')->assertSessionHasNoErrors();
 
         $this->assertSame($beforeCount + 1, DB::table('keluarsf')->count());
@@ -538,8 +635,8 @@ class StockBulkFlowTest extends TestCase
                 'idtap' => $stock->idtap,
                 'idsf' => $stock->idsf,
                 'items' => [
-                    ['iddenom' => $stock->iddenom, 'qty' => 1],
-                    ['iddenom' => $stock->iddenom, 'qty' => 1],
+                    ['iddenom' => $stock->iddenom, 'qty' => 1] + $this->serialRangeForDenom($stock->iddenom, 1, 100),
+                    ['iddenom' => $stock->iddenom, 'qty' => 1] + $this->serialRangeForDenom($stock->iddenom, 1, 200),
                 ],
             ])->assertRedirect('sf-keluar');
 
@@ -572,8 +669,8 @@ class StockBulkFlowTest extends TestCase
                 'idtap' => $stock->idtap,
                 'idsf' => $stock->idsf,
                 'items' => [
-                    ['iddenom' => $stock->iddenom, 'qty' => (int) $stock->stock],
-                    ['iddenom' => $stock->iddenom, 'qty' => 1],
+                    ['iddenom' => $stock->iddenom, 'qty' => (int) $stock->stock] + $this->serialRangeForDenom($stock->iddenom, (int) $stock->stock, 100),
+                    ['iddenom' => $stock->iddenom, 'qty' => 1] + $this->serialRangeForDenom($stock->iddenom, 1, 200000),
                 ],
             ])->assertRedirect('/form/form-sfkeluar')
             ->assertSessionHasErrors('items');
@@ -786,6 +883,27 @@ class StockBulkFlowTest extends TestCase
             ->where('idsf', $sales->idsf)->where('iddenom', $stock->iddenom)->value('stock'));
         $this->assertSame($beforeTap + 1, (int) DB::table('stockawaltap')
             ->where('idtap', $sales->idtap)->where('iddenom', $stock->iddenom)->value('stock'));
+    }
+
+    private function serialRangeForDenom(string $iddenom, int $qty, int $offset = 1): array
+    {
+        $denom = DB::table('denom')->where('iddenom', $iddenom)->first();
+        $id = strtoupper(trim((string) ($denom->iddenom ?? '')));
+        $starterPack = in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+            || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
+            || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
+            || str_starts_with($id, 'SP');
+        $base = $starterPack ? 10000 + $offset : 100000 + $offset;
+        $digits = $starterPack ? 15 : 12;
+        $start = $starterPack
+            ? '0'.str_pad((string) $base, $digits, '0', STR_PAD_LEFT)
+            : str_pad((string) $base, $digits, '0', STR_PAD_LEFT);
+        $endNumber = $base + max(0, $qty - 1);
+        $end = $starterPack
+            ? '0'.str_pad((string) $endNumber, $digits, '0', STR_PAD_LEFT)
+            : str_pad((string) $endNumber, $digits, '0', STR_PAD_LEFT);
+
+        return ['sn_start' => $start, 'sn_end' => $end];
     }
 
     private function bulkFixture(string $table, string $targetColumn): array
