@@ -435,9 +435,9 @@ class ProductTrackingController extends MonitaDumaiController
                 ->where('u.kind', 'scan')->where('u.status', 'complete')->where('d.serial_start', '<=', $queryValue)->where('d.serial_end', '>=', $queryValue)
                 ->orderByDesc('u.scan_date')->orderByDesc('d.id')->limit(100);
             if ($scopes = $this->suryaTapScopes()) $scansQuery->whereIn('d.id_outlet', DB::table('appsdumais')->select('id_outlet')->whereIn('tap', $scopes));
-            $scans = $scansQuery->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'd.sf')
+            $scans = $scansQuery->leftJoin('idsf as digipos_sales_force', 'digipos_sales_force.digipos_id', '=', 'd.sf')
                 ->leftJoin('appsdumais as digipos_outlet', 'digipos_outlet.id_outlet', '=', 'd.id_outlet')
-                ->get(['d.*', 'u.filename', 'u.scan_date', 'sales_force.namasf', 'digipos_outlet.nama_outlet']);
+                ->get(['d.*', 'u.filename', 'u.scan_date', 'digipos_sales_force.namasf', 'digipos_outlet.nama_outlet']);
             if (Schema::hasTable('mobile_sales_serials')) {
                 $mobileQuery = DB::table('mobile_sales_serials as serial')->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
                     ->where(function ($query) use ($queryValue) {
