@@ -345,7 +345,7 @@ class MonitaDumaiController extends Controller
         $partialPrevious = $nota->totals($previousMonthStart, $previousComparableEnd, $ids, true)->get()->keyBy(fn ($row) => (string)$row->id_outlet);
         $cvmMetrics = $this->safeOutletDetailSource('surya_outlet_cvm', function () use ($pageIds, $cutoff) {
             return app(\App\Services\OutletCvmReport::class)
-                ->outletPeriodsQuery($cutoff, ['cvm', 'super_seru', 'comsak', 'hot_promo'])
+                ->outletPeriodsQuery($cutoff, ['cvm', 'super_seru', 'comsak', 'hot_promo', 'byu'])
                 ->whereIn('sales.id_outlet', $pageIds)
                 ->get()
                 ->keyBy(fn ($row) => (string) $row->id_outlet);
@@ -381,7 +381,7 @@ class MonitaDumaiController extends Controller
                 $row->{$stock . '_gap'} = $mtd - $m1;
                 $row->{$stock . '_mom_pct'} = $m1 === 0 ? null : (($mtd / $m1) - 1) * 100;
             }
-            foreach (['cvm' => 'cvm', 'super_seru' => 'super_seru', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo'] as $alias => $column) {
+            foreach (['cvm' => 'cvm', 'super_seru' => 'super_seru', 'comsak' => 'comsak', 'hot_promo' => 'hot_promo', 'renewal_byu' => 'byu'] as $alias => $column) {
                 $fm1 = $cvm?->{$column.'_fm1'} === null ? null : (int) $cvm->{$column.'_fm1'};
                 $m1 = $cvm?->{$column.'_m1'} === null ? null : (int) $cvm->{$column.'_m1'};
                 $mtd = $cvm?->{$column.'_mtd'} === null ? null : (int) $cvm->{$column.'_mtd'};

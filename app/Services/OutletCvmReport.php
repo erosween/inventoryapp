@@ -13,13 +13,14 @@ class OutletCvmReport
 {
     // Rekap TAP memakai profil outlet yang sudah dibatasi oleh controller. Cache mengikuti kueri
     // profil, cutoff, dan revisi upload.
-    public function summary(Builder $profiles, Carbon $cutoff): array
+    public function summary(Builder $profiles, Carbon $cutoff, ?array $metrics = null): array
     {
+        $metrics ??= array_keys(OutletCvmImport::METRICS);
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
         $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
 
         $outletTaps = (clone $profiles)->selectRaw('id_outlet, MIN(tap) AS tap')->groupBy('id_outlet');
-        $tapQuery = $this->monthlyQuery($cutoff, $previousEnd, $comparison)
+        $tapQuery = $this->monthlyQuery($cutoff, $previousEnd, $comparison, $metrics)
             ->joinSub($outletTaps, 'profile', function ($join) use ($profiles) {
                 if ($profiles->getConnection()->getDriverName() === 'sqlite') {
                     $join->on(DB::raw('CAST(profile.id_outlet AS TEXT)'), '=', 'sales.id_outlet');
@@ -41,15 +42,15 @@ class OutletCvmReport
         $tapMonths = Cache::remember($key, 60, fn () => $tapQuery->get());
 
         $summary = $tapMonths->groupBy('tap')->sortKeys()->map(
-            fn (Collection $rows) => $this->series($rows, $cutoff, $comparison)
+            fn (Collection $rows) => $this->series($rows, $cutoff, $comparison, $metrics)
         );
         $clusters = collect([
             'Dumai Bengkalis' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
             'Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
         ])->map(fn (array $taps) => $tapMonths->whereIn('tap', $taps))
             ->filter(fn (Collection $rows) => $rows->isNotEmpty())
-            ->map(fn (Collection $rows) => $this->series($rows, $cutoff, $comparison));
-        $grand = $this->series($tapMonths, $cutoff, $comparison);
+            ->map(fn (Collection $rows) => $this->series($rows, $cutoff, $comparison, $metrics));
+        $grand = $this->series($tapMonths, $cutoff, $comparison, $metrics);
 
         return compact('summary', 'clusters', 'grand', 'previousEnd', 'comparison');
     }

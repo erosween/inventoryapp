@@ -1,10 +1,10 @@
 {{--
-    Transaksi Outlet CVM. Detail outlet dirender dulu, rekap TAP dimuat dari respons terpisah.
+    Transaksi Outlet RENEWAL BYU. Detail outlet dirender dulu, rekap TAP dimuat dari respons terpisah.
 --}}@extends('surya.layouts.workspace')
 
-@section('title', 'Transaksi CVM')
+@section('title', 'Transaksi RENEWAL BYU')
 @section('active-page', 'transactions-cvm')
-@section('description', 'Tren bulanan CVM dan Sub CVM per TAP dan outlet.')
+@section('description', 'Tren bulanan transaksi RENEWAL BYU per TAP dan outlet.')
 @section('content-class', 'ngrs-page transaction-report')
 
 @push('styles')
@@ -21,7 +21,7 @@
 @endpush
 
 @section('content')
-    <form class="ngrs-toolbar outlet-transactions-toolbar cvm-transactions-toolbar" method="get" action="{{ route('surya.outlet-cvm') }}" aria-label="Filter transaksi CVM">
+    <form class="ngrs-toolbar outlet-transactions-toolbar cvm-transactions-toolbar" method="get" action="{{ route('surya.outlet-cvm') }}" aria-label="Filter transaksi RENEWAL BYU">
         <label>Cutoff transaksi
             <input name="cutoff" type="date" value="{{ $cutoff->toDateString() }}" max="{{ $today }}" required>
         </label>
@@ -61,7 +61,7 @@
     </form>
 
     @if($latest === null)
-        <p class="ngrs-note">Belum ada data CVM atau Sub CVM yang diupload.</p>
+        <p class="ngrs-note">Belum ada data RENEWAL BYU yang diupload.</p>
     @endif
 
     @php
@@ -74,7 +74,7 @@
 
     <div class="ngrs-report-heading">
         <div>
-            <h2>Rekap per TAP</h2>
+            <h2>Rekap RENEWAL BYU per TAP</h2>
             <p>Cutoff {{ $cutoff->translatedFormat('d M Y') }}@if($comparison)
                 · Pembanding MTD 1–{{ $previousEnd->translatedFormat('d M Y') }}
             @endif</p>
@@ -88,7 +88,7 @@
     </div>
 
     <div class="ngrs-report-heading"><h2>Detail per outlet</h2></div>
-    <section class="ngrs-card" aria-label="Transaksi CVM per outlet">
+    <section class="ngrs-card" aria-label="Transaksi RENEWAL BYU per outlet">
         <div class="ngrs-scroll ngrs-detail-scroll" tabindex="0">
             <table class="ngrs-detail cvm-transactions-table" data-transaction-table="detail" data-report-end-month="{{ $cutoff->month }}" data-report-default-range="12">
                 @include('surya.partials.outlet-cvm-head', ['labels' => ['row_number' => 'No'] + $identity, 'filterable' => true])

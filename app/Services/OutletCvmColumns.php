@@ -25,7 +25,7 @@ class OutletCvmColumns extends OutletTransactionColumns
         $identity = array_keys(self::IDENTITY);
         $periods = array_diff(parent::keys(), $identity);
         $keys = $identity;
-        foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
+        foreach (['byu'] as $metric) {
             foreach ($periods as $period) {
                 $keys[] = $metric.'_'.$period;
             }

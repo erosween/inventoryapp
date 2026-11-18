@@ -38,7 +38,7 @@
             <button class="btn" type="submit"><i class="fas fa-magnifying-glass"></i>&nbsp; Tampilkan</button>
             <a class="btn" href="{{ route('surya.outlet-detail.export', ['q' => $search, 'tap' => $selectedTap, 'sf' => $selectedSf, 'pjp' => $selectedPjp, 'sales_cutoff' => $salesCutoffValue, 'columns'=>request('columns',[]), 'exclude'=>request('exclude',[]), 'sort'=>request('sort'), 'direction'=>request('direction')]) }}"><i class="fas fa-file-excel"></i>&nbsp; Export Excel</a>
         </form>
-        @if($activeTab === 'digipos')<p class="outlet-metrics-note">CVM–Biometrik: data terbaru bulan terpilih · —: belum tersedia.</p>@endif
+        @if($activeTab === 'digipos')<p class="outlet-metrics-note">CVM–RENEWAL BYU–Biometrik: data terbaru bulan terpilih · —: belum tersedia.</p>@endif
         @if($activeTab === 'digipos')
         <section id="outlet-sales-summary" class="outlet-insight" data-summary-owner="{{ auth()->id() }}" data-summary-url="{{ route('surya.outlet-detail.sales-summary') }}" data-summary-download-url="{{ route('surya.outlet-detail.sales-summary.download') }}">
             <header class="outlet-insight-heading"><div><h2>Insight Penjualan Outlet</h2><p>Rekap TAP dan kecamatan · sesuai filter.</p></div><div class="outlet-insight-actions"><label>Produk<select data-summary-product aria-label="Produk summary outlet">@foreach(['pv_all'=>'PV All','pv_reg'=>'PV Reguler','pv_byu'=>'PV Byu','sa_all'=>'SA All','sa_simpati'=>'SA Simpati','sa_byu'=>'SA Byu'] as $value=>$label)<option value="{{ $value }}" @selected(request('summary_product','pv_all')===$value)>{{ $label }}</option>@endforeach</select></label><a class="insight-download" data-summary-download href="{{ route('surya.outlet-detail.sales-summary.download', request()->query()) }}"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</a></div></header>
@@ -48,7 +48,7 @@
         <script src="{{ asset('js/surya-outlet-insight.js') }}?v={{ filemtime(public_path('js/surya-outlet-insight.js')) }}" defer></script>
         @endif
         @php
-            $groups = ['st_sa' => ['label' => 'ST SA', 'class' => 'sales'], 'st_pv' => ['label' => 'ST PV', 'class' => 'sales'], 'cvm' => ['label' => 'CVM', 'class' => 'upload'], 'super_seru' => ['label' => 'Super Seru', 'class' => 'upload'], 'comsak' => ['label' => 'Comsak', 'class' => 'upload'], 'hot_promo' => ['label' => 'Hot Promo', 'class' => 'upload'], 'biometrik' => ['label' => 'Biometrik', 'class' => 'upload']];
+            $groups = ['st_sa' => ['label' => 'ST SA', 'class' => 'sales'], 'st_pv' => ['label' => 'ST PV', 'class' => 'sales'], 'cvm' => ['label' => 'CVM', 'class' => 'upload'], 'super_seru' => ['label' => 'Super Seru', 'class' => 'upload'], 'comsak' => ['label' => 'Comsak', 'class' => 'upload'], 'hot_promo' => ['label' => 'Hot Promo', 'class' => 'upload'], 'renewal_byu' => ['label' => 'RENEWAL BYU', 'class' => 'upload'], 'biometrik' => ['label' => 'Biometrik', 'class' => 'upload']];
             $consignmentColumns = \App\Services\OutletConsignmentQuantities::COLUMNS;
             $periods = ['fm1' => 'FM1', 'm1' => 'M1', 'mtd' => 'MTD', 'gap' => 'Gap MoM', 'mom_pct' => '%MoM'];
             $paginator = $activeTab === 'digipos' ? $outlets : $nonDigiposOutlets;
@@ -73,7 +73,7 @@
                 <td class="metric {{ $loop->first ? 'group-start' : '' }} {{ str_ends_with($column, '_all') ? 'sales' : '' }}">{{ number_format($outlet->{$column} ?? 0) }}</td>
             @endforeach
         </tr>
-        @empty<tr><td class="table-empty" colspan="{{ 43 + count($consignmentColumns) }}">Outlet PJP tidak ditemukan.</td></tr>@endforelse
+        @empty<tr><td class="table-empty" colspan="{{ 48 + count($consignmentColumns) }}">Outlet PJP tidak ditemukan.</td></tr>@endforelse
         </tbody></table></div>
         @else
         <div class="card"><div class="table-wrap"><table class="non-digipos-table"><thead><tr><th>Outlet</th><th>Owner</th><th>Contact</th><th>Alamat</th><th>SF</th><th>TAP</th><th>SA</th><th>PV</th></tr></thead><tbody>@forelse($nonDigiposOutlets as $outlet)<tr><td><strong>{{ $outlet->outlet_name ?: '–' }}</strong></td><td>{{ $outlet->owner_name ?: '–' }}</td><td>{{ $outlet->phone_number ?: '–' }}</td><td class="product-summary">{{ $outlet->outlet_address ?: '–' }}</td><td><strong>{{ $outlet->namasf ?: $outlet->idsf }}</strong></td><td>{{ $outlet->idtap ?: '–' }}</td><td class="number sales">{{ number_format($outlet->total_sa) }}</td><td class="number sales">{{ number_format($outlet->total_pv) }}</td></tr>@empty<tr><td class="table-empty" colspan="8">Outlet non-Digipos tidak ditemukan.</td></tr>@endforelse</tbody></table></div>

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 class OutletColumnFilters {
  public const TEXT=['id_outlet','nama_outlet','kecamatan','sf','tap','pjp','kategori_outlet'];
- public const GROUPS=['st_sa','st_pv','cvm','super_seru','comsak','hot_promo','biometrik'];
+ public const GROUPS=['st_sa','st_pv','cvm','super_seru','comsak','hot_promo','renewal_byu','biometrik'];
  public function keys():array { $keys=self::TEXT;foreach(self::GROUPS as $g)foreach(['fm1','m1','mtd','gap','mom_pct']as$p)$keys[]=$g.'_'.$p;return [...$keys, ...array_keys(OutletConsignmentQuantities::COLUMNS)]; }
  public function options(Request $r):array {
   $o=$r->validate(['columns'=>'nullable|array|max:48','columns.*'=>'array|min:1|max:100','columns.*.*'=>'nullable|string|max:5000','exclude'=>'nullable|array|max:48','exclude.*'=>'array|min:1|max:100','exclude.*.*'=>'nullable|string|max:5000','sort'=>'nullable|string','direction'=>'nullable|in:asc,desc']);
@@ -41,9 +41,9 @@ class OutletColumnFilters {
      $available="($alias.id_outlet IS NOT NULL AND ($alias.uploaded_metrics IS NULL OR $alias.uploaded_metrics='' OR $marker LIKE '%,$column,%'))";
      $fm="CASE WHEN $available THEN COALESCE($alias.{$column}_fm1,0) ELSE NULL END";$m1="CASE WHEN $available THEN COALESCE($alias.{$column}_m1,0) ELSE NULL END";$m="CASE WHEN $available THEN COALESCE($alias.{$column}_m,0) ELSE NULL END";
     }else{
-     $column=['super_seru'=>'super_seru'][$g]??$g;
+     $column=['super_seru'=>'super_seru','renewal_byu'=>'byu'][$g]??$g;
      if(!isset($cvmPeriods)){
-      $cvmPeriods=app(OutletCvmReport::class)->outletPeriodsQuery($cutoff,['cvm','super_seru','comsak','hot_promo']);
+      $cvmPeriods=app(OutletCvmReport::class)->outletPeriodsQuery($cutoff,['cvm','super_seru','comsak','hot_promo','byu']);
       $q->leftJoinSub($cvmPeriods,'c',fn($j)=>$j->on('c.id_outlet','=',$outletId));
      }
      $fm="c.{$column}_fm1";$m1="c.{$column}_m1";$m="c.{$column}_mtd";

@@ -14,7 +14,7 @@ class OutletCvmImport
         'insak' => 'Insak',
         'hot_promo' => 'Hot Promo',
         'super_seru' => 'Super Seru',
-        'byu' => 'BYU',
+        'byu' => 'RENEWAL BYU',
         'digital' => 'Digital',
     ];
 
