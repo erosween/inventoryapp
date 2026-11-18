@@ -285,10 +285,10 @@
     .serial-hidden-select { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important; }
     .serial-single-wrap,.serial-range-wrap { margin-top:14px; }
     .serial-input-area .form-control { min-height:44px;border:1px solid #dbe3ee;border-radius:12px;background:#fff;font-size:.78rem;font-weight:750; }
-    .serial-range-fields { display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:8px; }
+    .serial-range-fields { display:grid;grid-template-columns:minmax(0,1fr);gap:10px; }
     .serial-range-field { min-width:0; }
     .serial-range-field label { display:block;margin:0 0 5px;color:#64748b;font-size:.59rem;font-weight:800; }
-    .serial-range-separator { padding-bottom:12px;color:#94a3b8;font-size:.7rem;font-weight:850; }
+    .serial-range-separator { display:none; }
     .serial-qty-hint { display:block;margin-top:8px;color:#64748b!important;font-size:.61rem;font-weight:700;line-height:1.45; }
     .serial-qty-hint.text-danger { color:#dc2626!important; }
     .serial-qty-hint.text-success { color:#059669!important; }
