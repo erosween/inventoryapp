@@ -45,7 +45,7 @@ class SuryaAdminSalesExport implements FromCollection, WithColumnWidths, WithHea
     {
         return [
             'Tanggal', 'TAP', 'SF Code', 'Nama SF', 'ID/Detail Outlet',
-            'Produk', 'Kelompok Produk', 'Sub Produk', 'Validity', 'Qty',
+            'Produk', 'Group Product', 'Sub Produk', 'Validity', 'Qty',
         ];
     }
 }
