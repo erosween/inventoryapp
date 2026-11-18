@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use App\Services\OptimizedImageStorage;
 use App\Services\SuryaOutletCoordinates;
+use App\Support\DenomGrouping;
 use App\Support\SuryaTapScope;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -616,7 +617,12 @@ class MonitaDumaiController extends Controller
             ->whereBetween('k.tgl', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('k.idtap', $tapScopes))
             ->orderBy('k.tgl')->orderBy('k.idtap')->orderBy('s.namasf')
-            ->get(['k.tgl', 'k.idtap', 'k.idsf', 'k.id_outlet', 'k.iddenom', 's.namasf', 'k.tambahanket', 'd.denom', 'k.qty'])
+            ->orderByRaw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' OR UPPER(COALESCE(d.product_group, '')) IN ('SA', 'SP') OR UPPER(k.iddenom) LIKE 'SP%' THEN 0 ELSE 1 END")
+            ->orderBy('d.denom')
+            ->get([
+                'k.tgl', 'k.idtap', 'k.idsf', 'k.id_outlet', 'k.iddenom', 's.namasf', 'k.tambahanket',
+                'd.denom', 'd.kategori_inject', 'd.group_name', 'd.product_group', 'k.qty',
+            ])
             ->map(fn ($row) => [
                 Carbon::parse($row->tgl)->format('d/m/Y'),
                 $row->idtap,
@@ -624,6 +630,7 @@ class MonitaDumaiController extends Controller
                 $row->namasf ?: $row->idsf,
                 $row->id_outlet,
                 $row->denom ?: $row->iddenom,
+                DenomGrouping::infer($row)['product'],
                 (int) $row->qty,
                 $row->tambahanket,
             ]);

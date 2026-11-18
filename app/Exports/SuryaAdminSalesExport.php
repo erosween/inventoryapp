@@ -27,7 +27,7 @@ class SuryaAdminSalesExport implements FromCollection, WithColumnWidths, WithHea
                 $values[4] = 'NON ID / PLAYER';
             }
 
-            return array_slice($values, 0, 7);
+            return array_slice($values, 0, 8);
         });
     }
 
@@ -38,14 +38,14 @@ class SuryaAdminSalesExport implements FromCollection, WithColumnWidths, WithHea
 
     public function columnWidths(): array
     {
-        return ['A' => 14, 'B' => 18, 'C' => 16, 'D' => 26, 'E' => 30, 'F' => 34, 'G' => 12];
+        return ['A' => 14, 'B' => 18, 'C' => 16, 'D' => 26, 'E' => 30, 'F' => 34, 'G' => 18, 'H' => 12];
     }
 
     public function headings(): array
     {
         return [
             'Tanggal', 'TAP', 'SF Code', 'Nama SF', 'ID/Detail Outlet',
-            'Produk', 'Qty',
+            'Produk', 'Kelompok Produk', 'Qty',
         ];
     }
 }
