@@ -3936,7 +3936,8 @@
                         <p class="visit-export-description">Pilih rentang tanggal untuk seluruh sheet visit, penjualan, dan konsinyasi.</p>
                         <label for="visit-export-from">Dari tanggal<input id="visit-export-from" type="date" name="date_from" value="{{ old('date_from', \Carbon\Carbon::parse($visitDate)->startOfMonth()->toDateString()) }}" required></label>
                         <label for="visit-export-to">Sampai tanggal<input id="visit-export-to" type="date" name="date_to" value="{{ old('date_to', min(\Carbon\Carbon::parse($visitDate)->endOfMonth()->toDateString(), now('Asia/Jakarta')->toDateString())) }}" required></label>
-                        <button type="submit" class="visit-refresh-button"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
+                        <button type="submit" class="visit-refresh-button" data-visit-export-submit><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
+                        <span class="visit-export-status" data-visit-export-status role="status" aria-live="polite"></span>
                         @error('date_from')<span class="text-danger">{{ $message }}</span>@enderror
                         @error('date_to')<span class="text-danger">{{ $message }}</span>@enderror
                     </form>
