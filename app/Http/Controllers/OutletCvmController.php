@@ -19,14 +19,14 @@ class OutletCvmController extends Controller
     {
         $context = $this->context($request);
         ['profiles' => $profiles, 'cutoff' => $cutoff, 'pageSize' => $pageSize] = $context;
-        $metrics = OutletCvmImport::METRICS;
+        $metrics = array_diff_key(OutletCvmImport::METRICS, ['byu' => true]);
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
         $comparison = $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth;
         $columns = $this->monthColumns($cutoff, $comparison);
 
         if ($request->boolean('rekap')) {
             return view('surya.partials.outlet-cvm-summary', compact('metrics', 'cutoff', 'columns')
-                + $report->summary($profiles, $cutoff));
+                + $report->summary($profiles, $cutoff, array_keys($metrics)));
         }
 
         $identity = OutletCvmColumns::IDENTITY;
@@ -47,7 +47,7 @@ class OutletCvmController extends Controller
 
         unset($context['profiles']);
 
-        $details = $report->details($outlets->pluck('id_outlet'), $cutoff);
+        $details = $report->details($outlets->pluck('id_outlet'), $cutoff, array_keys($metrics));
         $summaryUrl = route('surya.outlet-cvm', [
             'rekap' => 1, 'cutoff' => $cutoff->toDateString(), 'tap' => $context['tap'], 'q' => $context['search'],
         ]);
@@ -82,7 +82,7 @@ class OutletCvmController extends Controller
         $identity = $summary ? ['tap' => 'TAP'] : OutletCvmColumns::IDENTITY;
         $previousEnd = OutletReportPeriod::previousEnd($cutoff);
         $columns = $this->monthColumns($cutoff, $cutoff->month > 1 && $previousEnd->day < $previousEnd->daysInMonth);
-        $metrics = OutletCvmImport::METRICS;
+        $metrics = array_diff_key(OutletCvmImport::METRICS, ['byu' => true]);
         $headers = array_values($identity);
         foreach ($metrics as $label) {
             foreach ($columns as $column) {
@@ -95,7 +95,7 @@ class OutletCvmController extends Controller
         $rows = $summary ? null : ($keys === []
             ? $profiles->orderBy('nama_outlet')->orderBy('id_outlet')->get(array_keys($identity))->map(fn ($row) => (array) $row)
             : $filters->apply($filters->rows($profiles, $report, $cutoff, $keys), $options));
-        $recap = $summary ? $report->summary($profiles, $cutoff) : null;
+        $recap = $summary ? $report->summary($profiles, $cutoff, array_keys($metrics)) : null;
 
         return response()->streamDownload(function () use ($headers, $identity, $metrics, $columns, $rows, $recap, $report, $cutoff) {
             $out = fopen('php://output', 'wb');
@@ -122,7 +122,7 @@ class OutletCvmController extends Controller
                 }
             } else {
                 foreach ($rows->chunk(500) as $batch) {
-                    $details = $report->details($batch->pluck('id_outlet'), $cutoff);
+                    $details = $report->details($batch->pluck('id_outlet'), $cutoff, array_keys($metrics));
                     foreach ($batch as $row) $write($row, $details->get($row['id_outlet'], []));
                 }
             }

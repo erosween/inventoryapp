@@ -25,7 +25,7 @@ class OutletCvmColumns extends OutletTransactionColumns
         $identity = array_keys(self::IDENTITY);
         $periods = array_diff(parent::keys(), $identity);
         $keys = $identity;
-        foreach (array_keys(OutletCvmImport::METRICS) as $metric) {
+        foreach (array_keys(array_diff_key(OutletCvmImport::METRICS, ['byu' => true])) as $metric) {
             foreach ($periods as $period) {
                 $keys[] = $metric.'_'.$period;
             }
@@ -46,7 +46,7 @@ class OutletCvmColumns extends OutletTransactionColumns
     public function rows(Builder $profiles, OutletCvmReport $report, Carbon $cutoff, array $keys): Collection
     {
         $requested = array_diff($keys, array_keys(self::IDENTITY));
-        $metrics = array_filter(array_keys(OutletCvmImport::METRICS), fn ($metric) => collect($requested)
+        $metrics = array_filter(array_keys(array_diff_key(OutletCvmImport::METRICS, ['byu' => true])), fn ($metric) => collect($requested)
             ->contains(fn ($key) => str_starts_with($key, $metric.'_')));
         $details = $metrics === [] ? collect() : $report->details($profiles, $cutoff, $metrics);
 
