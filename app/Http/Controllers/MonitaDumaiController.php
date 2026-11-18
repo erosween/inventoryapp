@@ -617,23 +617,42 @@ class MonitaDumaiController extends Controller
             ->whereBetween('k.tgl', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('k.idtap', $tapScopes))
             ->orderBy('k.tgl')->orderBy('k.idtap')->orderBy('s.namasf')
-            ->orderByRaw("CASE WHEN UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' OR UPPER(COALESCE(d.product_group, '')) IN ('SA', 'SP') OR UPPER(k.iddenom) LIKE 'SP%' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN UPPER(COALESCE(d.product, '')) = 'SA' OR UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' OR UPPER(COALESCE(d.product_group, '')) IN ('SA', 'SP') OR UPPER(k.iddenom) LIKE 'SP%' THEN 0 ELSE 1 END")
             ->orderBy('d.denom')
             ->get([
                 'k.tgl', 'k.idtap', 'k.idsf', 'k.id_outlet', 'k.iddenom', 's.namasf', 'k.tambahanket',
-                'd.denom', 'd.kategori_inject', 'd.group_name', 'd.product_group', 'k.qty',
+                'd.denom', 'd.kategori_inject', 'd.group_name', 'd.product_group', 'd.product', 'd.product_variant', 'k.qty',
             ])
-            ->map(fn ($row) => [
-                Carbon::parse($row->tgl)->format('d/m/Y'),
-                $row->idtap,
-                $row->idsf,
-                $row->namasf ?: $row->idsf,
-                $row->id_outlet,
-                $row->denom ?: $row->iddenom,
-                DenomGrouping::infer($row)['product'],
-                (int) $row->qty,
-                $row->tambahanket,
-            ]);
+            ->map(function ($row) {
+                $grouping = DenomGrouping::infer($row);
+                if (in_array(strtoupper(trim((string) $row->product)), ['SA', 'PV'], true)) {
+                    $grouping['product'] = strtoupper(trim((string) $row->product));
+                }
+                if (in_array(strtoupper(trim((string) $row->product_variant)), ['REGULER', 'SIMPATI', 'BYU', 'ROAMAX'], true)) {
+                    $grouping['product_variant'] = strtoupper(trim((string) $row->product_variant));
+                }
+                $subProduct = match ($grouping['product'].'|'.$grouping['product_variant']) {
+                    'SA|SIMPATI' => 'SA SIMPATI',
+                    'SA|BYU' => 'SA BYU',
+                    'PV|REGULER' => 'PV REGULER',
+                    'PV|BYU' => 'PV BYU',
+                    default => $grouping['product'].' '.$grouping['product_variant'],
+                };
+
+                return [
+                    Carbon::parse($row->tgl)->format('d/m/Y'),
+                    $row->idtap,
+                    $row->idsf,
+                    $row->namasf ?: $row->idsf,
+                    $row->id_outlet,
+                    $row->denom ?: $row->iddenom,
+                    $grouping['product'],
+                    $subProduct,
+                    $grouping['product'] === 'PV' ? ($row->group_name ?: null) : null,
+                    (int) $row->qty,
+                    $row->tambahanket,
+                ];
+            });
 
         $consignments = DB::table('surya_sa_consignment_numbers as c')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'c.iddenom')
