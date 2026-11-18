@@ -392,7 +392,7 @@
         });
         let activeRow = null;
         const stockMap = {!! json_encode($denoms->pluck('stock_qty', 'iddenom')) !!};
-        const consignmentDenoms = @json($denoms->map(fn($denom) => ['id' => $denom->iddenom, 'name' => $denom->denom])->values());
+        const consignmentDenoms = @json($consignmentDenoms->map(fn($denom) => ['id' => $denom->iddenom, 'name' => $denom->denom])->values());
         const oldConsignments = @json(old('consignments', []));
         let consignmentRowIndex = 0;
         let outletSearchTimer = null;

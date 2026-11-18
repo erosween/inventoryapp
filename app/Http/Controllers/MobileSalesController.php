@@ -353,7 +353,20 @@ SQL;
             ->get()
             ->sortByDesc(fn($item) => strtoupper((string) ($item->product_group ?? 'PV')) === 'SP' ? 1 : 0);
 
-        return view('mobile.form', compact('denoms', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
+        // Consignment serials are recorded independently from allocated SF stock.
+        // Keep eligible starter packs and voucher denoms (including Unlimited)
+        // selectable even when the SF has no stock row or its available stock is 0.
+        $consignmentDenoms = DB::table('denom')
+            ->where(function ($query) {
+                $query->whereIn(DB::raw("UPPER(COALESCE(kategori_inject, ''))"), ['SA', 'BYU', 'SEGEL'])
+                    ->orWhereIn(DB::raw("UPPER(COALESCE(group_name, ''))"), ['SA', 'SEGEL'])
+                    ->orWhereRaw("UPPER(COALESCE(group_name, '')) LIKE '%UNLIMITED%'")
+                    ->orWhereRaw("UPPER(COALESCE(denom, '')) LIKE '%UNLIMITED%'");
+            })
+            ->orderBy('denom')
+            ->get(['iddenom', 'denom']);
+
+        return view('mobile.form', compact('denoms', 'consignmentDenoms', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
     }
 
     // Submit penjualan mobile. Validasi outlet, stok, nota, dan nomor titip jual sebelum mencatat
