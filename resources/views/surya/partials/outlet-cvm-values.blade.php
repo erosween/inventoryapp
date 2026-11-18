@@ -5,7 +5,7 @@
         @php
             $value = $series[$metric][$key] ?? null;
             $percent = str_starts_with($key, 'mom_pct_');
-            $gap = $percent || str_starts_with($key, 'gap_');
+            $gap = $percent || $key === 'gap' || str_starts_with($key, 'gap_');
             $tone = $value === null ? 'missing' : ($value < 0 ? 'negative' : ($value > 0 ? 'positive' : 'flat'));
             $display = match (true) {
                 $value === null => '—',
