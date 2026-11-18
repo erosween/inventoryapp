@@ -27,7 +27,7 @@
         <details class="sidebar-taskforce" @if(in_array($sidebarPage, ['ngrs','transactions-sa','transactions-pv','transactions-cvm'], true)) open @endif>
             <summary class="sidebar-link"><i class="fas fa-chart-column"></i><span>TRANSAKSI OUTLET</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
             <a href="{{ route('surya.ngrs') }}" class="sidebar-link {{ $sidebarPage === 'ngrs' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-signal"></i><span>NGRS</span></a>
-            @foreach(['cvm'=>'RENEWAL BYU','sa'=>'SA','pv'=>'PV'] as $key=>$label)
+            @foreach(['cvm'=>'CVM','sa'=>'SA','pv'=>'PV'] as $key=>$label)
             <a href="{{ $key === 'cvm' ? route('surya.outlet-cvm') : route('surya.outlet-transactions', ['family' => $key]) }}" class="sidebar-link {{ $sidebarPage === 'transactions-'.$key ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-table-list"></i><span>{{ $label }}</span></a>
             @endforeach
         </details>
