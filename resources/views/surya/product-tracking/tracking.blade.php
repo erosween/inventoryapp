@@ -1,6 +1,6 @@
 @extends('surya.layouts.workspace')
 
-@section('title', 'Tracking SN / Number')
+@section('title', 'Tracking SN')
 @section('active-page', 'product-tracking-lookup')
 @section('description', 'Lihat detail ST Nota Surya dan ST Digipos berdasarkan SN.')
 @section('content-class', 'pt-page')
@@ -8,7 +8,7 @@
 @push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">@endpush
 
 @section('content')
-    <section class="pt-card"><h2>Cari identitas produk</h2><p class="pt-subtitle">Masukkan SN yang ingin ditelusuri.</p><form method="get" class="pt-lookup"><input type="search" name="q" value="{{ $queryValue }}" inputmode="numeric" minlength="1" maxlength="24" placeholder="Serial Number (SN)" required><button class="pt-button primary" type="submit"><i class="fas fa-magnifying-glass"></i> Lacak</button></form></section>
+    <section class="pt-card"><h2>Cari Produk by SN</h2><p class="pt-subtitle">Masukkan SN yang ingin ditelusuri.</p><form method="get" class="pt-lookup"><input type="search" name="q" value="{{ $queryValue }}" inputmode="numeric" minlength="1" maxlength="24" placeholder="Serial Number (SN)" required><button class="pt-button primary" type="submit"><i class="fas fa-magnifying-glass"></i> Lacak</button></form></section>
     @if($queryValue!=='')
         <section class="pt-card"><div class="pt-result-head"><div><h2>ST Nota Surya</h2><span class="pt-muted">Penjualan yang dicatat melalui Product Tracking dan penjualan mobile yang disetujui.</span></div><span class="pt-chip">{{ $queryValue }}</span></div>
             <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Tanggal ST</th><th>SN</th><th>ID Outlet</th><th>Nama Outlet</th><th>Sales Force</th><th>Denom</th></tr></thead><tbody>
