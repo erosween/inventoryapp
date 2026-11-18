@@ -414,7 +414,7 @@ class ProductTrackingController extends MonitaDumaiController
     public function tracking(Request $request)
     {
         $queryValue = trim((string) $request->query('q', ''));
-        $sales = collect(); $warehouse = collect(); $scans = collect(); $mobile = collect();
+        $sales = collect(); $scans = collect(); $mobile = collect();
         if ($queryValue !== '') {
             abort_if(strlen($queryValue) > 24 || ! preg_match('/^\d{9,16}$/', $queryValue), 422, 'Masukkan SN atau nomor 9–16 digit.');
             $sales = $this->scopedSales()->where(function ($query) use ($queryValue) {
@@ -427,15 +427,6 @@ class ProductTrackingController extends MonitaDumaiController
                 ->leftJoin('appsdumais as sales_outlet', 'sales_outlet.id_outlet', '=', 'sale.id_outlet')
                 ->leftJoin('denom as sales_denom', 'sales_denom.iddenom', '=', 'sale.iddenom')
                 ->orderByDesc('sale.sale_date')->get(['sale.*', 'sales_force.namasf', 'sales_outlet.nama_outlet', 'sales_denom.denom as denom_name']);
-            $latestWarehouseId = DB::table('product_tracking_uploads')->where('kind', 'warehouse')->where('status', 'complete')->orderByDesc('id')->value('id');
-            if ($latestWarehouseId) {
-                $warehouseQuery = DB::table('product_tracking_digipos')->where('upload_id', $latestWarehouseId)
-                    ->where('serial_start', '<=', $queryValue)->where('serial_end', '>=', $queryValue);
-                if ($scopes = $this->suryaTapScopes()) $warehouseQuery->whereIn('id_outlet', DB::table('appsdumais')->select('id_outlet')->whereIn('tap', $scopes));
-                $warehouse = $warehouseQuery->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'product_tracking_digipos.sf')
-                    ->leftJoin('appsdumais as digipos_outlet', 'digipos_outlet.id_outlet', '=', 'product_tracking_digipos.id_outlet')
-                    ->get(['product_tracking_digipos.*', 'sales_force.namasf', 'digipos_outlet.nama_outlet']);
-            }
             $scansQuery = DB::table('product_tracking_digipos as d')->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
                 ->where('u.kind', 'scan')->where('u.status', 'complete')->where('d.serial_start', '<=', $queryValue)->where('d.serial_end', '>=', $queryValue)
                 ->orderByDesc('u.scan_date')->orderByDesc('d.id')->limit(100);
@@ -456,7 +447,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->get(['serial.*', 'sale.tgl', 'sale.id_outlet', 'sale.idsf', 'sale.status', 'sale.qty', 'sales_force.namasf', 'mobile_outlet.nama_outlet', 'mobile_denom.denom as denom_name']);
             }
         }
-        return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'warehouse', 'scans', 'mobile'));
+        return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'scans', 'mobile'));
     }
 
     private function matchedDigiposQuery(string $kind, $warehouseId = null, bool $sameOutlet = false, ?string $from = null, ?string $to = null)
