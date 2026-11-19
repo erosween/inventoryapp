@@ -143,7 +143,6 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function soldColumnValues(Request $request)
     {
-        abort_unless($this->hasSuryaAccess($request), 403);
         $filters = $this->soldSerialFilters($request);
         $request->validate(['column' => 'required|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
         $column = $request->input('column');
