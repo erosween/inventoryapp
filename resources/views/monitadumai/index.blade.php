@@ -422,7 +422,7 @@
             <h3><i class="fas fa-map-marked-alt"></i> Semua Outlet</h3>
             <span class="map-count" id="map-outlet-count">Memuat...</span>
         </div>
-        <div class="map-marker-legend" aria-label="Arti warna titik outlet"><span class="verified">Visit disetujui</span><span class="attention">Visit perlu diperiksa</span><span class="unvisited">Belum ada visit</span></div>
+        <div class="map-marker-legend" aria-label="Arti warna titik outlet"><span class="verified">Ada riwayat visit</span><span class="unvisited">Belum ada visit</span></div>
         <div id="map-outlet-error" class="map-outlet-error" role="status" hidden>
             <span data-map-error-message></span>
             <button type="button" onclick="loadAllOutlets()">Coba Lagi</button>
@@ -2919,8 +2919,7 @@
 
         function createOutletIcon(outlet = null, selected = false) {
             const state = outlet?.map_visit_state || 'unvisited';
-            const stateClass = state === 'verified' ? ' outlet-marker-visited'
-                : state !== 'unvisited' ? ' outlet-marker-attention' : '';
+            const stateClass = state === 'unvisited' ? '' : ' outlet-marker-visited';
             const content = '<div class="outlet-marker-pin"><i class="fas fa-store"></i></div>';
             return L.divIcon({
                 className: `outlet-marker-icon${selected ? ' outlet-marker-selected' : ''}${stateClass}`,

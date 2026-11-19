@@ -1904,13 +1904,10 @@
             color: #fff;
             box-shadow: 0 3px 12px rgba(22, 163, 74, 0.62);
         }
-        .outlet-marker-attention .outlet-marker-pin,
-        .outlet-marker-selected.outlet-marker-attention .outlet-marker-pin { background:#d97706;color:#fff;box-shadow:0 2px 8px #d9770670; }
         .map-marker-legend{display:flex;flex-wrap:wrap;gap:10px 18px;margin:0 0 14px;color:#667085;font-size:11px}
         .map-marker-legend span{display:inline-flex;align-items:center;gap:6px}
         .map-marker-legend span::before{content:'';width:8px;height:8px;border-radius:50%;background:#d10000}
         .map-marker-legend .verified::before{background:#16a34a}
-        .map-marker-legend .attention::before{background:#d97706}
         .surya-outlet-popup .leaflet-popup-content{width:min(340px,calc(100vw - 76px))!important;max-width:340px;margin:14px;line-height:1.4}
         .outlet-popup-heading{display:grid;gap:2px;margin:0 22px 10px 0;color:#172033}
         .outlet-popup-heading strong{font-size:15px;line-height:1.25}
