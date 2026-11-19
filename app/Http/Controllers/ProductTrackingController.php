@@ -50,10 +50,10 @@ class ProductTrackingController extends MonitaDumaiController
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw('id_outlet, MAX(nama_outlet) AS nama_outlet, COALESCE(MAX(tap), ?) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty', ['Tanpa TAP'])
+            ->selectRaw('id_outlet, MAX(nama_outlet) AS nama_outlet, COALESCE(MAX(tap), ?) AS tap, MAX(idsf) AS idsf, MAX(namasf) AS namasf, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty', ['Tanpa TAP'])
             ->groupBy('id_outlet');
         $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
-            ->selectRaw('id_outlet, nama_outlet, tap, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
+            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
         $outlets = (clone $outletQuery)
             ->orderBy('nama_outlet')->get();
 
