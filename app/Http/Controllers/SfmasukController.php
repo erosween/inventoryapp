@@ -47,7 +47,8 @@ class SfmasukController extends Controller
             'f.qty',
             'f.idtap',
             'i.namasf',
-            'f.sn'
+            DB::raw("SUBSTRING_INDEX(f.sn, '-', 1) AS sn_awal"),
+            DB::raw("CASE WHEN LOCATE('-', f.sn) > 0 THEN SUBSTRING_INDEX(f.sn, '-', -1) ELSE f.sn END AS sn_akhir")
         )
         ->whereBetween('f.tgl', [
             $start . ' 00:00:00',

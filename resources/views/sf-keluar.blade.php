@@ -60,6 +60,8 @@
                                         <th class="{{ auth()->user()->hasClusterAdminAccess() ? 'sticky-col-2' : 'sticky-col' }}">Tanggal</th>
                                         <th>Denom</th>
                                         <th class="text-end">Quantity</th>
+                                        <th>SN Awal</th>
+                                        <th>SN Akhir</th>
                                         <th>TAP</th>
                                         <th>SF</th>
                                         <th>ID Outlet</th>
@@ -142,6 +144,16 @@
                         data: 'qty',
                         name: 'f.qty',
                         className: 'text-end'
+                    },
+                    {
+                        data: 'sn_awal',
+                        name: 'f.sn_awal',
+                        defaultContent: '—'
+                    },
+                    {
+                        data: 'sn_akhir',
+                        name: 'f.sn_akhir',
+                        defaultContent: '—'
                     },
                     {
                         data: 'idtap',

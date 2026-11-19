@@ -35,12 +35,14 @@ use Illuminate\Validation\ValidationException;
 
     // Keep the view and export on the same posted-journal-first sales source.
     $journal = \App\Support\SalesSource::legacy()->select([
-        'idkeluar', 'tgl', 'iddenom', 'qty', 'idtap', 'idsf', 'id_outlet', 'tambahanket',
+        'idkeluar', 'tgl', 'iddenom', 'qty', 'idtap', 'idsf', 'id_outlet', 'tambahanket', 'sn_awal', 'sn_akhir',
     ]);
     $unpostedMobile = \App\Support\SalesSource::mobile()->select([
         DB::raw('-id AS idkeluar'), 'tgl', 'iddenom', 'qty', 'idtap',
         DB::raw('COALESCE(owner_idsf,idsf) AS idsf'), 'id_outlet',
         DB::raw("'Mobile approved' AS tambahanket"),
+        DB::raw("(SELECT GROUP_CONCAT(serial_start ORDER BY id SEPARATOR ', ') FROM mobile_sales_serials WHERE mobile_penjualan_id = mobile_penjualan.id AND mobile_sales_serials.iddenom = mobile_penjualan.iddenom) AS sn_awal"),
+        DB::raw("(SELECT GROUP_CONCAT(serial_end ORDER BY id SEPARATOR ', ') FROM mobile_sales_serials WHERE mobile_penjualan_id = mobile_penjualan.id AND mobile_sales_serials.iddenom = mobile_penjualan.iddenom) AS sn_akhir"),
     ]);
     $query = DB::query()->fromSub($journal->unionAll($unpostedMobile), 'f')
         ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
@@ -53,7 +55,9 @@ use Illuminate\Validation\ValidationException;
             'f.idtap',
             'i.namasf',
             'f.id_outlet',
-            'f.tambahanket'
+            'f.tambahanket',
+            'f.sn_awal',
+            'f.sn_akhir'
         );
 
     if (! $this->isGlobalAdmin()) TapFilter::apply($query, 'f.idtap');

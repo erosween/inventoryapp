@@ -60,7 +60,8 @@
                                         <th class="text-end">Qty</th>
                                         <th>TAP</th>
                                         <th>SF</th>
-                                        <th>SN</th>
+                                        <th>SN Awal</th>
+                                        <th>SN Akhir</th>
                                         <th width="100" class="text-center">Action</th>
                                     </tr>
                                 </thead>
@@ -141,8 +142,14 @@
                         name: 'i.namasf'
                     },
                     {
-                        data: 'sn',
-                        name: 'f.sn'
+                        data: 'sn_awal',
+                        name: 'sn_awal',
+                        defaultContent: '—'
+                    },
+                    {
+                        data: 'sn_akhir',
+                        name: 'sn_akhir',
+                        defaultContent: '—'
                     },
                     {
                         data: 'action',
