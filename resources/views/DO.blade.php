@@ -56,7 +56,8 @@
                                         <th class="text-end">Quantity</th>
                                         <th>Pengirim</th>
                                         <th>TAP</th>
-                                        <th>SN</th>
+                                        <th>SN Awal</th>
+                                        <th>SN Akhir</th>
                                         <th width="90">Action</th>
                                     </tr>
                                 </thead>
@@ -138,8 +139,14 @@
                         name: 'm.idtappenerima'
                     },
                     {
-                        data: 'sn',
-                        name: 'm.sn'
+                        data: 'sn_awal',
+                        name: 'sn_awal',
+                        defaultContent: '—'
+                    },
+                    {
+                        data: 'sn_akhir',
+                        name: 'sn_akhir',
+                        defaultContent: '—'
                     },
                     {
                         data: 'action',

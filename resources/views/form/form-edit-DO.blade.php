@@ -100,17 +100,23 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
-                                                <input type="number" name="qty" class="form-control"
-                                                    value="{{ $edit->qty }}" min="1" required>
+                                                <input type="number" name="qty" id="do-qty" class="form-control"
+                                                    value="{{ $edit->qty }}" min="1" readonly required>
                                             </div>
                                         </div>
 
                                         {{-- SN --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>SN</label>
-                                                <input type="text" name="sn" class="form-control"
-                                                    value="{{ $edit->sn }}">
+                                                @php($serialParts = explode('-', (string) $edit->sn, 2))
+                                                <label>SN Awal</label>
+                                                <input type="text" name="sn_start" id="do-sn-start" class="form-control" inputmode="numeric" autocomplete="off" value="{{ $serialParts[0] ?? '' }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN Akhir <small class="text-muted">(kosongkan untuk satuan)</small></label>
+                                                <input type="text" name="sn_end" id="do-sn-end" class="form-control" inputmode="numeric" autocomplete="off" value="{{ $serialParts[1] ?? '' }}">
                                             </div>
                                         </div>
 
@@ -138,6 +144,19 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            function updateDoQuantity() {
+                const start = ($('#do-sn-start').val() || '').trim();
+                const endInput = ($('#do-sn-end').val() || '').trim();
+                const end = endInput || start;
+                let qty = '';
+                if (/^\d+$/.test(start) && /^\d+$/.test(end)) {
+                    const count = BigInt(end) - BigInt(start) + 1n;
+                    if (count > 0n && count <= 2000000n) qty = count.toString();
+                }
+                $('#do-qty').val(qty);
+            }
+            $('#do-sn-start, #do-sn-end').on('input change', updateDoQuantity);
+            updateDoQuantity();
             $('.select2').each(function() {
                 $(this).select2({
                     placeholder: 'Pilih / Cari…',

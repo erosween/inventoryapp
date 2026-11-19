@@ -103,7 +103,7 @@
                                         <div class="col-md-6">
                                             <div class="form-group">
                                                 <label>Quantity</label>
-                                                <input type="number" name="qty" class="form-control" min="1"
+                                                <input type="number" name="qty" id="do-qty" class="form-control" min="1" readonly
                                                     required>
                                             </div>
                                         </div>
@@ -111,8 +111,14 @@
                                         {{-- SN --}}
                                         <div class="col-md-6">
                                             <div class="form-group">
-                                                <label>SN Awal - SN Akhir</label>
-                                                <input type="text" name="sn" class="form-control" required>
+                                                <label>SN Awal</label>
+                                                <input type="text" name="sn_start" id="do-sn-start" class="form-control" inputmode="numeric" autocomplete="off" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>SN Akhir <small class="text-muted">(kosongkan untuk satuan)</small></label>
+                                                <input type="text" name="sn_end" id="do-sn-end" class="form-control" inputmode="numeric" autocomplete="off">
                                             </div>
                                         </div>
 
@@ -141,6 +147,18 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            function updateDoQuantity() {
+                const start = ($('#do-sn-start').val() || '').trim();
+                const endInput = ($('#do-sn-end').val() || '').trim();
+                const end = endInput || start;
+                let qty = '';
+                if (/^\d+$/.test(start) && /^\d+$/.test(end)) {
+                    const count = BigInt(end) - BigInt(start) + 1n;
+                    if (count > 0n && count <= 2000000n) qty = count.toString();
+                }
+                $('#do-qty').val(qty);
+            }
+            $('#do-sn-start, #do-sn-end').on('input change', updateDoQuantity);
 
             $('.select2').each(function() {
                 $(this).select2({

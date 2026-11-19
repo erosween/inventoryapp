@@ -59,7 +59,8 @@ class InputDOController extends Controller
                 'm.qty',
                 'm.pengirim',
                 'm.idtappenerima',
-                'm.sn',
+                DB::raw("SUBSTRING_INDEX(m.sn, '-', 1) AS sn_awal"),
+                DB::raw("CASE WHEN LOCATE('-', m.sn) > 0 THEN SUBSTRING_INDEX(m.sn, '-', -1) ELSE m.sn END AS sn_akhir"),
                 'm.penerima',
                 'm.iddenom',
                 DB::raw('CASE WHEN '.DenomGrouping::legacyDoAtTapSql('m').' THEN COALESCE(tap_stock.stock, 0) ELSE COALESCE(sf.stock, 0) END as available_stock')
@@ -329,7 +330,44 @@ public function getTap(Request $request)
             'qty' => 'required|integer|min:1', 'tgl' => 'required|date|before_or_equal:today',
             'nomordo' => 'required|string|max:255', 'week' => 'required|string|max:25',
             'idtap' => 'required|exists:kodetap,idtap',
+            'qty' => 'required|integer|min:1',
+            'sn_start' => 'required|string|max:24',
+            'sn_end' => 'nullable|string|max:24',
         ]);
+
+        $denom = DB::table('denom')->where('iddenom', $request->kategorisegel)
+            ->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name']);
+        $denomId = strtoupper(trim((string) ($denom->iddenom ?? '')));
+        $product = strtoupper(trim((string) ($denom->product ?? '')));
+        $isStarterPack = in_array($product, ['PV', 'SA'], true)
+            ? $product === 'SA'
+            : (in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+                || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
+                || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
+                || str_starts_with($denomId, 'SP'));
+        $start = (string) $request->sn_start;
+        $end = (string) ($request->sn_end ?? '');
+        $pattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+        if (! preg_match($pattern, $start) || ($end !== '' && ! preg_match($pattern, $end))) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sn_start' => $isStarterPack
+                    ? 'SN perdana wajib 16 digit dan diawali 0.'
+                    : 'SN voucher wajib tepat 12 digit.',
+            ]);
+        }
+        if ($end === '') $end = $start;
+        $rangeQty = (int) ltrim($end, '0') - (int) ltrim($start, '0') + 1;
+        if ($rangeQty < 1 || $rangeQty > 2_000_000) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sn_end' => 'SN akhir harus sama dengan atau lebih besar dari SN awal; maksimal 2.000.000 SN.',
+            ]);
+        }
+        if ((int) $request->qty !== $rangeQty) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'qty' => 'Qty harus sama dengan jumlah SN dalam rentang.',
+            ]);
+        }
+        $request->merge(['sn' => $start === $end ? $start : "{$start}-{$end}"]);
         abort_unless(session('idtap') === 'SBP_DUMAI' || $request->idtap === session('idtap'), 403);
     }
 
