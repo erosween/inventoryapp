@@ -533,6 +533,8 @@
                 const denom = bulkDenoms.find(item => String(item.id) === String(iddenom));
                 if (!denom) return false;
                 const id = String(denom.id || '').trim().toUpperCase();
+                const masterProduct = String(denom.product || '').trim().toUpperCase();
+                if (['PV', 'SA'].includes(masterProduct)) return masterProduct === 'SA';
                 return ['SA', 'SP'].includes(String(denom.product_group || '').trim().toUpperCase())
                     || ['SA', 'SEGEL'].includes(String(denom.kategori_inject || '').trim().toUpperCase())
                     || ['SA', 'SEGEL'].includes(String(denom.group_name || '').trim().toUpperCase())

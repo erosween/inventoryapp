@@ -117,6 +117,7 @@ use Illuminate\Validation\ValidationException;
         $bulkDenomMetadata = $denom->map(fn ($row) => [
             'id' => $row->iddenom,
             'name' => $row->denom,
+            'product' => $row->product,
             'product_group' => $row->product_group,
             'kategori_inject' => $row->kategori_inject,
             'group_name' => $row->group_name,
@@ -236,15 +237,18 @@ use Illuminate\Validation\ValidationException;
     ]);
     $denomMetadata = DB::table('denom')
         ->whereIn('iddenom', collect($validated['items'])->pluck('iddenom')->unique())
-        ->get(['iddenom', 'product_group', 'kategori_inject', 'group_name'])
+        ->get(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name'])
         ->keyBy('iddenom');
     foreach ($validated['items'] as $index => &$item) {
         $denom = $denomMetadata->get($item['iddenom']);
         $denomId = strtoupper(trim((string) ($denom->iddenom ?? '')));
-        $isStarterPack = in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
-            || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
-            || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
-            || str_starts_with($denomId, 'SP');
+        $masterProduct = strtoupper(trim((string) ($denom->product ?? '')));
+        $isStarterPack = in_array($masterProduct, ['PV', 'SA'], true)
+            ? $masterProduct === 'SA'
+            : (in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+                || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
+                || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
+                || str_starts_with($denomId, 'SP'));
         $start = (string) ($item['sn_start'] ?? '');
         $end = (string) ($item['sn_end'] ?? '');
         $snPattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
