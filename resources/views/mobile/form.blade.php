@@ -896,6 +896,24 @@
             row.find('.serial-value-input').attr('maxlength', 50000);
         }
 
+        function limitSingleSerialDigits(row) {
+            if ((row.find('.serial-mode-select').val() || 'single') !== 'single'
+                || (row.find('.identifier-type-select').val() || 'sn') !== 'sn') return;
+            const id = row.find('.iddenom-input').val();
+            const maxDigits = starterPackMap[id] ? 16 : 12;
+            const input = row.find('.serial-value-input')[0];
+            if (!input) return;
+            const value = input.value || '';
+            const cursor = input.selectionStart ?? value.length;
+            const clean = (text) => text.replace(/\d+/g, (serial) => serial.slice(0, maxDigits));
+            const limited = clean(value);
+            if (limited !== value) {
+                const nextCursor = clean(value.slice(0, cursor)).length;
+                input.value = limited;
+                input.setSelectionRange(nextCursor, nextCursor);
+            }
+        }
+
         function updateSerialQuantity(row) {
             const mode = row.find('.serial-mode-select').val();
             const id = row.find('.iddenom-input').val();
@@ -1046,6 +1064,11 @@
         $(document).on('input change', '.serial-mode-select, .identifier-type-select, .serial-value-input, .serial-start-input, .serial-end-input', function() {
             const row = $(this).closest('.glass-card');
             syncSerialFields(row);
+            limitSingleSerialDigits(row);
+            if ($(this).is('.serial-start-input, .serial-end-input')) {
+                const maxDigits = starterPackMap[row.find('.iddenom-input').val()] ? 16 : 12;
+                this.value = String(this.value || '').replace(/\D/g, '').slice(0, maxDigits);
+            }
             updateSerialQuantity(row);
             saveFormState();
         });

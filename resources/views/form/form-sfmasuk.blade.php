@@ -157,6 +157,8 @@ $(document).ready(function() {
             if (!denom) { incomplete = true; return; }
 
             const starterPack = isStarterPack(denom);
+            const snLength = starterPack ? 16 : 12;
+            $row.find('.bulk-sn-start,.bulk-sn-end').attr('maxlength',snLength);
             const expected = starterPack ? 'SN perdana tepat 16 digit, diawali 0.' : 'SN voucher tepat 12 digit.';
             if (!start) message = `SN awal wajib diisi. ${expected}`;
             else {
@@ -239,7 +241,12 @@ $(document).ready(function() {
         $row.find('.sf-in-stock').text(stock.toLocaleString('id-ID'));
         $row.find('.bulk-sn-start,.bulk-sn-end').val('');
         validateRows();
-    }).on('input change','.bulk-sn-start,.bulk-sn-end',validateRows);
+    }).on('input','.bulk-sn-start,.bulk-sn-end',function() {
+        const denom = $(this).closest('.sf-in-item').find('.bulk-denom').val();
+        const maxDigits = isStarterPack(denom) ? 16 : 12;
+        this.value = String(this.value || '').replace(/\D/g,'').slice(0,maxDigits);
+        validateRows();
+    }).on('change','.bulk-sn-start,.bulk-sn-end',validateRows);
 
     let submitting = false;
     $('#formSfMasuk').on('submit',function(e) {

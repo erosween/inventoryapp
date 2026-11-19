@@ -174,6 +174,8 @@
                 const denomId = String($('select[name="kategorisegel"]').val() || '').toUpperCase();
                 const isStarterPack = ['PV', 'SA'].includes(product) ? product === 'SA' : denomId.startsWith('SP');
                 const pattern = isStarterPack ? /^0\d{15}$/ : /^\d{12}$/;
+                const snLength = isStarterPack ? 16 : 12;
+                $('#do-sn-start, #do-sn-end').attr('maxlength', snLength);
                 const expected = isStarterPack ? 'SN perdana tepat 16 digit dan diawali 0.' : 'SN voucher tepat 12 digit.';
                 let qty = '';
                 let error = '';
@@ -190,7 +192,11 @@
                     .text(error || (qty ? (endInput ? `${Number(qty).toLocaleString('id-ID')} SN dihitung dari rentang.` : '1 pcs dihitung dari SN awal.') : 'SN awal wajib. SN akhir opsional untuk input satuan.'));
                 return Boolean(qty) && !error;
             }
-            $('#do-sn-start, #do-sn-end').on('input change', updateDoQuantity);
+            $('#do-sn-start, #do-sn-end').on('input', function() {
+                const maxDigits = Number(this.maxLength) || 12;
+                this.value = String(this.value || '').replace(/\D/g, '').slice(0, maxDigits);
+                updateDoQuantity();
+            }).on('change', updateDoQuantity);
             $('select[name="kategorisegel"]').on('change', updateDoQuantity);
             updateDoQuantity();
             $('.select2').each(function() {

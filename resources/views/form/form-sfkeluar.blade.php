@@ -584,6 +584,8 @@
                     const $hint = $row.find('.sf-serial-hint');
                     const stock = parseInt(sfStockData[denom], 10) || 0;
                     const starterPack = bulkStarterPack(denom);
+                    const snLength = starterPack ? 16 : 12;
+                    $row.find('.bulk-sn-start, .bulk-sn-end').attr('maxlength', snLength);
                     let qty = 0;
                     let error = '';
 
@@ -668,7 +670,12 @@
                 $row.find('.sf-item-stock').text(stock.toLocaleString('id-ID'));
                 $row.find('.bulk-sn-start, .bulk-sn-end').val('');
                 validateBulkRows();
-            }).on('input change', '.bulk-sn-start, .bulk-sn-end', function() {
+            }).on('input', '.bulk-sn-start, .bulk-sn-end', function() {
+                const denom = $(this).closest('.sf-item-card').find('.bulk-denom').val();
+                const maxDigits = bulkStarterPack(denom) ? 16 : 12;
+                this.value = String(this.value || '').replace(/\D/g, '').slice(0, maxDigits);
+                validateBulkRows();
+            }).on('change', '.bulk-sn-start, .bulk-sn-end', function() {
                 validateBulkRows();
             });
             let submitting = false;
