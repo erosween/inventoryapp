@@ -28,7 +28,8 @@ class ProductTrackingController extends MonitaDumaiController
             ->where('upload.kind', 'scan')->where('upload.status', 'complete')
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])->exists();
 
-        $sourceQuery = $this->approvedMobileSerialsQuery($filters)
+        $activeTab = $filters['tab'];
+        $sourceQuery = $this->mobileSerialsQuery($filters)
             ->where('serial.identifier_type', 'sn')
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
             ->select([
@@ -86,8 +87,9 @@ class ProductTrackingController extends MonitaDumaiController
             'tapSummaries' => $tapSummaries,
             'sfSummaries' => $sfSummaries,
             'taps' => DB::table('appsdumais')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('tap', $scopes))->whereNotNull('tap')->distinct()->orderBy('tap')->pluck('tap'),
-            'sfs' => $this->approvedMobileSerialsQuery($filters, false)->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->distinct()->orderBy('sales_force.namasf')->get(['sale.idsf', 'sales_force.namasf']),
-            'denoms' => $this->approvedMobileSerialsQuery($filters, false)->join('denom as option_denom', 'option_denom.iddenom', '=', 'serial.iddenom')->distinct()->orderBy('option_denom.denom')->get(['serial.iddenom', 'option_denom.denom']),
+            'sfs' => $this->mobileSerialsQuery($filters, false)->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->distinct()->orderBy('sales_force.namasf')->get(['sale.idsf', 'sales_force.namasf']),
+            'denoms' => $this->mobileSerialsQuery($filters, false)->join('denom as option_denom', 'option_denom.iddenom', '=', 'serial.iddenom')->distinct()->orderBy('option_denom.denom')->get(['serial.iddenom', 'option_denom.denom']),
+            'activeTab' => $activeTab,
             'exportLimit' => 500000,
         ]);
     }
@@ -97,14 +99,14 @@ class ProductTrackingController extends MonitaDumaiController
         $filters = $this->soldSerialFilters($request);
         abort_unless(Schema::hasTable('mobile_sales_serials'), 503, 'Data SN Mobile SURYA belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
 
-        $query = $this->approvedMobileSerialsQuery($filters);
+        $query = $this->mobileSerialsQuery($filters);
         $serialCount = (int) (clone $query)->sum('serial.qty');
         if ($serialCount > 500000) {
             return redirect()->route('surya.product-tracking.sold', $request->query())
                 ->withErrors(['download' => 'Hasil lebih dari 500.000 SN. Persempit tanggal atau filter agar file tetap aman diproses.']);
         }
 
-        $filename = 'sn-terjual-'.$filters['date_from'].'-'.$filters['date_to'].'.csv';
+        $filename = 'sn-'.$filters['tab'].'-'.$filters['date_from'].'-'.$filters['date_to'].'.csv';
         return response()->streamDownload(function () use ($query) {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
@@ -158,6 +160,7 @@ class ProductTrackingController extends MonitaDumaiController
             'tap' => 'nullable|string|max:100',
             'sf' => 'nullable|string|max:150',
             'iddenom' => 'nullable|string|max:25',
+            'tab' => 'nullable|in:approve,progress',
         ]);
         $from = $data['date_from'] ?? now('Asia/Jakarta')->startOfMonth()->toDateString();
         $to = $data['date_to'] ?? now('Asia/Jakarta')->toDateString();
@@ -172,16 +175,17 @@ class ProductTrackingController extends MonitaDumaiController
             'sf' => $data['sf'] ?? '',
             'iddenom' => $data['iddenom'] ?? '',
             'identifier_type' => 'sn',
+            'tab' => $data['tab'] ?? 'approve',
         ];
     }
 
-    private function approvedMobileSerialsQuery(array $filters, bool $applyFilters = true)
+    private function mobileSerialsQuery(array $filters, bool $applyFilters = true)
     {
         $query = DB::table('mobile_sales_serials as serial')
             ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
             ->leftJoin('appsdumais as outlet', 'outlet.id_outlet', '=', 'sale.id_outlet')
             ->leftJoin('denom', 'denom.iddenom', '=', 'serial.iddenom')
-            ->where('sale.status', 'approved')
+            ->where('sale.status', $filters['tab'] === 'progress' ? 'pending' : 'approved')
             ->whereBetween('sale.tgl', [$filters['date_from'], $filters['date_to']]);
 
         if ($scopes = $this->suryaTapScopes()) {

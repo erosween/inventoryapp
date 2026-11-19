@@ -52,6 +52,7 @@
 .pt-sold-stats strong { color:#19243a;font-size:19px;line-height:1.2; }
 .pt-sold-stats span { color:#718096;font-size:11px;font-weight:750; }
 .pt-sold-filter { align-items:end; }
+.pt-sold-tabs{display:flex;gap:8px;margin:0 0 16px;padding:5px;border:1px solid #dce3ed;border-radius:12px;background:#f7f8fb;width:max-content;max-width:100%}.pt-sold-tabs a{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 16px;border-radius:9px;color:#58657b;font-size:13px;font-weight:800;text-decoration:none}.pt-sold-tabs a.active{background:#c8102e;color:#fff;box-shadow:0 3px 8px rgba(200,16,46,.16)}
 .pt-sold-actions { display:flex;flex-wrap:wrap;align-items:center;gap:9px;grid-column:1/-1; }
 .pt-sold-note { grid-column:1/-1;margin:0; }
 .pt-sold-filter .pt-button { min-height:44px; }
@@ -71,7 +72,7 @@
 @media(max-width:1000px){.pt-upload-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pt-upload-submit{grid-column:1/-1;justify-self:end}}
 @media(max-width:640px){.pt-upload-form{grid-template-columns:1fr;gap:14px}.pt-upload-submit{grid-column:auto;justify-self:stretch}.pt-upload-submit .pt-button{width:100%}.pt-file-control{gap:9px}.pt-file-action{padding:9px 11px}}
 @media(max-width:1000px){.pt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pt-mapping-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:640px){.pt-card{padding:16px}.pt-grid,.pt-mapping-grid,.pt-fields-row{grid-template-columns:1fr}.pt-lookup{grid-template-columns:1fr}.pt-actions .pt-button{width:100%}.pt-sold-intro{align-items:stretch;flex-direction:column;gap:16px}.pt-sold-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.pt-sold-stats div{min-width:0}.pt-sold-actions{display:grid;grid-template-columns:1fr}.pt-sold-actions .pt-button{width:100%}}
+@media(max-width:640px){.pt-card{padding:16px}.pt-grid,.pt-mapping-grid,.pt-fields-row{grid-template-columns:1fr}.pt-lookup{grid-template-columns:1fr}.pt-actions .pt-button{width:100%}.pt-sold-intro{align-items:stretch;flex-direction:column;gap:16px}.pt-sold-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.pt-sold-stats div{min-width:0}.pt-sold-actions{display:grid;grid-template-columns:1fr}.pt-sold-actions .pt-button{width:100%}.pt-sold-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}.pt-sold-tabs a{padding:8px 10px}}
 .pt-lookup-card{padding:22px 24px}
 .pt-lookup-heading{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .pt-lookup-heading h2{margin:0 0 3px}
