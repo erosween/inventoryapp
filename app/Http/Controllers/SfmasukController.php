@@ -103,6 +103,14 @@ class SfmasukController extends Controller
         $denom = DB::table('denom')
                 ->select('*')
                 ->get();
+        $bulkDenomMetadata = $denom->map(fn ($row) => [
+            'id' => $row->iddenom,
+            'name' => $row->denom,
+            'product' => $row->product,
+            'product_group' => $row->product_group,
+            'kategori_inject' => $row->kategori_inject,
+            'group_name' => $row->group_name,
+        ])->values();
         
 
         if($idtap == 'SBP_DUMAI'){
@@ -119,7 +127,7 @@ class SfmasukController extends Controller
             ->get();
         }
        
-        return view('form/form-sfmasuk',compact('data','idtap','denom'));
+        return view('form/form-sfmasuk',compact('data','idtap','denom','bulkDenomMetadata'));
 
     }
 
@@ -175,19 +183,89 @@ public function masuksfproses(Request $request)
         $request->merge(['items' => [[
             'iddenom' => $request->iddenom,
             'qty' => $request->qty,
-            'sn' => $request->sn,
+            'sn_start' => $request->sn_start ?: $request->sn,
+            'sn_end' => $request->sn_end,
         ]]]);
     }
 
+    $incomingItems = $request->input('items');
+    foreach ($incomingItems as $key => $item) {
+        if (! is_array($item)) continue;
+        $incomingItems[$key]['serial_mode'] = $item['serial_mode'] ?? 'range';
+    }
+    $request->merge(['items' => $incomingItems]);
+
     $validated = $request->validate([
-        'tgl' => 'required|date',
+        'tgl' => 'required|date|before_or_equal:today',
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
-        'items.*.qty' => 'required|integer|min:1',
-        'items.*.sn' => 'required|string|max:255',
+        'items.*.qty' => 'nullable|integer|min:1',
+        'items.*.serial_mode' => 'required|in:range',
+        'items.*.sn_start' => 'required|string|max:24',
+        'items.*.sn_end' => 'nullable|string|max:24',
     ]);
+
+    $denomMetadata = DB::table('denom')
+        ->whereIn('iddenom', collect($validated['items'])->pluck('iddenom')->unique())
+        ->get(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name'])
+        ->keyBy('iddenom');
+    foreach ($validated['items'] as $index => &$item) {
+        $denom = $denomMetadata->get($item['iddenom']);
+        $denomId = strtoupper(trim((string) ($denom->iddenom ?? '')));
+        $masterProduct = strtoupper(trim((string) ($denom->product ?? '')));
+        $isStarterPack = in_array($masterProduct, ['PV', 'SA'], true)
+            ? $masterProduct === 'SA'
+            : (in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+                || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
+                || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
+                || str_starts_with($denomId, 'SP'));
+        $start = (string) ($item['sn_start'] ?? '');
+        $end = (string) ($item['sn_end'] ?? '');
+        $pattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+        if (! preg_match($pattern, $start) || ($end !== '' && ! preg_match($pattern, $end))) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                "items.{$index}.sn_start" => $isStarterPack
+                    ? 'SN perdana wajib 16 digit dan diawali 0.'
+                    : 'SN voucher wajib tepat 12 digit.',
+            ]);
+        }
+
+        if ($end === '') $end = $start;
+        $rangeQty = (int) ltrim($end, '0') - (int) ltrim($start, '0') + 1;
+        if ($rangeQty < 1 || $rangeQty > 2_000_000) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                "items.{$index}.sn_end" => 'SN akhir harus sama dengan atau lebih besar dari SN awal; maksimal 2.000.000 SN.',
+            ]);
+        }
+        if (isset($item['qty']) && (int) $item['qty'] !== $rangeQty) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                "items.{$index}.sn_end" => 'Qty harus sama dengan jumlah SN di dalam rentang; periksa kembali SN akhir.',
+            ]);
+        }
+
+        $item['sn_start'] = $start;
+        $item['sn_end'] = $end;
+        $item['qty'] = $rangeQty;
+        $item['sn'] = $start === $end ? $start : "{$start}-{$end}";
+    }
+    unset($item);
+
+    for ($leftIndex = 0; $leftIndex < count($validated['items']); $leftIndex++) {
+        for ($rightIndex = $leftIndex + 1; $rightIndex < count($validated['items']); $rightIndex++) {
+            $left = $validated['items'][$leftIndex];
+            $right = $validated['items'][$rightIndex];
+            $overlaps = strlen($left['sn_start']) === strlen($right['sn_start'])
+                && $left['sn_start'] <= $right['sn_end']
+                && $left['sn_end'] >= $right['sn_start'];
+            if ($overlaps) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => "Rentang SN {$left['sn_start']}–{$left['sn_end']} bertabrakan dengan {$right['sn_start']}–{$right['sn_end']}. Pastikan setiap SN hanya diinput satu kali.",
+                ]);
+            }
+        }
+    }
     usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
     if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) {
