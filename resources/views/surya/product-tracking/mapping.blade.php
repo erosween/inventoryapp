@@ -9,7 +9,7 @@
 
 @section('content')
     <section class="pt-card"><div class="pt-result-head"><div><h2>Petakan kolom file</h2><p class="pt-subtitle mb-0">{{ $upload->filename }} · {{ $upload->kind==='scan'?'Tanggal scan akan dibaca dari file':'Warehouse Digipos' }}</p></div><form id="pt-cancel-upload" method="post" action="{{ route('surya.product-tracking.imports.cancel',$upload->id) }}" onsubmit="return confirm('Batalkan pemetaan dan hapus file upload ini?')">@csrf</form><button class="pt-button" type="submit" form="pt-cancel-upload"><i class="fas fa-times"></i> Batal</button></div>
-        <form method="post" action="{{ route('surya.product-tracking.imports.complete',$upload->id) }}" id="pt-mapping-form">
+        <form method="post" action="{{ route('surya.product-tracking.imports.complete',$upload->id) }}" id="pt-mapping-form" data-loading-message="Mengimpor {{ $upload->kind==='scan'?'data ST Digipos':'data Warehouse' }}. File besar mungkin memerlukan waktu beberapa saat…" data-loading-label="Mengimpor…">
             @csrf
             <div class="pt-mapping-grid">
                 @foreach([
@@ -26,7 +26,7 @@
             @error('file')<div class="pt-alert error">{{ $message }}</div>@enderror
             @error('serial_column')<div class="pt-alert error">{{ $message }}</div>@enderror
             @error('date_column')<div class="pt-alert error">{{ $message }}</div>@enderror
-            <div class="pt-actions"><button class="pt-button primary" type="submit"><i class="fas fa-check"></i> Impor {{ $upload->kind==='scan'?'Hasil Scan':'Warehouse' }}</button></div>
+            <div class="pt-actions pt-import-actions"><button class="pt-button primary" type="submit"><i class="fas fa-check"></i><span>Impor {{ $upload->kind==='scan'?'Hasil Scan':'Warehouse' }}</span></button><span class="pt-loading-status" role="status" aria-live="polite" hidden></span></div>
         </form>
     </section>
     <section class="pt-card"><h2>Pratinjau file</h2><div class="pt-table-wrap"><table class="pt-table"><thead><tr>@foreach($headers as $header)<th>{{ $header }}</th>@endforeach</tr></thead><tbody>@forelse($preview as $row)<tr>@foreach($headers as $column=>$header)<td>{{ $row[$column]??'' }}</td>@endforeach</tr>@empty<tr><td colspan="{{ count($headers) }}" class="pt-empty">Tidak ada baris data pada pratinjau.</td></tr>@endforelse</tbody></table></div></section>
@@ -34,6 +34,8 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded',()=>{const suggestions={serial_column:['sn','serial','serialno','serialnumber','nomorseri','sndigipos','serialnumberdigipos','serialnumbervoucher','nomorserial','iccid'],outlet_column:['idoutlet','iddigipos','kodeoutlet','outletid','outletcode','customerid','idcustomer','clientid','kodepelanggan'],sf_column:['sf','salesforce','namasf','salesforcename','namasalesforce','salesforcename','kodesf','userloginsf'],date_column:['tglst','tanggalst','tanggaljual','tgljual','tanggal','date','soldat','transactiondate','tanggaltransaksi'],product_column:['produk','product','denom','namaproduk','productname','productdescription','namaproduk']};for(const [id,names]of Object.entries(suggestions)){const select=document.getElementById(id);if(!select)continue;const found=[...select.options].find(option=>names.includes(option.text.trim().toLowerCase().replace(/[^a-z0-9]/g,'')));if(found)select.value=found.value;}});
+document.addEventListener('DOMContentLoaded',()=>{const suggestions={serial_column:['sn','serial','serialno','serialnumber','nomorseri','sndigipos','serialnumberdigipos','serialnumbervoucher','nomorserial','iccid'],outlet_column:['idoutlet','iddigipos','kodeoutlet','outletid','outletcode','customerid','idcustomer','clientid','kodepelanggan'],sf_column:['sf','salesforce','namasf','salesforcename','namasalesforce','salesforcename','kodesf','userloginsf'],date_column:['tglst','tanggalst','tanggaljual','tgljual','tanggal','date','soldat','transactiondate','tanggaltransaksi'],product_column:['produk','product','denom','namaproduk','productname','productdescription','namaproduk']};for(const [id,names]of Object.entries(suggestions)){const select=document.getElementById(id);if(!select)continue;const found=[...select.options].find(option=>names.includes(option.text.trim().toLowerCase().replace(/[^a-z0-9]/g,'')));if(found)select.value=found.value;}
+const form=document.getElementById('pt-mapping-form');form?.addEventListener('submit',()=>{if(form.dataset.submitting==='true')return;form.dataset.submitting='true';form.setAttribute('aria-busy','true');const button=form.querySelector('button[type="submit"]');const status=form.querySelector('.pt-loading-status');if(button){button.disabled=true;button.innerHTML='<span class="pt-spinner" aria-hidden="true"></span><span>Mengimpor…</span>';}if(status){status.textContent=form.dataset.loadingMessage;status.hidden=false;}});
+});
 </script>
 @endpush

@@ -12,10 +12,10 @@
         <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':'Upload ST Digipos' }}</h2>
         <p class="pt-subtitle">Pilih file CSV. Setelah header terbaca, petakan kolom SN, ID DigiPOS, user login SF, tanggal, dan denom sebelum impor.</p>
         @if(!auth()->user()?->isSuperAdmin())<div class="pt-muted">Upload hanya tersedia untuk Admin.</div>@else
-        <form method="post" action="{{ route('surya.product-tracking.imports.stage') }}" enctype="multipart/form-data" class="pt-grid pt-upload-form">
+        <form method="post" action="{{ route('surya.product-tracking.imports.stage') }}" enctype="multipart/form-data" class="pt-grid pt-upload-form" data-loading-message="Membaca header dan menyiapkan pratinjau file…" data-loading-label="Membaca…">
             @csrf<input type="hidden" name="kind" value="{{ $kind }}">
             <div class="pt-field pt-upload-file-field"><label for="pt-file">{{ $kind==='scan'?'File ST Digipos':'File Digipos' }}</label><div class="pt-file-control"><input class="pt-file-input" id="pt-file" type="file" name="file" accept=".csv,.txt" required><label class="pt-file-action" for="pt-file">Pilih file</label><span class="pt-file-name pt-muted" id="pt-file-name">Belum ada file dipilih</span></div><small class="pt-file-hint">CSV · Maksimal 100 MB · Header pada baris pertama</small></div>
-            <div class="pt-field pt-upload-submit"><button class="pt-button primary" type="submit"><i class="fas fa-upload"></i> Baca Header</button></div>
+            <div class="pt-field pt-upload-submit"><button class="pt-button primary" type="submit"><i class="fas fa-upload"></i><span>Baca Header</span></button><span class="pt-loading-status" role="status" aria-live="polite" hidden></span></div>
         </form>@endif
     </section>
 
@@ -35,6 +35,24 @@
                 input?.addEventListener('change', () => {
                     const file = input.files?.[0];
                     name.textContent = file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Belum ada file dipilih';
+                });
+                document.querySelectorAll('form.pt-upload-form[data-loading-message]').forEach((form) => {
+                    form.addEventListener('submit', () => {
+                        if (form.dataset.submitting === 'true') return;
+                        if (form.querySelector('[name="kind"]')?.value !== 'scan') return;
+                        form.dataset.submitting = 'true';
+                        form.setAttribute('aria-busy', 'true');
+                        const button = form.querySelector('button[type="submit"]');
+                        const status = form.querySelector('.pt-loading-status');
+                        if (button) {
+                            button.disabled = true;
+                            button.innerHTML = `<span class="pt-spinner" aria-hidden="true"></span><span>${form.dataset.loadingLabel}</span>`;
+                        }
+                        if (status) {
+                            status.textContent = form.dataset.loadingMessage;
+                            status.hidden = false;
+                        }
+                    });
                 });
             });
         </script>

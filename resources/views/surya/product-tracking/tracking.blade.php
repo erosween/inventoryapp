@@ -10,9 +10,10 @@
 @section('content')
     <section class="pt-card pt-lookup-card">
         <div class="pt-lookup-heading"><span class="pt-lookup-icon"><i class="fas fa-barcode"></i></span><div><h2>Cari Produk by SN</h2><p class="pt-subtitle mb-0">Masukkan serial number untuk melihat riwayat penjualan dan scan.</p></div></div>
-        <form method="get" class="pt-lookup">
+        <form method="get" class="pt-lookup" data-loading-message="Sedang mencari SN dan menelusuri riwayat penjualan serta scan…">
             <input type="search" name="q" value="{{ $queryValue }}" inputmode="numeric" minlength="1" maxlength="24" placeholder="Masukkan Serial Number (SN)" aria-label="Serial Number" required>
             <button class="pt-button primary" type="submit"><i class="fas fa-magnifying-glass"></i><span>Lacak</span></button>
+            <span class="pt-loading-status" role="status" aria-live="polite" hidden></span>
         </form>
     </section>
 
@@ -53,3 +54,27 @@
         </div>
     @endif
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('form.pt-lookup[data-loading-message]').forEach((form) => {
+        form.addEventListener('submit', () => {
+            if (form.dataset.submitting === 'true') return;
+            form.dataset.submitting = 'true';
+            form.setAttribute('aria-busy', 'true');
+            const button = form.querySelector('button[type="submit"]');
+            const status = form.querySelector('.pt-loading-status');
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span><span>Mencari…</span>';
+            }
+            if (status) {
+                status.textContent = form.dataset.loadingMessage;
+                status.hidden = false;
+            }
+        });
+    });
+});
+</script>
+@endpush
