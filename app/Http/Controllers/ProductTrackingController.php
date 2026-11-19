@@ -23,11 +23,13 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $filters = $this->soldSerialFilters($request);
         $tableOptions = $this->soldTableOptions($request);
+        $detailTableOptions = $tableOptions;
         $summaryTarget = $request->validate([
             'summary_level' => 'nullable|in:tap,sf',
             'summary_key' => 'nullable|string|max:150',
             'summary_status' => 'nullable|in:matched,mismatch',
         ]);
+        $summaryTableLevel = $tableOptions['summary_table'];
         abort_unless(Schema::hasTable('mobile_sales_serials'), 503, 'Data SN Mobile SURYA belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
         $hasScanUploads = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
@@ -63,14 +65,20 @@ class ProductTrackingController extends MonitaDumaiController
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
         $tableRows = DB::query()->fromSub($outletQuery, 'outlet_rows');
         foreach (['columns', 'exclude'] as $mode) {
-            foreach ($tableOptions[$mode] ?? [] as $column => $values) {
+            $detailTableOptions[$mode] = array_filter($detailTableOptions[$mode] ?? [], fn ($values, $column) => ! in_array($column, ['sf','outlet_count','matched_outlets','mismatch_outlets'], true), ARRAY_FILTER_USE_BOTH);
+            $tableOptions[$mode] = array_filter($tableOptions[$mode] ?? [], fn ($values, $column) => in_array($column, ['sf','outlet_count','matched_outlets','mismatch_outlets'], true), ARRAY_FILTER_USE_BOTH);
+            foreach ($detailTableOptions[$mode] ?? [] as $column => $values) {
                 $expression = $this->soldTableExpression($column);
                 $tableRows->whereRaw($expression.($mode === 'columns' ? ' IN (' : ' NOT IN (').implode(',', array_fill(0, count($values), '?')).')', $values);
             }
         }
         if (! empty($summaryTarget['summary_level']) && isset($summaryTarget['summary_key'])) {
             $summaryField = $summaryTarget['summary_level'] === 'tap' ? 'tap' : 'idsf';
-            $tableRows->where('outlet_rows.'.$summaryField, $summaryTarget['summary_key']);
+            if ($summaryTarget['summary_key'] === '__NULL__') {
+                $tableRows->whereNull('outlet_rows.'.$summaryField);
+            } else {
+                $tableRows->where('outlet_rows.'.$summaryField, $summaryTarget['summary_key']);
+            }
         }
         if (($summaryTarget['summary_status'] ?? '') === 'matched') {
             $tableRows->where('outlet_rows.mismatch_qty', 0);
@@ -85,6 +93,7 @@ class ProductTrackingController extends MonitaDumaiController
             'namasf' => 'outlet_rows.namasf',
             'kecamatan' => 'kecamatan',
             'status' => 'outlet_rows.mismatch_qty',
+            'sf', 'outlet_count', 'matched_outlets', 'mismatch_outlets' => 'outlet_rows.nama_outlet',
             default => 'outlet_rows.'.$sort,
         };
         $outlets = (clone $tableRows)->orderBy($sortExpression, $tableOptions['direction'] ?? 'asc')->orderBy('outlet_rows.id_outlet')->get();
@@ -99,6 +108,9 @@ class ProductTrackingController extends MonitaDumaiController
         $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
             ->selectRaw('idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty', ['Tanpa Sales Force'])
             ->groupBy('idsf')->orderBy('label')->get();
+
+        $tapSummaries = $this->filterSoldSummaries($tapSummaries, 'tap', $tableOptions);
+        $sfSummaries = $this->filterSoldSummaries($sfSummaries, 'sf', $tableOptions);
 
         $totals = DB::query()->fromSub($outletQuery, 'outlets')->selectRaw('COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS serial_count, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty')->first();
         $summary = (object) [
@@ -115,7 +127,9 @@ class ProductTrackingController extends MonitaDumaiController
             'summary' => $summary,
             'hasScanUploads' => $hasScanUploads,
             'outlets' => $outlets,
-            'tableOptions' => $tableOptions,
+            'tableOptions' => $detailTableOptions,
+            'summaryTableOptions' => $tableOptions,
+            'summaryTableLevel' => $summaryTableLevel,
             'summaryTarget' => $summaryTarget,
             'tapSummaries' => $tapSummaries,
             'sfSummaries' => $sfSummaries,
@@ -131,8 +145,23 @@ class ProductTrackingController extends MonitaDumaiController
     {
         abort_unless($this->hasSuryaAccess($request), 403);
         $filters = $this->soldSerialFilters($request);
-        $request->validate(['column' => 'required|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
+        $request->validate(['column' => 'required|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
         $column = $request->input('column');
+        $summaryTableLevel = $request->input('summary_table') === 'sf' ? 'sf' : 'tap';
+        if ($request->filled('summary_table')) {
+            abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true), 422, 'Kolom ringkasan tidak valid.');
+            $rows = $this->soldSummaryRows($filters, $summaryTableLevel);
+            $summaryExpression = $column === $summaryTableLevel
+                ? ($summaryTableLevel === 'sf' ? '`outlet_rows`.`label`' : '`outlet_rows`.`summary_key`')
+                : '`outlet_rows`.`'.$column.'`';
+            $values = DB::query()->fromSub($rows, 'outlet_rows')
+                ->selectRaw($summaryExpression.' AS value')
+                ->distinct()
+                ->when($request->filled('q'), fn ($query) => $query->whereRaw('CAST('.$summaryExpression.' AS CHAR) LIKE ?', ['%'.$request->input('q').'%']))
+                ->orderBy('value')->offset((max(1, (int) $request->input('value_page', 1)) - 1) * 100)->limit(101)->pluck('value');
+
+            return response()->json(['values' => $values->take(100)->map(fn ($value) => (string) $value)->values(), 'has_more' => $values->count() > 100]);
+        }
         $rows = $this->soldOutletRows($filters);
         $values = DB::query()->fromSub($rows, 'outlet_rows')
             ->selectRaw($this->soldTableExpression($column).' AS value')
@@ -146,14 +175,20 @@ class ProductTrackingController extends MonitaDumaiController
     private function soldTableOptions(Request $request): array
     {
         $data = $request->validate([
-            'columns' => 'nullable|array|max:9', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
-            'exclude' => 'nullable|array|max:9', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
-            'sort' => 'nullable|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status',
+            'columns' => 'nullable|array|max:16', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
+            'exclude' => 'nullable|array|max:16', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
+            'sort' => 'nullable|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets',
             'direction' => 'nullable|in:asc,desc',
+            'summary_tap_columns' => 'nullable|array|max:8', 'summary_tap_columns.*' => 'array|min:1|max:100', 'summary_tap_columns.*.*' => 'nullable|string|max:5000',
+            'summary_tap_exclude' => 'nullable|array|max:8', 'summary_tap_exclude.*' => 'array|min:1|max:100', 'summary_tap_exclude.*.*' => 'nullable|string|max:5000',
+            'summary_sf_columns' => 'nullable|array|max:8', 'summary_sf_columns.*' => 'array|min:1|max:100', 'summary_sf_columns.*.*' => 'nullable|string|max:5000',
+            'summary_sf_exclude' => 'nullable|array|max:8', 'summary_sf_exclude.*' => 'array|min:1|max:100', 'summary_sf_exclude.*.*' => 'nullable|string|max:5000',
+            'summary_sort' => 'nullable|in:tap,sf,outlet_count,matched_outlets,mismatch_outlets,qty,matched_qty,mismatch_qty',
+            'summary_direction' => 'nullable|in:asc,desc', 'summary_table' => 'nullable|in:tap,sf',
         ]);
         foreach (['columns', 'exclude'] as $mode) {
             foreach ($data[$mode] ?? [] as $column => $values) {
-                if (! in_array($column, ['nama_outlet','id_outlet','kecamatan','tap','namasf','qty','matched_qty','mismatch_qty','status'], true)) {
+                if (! in_array($column, ['nama_outlet','id_outlet','kecamatan','tap','namasf','qty','matched_qty','mismatch_qty','status','sf','outlet_count','matched_outlets','mismatch_outlets'], true)) {
                     throw ValidationException::withMessages(['column' => 'Kolom filter tidak valid.']);
                 }
                 $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
@@ -161,21 +196,56 @@ class ProductTrackingController extends MonitaDumaiController
         }
         $data['sort'] ??= 'nama_outlet';
         $data['direction'] ??= 'asc';
+        foreach (['summary_tap_columns', 'summary_tap_exclude', 'summary_sf_columns', 'summary_sf_exclude'] as $mode) {
+            foreach ($data[$mode] ?? [] as $column => $values) {
+                if (! in_array($column, ['tap','sf','outlet_count','matched_outlets','mismatch_outlets','qty','matched_qty','mismatch_qty'], true)) {
+                    throw ValidationException::withMessages(['column' => 'Kolom ringkasan tidak valid.']);
+                }
+                $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
+            }
+        }
+        $data['summary_direction'] ??= 'asc';
+        $data['summary_table'] ??= 'tap';
 
         return $data;
+    }
+
+    private function filterSoldSummaries($groups, string $level, array $options)
+    {
+        foreach (["summary_{$level}_columns", "summary_{$level}_exclude"] as $mode) {
+            foreach ($options[$mode] ?? [] as $column => $values) {
+                if ($column === $level) {
+                    $groups = $groups->filter(fn ($group) => in_array((string) ($level === 'sf' ? $group->label : $group->key), $values, true));
+                } elseif (str_ends_with($mode, '_columns')) {
+                    $groups = $groups->filter(fn ($group) => in_array((string) ($group->{$column} ?? ''), $values, true));
+                } else {
+                    $groups = $groups->reject(fn ($group) => in_array((string) ($group->{$column} ?? ''), $values, true));
+                }
+            }
+        }
+        if (($options['summary_table'] ?? '') === $level && ! empty($options['summary_sort'])) {
+            $column = $options['summary_sort'];
+            $groups = $groups->sortBy(fn ($group) => $column === $level ? ($level === 'sf' ? $group->label : $group->key) : ($group->{$column} ?? ''), SORT_NATURAL | SORT_FLAG_CASE, $options['summary_direction'] === 'desc')->values();
+        }
+
+        return $groups->values();
     }
 
     private function soldTableExpression(string $column): string
     {
         return match ($column) {
+            'sf' => "COALESCE(`outlet_rows`.`label`, '')",
+            'outlet_count' => 'COALESCE(`outlet_rows`.`outlet_count`, 0)',
+            'matched_outlets' => 'COALESCE(`outlet_rows`.`matched_outlets`, 0)',
+            'mismatch_outlets' => 'COALESCE(`outlet_rows`.`mismatch_outlets`, 0)',
             'nama_outlet' => "COALESCE(NULLIF(`outlet_rows`.`nama_outlet`, ''), 'Nama outlet tidak tersedia')",
             'id_outlet' => "COALESCE(CAST(`outlet_rows`.`id_outlet` AS CHAR), '')",
             'kecamatan' => "COALESCE(`outlet_rows`.`kecamatan`, '')",
             'tap' => "COALESCE(`outlet_rows`.`tap`, '')",
             'namasf' => "COALESCE(NULLIF(`outlet_rows`.`namasf`, ''), `outlet_rows`.`idsf`, '—')",
-            'qty' => 'COALESCE(`qty`, 0)',
-            'matched_qty' => 'COALESCE(`matched_qty`, 0)',
-            'mismatch_qty' => 'COALESCE(`mismatch_qty`, 0)',
+            'qty' => 'COALESCE(`outlet_rows`.`qty`, 0)',
+            'matched_qty' => 'COALESCE(`outlet_rows`.`matched_qty`, 0)',
+            'mismatch_qty' => 'COALESCE(`outlet_rows`.`mismatch_qty`, 0)',
             'status' => 'CASE WHEN `mismatch_qty` = 0 THEN \'Sesuai\' ELSE \'Perlu dicek\' END',
             default => throw ValidationException::withMessages(['column' => 'Kolom tidak valid.']),
         };
@@ -207,6 +277,17 @@ class ProductTrackingController extends MonitaDumaiController
             ->groupBy('id_outlet');
         return DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
+    }
+
+    private function soldSummaryRows(array $filters, string $level)
+    {
+        $source = $this->soldOutletRows($filters);
+        $key = $level === 'tap' ? 'tap' : 'idsf';
+        $label = $level === 'tap' ? 'tap' : 'COALESCE(MAX(namasf), idsf, \'Tanpa Sales Force\')';
+
+        return DB::query()->fromSub($source, 'summary_source')
+            ->selectRaw("$key AS `summary_key`, $label AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty")
+            ->groupBy($key);
     }
 
     public function downloadSoldSerials(Request $request)

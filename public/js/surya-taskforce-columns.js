@@ -8,8 +8,8 @@
     if (!menu) return;
     // The popup belongs to the viewport, not the report's scrolling/layout container.
     document.body.append(menu);
-    const includes = JSON.parse(menu.dataset.selection || '{}');
-    const excludes = JSON.parse(menu.dataset.excluded || '{}');
+    let includes = JSON.parse(menu.dataset.selection || '{}');
+    let excludes = JSON.parse(menu.dataset.excluded || '{}');
     const list = menu.querySelector('[data-filter-values]');
     const search = menu.querySelector('[data-filter-search]');
     const message = menu.querySelector('[data-filter-message]');
@@ -23,7 +23,11 @@
     }
     function sort(column, direction) {
         const url = new URL(location.href);
-        if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
+        if (trigger?.dataset.summaryTable) {
+            url.searchParams.set('summary_table',trigger.dataset.summaryTable);
+            if (direction) { url.searchParams.set('summary_sort',column); url.searchParams.set('summary_direction',direction); }
+            else { url.searchParams.delete('summary_sort'); url.searchParams.delete('summary_direction'); }
+        } else if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
         else { url.searchParams.delete('sort'); url.searchParams.delete('direction'); }
         url.searchParams.delete('page');
         navigatePage(url.toString());
@@ -40,7 +44,7 @@
     function positionMenu(anchor = false) {
         if (menu.hidden || !trigger?.isConnected) return;
         const rect = trigger.getBoundingClientRect();
-        const column = trigger.closest('th').getBoundingClientRect();
+        const column = (trigger.closest('th') || trigger).getBoundingClientRect();
         const viewport = window.visualViewport;
         const width = Math.min(viewport?.width || innerWidth, innerWidth), height = Math.min(viewport?.height || innerHeight, innerHeight);
         const left = viewport?.offsetLeft || 0, top = viewport?.offsetTop || 0;
@@ -82,6 +86,7 @@
         if (menu.dataset.standalone === 'true') url.searchParams.delete('outlet_q');
         if (menu.dataset.outletSearch !== undefined) url.searchParams.set('outlet_q',menu.dataset.outletSearch);
         if (menu.dataset.valuesUrl?.includes('/sold-serials/')) url.searchParams.delete('outlet_q');
+        if (trigger?.dataset.summaryTable) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
         url.searchParams.delete('page');
         url.searchParams.set('column',key);
         url.searchParams.set('q',search.value);
@@ -105,10 +110,15 @@
     function navigate(clear = false) {
         if (!clear && chosen.size > 100) { message.textContent = 'Maksimal 100 nilai pilihan. Gunakan Pilih semua untuk mengurangi pengecualian.'; return; }
         const url = new URL(location.href);
+        const summary = Boolean(trigger?.dataset.summaryTable);
+        const summaryLevel = trigger?.dataset.summaryTable;
+        const includePrefix = summary ? `summary_${summaryLevel}_columns` : 'columns';
+        const excludePrefix = summary ? `summary_${summaryLevel}_exclude` : 'exclude';
         for (const name of [...url.searchParams.keys()]) {
-            if (name.startsWith(`columns[${key}]`) || name.startsWith(`exclude[${key}]`)) url.searchParams.delete(name);
+            if (name.startsWith(`${includePrefix}[${key}]`) || name.startsWith(`${excludePrefix}[${key}]`)) url.searchParams.delete(name);
         }
-        if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? 'columns' : 'exclude'}[${key}][]`,value);
+        if (summary) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
+        if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? includePrefix : excludePrefix}[${key}][]`,value);
         url.searchParams.delete('page');
         apply.disabled = true; apply.textContent = 'Memuat…';
         navigatePage(url.toString());
@@ -120,6 +130,8 @@
     document.querySelectorAll('.tf-column-filter').forEach(button => button.addEventListener('click', () => {
         if (!menu.hidden && trigger === button) { close(); return; }
         close(); trigger = button; key = button.dataset.column;
+        includes = JSON.parse(button.dataset.selection || menu.dataset.selection || '{}');
+        excludes = JSON.parse(button.dataset.excluded || menu.dataset.excluded || '{}');
         mode = Object.prototype.hasOwnProperty.call(includes,key) ? 'include' : 'exclude';
         chosen = new Set((mode === 'include' ? includes[key] : excludes[key]) || []);
         values = []; page = 1; search.value = ''; apply.textContent = 'Terapkan';

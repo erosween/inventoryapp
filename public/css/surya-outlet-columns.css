@@ -12,3 +12,4 @@
 .tf-column-menu-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .tf-column-menu-body>.input{width:100%;height:38px;border:1px solid #d7e0e8;border-radius:8px;padding:8px 10px;box-sizing:border-box}
 .tf-column-menu-actions{flex:0 0 auto;background:#fff;padding-top:10px;border-top:1px solid #eaecf0}
+.tf-column-menu[hidden]{display:none!important}
