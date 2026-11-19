@@ -20,14 +20,14 @@
     @if($queryValue !== '')
         <div class="pt-tracking-results">
             <section class="pt-card pt-detail-card">
-                <div class="pt-result-head"><div><h2>ST Nota Surya</h2><span class="pt-muted">Penjualan yang dicatat melalui Product Tracking dan penjualan Mobile SURYA yang disetujui.</span></div><span class="pt-chip">{{ $queryValue }}</span></div>
-                @php $notaRows = $sales->map(fn ($row) => ['tanggal' => $row->sale_date, 'sn' => $queryValue, 'outlet_id' => $row->id_outlet, 'outlet_name' => $row->outlet_name, 'sales_force' => $row->namasf ?: $row->sf, 'denom' => $row->denom_name ?: $row->iddenom])->merge($mobile->map(fn ($row) => ['tanggal' => $row->tgl, 'sn' => $queryValue, 'outlet_id' => $row->id_outlet, 'outlet_name' => $row->nama_outlet, 'sales_force' => $row->namasf ?: $row->idsf, 'denom' => $row->denom_name ?: $row->iddenom])); @endphp
+                <div class="pt-result-head"><h2>ST NOTA</h2><span class="pt-chip">{{ $queryValue }}</span></div>
+                @php $notaRows = $sales->map(fn ($row) => ['tanggal' => $row->sale_date, 'sn' => $queryValue, 'outlet_id' => $row->id_outlet, 'outlet_name' => $row->outlet_name, 'kecamatan' => $row->kecamatan, 'sales_force' => $row->namasf ?: $row->sf, 'denom' => $row->denom_name ?: $row->iddenom])->merge($mobile->map(fn ($row) => ['tanggal' => $row->tgl, 'sn' => $queryValue, 'outlet_id' => $row->id_outlet, 'outlet_name' => $row->nama_outlet, 'kecamatan' => $row->kecamatan, 'sales_force' => $row->namasf ?: $row->idsf, 'denom' => $row->denom_name ?: $row->iddenom])); @endphp
                 @forelse($notaRows as $row)
                     <dl class="pt-detail-list">
-                        <div><dt>Tanggal ST</dt><dd>{{ \Carbon\Carbon::parse($row['tanggal'])->format('d/m/Y') }}</dd></div>
+                        <div><dt>Tanggal ST</dt><dd>{{ \Carbon\Carbon::parse($row['tanggal'])->locale('id')->translatedFormat('j M Y') }}</dd></div>
                         <div><dt>SN</dt><dd>{{ $row['sn'] }}</dd></div>
                         <div><dt>ID Outlet</dt><dd>{{ $row['outlet_id'] }}</dd></div>
-                        <div><dt>Nama Outlet</dt><dd>{{ $row['outlet_name'] ?: 'Nama outlet tidak tersedia' }}</dd></div>
+                        <div><dt>Nama Outlet</dt><dd>{{ $row['outlet_name'] ?: 'Nama outlet tidak tersedia' }}<small class="pt-outlet-district">{{ $row['kecamatan'] ?: 'Kecamatan belum tersedia' }}</small></dd></div>
                         <div><dt>Sales Force</dt><dd>{{ $row['sales_force'] }}</dd></div>
                         <div><dt>Denom</dt><dd>{{ $row['denom'] }}</dd></div>
                     </dl>
@@ -37,13 +37,13 @@
             </section>
 
             <section class="pt-card pt-detail-card">
-                <div class="pt-result-head"><div><h2>ST Digipos</h2><span class="pt-muted">Riwayat scan Digipos yang memuat SN ini.</span></div></div>
+                <div class="pt-result-head"><h2>ST DIGIPOS</h2></div>
                 @forelse($scans as $row)
                     <dl class="pt-detail-list">
-                        <div><dt>Tanggal Scan</dt><dd>{{ $row->scan_date ? \Carbon\Carbon::parse($row->scan_date)->format('d/m/Y') : '—' }}</dd></div>
+                        <div><dt>Tanggal Scan</dt><dd>{{ $row->scan_date ? \Carbon\Carbon::parse($row->scan_date)->locale('id')->translatedFormat('j M Y') : '—' }}</dd></div>
                         <div><dt>SN</dt><dd>{{ $queryValue }}</dd></div>
                         <div><dt>ID Outlet</dt><dd>{{ $row->id_outlet }}</dd></div>
-                        <div><dt>Nama Outlet</dt><dd>{{ $row->nama_outlet ?: 'Nama outlet tidak tersedia' }}</dd></div>
+                        <div><dt>Nama Outlet</dt><dd>{{ $row->nama_outlet ?: 'Nama outlet tidak tersedia' }}<small class="pt-outlet-district">{{ $row->kecamatan ?: 'Kecamatan belum tersedia' }}</small></dd></div>
                         <div><dt>Sales Force</dt><dd>{{ $row->namasf ?: ($row->sf ?: '—') }}</dd></div>
                         <div><dt>Denom</dt><dd>{{ $row->product_name ?: '—' }}</dd></div>
                     </dl>

@@ -87,5 +87,6 @@
 .pt-detail-list>div{display:grid;grid-template-columns:minmax(105px,38%) minmax(0,1fr);gap:12px;padding:11px 0;border-top:1px solid #edf0f5}
 .pt-detail-list dt{margin:0;color:#667085;font-size:12px;font-weight:750}
 .pt-detail-list dd{min-width:0;margin:0;color:#172033;font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.pt-outlet-district{display:block;margin-top:3px;color:#718096;font-size:11px;font-weight:500;line-height:1.35}
 .pt-detail-card .pt-empty{padding:18px 8px;border-top:1px solid #edf0f5}
 @media(max-width:640px){.pt-lookup-card{padding:17px}.pt-lookup-heading{gap:10px;margin-bottom:13px}.pt-lookup-icon{flex-basis:38px;width:38px;height:38px}.pt-lookup{grid-template-columns:minmax(0,1fr) auto;gap:8px}.pt-lookup input{min-height:44px;padding:9px 11px;font-size:13px}.pt-lookup .pt-button{min-width:86px;min-height:44px;padding:9px 11px;gap:6px}.pt-tracking-results{grid-template-columns:minmax(0,1fr);gap:12px}.pt-detail-card{padding:16px}.pt-detail-list{margin-top:10px}.pt-detail-list>div{grid-template-columns:minmax(0,38%) minmax(0,1fr);gap:10px;padding:12px 0}.pt-detail-list dt{font-size:12px}.pt-detail-list dd{font-size:13px}}

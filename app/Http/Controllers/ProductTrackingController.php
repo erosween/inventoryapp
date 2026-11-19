@@ -409,14 +409,14 @@ class ProductTrackingController extends MonitaDumaiController
             })->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.sf')
                 ->leftJoin('appsdumais as sales_outlet', 'sales_outlet.id_outlet', '=', 'sale.id_outlet')
                 ->leftJoin('denom as sales_denom', 'sales_denom.iddenom', '=', 'sale.iddenom')
-                ->orderByDesc('sale.sale_date')->get(['sale.*', 'sales_force.namasf', 'sales_outlet.nama_outlet', 'sales_denom.denom as denom_name']);
+                ->orderByDesc('sale.sale_date')->get(['sale.*', 'sales_force.namasf', 'sales_outlet.nama_outlet', 'sales_outlet.kecamatan', 'sales_denom.denom as denom_name']);
             $scansQuery = DB::table('product_tracking_digipos as d')->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
                 ->where('u.kind', 'scan')->where('u.status', 'complete')->where('d.serial_start', '<=', $queryValue)->where('d.serial_end', '>=', $queryValue)
                 ->orderByDesc('u.scan_date')->orderByDesc('d.id')->limit(100);
             if ($scopes = $this->suryaTapScopes()) $scansQuery->whereIn('d.id_outlet', DB::table('appsdumais')->select('id_outlet')->whereIn('tap', $scopes));
             $scans = $scansQuery->leftJoin('idsf as digipos_sales_force', 'digipos_sales_force.digipos_id', '=', 'd.sf')
                 ->leftJoin('appsdumais as digipos_outlet', 'digipos_outlet.id_outlet', '=', 'd.id_outlet')
-                ->get(['d.*', 'u.filename', 'u.scan_date', 'digipos_sales_force.namasf', 'digipos_outlet.nama_outlet']);
+                ->get(['d.*', 'u.filename', 'u.scan_date', 'digipos_sales_force.namasf', 'digipos_outlet.nama_outlet', 'digipos_outlet.kecamatan']);
             if (Schema::hasTable('mobile_sales_serials')) {
                 $mobileQuery = DB::table('mobile_sales_serials as serial')->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
                     ->where(function ($query) use ($queryValue) {
@@ -427,7 +427,7 @@ class ProductTrackingController extends MonitaDumaiController
                 $mobile = $mobileQuery->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
                     ->leftJoin('appsdumais as mobile_outlet', 'mobile_outlet.id_outlet', '=', 'sale.id_outlet')
                     ->leftJoin('denom as mobile_denom', 'mobile_denom.iddenom', '=', 'serial.iddenom')
-                    ->get(['serial.*', 'sale.tgl', 'sale.id_outlet', 'sale.idsf', 'sale.status', 'sale.qty', 'sales_force.namasf', 'mobile_outlet.nama_outlet', 'mobile_denom.denom as denom_name']);
+                    ->get(['serial.*', 'sale.tgl', 'sale.id_outlet', 'sale.idsf', 'sale.status', 'sale.qty', 'sales_force.namasf', 'mobile_outlet.nama_outlet', 'mobile_outlet.kecamatan', 'mobile_denom.denom as denom_name']);
             }
         }
         return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'scans', 'mobile'));
