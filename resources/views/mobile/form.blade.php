@@ -849,7 +849,7 @@
                                 <div class="serial-section-heading"><span class="serial-section-icon"><i class="fas fa-barcode"></i></span><div><strong>Serial Number</strong><small>Masukkan SN untuk menghitung jumlah otomatis.</small></div></div>
                                 <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${serial.serial_mode !== 'range' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${serial.serial_mode !== 'range' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${serial.serial_mode !== 'range'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button></div></div>
                                 <input type="hidden" name="products[${rowId}][identifier_type]" class="identifier-type-select" value="sn">
-                                <div class="serial-single-wrap ${serial.serial_mode === 'range' ? 'd-none' : ''}"><label class="serial-field-label">SN</label><input name="products[${rowId}][serial_value]" class="form-control form-control-sm serial-value-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_value || '')}" placeholder="Masukkan SN"><small class="serial-qty-hint serial-single-hint text-muted"></small></div>
+                                <div class="serial-single-wrap ${serial.serial_mode === 'range' ? 'd-none' : ''}"><label class="serial-field-label">SN satuan</label><textarea name="products[${rowId}][serial_value]" class="form-control form-control-sm serial-value-input" inputmode="numeric" autocomplete="off" rows="3" placeholder="Masukkan beberapa SN, satu per baris">${escapeHtml(serial.serial_value || '')}</textarea><small class="serial-qty-hint serial-single-hint text-muted"></small></div>
                                 <div class="serial-range-wrap ${serial.serial_mode === 'range' ? '' : 'd-none'}"><label class="serial-field-label">Rentang SN</label><div class="serial-range-fields"><div class="serial-range-field"><label>SN awal</label><input name="products[${rowId}][serial_start]" class="form-control form-control-sm serial-start-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_start || '')}" placeholder="SN awal"></div><span class="serial-range-separator">SAMPAI</span><div class="serial-range-field"><label>SN akhir</label><input name="products[${rowId}][serial_end]" class="form-control form-control-sm serial-end-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_end || '')}" placeholder="SN akhir"></div></div><small class="serial-qty-hint serial-range-hint text-muted">Masukkan SN awal dan SN akhir; Qty dihitung otomatis.</small></div>
                             </div>
                         </div>
@@ -888,13 +888,12 @@
             row.find('.serial-value-input').prop('disabled', !id || mode !== 'single');
             row.find('.serial-start-input, .serial-end-input').prop('disabled', !id || mode !== 'range');
             row.find('.serial-mode-select, .identifier-type-select').prop('disabled', !id);
-            const serialPattern = identifierType === 'number' ? '08 + 9–12 digit' : (isStarterPack ? '16 digit, diawali 0' : '12 digit');
-            row.find('.serial-single-hint').text(identifierType === 'number'
-                ? 'Nomor perdana: awali 08, panjang 9–12 digit.'
-                : `Format SN: ${serialPattern}.`);
+            row.find('.serial-single-hint').text(isStarterPack
+                ? 'Bisa masukkan beberapa SN sekaligus, satu SN per baris. Format: 16 digit diawali 0.'
+                : 'Bisa masukkan beberapa SN sekaligus, satu SN per baris. Format: 12 digit.');
             const snLength = isStarterPack ? 16 : 12;
             row.find('.serial-start-input, .serial-end-input').attr('maxlength', snLength);
-            row.find('.serial-value-input').attr('maxlength', identifierType === 'number' ? 12 : snLength);
+            row.find('.serial-value-input').attr('maxlength', 50000);
         }
 
         function updateSerialQuantity(row) {
@@ -905,9 +904,15 @@
             let qty = 0;
             if (mode === 'single') {
                 const value = row.find('.serial-value-input').val() || '';
-                const valid = identifierType === 'number' ? /^08\d{7,10}$/.test(value) : (isStarterPack ? /^0\d{15}$/.test(value) : /^\d{12}$/.test(value));
-                if (valid) qty = 1;
-                row.find('.serial-single-hint').toggleClass('text-danger', Boolean(value) && !valid).toggleClass('text-success', valid);
+                const serials = value.trim() ? value.trim().split(/[\s,;]+/).filter(Boolean) : [];
+                const pattern = identifierType === 'number' ? /^08\d{7,10}$/ : (isStarterPack ? /^0\d{15}$/ : /^\d{12}$/);
+                const invalidCount = serials.filter(serial => !pattern.test(serial)).length;
+                const valid = serials.length > 0 && invalidCount === 0;
+                if (valid) qty = serials.length;
+                const hint = serials.length === 0
+                    ? 'Bisa masukkan beberapa SN sekaligus, satu SN per baris.'
+                    : (invalidCount > 0 ? `${invalidCount} SN belum sesuai format ${isStarterPack ? '16 digit diawali 0' : '12 digit'}.` : `${serials.length} SN satuan terhitung.`);
+                row.find('.serial-single-hint').text(hint).toggleClass('text-danger', serials.length > 0 && !valid).toggleClass('text-success', valid);
             } else {
                 const start = row.find('.serial-start-input').val() || '';
                 const end = row.find('.serial-end-input').val() || '';
@@ -1125,14 +1130,33 @@
             }
             $('#sales-activity-feedback').addClass('d-none').empty();
             let valid = true;
+            let serialEntriesValid = true;
             $('#product-container .glass-card').each(function() {
                 const id = $(this).find('.iddenom-input').val();
                 if (!id) {
                     $(this).find('input').prop('disabled', true);
                     return;
                 }
+                const row = $(this);
+                if (row.find('.serial-mode-select').val() === 'single') {
+                    const value = String(row.find('.serial-value-input').val() || '').trim();
+                    const serials = value ? value.split(/[\s,;]+/).filter(Boolean) : [];
+                    const isStarterPack = Boolean(starterPackMap[id]);
+                    const pattern = isStarterPack ? /^0\d{15}$/ : /^\d{12}$/;
+                    const seen = new Set();
+                    const duplicates = serials.some(serial => seen.has(serial) || !seen.add(serial));
+                    if (!serials.length || serials.some(serial => !pattern.test(serial)) || duplicates) {
+                        serialEntriesValid = false;
+                        row.find('.serial-value-input').trigger('focus');
+                    }
+                }
                 if (!validateStock($(this), requested[id] || 0)) valid = false;
             });
+            if (!serialEntriesValid) {
+                e.preventDefault();
+                Swal.fire({ icon: 'warning', title: 'Periksa SN', text: 'Pastikan semua SN satuan sesuai format dan tidak ada nomor yang berulang.', confirmButtonColor: 'var(--primary)' });
+                return;
+            }
             if (!valid) { e.preventDefault(); Swal.fire({ icon: 'warning', title: 'Stok Tidak Cukup', text: 'Periksa kembali qty yang melebihi stok.', confirmButtonColor: 'var(--primary)' }); }
         });
 

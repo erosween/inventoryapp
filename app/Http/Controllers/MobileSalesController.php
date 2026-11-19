@@ -410,6 +410,7 @@ SQL;
             ->whereIn('iddenom', collect($products)->pluck('iddenom')->filter()->unique())
             ->get(['iddenom', 'product_group', 'kategori_inject', 'group_name'])
             ->keyBy('iddenom');
+        $serialInputs = collect();
         foreach ($products as $index => &$product) {
             $denom = $denomMetadata->get($product['iddenom'] ?? '');
             if (! $denom) continue;
@@ -433,13 +434,25 @@ SQL;
             }
             if ($mode === 'single') {
                 $singlePattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
-                if (! preg_match($singlePattern, $single)) {
+                $singleSerials = preg_split('/[\\s,;]+/u', $single, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $invalidSerials = array_values(array_filter($singleSerials, fn ($serial) => ! preg_match($singlePattern, $serial)));
+                if ($singleSerials === [] || $invalidSerials !== []) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        $errorKey => $isStarterPack ? 'SN perdana harus tepat 16 digit.' : 'SN voucher harus tepat 12 digit.',
+                        $errorKey => $isStarterPack
+                            ? 'Setiap SN perdana harus tepat 16 digit dan diawali 0.'
+                            : 'Setiap SN voucher harus tepat 12 digit.',
                     ]);
                 }
-                $start = $end = $single;
-                $qty = 1;
+                $start = $end = $singleSerials[0];
+                $qty = count($singleSerials);
+                foreach ($singleSerials as $serial) {
+                    $serialInputs->push([
+                        'iddenom' => $product['iddenom'], 'type' => $identifierType,
+                        'start' => $serial, 'end' => $serial,
+                        'identifier_type' => $identifierType, 'serial_mode' => 'single',
+                        'serial_start' => $serial, 'serial_end' => $serial, 'qty' => 1,
+                    ]);
+                }
             } else {
                 if ($identifierType !== 'sn' || ! preg_match(($isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/'), $start) || ! preg_match(($isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/'), $end)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -458,6 +471,12 @@ SQL;
                         "products.{$index}.serial_end" => 'SN akhir harus lebih besar dari SN awal dan rentang maksimal 2.000.000 SN.',
                     ]);
                 }
+                $serialInputs->push([
+                    'iddenom' => $product['iddenom'], 'type' => $identifierType,
+                    'start' => $start, 'end' => $end,
+                    'identifier_type' => $identifierType, 'serial_mode' => 'range',
+                    'serial_start' => $start, 'serial_end' => $end, 'qty' => $qty,
+                ]);
             }
 
             $product['identifier_type'] = $identifierType;
@@ -471,11 +490,7 @@ SQL;
 
         // Prevent overlapping serials inside one submission (including rows of
         // different denoms) before quantities are aggregated per denom.
-        $serialInputs = collect($products)->map(fn ($product) => [
-            'type' => $product['identifier_type'],
-            'start' => $product['serial_start'],
-            'end' => $product['serial_end'],
-        ])->values();
+        $serialInputs = $serialInputs->values();
         for ($i = 0; $i < $serialInputs->count(); $i++) {
             for ($j = $i + 1; $j < $serialInputs->count(); $j++) {
                 $left = $serialInputs[$i];
@@ -511,7 +526,7 @@ SQL;
             'longitude' => 'nullable|numeric',
             'keterangan' => 'nullable|string|max:1000',
         ]);
-        $serialInputsByDenom = collect($products)->groupBy('iddenom');
+        $serialInputsByDenom = $serialInputs->groupBy('iddenom');
 
         $consignmentNumbers = [];
         $consignmentDenomByNumber = [];
