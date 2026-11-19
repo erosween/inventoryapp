@@ -103,10 +103,10 @@ class ProductTrackingController extends MonitaDumaiController
             ->groupBy('tap')->orderBy('tap')->get();
 
         $sfTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw('idsf, id_outlet, MAX(namasf) AS namasf, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
+            ->selectRaw('idsf, id_outlet, MAX(namasf) AS namasf, MAX(tap) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
             ->groupBy('idsf', 'id_outlet');
         $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
-            ->selectRaw('idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty', ['Tanpa Sales Force'])
+            ->selectRaw("idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COALESCE(GROUP_CONCAT(DISTINCT tap ORDER BY tap SEPARATOR ', '), ?) AS tap, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty", ['Tanpa Sales Force', 'Tanpa TAP'])
             ->groupBy('idsf')->orderBy('label')->get();
 
         $tapSummaries = $this->filterSoldSummaries($tapSummaries, 'tap', $tableOptions);
@@ -148,7 +148,15 @@ class ProductTrackingController extends MonitaDumaiController
         $column = $request->input('column');
         $summaryTableLevel = $request->input('summary_table') === 'sf' ? 'sf' : 'tap';
         if ($request->filled('summary_table')) {
-            abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true), 422, 'Kolom ringkasan tidak valid.');
+            abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true) || ($summaryTableLevel === 'sf' && $column === 'tap'), 422, 'Kolom ringkasan tidak valid.');
+            if ($summaryTableLevel === 'sf' && $column === 'tap') {
+                $values = DB::query()->fromSub($this->soldOutletRows($filters), 'outlet_rows')
+                    ->select('outlet_rows.tap as value')->distinct()
+                    ->when($request->filled('q'), fn ($query) => $query->where('outlet_rows.tap', 'like', '%'.$request->input('q').'%'))
+                    ->orderBy('value')->offset((max(1, (int) $request->input('value_page', 1)) - 1) * 100)->limit(101)->pluck('value');
+
+                return response()->json(['values' => $values->take(100)->map(fn ($value) => (string) $value)->values(), 'has_more' => $values->count() > 100]);
+            }
             $rows = $this->soldSummaryRows($filters, $summaryTableLevel);
             $summaryExpression = $column === $summaryTableLevel
                 ? ($summaryTableLevel === 'sf' ? '`outlet_rows`.`label`' : '`outlet_rows`.`summary_key`')
@@ -215,10 +223,18 @@ class ProductTrackingController extends MonitaDumaiController
             foreach ($options[$mode] ?? [] as $column => $values) {
                 if ($column === $level) {
                     $groups = $groups->filter(fn ($group) => in_array((string) ($level === 'sf' ? $group->label : $group->key), $values, true));
+                } elseif ($level === 'sf' && $column === 'tap') {
+                    $groups = str_ends_with($mode, '_columns')
+                        ? $groups->filter(fn ($group) => count(array_intersect($values, array_map('trim', explode(',', (string) $group->tap)))) > 0)
+                        : $groups->reject(fn ($group) => count(array_intersect($values, array_map('trim', explode(',', (string) $group->tap)))) > 0);
                 } elseif (str_ends_with($mode, '_columns')) {
                     $groups = $groups->filter(fn ($group) => in_array((string) ($group->{$column} ?? ''), $values, true));
                 } else {
-                    $groups = $groups->reject(fn ($group) => in_array((string) ($group->{$column} ?? ''), $values, true));
+                    if ($level === 'sf' && $column === 'tap') {
+                        $groups = $groups->reject(fn ($group) => count(array_intersect($values, array_map('trim', explode(',', (string) $group->tap)))) > 0);
+                    } else {
+                        $groups = $groups->reject(fn ($group) => in_array((string) ($group->{$column} ?? ''), $values, true));
+                    }
                 }
             }
         }
