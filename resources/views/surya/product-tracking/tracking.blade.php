@@ -26,10 +26,11 @@
                     <dl class="pt-detail-list">
                         <div><dt>Tanggal ST</dt><dd>{{ \Carbon\Carbon::parse($row['tanggal'])->locale('id')->translatedFormat('j M Y') }}</dd></div>
                         <div><dt>SN</dt><dd>{{ $row['sn'] }}</dd></div>
-                        <div><dt>ID Outlet</dt><dd>{{ $row['outlet_id'] }}</dd></div>
-                        <div><dt>Nama Outlet</dt><dd>{{ $row['outlet_name'] ?: 'Nama outlet tidak tersedia' }}<small class="pt-outlet-district">{{ $row['kecamatan'] ?: 'Kecamatan belum tersedia' }}</small></dd></div>
-                        <div><dt>Sales Force</dt><dd>{{ $row['sales_force'] }}</dd></div>
                         <div><dt>Denom</dt><dd>{{ $row['denom'] }}</dd></div>
+                        <div><dt>ID Outlet</dt><dd>{{ $row['outlet_id'] }}</dd></div>
+                        <div><dt>Nama Outlet</dt><dd>{{ $row['outlet_name'] ?: 'Nama outlet tidak tersedia' }}</dd></div>
+                        <div><dt>Kecamatan</dt><dd>{{ $row['kecamatan'] ?: 'Kecamatan belum tersedia' }}</dd></div>
+                        <div><dt>Sales Force</dt><dd>{{ $row['sales_force'] }}</dd></div>
                     </dl>
                 @empty
                     <div class="pt-empty">Tidak ditemukan pada ST Nota Surya.</div>
@@ -42,10 +43,11 @@
                     <dl class="pt-detail-list">
                         <div><dt>Tanggal Scan</dt><dd>{{ $row->scan_date ? \Carbon\Carbon::parse($row->scan_date)->locale('id')->translatedFormat('j M Y') : '—' }}</dd></div>
                         <div><dt>SN</dt><dd>{{ $queryValue }}</dd></div>
-                        <div><dt>ID Outlet</dt><dd>{{ $row->id_outlet }}</dd></div>
-                        <div><dt>Nama Outlet</dt><dd>{{ $row->nama_outlet ?: 'Nama outlet tidak tersedia' }}<small class="pt-outlet-district">{{ $row->kecamatan ?: 'Kecamatan belum tersedia' }}</small></dd></div>
-                        <div><dt>Sales Force</dt><dd>{{ $row->namasf ?: ($row->sf ?: '—') }}</dd></div>
                         <div><dt>Denom</dt><dd>{{ $row->product_name ?: '—' }}</dd></div>
+                        <div><dt>ID Outlet</dt><dd>{{ $row->id_outlet }}</dd></div>
+                        <div><dt>Nama Outlet</dt><dd>{{ $row->nama_outlet ?: 'Nama outlet tidak tersedia' }}</dd></div>
+                        <div><dt>Kecamatan</dt><dd>{{ $row->kecamatan ?: 'Kecamatan belum tersedia' }}</dd></div>
+                        <div><dt>Sales Force</dt><dd>{{ $row->namasf ?: ($row->sf ?: '—') }}</dd></div>
                     </dl>
                 @empty
                     <div class="pt-empty">Belum ditemukan pada hasil scan harian.</div>
