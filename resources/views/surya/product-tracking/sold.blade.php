@@ -38,6 +38,7 @@
     @if(!$hasScanUploads)<div class="pt-alert error">Belum ada upload ST Digipos pada rentang tanggal ini. Qty ditampilkan sebagai belum cocok sampai file scan diunggah.</div>@endif
 
     @if($summary->serial_count > 0)
+        @if(empty($summaryTarget['summary_status']))
         @foreach([['Ringkasan per TAP', $tapSummaries], ['Ringkasan per Sales Force', $sfSummaries]] as [$heading, $groups])
             <section class="pt-card pt-summary-section">
                 <h2>{{ $heading }}</h2>
@@ -83,9 +84,10 @@
                 </div>
             </section>
         @endforeach
+        @endif
 
-        <section class="pt-card">
-            <div class="pt-result-head"><div><h2>Rincian per outlet</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty nota dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Hapus pilihan</a>@endif</div>
+        <section id="sold-outlet-results" class="pt-card">
+            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty nota dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Hapus pilihan</a>@endif</div>
             <div class="pt-table-wrap"><table class="pt-table detail-table">
                 <thead><tr>
                     @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'qty' => 'Qty nota', 'matched_qty' => 'Qty sesuai', 'mismatch_qty' => 'Qty belum cocok', 'status' => 'Status'] as $column => $label)
@@ -93,9 +95,11 @@
                     @endforeach
                 </tr></thead>
                 <tbody>
-                @foreach($outlets as $outlet)
+                @forelse($outlets as $outlet)
                     <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if($outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td></tr>
-                @endforeach
+                @empty
+                    <tr><td colspan="9" class="pt-empty">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</td></tr>
+                @endforelse
                 </tbody>
             </table></div>
         </section>
@@ -109,4 +113,5 @@
         </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
     </div>
     <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
+    @if(!empty($summaryTarget['summary_status']))<script>requestAnimationFrame(() => document.getElementById('sold-outlet-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));</script>@endif
 @endsection
