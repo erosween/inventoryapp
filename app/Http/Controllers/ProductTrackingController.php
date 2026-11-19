@@ -352,27 +352,6 @@ class ProductTrackingController extends MonitaDumaiController
             if ($record->kind === 'scan' && $detectedScanDate === null) {
                 throw ValidationException::withMessages(['date_column' => 'Kolom tanggal pada file tidak berisi tanggal yang dapat dibaca.']);
             }
-            if ($record->kind === 'scan') {
-                $overlap = DB::table('product_tracking_digipos as current')
-                    ->join('product_tracking_digipos as existing', function ($join) {
-                        $join->whereColumn('existing.serial_start', '<=', 'current.serial_end')
-                            ->whereColumn('existing.serial_end', '>=', 'current.serial_start')
-                            ->whereColumn('existing.scan_date', '=', 'current.scan_date');
-                    })
-                    ->join('product_tracking_uploads as existing_upload', 'existing_upload.id', '=', 'existing.upload_id')
-                    ->where('current.upload_id', $record->id)
-                    ->where('existing.upload_id', '<>', $record->id)
-                    ->where('existing_upload.kind', 'scan')->where('existing_upload.status', 'complete')
-                    ->selectRaw('GREATEST(current.serial_start, existing.serial_start) as duplicate_start, LEAST(current.serial_end, existing.serial_end) as duplicate_end, existing_upload.filename')
-                    ->first();
-
-                if ($overlap) {
-                    $duplicate = $overlap->duplicate_start === $overlap->duplicate_end
-                        ? $overlap->duplicate_start
-                        : "{$overlap->duplicate_start}–{$overlap->duplicate_end}";
-                    throw ValidationException::withMessages(['file' => "SN {$duplicate} sudah ada pada upload {$overlap->filename} untuk tanggal yang sama. Baris duplikat tidak disimpan."]);
-                }
-            }
             DB::table('product_tracking_uploads')->where('id', $record->id)->update([
                 'status' => 'complete', 'scan_date' => $detectedScanDate, 'row_count' => $count, 'storage_path' => null, 'updated_at' => $now,
             ]);

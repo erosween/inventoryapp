@@ -22,7 +22,7 @@
                     <div class="pt-field"><label for="{{ $key }}">{{ $label }}</label><select id="{{ $key }}" name="{{ $key }}" {{ $key==='outlet_column'?'required':'' }}><option value="">— Tidak dipetakan —</option>@foreach($headers as $column=>$header)<option value="{{ $column }}">{{ $header }}</option>@endforeach</select></div>
                 @endforeach
             </div>
-            <p class="pt-muted mt-3">Kolom SN wajib dan harus unik di seluruh file. Jika ada SN ganda, impor dibatalkan dan nomor baris duplikat ditampilkan. Baris berurutan dengan tanggal, ID outlet, user login SF, dan denom yang sama akan digabung menjadi rentang SN.</p>
+            <p class="pt-muted mt-3">Kolom SN wajib dan harus unik di dalam file ini. Upload harian tidak memeriksa duplikat terhadap upload sebelumnya. Jika ada SN ganda dalam file, impor dibatalkan dan nomor baris duplikat ditampilkan. Baris berurutan dengan tanggal, ID outlet, user login SF, dan denom yang sama akan digabung menjadi rentang SN.</p>
             @error('file')<div class="pt-alert error">{{ $message }}</div>@enderror
             @error('serial_column')<div class="pt-alert error">{{ $message }}</div>@enderror
             @error('date_column')<div class="pt-alert error">{{ $message }}</div>@enderror
