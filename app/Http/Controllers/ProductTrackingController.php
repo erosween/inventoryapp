@@ -364,7 +364,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->where('existing.upload_id', '<>', $record->id)
                     ->where('existing_upload.kind', 'scan')->where('existing_upload.status', 'complete')
                     ->selectRaw('GREATEST(current.serial_start, existing.serial_start) as duplicate_start, LEAST(current.serial_end, existing.serial_end) as duplicate_end, existing_upload.filename')
-                    ->orderBy('current.id')->first();
+                    ->first();
 
                 if ($overlap) {
                     $duplicate = $overlap->duplicate_start === $overlap->duplicate_end
