@@ -22,6 +22,12 @@ class ProductTrackingController extends MonitaDumaiController
     public function soldSerials(Request $request)
     {
         $filters = $this->soldSerialFilters($request);
+        $tableOptions = $this->soldTableOptions($request);
+        $summaryTarget = $request->validate([
+            'summary_level' => 'nullable|in:tap,sf',
+            'summary_key' => 'nullable|string|max:150',
+            'summary_status' => 'nullable|in:matched,mismatch',
+        ]);
         abort_unless(Schema::hasTable('mobile_sales_serials'), 503, 'Data SN Mobile SURYA belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
         $hasScanUploads = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
@@ -34,7 +40,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
             ->select([
                 'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', 'outlet.tap', 'sales_force.namasf',
+                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', 'outlet.tap', 'outlet.kecamatan', 'sales_force.namasf',
             ])
             ->selectSub(function ($query) use ($filters) {
                 $query->from('product_tracking_digipos as digipos')
@@ -51,12 +57,37 @@ class ProductTrackingController extends MonitaDumaiController
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw('id_outlet, MAX(nama_outlet) AS nama_outlet, COALESCE(MAX(tap), ?) AS tap, MAX(idsf) AS idsf, MAX(namasf) AS namasf, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty', ['Tanpa TAP'])
+            ->selectRaw('id_outlet, MAX(nama_outlet) AS nama_outlet, COALESCE(MAX(tap), ?) AS tap, MAX(idsf) AS idsf, MAX(namasf) AS namasf, MAX(kecamatan) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty', ['Tanpa TAP'])
             ->groupBy('id_outlet');
         $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
-            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
-        $outlets = (clone $outletQuery)
-            ->orderBy('nama_outlet')->get();
+            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
+        $tableRows = DB::query()->fromSub($outletQuery, 'outlet_rows');
+        foreach (['columns', 'exclude'] as $mode) {
+            foreach ($tableOptions[$mode] ?? [] as $column => $values) {
+                $expression = $this->soldTableExpression($column);
+                $tableRows->whereRaw($expression.($mode === 'columns' ? ' IN (' : ' NOT IN (').implode(',', array_fill(0, count($values), '?')).')', $values);
+            }
+        }
+        if (! empty($summaryTarget['summary_level']) && isset($summaryTarget['summary_key'])) {
+            $summaryField = $summaryTarget['summary_level'] === 'tap' ? 'tap' : 'idsf';
+            $tableRows->where('outlet_rows.'.$summaryField, $summaryTarget['summary_key']);
+        }
+        if (($summaryTarget['summary_status'] ?? '') === 'matched') {
+            $tableRows->where('outlet_rows.mismatch_qty', 0);
+        } elseif (($summaryTarget['summary_status'] ?? '') === 'mismatch') {
+            $tableRows->where('outlet_rows.mismatch_qty', '>', 0);
+        }
+        $sort = $tableOptions['sort'] ?? 'nama_outlet';
+        $sortExpression = match ($sort) {
+            'nama_outlet' => 'outlet_rows.nama_outlet',
+            'id_outlet' => 'outlet_rows.id_outlet',
+            'tap' => 'outlet_rows.tap',
+            'namasf' => 'outlet_rows.namasf',
+            'kecamatan' => 'kecamatan',
+            'status' => 'outlet_rows.mismatch_qty',
+            default => 'outlet_rows.'.$sort,
+        };
+        $outlets = (clone $tableRows)->orderBy($sortExpression, $tableOptions['direction'] ?? 'asc')->orderBy('outlet_rows.id_outlet')->get();
 
         $tapSummaries = DB::query()->fromSub($outletQuery, 'outlets')
             ->selectRaw('tap AS `key`, tap AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty')
@@ -84,6 +115,8 @@ class ProductTrackingController extends MonitaDumaiController
             'summary' => $summary,
             'hasScanUploads' => $hasScanUploads,
             'outlets' => $outlets,
+            'tableOptions' => $tableOptions,
+            'summaryTarget' => $summaryTarget,
             'tapSummaries' => $tapSummaries,
             'sfSummaries' => $sfSummaries,
             'taps' => DB::table('appsdumais')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('tap', $scopes))->whereNotNull('tap')->distinct()->orderBy('tap')->pluck('tap'),
@@ -92,6 +125,88 @@ class ProductTrackingController extends MonitaDumaiController
             'activeTab' => $activeTab,
             'exportLimit' => 500000,
         ]);
+    }
+
+    public function soldColumnValues(Request $request)
+    {
+        abort_unless($this->hasSuryaAccess($request), 403);
+        $filters = $this->soldSerialFilters($request);
+        $request->validate(['column' => 'required|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
+        $column = $request->input('column');
+        $rows = $this->soldOutletRows($filters);
+        $values = DB::query()->fromSub($rows, 'outlet_rows')
+            ->selectRaw($this->soldTableExpression($column).' AS value')
+            ->distinct()
+            ->when($request->filled('q'), fn ($query) => $query->whereRaw($this->soldTableExpression($column).' LIKE ?', ['%'.$request->input('q').'%']))
+            ->orderBy('value')->offset((max(1, (int) $request->input('value_page', 1)) - 1) * 100)->limit(101)->pluck('value');
+
+        return response()->json(['values' => $values->take(100)->map(fn ($value) => (string) $value)->values(), 'has_more' => $values->count() > 100]);
+    }
+
+    private function soldTableOptions(Request $request): array
+    {
+        $data = $request->validate([
+            'columns' => 'nullable|array|max:9', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
+            'exclude' => 'nullable|array|max:9', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
+            'sort' => 'nullable|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status',
+            'direction' => 'nullable|in:asc,desc',
+        ]);
+        foreach (['columns', 'exclude'] as $mode) {
+            foreach ($data[$mode] ?? [] as $column => $values) {
+                if (! in_array($column, ['nama_outlet','id_outlet','kecamatan','tap','namasf','qty','matched_qty','mismatch_qty','status'], true)) {
+                    throw ValidationException::withMessages(['column' => 'Kolom filter tidak valid.']);
+                }
+                $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
+            }
+        }
+        $data['sort'] ??= 'nama_outlet';
+        $data['direction'] ??= 'asc';
+
+        return $data;
+    }
+
+    private function soldTableExpression(string $column): string
+    {
+        return match ($column) {
+            'nama_outlet' => "COALESCE(NULLIF(`outlet_rows`.`nama_outlet`, ''), 'Nama outlet tidak tersedia')",
+            'id_outlet' => "COALESCE(CAST(`outlet_rows`.`id_outlet` AS CHAR), '')",
+            'kecamatan' => "COALESCE(`outlet_rows`.`kecamatan`, '')",
+            'tap' => "COALESCE(`outlet_rows`.`tap`, '')",
+            'namasf' => "COALESCE(NULLIF(`outlet_rows`.`namasf`, ''), `outlet_rows`.`idsf`, '—')",
+            'qty' => 'COALESCE(`qty`, 0)',
+            'matched_qty' => 'COALESCE(`matched_qty`, 0)',
+            'mismatch_qty' => 'COALESCE(`mismatch_qty`, 0)',
+            'status' => 'CASE WHEN `mismatch_qty` = 0 THEN \'Sesuai\' ELSE \'Perlu dicek\' END',
+            default => throw ValidationException::withMessages(['column' => 'Kolom tidak valid.']),
+        };
+    }
+
+    private function soldOutletRows(array $filters)
+    {
+        $sourceQuery = $this->mobileSerialsQuery($filters)
+            ->where('serial.identifier_type', 'sn')
+            ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
+            ->select([
+                'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
+                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', 'outlet.tap', 'outlet.kecamatan', 'sales_force.namasf',
+            ])
+            ->selectSub(function ($query) use ($filters) {
+                $query->from('product_tracking_digipos as digipos')
+                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                    ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+                    ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
+                    ->whereColumn('digipos.id_outlet', 'sale.id_outlet')
+                    ->whereColumn('digipos.serial_start', '<=', 'serial.serial_end')
+                    ->whereColumn('digipos.serial_end', '>=', 'serial.serial_start')
+                    ->whereRaw('LENGTH(digipos.serial_start) = LENGTH(serial.serial_start)')
+                    ->selectRaw('COALESCE(SUM(CAST(CASE WHEN digipos.serial_end < serial.serial_end THEN digipos.serial_end ELSE serial.serial_end END AS DECIMAL(24,0)) - CAST(CASE WHEN digipos.serial_start > serial.serial_start THEN digipos.serial_start ELSE serial.serial_start END AS DECIMAL(24,0)) + 1), 0)');
+            }, 'matched_qty');
+
+        $outletTotals = DB::query()->fromSub($sourceQuery, 'rows')
+            ->selectRaw('id_outlet, MAX(nama_outlet) AS nama_outlet, COALESCE(MAX(tap), ?) AS tap, MAX(idsf) AS idsf, MAX(namasf) AS namasf, MAX(kecamatan) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty', ['Tanpa TAP'])
+            ->groupBy('id_outlet');
+        return DB::query()->fromSub($outletTotals, 'outlet_totals')
+            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
     }
 
     public function downloadSoldSerials(Request $request)

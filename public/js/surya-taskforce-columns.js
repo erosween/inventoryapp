@@ -16,12 +16,17 @@
     const apply = menu.querySelector('[data-filter-apply]');
     const more = menu.querySelector('[data-filter-more]');
     let trigger, key, mode, chosen, values, page, timer, pending;
+    function navigatePage(url) {
+        if (menu.dataset.standalone === 'true') window.location.assign(url);
+        else if (window.SuryaTaskforceNavigate) window.SuryaTaskforceNavigate(url);
+        else window.location.assign(url);
+    }
     function sort(column, direction) {
         const url = new URL(location.href);
         if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
         else { url.searchParams.delete('sort'); url.searchParams.delete('direction'); }
         url.searchParams.delete('page');
-        window.SuryaTaskforceNavigate(url.toString());
+        navigatePage(url.toString());
     }
     menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => sort(key,button.dataset.sortDirection)));
     menu.querySelector('[data-sort-clear]').addEventListener('click', () => sort(key,null));
@@ -74,7 +79,9 @@
         const controller = new AbortController(); pending = controller;
         const url = new URL(menu.dataset.valuesUrl,location.href);
         url.search = location.search;
+        if (menu.dataset.standalone === 'true') url.searchParams.delete('outlet_q');
         if (menu.dataset.outletSearch !== undefined) url.searchParams.set('outlet_q',menu.dataset.outletSearch);
+        if (menu.dataset.valuesUrl?.includes('/sold-serials/')) url.searchParams.delete('outlet_q');
         url.searchParams.delete('page');
         url.searchParams.set('column',key);
         url.searchParams.set('q',search.value);
@@ -104,7 +111,7 @@
         if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? 'columns' : 'exclude'}[${key}][]`,value);
         url.searchParams.delete('page');
         apply.disabled = true; apply.textContent = 'Memuat…';
-        window.SuryaTaskforceNavigate(url.toString());
+        navigatePage(url.toString());
     }
     document.addEventListener('taskforce:navigation-end', () => {
         apply.textContent = 'Terapkan';

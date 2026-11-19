@@ -5,7 +5,7 @@
 @section('description', 'Validasi kecocokan SN dan qty antara nota Mobile SURYA dan ST Digipos.')
 @section('content-class', 'pt-page')
 
-@push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">@endpush
+@push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}"><link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}">@endpush
 
 @section('content')
     <section class="pt-card pt-sold-intro">
@@ -45,7 +45,8 @@
                     <thead><tr><th>{{ str_contains($heading, 'TAP') ? 'TAP' : 'Sales Force' }}</th><th>Total outlet</th><th>Outlet sesuai</th><th>Outlet perlu dicek</th><th>Qty nota</th><th>Qty sesuai</th><th>Qty belum cocok</th></tr></thead>
                     <tbody>
                     @foreach($groups as $group)
-                        <tr><td>{{ $group->label }}</td><td>{{ number_format($group->outlet_count) }}</td><td><span class="pt-chip good">{{ number_format($group->matched_outlets) }}</span></td><td><span class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }}">{{ number_format($group->mismatch_outlets) }}</span></td><td>{{ number_format($group->qty) }}</td><td>{{ number_format($group->matched_qty) }}</td><td>{{ number_format($group->mismatch_qty) }}</td></tr>
+                        @php($summaryLevel = str_contains($heading, 'TAP') ? 'tap' : 'sf')
+                        <tr><td>{{ $group->label }}</td><td>{{ number_format($group->outlet_count) }}</td><td><a class="pt-chip good pt-summary-link" href="{{ route('surya.product-tracking.sold', array_merge(request()->query(), ['summary_level' => $summaryLevel, 'summary_key' => $group->key, 'summary_status' => 'matched'])) }}" aria-label="Lihat {{ $group->matched_outlets }} outlet sesuai untuk {{ $group->label }}">{{ number_format($group->matched_outlets) }}</a></td><td><a class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }} pt-summary-link" href="{{ route('surya.product-tracking.sold', array_merge(request()->query(), ['summary_level' => $summaryLevel, 'summary_key' => $group->key, 'summary_status' => 'mismatch'])) }}" aria-label="Lihat {{ $group->mismatch_outlets }} outlet perlu dicek untuk {{ $group->label }}">{{ number_format($group->mismatch_outlets) }}</a></td><td>{{ number_format($group->qty) }}</td><td>{{ number_format($group->matched_qty) }}</td><td>{{ number_format($group->mismatch_qty) }}</td></tr>
                     @endforeach
                     </tbody>
                 </table></div>
@@ -53,12 +54,16 @@
         @endforeach
 
         <section class="pt-card">
-            <div class="pt-result-head"><div><h2>Rincian per outlet</h2><span class="pt-muted">{{ number_format($summary->outlet_count) }} outlet · bandingkan qty nota dengan SN Digipos yang cocok di outlet yang sama.</span></div></div>
-            <div class="pt-table-wrap"><table class="pt-table">
-                <thead><tr><th>Outlet</th><th>ID Outlet</th><th>TAP</th><th>Sales Force</th><th>Qty nota</th><th>Qty sesuai</th><th>Qty belum cocok</th><th>Status</th></tr></thead>
+            <div class="pt-result-head"><div><h2>Rincian per outlet</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty nota dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Hapus pilihan</a>@endif</div>
+            <div class="pt-table-wrap"><table class="pt-table detail-table">
+                <thead><tr>
+                    @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'qty' => 'Qty nota', 'matched_qty' => 'Qty sesuai', 'mismatch_qty' => 'Qty belum cocok', 'status' => 'Status'] as $column => $label)
+                        <th><div class="tf-column-heading"><span>{{ $label }}@if(($tableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($tableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $tableOptions['columns'] ?? []) || array_key_exists($column, $tableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
+                    @endforeach
+                </tr></thead>
                 <tbody>
                 @foreach($outlets as $outlet)
-                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if($outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td></tr>
+                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if($outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td></tr>
                 @endforeach
                 </tbody>
             </table></div>
@@ -66,4 +71,11 @@
     @else
         <section class="pt-card"><p class="pt-empty mb-0">Belum ada SN {{ $activeTab === 'progress' ? 'menunggu approval' : 'dari transaksi yang disetujui' }} pada filter ini.</p></section>
     @endif
+    <div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-values-url="{{ route('surya.product-tracking.sold.filter-values') }}" data-selection="{{ json_encode($tableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($tableOptions['exclude'] ?? new \stdClass()) }}">
+        <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
+            <div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> Smallest to Largest</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Largest to Smallest</button><button type="button" data-sort-clear>Urutan default</button></div>
+            <input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter"><div class="tf-column-menu-tools"><button type="button" data-filter-all>Pilih semua</button><button type="button" data-filter-none>Kosongkan pilihan</button></div><div data-filter-values class="tf-column-values"></div><p data-filter-message role="status" aria-live="polite"></p><button type="button" data-filter-more hidden>Muat lainnya</button>
+        </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
+    </div>
+    <script src="{{ asset('js/surya-outlet-columns.js') }}?v={{ filemtime(public_path('js/surya-outlet-columns.js')) }}" defer></script>
 @endsection

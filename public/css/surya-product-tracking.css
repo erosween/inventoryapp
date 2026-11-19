@@ -36,6 +36,8 @@
 .pt-chip { display:inline-flex; padding:4px 8px; border-radius:999px; background:#f1f5f9; color:#475569; font-size:11px; font-weight:800; }
 .pt-chip.good { background:#e7f7ee; color:#087443; }
 .pt-chip.bad { background:#fff0f1; color:#c8102e; }
+.pt-summary-link { border:0; font:inherit; cursor:pointer; text-decoration:none; }
+.pt-summary-link:hover,.pt-summary-link:focus-visible { outline:2px solid currentColor; outline-offset:2px; filter:brightness(.92); }
 .pt-alert { margin-bottom:16px; padding:12px 14px; border:1px solid #c6ead7; border-radius:10px; background:#effaf4; color:#087443; }
 .pt-alert.error { border-color:#ffd1d7; background:#fff4f5; color:#b4233d; }
 .pt-mapping-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
