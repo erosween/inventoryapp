@@ -14,6 +14,8 @@ use Illuminate\Support\Str;
 
 class ProductTrackingController extends MonitaDumaiController
 {
+    private array $maxScanSerialRangeCountByLength = [];
+
     public function index(Request $request)
     {
         return redirect()->route('surya.product-tracking.sold', $request->query());
@@ -839,13 +841,24 @@ class ProductTrackingController extends MonitaDumaiController
 
     private function findScanRangeDuplicates(array $range): array
     {
+        $length = strlen($range['serial_start']);
+        if (! array_key_exists($length, $this->maxScanSerialRangeCountByLength)) {
+            $this->maxScanSerialRangeCountByLength[$length] = (int) (DB::table('product_tracking_digipos as digipos')
+                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                ->where('digipos.kind', 'scan')->where('upload.kind', 'scan')->where('upload.status', 'complete')
+                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
+                ->max('digipos.serial_count') ?? 1);
+        }
+        $minimumStart = $this->subtractSerialCount($range['serial_start'], $this->maxScanSerialRangeCountByLength[$length]);
+
         $existing = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
             ->where('digipos.kind', 'scan')
             ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->where('digipos.serial_start', '>=', $minimumStart)
             ->where('digipos.serial_start', '<=', $range['serial_end'])
             ->where('digipos.serial_end', '>=', $range['serial_start'])
-            ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [strlen($range['serial_start'])])
+            ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
             ->orderBy('digipos.serial_start')
             ->get(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'digipos.id_outlet', 'digipos.sf', 'digipos.product_name', 'upload.filename']);
 
@@ -859,6 +872,26 @@ class ProductTrackingController extends MonitaDumaiController
                 'existing_outlet' => $row->id_outlet, 'existing_sf' => $row->sf, 'existing_product' => $row->product_name,
             ];
         })->all();
+    }
+
+    private function subtractSerialCount(string $serial, int $count): string
+    {
+        $length = strlen($serial);
+        $amount = (string) max(0, $count);
+        if (strlen($amount) > $length || (strlen($amount) === $length && strcmp($amount, $serial) > 0)) {
+            return str_repeat('0', $length);
+        }
+
+        $borrow = 0;
+        $result = '';
+        for ($i = $length - 1, $j = strlen($amount) - 1; $i >= 0; $i--, $j--) {
+            $digit = (int) $serial[$i] - (int) ($j >= 0 ? $amount[$j] : '0') - $borrow;
+            $borrow = $digit < 0 ? 1 : 0;
+            if ($borrow) $digit += 10;
+            $result = $digit.$result;
+        }
+
+        return str_pad($result, $length, '0', STR_PAD_LEFT);
     }
 
     private function serialRangeCount(string $start, string $end): string
