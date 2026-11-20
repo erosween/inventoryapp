@@ -438,7 +438,23 @@ class ProductTrackingController extends MonitaDumaiController
             'kind' => $kind,
             'uploads' => DB::table('product_tracking_uploads')->where('kind', $kind)->whereIn('status', ['complete', 'duplicate'])->orderByDesc('id')->limit(30)->get(),
             'pending' => DB::table('product_tracking_uploads')->where('kind', $kind)->where('status', 'mapping')->orderByDesc('id')->get(),
+            'dailyTotals' => $kind === 'scan' ? DB::table('product_tracking_digipos as d')
+                ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+                ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
+                ->whereNotNull('d.scan_date')
+                ->select('d.scan_date')->selectRaw('SUM(d.serial_count) as total_qty')
+                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->limit(90)->get() : collect(),
         ]);
+    }
+
+    public function downloadDuplicateScanReport(int $upload)
+    {
+        $this->requireEditor();
+        $record = DB::table('product_tracking_uploads')->where('id', $upload)->where('kind', 'scan')->where('status', 'mapping')->first();
+        abort_unless($record, 404);
+        $path = "product-tracking/duplicate-reports/{$upload}.csv";
+        abort_unless(Storage::disk('local')->exists($path), 404, 'Belum ada laporan SN duplikat untuk upload ini.');
+        return Storage::disk('local')->download($path, 'sn-duplikat-upload-'.$upload.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function salesStock()
@@ -584,6 +600,7 @@ class ProductTrackingController extends MonitaDumaiController
             'upload' => $record,
             'headers' => $headers,
             'preview' => $reader->preview(Storage::disk('local')->path($record->storage_path), $headers),
+            'duplicateReportAvailable' => $record->kind === 'scan' && Storage::disk('local')->exists("product-tracking/duplicate-reports/{$record->id}.csv"),
         ]);
     }
 
@@ -626,6 +643,9 @@ class ProductTrackingController extends MonitaDumaiController
         $batch = [];
         $range = null;
         $seenSerials = [];
+        $duplicateRanges = [];
+        $duplicateReportPath = "product-tracking/duplicate-reports/{$record->id}.csv";
+        Storage::disk('local')->delete($duplicateReportPath);
         try {
             foreach ($reader->rows($path, $headers) as $rowNumber => $values) {
                 $serial = $this->mappedValue($values, $mapping['serial_column'] ?? null);
@@ -657,8 +677,12 @@ class ProductTrackingController extends MonitaDumaiController
                     $range['serial_count']++;
                 } else {
                     if ($range !== null) {
-                        if ($record->kind === 'scan') $this->assertScanRangeIsNew($range);
-                        $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+                        $matches = $record->kind === 'scan' ? $this->findScanRangeDuplicates($range) : [];
+                        if ($matches) {
+                            foreach ($matches as $match) $duplicateRanges[] = $match;
+                        } else {
+                            $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+                        }
                     }
                     $range = ['key' => $key, 'scan_date' => $record->kind === 'scan' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
                 }
@@ -669,8 +693,17 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             }
             if ($range !== null) {
-                if ($record->kind === 'scan') $this->assertScanRangeIsNew($range);
-                $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+                $matches = $record->kind === 'scan' ? $this->findScanRangeDuplicates($range) : [];
+                if ($matches) {
+                    foreach ($matches as $match) $duplicateRanges[] = $match;
+                } else {
+                    $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+                }
+            }
+            if ($duplicateRanges !== []) {
+                $this->storeDuplicateScanReport($duplicateReportPath, $duplicateRanges);
+                $first = $duplicateRanges[0];
+                throw ValidationException::withMessages(['file' => count($duplicateRanges).' rentang SN duplikat ditemukan. Contoh: baris '.$first['source_row'].', SN '.$first['duplicate_start'].($first['duplicate_end'] !== $first['duplicate_start'] ? '–'.$first['duplicate_end'] : '').' sudah ada di '.$first['existing_filename'].'. Data tidak disimpan; unduh daftar SN duplikat di bawah.']);
             }
             if ($batch !== []) DB::table('product_tracking_digipos')->insert($batch);
             if ($count === 0) throw ValidationException::withMessages(['file' => 'File tidak berisi baris transaksi yang dapat diimpor.']);
@@ -804,7 +837,7 @@ class ProductTrackingController extends MonitaDumaiController
         ];
     }
 
-    private function assertScanRangeIsNew(array $range): void
+    private function findScanRangeDuplicates(array $range): array
     {
         $existing = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
@@ -814,18 +847,53 @@ class ProductTrackingController extends MonitaDumaiController
             ->where('digipos.serial_end', '>=', $range['serial_start'])
             ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [strlen($range['serial_start'])])
             ->orderBy('digipos.serial_start')
-            ->first(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'upload.filename']);
+            ->get(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'digipos.id_outlet', 'digipos.sf', 'digipos.product_name', 'upload.filename']);
 
-        if (! $existing) return;
+        return $existing->map(function ($row) use ($range) {
+            $start = strcmp((string) $row->serial_start, $range['serial_start']) > 0 ? (string) $row->serial_start : $range['serial_start'];
+            $end = strcmp((string) $row->serial_end, $range['serial_end']) < 0 ? (string) $row->serial_end : $range['serial_end'];
+            return [
+                'source_row' => $range['source_row'], 'duplicate_start' => $start, 'duplicate_end' => $end,
+                'duplicate_qty' => $this->serialRangeCount($start, $end),
+                'existing_filename' => $row->filename, 'existing_scan_date' => $row->scan_date,
+                'existing_outlet' => $row->id_outlet, 'existing_sf' => $row->sf, 'existing_product' => $row->product_name,
+            ];
+        })->all();
+    }
 
-        $duplicateStart = strcmp((string) $existing->serial_start, $range['serial_start']) > 0
-            ? (string) $existing->serial_start : $range['serial_start'];
-        $duplicateEnd = strcmp((string) $existing->serial_end, $range['serial_end']) < 0
-            ? (string) $existing->serial_end : $range['serial_end'];
-        $message = "Baris {$range['source_row']}: SN {$duplicateStart}";
-        if ($duplicateStart !== $duplicateEnd) $message .= "–{$duplicateEnd}";
-        $message .= " sudah terdaftar pada upload ST Digipos {$existing->filename}";
-        if ($existing->scan_date) $message .= ' ('.\Carbon\Carbon::parse($existing->scan_date)->format('d/m/Y').')';
-        throw ValidationException::withMessages(['file' => $message.'. Upload dibatalkan; data duplikat tidak disimpan.']);
+    private function serialRangeCount(string $start, string $end): string
+    {
+        $borrow = 0;
+        $difference = '';
+        for ($i = strlen($end) - 1; $i >= 0; $i--) {
+            $digit = (int) $end[$i] - (int) ($start[$i] ?? '0') - $borrow;
+            $borrow = $digit < 0 ? 1 : 0;
+            if ($borrow) $digit += 10;
+            $difference = $digit.$difference;
+        }
+        $carry = 1;
+        for ($i = strlen($difference) - 1; $i >= 0; $i--) {
+            $digit = (int) $difference[$i] + $carry;
+            $difference[$i] = (string) ($digit % 10);
+            $carry = $digit >= 10 ? 1 : 0;
+        }
+        return ($carry ? '1' : '').(ltrim($difference, '0') ?: '0');
+    }
+
+    private function storeDuplicateScanReport(string $path, array $rows): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        fputcsv($stream, ['Baris awal file baru', 'SN duplikat awal', 'SN duplikat akhir', 'Qty SN duplikat', 'File upload sebelumnya', 'Tanggal scan sebelumnya', 'ID Outlet sebelumnya', 'Sales Force sebelumnya', 'Denom sebelumnya']);
+        foreach ($rows as $row) {
+            fputcsv($stream, [
+                $row['source_row'], $row['duplicate_start'], $row['duplicate_end'], $row['duplicate_qty'],
+                $this->csvSafe((string) $row['existing_filename']), $row['existing_scan_date'],
+                $this->csvSafe((string) $row['existing_outlet']), $this->csvSafe((string) $row['existing_sf']),
+                $this->csvSafe((string) $row['existing_product']),
+            ]);
+        }
+        rewind($stream);
+        Storage::disk('local')->put($path, "\xEF\xBB\xBF".stream_get_contents($stream));
+        fclose($stream);
     }
 }

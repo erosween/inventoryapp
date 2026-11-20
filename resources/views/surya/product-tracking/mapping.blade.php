@@ -22,8 +22,9 @@
                     <div class="pt-field"><label for="{{ $key }}">{{ $label }}</label><select id="{{ $key }}" name="{{ $key }}" {{ $key==='outlet_column'?'required':'' }}><option value="">— Tidak dipetakan —</option>@foreach($headers as $column=>$header)<option value="{{ $column }}">{{ $header }}</option>@endforeach</select></div>
                 @endforeach
             </div>
-            <p class="pt-muted mt-3">Kolom SN wajib dan harus unik di dalam file ini. Upload harian tidak memeriksa duplikat terhadap upload sebelumnya. Jika ada SN ganda dalam file, impor dibatalkan dan nomor baris duplikat ditampilkan. Baris berurutan dengan tanggal, ID outlet, user login SF, dan denom yang sama akan digabung menjadi rentang SN.</p>
+            <p class="pt-muted mt-3">Kolom SN wajib dan harus unik di dalam file ini. Sistem juga memeriksa rentang SN terhadap upload ST sebelumnya. Baris berurutan dengan tanggal, ID outlet, user login SF, dan denom yang sama akan digabung menjadi rentang SN.</p>
             @error('file')<div class="pt-alert error">{{ $message }}</div>@enderror
+            @if($duplicateReportAvailable)<div class="pt-actions mt-2"><a class="pt-button" href="{{ route('surya.product-tracking.imports.duplicates.download',$upload->id) }}"><i class="fas fa-download"></i> Unduh daftar SN duplikat CSV</a></div>@endif
             @error('serial_column')<div class="pt-alert error">{{ $message }}</div>@enderror
             @error('date_column')<div class="pt-alert error">{{ $message }}</div>@enderror
             <div class="pt-actions pt-import-actions"><button class="pt-button primary" type="submit"><i class="fas fa-check"></i><span>Impor {{ $upload->kind==='scan'?'Hasil Scan':'Warehouse' }}</span></button><span class="pt-loading-status" role="status" aria-live="polite" hidden></span></div>

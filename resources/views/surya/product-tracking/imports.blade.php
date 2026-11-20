@@ -19,6 +19,7 @@
         </form>@endif
     </section>
 
+    @if($kind==='scan')<section class="pt-card"><h2>Total SN berhasil diupload per tanggal</h2><p class="pt-subtitle">Jumlah SN yang sudah tersimpan di sistem, termasuk rentang yang digabung saat impor.</p><div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Tanggal Scan</th><th>Total Qty SN</th></tr></thead><tbody>@forelse($dailyTotals as $total)<tr><td>{{ \Carbon\Carbon::parse($total->scan_date)->format('j M Y') }}</td><td>{{ number_format($total->total_qty) }}</td></tr>@empty<tr><td colspan="2" class="pt-empty">Belum ada SN yang berhasil diupload.</td></tr>@endforelse</tbody></table></div></section>@endif
     @if($pending->isNotEmpty())<section class="pt-card"><h2>Upload menunggu pemetaan</h2><div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>File</th><th>Tanggal</th><th>Diunggah</th><th>Aksi</th></tr></thead><tbody>@foreach($pending as $item)<tr><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ $item->created_at }}</td><td><a class="pt-button" href="{{ route('surya.product-tracking.mapping',$item->id) }}">Petakan Kolom</a></td></tr>@endforeach</tbody></table></div></section>@endif
 
     <section class="pt-card"><div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">Warehouse terbaru yang selesai diimpor menjadi sumber pencocokan aktif.</span></div></div>

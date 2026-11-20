@@ -59,6 +59,12 @@ class SfmasukController extends Controller
     TapFilter::apply($query, 'f.idtap');
 
     return DataTables::of($query)
+        ->filterColumn('sn_awal', function ($query, $keyword) {
+            $query->whereRaw("SUBSTRING_INDEX(f.sn, '-', 1) LIKE ?", ['%'.$keyword.'%']);
+        })
+        ->filterColumn('sn_akhir', function ($query, $keyword) {
+            $query->whereRaw("(CASE WHEN LOCATE('-', f.sn) > 0 THEN SUBSTRING_INDEX(f.sn, '-', -1) ELSE f.sn END) LIKE ?", ['%'.$keyword.'%']);
+        })
         ->editColumn('tgl', fn ($r) =>
             Carbon::parse($r->tgl)->format('d-m-Y')
         )

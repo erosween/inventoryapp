@@ -119,6 +119,7 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::get('/sold-serials/download', 'downloadSoldSerials')->name('sold.download');
     Route::get('/imports', 'imports')->name('imports');
     Route::post('/imports', 'stageImport')->name('imports.stage');
+    Route::get('/imports/{upload}/duplicates/download', 'downloadDuplicateScanReport')->whereNumber('upload')->name('imports.duplicates.download');
     Route::get('/sales-stock', 'salesStock')->name('sales-stock');
     Route::post('/sales-stock', 'uploadSalesStock')->name('sales-stock.upload');
     Route::get('/sales-stock/template', 'salesStockTemplate')->name('sales-stock.template');

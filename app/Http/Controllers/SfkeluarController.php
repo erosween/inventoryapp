@@ -76,6 +76,12 @@ use Illuminate\Validation\ValidationException;
     ]);
 
     return DataTables::of($query)
+        ->filterColumn('f.sn_awal', function ($query, $keyword) {
+            $query->where('f.sn_awal', 'like', '%'.$keyword.'%');
+        })
+        ->filterColumn('f.sn_akhir', function ($query, $keyword) {
+            $query->where('f.sn_akhir', 'like', '%'.$keyword.'%');
+        })
         ->editColumn('qty', fn ($r) => number_format($r->qty))
         ->addColumn('action', function ($row) {
             if ((int) $row->idkeluar < 0) return '<span class="text-muted">Mobile approved</span>';
