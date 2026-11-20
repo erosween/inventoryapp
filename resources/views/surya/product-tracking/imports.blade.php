@@ -21,7 +21,8 @@
 
     @if($kind==='scan')
         <section class="pt-card">
-            <h2>Total SN berhasil diupload per tanggal</h2>
+            <nav class="pt-sold-tabs" aria-label="Periode ringkasan upload"><a class="{{ $period==='daily'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan','period'=>'daily']) }}">Harian</a><a class="{{ $period==='monthly'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan','period'=>'monthly']) }}">Bulanan</a></nav>
+            <h2>Total SN berhasil diupload per {{ $period==='monthly'?'bulan':'tanggal' }}</h2>
             <p class="pt-subtitle">Kategori mengikuti awalan nama file, misalnya pv_dumai_20261120 atau sa_dumai_20261120. File berawalan pv_ atau sa_ masuk total produk; file tanpa prefix wilayah hanya masuk Total All.</p>
             <div class="pt-table-wrap">
                 <table class="pt-table">
@@ -29,7 +30,7 @@
                     <tbody>
                         @forelse($dailyTotals as $total)
                             <tr>
-                                <td>{{ \Carbon\Carbon::parse($total->scan_date)->format('j M Y') }}</td>
+                                <td>{{ $period==='monthly' ? \Carbon\Carbon::parse($total->scan_date)->locale('id')->translatedFormat('F Y') : \Carbon\Carbon::parse($total->scan_date)->format('j M Y') }}</td>
                                 <td>{{ number_format($total->dumai_bengkalis_pv_qty) }}</td>
                                 <td>{{ number_format($total->dumai_bengkalis_sa_qty) }}</td>
                                 <td>{{ number_format($total->rokan_hilir_pv_qty) }}</td>

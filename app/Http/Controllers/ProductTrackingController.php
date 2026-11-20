@@ -560,22 +560,34 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $kind = $request->query('kind', 'warehouse');
         abort_unless(in_array($kind, ['warehouse', 'scan'], true), 404);
-        $dailyTotals = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
+        $period = $request->query('period', 'daily');
+        abort_unless(in_array($period, ['daily', 'monthly'], true), 404);
+        $totalsQuery = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
                 ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
                 ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
                 ->whereNotNull('d.scan_date')
-                ->select('d.scan_date')
                 ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^pv_(dumai|bengkalis|duri|rupat|sei_pakning)_' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
                 ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^sa_(dumai|bengkalis|duri|rupat|sei_pakning)_' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_sa_qty")
                 ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^pv_(rokan_hilir|rohil|rokan|bagan_batu|bagan_siapi_api|bagan_siapi-api|ujung_tanjung)_' THEN d.serial_count ELSE 0 END) AS rokan_hilir_pv_qty")
                 ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^sa_(rokan_hilir|rohil|rokan|bagan_batu|bagan_siapi_api|bagan_siapi-api|ujung_tanjung)_' THEN d.serial_count ELSE 0 END) AS rokan_hilir_sa_qty")
                 ->selectRaw("SUM(CASE WHEN LEFT(LOWER(u.filename), 3) = 'pv_' THEN d.serial_count ELSE 0 END) AS total_pv_qty")
                 ->selectRaw("SUM(CASE WHEN LEFT(LOWER(u.filename), 3) = 'sa_' THEN d.serial_count ELSE 0 END) AS total_sa_qty")
-                ->selectRaw('SUM(d.serial_count) AS total_qty')
-                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->simplePaginate(10)->appends(['kind' => $kind]) : collect();
+                ->selectRaw('SUM(d.serial_count) AS total_qty') : null;
+        if ($totalsQuery) {
+            if ($period === 'monthly') {
+                $totalsQuery->selectRaw("DATE_FORMAT(d.scan_date, '%Y-%m-01') AS scan_date")
+                    ->groupByRaw("DATE_FORMAT(d.scan_date, '%Y-%m')");
+            } else {
+                $totalsQuery->addSelect('d.scan_date')->groupBy('d.scan_date');
+            }
+            $dailyTotals = $totalsQuery->orderByDesc('scan_date')->simplePaginate(10)->appends(['kind' => $kind, 'period' => $period]);
+        } else {
+            $dailyTotals = collect();
+        }
 
         return view('surya.product-tracking.imports', [
             'kind' => $kind,
+            'period' => $period,
             'uploads' => DB::table('product_tracking_uploads')->where('kind', $kind)->whereIn('status', ['complete', 'duplicate'])->orderByDesc('id')->limit(30)->get(),
             'pending' => DB::table('product_tracking_uploads')->where('kind', $kind)->where('status', 'mapping')->orderByDesc('id')->get(),
             'dailyTotals' => $dailyTotals,
