@@ -117,6 +117,20 @@
                 @endforelse
                 </tbody>
             </table></div>
+            <div class="pt-outlet-mobile-list">
+                @forelse($outlets as $outlet)
+                    <article class="pt-outlet-mobile-card">
+                        <div class="pt-outlet-mobile-head"><div><h3>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</h3><span>{{ $outlet->id_outlet }} · {{ $outlet->tap }}</span></div>@if((int) $outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</div>
+                        <dl><div><dt>Kecamatan</dt><dd>{{ $outlet->kecamatan ?: '–' }}</dd></div><div><dt>Sales Force</dt><dd>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</dd></div><div><dt>Qty nota</dt><dd>{{ number_format($outlet->qty) }}</dd></div><div><dt>Qty SN cocok</dt><dd>{{ number_format($outlet->matched_qty) }}</dd></div><div><dt>Qty SN belum cocok</dt><dd>{{ number_format($outlet->mismatch_qty) }}</dd></div></dl>
+                        @if(($summaryTarget['summary_status'] ?? '') !== 'matched')
+                            <button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button>
+                            <div class="pt-outlet-sn-panel pt-outlet-mobile-sn-panel" data-outlet-sn-panel hidden><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div>
+                        @endif
+                    </article>
+                @empty
+                    <p class="pt-empty mb-0">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</p>
+                @endforelse
+            </div>
         </section>
     @else
         <section class="pt-card"><p class="pt-empty mb-0">Belum ada SN {{ $activeTab === 'progress' ? 'menunggu approval' : 'dari transaksi yang disetujui' }} pada filter ini.</p></section>
@@ -136,13 +150,14 @@
         const button = event.target.closest('.pt-view-outlet-sn');
         const moreButton = event.target.closest('.pt-load-more-outlet-sn');
         if (!button && !moreButton) return;
+        const mobileCard = button?.closest('.pt-outlet-mobile-card');
         const detailRow = button ? button.closest('tr')?.nextElementSibling : moreButton.closest('.pt-outlet-sn-panel')?.closest('tr');
-        const panel = detailRow?.querySelector('[data-outlet-sn-panel]');
+        const panel = mobileCard?.querySelector('[data-outlet-sn-panel]') || detailRow?.querySelector('[data-outlet-sn-panel]') || moreButton?.closest('[data-outlet-sn-panel]');
         if (!panel) return;
         if (button) {
-            const isOpen = !detailRow.hidden;
-            if (isOpen) { detailRow.hidden = true; button.setAttribute('aria-expanded', 'false'); return; }
-            detailRow.hidden = false;
+            const isOpen = mobileCard ? !panel.hidden : !detailRow.hidden;
+            if (isOpen) { if (mobileCard) panel.hidden = true; else detailRow.hidden = true; button.setAttribute('aria-expanded', 'false'); return; }
+            if (mobileCard) panel.hidden = false; else detailRow.hidden = false;
             button.setAttribute('aria-expanded', 'true');
             if (panel.dataset.loaded === 'true') return;
         }
