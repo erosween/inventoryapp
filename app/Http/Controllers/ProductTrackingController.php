@@ -54,17 +54,17 @@ class ProductTrackingController extends MonitaDumaiController
                     ->whereColumn('digipos.id_outlet', 'sale.id_outlet')
                     ->where(function ($match) {
                         $match->where(function ($sa) {
-                            $sa->whereRaw("UPPER(COALESCE(denom.product_group, '')) IN ('SA', 'SP')")
+                            $sa->whereRaw("LEFT(LOWER(upload.filename), 3) = 'sa_'")
                                 ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(serial.serial_end AS DECIMAL(24,0))')
                                 ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(serial.serial_start AS DECIMAL(24,0))');
                         })->orWhere(function ($pv) {
-                            $pv->whereRaw("UPPER(COALESCE(denom.product_group, 'PV')) NOT IN ('SA', 'SP')")
+                            $pv->whereRaw("LEFT(LOWER(upload.filename), 3) <> 'sa_'")
                                 ->whereColumn('digipos.serial_start', '<=', 'serial.serial_end')
                                 ->whereColumn('digipos.serial_end', '>=', 'serial.serial_start')
                                 ->whereRaw('LENGTH(digipos.serial_start) = LENGTH(serial.serial_start)');
                         });
                     })
-                    ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(denom.product_group, '')) IN ('SA', 'SP') THEN GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) ELSE GREATEST(CAST(CASE WHEN digipos.serial_end < serial.serial_end THEN digipos.serial_end ELSE serial.serial_end END AS DECIMAL(24,0)) - CAST(CASE WHEN digipos.serial_start > serial.serial_start THEN digipos.serial_start ELSE serial.serial_start END AS DECIMAL(24,0)) + 1, 0) END), 0)");
+                    ->selectRaw("COALESCE(SUM(CASE WHEN LEFT(LOWER(upload.filename), 3) = 'sa_' THEN GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) ELSE GREATEST(CAST(CASE WHEN digipos.serial_end < serial.serial_end THEN digipos.serial_end ELSE serial.serial_end END AS DECIMAL(24,0)) - CAST(CASE WHEN digipos.serial_start > serial.serial_start THEN digipos.serial_start ELSE serial.serial_start END AS DECIMAL(24,0)) + 1, 0) END), 0)");
             }, 'matched_qty')
             ->orderBy('outlet.tap')->orderBy('outlet.nama_outlet');
 
@@ -352,17 +352,17 @@ class ProductTrackingController extends MonitaDumaiController
                     ->whereColumn('digipos.id_outlet', 'sale.id_outlet')
                     ->where(function ($match) {
                         $match->where(function ($sa) {
-                            $sa->whereRaw("UPPER(COALESCE(denom.product_group, '')) IN ('SA', 'SP')")
+                            $sa->whereRaw("LEFT(LOWER(upload.filename), 3) = 'sa_'")
                                 ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(serial.serial_end AS DECIMAL(24,0))')
                                 ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(serial.serial_start AS DECIMAL(24,0))');
                         })->orWhere(function ($pv) {
-                            $pv->whereRaw("UPPER(COALESCE(denom.product_group, 'PV')) NOT IN ('SA', 'SP')")
+                            $pv->whereRaw("LEFT(LOWER(upload.filename), 3) <> 'sa_'")
                                 ->whereColumn('digipos.serial_start', '<=', 'serial.serial_end')
                                 ->whereColumn('digipos.serial_end', '>=', 'serial.serial_start')
                                 ->whereRaw('LENGTH(digipos.serial_start) = LENGTH(serial.serial_start)');
                         });
                     })
-                    ->selectRaw("COALESCE(SUM(CASE WHEN UPPER(COALESCE(denom.product_group, '')) IN ('SA', 'SP') THEN GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) ELSE GREATEST(CAST(CASE WHEN digipos.serial_end < serial.serial_end THEN digipos.serial_end ELSE serial.serial_end END AS DECIMAL(24,0)) - CAST(CASE WHEN digipos.serial_start > serial.serial_start THEN digipos.serial_start ELSE serial.serial_start END AS DECIMAL(24,0)) + 1, 0) END), 0)");
+                    ->selectRaw("COALESCE(SUM(CASE WHEN LEFT(LOWER(upload.filename), 3) = 'sa_' THEN GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) ELSE GREATEST(CAST(CASE WHEN digipos.serial_end < serial.serial_end THEN digipos.serial_end ELSE serial.serial_end END AS DECIMAL(24,0)) - CAST(CASE WHEN digipos.serial_start > serial.serial_start THEN digipos.serial_start ELSE serial.serial_start END AS DECIMAL(24,0)) + 1, 0) END), 0)");
             }, 'matched_qty');
 
         $outletTotals = DB::query()->fromSub($sourceQuery, 'rows')
@@ -471,7 +471,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
             ->leftJoin('appsdumais as outlet', 'outlet.id_outlet', '=', 'sale.id_outlet')
             ->leftJoin('denom', 'denom.iddenom', '=', 'serial.iddenom')
-            ->where('sale.status', $filters['tab'] === 'progress' ? 'pending' : 'approved')
+            ->when($filters['tab'] === 'approve', fn ($query) => $query->where('sale.status', 'approved'), fn ($query) => $query->whereNotIn('sale.status', ['draft_wa', 'rejected']))
             ->whereBetween('sale.tgl', [$filters['date_from'], $filters['date_to']]);
 
         if ($scopes = $this->suryaTapScopes()) {
