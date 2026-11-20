@@ -1,20 +1,23 @@
 @extends('surya.layouts.workspace')
 
-@section('title', $kind==='warehouse'?'Warehouse Digipos':'Upload ST Digipos')
-@section('active-page', $kind==='warehouse'?'product-tracking-warehouse':'product-tracking-scan')
-@section('description', $kind==='warehouse'?'Impor snapshot warehouse untuk pencocokan serial.':'Unggah ST Digipos untuk pencocokan SN dan rekonsiliasi.')
+@section('title', $kind==='warehouse'?'Warehouse Digipos':(str_starts_with($kind,'so-')?'Upload SO '.strtoupper(substr($kind,3)):'Upload ST Digipos'))
+@section('active-page', $kind==='warehouse'?'product-tracking-warehouse':(str_starts_with($kind,'so-')?'product-tracking-so':'product-tracking-scan'))
+@section('description', $kind==='warehouse'?'Impor snapshot warehouse untuk pencocokan serial.':(str_starts_with($kind,'so-')?'Unggah serial redeemed Stock Outlet.':'Unggah ST Digipos untuk pencocokan SN dan rekonsiliasi.'))
 @section('content-class', 'pt-page')
 
 @push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">@endpush
 
 @section('content')
     <section class="pt-card">
-        <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':'Upload ST Digipos' }}</h2>
-        <p class="pt-subtitle">Pilih file CSV. Setelah header terbaca, petakan kolom SN, ID DigiPOS, user login SF, tanggal, dan denom sebelum impor.</p>
+        @if(str_starts_with($kind, 'so-'))
+            <nav class="pt-sold-tabs mb-3" aria-label="Kategori upload SO"><a href="{{ route('surya.product-tracking.stock-outlet',['product'=>'PV']) }}">Stock Outlet</a><a class="{{ $kind==='so-pv'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-pv']) }}">SO PV</a><a class="{{ $kind==='so-sa'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-sa']) }}">SO SA</a></nav>
+        @endif
+        <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':(str_starts_with($kind,'so-')?'Upload SO '.strtoupper(substr($kind,3)):'Upload ST Digipos') }}</h2>
+        <p class="pt-subtitle">Pilih file CSV. Setelah header terbaca, petakan kolom SN, ID outlet, SF, tanggal, dan denom sebelum impor.</p>
         @if(!auth()->user()?->isSuperAdmin())<div class="pt-muted">Upload hanya tersedia untuk Admin.</div>@else
         <form method="post" action="{{ route('surya.product-tracking.imports.stage') }}" enctype="multipart/form-data" class="pt-grid pt-upload-form" data-loading-message="Membaca header dan menyiapkan pratinjau file…" data-loading-label="Membaca…">
             @csrf<input type="hidden" name="kind" value="{{ $kind }}">
-            <div class="pt-field pt-upload-file-field"><label for="pt-file">{{ $kind==='scan'?'File ST Digipos':'File Digipos' }}</label><div class="pt-file-control"><input class="pt-file-input" id="pt-file" type="file" name="file" accept=".csv,.txt" required><label class="pt-file-action" for="pt-file">Pilih file</label><span class="pt-file-name pt-muted" id="pt-file-name">Belum ada file dipilih</span></div><small class="pt-file-hint">CSV · Maksimal 100 MB · Header pada baris pertama</small></div>
+            <div class="pt-field pt-upload-file-field"><label for="pt-file">{{ $kind==='scan'?'File ST Digipos':(str_starts_with($kind,'so-')?'File SO '.strtoupper(substr($kind,3)):'File Digipos') }}</label><div class="pt-file-control"><input class="pt-file-input" id="pt-file" type="file" name="file" accept=".csv,.txt" required><label class="pt-file-action" for="pt-file">Pilih file</label><span class="pt-file-name pt-muted" id="pt-file-name">Belum ada file dipilih</span></div><small class="pt-file-hint">CSV · Maksimal 100 MB · Header pada baris pertama</small></div>
             <div class="pt-field pt-upload-submit"><button class="pt-button primary" type="submit"><i class="fas fa-upload"></i><span>Baca Header</span></button><span class="pt-loading-status" role="status" aria-live="polite" hidden></span></div>
         </form>@endif
     </section>
@@ -59,9 +62,9 @@
     @endif
     @if($pending->isNotEmpty())<section class="pt-card"><h2>Upload menunggu pemetaan</h2><div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>File</th><th>Tanggal</th><th>Diunggah</th><th>Aksi</th></tr></thead><tbody>@foreach($pending as $item)<tr><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ $item->created_at }}</td><td><a class="pt-button" href="{{ route('surya.product-tracking.mapping',$item->id) }}">Petakan Kolom</a></td></tr>@endforeach</tbody></table></div></section>@endif
 
-    <section class="pt-card"><div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">Warehouse terbaru yang selesai diimpor menjadi sumber pencocokan aktif.</span></div></div>
-        <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>Tanggal Scan</th><th>Baris</th><th>Status</th></tr></thead><tbody>
-        @forelse($uploads as $item)<tr><td>{{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') }}</td><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ number_format($item->row_count) }}</td><td>@if($item->status==='complete')<span class="pt-chip good">Selesai</span>@else<span class="pt-chip bad">Duplikat · tidak dihitung</span>@endif</td></tr>@empty<tr><td colspan="5" class="pt-empty">Belum ada file {{ $kind==='warehouse'?'warehouse':'ST' }} Digipos.</td></tr>@endforelse
+    <section class="pt-card"><div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">{{ str_starts_with($kind,'so-')?'Riwayat SN SO yang dipakai menghitung redeem Stock Outlet.':($kind==='warehouse'?'Warehouse terbaru yang selesai diimpor menjadi sumber pencocokan aktif.':'Riwayat ST Digipos yang dipakai mencocokkan SN outlet.') }}</span></div></div>
+        <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>{{ str_starts_with($kind,'so-')?'Tanggal SO':'Tanggal Scan' }}</th><th>Baris</th><th>Status</th></tr></thead><tbody>
+        @forelse($uploads as $item)<tr><td>{{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') }}</td><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ number_format($item->row_count) }}</td><td>@if($item->status==='complete')<span class="pt-chip good">Selesai</span>@else<span class="pt-chip bad">Duplikat · tidak dihitung</span>@endif</td></tr>@empty<tr><td colspan="5" class="pt-empty">Belum ada file {{ str_starts_with($kind,'so-')?'SO':'ST Digipos' }}.</td></tr>@endforelse
         </tbody></table></div>
     </section>
     @if(auth()->user()?->isSuperAdmin())
@@ -77,7 +80,7 @@
                 document.querySelectorAll('form.pt-upload-form[data-loading-message]').forEach((form) => {
                     form.addEventListener('submit', () => {
                         if (form.dataset.submitting === 'true') return;
-                        if (form.querySelector('[name="kind"]')?.value !== 'scan') return;
+                        if (!['scan','so-pv','so-sa'].includes(form.querySelector('[name="kind"]')?.value)) return;
                         form.dataset.submitting = 'true';
                         form.setAttribute('aria-busy', 'true');
                         const button = form.querySelector('button[type="submit"]');

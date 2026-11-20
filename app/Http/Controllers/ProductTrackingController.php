@@ -634,7 +634,7 @@ class ProductTrackingController extends MonitaDumaiController
     public function imports(Request $request)
     {
         $kind = $request->query('kind', 'warehouse');
-        abort_unless(in_array($kind, ['warehouse', 'scan'], true), 404);
+        abort_unless(in_array($kind, ['warehouse', 'scan', 'so-pv', 'so-sa'], true), 404);
         $period = $request->query('period', 'daily');
         abort_unless(in_array($period, ['daily', 'monthly'], true), 404);
         $totalsQuery = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
@@ -668,6 +668,60 @@ class ProductTrackingController extends MonitaDumaiController
             'pending' => DB::table('product_tracking_uploads')->where('kind', $kind)->where('status', 'mapping')->orderByDesc('id')->get(),
             'dailyTotals' => $dailyTotals,
         ]);
+    }
+
+    public function stockOutlet(Request $request)
+    {
+        $product = strtoupper((string) $request->query('product', 'PV'));
+        abort_unless(in_array($product, ['PV', 'SA'], true), 404);
+        $prefix = strtolower($product).'_';
+        $soKind = 'so-'.strtolower($product);
+        $st = DB::table('product_tracking_digipos as d')
+            ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+            ->where('u.kind', 'scan')->where('u.status', 'complete')->where('d.kind', 'scan')
+            ->whereRaw('LEFT(LOWER(u.filename), 3) = ?', [$prefix])
+            ->selectRaw('d.id_outlet, SUM(d.serial_count) AS st_qty')->groupBy('d.id_outlet');
+        $so = DB::table('product_tracking_digipos as so')
+            ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
+            ->where('so.kind', $soKind)->where('u.kind', $soKind)->where('u.status', 'complete')
+            ->selectRaw('so.id_outlet, SUM(so.serial_count) AS so_qty')->groupBy('so.id_outlet');
+        $redeem = DB::table('product_tracking_digipos as st')
+            ->join('product_tracking_uploads as st_upload', 'st_upload.id', '=', 'st.upload_id')
+            ->join('product_tracking_digipos as so', function ($join) use ($soKind) {
+                $join->on('so.id_outlet', '=', 'st.id_outlet')->where('so.kind', '=', $soKind)
+                    ->whereRaw('CHAR_LENGTH(so.serial_start) = CHAR_LENGTH(st.serial_start)')
+                    ->whereRaw('CAST(so.serial_start AS DECIMAL(24,0)) <= CAST(st.serial_end AS DECIMAL(24,0))')
+                    ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
+            })
+            ->where('st.kind', 'scan')->where('st_upload.kind', 'scan')->where('st_upload.status', 'complete')
+            ->whereRaw('LEFT(LOWER(st_upload.filename), 3) = ?', [$prefix])
+            ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0)) AS redeemed_qty')
+            ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(so.sold_at, st.scan_date), 0)) AS days_to_customer_weighted')
+            ->groupBy('st.id_outlet');
+        $sfToOutlet = DB::table('product_tracking_digipos as st')
+            ->join('product_tracking_uploads as u', 'u.id', '=', 'st.upload_id')
+            ->join('mobile_sales_serials as serial', function ($join) {
+                $join->on('serial.serial_start', '<=', 'st.serial_end')->on('serial.serial_end', '>=', 'st.serial_start')->where('serial.identifier_type', '=', 'sn')
+                    ->whereRaw('CHAR_LENGTH(serial.serial_start) = CHAR_LENGTH(st.serial_start)');
+            })
+            ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
+            ->where('st.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
+            ->whereRaw('LEFT(LOWER(u.filename), 3) = ?', [$prefix])
+            ->whereColumn('sale.id_outlet', 'st.id_outlet')
+            ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0)) AS matched_sale_qty')
+            ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(st.scan_date, sale.tgl), 0)) AS days_to_outlet_weighted')
+            ->groupBy('st.id_outlet');
+        $outlets = DB::table('appsdumais as outlet')
+            ->leftJoinSub($st, 'st', 'st.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($so, 'so', 'so.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($redeem, 'redeem', 'redeem.id_outlet', '=', 'outlet.id_outlet')
+            ->leftJoinSub($sfToOutlet, 'sf_days', 'sf_days.id_outlet', '=', 'outlet.id_outlet')
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.tap', 'outlet.idsf', 'outlet.kategori_outlet')
+            ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(so.so_qty, 0) AS so_qty, COALESCE(redeem.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(redeem.redeemed_qty, 0), 0) AS remaining_qty')
+            ->selectRaw('CASE WHEN COALESCE(sf_days.matched_sale_qty, 0) > 0 THEN ROUND(sf_days.days_to_outlet_weighted / sf_days.matched_sale_qty, 1) ELSE NULL END AS days_sf_to_outlet, CASE WHEN COALESCE(redeem.redeemed_qty, 0) > 0 THEN ROUND(redeem.days_to_customer_weighted / redeem.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
+            ->where(function ($query) { $query->whereNotNull('st.id_outlet')->orWhereNotNull('so.id_outlet'); })
+            ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet')->paginate(20)->withQueryString();
+        return view('surya.product-tracking.stock-outlet', compact('product', 'outlets', 'soKind'));
     }
 
     public function downloadDuplicateScanReport(int $upload)
@@ -788,7 +842,7 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $this->requireEditor();
         $data = $request->validate([
-            'kind' => 'required|in:warehouse,scan',
+            'kind' => 'required|in:warehouse,scan,so-pv,so-sa',
             'scan_date' => 'nullable|date|before_or_equal:today',
             'file' => 'required|file|mimes:csv,txt|max:102400',
         ]);
@@ -856,8 +910,8 @@ class ProductTrackingController extends MonitaDumaiController
             'product_column' => ['nullable', Rule::in(array_map('strval', array_keys($headers)))],
         ]);
         if (empty($mapping['serial_column'])) throw ValidationException::withMessages(['serial_column' => 'Pilih kolom SN.']);
-        if ($record->kind === 'scan' && empty($mapping['date_column'])) {
-            throw ValidationException::withMessages(['date_column' => 'Pilih kolom tanggal dari file scan agar tanggal scan dapat dicatat otomatis.']);
+        if ($record->kind !== 'warehouse' && empty($mapping['date_column'])) {
+            throw ValidationException::withMessages(['date_column' => 'Pilih kolom tanggal agar tanggal scan/redeem tercatat otomatis.']);
         }
         $path = Storage::disk('local')->path($record->storage_path);
         $now = now();
@@ -881,29 +935,35 @@ class ProductTrackingController extends MonitaDumaiController
                 }
                 if ($serial === '') throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: SN kosong."]);
                 if (! preg_match('/^\d{1,24}$/', $serial)) throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: SN harus berupa angka maksimal 24 digit."]);
+                if ($record->kind === 'so-pv' && strlen($serial) !== 12) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: Upload SO PV harus berisi SN 12 digit."]);
+                }
+                if ($record->kind === 'so-sa' && ! preg_match('/^0\d{15}$/', $serial)) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: Upload SO SA harus berisi SN 16 digit yang diawali 0."]);
+                }
                 if (isset($seenSerials[$serial])) {
                     throw ValidationException::withMessages(['file' => "SN duplikat {$serial} ditemukan di baris {$seenSerials[$serial]} dan {$rowNumber}. Hapus salah satu baris lalu upload ulang."]);
                 }
                 $seenSerials[$serial] = $rowNumber;
                 $soldAtValue = $this->mappedValue($values, $mapping['date_column'] ?? null);
-                if ($record->kind === 'scan' && $soldAtValue === '') {
-                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal scan wajib diisi dengan format dd-mmm-yyyy, contoh 12-oct-2026."]);
+                if ($record->kind !== 'warehouse' && $soldAtValue === '') {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal wajib diisi dengan format dd-mmm-yyyy, contoh 12-oct-2026."]);
                 }
                 $soldAt = $soldAtValue !== ''
-                    ? ($record->kind === 'scan' ? ProductTrackingFile::scanDate($soldAtValue) : ProductTrackingFile::date($soldAtValue))
+                    ? ($record->kind !== 'warehouse' ? ProductTrackingFile::scanDate($soldAtValue) : ProductTrackingFile::date($soldAtValue))
                     : null;
                 if ($soldAtValue !== '' && ! $soldAt) {
-                    $hint = $record->kind === 'scan' ? 'Gunakan format dd-mmm-yyyy, contoh 12-oct-2026.' : 'Format tanggal tidak dikenali.';
+                    $hint = $record->kind !== 'warehouse' ? 'Gunakan format dd-mmm-yyyy, contoh 12-oct-2026.' : 'Format tanggal tidak dikenali.';
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: {$hint}"]);
                 }
-                if ($record->kind === 'scan' && $detectedScanDate === null && $soldAt !== null) {
+                if ($record->kind !== 'warehouse' && $detectedScanDate === null && $soldAt !== null) {
                     $detectedScanDate = $soldAt;
-                } elseif ($record->kind === 'scan' && $soldAt !== null && $detectedScanDate !== $soldAt) {
-                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal scan berbeda dari baris sebelumnya. Satu file upload harus memakai satu tanggal scan yang sama."]);
+                } elseif ($record->kind !== 'warehouse' && $soldAt !== null && $detectedScanDate !== $soldAt) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal berbeda dari baris sebelumnya. Satu file upload harus memakai satu tanggal yang sama."]);
                 }
                 $sf = mb_substr($this->mappedValue($values, $mapping['sf_column'] ?? null), 0, 150);
                 $product = mb_substr($this->mappedValue($values, $mapping['product_column'] ?? null), 0, 200);
-                $date = $soldAt ?? ($record->kind === 'scan' ? $detectedScanDate : null);
+                $date = $soldAt ?? ($record->kind !== 'warehouse' ? $detectedScanDate : null);
                 $key = implode("\x1f", [$date ?? '', $outletId, $sf, $product]);
                 if ($range !== null && $key === $range['key'] && $this->incrementSerial($range['serial_end']) === $serial) {
                     $range['serial_end'] = $serial;
@@ -911,13 +971,16 @@ class ProductTrackingController extends MonitaDumaiController
                 } else {
                     if ($range !== null) {
                         $matches = $record->kind === 'scan' ? $this->findScanRangeDuplicates($range) : [];
+                        if (str_starts_with($record->kind, 'so-') && $this->hasExistingOutletRedeemRange($record->kind, $range)) {
+                            throw ValidationException::withMessages(['file' => "Baris {$range['source_row']}: rentang SN ini sudah pernah diupload sebagai SO untuk outlet {$range['id_outlet']}. Upload dibatalkan agar jumlah redeem tidak terhitung ganda."]);
+                        }
                         if ($matches) {
                             foreach ($matches as $match) $duplicateRanges[] = $match;
                         } else {
                             $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
                         }
                     }
-                    $range = ['key' => $key, 'scan_date' => $record->kind === 'scan' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
+                    $range = ['key' => $key, 'scan_date' => $record->kind !== 'warehouse' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
                 }
                 $count++;
                 if (count($batch) >= 500) {
@@ -927,6 +990,9 @@ class ProductTrackingController extends MonitaDumaiController
             }
             if ($range !== null) {
                 $matches = $record->kind === 'scan' ? $this->findScanRangeDuplicates($range) : [];
+                if (str_starts_with($record->kind, 'so-') && $this->hasExistingOutletRedeemRange($record->kind, $range)) {
+                    throw ValidationException::withMessages(['file' => "Baris {$range['source_row']}: rentang SN ini sudah pernah diupload sebagai SO untuk outlet {$range['id_outlet']}. Upload dibatalkan agar jumlah redeem tidak terhitung ganda."]);
+                }
                 if ($matches) {
                     foreach ($matches as $match) $duplicateRanges[] = $match;
                 } else {
@@ -1125,6 +1191,17 @@ class ProductTrackingController extends MonitaDumaiController
                 'existing_outlet' => $row->id_outlet, 'existing_sf' => $row->sf, 'existing_product' => $row->product_name,
             ];
         })->all();
+    }
+
+    private function hasExistingOutletRedeemRange(string $kind, array $range): bool
+    {
+        return DB::table('product_tracking_digipos as digipos')
+            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+            ->where('digipos.kind', $kind)->where('upload.kind', $kind)->where('upload.status', 'complete')
+            ->where('digipos.id_outlet', $range['id_outlet'])
+            ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [strlen($range['serial_start'])])
+            ->whereRaw('digipos.serial_start <= ? AND digipos.serial_end >= ?', [$range['serial_end'], $range['serial_start']])
+            ->exists();
     }
 
     private function subtractSerialCount(string $serial, int $count): string

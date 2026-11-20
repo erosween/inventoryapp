@@ -125,6 +125,7 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::get('/sales-stock', 'salesStock')->name('sales-stock');
     Route::post('/sales-stock', 'uploadSalesStock')->name('sales-stock.upload');
     Route::get('/sales-stock/template', 'salesStockTemplate')->name('sales-stock.template');
+    Route::get('/stock-outlet', 'stockOutlet')->name('stock-outlet');
     Route::get('/imports/{upload}/mapping', 'mapping')->whereNumber('upload')->name('mapping');
     Route::post('/imports/{upload}/cancel', 'cancelImport')->whereNumber('upload')->name('imports.cancel');
     Route::post('/imports/{upload}/complete', 'completeImport')->whereNumber('upload')->name('imports.complete');
