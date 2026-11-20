@@ -452,7 +452,7 @@ class ProductTrackingController extends MonitaDumaiController
     public function salesStockTemplate()
     {
         $this->requireEditor();
-        $headers = ['SFCODE', 'TAP', 'CLUSTER', 'DENOM PAKET', 'SN AWAL', 'SN AKHIR', 'QTY'];
+        $headers = ['SFCODE', 'TAP', 'CLUSTER', 'IDDENOM', 'SN AWAL', 'SN AKHIR', 'QTY'];
         return response(implode(',', $headers)."\r\n", 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename=template-stok-sn-sales.csv',
@@ -469,23 +469,25 @@ class ProductTrackingController extends MonitaDumaiController
             report($exception);
             throw ValidationException::withMessages(['file' => 'File tidak bisa dibaca. Pastikan baris pertama berisi header template.']);
         }
-        $expected = ['SFCODE', 'TAP', 'CLUSTER', 'DENOM PAKET', 'SN AWAL', 'SN AKHIR', 'QTY'];
+        $expected = ['SFCODE', 'TAP', 'CLUSTER', 'IDDENOM', 'SN AWAL', 'SN AKHIR', 'QTY'];
         $normalized = array_map(fn ($header) => mb_strtoupper(preg_replace('/\\s+/', ' ', trim(preg_replace('/^\\xEF\\xBB\\xBF/', '', (string) $header)))), array_values($headers));
         if ($normalized !== $expected || count($headers) !== count($expected)) {
-            throw ValidationException::withMessages(['file' => 'Header harus berurutan persis: '.implode(' | ', $expected).'. DENOM PAKET adalah satu kolom.']);
+            throw ValidationException::withMessages(['file' => 'Header harus berurutan persis: '.implode(' | ', $expected).'.']);
         }
 
         $rows = [];
         $intervals = [];
+        $denomLengths = [];
         $temporaryPath = $data['file']->storeAs('product-tracking/sales-stock-pending', (string) Str::uuid().'.'.$data['file']->getClientOriginalExtension(), 'local');
         try {
             foreach ($reader->rows(Storage::disk('local')->path($temporaryPath), $headers) as $rowNumber => $values) {
                 $row = array_map(fn ($value) => trim((string) $value), array_values($values));
                 if (count(array_filter($row, fn ($value) => $value !== '')) === 0) continue;
-                [$sfcode, $tap, $cluster, $denom, $start, $end, $qtyRaw] = array_pad($row, 7, '');
-                if (in_array('', [$sfcode, $tap, $cluster, $denom, $start, $end, $qtyRaw], true)) {
+                [$sfcode, $tap, $cluster, $iddenom, $start, $end, $qtyRaw] = array_pad($row, 7, '');
+                if (in_array('', [$sfcode, $tap, $cluster, $iddenom, $start, $end, $qtyRaw], true)) {
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: semua kolom wajib diisi."]);
                 }
+                if (mb_strlen($iddenom) > 25) throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: IDDENOM maksimal 25 karakter."]);
                 if (! preg_match('/^\\d{12}$|^0\\d{15}$/', $start) || ! preg_match('/^\\d{12}$|^0\\d{15}$/', $end) || strlen($start) !== strlen($end)) {
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: SN harus 12 digit untuk PV atau 16 digit diawali 0 untuk SA; panjang SN awal dan akhir harus sama."]);
                 }
@@ -497,12 +499,25 @@ class ProductTrackingController extends MonitaDumaiController
                 if ((int) $end - (int) $start + 1 !== $qty) throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: QTY harus sama dengan jumlah SN dalam rentang."]);
                 $group = $sfcode."\x1f".strlen($start);
                 $intervals[$group][] = ['start' => $start, 'end' => $end, 'row' => $rowNumber];
-                $rows[] = ['sfcode' => $sfcode, 'tap' => $tap, 'cluster' => $cluster, 'denom_paket' => $denom, 'serial_start' => $start, 'serial_end' => $end, 'qty' => $qty];
+                $denomLengths[$iddenom][$rowNumber] = strlen($start);
+                $rows[] = ['sfcode' => $sfcode, 'tap' => $tap, 'cluster' => $cluster, 'iddenom' => $iddenom, 'serial_start' => $start, 'serial_end' => $end, 'qty' => $qty];
             }
         } finally {
             Storage::disk('local')->delete($temporaryPath);
         }
         if ($rows === []) throw ValidationException::withMessages(['file' => 'File tidak berisi data stok SN.']);
+        $denoms = DB::table('denom')->whereIn('iddenom', array_keys($denomLengths))->get(['iddenom', 'product_group', 'kategori_inject', 'group_name'])->keyBy('iddenom');
+        foreach ($denomLengths as $iddenom => $lengths) {
+            $denom = $denoms->get($iddenom);
+            if (! $denom) throw ValidationException::withMessages(['file' => "IDDENOM {$iddenom} tidak ditemukan di master denom."]);
+            $product = DenomGrouping::infer($denom)['product'];
+            $expectedLength = $product === 'SA' ? 16 : 12;
+            foreach ($lengths as $rowNumber => $length) {
+                if ($length !== $expectedLength) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: IDDENOM {$iddenom} adalah produk {$product}, jadi SN harus {$expectedLength} digit."]);
+                }
+            }
+        }
         foreach ($intervals as $ranges) {
             usort($ranges, fn ($a, $b) => strcmp($a['start'], $b['start']));
             $previous = null;
