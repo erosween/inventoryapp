@@ -173,8 +173,10 @@
             const response = await fetch(@json(route('surya.product-tracking.sold.outlet-serials')) + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
             if (!response.ok) throw new Error('Gagal memuat SN outlet.');
             const data = await response.json();
-            let table = panel.querySelector('.pt-outlet-sn-table');
+            let tableWrap = panel.querySelector('.pt-outlet-sn-table-wrap');
+            let table = tableWrap?.querySelector('.pt-outlet-sn-table');
             if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Denom</th><th>SN awal</th><th>SN akhir</th><th>Qty</th></tr></thead><tbody></tbody>'; }
+            if (!tableWrap) { tableWrap = document.createElement('div'); tableWrap.className = 'pt-outlet-sn-table-wrap'; tableWrap.append(table); }
             const tbody = table.querySelector('tbody');
             for (const item of data.rows) {
                 const row = document.createElement('tr');
@@ -188,8 +190,8 @@
                     searchForm.className = 'pt-outlet-sn-search';
                     searchForm.dataset.idOutlet = outletId;
                     searchForm.innerHTML = '<label>Cari SN di outlet ini</label><div><input type="search" name="sn" inputmode="numeric" pattern="[0-9]{9,24}" maxlength="24" placeholder="Masukkan SN" required><button class="pt-button primary" type="submit"><i class="fas fa-magnifying-glass"></i> Cek SN</button></div><p class="pt-outlet-sn-search-result" role="status" aria-live="polite" hidden></p>';
-                    panel.replaceChildren(searchForm, table);
-                } else if (!table.isConnected) panel.append(table);
+                    panel.replaceChildren(searchForm, tableWrap);
+                } else if (!tableWrap.isConnected) panel.append(tableWrap);
                 panel.querySelector('.pt-load-more-outlet-sn')?.remove();
                 if (data.has_more) { const loadMore = document.createElement('button'); loadMore.type = 'button'; loadMore.className = 'pt-button pt-load-more-outlet-sn'; loadMore.textContent = 'Muat 50 rentang berikutnya'; panel.append(loadMore); panel.dataset.nextPage = String(page + 1); }
             }
