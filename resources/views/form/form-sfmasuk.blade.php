@@ -75,7 +75,7 @@
                     @csrf
                     <div class="card-body">
                         <div class="sf-in-grid">
-                            <div class="sf-in-field"><label for="date"><i class="far fa-calendar-alt"></i>Tanggal Transaksi</label><input type="date" id="date" name="tgl" class="form-control" value="{{ old('tgl', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required></div>
+                            <div class="sf-in-field"><label for="date"><i class="far fa-calendar-alt"></i>Tanggal Transaksi</label><input type="date" id="date" name="tgl" class="form-control" value="{{ old('tgl', now('Asia/Jakarta')->toDateString()) }}" max="{{ now('Asia/Jakarta')->addDay()->toDateString() }}" required></div>
                             <div class="sf-in-field"><label for="kategoritap"><i class="fas fa-building"></i>Lokasi TAP</label><select name="idtap" id="kategoritap" class="form-control select2" required><option></option>@foreach ($data as $row)<option value="{{ $row->idtap }}" {{ old('idtap') === $row->idtap ? 'selected' : '' }}>{{ $row->idtap }}</option>@endforeach</select></div>
                             <div class="sf-in-field"><label for="idsf"><i class="fas fa-user"></i>Sales Force</label><select name="idsf" id="idsf" class="form-control select2" disabled required><option></option></select></div>
                         </div>

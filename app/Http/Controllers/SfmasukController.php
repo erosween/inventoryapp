@@ -202,8 +202,9 @@ public function masuksfproses(Request $request)
     }
     $request->merge(['items' => $incomingItems]);
 
+    $latestAllowedDate = now('Asia/Jakarta')->addDay()->toDateString();
     $validated = $request->validate([
-        'tgl' => 'required|date|before_or_equal:today',
+        'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$latestAllowedDate],
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
         'items' => 'required|array|min:1',
