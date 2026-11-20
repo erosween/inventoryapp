@@ -830,6 +830,14 @@ class ProductTrackingController extends MonitaDumaiController
                     ->leftJoin('denom as mobile_denom', 'mobile_denom.iddenom', '=', 'serial.iddenom')
                     ->get(['serial.*', 'sale.tgl', 'sale.id_outlet', 'sale.idsf', 'sale.status', 'sale.qty', 'sales_force.namasf', 'mobile_outlet.nama_outlet', 'mobile_outlet.kecamatan', 'mobile_denom.denom as denom_name']);
             }
+
+            $notaRows = $sales->concat($mobile);
+            foreach ($scans as $scan) {
+                if (! in_array(trim((string) $scan->product_name), ['', '-', '—'], true)) continue;
+                $matchedNota = $notaRows->first(fn ($row) => (string) $row->id_outlet === (string) $scan->id_outlet
+                    && trim((string) ($row->denom_name ?? $row->iddenom ?? '')) !== '');
+                if ($matchedNota) $scan->product_name = $matchedNota->denom_name ?: $matchedNota->iddenom;
+            }
         }
         return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'scans', 'mobile'));
     }
