@@ -22,7 +22,7 @@
     @if($kind==='scan')
         <section class="pt-card">
             <h2>Total SN berhasil diupload per tanggal</h2>
-            <p class="pt-subtitle">Jumlah SN yang sudah tersimpan di sistem, termasuk rentang yang digabung saat impor.</p>
+            <p class="pt-subtitle">Kategori mengikuti awalan nama file, misalnya pv_dumai_20261120 atau sa_dumai_20261120. File berawalan pv_ atau sa_ masuk total produk; file tanpa prefix wilayah hanya masuk Total All.</p>
             <div class="pt-table-wrap">
                 <table class="pt-table">
                     <thead><tr><th>Tanggal Scan</th><th>Dumai Bengkalis · PV</th><th>Dumai Bengkalis · SA</th><th>Rokan Hilir · PV</th><th>Rokan Hilir · SA</th><th>Total PV</th><th>Total SA</th><th>Total All</th></tr></thead>
