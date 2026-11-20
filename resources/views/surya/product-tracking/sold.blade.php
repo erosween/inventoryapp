@@ -209,7 +209,8 @@
                 if (!rows.length) { const empty = document.createElement('p'); empty.textContent = 'Tidak ditemukan.'; section.append(empty); }
                 for (const row of rows) {
                     const line = document.createElement('p');
-                    line.textContent = kind === 'nota' ? `${row.date} · ${row.denom} · SN ${row.start}–${row.end} · Qty ${new Intl.NumberFormat('id-ID').format(row.qty)}` : `${row.date} · ${row.outlet} (${row.id_outlet}) · ${row.product} · SN ${row.start}–${row.end}`;
+                    const formattedDate = new Intl.DateTimeFormat('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}).format(new Date(`${row.date}T00:00:00`));
+                    line.textContent = kind === 'nota' ? `${formattedDate} · ${row.denom}` : `${formattedDate} · ${row.outlet} (${row.id_outlet}) · ${row.product} · SN ${row.start}–${row.end}`;
                     section.append(line);
                 }
                 output.append(section);
