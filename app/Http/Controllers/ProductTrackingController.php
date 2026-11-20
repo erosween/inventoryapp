@@ -576,11 +576,12 @@ class ProductTrackingController extends MonitaDumaiController
         if ($totalsQuery) {
             if ($period === 'monthly') {
                 $totalsQuery->selectRaw("DATE_FORMAT(d.scan_date, '%Y-%m-01') AS scan_date")
-                    ->groupByRaw("DATE_FORMAT(d.scan_date, '%Y-%m')");
+                    ->groupByRaw("DATE_FORMAT(d.scan_date, '%Y-%m')")
+                    ->orderByRaw("DATE_FORMAT(d.scan_date, '%Y-%m') DESC");
             } else {
-                $totalsQuery->addSelect('d.scan_date')->groupBy('d.scan_date');
+                $totalsQuery->addSelect('d.scan_date')->groupBy('d.scan_date')->orderByDesc('d.scan_date');
             }
-            $dailyTotals = $totalsQuery->orderByDesc('scan_date')->simplePaginate(10)->appends(['kind' => $kind, 'period' => $period]);
+            $dailyTotals = $totalsQuery->simplePaginate(10)->appends(['kind' => $kind, 'period' => $period]);
         } else {
             $dailyTotals = collect();
         }
