@@ -25,17 +25,21 @@
             <p class="pt-subtitle">Jumlah SN yang sudah tersimpan di sistem, termasuk rentang yang digabung saat impor.</p>
             <div class="pt-table-wrap">
                 <table class="pt-table">
-                    <thead><tr><th>Tanggal Scan</th><th>Dumai Bengkalis</th><th>Rokan Hilir</th><th>Total All</th></tr></thead>
+                    <thead><tr><th>Tanggal Scan</th><th>Dumai Bengkalis · PV</th><th>Dumai Bengkalis · SA</th><th>Rokan Hilir · PV</th><th>Rokan Hilir · SA</th><th>Total PV</th><th>Total SA</th><th>Total All</th></tr></thead>
                     <tbody>
                         @forelse($dailyTotals as $total)
                             <tr>
                                 <td>{{ \Carbon\Carbon::parse($total->scan_date)->format('j M Y') }}</td>
-                                <td>{{ number_format($total->dumai_bengkalis_qty) }}</td>
-                                <td>{{ number_format($total->rokan_hilir_qty) }}</td>
+                                <td>{{ number_format($total->dumai_bengkalis_pv_qty) }}</td>
+                                <td>{{ number_format($total->dumai_bengkalis_sa_qty) }}</td>
+                                <td>{{ number_format($total->rokan_hilir_pv_qty) }}</td>
+                                <td>{{ number_format($total->rokan_hilir_sa_qty) }}</td>
+                                <td>{{ number_format($total->total_pv_qty) }}</td>
+                                <td>{{ number_format($total->total_sa_qty) }}</td>
                                 <td><strong>{{ number_format($total->total_qty) }}</strong></td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="pt-empty">Belum ada SN yang berhasil diupload.</td></tr>
+                            <tr><td colspan="8" class="pt-empty">Belum ada SN yang berhasil diupload.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
