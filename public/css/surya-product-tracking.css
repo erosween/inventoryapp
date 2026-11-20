@@ -57,6 +57,10 @@
 .pt-sold-stats strong { color:#19243a;font-size:19px;line-height:1.2; }
 .pt-sold-stats span { color:#718096;font-size:11px;font-weight:750; }
 .pt-sold-filter { align-items:end; }
+.pt-date-control { position:relative; }
+.pt-date-control .pt-date-input { width:100%;min-height:44px;padding:9px 42px 9px 12px;border:1px solid #cfd9e4;border-radius:9px;background:#fff;color:#19243a;font:inherit;font-weight:650;cursor:pointer; }
+.pt-date-control .pt-date-input:focus { outline:0;border-color:#c8102e;box-shadow:0 0 0 3px #c8102e1a; }
+.pt-date-icon { position:absolute;top:50%;right:14px;color:#c8102e;pointer-events:none;transform:translateY(-50%); }
 .pt-sold-tabs{display:flex;gap:8px;margin:0 0 16px;padding:5px;border:1px solid #dce3ed;border-radius:12px;background:#f7f8fb;width:max-content;max-width:100%}.pt-sold-tabs a{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 16px;border-radius:9px;color:#58657b;font-size:13px;font-weight:800;text-decoration:none}.pt-sold-tabs a.active{background:#c8102e;color:#fff;box-shadow:0 3px 8px rgba(200,16,46,.16)}
 .pt-sold-actions { display:flex;flex-wrap:wrap;align-items:center;gap:9px;grid-column:1/-1; }
 .pt-sold-actions .pt-loading-status { flex-basis:100%;margin-top:0; }

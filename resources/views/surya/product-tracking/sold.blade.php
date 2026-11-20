@@ -5,7 +5,7 @@
 @section('description', 'Validasi kecocokan SN dan qty antara nota Mobile SURYA dan ST Digipos.')
 @section('content-class', 'pt-page')
 
-@push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}"><link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}">@endpush
+@push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}"><link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}"><link rel="stylesheet" href="{{ asset('vendor/flatpickr/flatpickr.min.css') }}"><link rel="stylesheet" href="{{ asset('css/surya-outlet-date.css') }}?v={{ filemtime(public_path('css/surya-outlet-date.css')) }}">@endpush
 
 @section('content')
     <section class="pt-card pt-sold-intro">
@@ -27,7 +27,7 @@
     </nav>
 
     <form method="get" action="{{ route('surya.product-tracking.sold') }}" class="pt-card pt-grid pt-sold-filter">
-        <div class="pt-field"><label for="sold-date">Tanggal ST</label><input id="sold-date" type="date" name="date" value="{{ $filters['date'] }}" max="{{ now('Asia/Jakarta')->toDateString() }}"></div>
+        <div class="pt-field pt-date-field"><label for="sold-date">Tanggal ST</label><div class="pt-date-control"><input id="sold-date" class="pt-date-input" type="date" name="date" value="{{ $filters['date'] }}" max="{{ now('Asia/Jakarta')->toDateString() }}"><span class="pt-date-icon" aria-hidden="true"><i class="far fa-calendar-alt"></i></span></div></div>
         <div class="pt-field"><label for="sold-tap">TAP</label><select id="sold-tap" name="tap"><option value="">Semua TAP</option>@foreach($taps as $tap)<option value="{{ $tap }}" @selected($filters['tap']===$tap)>{{ $tap }}</option>@endforeach</select></div>
         <div class="pt-field"><label for="sold-sf">Sales Force</label><select id="sold-sf" name="sf"><option value="">Semua Sales Force</option>@foreach($sfs as $sf)<option value="{{ $sf->idsf }}" @selected($filters['sf']===$sf->idsf)>{{ $sf->namasf ?: $sf->idsf }}</option>@endforeach</select></div>
         <input type="hidden" name="tab" value="{{ $activeTab }}">
@@ -116,6 +116,9 @@
         </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
     </div>
     <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
+    <script src="{{ asset('vendor/flatpickr/flatpickr.min.js') }}" defer></script>
+    <script src="{{ asset('vendor/flatpickr/id.js') }}" defer></script>
+    <script src="{{ asset('js/surya-sold-date.js') }}?v={{ filemtime(public_path('js/surya-sold-date.js')) }}" defer></script>
     <script>
     document.querySelector('.pt-sold-filter')?.addEventListener('submit', (event) => {
         const button = event.submitter;
