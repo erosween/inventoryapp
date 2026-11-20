@@ -61,7 +61,7 @@
 .pt-outlet-sn-search-result h4{margin:0 0 4px;font-size:12px}
 .pt-outlet-sn-search-result p{margin:3px 0;overflow-wrap:anywhere}
 @media(max-width:640px){.pt-outlet-sn-search>div{align-items:stretch}.pt-outlet-sn-search .pt-button{min-height:40px;padding:7px 10px;font-size:11px}}
-#sold-outlet-results{scroll-margin-top:20px}
+#sold-outlet-results{scroll-margin-top:120px}
 .pt-alert { margin-bottom:16px; padding:12px 14px; border:1px solid #c6ead7; border-radius:10px; background:#effaf4; color:#087443; }
 .pt-alert.error { border-color:#ffd1d7; background:#fff4f5; color:#b4233d; }
 .pt-mapping-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }

@@ -30,6 +30,7 @@
             else { url.searchParams.delete('summary_sort'); url.searchParams.delete('summary_direction'); }
         } else if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
         else { url.searchParams.delete('sort'); url.searchParams.delete('direction'); }
+        if (!trigger?.dataset.summaryTable) url.hash = 'sold-outlet-results';
         url.searchParams.delete('page');
         navigatePage(url.toString());
     }
@@ -123,6 +124,7 @@
         }
         if (summary) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
         if (summary) url.hash = `summary-${summaryLevel}`;
+        else url.hash = 'sold-outlet-results';
         if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? includePrefix : excludePrefix}[${key}][]`,value);
         url.searchParams.delete('page');
         apply.disabled = true; apply.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…';

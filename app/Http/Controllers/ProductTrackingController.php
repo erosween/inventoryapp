@@ -43,7 +43,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(outlet_sf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kategori_outlet, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
@@ -399,7 +399,7 @@ class ProductTrackingController extends MonitaDumaiController
     private function soldOutletRows(array $filters)
     {
         $outletTotals = DB::query()->fromSub($this->soldValidationRows($filters), 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(outlet_sf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         return DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kategori_outlet, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
@@ -512,6 +512,7 @@ class ProductTrackingController extends MonitaDumaiController
             DB::raw('CONVERT(outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
             DB::raw('CONVERT(outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
             $mobileOutletCategory,
+            DB::raw('CONVERT(outlet.sf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS outlet_sf'),
             DB::raw('CONVERT(owner_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS namasf'),
             DB::raw('CONVERT(denom.denom USING utf8mb4) COLLATE utf8mb4_unicode_ci AS denom_label'),
             'denom.product', 'denom.product_variant', 'denom.product_group', 'denom.kategori_inject', 'denom.group_name',
@@ -538,6 +539,7 @@ class ProductTrackingController extends MonitaDumaiController
                 DB::raw('CONVERT(form_outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
                 DB::raw('CONVERT(form_outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
                 $formOutletCategory,
+                DB::raw('CONVERT(form_outlet.sf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS outlet_sf'),
                 DB::raw('CONVERT(form_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS namasf'),
                 DB::raw('CONVERT(form_denom.denom USING utf8mb4) COLLATE utf8mb4_unicode_ci AS denom_label'),
                 'form_denom.product', 'form_denom.product_variant', 'form_denom.product_group', 'form_denom.kategori_inject', 'form_denom.group_name',
