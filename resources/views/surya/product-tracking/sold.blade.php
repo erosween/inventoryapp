@@ -100,7 +100,7 @@
         @endif
 
         <section id="sold-outlet-results" class="pt-card">
-            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty input SN dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Kembali</a>@endif</div>
+            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->total()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty input SN dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status','page'])) }}">Kembali</a>@endif</div>
             <div class="pt-table-wrap"><table class="pt-table detail-table">
                 <thead><tr>
                     @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'kategori_outlet' => 'Kategori Outlet', 'qty' => 'Total Qty', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok', 'status' => 'Status'] as $column => $label)
@@ -129,6 +129,14 @@
                     <p class="pt-empty mb-0">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</p>
                 @endforelse
             </div>
+            <nav class="pt-outlet-pagination" aria-label="Pagination rincian outlet">
+                <span class="pt-outlet-pagination-summary">Menampilkan {{ number_format($outlets->firstItem() ?? 0) }}–{{ number_format($outlets->lastItem() ?? 0) }} dari {{ number_format($outlets->total()) }} outlet</span>
+                <div class="pt-outlet-pagination-controls">
+                    @if($outlets->onFirstPage())<span class="pt-page-button disabled" aria-disabled="true">‹ Sebelumnya</span>@else<a class="pt-page-button" href="{{ $outlets->previousPageUrl() }}#sold-outlet-results">‹ Sebelumnya</a>@endif
+                    <span class="pt-page-count">Halaman {{ $outlets->currentPage() }} dari {{ max(1, $outlets->lastPage()) }}</span>
+                    @if($outlets->hasMorePages())<a class="pt-page-button primary" href="{{ $outlets->nextPageUrl() }}#sold-outlet-results">Berikutnya ›</a>@else<span class="pt-page-button disabled" aria-disabled="true">Berikutnya ›</span>@endif
+                </div>
+            </nav>
         </section>
     @else
         <section class="pt-card"><p class="pt-empty mb-0">Belum ada input SN dari SF Mobile atau form web SF Keluar ber-ID outlet pada filter ini.</p></section>

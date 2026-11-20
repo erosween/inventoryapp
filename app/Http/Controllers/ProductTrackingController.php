@@ -31,6 +31,7 @@ class ProductTrackingController extends MonitaDumaiController
             'summary_key' => 'nullable|string|max:150',
             'summary_status' => 'nullable|in:matched,mismatch',
         ]);
+        $request->validate(['page' => 'nullable|integer|min:1|max:100000']);
         $summaryTableLevel = $tableOptions['summary_table'];
         abort_unless(Schema::hasTable('mobile_sales_serials'), 503, 'Data SN Mobile SURYA belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
         $hasScanUploads = DB::table('product_tracking_digipos as digipos')
@@ -57,7 +58,7 @@ class ProductTrackingController extends MonitaDumaiController
             }
         }
         if (! empty($summaryTarget['summary_level']) && isset($summaryTarget['summary_key'])) {
-            $summaryField = $summaryTarget['summary_level'] === 'tap' ? 'tap' : 'idsf';
+            $summaryField = $summaryTarget['summary_level'] === 'tap' ? 'tap' : 'namasf';
             if ($summaryTarget['summary_key'] === '__NULL__') {
                 $tableRows->whereNull('outlet_rows.'.$summaryField);
             } else {
@@ -81,7 +82,7 @@ class ProductTrackingController extends MonitaDumaiController
             'sf', 'outlet_count', 'matched_outlets', 'mismatch_outlets' => 'outlet_rows.nama_outlet',
             default => 'outlet_rows.'.$sort,
         };
-        $outlets = (clone $tableRows)->orderBy($sortExpression, $tableOptions['direction'] ?? 'asc')->orderBy('outlet_rows.id_outlet')->get();
+        $outlets = (clone $tableRows)->orderBy($sortExpression, $tableOptions['direction'] ?? 'asc')->orderBy('outlet_rows.id_outlet')->paginate(20)->withQueryString();
 
         $tapOrder = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
         $tapSummaries = DB::query()->fromSub($outletQuery, 'outlets')
@@ -90,15 +91,15 @@ class ProductTrackingController extends MonitaDumaiController
             ->sortBy(fn ($group) => array_search(strtoupper($group->key), $tapOrder, true))
             ->values();
 
-        $sfTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw('idsf, id_outlet, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(tap COLLATE utf8mb4_unicode_ci) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
-            ->groupBy('idsf', 'id_outlet');
+        $sfTotals = DB::query()->fromSub($outletQuery, 'outlet_rows')
+            ->whereRaw("EXISTS (SELECT 1 FROM idsf AS registered_sf WHERE registered_sf.idsf LIKE 'SF%' AND CONVERT(registered_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(outlet_rows.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci)")
+            ->selectRaw('namasf, id_outlet, MAX(tap COLLATE utf8mb4_unicode_ci) AS tap, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty')
+            ->groupBy('namasf', 'id_outlet');
         $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
-            ->selectRaw("idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COALESCE(GROUP_CONCAT(DISTINCT tap ORDER BY FIELD(UPPER(tap), 'DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'), UPPER(tap) SEPARATOR ', '), ?) AS tap, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty", ['Tanpa Sales Force', 'Tanpa TAP'])
-            ->groupBy('idsf')
+            ->selectRaw("namasf AS `key`, namasf AS label, COALESCE(GROUP_CONCAT(DISTINCT tap ORDER BY FIELD(UPPER(tap), 'DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'), UPPER(tap) SEPARATOR ', '), ?) AS tap, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty", ['Tanpa TAP'])
+            ->groupBy('namasf')
             ->orderByRaw("MIN(FIELD(UPPER(tap), 'DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'))")
-            ->orderByRaw('MAX(namasf COLLATE utf8mb4_unicode_ci)')
-            ->orderBy('idsf')->get();
+            ->orderByRaw('MAX(namasf COLLATE utf8mb4_unicode_ci)')->get();
 
         $tapSummaries = $this->filterSoldSummaries($tapSummaries, 'tap', $tableOptions);
         $sfSummaries = $this->filterSoldSummaries($sfSummaries, 'sf', $tableOptions);
@@ -144,6 +145,7 @@ class ProductTrackingController extends MonitaDumaiController
             'summary' => $summary,
             'hasScanUploads' => $hasScanUploads,
             'outlets' => $outlets,
+            'outletPagination' => $outlets,
             'tableOptions' => $detailTableOptions,
             'summaryTableOptions' => $tableOptions,
             'summaryTableLevel' => $summaryTableLevel,
@@ -408,10 +410,15 @@ class ProductTrackingController extends MonitaDumaiController
     private function soldSummaryRows(array $filters, string $level)
     {
         $source = $this->soldOutletRows($filters);
-        $key = $level === 'tap' ? 'tap' : 'idsf';
-        $label = $level === 'tap' ? 'tap' : 'COALESCE(MAX(namasf), idsf, \'Tanpa Sales Force\')';
+        $key = $level === 'tap' ? 'tap' : 'namasf';
+        $label = $level === 'tap' ? 'tap' : 'namasf';
 
-        return DB::query()->fromSub($source, 'summary_source')
+        $query = DB::query()->fromSub($source, 'summary_source');
+        if ($level === 'sf') {
+            $query->whereRaw("EXISTS (SELECT 1 FROM idsf AS registered_sf WHERE registered_sf.idsf LIKE 'SF%' AND CONVERT(registered_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(summary_source.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci)");
+        }
+
+        return $query
             ->selectRaw("$key AS `summary_key`, $label AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty")
             ->groupBy($key);
     }
