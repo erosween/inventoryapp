@@ -693,7 +693,26 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="visit-mobile-list" data-visit-mobile-list aria-label="Ringkasan kinerja Sales Force"></div>
+                        <div class="visit-mobile-list" data-visit-mobile-list aria-label="Ringkasan kinerja Sales Force">
+                            @forelse($visitDetails as $row)
+                                <article class="visit-mobile-card" data-visit-mobile-card data-mobile-index="{{ $loop->index }}">
+                                    <header><div><strong>{{ $row['name'] }}</strong><span>{{ $row['tap'] ?: 'Tanpa TAP' }} · {{ $row['cluster'] ?: '—' }}</span></div><span class="visit-mobile-code">{{ $row['sfcode'] }}</span></header>
+                                    <div class="visit-mobile-main-metrics">
+                                        <div><small>Total PJP</small><strong>{{ number_format($row['pjp_total'],0) }}</strong></div>
+                                        <button type="button" data-visit-row="{{ $loop->index }}" data-visit-scope="actual"><small>Actual Call</small><strong>{{ number_format($row['actual_call'],0) }}</strong></button>
+                                        <div><small>% Visit</small><strong>{{ number_format($row['visit_percentage'],1) }}%</strong></div>
+                                    </div>
+                                    <div class="visit-mobile-secondary-metrics">
+                                        <button type="button" data-visit-row="{{ $loop->index }}" data-visit-scope="effective"><small>Effective</small><strong>{{ number_format($row['effective_call'],0) }}</strong></button>
+                                        <button type="button" data-visit-row="{{ $loop->index }}" data-visit-scope="non-pjp"><small>Extra Call</small><strong>{{ number_format($row['non_pjp'],0) }}</strong></button>
+                                        <button type="button" data-visit-row="{{ $loop->index }}" data-visit-scope="non-buying"><small>Non Belanja</small><strong>{{ number_format($row['non_buying'],0) }}</strong></button>
+                                    </div>
+                                    <footer><span>Total PV <strong>{{ number_format($row['total_pv'],0) }}</strong></span><span>Total SA <strong>{{ number_format($row['total_sa'],0) }}</strong></span></footer>
+                                </article>
+                            @empty
+                                <div class="visit-empty"><strong>Belum ada aktivitas visit</strong><span>Tidak ada check-in Sales Force pada tanggal ini.</span></div>
+                            @endforelse
+                        </div>
                     </div>
                     </div>
                     <div class="visit-subpanel" role="tabpanel" id="visit-panel-non-digipos" aria-labelledby="visit-tab-non-digipos" data-visit-subpanel="non-digipos" @if($activeVisitTab !== 'non-digipos') hidden @endif>
@@ -3873,26 +3892,15 @@
             const cluster = tools.querySelector('[data-visit-cluster]');
             const sortSelect = tools.querySelector('[data-visit-sort]');
             const headers = Array.from(table.querySelectorAll('th[data-sort]'));
-            const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
             const numericFields = new Set(['pjp', 'actual', 'visitPercent', 'effective', 'nonPjp', 'nonBuying', 'pv', 'sa']);
             const collator = new Intl.Collator('id', { numeric: true, sensitivity: 'base' });
             let sortKey = '';
             let sortDirection = 'asc';
 
-            if (mobileList) {
-                rows.forEach((row, index) => {
-                    const name = row.dataset.name || 'Sales Force';
-                    const card = document.createElement('article');
-                    card.className = 'visit-mobile-card';
-                    card.dataset.mobileRow = String(index);
-                    card.innerHTML = `<header><div><strong>${esc(name)}</strong><span>${esc(row.dataset.tap || 'Tanpa TAP')} · ${esc(row.dataset.cluster || '—')}</span></div><span class="visit-mobile-code">${esc(row.dataset.sfcode || '')}</span></header><div class="visit-mobile-main-metrics"><div><small>Total PJP</small><strong>${Number(row.dataset.pjp || 0).toLocaleString('id-ID')}</strong></div><button type="button" data-visit-row="${index}" data-visit-scope="actual"><small>Actual Call</small><strong>${Number(row.dataset.actual || 0).toLocaleString('id-ID')}</strong></button><div><small>% Visit</small><strong>${Number(row.dataset.visitPercent || 0).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})}%</strong></div></div><div class="visit-mobile-secondary-metrics"><button type="button" data-visit-row="${index}" data-visit-scope="effective"><small>Effective</small><strong>${Number(row.dataset.effective || 0).toLocaleString('id-ID')}</strong></button><button type="button" data-visit-row="${index}" data-visit-scope="non-pjp"><small>Extra Call</small><strong>${Number(row.dataset.nonPjp || 0).toLocaleString('id-ID')}</strong></button><button type="button" data-visit-row="${index}" data-visit-scope="non-buying"><small>Non Belanja</small><strong>${Number(row.dataset.nonBuying || 0).toLocaleString('id-ID')}</strong></button></div><footer><span>Total PV <strong>${Number(row.dataset.pv || 0).toLocaleString('id-ID')}</strong></span><span>Total SA <strong>${Number(row.dataset.sa || 0).toLocaleString('id-ID')}</strong></span></footer>`;
-                    mobileCards.set(row, card);
-                });
-                if (!rows.length) {
-                    const empty = body.querySelector('.visit-empty');
-                    if (empty) mobileList.appendChild(empty.cloneNode(true));
-                }
-            }
+            rows.forEach((row, index) => {
+                const card = mobileList?.querySelector(`[data-visit-mobile-card][data-mobile-index="${index}"]`);
+                if (card) mobileCards.set(row, card);
+            });
 
             const setHeaderState = () => headers.forEach(header => {
                 const active = header.dataset.sort === sortKey;
