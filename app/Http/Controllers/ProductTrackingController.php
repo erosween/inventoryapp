@@ -436,16 +436,25 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $kind = $request->query('kind', 'warehouse');
         abort_unless(in_array($kind, ['warehouse', 'scan'], true), 404);
+        $outletLookup = DB::table('appsdumais')
+            ->select('id_outlet', DB::raw('MAX(tap) AS tap'), DB::raw('MAX(cluster) AS cluster'))
+            ->groupBy('id_outlet');
+        $dailyTotals = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
+                ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+                ->leftJoinSub($outletLookup, 'o', 'o.id_outlet', '=', 'd.id_outlet')
+                ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
+                ->whereNotNull('d.scan_date')
+                ->select('d.scan_date')
+                ->selectRaw("SUM(CASE WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('DUMAI BENGKALIS','CLUSTER DUMAI') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG')) THEN 0 WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') OR UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_qty")
+                ->selectRaw("SUM(CASE WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN d.serial_count ELSE 0 END) AS rokan_hilir_qty")
+                ->selectRaw('SUM(d.serial_count) AS total_qty')
+                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->paginate(10) : collect();
+
         return view('surya.product-tracking.imports', [
             'kind' => $kind,
             'uploads' => DB::table('product_tracking_uploads')->where('kind', $kind)->whereIn('status', ['complete', 'duplicate'])->orderByDesc('id')->limit(30)->get(),
             'pending' => DB::table('product_tracking_uploads')->where('kind', $kind)->where('status', 'mapping')->orderByDesc('id')->get(),
-            'dailyTotals' => $kind === 'scan' ? DB::table('product_tracking_digipos as d')
-                ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
-                ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
-                ->whereNotNull('d.scan_date')
-                ->select('d.scan_date')->selectRaw('SUM(d.serial_count) as total_qty')
-                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->limit(90)->get() : collect(),
+            'dailyTotals' => $dailyTotals,
         ]);
     }
 
