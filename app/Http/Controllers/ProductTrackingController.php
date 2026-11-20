@@ -43,10 +43,10 @@ class ProductTrackingController extends MonitaDumaiController
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
-            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
+            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kategori_outlet, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
         $tableRows = DB::query()->fromSub($outletQuery, 'outlet_rows');
         foreach (['columns', 'exclude'] as $mode) {
             $detailTableOptions[$mode] = array_filter($detailTableOptions[$mode] ?? [], fn ($values, $column) => ! in_array($column, ['sf','outlet_count','matched_outlets','mismatch_outlets'], true), ARRAY_FILTER_USE_BOTH);
@@ -75,6 +75,7 @@ class ProductTrackingController extends MonitaDumaiController
             'id_outlet' => 'outlet_rows.id_outlet',
             'tap' => 'outlet_rows.tap',
             'namasf' => 'outlet_rows.namasf',
+            'kategori_outlet' => 'outlet_rows.kategori_outlet',
             'kecamatan' => 'kecamatan',
             'status' => 'outlet_rows.mismatch_qty',
             'sf', 'outlet_count', 'matched_outlets', 'mismatch_outlets' => 'outlet_rows.nama_outlet',
@@ -269,7 +270,7 @@ class ProductTrackingController extends MonitaDumaiController
     public function soldColumnValues(Request $request)
     {
         $filters = $this->soldSerialFilters($request);
-        $request->validate(['column' => 'required|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
+        $request->validate(['column' => 'required|in:nama_outlet,id_outlet,kecamatan,tap,namasf,kategori_outlet,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
         $column = $request->input('column');
         $summaryTableLevel = $request->input('summary_table') === 'sf' ? 'sf' : 'tap';
         if ($request->filled('summary_table')) {
@@ -309,7 +310,7 @@ class ProductTrackingController extends MonitaDumaiController
         $data = $request->validate([
             'columns' => 'nullable|array|max:16', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
             'exclude' => 'nullable|array|max:16', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
-            'sort' => 'nullable|in:nama_outlet,id_outlet,kecamatan,tap,namasf,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets',
+            'sort' => 'nullable|in:nama_outlet,id_outlet,kecamatan,tap,namasf,kategori_outlet,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets',
             'direction' => 'nullable|in:asc,desc',
             'summary_tap_columns' => 'nullable|array|max:8', 'summary_tap_columns.*' => 'array|min:1|max:100', 'summary_tap_columns.*.*' => 'nullable|string|max:5000',
             'summary_tap_exclude' => 'nullable|array|max:8', 'summary_tap_exclude.*' => 'array|min:1|max:100', 'summary_tap_exclude.*.*' => 'nullable|string|max:5000',
@@ -320,7 +321,7 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
         foreach (['columns', 'exclude'] as $mode) {
             foreach ($data[$mode] ?? [] as $column => $values) {
-                if (! in_array($column, ['nama_outlet','id_outlet','kecamatan','tap','namasf','qty','matched_qty','mismatch_qty','status','sf','outlet_count','matched_outlets','mismatch_outlets'], true)) {
+                if (! in_array($column, ['nama_outlet','id_outlet','kecamatan','tap','namasf','kategori_outlet','qty','matched_qty','mismatch_qty','status','sf','outlet_count','matched_outlets','mismatch_outlets'], true)) {
                     throw ValidationException::withMessages(['column' => 'Kolom filter tidak valid.']);
                 }
                 $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
@@ -382,7 +383,8 @@ class ProductTrackingController extends MonitaDumaiController
             'id_outlet' => "COALESCE(CAST(`outlet_rows`.`id_outlet` AS CHAR), '')",
             'kecamatan' => "COALESCE(`outlet_rows`.`kecamatan`, '')",
             'tap' => "COALESCE(`outlet_rows`.`tap`, '')",
-            'namasf' => "COALESCE(NULLIF(`outlet_rows`.`namasf`, ''), `outlet_rows`.`idsf`, '—')",
+            'namasf' => "COALESCE(NULLIF(`outlet_rows`.`namasf`, ''), '—')",
+            'kategori_outlet' => "COALESCE(NULLIF(`outlet_rows`.`kategori_outlet`, ''), 'Reguler')",
             'qty' => 'COALESCE(`outlet_rows`.`qty`, 0)',
             'matched_qty' => 'COALESCE(`outlet_rows`.`matched_qty`, 0)',
             'mismatch_qty' => 'COALESCE(`outlet_rows`.`mismatch_qty`, 0)',
@@ -394,10 +396,10 @@ class ProductTrackingController extends MonitaDumaiController
     private function soldOutletRows(array $filters)
     {
         $outletTotals = DB::query()->fromSub($this->soldValidationRows($filters), 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         return DB::query()->fromSub($outletTotals, 'outlet_totals')
-            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
+            ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kategori_outlet, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
     }
 
     private function soldSummaryRows(array $filters, string $level)
@@ -491,6 +493,13 @@ class ProductTrackingController extends MonitaDumaiController
 
     private function soldValidationSource(array $filters, bool $applyFilters = true)
     {
+        $hasOutletCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
+        $mobileOutletCategory = $hasOutletCategory
+            ? DB::raw('CONVERT(outlet.kategori_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kategori_outlet')
+            : DB::raw("_utf8mb4'Reguler' COLLATE utf8mb4_unicode_ci AS kategori_outlet");
+        $formOutletCategory = $hasOutletCategory
+            ? DB::raw('CONVERT(form_outlet.kategori_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kategori_outlet')
+            : DB::raw("_utf8mb4'Reguler' COLLATE utf8mb4_unicode_ci AS kategori_outlet");
         $mobile = $this->mobileSerialsQuery($filters, false)
             ->where('serial.identifier_type', 'sn');
         $mobile->select([
@@ -499,6 +508,7 @@ class ProductTrackingController extends MonitaDumaiController
             DB::raw("COALESCE(CONVERT(owner_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
             DB::raw('CONVERT(outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
             DB::raw('CONVERT(outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
+            $mobileOutletCategory,
             DB::raw('CONVERT(owner_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS namasf'),
             DB::raw('CONVERT(denom.denom USING utf8mb4) COLLATE utf8mb4_unicode_ci AS denom_label'),
             'denom.product', 'denom.product_variant', 'denom.product_group', 'denom.kategori_inject', 'denom.group_name',
@@ -524,6 +534,7 @@ class ProductTrackingController extends MonitaDumaiController
                 DB::raw("COALESCE(CONVERT(form_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(form_outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
                 DB::raw('CONVERT(form_outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
                 DB::raw('CONVERT(form_outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
+                $formOutletCategory,
                 DB::raw('CONVERT(form_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS namasf'),
                 DB::raw('CONVERT(form_denom.denom USING utf8mb4) COLLATE utf8mb4_unicode_ci AS denom_label'),
                 'form_denom.product', 'form_denom.product_variant', 'form_denom.product_group', 'form_denom.kategori_inject', 'form_denom.group_name',
