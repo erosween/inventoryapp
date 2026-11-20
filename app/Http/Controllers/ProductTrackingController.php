@@ -200,6 +200,51 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
     }
 
+    public function soldOutletSnLookup(Request $request)
+    {
+        $filters = $this->soldSerialFilters($request);
+        $data = $request->validate([
+            'id_outlet' => 'required|string|max:50',
+            'sn' => ['required', 'regex:/^\\d{9,24}$/'],
+        ]);
+        $sn = $data['sn'];
+        $nota = $this->mobileSerialsQuery($filters)
+            ->where('sale.id_outlet', $data['id_outlet'])
+            ->where('serial.identifier_type', 'sn')
+            ->whereRaw('CAST(serial.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
+            ->whereRaw('CAST(serial.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
+            ->leftJoin('denom as outlet_lookup_denom', 'outlet_lookup_denom.iddenom', '=', 'serial.iddenom')
+            ->orderByDesc('sale.tgl')->limit(20)
+            ->get(['sale.tgl', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom', 'outlet_lookup_denom.denom']);
+
+        $digipos = DB::table('product_tracking_digipos as digipos')
+            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+            ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
+            ->where('digipos.id_outlet', $data['id_outlet'])
+            ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
+            ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
+            ->orderByDesc('digipos.scan_date')->limit(20)
+            ->get(['digipos.scan_date', 'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name']);
+
+        return response()->json([
+            'sn' => $sn,
+            'nota' => $nota->map(fn ($row) => [
+                'date' => $row->tgl,
+                'start' => $row->serial_start,
+                'end' => $row->serial_end,
+                'qty' => (int) $row->qty,
+                'denom' => $row->denom ?: $row->iddenom,
+            ])->values(),
+            'digipos' => $digipos->map(fn ($row) => [
+                'date' => $row->scan_date,
+                'start' => $row->serial_start,
+                'end' => $row->serial_end,
+                'product' => $row->product_name ?: '—',
+            ])->values(),
+        ]);
+    }
+
     public function soldColumnValues(Request $request)
     {
         $filters = $this->soldSerialFilters($request);

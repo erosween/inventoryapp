@@ -116,6 +116,7 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::get('/sales', fn () => redirect()->route('surya.product-tracking.sold'))->name('sales');
     Route::get('/sold-serials', 'soldSerials')->name('sold');
     Route::get('/sold-serials/outlet-serials', 'soldOutletSerials')->name('sold.outlet-serials');
+    Route::get('/sold-serials/outlet-sn-lookup', 'soldOutletSnLookup')->name('sold.outlet-sn-lookup');
     Route::get('/sold-serials/filter-values', 'soldColumnValues')->name('sold.filter-values');
     Route::get('/sold-serials/download', 'downloadSoldSerials')->name('sold.download');
     Route::get('/imports', 'imports')->name('imports');
