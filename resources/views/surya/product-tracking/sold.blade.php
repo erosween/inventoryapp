@@ -44,7 +44,7 @@
                 <h2>{{ $heading }}</h2>
                 @php($summaryColumns = [$summaryLevel => $summaryLevel === 'tap' ? 'TAP' : 'Sales Force'])
                 @if($summaryLevel === 'sf') @php($summaryColumns['tap'] = 'TAP') @endif
-                @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Qty sumber', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
+                @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Total Qty', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
                 <div class="pt-table-wrap"><table class="pt-table pt-summary-table">
                     <thead><tr>
                         @foreach($summaryColumns as $column => $label)
@@ -82,7 +82,7 @@
                             <div><span>Total outlet</span><strong>{{ number_format($group->outlet_count) }}</strong></div>
                             <div><span>Outlet sesuai</span><a class="pt-chip good pt-summary-link" href="{{ $matchedUrl }}">{{ number_format($group->matched_outlets) }}</a></div>
                             <div><span>Outlet perlu dicek</span><a class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }} pt-summary-link" href="{{ $mismatchUrl }}">{{ number_format($group->mismatch_outlets) }}</a></div>
-                            <div><span>Qty sumber</span><strong>{{ number_format($group->qty) }}</strong></div>
+                            <div><span>Total Qty</span><strong>{{ number_format($group->qty) }}</strong></div>
                             <div><span>Qty SN cocok</span><strong>{{ number_format($group->matched_qty) }}</strong></div>
                             <div><span>Qty SN belum cocok</span><strong>{{ number_format($group->mismatch_qty) }}</strong></div>
                         </article>
@@ -91,7 +91,7 @@
                     @endforelse
                     @if($summaryLevel === 'tap')
                         @foreach($clusterSummaries as $clusterSummary)
-                            <article class="pt-summary-mobile-card pt-cluster-summary-row {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Qty sumber</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty SN cocok</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty SN belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>
+                            <article class="pt-summary-mobile-card pt-cluster-summary-row {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Total Qty</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty SN cocok</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty SN belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>
                         @endforeach
                     @endif
                 </div>
@@ -103,7 +103,7 @@
             <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty input SN dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Kembali</a>@endif</div>
             <div class="pt-table-wrap"><table class="pt-table detail-table">
                 <thead><tr>
-                    @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'kategori_outlet' => 'Kategori Outlet', 'qty' => 'Qty sumber', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok', 'status' => 'Status'] as $column => $label)
+                    @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'kategori_outlet' => 'Kategori Outlet', 'qty' => 'Total Qty', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok', 'status' => 'Status'] as $column => $label)
                         <th><div class="tf-column-heading"><span>{{ $label }}@if(($tableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($tableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $tableOptions['columns'] ?? []) || array_key_exists($column, $tableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                     @endforeach
                     <th>SN</th>
@@ -121,7 +121,7 @@
                 @forelse($outlets as $outlet)
                     <article class="pt-outlet-mobile-card">
                         <div class="pt-outlet-mobile-head"><div><h3>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</h3><span>{{ $outlet->id_outlet }} · {{ $outlet->tap }}</span></div>@if((int) $outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</div>
-                        <dl><div><dt>Kecamatan</dt><dd>{{ $outlet->kecamatan ?: '–' }}</dd></div><div><dt>Sales Force</dt><dd>{{ $outlet->namasf ?: '—' }}</dd></div><div><dt>Kategori Outlet</dt><dd>{{ $outlet->kategori_outlet ?: 'Reguler' }}</dd></div><div><dt>Qty sumber</dt><dd>{{ number_format($outlet->qty) }}</dd></div><div><dt>Qty SN cocok</dt><dd>{{ number_format($outlet->matched_qty) }}</dd></div><div><dt>Qty SN belum cocok</dt><dd>{{ number_format($outlet->mismatch_qty) }}</dd></div></dl>
+                        <dl><div><dt>Kecamatan</dt><dd>{{ $outlet->kecamatan ?: '–' }}</dd></div><div><dt>Sales Force</dt><dd>{{ $outlet->namasf ?: '—' }}</dd></div><div><dt>Kategori Outlet</dt><dd>{{ $outlet->kategori_outlet ?: 'Reguler' }}</dd></div><div><dt>Total Qty</dt><dd>{{ number_format($outlet->qty) }}</dd></div><div><dt>Qty SN cocok</dt><dd>{{ number_format($outlet->matched_qty) }}</dd></div><div><dt>Qty SN belum cocok</dt><dd>{{ number_format($outlet->mismatch_qty) }}</dd></div></dl>
                         <button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button>
                         <div class="pt-outlet-sn-panel pt-outlet-mobile-sn-panel" data-outlet-sn-panel hidden><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div>
                     </article>
