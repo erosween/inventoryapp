@@ -439,23 +439,20 @@ class ProductTrackingController extends MonitaDumaiController
         $outletLookup = DB::table('appsdumais')
             ->select('id_outlet', DB::raw('MAX(tap) AS tap'), DB::raw('MAX(cluster) AS cluster'))
             ->groupBy('id_outlet');
-        $denomLookup = DB::table('denom')
-            ->select('iddenom', DB::raw('MAX(product) AS product'), DB::raw('MAX(product_group) AS product_group'), DB::raw('MAX(kategori_inject) AS kategori_inject'), DB::raw('MAX(group_name) AS group_name'))
-            ->groupBy('iddenom');
-        $isSaSql = "(UPPER(TRIM(COALESCE(denom.product,''))) = 'SA' OR (UPPER(TRIM(COALESCE(denom.product,''))) NOT IN ('PV','SA') AND (UPPER(TRIM(COALESCE(denom.product_group,''))) IN ('SA','SP') OR UPPER(TRIM(COALESCE(denom.kategori_inject,''))) = 'SA' OR UPPER(TRIM(COALESCE(denom.group_name,''))) = 'SA' OR UPPER(TRIM(COALESCE(denom.iddenom,''))) LIKE 'SP%')))";
+        $isSaSql = "(CHAR_LENGTH(d.serial_start) = 16 AND LEFT(d.serial_start, 1) = '0')";
+        $isPvSql = "(CHAR_LENGTH(d.serial_start) = 12)";
         $dailyTotals = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
                 ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
                 ->leftJoinSub($outletLookup, 'o', 'o.id_outlet', '=', 'd.id_outlet')
-                ->leftJoinSub($denomLookup, 'denom', 'denom.iddenom', '=', 'd.iddenom')
                 ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
                 ->whereNotNull('d.scan_date')
                 ->select('d.scan_date')
                 ->selectRaw("SUM(CASE WHEN ({$isSaSql}) AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('ROKAN HILIR','CLUSTER ROHIL') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'))) THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_sa_qty")
-                ->selectRaw("SUM(CASE WHEN NOT ({$isSaSql}) AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('ROKAN HILIR','CLUSTER ROHIL') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'))) THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
+                ->selectRaw("SUM(CASE WHEN {$isPvSql} AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('ROKAN HILIR','CLUSTER ROHIL') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'))) THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
                 ->selectRaw("SUM(CASE WHEN ({$isSaSql}) AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('DUMAI BENGKALIS','CLUSTER DUMAI') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'))) THEN d.serial_count ELSE 0 END) AS rokan_hilir_sa_qty")
-                ->selectRaw("SUM(CASE WHEN NOT ({$isSaSql}) AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('DUMAI BENGKALIS','CLUSTER DUMAI') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'))) THEN d.serial_count ELSE 0 END) AS rokan_hilir_pv_qty")
+                ->selectRaw("SUM(CASE WHEN {$isPvSql} AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('DUMAI BENGKALIS','CLUSTER DUMAI') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'))) THEN d.serial_count ELSE 0 END) AS rokan_hilir_pv_qty")
                 ->selectRaw("SUM(CASE WHEN ({$isSaSql}) THEN d.serial_count ELSE 0 END) AS total_sa_qty")
-                ->selectRaw("SUM(CASE WHEN NOT ({$isSaSql}) THEN d.serial_count ELSE 0 END) AS total_pv_qty")
+                ->selectRaw("SUM(CASE WHEN {$isPvSql} THEN d.serial_count ELSE 0 END) AS total_pv_qty")
                 ->selectRaw('SUM(d.serial_count) AS total_qty')
                 ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->paginate(10) : collect();
 
