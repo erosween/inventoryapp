@@ -11,7 +11,7 @@
     <section class="pt-card pt-sold-intro">
         <div class="pt-sold-intro-copy">
             <span class="pt-sold-icon"><i class="fas fa-code-compare"></i></span>
-            <div><h2>Ringkasan Validasi ST · {{ $activeTab === 'progress' ? 'SN Progress' : 'SN Approve' }}</h2><p class="pt-subtitle mb-0">{{ $activeTab === 'progress' ? 'Memantau SN dari transaksi Mobile SURYA yang menunggu approval.' : 'Mencocokkan SN transaksi Mobile SURYA yang disetujui dengan hasil upload ST Digipos berdasarkan outlet dan rentang tanggal.' }}</p></div>
+            <div><h2>Ringkasan Validasi ST · {{ $activeTab === 'progress' ? 'SN Progress' : 'SN Approve' }}</h2><p class="pt-subtitle mb-0">{{ $activeTab === 'progress' ? 'Memantau SN dari transaksi Mobile SURYA yang menunggu approval.' : 'Mencocokkan SN transaksi Mobile SURYA yang disetujui dengan hasil upload ST Digipos berdasarkan outlet dan tanggal yang dipilih.' }}</p></div>
         </div>
         <div class="pt-sold-stats" aria-label="Ringkasan validasi">
             <div><strong>{{ number_format($summary->matched_outlets) }}</strong><span>outlet sesuai</span></div>
@@ -27,15 +27,14 @@
     </nav>
 
     <form method="get" action="{{ route('surya.product-tracking.sold') }}" class="pt-card pt-grid pt-sold-filter">
-        <div class="pt-field"><label for="sold-date-from">Dari tanggal ST</label><input id="sold-date-from" type="date" name="date_from" value="{{ $filters['date_from'] }}" max="{{ now('Asia/Jakarta')->toDateString() }}"></div>
-        <div class="pt-field"><label for="sold-date-to">Sampai tanggal ST</label><input id="sold-date-to" type="date" name="date_to" value="{{ $filters['date_to'] }}" max="{{ now('Asia/Jakarta')->toDateString() }}"></div>
+        <div class="pt-field"><label for="sold-date">Tanggal ST</label><input id="sold-date" type="date" name="date" value="{{ $filters['date'] }}" max="{{ now('Asia/Jakarta')->toDateString() }}"></div>
         <div class="pt-field"><label for="sold-tap">TAP</label><select id="sold-tap" name="tap"><option value="">Semua TAP</option>@foreach($taps as $tap)<option value="{{ $tap }}" @selected($filters['tap']===$tap)>{{ $tap }}</option>@endforeach</select></div>
         <div class="pt-field"><label for="sold-sf">Sales Force</label><select id="sold-sf" name="sf"><option value="">Semua Sales Force</option>@foreach($sfs as $sf)<option value="{{ $sf->idsf }}" @selected($filters['sf']===$sf->idsf)>{{ $sf->namasf ?: $sf->idsf }}</option>@endforeach</select></div>
         <input type="hidden" name="tab" value="{{ $activeTab }}">
         <div class="pt-sold-actions"><button class="pt-button" type="submit"><i class="fas fa-filter"></i> Terapkan filter</button><button class="pt-button primary" type="submit" formaction="{{ route('surya.product-tracking.sold.download') }}" @disabled($summary->serial_count === 0)><i class="fas fa-download"></i> Download detail CSV</button></div>
     </form>
     @error('download')<div class="pt-alert error">{{ $message }}</div>@enderror
-    @if(!$hasScanUploads)<div class="pt-alert error">Belum ada upload ST Digipos pada rentang tanggal ini. Qty ditampilkan sebagai belum cocok sampai file scan diunggah.</div>@endif
+    @if(!$hasScanUploads)<div class="pt-alert error">Belum ada upload ST Digipos pada tanggal ini. Qty ditampilkan sebagai belum cocok sampai file scan diunggah.</div>@endif
 
     @if($summary->serial_count > 0)
         @if(empty($summaryTarget['summary_status']))

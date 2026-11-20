@@ -337,7 +337,7 @@ class ProductTrackingController extends MonitaDumaiController
                 ->withErrors(['download' => 'Hasil lebih dari 500.000 SN. Persempit tanggal atau filter agar file tetap aman diproses.']);
         }
 
-        $filename = 'sn-'.$filters['tab'].'-'.$filters['date_from'].'-'.$filters['date_to'].'.csv';
+        $filename = 'sn-'.$filters['tab'].'-'.$filters['date'].'.csv';
         return response()->streamDownload(function () use ($query) {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
@@ -385,23 +385,20 @@ class ProductTrackingController extends MonitaDumaiController
 
     private function soldSerialFilters(Request $request): array
     {
+        $today = now('Asia/Jakarta')->toDateString();
         $data = $request->validate([
-            'date_from' => 'nullable|date|before_or_equal:today',
-            'date_to' => 'nullable|date|before_or_equal:today',
+            'date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:'.$today],
             'tap' => 'nullable|string|max:100',
             'sf' => 'nullable|string|max:150',
             'iddenom' => 'nullable|string|max:25',
             'tab' => 'nullable|in:approve,progress',
         ]);
-        $from = $data['date_from'] ?? now('Asia/Jakarta')->startOfMonth()->toDateString();
-        $to = $data['date_to'] ?? now('Asia/Jakarta')->toDateString();
-        if ($from > $to) {
-            throw ValidationException::withMessages(['date_to' => 'Tanggal akhir harus sama atau sesudah tanggal awal.']);
-        }
+        $date = $data['date'] ?? $today;
 
         return [
-            'date_from' => $from,
-            'date_to' => $to,
+            'date' => $date,
+            'date_from' => $date,
+            'date_to' => $date,
             'tap' => $data['tap'] ?? '',
             'sf' => $data['sf'] ?? '',
             'iddenom' => $data['iddenom'] ?? '',
