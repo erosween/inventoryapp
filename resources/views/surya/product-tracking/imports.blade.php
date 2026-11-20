@@ -26,7 +26,7 @@
         <section class="pt-card">
             <nav class="pt-sold-tabs" aria-label="Periode ringkasan upload"><a class="{{ $period==='daily'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan','period'=>'daily']) }}">Harian</a><a class="{{ $period==='monthly'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan','period'=>'monthly']) }}">Bulanan</a></nav>
             <h2>Total SN berhasil diupload per {{ $period==='monthly'?'bulan':'tanggal' }}</h2>
-            <p class="pt-subtitle">Kategori mengikuti awalan nama file, misalnya pv_dumai_20261120 atau sa_dumai_20261120. File berawalan pv_ atau sa_ masuk total produk; file tanpa prefix wilayah hanya masuk Total All.</p>
+            <p class="pt-subtitle">File baru mengikuti pola pv_dumai_… / sa_dumai_… untuk Dumai Bengkalis dan pv_rohil_… / sa_rohil_… untuk Rokan Hilir. File lama diklasifikasikan dari panjang SN (12 digit PV, 16 digit SA) dan cluster dari TAP outlet berdasarkan ID outlet.</p>
             <div class="pt-table-wrap">
                 <table class="pt-table">
                     <thead><tr><th>Tanggal Scan</th><th>Dumai Bengkalis · PV</th><th>Dumai Bengkalis · SA</th><th>Rokan Hilir · PV</th><th>Rokan Hilir · SA</th><th>Total PV</th><th>Total SA</th><th>Total All</th></tr></thead>

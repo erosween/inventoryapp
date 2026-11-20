@@ -637,16 +637,19 @@ class ProductTrackingController extends MonitaDumaiController
         abort_unless(in_array($kind, ['warehouse', 'scan', 'so-pv', 'so-sa'], true), 404);
         $period = $request->query('period', 'daily');
         abort_unless(in_array($period, ['daily', 'monthly'], true), 404);
+        $scanClusterSql = "CASE WHEN LOWER(u.filename) REGEXP '^(pv|sa)_dumai_' THEN 'DUMAI' WHEN LOWER(u.filename) REGEXP '^(pv|sa)_(rohil|rokan_hilir)_' THEN 'ROHIL' WHEN UPPER(COALESCE(outlet.tap, '')) IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN 'DUMAI' WHEN UPPER(COALESCE(outlet.tap, '')) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'ROHIL' ELSE NULL END";
+        $scanProductSql = "CASE WHEN LEFT(LOWER(u.filename), 3) = 'pv_' THEN 'PV' WHEN LEFT(LOWER(u.filename), 3) = 'sa_' THEN 'SA' WHEN CHAR_LENGTH(d.serial_start) = 12 THEN 'PV' WHEN CHAR_LENGTH(d.serial_start) = 16 THEN 'SA' ELSE NULL END";
         $totalsQuery = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
                 ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+                ->leftJoin('appsdumais as outlet', 'outlet.id_outlet', '=', 'd.id_outlet')
                 ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
                 ->whereNotNull('d.scan_date')
-                ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^pv_(dumai|bengkalis|duri|rupat|sei_pakning)_' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
-                ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^sa_(dumai|bengkalis|duri|rupat|sei_pakning)_' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_sa_qty")
-                ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^pv_(rokan_hilir|rohil|rokan|bagan_batu|bagan_siapi_api|bagan_siapi-api|ujung_tanjung)_' THEN d.serial_count ELSE 0 END) AS rokan_hilir_pv_qty")
-                ->selectRaw("SUM(CASE WHEN LOWER(u.filename) REGEXP '^sa_(rokan_hilir|rohil|rokan|bagan_batu|bagan_siapi_api|bagan_siapi-api|ujung_tanjung)_' THEN d.serial_count ELSE 0 END) AS rokan_hilir_sa_qty")
-                ->selectRaw("SUM(CASE WHEN LEFT(LOWER(u.filename), 3) = 'pv_' THEN d.serial_count ELSE 0 END) AS total_pv_qty")
-                ->selectRaw("SUM(CASE WHEN LEFT(LOWER(u.filename), 3) = 'sa_' THEN d.serial_count ELSE 0 END) AS total_sa_qty")
+                ->selectRaw("SUM(CASE WHEN ({$scanClusterSql}) = 'DUMAI' AND ({$scanProductSql}) = 'PV' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
+                ->selectRaw("SUM(CASE WHEN ({$scanClusterSql}) = 'DUMAI' AND ({$scanProductSql}) = 'SA' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_sa_qty")
+                ->selectRaw("SUM(CASE WHEN ({$scanClusterSql}) = 'ROHIL' AND ({$scanProductSql}) = 'PV' THEN d.serial_count ELSE 0 END) AS rokan_hilir_pv_qty")
+                ->selectRaw("SUM(CASE WHEN ({$scanClusterSql}) = 'ROHIL' AND ({$scanProductSql}) = 'SA' THEN d.serial_count ELSE 0 END) AS rokan_hilir_sa_qty")
+                ->selectRaw("SUM(CASE WHEN ({$scanProductSql}) = 'PV' THEN d.serial_count ELSE 0 END) AS total_pv_qty")
+                ->selectRaw("SUM(CASE WHEN ({$scanProductSql}) = 'SA' THEN d.serial_count ELSE 0 END) AS total_sa_qty")
                 ->selectRaw('SUM(d.serial_count) AS total_qty') : null;
         if ($totalsQuery) {
             if ($period === 'monthly') {
@@ -675,11 +678,12 @@ class ProductTrackingController extends MonitaDumaiController
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
         $prefix = strtolower($product).'_';
+        $serialLength = $product === 'PV' ? 12 : 16;
         $soKind = 'so-'.strtolower($product);
         $st = DB::table('product_tracking_digipos as d')
             ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
             ->where('u.kind', 'scan')->where('u.status', 'complete')->where('d.kind', 'scan')
-            ->whereRaw('LEFT(LOWER(u.filename), 3) = ?', [$prefix])
+            ->whereRaw("(LEFT(LOWER(u.filename), 3) = ? OR (LEFT(LOWER(u.filename), 3) NOT IN ('pv_','sa_') AND CHAR_LENGTH(d.serial_start) = ?))", [$prefix, $serialLength])
             ->selectRaw('d.id_outlet, SUM(d.serial_count) AS st_qty')->groupBy('d.id_outlet');
         $so = DB::table('product_tracking_digipos as so')
             ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
@@ -694,7 +698,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
             })
             ->where('st.kind', 'scan')->where('st_upload.kind', 'scan')->where('st_upload.status', 'complete')
-            ->whereRaw('LEFT(LOWER(st_upload.filename), 3) = ?', [$prefix])
+            ->whereRaw("(LEFT(LOWER(st_upload.filename), 3) = ? OR (LEFT(LOWER(st_upload.filename), 3) NOT IN ('pv_','sa_') AND CHAR_LENGTH(st.serial_start) = ?))", [$prefix, $serialLength])
             ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0)) AS redeemed_qty')
             ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(so.sold_at, st.scan_date), 0)) AS days_to_customer_weighted')
             ->groupBy('st.id_outlet');
@@ -706,7 +710,7 @@ class ProductTrackingController extends MonitaDumaiController
             })
             ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
             ->where('st.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
-            ->whereRaw('LEFT(LOWER(u.filename), 3) = ?', [$prefix])
+            ->whereRaw("(LEFT(LOWER(u.filename), 3) = ? OR (LEFT(LOWER(u.filename), 3) NOT IN ('pv_','sa_') AND CHAR_LENGTH(st.serial_start) = ?))", [$prefix, $serialLength])
             ->whereColumn('sale.id_outlet', 'st.id_outlet')
             ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0)) AS matched_sale_qty')
             ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(st.scan_date, sale.tgl), 0)) AS days_to_outlet_weighted')
