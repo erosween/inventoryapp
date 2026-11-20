@@ -1,18 +1,22 @@
 @extends('surya.layouts.workspace')
 
-@section('title', $kind==='warehouse'?'Warehouse Digipos':(str_starts_with($kind,'so-')?'Upload SO '.strtoupper(substr($kind,3)):'Upload ST Digipos'))
-@section('active-page', $kind==='warehouse'?'product-tracking-warehouse':(str_starts_with($kind,'so-')?'product-tracking-so':'product-tracking-scan'))
-@section('description', $kind==='warehouse'?'Impor snapshot warehouse untuk pencocokan serial.':(str_starts_with($kind,'so-')?'Unggah serial redeemed Stock Outlet.':'Unggah ST Digipos untuk pencocokan SN dan rekonsiliasi.'))
+@section('title', $kind==='warehouse'?'Warehouse Digipos':'Upload Digipos')
+@section('active-page', $kind==='warehouse'?'product-tracking-warehouse':'product-tracking-upload')
+@section('description', $kind==='warehouse'?'Impor snapshot warehouse untuk pencocokan serial.':'Upload ST Digipos dan SO PV/SA untuk pencocokan SN Stock Outlet.')
 @section('content-class', 'pt-page')
 
 @push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">@endpush
 
 @section('content')
     <section class="pt-card">
-        @if(str_starts_with($kind, 'so-'))
-            <nav class="pt-sold-tabs mb-3" aria-label="Kategori upload SO"><a href="{{ route('surya.product-tracking.stock-outlet',['product'=>'PV']) }}">Stock Outlet</a><a class="{{ $kind==='so-pv'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-pv']) }}">SO PV</a><a class="{{ $kind==='so-sa'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-sa']) }}">SO SA</a></nav>
+        @if(in_array($kind, ['scan','so-pv','so-sa'], true))
+            <nav class="pt-sold-tabs mb-3" aria-label="Jenis upload">
+                <a class="{{ $kind==='scan'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan']) }}">ST Digipos</a>
+                <a class="{{ $kind==='so-sa'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-sa']) }}">SO SA</a>
+                <a class="{{ $kind==='so-pv'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-pv']) }}">SO PV</a>
+            </nav>
         @endif
-        <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':(str_starts_with($kind,'so-')?'Upload SO '.strtoupper(substr($kind,3)):'Upload ST Digipos') }}</h2>
+        <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':($kind==='scan'?'Upload ST Digipos':'Upload SO '.strtoupper(substr($kind,3))) }}</h2>
         <p class="pt-subtitle">Pilih file CSV. Setelah header terbaca, petakan kolom SN, ID outlet, SF, tanggal, dan denom sebelum impor.</p>
         @if(!auth()->user()?->isSuperAdmin())<div class="pt-muted">Upload hanya tersedia untuk Admin.</div>@else
         <form method="post" action="{{ route('surya.product-tracking.imports.stage') }}" enctype="multipart/form-data" class="pt-grid pt-upload-form" data-loading-message="Membaca header dan menyiapkan pratinjau file…" data-loading-label="Membaca…">

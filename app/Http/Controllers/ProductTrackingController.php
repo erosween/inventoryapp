@@ -720,7 +720,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->leftJoinSub($so, 'so', 'so.id_outlet', '=', 'outlet.id_outlet')
             ->leftJoinSub($redeem, 'redeem', 'redeem.id_outlet', '=', 'outlet.id_outlet')
             ->leftJoinSub($sfToOutlet, 'sf_days', 'sf_days.id_outlet', '=', 'outlet.id_outlet')
-            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.tap', 'outlet.idsf', 'outlet.kategori_outlet')
+            ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf', 'outlet.idsf', 'outlet.kategori_outlet')
             ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(so.so_qty, 0) AS so_qty, COALESCE(redeem.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(redeem.redeemed_qty, 0), 0) AS remaining_qty')
             ->selectRaw('CASE WHEN COALESCE(sf_days.matched_sale_qty, 0) > 0 THEN ROUND(sf_days.days_to_outlet_weighted / sf_days.matched_sale_qty, 1) ELSE NULL END AS days_sf_to_outlet, CASE WHEN COALESCE(redeem.redeemed_qty, 0) > 0 THEN ROUND(redeem.days_to_customer_weighted / redeem.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
             ->where(function ($query) { $query->whereNotNull('st.id_outlet')->orWhereNotNull('so.id_outlet'); })

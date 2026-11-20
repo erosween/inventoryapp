@@ -1,7 +1,7 @@
 @extends('surya.layouts.workspace')
 
 @section('title', 'Petakan Kolom '.(str_starts_with($upload->kind,'so-')?'SO '.strtoupper(substr($upload->kind,3)):'Digipos'))
-@section('active-page', $upload->kind==='warehouse'?'product-tracking-warehouse':(str_starts_with($upload->kind,'so-')?'product-tracking-so':'product-tracking-scan'))
+@section('active-page', $upload->kind==='warehouse'?'product-tracking-warehouse':'product-tracking-upload')
 @section('description', 'Tinjau contoh data dan tentukan kolom yang menjadi identitas transaksi.')
 @section('content-class', 'pt-page')
 

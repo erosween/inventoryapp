@@ -9,7 +9,7 @@
 
 @section('content')
 <section class="pt-card">
-    <div class="pt-result-head"><div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stok sementara dihitung dari SN ST Digipos dikurangi SN ST yang sudah redeem di outlet yang sama.</p></div>
+    <div class="pt-result-head"><div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stock Outlet = SN ST Digipos dikurangi SN SO yang cocok di outlet yang sama. SO menampilkan jumlah SN yang diupload; hanya SN SO yang ditemukan di ST outlet tersebut yang dikurangkan.</p></div>
         @if(auth()->user()?->isSuperAdmin())<a class="pt-button primary" href="{{ route('surya.product-tracking.imports',['kind'=>$soKind]) }}"><i class="fas fa-upload"></i> Upload SO {{ $product }}</a>@endif
     </div>
     <nav class="pt-sold-tabs" aria-label="Kategori produk Stock Outlet">
@@ -18,21 +18,24 @@
     </nav>
     <div class="pt-table-wrap">
         <table class="pt-table">
-            <thead><tr><th>Outlet</th><th>ID Outlet</th><th>Kategori Outlet</th><th>Sisa Stock Outlet</th><th>ST {{ $product }}</th><th>Redeem {{ $product }}</th><th>SF → Outlet</th><th>Outlet → Pelanggan</th></tr></thead>
+            <thead><tr><th>Nama Outlet</th><th>ID Outlet</th><th>Kecamatan</th><th>TAP</th><th>Sales Force</th><th>Kategori Outlet</th><th>Stock Outlet</th><th>ST {{ $product }}</th><th>SO {{ $product }}</th><th>SF → Outlet</th><th>Outlet → Pelanggan</th></tr></thead>
             <tbody>
                 @forelse($outlets as $outlet)
                     <tr>
-                        <td><strong>{{ $outlet->nama_outlet ?: 'Outlet tanpa nama' }}</strong><small class="d-block pt-muted">{{ $outlet->tap ?: 'Tanpa TAP' }}</small></td>
+                        <td><strong>{{ $outlet->nama_outlet ?: 'Outlet tanpa nama' }}</strong></td>
                         <td>{{ $outlet->id_outlet }}</td>
+                        <td>{{ $outlet->kecamatan ?: '—' }}</td>
+                        <td>{{ $outlet->tap ?: 'Tanpa TAP' }}</td>
+                        <td>{{ $outlet->sf ?: '—' }}</td>
                         <td>{{ $outlet->kategori_outlet ?: 'Reguler' }}</td>
                         <td><strong>{{ number_format($outlet->remaining_qty) }}</strong></td>
                         <td>{{ number_format($outlet->st_qty) }}</td>
-                        <td>{{ number_format($outlet->redeemed_qty) }}</td>
+                        <td>{{ number_format($outlet->so_qty) }}</td>
                         <td>{{ $outlet->days_sf_to_outlet === null ? '—' : $outlet->days_sf_to_outlet.' hari' }}</td>
                         <td>{{ $outlet->days_outlet_to_customer === null ? '—' : $outlet->days_outlet_to_customer.' hari' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="pt-empty">Belum ada data ST atau upload SO untuk produk {{ $product }}.</td></tr>
+                    <tr><td colspan="11" class="pt-empty">Belum ada data ST atau upload SO untuk produk {{ $product }}.</td></tr>
                 @endforelse
             </tbody>
         </table>
