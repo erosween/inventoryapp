@@ -44,7 +44,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
             ->select([
                 'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', 'outlet.tap', 'outlet.kecamatan', 'sales_force.namasf',
+                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(NULLIF(sales_force.idtap, ''), outlet.tap) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
             ])
             ->selectSub(function ($query) use ($filters) {
                 $query->from('product_tracking_digipos as digipos')
@@ -56,7 +56,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(serial.serial_start AS DECIMAL(24,0))')
                     ->selectRaw('COALESCE(SUM(GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0)), 0)');
             }, 'matched_qty')
-            ->orderBy('outlet.tap')->orderBy('outlet.nama_outlet');
+            ->orderBy('sales_force.idtap')->orderBy('outlet.nama_outlet');
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
@@ -164,7 +164,7 @@ class ProductTrackingController extends MonitaDumaiController
             'tapSummaries' => $tapSummaries,
             'clusterSummaries' => $clusterSummaries,
             'sfSummaries' => $sfSummaries,
-            'taps' => DB::table('appsdumais')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('tap', $scopes))->whereNotNull('tap')->distinct()->orderBy('tap')->pluck('tap'),
+            'taps' => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap'),
             'sfs' => $this->mobileSerialsQuery($filters, false)->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->distinct()->orderBy('sales_force.namasf')->get(['sale.idsf', 'sales_force.namasf']),
             'denoms' => $this->mobileSerialsQuery($filters, false)->join('denom as option_denom', 'option_denom.iddenom', '=', 'serial.iddenom')->distinct()->orderBy('option_denom.denom')->get(['serial.iddenom', 'option_denom.denom']),
             'activeTab' => $activeTab,
@@ -403,7 +403,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
             ->select([
                 'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', 'outlet.tap', 'outlet.kecamatan', 'sales_force.namasf',
+                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(NULLIF(sales_force.idtap, ''), outlet.tap) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
             ])
             ->selectSub(function ($query) use ($filters) {
                 $query->from('product_tracking_digipos as digipos')
@@ -454,7 +454,7 @@ class ProductTrackingController extends MonitaDumaiController
 
             foreach ($query->select([
                 'serial.identifier_type', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.tgl as sale_date', 'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', 'outlet.tap',
+                'sale.tgl as sale_date', 'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(NULLIF(sales_force.idtap, ''), outlet.tap) AS tap"),
                 'sales_force.namasf', 'denom.denom', 'denom.product', 'denom.product_variant', 'denom.product_group', 'denom.kategori_inject', 'denom.group_name',
             ])->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->orderBy('sale.tgl')->orderBy('sale.id')->orderBy('serial.id')->cursor() as $row) {
                 $current = (string) $row->serial_start;
@@ -521,15 +521,16 @@ class ProductTrackingController extends MonitaDumaiController
         $query = DB::table('mobile_sales_serials as serial')
             ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
             ->leftJoin('appsdumais as outlet', 'outlet.id_outlet', '=', 'sale.id_outlet')
+            ->leftJoin('idsf as owner_sf', 'owner_sf.idsf', '=', 'sale.idsf')
             ->leftJoin('denom', 'denom.iddenom', '=', 'serial.iddenom')
             ->when($filters['tab'] === 'approve', fn ($query) => $query->where('sale.status', 'approved'), fn ($query) => $query->whereNotIn('sale.status', ['draft_wa', 'rejected']))
             ->whereBetween('sale.tgl', [$filters['date_from'], $filters['date_to']]);
 
         if ($scopes = $this->suryaTapScopes()) {
-            $query->whereIn('outlet.tap', $scopes);
+            $query->whereIn(DB::raw("COALESCE(NULLIF(owner_sf.idtap, ''), outlet.tap)"), $scopes);
         }
         if ($applyFilters) {
-            $query->when($filters['tap'] !== '', fn ($builder) => $builder->where('outlet.tap', $filters['tap']))
+            $query->when($filters['tap'] !== '', fn ($builder) => $builder->whereRaw("COALESCE(NULLIF(owner_sf.idtap, ''), outlet.tap) = ?", [$filters['tap']]))
                 ->when($filters['sf'] !== '', fn ($builder) => $builder->where('sale.idsf', $filters['sf']))
                 ->when($filters['iddenom'] !== '', fn ($builder) => $builder->where('serial.iddenom', $filters['iddenom']))
                 ->when($filters['identifier_type'] !== '', fn ($builder) => $builder->where('serial.identifier_type', $filters['identifier_type']));
