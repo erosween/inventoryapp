@@ -575,7 +575,7 @@ class ProductTrackingController extends MonitaDumaiController
                 ->selectRaw('SUM(d.serial_count) AS total_qty') : null;
         if ($totalsQuery) {
             if ($period === 'monthly') {
-                $totalsQuery->selectRaw("DATE_FORMAT(d.scan_date, '%Y-%m-01') AS scan_date")
+                $totalsQuery->selectRaw('MIN(d.scan_date) AS scan_date')
                     ->groupByRaw("DATE_FORMAT(d.scan_date, '%Y-%m')")
                     ->orderByRaw("DATE_FORMAT(d.scan_date, '%Y-%m') DESC");
             } else {
