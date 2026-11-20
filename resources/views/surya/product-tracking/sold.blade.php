@@ -180,7 +180,7 @@
             const tbody = table.querySelector('tbody');
             for (const item of data.rows) {
                 const row = document.createElement('tr');
-                for (const value of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)]) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }
+                for (const [index, value] of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 1 || index === 2) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
                 tbody.append(row);
             }
             if (!data.rows.length && page === 1) panel.textContent = 'Tidak ada SN yang belum cocok untuk outlet ini.';
@@ -234,6 +234,20 @@
             }
         } catch (error) { output.textContent = error.message || 'Pencarian SN gagal.'; }
         finally { button.disabled = false; button.innerHTML = '<i class="fas fa-magnifying-glass"></i> Cek SN'; }
+    });
+    document.addEventListener('click', async (event) => {
+        const button = event.target.closest('.pt-copy-sn');
+        if (!button) return;
+        const sn = button.dataset.copySn;
+        try {
+            if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(sn);
+            else {
+                const helper = document.createElement('textarea'); helper.value = sn; helper.setAttribute('readonly', ''); helper.style.position = 'fixed'; helper.style.opacity = '0'; document.body.append(helper); helper.select();
+                const copied = document.execCommand('copy'); helper.remove(); if (!copied) throw new Error('copy-failed');
+            }
+            button.classList.add('is-copied'); button.setAttribute('aria-label', `SN ${sn} tersalin`); button.dataset.originalText ||= button.textContent; button.textContent = 'Tersalin ✓';
+            window.setTimeout(() => { button.textContent = button.dataset.originalText; button.classList.remove('is-copied'); button.setAttribute('aria-label', `Salin SN ${sn}`); }, 1400);
+        } catch { button.setAttribute('aria-label', `Gagal menyalin SN ${sn}`); }
     });
     </script>
     <script>
