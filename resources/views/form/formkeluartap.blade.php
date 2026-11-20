@@ -128,7 +128,7 @@
 
 @push('scripts')
     <script>
-        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom, 'product' => $d->product, 'product_group' => $d->product_group, 'kategori_inject' => $d->kategori_inject, 'group_name' => $d->group_name])->values());
+        const bulkDenoms = @json($denomOptions);
         let bulkIndex = 0;
         let tapStockData = {};
 

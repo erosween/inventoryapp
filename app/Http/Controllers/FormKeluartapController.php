@@ -40,7 +40,16 @@ class FormKeluartapController extends Controller
                 ->unique('iddenom')
                 ->values();
 
-        return view('form/formkeluartap',compact('data','idtap','denom','tappenerima'));
+        $denomOptions = $denom->map(fn ($row) => [
+            'id' => $row->iddenom,
+            'name' => $row->denom,
+            'product' => $row->product,
+            'product_group' => $row->product_group,
+            'kategori_inject' => $row->kategori_inject,
+            'group_name' => $row->group_name,
+        ])->values();
+
+        return view('form/formkeluartap', compact('data', 'idtap', 'denom', 'tappenerima', 'denomOptions'));
     }
 
 // get stock
