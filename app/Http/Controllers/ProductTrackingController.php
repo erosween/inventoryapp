@@ -39,24 +39,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])->exists();
 
         $activeTab = $filters['tab'];
-        $sourceQuery = $this->mobileSerialsQuery($filters)
-            ->where('serial.identifier_type', 'sn')
-            ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
-            ->select([
-                'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(CONVERT(sales_force.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
-            ])
-            ->selectSub(function ($query) use ($filters) {
-                $query->from('product_tracking_digipos as digipos')
-                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                    ->where('upload.kind', 'scan')->where('upload.status', 'complete')
-                    ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-                    ->whereColumn('digipos.id_outlet', 'sale.id_outlet')
-                    ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(serial.serial_end AS DECIMAL(24,0))')
-                    ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(serial.serial_start AS DECIMAL(24,0))')
-                    ->selectRaw('COALESCE(SUM(GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0)), 0)');
-            }, 'matched_qty')
-            ->orderBy('sales_force.idtap')->orderBy('outlet.nama_outlet');
+        $sourceQuery = $this->soldValidationRows($filters)->orderBy('tap')->orderBy('nama_outlet');
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
@@ -107,7 +90,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->values();
 
         $sfTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw('idsf, id_outlet, MAX(namasf) AS namasf, MAX(tap) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
+            ->selectRaw('idsf, id_outlet, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(tap COLLATE utf8mb4_unicode_ci) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
             ->groupBy('idsf', 'id_outlet');
         $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
             ->selectRaw("idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COALESCE(GROUP_CONCAT(DISTINCT tap ORDER BY tap SEPARATOR ', '), ?) AS tap, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty", ['Tanpa Sales Force', 'Tanpa TAP'])
@@ -165,8 +148,8 @@ class ProductTrackingController extends MonitaDumaiController
             'clusterSummaries' => $clusterSummaries,
             'sfSummaries' => $sfSummaries,
             'taps' => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap'),
-            'sfs' => $this->mobileSerialsQuery($filters, false)->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->distinct()->orderBy('sales_force.namasf')->get(['sale.idsf', 'sales_force.namasf']),
-            'denoms' => $this->mobileSerialsQuery($filters, false)->join('denom as option_denom', 'option_denom.iddenom', '=', 'serial.iddenom')->distinct()->orderBy('option_denom.denom')->get(['serial.iddenom', 'option_denom.denom']),
+            'sfs' => $this->soldValidationSource($filters, false)->select('idsf', 'namasf')->distinct()->orderBy('namasf')->get(),
+            'denoms' => $this->soldValidationSource($filters, false)->select('iddenom', 'denom_label as denom')->distinct()->orderBy('denom_label')->get(),
             'activeTab' => $activeTab,
             'exportLimit' => 500000,
         ]);
@@ -189,13 +172,12 @@ class ProductTrackingController extends MonitaDumaiController
             ->where('digipos.id_outlet', $data['id_outlet'])
             ->orderBy('digipos.serial_start')
             ->get(['digipos.serial_start', 'digipos.serial_end']);
-        $rows = $this->mobileSerialsQuery($filters)
-            ->where('sale.id_outlet', $data['id_outlet'])
-            ->where('serial.identifier_type', 'sn')
-            ->join('denom as outlet_serial_denom', 'outlet_serial_denom.iddenom', '=', 'serial.iddenom')
-            ->orderBy('outlet_serial_denom.denom')->orderBy('serial.serial_start')
+        $rows = $this->soldValidationSource($filters)
+            ->where('id_outlet', $data['id_outlet'])
+            ->orderBy('denom_label')->orderBy('serial_start')
             ->offset(($page - 1) * 50)->limit(51)
-            ->get(['serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom', 'outlet_serial_denom.denom']);
+            ->select('serial_start', 'serial_end', 'qty', 'iddenom', 'denom_label as denom', 'source')
+            ->get();
 
         $displayRows = $rows->take(50)->flatMap(function ($row) use ($scanRanges, $matchType) {
             $start = (string) $row->serial_start;
@@ -209,7 +191,7 @@ class ProductTrackingController extends MonitaDumaiController
                     $matchedStart = $this->compareSerials($start, $scanStart) >= 0 ? $start : $scanStart;
                     $matchedEnd = $this->compareSerials($end, $scanEnd) <= 0 ? $end : $scanEnd;
                     if ($this->compareSerials($matchedStart, $matchedEnd) <= 0) {
-                        $matched[] = ['start' => $matchedStart, 'end' => $matchedEnd, 'qty' => (int) $this->serialRangeCount($matchedStart, $matchedEnd), 'denom' => $row->denom ?: $row->iddenom];
+                        $matched[] = ['start' => $matchedStart, 'end' => $matchedEnd, 'qty' => (int) $this->serialRangeCount($matchedStart, $matchedEnd), 'denom' => $row->denom ?: $row->iddenom, 'source' => $row->source];
                     }
                 }
                 return $matched;
@@ -222,13 +204,13 @@ class ProductTrackingController extends MonitaDumaiController
                 if ($this->compareSerials($scanEnd, $cursor) < 0 || $this->compareSerials($scanStart, $end) > 0) continue;
                 if ($this->compareSerials($scanStart, $cursor) > 0) {
                     $gapEnd = $this->subtractOneFromSerial($scanStart);
-                    $unmatched[] = ['start' => $cursor, 'end' => $gapEnd, 'qty' => (int) $this->serialRangeCount($cursor, $gapEnd), 'denom' => $row->denom ?: $row->iddenom];
+                    $unmatched[] = ['start' => $cursor, 'end' => $gapEnd, 'qty' => (int) $this->serialRangeCount($cursor, $gapEnd), 'denom' => $row->denom ?: $row->iddenom, 'source' => $row->source];
                 }
                 if ($this->compareSerials($scanEnd, $end) >= 0) { $cursor = null; break; }
                 if ($this->compareSerials($scanEnd, $cursor) >= 0) $cursor = $this->incrementSerial($scanEnd);
             }
             if ($cursor !== null && $this->compareSerials($cursor, $end) <= 0) {
-                $unmatched[] = ['start' => $cursor, 'end' => $end, 'qty' => (int) $this->serialRangeCount($cursor, $end), 'denom' => $row->denom ?: $row->iddenom];
+                $unmatched[] = ['start' => $cursor, 'end' => $end, 'qty' => (int) $this->serialRangeCount($cursor, $end), 'denom' => $row->denom ?: $row->iddenom, 'source' => $row->source];
             }
             return $unmatched;
         })->values();
@@ -248,14 +230,13 @@ class ProductTrackingController extends MonitaDumaiController
             'sn' => ['required', 'regex:/^\\d{9,24}$/'],
         ]);
         $sn = $data['sn'];
-        $nota = $this->mobileSerialsQuery($filters)
-            ->where('sale.id_outlet', $data['id_outlet'])
-            ->where('serial.identifier_type', 'sn')
-            ->whereRaw('CAST(serial.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
-            ->whereRaw('CAST(serial.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
-            ->leftJoin('denom as outlet_lookup_denom', 'outlet_lookup_denom.iddenom', '=', 'serial.iddenom')
-            ->orderByDesc('sale.tgl')->limit(20)
-            ->get(['sale.tgl', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom', 'outlet_lookup_denom.denom']);
+        $nota = $this->soldValidationSource($filters)
+            ->where('id_outlet', $data['id_outlet'])
+            ->whereRaw('CAST(serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
+            ->whereRaw('CAST(serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
+            ->orderByDesc('sale_date')->limit(20)
+            ->select('sale_date as tgl', 'serial_start', 'serial_end', 'qty', 'iddenom', 'denom_label as denom', 'source')
+            ->get();
 
         $digipos = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
@@ -271,9 +252,7 @@ class ProductTrackingController extends MonitaDumaiController
             'sn' => $sn,
             'nota' => $nota->map(fn ($row) => [
                 'date' => $row->tgl,
-                'start' => $row->serial_start,
-                'end' => $row->serial_end,
-                'qty' => (int) $row->qty,
+                'source' => $row->source,
                 'denom' => $row->denom ?: $row->iddenom,
             ])->values(),
             'digipos' => $digipos->map(fn ($row) => [
@@ -414,25 +393,7 @@ class ProductTrackingController extends MonitaDumaiController
 
     private function soldOutletRows(array $filters)
     {
-        $sourceQuery = $this->mobileSerialsQuery($filters)
-            ->where('serial.identifier_type', 'sn')
-            ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
-            ->select([
-                'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(CONVERT(sales_force.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
-            ])
-            ->selectSub(function ($query) use ($filters) {
-                $query->from('product_tracking_digipos as digipos')
-                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                    ->where('upload.kind', 'scan')->where('upload.status', 'complete')
-                    ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-                    ->whereColumn('digipos.id_outlet', 'sale.id_outlet')
-                    ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(serial.serial_end AS DECIMAL(24,0))')
-                    ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(serial.serial_start AS DECIMAL(24,0))')
-                    ->selectRaw('COALESCE(SUM(GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0)), 0)');
-            }, 'matched_qty');
-
-        $outletTotals = DB::query()->fromSub($sourceQuery, 'rows')
+        $outletTotals = DB::query()->fromSub($this->soldValidationRows($filters), 'rows')
             ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         return DB::query()->fromSub($outletTotals, 'outlet_totals')
@@ -455,8 +416,8 @@ class ProductTrackingController extends MonitaDumaiController
         $filters = $this->soldSerialFilters($request);
         abort_unless(Schema::hasTable('mobile_sales_serials'), 503, 'Data SN Mobile SURYA belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
 
-        $query = $this->mobileSerialsQuery($filters);
-        $serialCount = (int) (clone $query)->sum('serial.qty');
+        $query = $this->soldValidationRows($filters);
+        $serialCount = (int) (clone $query)->sum('qty');
         if ($serialCount > 500000) {
             return redirect()->route('surya.product-tracking.sold', $request->query())
                 ->withErrors(['download' => 'Hasil lebih dari 500.000 SN. Persempit tanggal atau filter agar file tetap aman diproses.']);
@@ -466,19 +427,15 @@ class ProductTrackingController extends MonitaDumaiController
         return response()->streamDownload(function () use ($query) {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Tanggal ST', 'ID Outlet', 'Nama Outlet', 'TAP', 'Sales Force', 'Produk', 'Group Product', 'Sub Product', 'Validity Product', 'SN / Nomor']);
+            fputcsv($output, ['Tanggal ST', 'Sumber', 'ID Outlet', 'Nama Outlet', 'TAP', 'Sales Force', 'Produk', 'Group Product', 'Sub Product', 'Validity Product', 'SN / Nomor']);
 
-            foreach ($query->select([
-                'serial.identifier_type', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.tgl as sale_date', 'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(NULLIF(sales_force.idtap, ''), outlet.tap) AS tap"),
-                'sales_force.namasf', 'denom.denom', 'denom.product', 'denom.product_variant', 'denom.product_group', 'denom.kategori_inject', 'denom.group_name',
-            ])->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->orderBy('sale.tgl')->orderBy('sale.id')->orderBy('serial.id')->cursor() as $row) {
+            foreach ($query->orderBy('sale_date')->orderBy('source_id')->cursor() as $row) {
                 $current = (string) $row->serial_start;
                 $last = (string) $row->serial_end;
                 $qty = (int) $row->qty;
                 $inferred = DenomGrouping::infer((object) [
                     'iddenom' => $row->iddenom,
-                    'denom' => $row->denom,
+                    'denom' => $row->denom_label,
                     'product_group' => $row->product_group,
                     'product' => $row->product,
                     'product_variant' => $row->product_variant,
@@ -495,12 +452,12 @@ class ProductTrackingController extends MonitaDumaiController
                 $validity = $groupProduct === 'SA' ? '' : trim((string) $row->group_name);
                 for ($index = 0; $index < $qty; $index++) {
                     fputcsv($output, [
-                        $row->sale_date, $row->id_outlet,
+                        $row->sale_date, $row->source, $row->id_outlet,
                         $this->csvSafe($row->nama_outlet ?? ''), $this->csvSafe($row->tap ?? ''), $this->csvSafe($row->namasf ?? $row->idsf),
-                        $this->csvSafe($row->denom ?? $row->iddenom), $groupProduct, $subProduct,
+                        $this->csvSafe($row->denom_label ?? $row->iddenom), $groupProduct, $subProduct,
                         $this->csvSafe($validity), $current,
                     ]);
-                    if ($current === $last || $row->identifier_type === 'number') break;
+                    if ($current === $last) break;
                     $current = $this->incrementSerial($current);
                 }
             }
@@ -530,6 +487,76 @@ class ProductTrackingController extends MonitaDumaiController
             'identifier_type' => 'sn',
             'tab' => $data['tab'] ?? 'progress',
         ];
+    }
+
+    private function soldValidationSource(array $filters, bool $applyFilters = true)
+    {
+        $mobile = $this->mobileSerialsQuery($filters, false)
+            ->where('serial.identifier_type', 'sn');
+        $mobile->select([
+            'serial.id as source_id', 'serial.iddenom', 'serial.serial_start', 'serial.serial_end', 'serial.qty',
+            'sale.tgl as sale_date', 'sale.id_outlet', 'sale.idsf',
+            DB::raw("COALESCE(CONVERT(owner_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
+            DB::raw('CONVERT(outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
+            DB::raw('CONVERT(outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
+            DB::raw('CONVERT(owner_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS namasf'),
+            DB::raw('CONVERT(denom.denom USING utf8mb4) COLLATE utf8mb4_unicode_ci AS denom_label'),
+            'denom.product', 'denom.product_variant', 'denom.product_group', 'denom.kategori_inject', 'denom.group_name',
+            DB::raw('CONVERT(0x5346204d6f62696c65 USING utf8mb4) COLLATE utf8mb4_unicode_ci AS source'),
+        ]);
+
+        $webForm = DB::table('keluarsf as form_sale')
+            ->join('denom as form_denom', 'form_denom.iddenom', '=', 'form_sale.iddenom')
+            ->leftJoin('appsdumais as form_outlet', 'form_outlet.id_outlet', '=', 'form_sale.id_outlet')
+            ->leftJoin('idsf as form_sf', 'form_sf.idsf', '=', 'form_sale.idsf')
+            ->whereBetween('form_sale.tgl', [$filters['date_from'], $filters['date_to']])
+            ->whereNotNull('form_sale.id_outlet')->whereRaw("TRIM(form_sale.id_outlet) <> ''")
+            ->whereRaw("COALESCE(form_sale.tambahanket, '') NOT LIKE 'Mobile Approval ID: %'")
+            ->whereRaw("(form_sale.identifier_type IS NULL OR form_sale.identifier_type = 'sn')")
+            ->whereRaw("(form_sale.serial_mode IS NULL OR form_sale.serial_mode <> 'broken')")
+            ->whereNotNull('form_sale.sn_awal')->whereRaw("TRIM(form_sale.sn_awal) <> ''")
+            ->whereRaw("(form_sale.sn_akhir IS NULL OR TRIM(form_sale.sn_akhir) = '' OR form_sale.sn_akhir >= form_sale.sn_awal)")
+            ->select([
+                'form_sale.idkeluar as source_id', 'form_sale.iddenom',
+                DB::raw("CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci AS serial_start"),
+                DB::raw("COALESCE(NULLIF(CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci, _utf8mb4'' COLLATE utf8mb4_unicode_ci), CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS serial_end"),
+                'form_sale.qty', 'form_sale.tgl as sale_date', 'form_sale.id_outlet', 'form_sale.idsf',
+                DB::raw("COALESCE(CONVERT(form_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(form_outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
+                DB::raw('CONVERT(form_outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
+                DB::raw('CONVERT(form_outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
+                DB::raw('CONVERT(form_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS namasf'),
+                DB::raw('CONVERT(form_denom.denom USING utf8mb4) COLLATE utf8mb4_unicode_ci AS denom_label'),
+                'form_denom.product', 'form_denom.product_variant', 'form_denom.product_group', 'form_denom.kategori_inject', 'form_denom.group_name',
+                DB::raw('CONVERT(0x466f726d205346204b656c756172 USING utf8mb4) COLLATE utf8mb4_unicode_ci AS source'),
+            ]);
+
+        $source = DB::query()->fromSub($mobile->unionAll($webForm), 'sales_rows');
+        $scopes = $this->suryaTapScopes();
+        if ($scopes) $source->whereIn('sales_rows.tap', $scopes);
+
+        if ($applyFilters) {
+            $source->when($filters['tap'] !== '', fn ($query) => $query->where('sales_rows.tap', $filters['tap']))
+                ->when($filters['sf'] !== '', fn ($query) => $query->where('sales_rows.idsf', $filters['sf']))
+                ->when($filters['iddenom'] !== '', fn ($query) => $query->where('sales_rows.iddenom', $filters['iddenom']));
+        }
+
+        return $source->select('sales_rows.*');
+    }
+
+    private function soldValidationRows(array $filters)
+    {
+        return DB::query()->fromSub($this->soldValidationSource($filters), 'sales_rows')
+            ->select('sales_rows.*')
+            ->selectSub(function ($query) use ($filters) {
+                $query->from('product_tracking_digipos as digipos')
+                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                    ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+                    ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
+                    ->whereColumn('digipos.id_outlet', 'sales_rows.id_outlet')
+                    ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(sales_rows.serial_end AS DECIMAL(24,0))')
+                    ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(sales_rows.serial_start AS DECIMAL(24,0))')
+                    ->selectRaw('COALESCE(SUM(GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(sales_rows.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(sales_rows.serial_start AS DECIMAL(24,0))) + 1, 0)), 0)');
+            }, 'matched_qty');
     }
 
     private function mobileSerialsQuery(array $filters, bool $applyFilters = true)

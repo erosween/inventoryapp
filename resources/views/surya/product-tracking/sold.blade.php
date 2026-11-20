@@ -2,7 +2,7 @@
 
 @section('title', 'Validasi ST')
 @section('active-page', 'product-tracking-sold')
-@section('description', 'Validasi kecocokan SN dan qty antara nota Mobile SURYA dan ST Digipos.')
+@section('description', 'Validasi SN SF Mobile dan form web SF Keluar terhadap ST Digipos.')
 @section('content-class', 'pt-page')
 
 @push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}"><link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}"><link rel="stylesheet" href="{{ asset('vendor/flatpickr/flatpickr.min.css') }}"><link rel="stylesheet" href="{{ asset('css/surya-outlet-date.css') }}?v={{ filemtime(public_path('css/surya-outlet-date.css')) }}">@endpush
@@ -11,7 +11,7 @@
     <section class="pt-card pt-sold-intro">
         <div class="pt-sold-intro-copy">
             <span class="pt-sold-icon"><i class="fas fa-code-compare"></i></span>
-            <div><h2>Ringkasan Validasi ST · {{ $activeTab === 'progress' ? 'SN Progress' : 'SN Approve' }}</h2><p class="pt-subtitle mb-0">{{ $activeTab === 'progress' ? 'Memantau SN dari transaksi Mobile SURYA yang menunggu approval.' : 'Mencocokkan SN transaksi Mobile SURYA yang disetujui dengan hasil upload ST Digipos berdasarkan outlet dan tanggal yang dipilih.' }}</p></div>
+            <div><h2>Ringkasan Validasi ST · {{ $activeTab === 'progress' ? 'SN Progress' : 'SN Approve' }}</h2><p class="pt-subtitle mb-0">Validasi menggabungkan SN SF Mobile dan input form web SF Keluar yang memiliki ID outlet.</p></div>
         </div>
         <div class="pt-sold-stats" aria-label="Ringkasan validasi">
             <div><strong>{{ number_format($summary->matched_outlets) }}</strong><span>outlet sesuai</span></div>
@@ -44,7 +44,7 @@
                 <h2>{{ $heading }}</h2>
                 @php($summaryColumns = [$summaryLevel => $summaryLevel === 'tap' ? 'TAP' : 'Sales Force'])
                 @if($summaryLevel === 'sf') @php($summaryColumns['tap'] = 'TAP') @endif
-                @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Qty nota', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
+                @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Qty sumber', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
                 <div class="pt-table-wrap"><table class="pt-table pt-summary-table">
                     <thead><tr>
                         @foreach($summaryColumns as $column => $label)
@@ -82,7 +82,7 @@
                             <div><span>Total outlet</span><strong>{{ number_format($group->outlet_count) }}</strong></div>
                             <div><span>Outlet sesuai</span><a class="pt-chip good pt-summary-link" href="{{ $matchedUrl }}">{{ number_format($group->matched_outlets) }}</a></div>
                             <div><span>Outlet perlu dicek</span><a class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }} pt-summary-link" href="{{ $mismatchUrl }}">{{ number_format($group->mismatch_outlets) }}</a></div>
-                            <div><span>Qty nota</span><strong>{{ number_format($group->qty) }}</strong></div>
+                            <div><span>Qty sumber</span><strong>{{ number_format($group->qty) }}</strong></div>
                             <div><span>Qty SN cocok</span><strong>{{ number_format($group->matched_qty) }}</strong></div>
                             <div><span>Qty SN belum cocok</span><strong>{{ number_format($group->mismatch_qty) }}</strong></div>
                         </article>
@@ -91,7 +91,7 @@
                     @endforelse
                     @if($summaryLevel === 'tap')
                         @foreach($clusterSummaries as $clusterSummary)
-                            <article class="pt-summary-mobile-card pt-cluster-summary-row {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Qty nota</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty SN cocok</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty SN belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>
+                            <article class="pt-summary-mobile-card pt-cluster-summary-row {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Qty sumber</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty SN cocok</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty SN belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>
                         @endforeach
                     @endif
                 </div>
@@ -100,10 +100,10 @@
         @endif
 
         <section id="sold-outlet-results" class="pt-card">
-            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty nota dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Kembali</a>@endif</div>
+            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->count()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty input SN dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status'])) }}">Kembali</a>@endif</div>
             <div class="pt-table-wrap"><table class="pt-table detail-table">
                 <thead><tr>
-                    @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'qty' => 'Qty nota', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok', 'status' => 'Status'] as $column => $label)
+                    @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'qty' => 'Qty sumber', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok', 'status' => 'Status'] as $column => $label)
                         <th><div class="tf-column-heading"><span>{{ $label }}@if(($tableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($tableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $tableOptions['columns'] ?? []) || array_key_exists($column, $tableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                     @endforeach
                     <th>SN</th>
@@ -121,7 +121,7 @@
                 @forelse($outlets as $outlet)
                     <article class="pt-outlet-mobile-card">
                         <div class="pt-outlet-mobile-head"><div><h3>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</h3><span>{{ $outlet->id_outlet }} · {{ $outlet->tap }}</span></div>@if((int) $outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</div>
-                        <dl><div><dt>Kecamatan</dt><dd>{{ $outlet->kecamatan ?: '–' }}</dd></div><div><dt>Sales Force</dt><dd>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</dd></div><div><dt>Qty nota</dt><dd>{{ number_format($outlet->qty) }}</dd></div><div><dt>Qty SN cocok</dt><dd>{{ number_format($outlet->matched_qty) }}</dd></div><div><dt>Qty SN belum cocok</dt><dd>{{ number_format($outlet->mismatch_qty) }}</dd></div></dl>
+                        <dl><div><dt>Kecamatan</dt><dd>{{ $outlet->kecamatan ?: '–' }}</dd></div><div><dt>Sales Force</dt><dd>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</dd></div><div><dt>Qty sumber</dt><dd>{{ number_format($outlet->qty) }}</dd></div><div><dt>Qty SN cocok</dt><dd>{{ number_format($outlet->matched_qty) }}</dd></div><div><dt>Qty SN belum cocok</dt><dd>{{ number_format($outlet->mismatch_qty) }}</dd></div></dl>
                         <button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button>
                         <div class="pt-outlet-sn-panel pt-outlet-mobile-sn-panel" data-outlet-sn-panel hidden><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div>
                     </article>
@@ -131,7 +131,7 @@
             </div>
         </section>
     @else
-        <section class="pt-card"><p class="pt-empty mb-0">Belum ada SN {{ $activeTab === 'progress' ? 'menunggu approval' : 'dari transaksi yang disetujui' }} pada filter ini.</p></section>
+        <section class="pt-card"><p class="pt-empty mb-0">Belum ada input SN dari SF Mobile atau form web SF Keluar ber-ID outlet pada filter ini.</p></section>
     @endif
     <div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-values-url="{{ route('surya.product-tracking.sold.filter-values') }}" data-selection="{{ json_encode($tableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($tableOptions['exclude'] ?? new \stdClass()) }}">
         <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
@@ -178,12 +178,12 @@
             const data = await response.json();
             let tableWrap = panel.querySelector('.pt-outlet-sn-table-wrap');
             let table = tableWrap?.querySelector('.pt-outlet-sn-table');
-            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Denom</th><th>SN awal</th><th>SN akhir</th><th>Qty</th></tr></thead><tbody></tbody>'; }
+            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Sumber</th><th>Denom</th><th>SN awal</th><th>SN akhir</th><th>Qty</th></tr></thead><tbody></tbody>'; }
             if (!tableWrap) { tableWrap = document.createElement('div'); tableWrap.className = 'pt-outlet-sn-table-wrap'; tableWrap.append(table); }
             const tbody = table.querySelector('tbody');
             for (const item of data.rows) {
                 const row = document.createElement('tr');
-                for (const [index, value] of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 1 || index === 2) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
+                for (const [index, value] of [item.source, item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 2 || index === 3) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
                 tbody.append(row);
             }
             if (!data.rows.length && page === 1) panel.textContent = @json(($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Tidak ada SN cocok untuk outlet ini.' : 'Tidak ada SN yang belum cocok untuk outlet ini.');
@@ -232,7 +232,7 @@
                 for (const row of rows) {
                     const line = document.createElement('p');
                     const formattedDate = new Intl.DateTimeFormat('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}).format(new Date(`${row.date}T00:00:00`));
-                    line.textContent = kind === 'nota' ? `${formattedDate} · ${row.denom}` : `${formattedDate} · ${row.outlet} (${row.id_outlet}) · ${row.product}`;
+                    line.textContent = kind === 'nota' ? `${formattedDate} · ${row.denom} · ${row.source}` : `${formattedDate} · ${row.outlet} (${row.id_outlet}) · ${row.product}`;
                     section.append(line);
                 }
                 output.append(section);
