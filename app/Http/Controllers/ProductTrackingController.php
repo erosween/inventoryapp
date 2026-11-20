@@ -656,8 +656,11 @@ class ProductTrackingController extends MonitaDumaiController
                     $range['serial_end'] = $serial;
                     $range['serial_count']++;
                 } else {
-                    if ($range !== null) $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
-                    $range = ['key' => $key, 'scan_date' => $record->kind === 'scan' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product];
+                    if ($range !== null) {
+                        if ($record->kind === 'scan') $this->assertScanRangeIsNew($range);
+                        $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+                    }
+                    $range = ['key' => $key, 'scan_date' => $record->kind === 'scan' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
                 }
                 $count++;
                 if (count($batch) >= 500) {
@@ -665,7 +668,10 @@ class ProductTrackingController extends MonitaDumaiController
                     $batch = [];
                 }
             }
-            if ($range !== null) $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+            if ($range !== null) {
+                if ($record->kind === 'scan') $this->assertScanRangeIsNew($range);
+                $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
+            }
             if ($batch !== []) DB::table('product_tracking_digipos')->insert($batch);
             if ($count === 0) throw ValidationException::withMessages(['file' => 'File tidak berisi baris transaksi yang dapat diimpor.']);
             if ($record->kind === 'scan' && $detectedScanDate === null) {
@@ -796,5 +802,30 @@ class ProductTrackingController extends MonitaDumaiController
             'product_name' => $range['product_name'] !== '' ? $range['product_name'] : null,
             'created_at' => $now, 'updated_at' => $now,
         ];
+    }
+
+    private function assertScanRangeIsNew(array $range): void
+    {
+        $existing = DB::table('product_tracking_digipos as digipos')
+            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+            ->where('digipos.kind', 'scan')
+            ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->where('digipos.serial_start', '<=', $range['serial_end'])
+            ->where('digipos.serial_end', '>=', $range['serial_start'])
+            ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [strlen($range['serial_start'])])
+            ->orderBy('digipos.serial_start')
+            ->first(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'upload.filename']);
+
+        if (! $existing) return;
+
+        $duplicateStart = strcmp((string) $existing->serial_start, $range['serial_start']) > 0
+            ? (string) $existing->serial_start : $range['serial_start'];
+        $duplicateEnd = strcmp((string) $existing->serial_end, $range['serial_end']) < 0
+            ? (string) $existing->serial_end : $range['serial_end'];
+        $message = "Baris {$range['source_row']}: SN {$duplicateStart}";
+        if ($duplicateStart !== $duplicateEnd) $message .= "–{$duplicateEnd}";
+        $message .= " sudah terdaftar pada upload ST Digipos {$existing->filename}";
+        if ($existing->scan_date) $message .= ' ('.\Carbon\Carbon::parse($existing->scan_date)->format('d/m/Y').')';
+        throw ValidationException::withMessages(['file' => $message.'. Upload dibatalkan; data duplikat tidak disimpan.']);
     }
 }
