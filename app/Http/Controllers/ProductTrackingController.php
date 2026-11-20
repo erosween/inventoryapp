@@ -95,7 +95,10 @@ class ProductTrackingController extends MonitaDumaiController
             ->groupBy('idsf', 'id_outlet');
         $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
             ->selectRaw("idsf AS `key`, COALESCE(MAX(namasf), idsf, ?) AS label, COALESCE(GROUP_CONCAT(DISTINCT tap ORDER BY FIELD(UPPER(tap), 'DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'), UPPER(tap) SEPARATOR ', '), ?) AS tap, COUNT(*) AS outlet_count, SUM(CASE WHEN matched_qty >= qty THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN matched_qty < qty THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(GREATEST(qty - matched_qty, 0)) AS mismatch_qty", ['Tanpa Sales Force', 'Tanpa TAP'])
-            ->groupBy('idsf')->orderByRaw('MAX(namasf COLLATE utf8mb4_unicode_ci)')->orderBy('idsf')->get();
+            ->groupBy('idsf')
+            ->orderByRaw("MIN(FIELD(UPPER(tap), 'DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'))")
+            ->orderByRaw('MAX(namasf COLLATE utf8mb4_unicode_ci)')
+            ->orderBy('idsf')->get();
 
         $tapSummaries = $this->filterSoldSummaries($tapSummaries, 'tap', $tableOptions);
         $sfSummaries = $this->filterSoldSummaries($sfSummaries, 'sf', $tableOptions);
