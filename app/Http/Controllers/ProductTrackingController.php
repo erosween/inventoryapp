@@ -44,7 +44,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
             ->select([
                 'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(NULLIF(CONVERT(sales_force.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, _utf8mb4'' COLLATE utf8mb4_unicode_ci), CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
+                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(CONVERT(sales_force.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
             ])
             ->selectSub(function ($query) use ($filters) {
                 $query->from('product_tracking_digipos as digipos')
@@ -60,7 +60,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), _utf8mb4'Tanpa TAP' COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
@@ -419,7 +419,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
             ->select([
                 'serial.id', 'serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom',
-                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(NULLIF(CONVERT(sales_force.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, _utf8mb4'' COLLATE utf8mb4_unicode_ci), CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
+                'sale.id_outlet', 'sale.idsf', 'outlet.nama_outlet', DB::raw("COALESCE(CONVERT(sales_force.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"), 'outlet.kecamatan', 'sales_force.namasf',
             ])
             ->selectSub(function ($query) use ($filters) {
                 $query->from('product_tracking_digipos as digipos')
@@ -433,7 +433,7 @@ class ProductTrackingController extends MonitaDumaiController
             }, 'matched_qty');
 
         $outletTotals = DB::query()->fromSub($sourceQuery, 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), _utf8mb4'Tanpa TAP' COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(namasf COLLATE utf8mb4_unicode_ci) AS namasf, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         return DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
