@@ -72,6 +72,22 @@ class InputDOController extends Controller
 
         return datatables()
             ->of($query)
+            ->filterColumn('sn_awal', function ($query, $keyword) {
+                $start = "SUBSTRING_INDEX(m.sn, '-', 1)";
+                $end = "CASE WHEN LOCATE('-', m.sn) > 0 THEN SUBSTRING_INDEX(m.sn, '-', -1) ELSE m.sn END";
+                $query->where(function ($search) use ($keyword, $start, $end) {
+                    $search->whereRaw("{$start} LIKE ?", ['%'.$keyword.'%'])
+                        ->orWhereRaw("(? REGEXP '^[0-9]+$' AND CHAR_LENGTH({$start}) = CHAR_LENGTH(?) AND {$start} <= ? AND {$end} >= ?)", [$keyword, $keyword, $keyword, $keyword]);
+                });
+            })
+            ->filterColumn('sn_akhir', function ($query, $keyword) {
+                $start = "SUBSTRING_INDEX(m.sn, '-', 1)";
+                $end = "CASE WHEN LOCATE('-', m.sn) > 0 THEN SUBSTRING_INDEX(m.sn, '-', -1) ELSE m.sn END";
+                $query->where(function ($search) use ($keyword, $start, $end) {
+                    $search->whereRaw("{$end} LIKE ?", ['%'.$keyword.'%'])
+                        ->orWhereRaw("(? REGEXP '^[0-9]+$' AND CHAR_LENGTH({$start}) = CHAR_LENGTH(?) AND {$start} <= ? AND {$end} >= ?)", [$keyword, $keyword, $keyword, $keyword]);
+                });
+            })
             ->addColumn('action', function ($row) {
                 $btnEdit = '
                     <a href="' . url('DO/edit/' . $row->idmasuk) . '" class="btn btn-link text-primary p-0 action-edit-icon" title="Edit" aria-label="Edit">
