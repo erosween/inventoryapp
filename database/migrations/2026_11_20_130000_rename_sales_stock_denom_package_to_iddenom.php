@@ -11,6 +11,9 @@ return new class extends Migration
         if (! Schema::hasColumn('product_tracking_sales_stock_ranges', 'denom_paket')) return;
 
         Schema::table('product_tracking_sales_stock_ranges', function (Blueprint $table) {
+            $table->index('upload_id', 'pt_sales_stock_upload_fk_idx');
+        });
+        Schema::table('product_tracking_sales_stock_ranges', function (Blueprint $table) {
             $table->dropIndex('pt_sales_stock_upload_sf_denom_idx');
             $table->renameColumn('denom_paket', 'iddenom');
         });
