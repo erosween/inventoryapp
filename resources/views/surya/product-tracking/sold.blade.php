@@ -61,6 +61,16 @@
                     @endforeach
                     </tbody>
                 </table></div>
+                @if($summaryLevel === 'tap')
+                    <h3 class="pt-cluster-summary-title">Total per Cluster</h3>
+                    <div class="pt-table-wrap"><table class="pt-table pt-summary-table pt-cluster-summary-table">
+                        <thead><tr><th>Cluster</th>@foreach(array_slice($summaryColumns, 1, null, true) as $label)<th>{{ $label }}</th>@endforeach</tr></thead>
+                        <tbody>@foreach($clusterSummaries as $clusterSummary)
+                            <tr class="{{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><td><strong>{{ $clusterSummary->label }}</strong></td><td>{{ number_format($clusterSummary->outlet_count) }}</td><td>{{ number_format($clusterSummary->matched_outlets) }}</td><td>{{ number_format($clusterSummary->mismatch_outlets) }}</td><td>{{ number_format($clusterSummary->qty) }}</td><td>{{ number_format($clusterSummary->matched_qty) }}</td><td>{{ number_format($clusterSummary->mismatch_qty) }}</td></tr>
+                        @endforeach</tbody>
+                    </table></div>
+                    <div class="pt-summary-mobile pt-cluster-summary-mobile">@foreach($clusterSummaries as $clusterSummary)<article class="pt-summary-mobile-card {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Qty nota</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty sesuai</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>@endforeach</div>
+                @endif
                 <div class="pt-summary-mobile-tools" aria-label="Filter dan urutkan ringkasan">
                     @foreach($summaryColumns as $column => $label)
                         <button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}"><span>{{ $label }}</span><i class="fas fa-filter"></i></button>
@@ -96,12 +106,14 @@
                     @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'qty' => 'Qty nota', 'matched_qty' => 'Qty sesuai', 'mismatch_qty' => 'Qty belum cocok', 'status' => 'Status'] as $column => $label)
                         <th><div class="tf-column-heading"><span>{{ $label }}@if(($tableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($tableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $tableOptions['columns'] ?? []) || array_key_exists($column, $tableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                     @endforeach
+                    <th>SN</th>
                 </tr></thead>
                 <tbody>
                 @forelse($outlets as $outlet)
-                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if($outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td></tr>
+                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if($outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td><td><button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button></td></tr>
+                    <tr class="pt-outlet-sn-row" hidden><td colspan="10"><div class="pt-outlet-sn-panel" data-outlet-sn-panel><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div></td></tr>
                 @empty
-                    <tr><td colspan="9" class="pt-empty">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</td></tr>
+                    <tr><td colspan="10" class="pt-empty">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</td></tr>
                 @endforelse
                 </tbody>
             </table></div>
@@ -119,6 +131,50 @@
     <script src="{{ asset('vendor/flatpickr/flatpickr.min.js') }}" defer></script>
     <script src="{{ asset('vendor/flatpickr/id.js') }}" defer></script>
     <script src="{{ asset('js/surya-sold-date.js') }}?v={{ filemtime(public_path('js/surya-sold-date.js')) }}" defer></script>
+    <script>
+    document.addEventListener('click', async (event) => {
+        const button = event.target.closest('.pt-view-outlet-sn');
+        const moreButton = event.target.closest('.pt-load-more-outlet-sn');
+        if (!button && !moreButton) return;
+        const detailRow = button ? button.closest('tr')?.nextElementSibling : moreButton.closest('.pt-outlet-sn-panel')?.closest('tr');
+        const panel = detailRow?.querySelector('[data-outlet-sn-panel]');
+        if (!panel) return;
+        if (button) {
+            const isOpen = !detailRow.hidden;
+            if (isOpen) { detailRow.hidden = true; button.setAttribute('aria-expanded', 'false'); return; }
+            detailRow.hidden = false;
+            button.setAttribute('aria-expanded', 'true');
+            if (panel.dataset.loaded === 'true') return;
+        }
+        const page = moreButton ? Number(panel.dataset.nextPage || 2) : 1;
+        if (moreButton) { moreButton.disabled = true; moreButton.textContent = 'Memuat…'; }
+        else panel.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat SN…';
+        const outletId = button?.dataset.idOutlet || panel.dataset.idOutlet;
+        panel.dataset.idOutlet = outletId;
+        const params = new URLSearchParams({id_outlet: outletId, date: @json($filters['date']), tab: @json($activeTab), page: String(page)});
+        if (@json($filters['tap'])) params.set('tap', @json($filters['tap']));
+        if (@json($filters['sf'])) params.set('sf', @json($filters['sf']));
+        try {
+            const response = await fetch(@json(route('surya.product-tracking.sold.outlet-serials')) + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
+            if (!response.ok) throw new Error('Gagal memuat SN outlet.');
+            const data = await response.json();
+            let table = panel.querySelector('.pt-outlet-sn-table');
+            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Denom</th><th>SN awal</th><th>SN akhir</th><th>Qty</th></tr></thead><tbody></tbody>'; }
+            const tbody = table.querySelector('tbody');
+            for (const item of data.rows) {
+                const row = document.createElement('tr');
+                for (const value of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)]) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }
+                tbody.append(row);
+            }
+            if (!data.rows.length && page === 1) panel.textContent = 'Tidak ada data SN untuk outlet ini pada tanggal tersebut.';
+            else if (data.rows.length) {
+                panel.replaceChildren(table);
+                if (data.has_more) { const loadMore = document.createElement('button'); loadMore.type = 'button'; loadMore.className = 'pt-button pt-load-more-outlet-sn'; loadMore.textContent = 'Muat 50 rentang berikutnya'; panel.append(loadMore); panel.dataset.nextPage = String(page + 1); }
+            }
+            panel.dataset.loaded = 'true';
+        } catch (error) { if (moreButton) { moreButton.disabled = false; moreButton.textContent = 'Coba muat lagi'; } else panel.textContent = error.message || 'Gagal memuat SN outlet.'; }
+    });
+    </script>
     <script>
     document.querySelector('.pt-sold-filter')?.addEventListener('submit', (event) => {
         const button = event.submitter;

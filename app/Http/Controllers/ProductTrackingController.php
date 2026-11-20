@@ -109,9 +109,12 @@ class ProductTrackingController extends MonitaDumaiController
         };
         $outlets = (clone $tableRows)->orderBy($sortExpression, $tableOptions['direction'] ?? 'asc')->orderBy('outlet_rows.id_outlet')->get();
 
+        $tapOrder = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
         $tapSummaries = DB::query()->fromSub($outletQuery, 'outlets')
             ->selectRaw('tap AS `key`, tap AS label, COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty')
-            ->groupBy('tap')->orderBy('tap')->get();
+            ->whereIn('tap', $tapOrder)->groupBy('tap')->get()
+            ->sortBy(fn ($group) => array_search(strtoupper($group->key), $tapOrder, true))
+            ->values();
 
         $sfTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
             ->selectRaw('idsf, id_outlet, MAX(namasf) AS namasf, MAX(tap) AS tap, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty')
@@ -122,6 +125,32 @@ class ProductTrackingController extends MonitaDumaiController
 
         $tapSummaries = $this->filterSoldSummaries($tapSummaries, 'tap', $tableOptions);
         $sfSummaries = $this->filterSoldSummaries($sfSummaries, 'sf', $tableOptions);
+
+        $clusterSummaries = collect([
+            'Dumai Bengkalis' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+            'Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+        ])->map(function ($clusterTaps, $cluster) use ($tapSummaries) {
+            $groups = $tapSummaries->whereIn('key', $clusterTaps);
+
+            return (object) [
+                'label' => $cluster,
+                'outlet_count' => (int) $groups->sum('outlet_count'),
+                'matched_outlets' => (int) $groups->sum('matched_outlets'),
+                'mismatch_outlets' => (int) $groups->sum('mismatch_outlets'),
+                'qty' => (int) $groups->sum('qty'),
+                'matched_qty' => (int) $groups->sum('matched_qty'),
+                'mismatch_qty' => (int) $groups->sum('mismatch_qty'),
+            ];
+        })->values();
+        $clusterSummaries->push((object) [
+            'label' => 'Grand Total',
+            'outlet_count' => (int) $clusterSummaries->sum('outlet_count'),
+            'matched_outlets' => (int) $clusterSummaries->sum('matched_outlets'),
+            'mismatch_outlets' => (int) $clusterSummaries->sum('mismatch_outlets'),
+            'qty' => (int) $clusterSummaries->sum('qty'),
+            'matched_qty' => (int) $clusterSummaries->sum('matched_qty'),
+            'mismatch_qty' => (int) $clusterSummaries->sum('mismatch_qty'),
+        ]);
 
         $totals = DB::query()->fromSub($outletQuery, 'outlets')->selectRaw('COUNT(*) AS outlet_count, SUM(CASE WHEN mismatch_qty = 0 THEN 1 ELSE 0 END) AS matched_outlets, SUM(CASE WHEN mismatch_qty > 0 THEN 1 ELSE 0 END) AS mismatch_outlets, SUM(qty) AS serial_count, SUM(matched_qty) AS matched_qty, SUM(mismatch_qty) AS mismatch_qty')->first();
         $summary = (object) [
@@ -143,12 +172,41 @@ class ProductTrackingController extends MonitaDumaiController
             'summaryTableLevel' => $summaryTableLevel,
             'summaryTarget' => $summaryTarget,
             'tapSummaries' => $tapSummaries,
+            'clusterSummaries' => $clusterSummaries,
             'sfSummaries' => $sfSummaries,
             'taps' => DB::table('appsdumais')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('tap', $scopes))->whereNotNull('tap')->distinct()->orderBy('tap')->pluck('tap'),
             'sfs' => $this->mobileSerialsQuery($filters, false)->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')->distinct()->orderBy('sales_force.namasf')->get(['sale.idsf', 'sales_force.namasf']),
             'denoms' => $this->mobileSerialsQuery($filters, false)->join('denom as option_denom', 'option_denom.iddenom', '=', 'serial.iddenom')->distinct()->orderBy('option_denom.denom')->get(['serial.iddenom', 'option_denom.denom']),
             'activeTab' => $activeTab,
             'exportLimit' => 500000,
+        ]);
+    }
+
+    public function soldOutletSerials(Request $request)
+    {
+        $filters = $this->soldSerialFilters($request);
+        $data = $request->validate([
+            'id_outlet' => 'required|string|max:50',
+            'page' => 'nullable|integer|min:1|max:10000',
+        ]);
+        $page = (int) ($data['page'] ?? 1);
+        $rows = $this->mobileSerialsQuery($filters)
+            ->where('sale.id_outlet', $data['id_outlet'])
+            ->where('serial.identifier_type', 'sn')
+            ->join('denom as outlet_serial_denom', 'outlet_serial_denom.iddenom', '=', 'serial.iddenom')
+            ->orderBy('outlet_serial_denom.denom')->orderBy('serial.serial_start')
+            ->offset(($page - 1) * 50)->limit(51)
+            ->get(['serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom', 'outlet_serial_denom.denom']);
+
+        return response()->json([
+            'rows' => $rows->take(50)->map(fn ($row) => [
+                'start' => $row->serial_start,
+                'end' => $row->serial_end,
+                'qty' => (int) $row->qty,
+                'denom' => $row->denom ?: $row->iddenom,
+            ])->values(),
+            'has_more' => $rows->count() > 50,
+            'page' => $page,
         ]);
     }
 

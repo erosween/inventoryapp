@@ -40,6 +40,16 @@
 .pt-summary-link:hover,.pt-summary-link:focus-visible { outline:2px solid currentColor; outline-offset:2px; filter:brightness(.92); }
 .pt-summary-mobile{display:none}
 .pt-summary-mobile-tools{display:none}
+.pt-cluster-summary-title{margin:20px 0 10px;color:#344054;font-size:14px;font-weight:850}
+.pt-grand-total-row td{background:#f7f8fb;font-weight:800}
+.pt-cluster-summary-mobile{margin-top:10px}
+.pt-view-outlet-sn{min-height:34px;padding:6px 9px;font-size:11px}
+.pt-outlet-sn-row td{background:#fbfcfe;white-space:normal}
+.pt-outlet-sn-panel{display:grid;gap:10px}
+.pt-outlet-sn-table{width:100%;border-collapse:collapse;font-size:12px}
+.pt-outlet-sn-table th,.pt-outlet-sn-table td{padding:8px 10px;border-bottom:1px solid #e9edf3;text-align:left}
+.pt-outlet-sn-table th{color:#58657b;font-size:10px;text-transform:uppercase}
+.pt-load-more-outlet-sn{justify-self:start;font-size:11px}
 #sold-outlet-results{scroll-margin-top:20px}
 .pt-alert { margin-bottom:16px; padding:12px 14px; border:1px solid #c6ead7; border-radius:10px; background:#effaf4; color:#087443; }
 .pt-alert.error { border-color:#ffd1d7; background:#fff4f5; color:#b4233d; }
