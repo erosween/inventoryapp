@@ -798,10 +798,20 @@ class ProductTrackingController extends MonitaDumaiController
                 }
                 $seenSerials[$serial] = $rowNumber;
                 $soldAtValue = $this->mappedValue($values, $mapping['date_column'] ?? null);
-                $soldAt = $soldAtValue !== '' ? ProductTrackingFile::date($soldAtValue) : null;
-                if ($soldAtValue !== '' && ! $soldAt) throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal tidak dikenali."]);
+                if ($record->kind === 'scan' && $soldAtValue === '') {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal scan wajib diisi dengan format dd-mmm-yyyy, contoh 12-oct-2026."]);
+                }
+                $soldAt = $soldAtValue !== ''
+                    ? ($record->kind === 'scan' ? ProductTrackingFile::scanDate($soldAtValue) : ProductTrackingFile::date($soldAtValue))
+                    : null;
+                if ($soldAtValue !== '' && ! $soldAt) {
+                    $hint = $record->kind === 'scan' ? 'Gunakan format dd-mmm-yyyy, contoh 12-oct-2026.' : 'Format tanggal tidak dikenali.';
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: {$hint}"]);
+                }
                 if ($record->kind === 'scan' && $detectedScanDate === null && $soldAt !== null) {
                     $detectedScanDate = $soldAt;
+                } elseif ($record->kind === 'scan' && $soldAt !== null && $detectedScanDate !== $soldAt) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal scan berbeda dari baris sebelumnya. Satu file upload harus memakai satu tanggal scan yang sama."]);
                 }
                 $sf = mb_substr($this->mappedValue($values, $mapping['sf_column'] ?? null), 0, 150);
                 $product = mb_substr($this->mappedValue($values, $mapping['product_column'] ?? null), 0, 200);

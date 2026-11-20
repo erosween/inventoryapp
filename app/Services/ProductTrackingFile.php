@@ -121,6 +121,18 @@ class ProductTrackingFile
         try { return \Carbon\Carbon::parse($value)->toDateString(); } catch (\Throwable) { return null; }
     }
 
+    public static function scanDate(string $value): ?string
+    {
+        if (! preg_match('/^\d{2}-[A-Za-z]{3}-\d{4}$/', $value)) return null;
+        $normalized = strtolower($value);
+        $normalized = substr($normalized, 0, 3).ucfirst(substr($normalized, 3, 3)).substr($normalized, 6);
+        $date = \DateTime::createFromFormat('!d-M-Y', $normalized);
+        $errors = \DateTime::getLastErrors();
+        if (! $date || ($errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) return null;
+
+        return $date->format('Y-m-d');
+    }
+
     private function load(string $path, bool $readHeaderOnly = false)
     {
         $reader = IOFactory::createReaderForFile($path);
