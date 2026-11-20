@@ -427,12 +427,21 @@ SQL;
             $single = trim((string) ($product['serial_value'] ?? ''));
             $errorKey = "products.{$index}.serial_value";
 
-            if (! in_array($mode, ['single', 'range'], true)) {
+            if (! in_array($mode, ['single', 'range', 'broken'], true)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    "products.{$index}.serial_mode" => 'Pilih input SN satuan atau massal.',
+                    "products.{$index}.serial_mode" => 'Pilih input SN satuan, massal, atau SN pecah.',
                 ]);
             }
-            if ($mode === 'single') {
+            if ($mode === 'broken') {
+                $qty = (int) ($product['qty'] ?? 0);
+                if ($qty < 1 || $qty > 2_000_000) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "products.{$index}.qty" => 'Qty SN pecah harus antara 1 dan 2.000.000.',
+                    ]);
+                }
+                $start = $end = '';
+                $single = '';
+            } elseif ($mode === 'single') {
                 $singlePattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
                 $singleSerials = preg_split('/[\\s,;]+/u', $single, -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 $invalidSerials = array_values(array_filter($singleSerials, fn ($serial) => ! preg_match($singlePattern, $serial)));
@@ -513,11 +522,11 @@ SQL;
             'id_outlet' => 'required',
             'products' => 'nullable|array',
             'products.*.iddenom' => 'required|exists:denom,iddenom',
-            'products.*.qty' => 'required|integer|min:1',
-            'products.*.serial_mode' => 'required|in:single,range',
+            'products.*.qty' => 'required|integer|min:1|max:2000000',
+            'products.*.serial_mode' => 'required|in:single,range,broken',
             'products.*.identifier_type' => 'nullable|in:sn',
-            'products.*.serial_start' => 'required|digits_between:1,24',
-            'products.*.serial_end' => 'required|digits_between:1,24',
+            'products.*.serial_start' => 'nullable|digits_between:1,24',
+            'products.*.serial_end' => 'nullable|digits_between:1,24',
             'consignment_enabled' => 'nullable|boolean',
             'consignments' => 'nullable|array|max:20',
             'consignments.*.iddenom' => 'required_with:consignments|string|distinct|exists:denom,iddenom',

@@ -202,9 +202,9 @@ public function masuksfproses(Request $request)
         'idsf' => 'required|exists:idsf,idsf',
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
-        'items.*.qty' => 'nullable|integer|min:1',
-        'items.*.serial_mode' => 'required|in:range',
-        'items.*.sn_start' => 'required|string|max:24',
+        'items.*.qty' => 'required|integer|min:1|max:2000000',
+        'items.*.serial_mode' => 'required|in:range,broken',
+        'items.*.sn_start' => 'nullable|string|max:24',
         'items.*.sn_end' => 'nullable|string|max:24',
     ]);
 
@@ -222,6 +222,12 @@ public function masuksfproses(Request $request)
                 || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
                 || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
                 || str_starts_with($denomId, 'SP'));
+        if ($item['serial_mode'] === 'broken') {
+            $item['sn_start'] = '';
+            $item['sn_end'] = '';
+            $item['sn'] = '';
+            continue;
+        }
         $start = (string) ($item['sn_start'] ?? '');
         $end = (string) ($item['sn_end'] ?? '');
         $pattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
@@ -257,6 +263,7 @@ public function masuksfproses(Request $request)
         for ($rightIndex = $leftIndex + 1; $rightIndex < count($validated['items']); $rightIndex++) {
             $left = $validated['items'][$leftIndex];
             $right = $validated['items'][$rightIndex];
+            if ($left['serial_mode'] === 'broken' || $right['serial_mode'] === 'broken') continue;
             $overlaps = strlen($left['sn_start']) === strlen($right['sn_start'])
                 && $left['sn_start'] <= $right['sn_end']
                 && $left['sn_end'] >= $right['sn_start'];

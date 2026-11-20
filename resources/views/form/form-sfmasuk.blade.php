@@ -146,6 +146,7 @@ $(document).ready(function() {
             const $row = $(this), denom = $row.find('.bulk-denom').val();
             const $qty = $row.find('.bulk-qty'), $qtyView = $row.find('.sf-in-qty');
             const $hint = $row.find('.sf-in-serial-hint'), $error = $row.find('.sf-in-error');
+            const mode = $row.find('.bulk-serial-mode').val() || 'range';
             const start = String($row.find('.bulk-sn-start').val() || '');
             let end = String($row.find('.bulk-sn-end').val() || '');
             const stock = parseInt(tapStockData[denom], 10) || 0;
@@ -160,7 +161,10 @@ $(document).ready(function() {
             const snLength = starterPack ? 16 : 12;
             $row.find('.bulk-sn-start,.bulk-sn-end').attr('maxlength',snLength);
             const expected = starterPack ? 'SN perdana tepat 16 digit, diawali 0.' : 'SN voucher tepat 12 digit.';
-            if (!start) message = `SN awal wajib diisi. ${expected}`;
+            if (mode === 'broken') {
+                qty = parseInt($row.find('.bulk-manual-qty').val(), 10) || 0;
+                if (qty < 1 || qty > 2000000) message = 'Qty SN pecah harus antara 1 dan 2.000.000.';
+            } else if (!start) message = `SN awal wajib diisi. ${expected}`;
             else {
                 if (!end) end = start;
                 qty = rangeQty(start, end, starterPack);
@@ -168,18 +172,20 @@ $(document).ready(function() {
             }
             if (message) {
                 serialError = true;
-                $row.find('.bulk-sn-start,.bulk-sn-end').addClass('is-invalid').attr('aria-invalid','true');
+                if (mode !== 'broken') $row.find('.bulk-sn-start,.bulk-sn-end').addClass('is-invalid').attr('aria-invalid','true');
                 $hint.text(message).addClass('is-invalid');
             } else {
                 $qty.val(qty); $qtyView.text(qty.toLocaleString('id-ID')).removeClass('is-empty');
-                $hint.text($row.find('.bulk-sn-end').val() ? `${qty.toLocaleString('id-ID')} SN terhitung dari rentang.` : '1 pcs terhitung dari SN awal.').addClass('is-valid');
-                const serial = { start, end, denom };
-                if (serialRanges.some(existing => rangesOverlap(existing, serial))) {
-                    duplicateError = true;
-                    $hint.text('Rentang SN ini bertabrakan dengan baris lain.').removeClass('is-valid').addClass('is-invalid');
-                    $row.find('.bulk-sn-start,.bulk-sn-end').addClass('is-invalid').attr('aria-invalid','true');
+                $hint.text(mode === 'broken' ? 'SN tidak dicatat satu per satu.' : ($row.find('.bulk-sn-end').val() ? `${qty.toLocaleString('id-ID')} SN terhitung dari rentang.` : '1 pcs terhitung dari SN awal.')).addClass('is-valid');
+                if (mode !== 'broken') {
+                    const serial = { start, end, denom };
+                    if (serialRanges.some(existing => rangesOverlap(existing, serial))) {
+                        duplicateError = true;
+                        $hint.text('Rentang SN ini bertabrakan dengan baris lain.').removeClass('is-valid').addClass('is-invalid');
+                        $row.find('.bulk-sn-start,.bulk-sn-end').addClass('is-invalid').attr('aria-invalid','true');
+                    }
+                    serialRanges.push(serial);
                 }
-                serialRanges.push(serial);
             }
 
             requested[denom] = (requested[denom] || 0) + qty;
@@ -201,8 +207,8 @@ $(document).ready(function() {
         const row = $(`<div class="sf-in-item">
             <div class="sf-in-product"><label class="sf-in-item-label">Produk / Denom</label><select name="items[${index}][iddenom]" class="form-control bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${options}</select></div>
             <div class="sf-in-stock-wrap"><label class="sf-in-item-label">Stok TAP</label><div class="sf-in-stock">—</div></div>
-            <div class="sf-in-qty-wrap"><label class="sf-in-item-label">Qty otomatis</label><div class="sf-in-qty is-empty">—</div><input type="hidden" name="items[${index}][qty]" class="bulk-qty"><input type="hidden" name="items[${index}][serial_mode]" value="range"><div class="sf-in-error" role="alert"></div></div>
-            <div class="sf-in-serial"><label class="sf-in-item-label">Nomor Seri</label><div class="sf-in-serial-fields"><div><label class="sr-only" for="sn-start-${index}">SN awal</label><input type="text" id="sn-start-${index}" name="items[${index}][sn_start]" class="form-control bulk-sn-start" inputmode="numeric" autocomplete="off" placeholder="SN awal" required></div><span class="sf-in-separator" aria-hidden="true">–</span><div><label class="sr-only" for="sn-end-${index}">SN akhir (opsional)</label><input type="text" id="sn-end-${index}" name="items[${index}][sn_end]" class="form-control bulk-sn-end" inputmode="numeric" autocomplete="off" placeholder="SN akhir · kosong untuk satuan"></div></div><small class="sf-in-serial-hint" role="status" aria-live="polite">SN awal wajib. Isi SN akhir untuk rentang; kosongkan untuk 1 pcs.</small></div>
+            <div class="sf-in-qty-wrap"><label class="sf-in-item-label qty-label">Qty otomatis</label><div class="sf-in-qty is-empty">—</div><input type="hidden" name="items[${index}][qty]" class="bulk-qty"><input type="hidden" name="items[${index}][serial_mode]" class="bulk-serial-mode" value="range"><input type="number" class="form-control bulk-manual-qty d-none" min="1" max="2000000" placeholder="Qty" inputmode="numeric"><div class="sf-in-error" role="alert"></div></div>
+            <div class="sf-in-serial"><label class="sf-in-item-label">Cara input</label><div class="serial-mode-choices mb-2"><button type="button" class="btn btn-sm btn-outline-primary active" data-mode="range">Massal</button> <button type="button" class="btn btn-sm btn-outline-primary" data-mode="broken">SN Pecah</button></div><div class="serial-fields"><div class="sf-in-serial-fields"><div><label class="sr-only" for="sn-start-${index}">SN awal</label><input type="text" id="sn-start-${index}" name="items[${index}][sn_start]" class="form-control bulk-sn-start" inputmode="numeric" autocomplete="off" placeholder="SN awal" required></div><span class="sf-in-separator" aria-hidden="true">–</span><div><label class="sr-only" for="sn-end-${index}">SN akhir (opsional)</label><input type="text" id="sn-end-${index}" name="items[${index}][sn_end]" class="form-control bulk-sn-end" inputmode="numeric" autocomplete="off" placeholder="SN akhir · kosong untuk satuan"></div></div></div><small class="sf-in-serial-hint" role="status" aria-live="polite">SN awal wajib. Isi SN akhir untuk rentang; kosongkan untuk 1 pcs.</small></div>
             <div class="sf-in-remove"><button type="button" class="remove-bulk-row" aria-label="Hapus baris">×</button></div>
         </div>`);
         $('#bulk-rows').append(row);
@@ -235,6 +241,16 @@ $(document).ready(function() {
     $('#add-bulk-row').on('click', addRow);
     $('#bulk-rows').on('click','.remove-bulk-row',function() {
         if ($('#bulk-rows .sf-in-item').length > 1) { $(this).closest('.sf-in-item').remove(); validateRows(); }
+    }).on('click','.serial-mode-choices button',function() {
+        const $row=$(this).closest('.sf-in-item'), mode=$(this).data('mode');
+        $row.find('.bulk-serial-mode').val(mode);
+        $row.find('.serial-mode-choices button').removeClass('active'); $(this).addClass('active');
+        $row.find('.serial-fields').toggleClass('d-none',mode==='broken');
+        $row.find('.bulk-sn-start').prop('required',mode!=='broken');
+        $row.find('.bulk-manual-qty').toggleClass('d-none',mode!=='broken');
+        $row.find('.sf-in-qty').toggleClass('d-none',mode==='broken');
+        $row.find('.qty-label').text(mode==='broken'?'Qty SN Pecah':'Qty otomatis');
+        validateRows();
     }).on('change','.bulk-denom',function() {
         const stock = parseInt(tapStockData[$(this).val()],10) || 0;
         const $row = $(this).closest('.sf-in-item');
@@ -247,6 +263,10 @@ $(document).ready(function() {
         this.value = String(this.value || '').replace(/\D/g,'').slice(0,maxDigits);
         validateRows();
     }).on('change','.bulk-sn-start,.bulk-sn-end',validateRows);
+    $('#bulk-rows').on('input','.bulk-manual-qty',function(){
+        if ((parseInt(this.value,10)||0)>2000000) this.value='2000000';
+        validateRows();
+    });
 
     let submitting = false;
     $('#formSfMasuk').on('submit',function(e) {

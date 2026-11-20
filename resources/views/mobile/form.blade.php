@@ -838,19 +838,20 @@
                                 </div>
                             </div>
                             <div class="row align-items-center">
-                                <div class="col-4"><label class="mb-0 fw-bold text-muted" style="font-size: 0.7rem;">Quantity</label></div>
+                                <div class="col-4"><label class="mb-0 fw-bold text-muted quantity-label" style="font-size: 0.7rem;">Quantity</label></div>
                                 <div class="col-8">
                                     <input type="number" name="products[${rowId}][qty]" class="form-control form-control-sm border-0 bg-light rounded-3 px-3 py-2 fw-bold text-dark qty-input" 
-                                           placeholder="Otomatis dari SN" value="${qty}" min="1" style="font-size: 0.85rem;" inputmode="numeric" readonly>
+                                           placeholder="Otomatis dari SN" value="${qty}" min="1" max="2000000" style="font-size: 0.85rem;" inputmode="numeric" readonly>
                                     <div class="stock-warning mt-2 d-none rounded-3 px-3 py-2 fw-bold" style="font-size: 0.68rem; background: rgba(239, 68, 68, 0.08); color: #dc2626;"></div>
                                 </div>
                             </div>
                             <div class="serial-input-area mt-3 ${id ? '' : 'd-none'}">
                                 <div class="serial-section-heading"><span class="serial-section-icon"><i class="fas fa-barcode"></i></span><div><strong>Serial Number</strong><small>Masukkan SN untuk menghitung jumlah otomatis.</small></div></div>
-                                <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${serial.serial_mode !== 'range' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${serial.serial_mode !== 'range' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${serial.serial_mode !== 'range'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button></div></div>
+                                <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${(serial.serial_mode || 'single') === 'single' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option><option value="broken" ${serial.serial_mode === 'broken' ? 'selected' : ''}>SN Pecah</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${(serial.serial_mode || 'single') === 'single' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${(serial.serial_mode || 'single') === 'single'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'broken' ? 'active' : ''}" data-serial-mode="broken" aria-pressed="${serial.serial_mode === 'broken'}"><i class="fas fa-scissors" aria-hidden="true"></i><span>SN Pecah</span></button></div></div>
                                 <input type="hidden" name="products[${rowId}][identifier_type]" class="identifier-type-select" value="sn">
-                                <div class="serial-single-wrap ${serial.serial_mode === 'range' ? 'd-none' : ''}"><label class="serial-field-label">SN satuan</label><textarea name="products[${rowId}][serial_value]" class="form-control form-control-sm serial-value-input" inputmode="numeric" autocomplete="off" rows="3" placeholder="Masukkan beberapa SN, satu per baris">${escapeHtml(serial.serial_value || '')}</textarea><small class="serial-qty-hint serial-single-hint text-muted"></small></div>
+                                <div class="serial-single-wrap ${(serial.serial_mode || 'single') !== 'single' ? 'd-none' : ''}"><label class="serial-field-label">SN satuan</label><textarea name="products[${rowId}][serial_value]" class="form-control form-control-sm serial-value-input" inputmode="numeric" autocomplete="off" rows="3" placeholder="Masukkan beberapa SN, satu per baris">${escapeHtml(serial.serial_value || '')}</textarea><small class="serial-qty-hint serial-single-hint text-muted"></small></div>
                                 <div class="serial-range-wrap ${serial.serial_mode === 'range' ? '' : 'd-none'}"><label class="serial-field-label">Rentang SN</label><div class="serial-range-fields"><div class="serial-range-field"><label>SN awal</label><input name="products[${rowId}][serial_start]" class="form-control form-control-sm serial-start-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_start || '')}" placeholder="SN awal"></div><span class="serial-range-separator">SAMPAI</span><div class="serial-range-field"><label>SN akhir</label><input name="products[${rowId}][serial_end]" class="form-control form-control-sm serial-end-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_end || '')}" placeholder="SN akhir"></div></div><small class="serial-qty-hint serial-range-hint text-muted">Masukkan SN awal dan SN akhir; Qty dihitung otomatis.</small></div>
+                                <div class="serial-broken-wrap ${serial.serial_mode === 'broken' ? '' : 'd-none'}"><small class="serial-qty-hint">SN pecah: masukkan jumlah unit pada kolom Quantity. Nomor SN tidak dicatat satu per satu.</small></div>
                             </div>
                         </div>
                     </div>
@@ -870,6 +871,9 @@
             row.find('.identifier-type-wrap').toggleClass('d-none', mode === 'range');
             row.find('.serial-single-wrap').toggleClass('d-none', mode !== 'single');
             row.find('.serial-range-wrap').toggleClass('d-none', mode !== 'range');
+            row.find('.serial-broken-wrap').toggleClass('d-none', mode !== 'broken');
+            row.find('.qty-input').prop('readonly', mode !== 'broken').attr('placeholder', mode === 'broken' ? 'Masukkan qty SN pecah' : 'Otomatis dari SN');
+            row.find('.quantity-label').text(mode === 'broken' ? 'Qty SN Pecah' : 'Quantity');
             const numberOption = row.find('.identifier-type-select option[value="number"]');
             numberOption.prop('disabled', !isStarterPack);
             if (!isStarterPack || mode === 'range') {
@@ -920,7 +924,9 @@
             const isStarterPack = Boolean(starterPackMap[id]);
             const identifierType = row.find('.identifier-type-select').val() || 'sn';
             let qty = 0;
-            if (mode === 'single') {
+            if (mode === 'broken') {
+                qty = parseInt(row.find('.qty-input').val(), 10) || 0;
+            } else if (mode === 'single') {
                 const value = row.find('.serial-value-input').val() || '';
                 const serials = value.trim() ? value.trim().split(/[\s,;]+/).filter(Boolean) : [];
                 const pattern = identifierType === 'number' ? /^08\d{7,10}$/ : (isStarterPack ? /^0\d{15}$/ : /^\d{12}$/);
@@ -966,7 +972,7 @@
                     }
                 }
             }
-            row.find('.qty-input').val(qty || '');
+            if (mode !== 'broken') row.find('.qty-input').val(qty || '');
             if (mode === 'range') {
                 const start = row.find('.serial-start-input').val() || '';
                 const end = row.find('.serial-end-input').val() || '';
@@ -1080,7 +1086,15 @@
             const row = $(this).closest('.glass-card');
             row.find('.identifier-type-select').val(String($(this).data('identifier-type'))).trigger('change');
         });
-        $(document).on('input', '.qty-input', function() { recalcTotal(); validateStock($(this).closest('.glass-card')); saveFormState(); });
+        $(document).on('input', '.qty-input', function() {
+            const input = this;
+            const row = $(this).closest('.glass-card');
+            if (row.find('.serial-mode-select').val() === 'broken') {
+                const qty = parseInt(input.value, 10) || 0;
+                if (qty > 2000000) input.value = '2000000';
+            }
+            recalcTotal(); validateStock(row); saveFormState();
+        });
         $('#add-item-btn').click(() => { addProductRow(); saveFormState(); });
         $(document).on('click', '.remove-row', function() { $(this).closest('.glass-card').fadeOut(200, function() { $(this).remove(); recalcTotal(); saveFormState(); }); });
         
