@@ -44,7 +44,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         // Aggregate at the database so validation stays responsive for large sales periods.
         $outletTotals = DB::query()->fromSub(clone $sourceQuery, 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(outlet_sf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, COALESCE(MAX(NULLIF(TRIM(outlet_sf), '') COLLATE utf8mb4_unicode_ci), MAX(NULLIF(TRIM(namasf), '') COLLATE utf8mb4_unicode_ci)) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         $outletQuery = DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kategori_outlet, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
@@ -92,7 +92,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->values();
 
         $sfTotals = DB::query()->fromSub($outletQuery, 'outlet_rows')
-            ->whereRaw("EXISTS (SELECT 1 FROM idsf AS registered_sf WHERE registered_sf.idsf LIKE 'SF%' AND CONVERT(registered_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(outlet_rows.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci)")
+            ->whereRaw("outlet_rows.id_outlet NOT LIKE 'NON-DIGIPOS-%' AND EXISTS (SELECT 1 FROM idsf AS registered_sf WHERE registered_sf.idsf LIKE 'SF%' AND CONVERT(registered_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(outlet_rows.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci)")
             ->selectRaw('namasf, id_outlet, MAX(tap COLLATE utf8mb4_unicode_ci) AS tap, SUM(qty) AS qty, SUM(matched_qty) AS matched_qty')
             ->groupBy('namasf', 'id_outlet');
         $sfSummaries = DB::query()->fromSub($sfTotals, 'sf_totals')
@@ -401,7 +401,7 @@ class ProductTrackingController extends MonitaDumaiController
     private function soldOutletRows(array $filters)
     {
         $outletTotals = DB::query()->fromSub($this->soldValidationRows($filters), 'rows')
-            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, MAX(outlet_sf COLLATE utf8mb4_unicode_ci) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
+            ->selectRaw("id_outlet, MAX(nama_outlet COLLATE utf8mb4_unicode_ci) AS nama_outlet, COALESCE(MAX(tap COLLATE utf8mb4_unicode_ci), CONVERT(0x54616e706120544150 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap, MAX(idsf COLLATE utf8mb4_unicode_ci) AS idsf, COALESCE(MAX(NULLIF(TRIM(outlet_sf), '') COLLATE utf8mb4_unicode_ci), MAX(NULLIF(TRIM(namasf), '') COLLATE utf8mb4_unicode_ci)) AS namasf, COALESCE(MAX(NULLIF(TRIM(kategori_outlet), '') COLLATE utf8mb4_unicode_ci), CONVERT(0x526567756c6572 USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS kategori_outlet, MAX(kecamatan COLLATE utf8mb4_unicode_ci) AS kecamatan, SUM(qty) AS qty, SUM(LEAST(qty, matched_qty)) AS matched_qty")
             ->groupBy('id_outlet');
         return DB::query()->fromSub($outletTotals, 'outlet_totals')
             ->selectRaw('id_outlet, nama_outlet, tap, idsf, namasf, kategori_outlet, kecamatan, qty, matched_qty, GREATEST(qty - matched_qty, 0) AS mismatch_qty');
@@ -415,7 +415,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         $query = DB::query()->fromSub($source, 'summary_source');
         if ($level === 'sf') {
-            $query->whereRaw("EXISTS (SELECT 1 FROM idsf AS registered_sf WHERE registered_sf.idsf LIKE 'SF%' AND CONVERT(registered_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(summary_source.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci)");
+            $query->whereRaw("summary_source.id_outlet NOT LIKE 'NON-DIGIPOS-%' AND EXISTS (SELECT 1 FROM idsf AS registered_sf WHERE registered_sf.idsf LIKE 'SF%' AND CONVERT(registered_sf.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(summary_source.namasf USING utf8mb4) COLLATE utf8mb4_unicode_ci)");
         }
 
         return $query
@@ -510,13 +510,19 @@ class ProductTrackingController extends MonitaDumaiController
         $formOutletCategory = $hasOutletCategory
             ? DB::raw('CONVERT(form_outlet.kategori_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kategori_outlet')
             : DB::raw("_utf8mb4'Reguler' COLLATE utf8mb4_unicode_ci AS kategori_outlet");
+        $latestNonDigiposVisit = DB::table('surya_visits')
+            ->selectRaw('id_outlet, MAX(id) AS id')
+            ->where('visit_type', 'non_digipos')
+            ->groupBy('id_outlet');
         $mobile = $this->mobileSerialsQuery($filters, false)
-            ->where('serial.identifier_type', 'sn');
+            ->where('serial.identifier_type', 'sn')
+            ->leftJoinSub(clone $latestNonDigiposVisit, 'latest_non_digipos_visit', fn ($join) => $join->on('latest_non_digipos_visit.id_outlet', '=', 'sale.id_outlet'))
+            ->leftJoin('surya_visits as non_digipos_visit', 'non_digipos_visit.id', '=', 'latest_non_digipos_visit.id');
         $mobile->select([
             'serial.id as source_id', 'serial.iddenom', 'serial.serial_start', 'serial.serial_end', 'serial.qty',
             'sale.tgl as sale_date', 'sale.id_outlet', 'sale.idsf',
             DB::raw("COALESCE(CONVERT(owner_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
-            DB::raw('CONVERT(outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
+            DB::raw('COALESCE(CONVERT(outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(non_digipos_visit.outlet_name USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS nama_outlet'),
             DB::raw('CONVERT(outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
             $mobileOutletCategory,
             DB::raw('CONVERT(outlet.sf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS outlet_sf'),
@@ -530,6 +536,8 @@ class ProductTrackingController extends MonitaDumaiController
             ->join('denom as form_denom', 'form_denom.iddenom', '=', 'form_sale.iddenom')
             ->leftJoin('appsdumais as form_outlet', 'form_outlet.id_outlet', '=', 'form_sale.id_outlet')
             ->leftJoin('idsf as form_sf', 'form_sf.idsf', '=', 'form_sale.idsf')
+            ->leftJoinSub(clone $latestNonDigiposVisit, 'latest_non_digipos_visit', fn ($join) => $join->on('latest_non_digipos_visit.id_outlet', '=', 'form_sale.id_outlet'))
+            ->leftJoin('surya_visits as non_digipos_visit', 'non_digipos_visit.id', '=', 'latest_non_digipos_visit.id')
             ->whereBetween('form_sale.tgl', [$filters['date_from'], $filters['date_to']])
             ->whereNotNull('form_sale.id_outlet')->whereRaw("TRIM(form_sale.id_outlet) <> ''")
             ->whereRaw("COALESCE(form_sale.tambahanket, '') NOT LIKE 'Mobile Approval ID: %'")
@@ -543,7 +551,7 @@ class ProductTrackingController extends MonitaDumaiController
                 DB::raw("COALESCE(NULLIF(CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci, _utf8mb4'' COLLATE utf8mb4_unicode_ci), CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS serial_end"),
                 'form_sale.qty', 'form_sale.tgl as sale_date', 'form_sale.id_outlet', 'form_sale.idsf',
                 DB::raw("COALESCE(CONVERT(form_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(form_outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
-                DB::raw('CONVERT(form_outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci AS nama_outlet'),
+                DB::raw('COALESCE(CONVERT(form_outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(non_digipos_visit.outlet_name USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS nama_outlet'),
                 DB::raw('CONVERT(form_outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
                 $formOutletCategory,
                 DB::raw('CONVERT(form_outlet.sf USING utf8mb4) COLLATE utf8mb4_unicode_ci AS outlet_sf'),
