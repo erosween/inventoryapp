@@ -33,8 +33,8 @@
         url.searchParams.delete('page');
         navigatePage(url.toString());
     }
-    menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => sort(key,button.dataset.sortDirection)));
-    menu.querySelector('[data-sort-clear]').addEventListener('click', () => sort(key,null));
+    menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => { button.disabled = true; button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; sort(key,button.dataset.sortDirection); }));
+    menu.querySelector('[data-sort-clear]').addEventListener('click', event => { const button = event.currentTarget; button.disabled = true; button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; sort(key,null); });
     let resizeObserver;
     cleanup = () => { events.abort(); pending?.abort(); clearTimeout(timer); resizeObserver?.disconnect(); };
     function close() {
@@ -92,7 +92,8 @@
         url.searchParams.set('column',key);
         url.searchParams.set('q',search.value);
         url.searchParams.set('value_page',String(page));
-        message.textContent = 'Memuat nilai…'; more.hidden = true;
+        message.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat nilai…'; more.hidden = true;
+        if (append) { more.disabled = true; more.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; }
         if (!append) { values = []; draw(); }
         try {
             const response = await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});
@@ -106,6 +107,8 @@
         } catch (error) {
             if (error.name !== 'AbortError') message.textContent = error.message || 'Koneksi terputus.';
             positionMenu();
+        } finally {
+            if (append) { more.disabled = false; more.textContent = 'Muat lainnya'; }
         }
     }
     function navigate(clear = false) {
@@ -122,14 +125,14 @@
         if (summary) url.hash = `summary-${summaryLevel}`;
         if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? includePrefix : excludePrefix}[${key}][]`,value);
         url.searchParams.delete('page');
-        apply.disabled = true; apply.textContent = 'Memuat…';
+        apply.disabled = true; apply.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…';
         navigatePage(url.toString());
     }
     document.addEventListener('taskforce:navigation-end', () => {
         apply.textContent = 'Terapkan';
         apply.disabled = mode === 'include' && chosen?.size === 0;
     }, {signal:events.signal});
-    document.querySelectorAll('.tf-column-filter').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('.tf-column-filter').forEach(button => button.addEventListener('click', async () => {
         if (!menu.hidden && trigger === button) { close(); return; }
         close(); trigger = button; key = button.dataset.column;
         includes = JSON.parse(button.dataset.selection || menu.dataset.selection || '{}');
@@ -142,13 +145,17 @@
         positionMenu(true);
         // On touch screens the keyboard should open only when search is tapped.
         if (!(navigator.maxTouchPoints > 0 || window.matchMedia('(pointer:coarse)').matches)) search.focus({preventScroll:true});
-        load();
+        const original = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span>';
+        await load();
+        if (button.isConnected) { button.disabled = false; button.innerHTML = original; }
     }));
     search.addEventListener('input', () => { clearTimeout(timer); pending?.abort(); timer = setTimeout(() => { page = 1; load(); },250); });
     more.addEventListener('click', () => { page++; load(true); });
     menu.querySelector('[data-filter-all]').addEventListener('click', () => { mode = 'exclude'; chosen.clear(); draw(); });
     menu.querySelector('[data-filter-none]').addEventListener('click', () => { mode = 'include'; chosen.clear(); draw(); });
-    menu.querySelector('[data-filter-reset]').addEventListener('click', () => navigate(true));
+    menu.querySelector('[data-filter-reset]').addEventListener('click', event => { const button = event.currentTarget; button.disabled = true; button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; navigate(true); });
     apply.addEventListener('click', () => navigate());
     menu.querySelector('[data-filter-close]').addEventListener('click', () => { close(); trigger?.focus(); });
     document.addEventListener('click', event => { if (!menu.hidden && !menu.contains(event.target) && !trigger?.contains(event.target)) close(); },{signal:events.signal});

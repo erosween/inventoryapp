@@ -154,15 +154,19 @@
         const detailRow = button ? button.closest('tr')?.nextElementSibling : moreButton.closest('.pt-outlet-sn-panel')?.closest('tr');
         const panel = mobileCard?.querySelector('[data-outlet-sn-panel]') || detailRow?.querySelector('[data-outlet-sn-panel]') || moreButton?.closest('[data-outlet-sn-panel]');
         if (!panel) return;
+        const buttonOriginal = button?.innerHTML;
         if (button) {
             const isOpen = mobileCard ? !panel.hidden : !detailRow.hidden;
             if (isOpen) { if (mobileCard) panel.hidden = true; else detailRow.hidden = true; button.setAttribute('aria-expanded', 'false'); return; }
             if (mobileCard) panel.hidden = false; else detailRow.hidden = false;
             button.setAttribute('aria-expanded', 'true');
             if (panel.dataset.loaded === 'true') return;
+            button.disabled = true;
+            button.classList.add('is-loading');
+            button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span><span>Memuat SN…</span>';
         }
         const page = moreButton ? Number(panel.dataset.nextPage || 2) : 1;
-        if (moreButton) { moreButton.disabled = true; moreButton.textContent = 'Memuat…'; }
+        if (moreButton) { moreButton.disabled = true; moreButton.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; }
         else panel.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat SN…';
         const outletId = button?.dataset.idOutlet || panel.dataset.idOutlet;
         panel.dataset.idOutlet = outletId;
@@ -197,6 +201,7 @@
             }
             panel.dataset.loaded = 'true';
         } catch (error) { if (moreButton) { moreButton.disabled = false; moreButton.textContent = 'Coba muat lagi'; } else panel.textContent = error.message || 'Gagal memuat SN outlet.'; }
+        finally { if (button) { button.disabled = false; button.classList.remove('is-loading'); button.innerHTML = buttonOriginal; } }
     });
     document.addEventListener('submit', async (event) => {
         const form = event.target.closest('.pt-outlet-sn-search');
@@ -249,12 +254,29 @@
             window.setTimeout(() => { button.textContent = button.dataset.originalText; button.classList.remove('is-copied'); button.setAttribute('aria-label', `Salin SN ${sn}`); }, 1400);
         } catch { button.setAttribute('aria-label', `Gagal menyalin SN ${sn}`); }
     });
+    document.addEventListener('click', (event) => {
+        const link = event.target.closest('.pt-page a[href]');
+        if (!link || link.target === '_blank' || link.hasAttribute('download') || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const target = new URL(link.href, location.href);
+        if (target.origin !== location.origin || link.classList.contains('pt-navigating')) return;
+        link.classList.add('pt-navigating');
+        link.setAttribute('aria-busy', 'true');
+        const spinner = document.createElement('span'); spinner.className = 'pt-spinner pt-link-spinner'; spinner.setAttribute('aria-hidden', 'true');
+        link.prepend(spinner);
+    });
     </script>
     <script>
     document.querySelector('.pt-sold-filter')?.addEventListener('submit', (event) => {
         const button = event.submitter;
-        if (!button?.classList.contains('pt-apply-filter')) return;
         const form = event.currentTarget;
+        if (button?.formAction?.includes('/download')) {
+            const original = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Menyiapkan CSV…';
+            window.setTimeout(() => { button.disabled = false; button.innerHTML = original; }, 4000);
+            return;
+        }
+        if (!button?.classList.contains('pt-apply-filter')) return;
         if (form.dataset.submitting === 'true') { event.preventDefault(); return; }
         form.dataset.submitting = 'true';
         form.setAttribute('aria-busy', 'true');
