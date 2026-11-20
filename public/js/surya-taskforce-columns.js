@@ -25,6 +25,7 @@
         const url = new URL(location.href);
         if (trigger?.dataset.summaryTable) {
             url.searchParams.set('summary_table',trigger.dataset.summaryTable);
+            url.hash = `summary-${trigger.dataset.summaryTable}`;
             if (direction) { url.searchParams.set('summary_sort',column); url.searchParams.set('summary_direction',direction); }
             else { url.searchParams.delete('summary_sort'); url.searchParams.delete('summary_direction'); }
         } else if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
@@ -118,6 +119,7 @@
             if (name.startsWith(`${includePrefix}[${key}]`) || name.startsWith(`${excludePrefix}[${key}]`)) url.searchParams.delete(name);
         }
         if (summary) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
+        if (summary) url.hash = `summary-${summaryLevel}`;
         if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? includePrefix : excludePrefix}[${key}][]`,value);
         url.searchParams.delete('page');
         apply.disabled = true; apply.textContent = 'Memuat…';

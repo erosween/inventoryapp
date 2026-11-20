@@ -39,9 +39,9 @@
     @if($summary->serial_count > 0)
         @if(empty($summaryTarget['summary_status']))
         @foreach([['Ringkasan per TAP', $tapSummaries], ['Ringkasan per Sales Force', $sfSummaries]] as [$heading, $groups])
-            <section class="pt-card pt-summary-section">
+            @php($summaryLevel = str_contains($heading, 'TAP') ? 'tap' : 'sf')
+            <section id="summary-{{ $summaryLevel }}" class="pt-card pt-summary-section">
                 <h2>{{ $heading }}</h2>
-                @php($summaryLevel = str_contains($heading, 'TAP') ? 'tap' : 'sf')
                 @php($summaryColumns = [$summaryLevel => $summaryLevel === 'tap' ? 'TAP' : 'Sales Force'])
                 @if($summaryLevel === 'sf') @php($summaryColumns['tap'] = 'TAP') @endif
                 @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Qty nota', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
@@ -59,18 +59,13 @@
                         @php($mismatchUrl = route('surya.product-tracking.sold', array_merge(request()->query(), ['summary_level' => $summaryLevel, 'summary_key' => $groupKey, 'summary_status' => 'mismatch'])) )
                         <tr><td>{{ $group->label }}</td>@if($summaryLevel === 'sf')<td>{{ $group->tap ?: 'Tanpa TAP' }}</td>@endif<td>{{ number_format($group->outlet_count) }}</td><td><a class="pt-chip good pt-summary-link" href="{{ $matchedUrl }}" aria-label="Lihat {{ $group->matched_outlets }} outlet sesuai untuk {{ $group->label }}">{{ number_format($group->matched_outlets) }}</a></td><td><a class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }} pt-summary-link" href="{{ $mismatchUrl }}" aria-label="Lihat {{ $group->mismatch_outlets }} outlet perlu dicek untuk {{ $group->label }}">{{ number_format($group->mismatch_outlets) }}</a></td><td>{{ number_format($group->qty) }}</td><td>{{ number_format($group->matched_qty) }}</td><td>{{ number_format($group->mismatch_qty) }}</td></tr>
                     @endforeach
+                    @if($summaryLevel === 'tap')
+                        @foreach($clusterSummaries as $clusterSummary)
+                            <tr class="pt-cluster-summary-row {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><td><strong>{{ $clusterSummary->label }}</strong></td><td>{{ number_format($clusterSummary->outlet_count) }}</td><td>{{ number_format($clusterSummary->matched_outlets) }}</td><td>{{ number_format($clusterSummary->mismatch_outlets) }}</td><td>{{ number_format($clusterSummary->qty) }}</td><td>{{ number_format($clusterSummary->matched_qty) }}</td><td>{{ number_format($clusterSummary->mismatch_qty) }}</td></tr>
+                        @endforeach
+                    @endif
                     </tbody>
                 </table></div>
-                @if($summaryLevel === 'tap')
-                    <h3 class="pt-cluster-summary-title">Total per Cluster</h3>
-                    <div class="pt-table-wrap"><table class="pt-table pt-summary-table pt-cluster-summary-table">
-                        <thead><tr><th>Cluster</th>@foreach(array_slice($summaryColumns, 1, null, true) as $label)<th>{{ $label }}</th>@endforeach</tr></thead>
-                        <tbody>@foreach($clusterSummaries as $clusterSummary)
-                            <tr class="{{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><td><strong>{{ $clusterSummary->label }}</strong></td><td>{{ number_format($clusterSummary->outlet_count) }}</td><td>{{ number_format($clusterSummary->matched_outlets) }}</td><td>{{ number_format($clusterSummary->mismatch_outlets) }}</td><td>{{ number_format($clusterSummary->qty) }}</td><td>{{ number_format($clusterSummary->matched_qty) }}</td><td>{{ number_format($clusterSummary->mismatch_qty) }}</td></tr>
-                        @endforeach</tbody>
-                    </table></div>
-                    <div class="pt-summary-mobile pt-cluster-summary-mobile">@foreach($clusterSummaries as $clusterSummary)<article class="pt-summary-mobile-card {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Qty nota</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty SN cocok</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty SN belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>@endforeach</div>
-                @endif
                 <div class="pt-summary-mobile-tools" aria-label="Filter dan urutkan ringkasan">
                     @foreach($summaryColumns as $column => $label)
                         <button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}"><span>{{ $label }}</span><i class="fas fa-filter"></i></button>
@@ -94,6 +89,11 @@
                     @empty
                         <p class="pt-empty mb-0">Tidak ada ringkasan yang cocok dengan filter kolom ini.</p>
                     @endforelse
+                    @if($summaryLevel === 'tap')
+                        @foreach($clusterSummaries as $clusterSummary)
+                            <article class="pt-summary-mobile-card pt-cluster-summary-row {{ $clusterSummary->label === 'Grand Total' ? 'pt-grand-total-row' : '' }}"><h3>{{ $clusterSummary->label }}</h3><div><span>Total outlet</span><strong>{{ number_format($clusterSummary->outlet_count) }}</strong></div><div><span>Outlet sesuai</span><strong>{{ number_format($clusterSummary->matched_outlets) }}</strong></div><div><span>Outlet perlu dicek</span><strong>{{ number_format($clusterSummary->mismatch_outlets) }}</strong></div><div><span>Qty nota</span><strong>{{ number_format($clusterSummary->qty) }}</strong></div><div><span>Qty SN cocok</span><strong>{{ number_format($clusterSummary->matched_qty) }}</strong></div><div><span>Qty SN belum cocok</span><strong>{{ number_format($clusterSummary->mismatch_qty) }}</strong></div></article>
+                        @endforeach
+                    @endif
                 </div>
             </section>
         @endforeach

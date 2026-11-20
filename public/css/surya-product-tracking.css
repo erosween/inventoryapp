@@ -43,6 +43,8 @@
 .pt-cluster-summary-title{margin:20px 0 10px;color:#344054;font-size:14px;font-weight:850}
 .pt-grand-total-row td{background:#f7f8fb;font-weight:800}
 .pt-cluster-summary-mobile{margin-top:10px}
+.pt-summary-section{scroll-margin-top:120px}
+.pt-cluster-summary-row td{border-top:2px solid #dce3ed;background:#f7f8fb}
 .pt-view-outlet-sn{min-height:34px;padding:6px 9px;font-size:11px}
 .pt-outlet-sn-row td{background:#fbfcfe;white-space:normal}
 .pt-outlet-sn-panel{display:grid;gap:10px}
