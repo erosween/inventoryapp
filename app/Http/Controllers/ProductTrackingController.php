@@ -441,6 +441,95 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
     }
 
+    public function salesStock()
+    {
+        abort_unless(Schema::hasTable('product_tracking_sales_stock_uploads'), 503, 'Fitur upload stok SN Sales belum diaktifkan. Jalankan migrasi terbaru terlebih dahulu.');
+        return view('surya.product-tracking.sales-stock', [
+            'uploads' => DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get(),
+        ]);
+    }
+
+    public function salesStockTemplate()
+    {
+        $this->requireEditor();
+        $headers = ['SFCODE', 'TAP', 'CLUSTER', 'DENOM PAKET', 'SN AWAL', 'SN AKHIR', 'QTY'];
+        return response(implode(',', $headers)."\r\n", 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename=template-stok-sn-sales.csv',
+        ]);
+    }
+
+    public function uploadSalesStock(Request $request, ProductTrackingFile $reader)
+    {
+        $this->requireEditor();
+        $data = $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:102400']);
+        try {
+            $headers = $reader->headers($data['file']);
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw ValidationException::withMessages(['file' => 'File tidak bisa dibaca. Pastikan baris pertama berisi header template.']);
+        }
+        $expected = ['SFCODE', 'TAP', 'CLUSTER', 'DENOM PAKET', 'SN AWAL', 'SN AKHIR', 'QTY'];
+        $normalized = array_map(fn ($header) => mb_strtoupper(preg_replace('/\\s+/', ' ', trim(preg_replace('/^\\xEF\\xBB\\xBF/', '', (string) $header)))), array_values($headers));
+        if ($normalized !== $expected || count($headers) !== count($expected)) {
+            throw ValidationException::withMessages(['file' => 'Header harus berurutan persis: '.implode(' | ', $expected).'. DENOM PAKET adalah satu kolom.']);
+        }
+
+        $rows = [];
+        $intervals = [];
+        $temporaryPath = $data['file']->storeAs('product-tracking/sales-stock-pending', (string) Str::uuid().'.'.$data['file']->getClientOriginalExtension(), 'local');
+        try {
+            foreach ($reader->rows(Storage::disk('local')->path($temporaryPath), $headers) as $rowNumber => $values) {
+                $row = array_map(fn ($value) => trim((string) $value), array_values($values));
+                if (count(array_filter($row, fn ($value) => $value !== '')) === 0) continue;
+                [$sfcode, $tap, $cluster, $denom, $start, $end, $qtyRaw] = array_pad($row, 7, '');
+                if (in_array('', [$sfcode, $tap, $cluster, $denom, $start, $end, $qtyRaw], true)) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: semua kolom wajib diisi."]);
+                }
+                if (! preg_match('/^\\d{12}$|^0\\d{15}$/', $start) || ! preg_match('/^\\d{12}$|^0\\d{15}$/', $end) || strlen($start) !== strlen($end)) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: SN harus 12 digit untuk PV atau 16 digit diawali 0 untuk SA; panjang SN awal dan akhir harus sama."]);
+                }
+                if (strcmp($end, $start) < 0) throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: SN akhir harus sama dengan atau lebih besar dari SN awal."]);
+                if (! preg_match('/^\\d+$/', $qtyRaw) || (int) $qtyRaw < 1 || (int) $qtyRaw > 2000000) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: QTY harus bilangan bulat antara 1 dan 2.000.000."]);
+                }
+                $qty = (int) $qtyRaw;
+                if ((int) $end - (int) $start + 1 !== $qty) throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: QTY harus sama dengan jumlah SN dalam rentang."]);
+                $group = $sfcode."\x1f".strlen($start);
+                $intervals[$group][] = ['start' => $start, 'end' => $end, 'row' => $rowNumber];
+                $rows[] = ['sfcode' => $sfcode, 'tap' => $tap, 'cluster' => $cluster, 'denom_paket' => $denom, 'serial_start' => $start, 'serial_end' => $end, 'qty' => $qty];
+            }
+        } finally {
+            Storage::disk('local')->delete($temporaryPath);
+        }
+        if ($rows === []) throw ValidationException::withMessages(['file' => 'File tidak berisi data stok SN.']);
+        foreach ($intervals as $ranges) {
+            usort($ranges, fn ($a, $b) => strcmp($a['start'], $b['start']));
+            $previous = null;
+            foreach ($ranges as $range) {
+                if ($previous !== null && strcmp($range['start'], $previous['end']) <= 0) {
+                    throw ValidationException::withMessages(['file' => "Rentang SN duplikat/bertumpuk pada baris {$previous['row']} dan {$range['row']} untuk SFCODE yang sama."]);
+                }
+                $previous = $range;
+            }
+        }
+
+        DB::transaction(function () use ($data, $rows) {
+            $now = now();
+            $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
+                'filename' => mb_substr(basename($data['file']->getClientOriginalName()), 0, 255),
+                'row_count' => count($rows), 'username' => auth()->user()->username,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+            foreach (array_chunk($rows, 500) as $chunk) {
+                $chunk = array_map(fn ($row) => $row + ['upload_id' => $uploadId, 'created_at' => $now, 'updated_at' => $now], $chunk);
+                DB::table('product_tracking_sales_stock_ranges')->insert($chunk);
+            }
+        });
+
+        return redirect()->route('surya.product-tracking.sales-stock')->with('success', number_format(count($rows)).' baris stok SN Sales berhasil diunggah.');
+    }
+
     public function stageImport(Request $request, ProductTrackingFile $reader)
     {
         $this->requireEditor();

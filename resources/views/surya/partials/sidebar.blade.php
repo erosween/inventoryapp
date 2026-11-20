@@ -30,6 +30,7 @@
             <a href="{{ route('surya.product-tracking.sold') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-sold' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-file-circle-check"></i><span>VALIDASI ST</span></a>
             <a href="{{ route('surya.product-tracking.imports', ['kind'=>'warehouse']) }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-warehouse' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-warehouse"></i><span>WAREHOUSE DIGIPOS</span></a>
             <a href="{{ route('surya.product-tracking.imports', ['kind'=>'scan']) }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-scan' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-barcode"></i><span>UPLOAD ST DIGIPOS</span></a>
+            <a href="{{ route('surya.product-tracking.sales-stock') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-sales-stock' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-boxes-stacked"></i><span>UPLOAD STOK SN SALES</span></a>
             <a href="{{ route('surya.product-tracking.report') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-report' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-code-compare"></i><span>REKONSILIASI</span></a>
         </details>
         <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
