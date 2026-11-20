@@ -22,8 +22,8 @@
     </section>
 
     <nav class="pt-sold-tabs" aria-label="Kategori SN">
-        <a class="{{ $activeTab === 'approve' ? 'active' : '' }}" href="{{ route('surya.product-tracking.sold', array_merge(request()->query(), ['tab' => 'approve'])) }}"><i class="fas fa-circle-check"></i> SN Approve</a>
         <a class="{{ $activeTab === 'progress' ? 'active' : '' }}" href="{{ route('surya.product-tracking.sold', array_merge(request()->query(), ['tab' => 'progress'])) }}"><i class="fas fa-hourglass-half"></i> SN Progress</a>
+        <a class="{{ $activeTab === 'approve' ? 'active' : '' }}" href="{{ route('surya.product-tracking.sold', array_merge(request()->query(), ['tab' => 'approve'])) }}"><i class="fas fa-circle-check"></i> SN Approve</a>
     </nav>
 
     <form method="get" action="{{ route('surya.product-tracking.sold') }}" class="pt-card pt-grid pt-sold-filter">

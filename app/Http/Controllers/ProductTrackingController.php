@@ -406,7 +406,7 @@ class ProductTrackingController extends MonitaDumaiController
             'sf' => $data['sf'] ?? '',
             'iddenom' => $data['iddenom'] ?? '',
             'identifier_type' => 'sn',
-            'tab' => $data['tab'] ?? 'approve',
+            'tab' => $data['tab'] ?? 'progress',
         ];
     }
 
