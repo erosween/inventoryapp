@@ -106,14 +106,14 @@
                     @foreach(['nama_outlet' => 'Outlet', 'id_outlet' => 'ID Outlet', 'kecamatan' => 'Kecamatan', 'tap' => 'TAP', 'namasf' => 'Sales Force', 'qty' => 'Qty nota', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok', 'status' => 'Status'] as $column => $label)
                         <th><div class="tf-column-heading"><span>{{ $label }}@if(($tableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($tableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $tableOptions['columns'] ?? []) || array_key_exists($column, $tableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                     @endforeach
-                    <th>SN</th>
+                    @if(($summaryTarget['summary_status'] ?? '') !== 'matched')<th>SN</th>@endif
                 </tr></thead>
                 <tbody>
                 @forelse($outlets as $outlet)
-                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if((int) $outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td><td><button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button></td></tr>
-                    <tr class="pt-outlet-sn-row" hidden><td colspan="10"><div class="pt-outlet-sn-panel" data-outlet-sn-panel><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div></td></tr>
+                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if((int) $outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td>@if(($summaryTarget['summary_status'] ?? '') !== 'matched')<td><button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button></td>@endif</tr>
+                    @if(($summaryTarget['summary_status'] ?? '') !== 'matched')<tr class="pt-outlet-sn-row" hidden><td colspan="10"><div class="pt-outlet-sn-panel" data-outlet-sn-panel><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div></td></tr>@endif
                 @empty
-                    <tr><td colspan="10" class="pt-empty">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</td></tr>
+                    <tr><td colspan="{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 9 : 10 }}" class="pt-empty">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</td></tr>
                 @endforelse
                 </tbody>
             </table></div>
