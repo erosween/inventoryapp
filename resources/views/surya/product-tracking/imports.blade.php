@@ -46,10 +46,10 @@
             </div>
             @if($dailyTotals->hasPages())
                 <nav class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi halaman total SN">
-                    <span class="pt-muted">Menampilkan {{ $dailyTotals->firstItem() }}–{{ $dailyTotals->lastItem() }} dari {{ $dailyTotals->total() }} tanggal</span>
+                    <span class="pt-muted">10 tanggal per halaman · Halaman {{ $dailyTotals->currentPage() }}</span>
                     <div class="d-flex align-items-center" style="gap:8px">
                         @if($dailyTotals->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $dailyTotals->previousPageUrl() }}">Sebelumnya</a>@endif
-                        <span class="pt-muted">{{ $dailyTotals->currentPage() }} / {{ $dailyTotals->lastPage() }}</span>
+                        <span class="pt-muted">Halaman {{ $dailyTotals->currentPage() }}</span>
                         @if($dailyTotals->hasMorePages())<a class="pt-button" href="{{ $dailyTotals->nextPageUrl() }}">Berikutnya</a>@else<span class="pt-button" aria-disabled="true">Berikutnya</span>@endif
                     </div>
                 </nav>
