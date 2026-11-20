@@ -439,22 +439,28 @@ class ProductTrackingController extends MonitaDumaiController
         $outletLookup = DB::table('appsdumais')
             ->select('id_outlet', DB::raw('MAX(tap) AS tap'), DB::raw('MAX(cluster) AS cluster'))
             ->groupBy('id_outlet');
-        $isSaSql = "(CHAR_LENGTH(d.serial_start) = 16 AND LEFT(d.serial_start, 1) = '0')";
-        $isPvSql = "(CHAR_LENGTH(d.serial_start) = 12)";
-        $dailyTotals = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
+        $regionSql = "CASE WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') THEN 'rokan_hilir' WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') THEN 'dumai_bengkalis' WHEN UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN 'dumai_bengkalis' WHEN UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'rokan_hilir' ELSE NULL END";
+        $productTypeSql = "CASE WHEN CHAR_LENGTH(d.serial_start) = 16 AND LEFT(d.serial_start, 1) = '0' THEN 'sa' WHEN CHAR_LENGTH(d.serial_start) = 12 THEN 'pv' ELSE 'other' END";
+        $dailyGroups = DB::table('product_tracking_digipos as d')
                 ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
                 ->leftJoinSub($outletLookup, 'o', 'o.id_outlet', '=', 'd.id_outlet')
                 ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
                 ->whereNotNull('d.scan_date')
                 ->select('d.scan_date')
-                ->selectRaw("SUM(CASE WHEN ({$isSaSql}) AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('ROKAN HILIR','CLUSTER ROHIL') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'))) THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_sa_qty")
-                ->selectRaw("SUM(CASE WHEN {$isPvSql} AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('ROKAN HILIR','CLUSTER ROHIL') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING'))) THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
-                ->selectRaw("SUM(CASE WHEN ({$isSaSql}) AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('DUMAI BENGKALIS','CLUSTER DUMAI') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'))) THEN d.serial_count ELSE 0 END) AS rokan_hilir_sa_qty")
-                ->selectRaw("SUM(CASE WHEN {$isPvSql} AND (UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') OR (UPPER(TRIM(COALESCE(o.cluster,''))) NOT IN ('DUMAI BENGKALIS','CLUSTER DUMAI') AND UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'))) THEN d.serial_count ELSE 0 END) AS rokan_hilir_pv_qty")
-                ->selectRaw("SUM(CASE WHEN ({$isSaSql}) THEN d.serial_count ELSE 0 END) AS total_sa_qty")
-                ->selectRaw("SUM(CASE WHEN {$isPvSql} THEN d.serial_count ELSE 0 END) AS total_pv_qty")
-                ->selectRaw('SUM(d.serial_count) AS total_qty')
-                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->simplePaginate(10) : collect();
+                ->selectRaw("{$regionSql} AS region")
+                ->selectRaw("{$productTypeSql} AS product_type")
+                ->selectRaw('SUM(d.serial_count) AS qty')
+                ->groupBy('d.scan_date', DB::raw($regionSql), DB::raw($productTypeSql));
+        $dailyTotals = $kind === 'scan' ? DB::query()->fromSub($dailyGroups, 'daily_group')
+                ->select('scan_date')
+                ->selectRaw("SUM(CASE WHEN region = 'dumai_bengkalis' AND product_type = 'pv' THEN qty ELSE 0 END) AS dumai_bengkalis_pv_qty")
+                ->selectRaw("SUM(CASE WHEN region = 'dumai_bengkalis' AND product_type = 'sa' THEN qty ELSE 0 END) AS dumai_bengkalis_sa_qty")
+                ->selectRaw("SUM(CASE WHEN region = 'rokan_hilir' AND product_type = 'pv' THEN qty ELSE 0 END) AS rokan_hilir_pv_qty")
+                ->selectRaw("SUM(CASE WHEN region = 'rokan_hilir' AND product_type = 'sa' THEN qty ELSE 0 END) AS rokan_hilir_sa_qty")
+                ->selectRaw("SUM(CASE WHEN product_type = 'pv' THEN qty ELSE 0 END) AS total_pv_qty")
+                ->selectRaw("SUM(CASE WHEN product_type = 'sa' THEN qty ELSE 0 END) AS total_sa_qty")
+                ->selectRaw('SUM(qty) AS total_qty')
+                ->groupBy('scan_date')->orderByDesc('scan_date')->simplePaginate(10) : collect();
 
         return view('surya.product-tracking.imports', [
             'kind' => $kind,
