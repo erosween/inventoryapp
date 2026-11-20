@@ -243,13 +243,13 @@ class ProductTrackingController extends MonitaDumaiController
 
         $digipos = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+            ->leftJoin('appsdumais as scan_outlet', 'scan_outlet.id_outlet', '=', 'digipos.id_outlet')
             ->where('upload.kind', 'scan')->where('upload.status', 'complete')
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-            ->where('digipos.id_outlet', $data['id_outlet'])
             ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
             ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
             ->orderByDesc('digipos.scan_date')->limit(20)
-            ->get(['digipos.scan_date', 'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name']);
+            ->get(['digipos.scan_date', 'digipos.id_outlet', 'scan_outlet.nama_outlet', 'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name']);
 
         return response()->json([
             'sn' => $sn,
@@ -262,6 +262,8 @@ class ProductTrackingController extends MonitaDumaiController
             ])->values(),
             'digipos' => $digipos->map(fn ($row) => [
                 'date' => $row->scan_date,
+                'id_outlet' => $row->id_outlet,
+                'outlet' => $row->nama_outlet ?: 'Nama outlet tidak tersedia',
                 'start' => $row->serial_start,
                 'end' => $row->serial_end,
                 'product' => $row->product_name ?: '—',

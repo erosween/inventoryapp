@@ -209,7 +209,7 @@
                 if (!rows.length) { const empty = document.createElement('p'); empty.textContent = 'Tidak ditemukan.'; section.append(empty); }
                 for (const row of rows) {
                     const line = document.createElement('p');
-                    line.textContent = kind === 'nota' ? `${row.date} · ${row.denom} · SN ${row.start}–${row.end} · Qty ${new Intl.NumberFormat('id-ID').format(row.qty)}` : `${row.date} · ${row.product} · SN ${row.start}–${row.end}`;
+                    line.textContent = kind === 'nota' ? `${row.date} · ${row.denom} · SN ${row.start}–${row.end} · Qty ${new Intl.NumberFormat('id-ID').format(row.qty)}` : `${row.date} · ${row.outlet} (${row.id_outlet}) · ${row.product} · SN ${row.start}–${row.end}`;
                     section.append(line);
                 }
                 output.append(section);
