@@ -93,7 +93,7 @@
                                                             <th>Denom</th>
                                                             <th width="130">Stok</th>
                                                             <th width="130">Qty</th>
-                                                            <th>SN</th>
+                                                            <th style="min-width:360px">Identitas SN</th>
                                                             <th width="50"></th>
                                                         </tr>
                                                     </thead>
@@ -128,170 +128,51 @@
 
 @push('scripts')
     <script>
-        $(document).ready(function() {
-
-            $('.select2').each(function() {
-                $(this).select2({
-                    placeholder: 'Pilih / Cari…',
-                    allowClear: true,
-                    width: '100%',
-                    dropdownParent: $(this).closest('.card-body')
-                });
-            });
-
-            // autofocus search
-            $(document).on('select2:open', () => {
-                setTimeout(function() {
-                    document.querySelector('.select2-search__field')?.focus();
-                }, 50);
-            });
-
-        });
-
-        let currentTapStock = 0;
-        let tapStockData = {}; // Cache data stok TAP pengirim
-
-        function loadTapStock() {
-            const iddenom = $('select[name="iddenom"]').val();
-
-            if (!iddenom) {
-                currentTapStock = 0;
-                $('#stok_tap_info').val('');
-                return;
-            }
-
-            // Ambil dari cache lokal (cepat)
-            currentTapStock = parseInt(tapStockData[iddenom]) || 0;
-
-            if (currentTapStock <= 0) {
-                $('#stok_tap_info').val('Stok TAP habis');
-                $('#stok_tap_warning').removeClass('d-none');
-            } else {
-                $('#stok_tap_info').val(currentTapStock + ' pcs');
-                $('#stok_tap_warning').addClass('d-none');
-            }
-            
-            // Re-validate qty
-            validateQty();
-        }
-
-        $('select[name="pengirim"]').on('change', function() {
-            const idtap = $(this).val();
-            
-            tapStockData = {}; // Clear cache
-            $('#stok_tap_info').val('');
-            $('#add-bulk-row').prop('disabled', true);
-            $('select[name="iddenom"], .bulk-denom').prop('disabled', true).val(null).trigger('change');
-            if ($('#input_mode').val() === 'bulk') {
-                $('#bulk-rows').empty();
-            }
-
-            if (!idtap) {
-                if ($('#input_mode').val() === 'bulk') addBulkRow();
-                return;
-            }
-
-            // Bulk load TAP sender stock
-            $.post('{{ route('ajax.get-all-stock-tap-keluar') }}', {
-                idtap: idtap,
-                _token: '{{ csrf_token() }}'
-            }).done(res => {
-                tapStockData = res || {};
-                const bulk = $('#input_mode').val() === 'bulk';
-                $('select[name="iddenom"]').prop('disabled', bulk);
-                if (bulk) {
-                    addBulkRow();
-                    $('#add-bulk-row').prop('disabled', false);
-                } else {
-                    refreshBulkDenomOptions();
-                }
-                loadTapStock();
-            }).fail(() => {
-                tapStockData = {};
-                if ($('#input_mode').val() === 'bulk') {
-                    addBulkRow();
-                    $('.bulk-denom').prop('disabled', true).trigger('change.select2');
-                } else {
-                    refreshBulkDenomOptions();
-                }
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Denom gagal dimuat',
-                    text: 'Data stok TAP pengirim tidak dapat diambil. Silakan pilih pengirim kembali.'
-                });
-            });
-        });
-
-        $('select[name="iddenom"]').on('change', loadTapStock);
-
-        function validateQty() {
-            const qty = parseInt($('input[name="qty"]').val()) || 0;
-
-            if (qty > currentTapStock || currentTapStock <= 0) {
-                $('input[name="qty"]').addClass('is-invalid');
-                $('#stok_tap_warning').removeClass('d-none');
-                $('#submitBtn').prop('disabled', true);
-            } else {
-                $('input[name="qty"]').removeClass('is-invalid');
-                $('#stok_tap_warning').addClass('d-none');
-                $('#submitBtn').prop('disabled', false);
-            }
-        }
-
-        $('input[name="qty"]').on('input', validateQty);
-
-        // 🔒 BLOCK submit if qty > stock (belt-and-suspenders)
-        $('#formKeluarTap').on('submit', function(e) {
-            if ($('#input_mode').val() === 'bulk') {
-                let valid = true;
-                const requested = {};
-                $('#bulk-rows tr').each(function() {
-                    const denom = $(this).find('.bulk-denom').val();
-                    const qty = parseInt($(this).find('.bulk-qty').val()) || 0;
-                    if (!denom || qty < 1) {
-                        valid = false;
-                        return;
-                    }
-                    requested[denom] = (requested[denom] || 0) + qty;
-                });
-                Object.entries(requested).forEach(([denom, qty]) => {
-                    if (qty > (parseInt(tapStockData[denom]) || 0)) valid = false;
-                });
-                if (!valid) {
-                    e.preventDefault();
-                    Swal.fire({ icon: 'error', title: 'Periksa Daftar Denom', text: 'Pastikan denom, qty, SN, dan stok setiap baris valid.' });
-                    return false;
-                }
-                if ($(this).data('submitting')) {
-                    e.preventDefault();
-                    return false;
-                }
-                $(this).data('submitting', true);
-                $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...');
-                return true;
-            }
-            const qty = parseInt($('#qty').val()) || 0;
-            if (qty > currentTapStock || currentTapStock <= 0) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Stok Tidak Cukup',
-                    text: 'Quantity (' + qty + ') melebihi stok TAP (' + currentTapStock + ')'
-                });
-                return false;
-            }
-        });
-
-        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom])->values());
+        const bulkDenoms = @json($denom->map(fn($d) => ['id' => $d->iddenom, 'name' => $d->denom, 'product' => $d->product, 'product_group' => $d->product_group, 'kategori_inject' => $d->kategori_inject, 'group_name' => $d->group_name])->values());
         let bulkIndex = 0;
+        let tapStockData = {};
+
+        $('.select2').select2({placeholder:'Pilih / Cari…',allowClear:true,width:'100%',dropdownParent:$('.card')});
+        function isSa(id) {
+            const d = bulkDenoms.find(x => String(x.id) === String(id));
+            if (!d) return false;
+            const product = String(d.product || '').trim().toUpperCase();
+            if (product === 'PV' || product === 'SA') return product === 'SA';
+            return ['SA','SP'].includes(String(d.product_group || '').trim().toUpperCase()) || String(d.kategori_inject || '').trim().toUpperCase() === 'SA' || String(d.group_name || '').trim().toUpperCase() === 'SA' || String(d.id).toUpperCase().startsWith('SP');
+        }
+        function qtyFor(start, end, sa) {
+            const re = sa ? /^0\d{15}$/ : /^\d{12}$/;
+            if (!re.test(start) || !re.test(end)) return 0;
+            const n = BigInt(end) - BigInt(start) + 1n;
+            return n > 0n && n <= 2000000n ? Number(n) : 0;
+        }
+        function validateRows() {
+            const requested = {}; let valid = Boolean($('select[name="pengirim"]').val()) && Boolean($('select[name="penerima"]').val()) && $('#bulk-rows tr').length > 0;
+            $('#bulk-rows tr').each(function() {
+                const $r=$(this), denom=$r.find('.bulk-denom').val(), mode=$r.find('.bulk-serial-mode').val();
+                const start=String($r.find('.bulk-sn-start').val()||''), rawEnd=String($r.find('.bulk-sn-end').val()||'');
+                let qty=0;
+                if (mode==='broken') qty=parseInt($r.find('.bulk-manual-qty').val(),10)||0;
+                else qty=qtyFor(start, rawEnd||start, isSa(denom));
+                $r.find('.bulk-qty').val(qty||'');
+                $r.find('.bulk-qty-view').text(qty ? qty.toLocaleString('id-ID') : '—');
+                if (!denom || qty<1) valid=false;
+                requested[denom]=(requested[denom]||0)+qty;
+                if (qty > (parseInt(tapStockData[denom],10)||0)) valid=false;
+            });
+            Object.entries(requested).forEach(([d,q])=>{if(q>(parseInt(tapStockData[d],10)||0))valid=false;});
+            $('#submitBtn').prop('disabled',!valid);
+            return valid;
+        }
+        $('select[name="pengirim"]').on('change', function() {
+            tapStockData={}; $('#bulk-rows').empty(); $('#add-bulk-row').prop('disabled',true);
+            const idtap=$(this).val(); if(!idtap) return;
+            $.post('{{ route('ajax.get-all-stock-tap-keluar') }}',{idtap,_token:'{{ csrf_token() }}'}).done(res=>{tapStockData=res||{};addBulkRow();$('#add-bulk-row').prop('disabled',false);validateRows();}).fail(()=>Swal.fire({icon:'error',title:'Stok gagal dimuat',text:'Silakan pilih kembali TAP pengirim.'}));
+        });
+        $('select[name="penerima"]').on('change',validateRows);
 
         function initBulkDenomSelect(select) {
-            select.select2({
-                placeholder: 'Pilih / cari denom',
-                allowClear: true,
-                width: '100%',
-                dropdownParent: $(document.body)
-            });
+            select.select2({placeholder:'Pilih / cari denom',allowClear:true,width:'100%',dropdownParent:$('.card')});
         }
 
         function refreshBulkDenomOptions(target) {
@@ -335,34 +216,27 @@
                 <tr>
                     <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option></select></td>
                     <td class="bulk-stock text-right align-middle">-</td>
-                    <td><input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-qty" min="1" required></td>
-                    <td><input type="text" name="items[${index}][sn]" class="form-control form-control-sm" required></td>
+                    <td><span class="bulk-qty-view">—</span><input type="hidden" name="items[${index}][qty]" class="bulk-qty"><input type="hidden" name="items[${index}][serial_mode]" class="bulk-serial-mode" value="range"><input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-manual-qty d-none" min="1" max="2000000" placeholder="Qty" disabled></td>
+                    <td><div class="btn-group btn-group-sm mb-1 serial-mode-choices"><button type="button" class="btn btn-outline-primary active" data-mode="range">Massal</button><button type="button" class="btn btn-outline-primary" data-mode="broken">SN Pecah</button></div><div class="serial-range d-flex align-items-center"><input type="text" name="items[${index}][sn_start]" class="form-control form-control-sm bulk-sn-start" inputmode="numeric" placeholder="SN awal"><span class="px-1">–</span><input type="text" name="items[${index}][sn_end]" class="form-control form-control-sm bulk-sn-end" inputmode="numeric" placeholder="SN akhir"></div></td>
                     <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row">×</button></td>
                 </tr>`);
             $('#bulk-rows').append(row);
             refreshBulkDenomOptions(row.find('.bulk-denom'));
         }
 
-        $('#input_mode').on('change', function() {
-            const bulk = this.value === 'bulk';
-            $('.single-entry').toggleClass('d-none', bulk).find(':input').prop('disabled', bulk);
-            $('#bulk-entry').toggleClass('d-none', !bulk).find(':input').prop('disabled', !bulk);
-            if (bulk && !$('#bulk-rows tr').length) addBulkRow();
-            $('.bulk-denom').prop('disabled', !bulk || !$('select[name="pengirim"]').val());
-            $('select[name="iddenom"]').prop('disabled', bulk || !$('select[name="pengirim"]').val());
-            if (bulk) $('#submitBtn').prop('disabled', false);
-        });
         $('#add-bulk-row').on('click', addBulkRow);
         $('#bulk-rows').on('click', '.remove-bulk-row', function() {
-            if ($('#bulk-rows tr').length > 1) $(this).closest('tr').remove();
+            if ($('#bulk-rows tr').length > 1) { $(this).closest('tr').remove(); validateRows(); }
         }).on('change', '.bulk-denom', function() {
             const stock = parseInt(tapStockData[$(this).val()]) || 0;
             $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
-        });
-        $('#input_mode').trigger('change');
-        if ($('select[name="pengirim"]').val()) {
-            $('select[name="pengirim"]').trigger('change');
-        }
+            validateRows();
+        }).on('click','.serial-mode-choices button',function(){
+            const $r=$(this).closest('tr'),mode=$(this).data('mode');$r.find('.bulk-serial-mode').val(mode);$r.find('.serial-mode-choices button').removeClass('active');$(this).addClass('active');$r.find('.serial-range').toggleClass('d-none',mode==='broken');$r.find('.bulk-sn-start,.bulk-sn-end').prop('disabled',mode==='broken');$r.find('.bulk-qty').prop('disabled',mode==='broken');$r.find('.bulk-manual-qty').toggleClass('d-none',mode!=='broken').prop('disabled',mode!=='broken');validateRows();
+        }).on('input','.bulk-sn-start,.bulk-sn-end',function(){
+            const sa=isSa($(this).closest('tr').find('.bulk-denom').val()),max=sa?16:12;this.value=String(this.value||'').replace(/\D/g,'').slice(0,max);validateRows();
+        }).on('input','.bulk-manual-qty',validateRows);
+        $('#formKeluarTap').on('submit',function(e){if(!validateRows()){e.preventDefault();Swal.fire({icon:'error',title:'Periksa input',text:'Pastikan TAP, denom, SN atau qty, dan stok tersedia sudah benar.'});return;}if($(this).data('submitting')){e.preventDefault();return;}$(this).data('submitting',true);$('#submitBtn').prop('disabled',true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Menyimpan...');});
     </script>
 
     <script>

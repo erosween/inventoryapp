@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Support\IntertapTransferKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use App\Support\StockProduct;
 
 class FormKeluartapController extends Controller
 {
@@ -70,9 +72,24 @@ public function proseskeluartapform(Request $request)
             'iddenom' => $request->iddenom,
             'qty' => $request->qty,
             'sn' => $request->sn,
+            'sn_start' => $request->sn_start,
+            'sn_end' => $request->sn_end,
+            'serial_mode' => $request->serial_mode ?? 'range',
         ]];
         $request->merge(['items' => $items]);
     }
+    $incomingItems = $request->input('items', []);
+    foreach ($incomingItems as &$item) {
+        if (! is_array($item)) continue;
+        if (empty($item['serial_mode'])) $item['serial_mode'] = 'range';
+        if (empty($item['sn_start']) && ! empty($item['sn'])) {
+            $parts = explode('-', trim((string) $item['sn']), 2);
+            $item['sn_start'] = $parts[0];
+            $item['sn_end'] = $parts[1] ?? '';
+        }
+    }
+    unset($item);
+    $request->merge(['items' => $incomingItems]);
 
     $validated = $request->validate([
         'tgl' => 'required|date',
@@ -81,9 +98,53 @@ public function proseskeluartapform(Request $request)
         'tambahket' => 'nullable|string|max:500',
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
-        'items.*.qty' => 'required|integer|min:1',
-        'items.*.sn' => 'required|string|max:255',
+        'items.*.qty' => 'nullable|integer|min:1|max:2000000',
+        'items.*.sn' => 'nullable|string|max:255',
+        'items.*.sn_start' => 'nullable|string|max:24',
+        'items.*.sn_end' => 'nullable|string|max:24',
+        'items.*.serial_mode' => 'required|in:range,broken',
     ]);
+
+    $denomMetadata = DB::table('denom')
+        ->whereIn('iddenom', collect($validated['items'])->pluck('iddenom')->unique())
+        ->get(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name'])
+        ->keyBy('iddenom');
+    $serialRanges = [];
+    foreach ($validated['items'] as $index => &$item) {
+        if ($item['serial_mode'] === 'broken') {
+            $qty = (int) ($item['qty'] ?? 0);
+            if ($qty < 1 || $qty > 2_000_000) {
+                throw ValidationException::withMessages(["items.{$index}.qty" => 'Qty SN pecah harus antara 1 dan 2.000.000.']);
+            }
+            $item['sn'] = '';
+            continue;
+        }
+        $denom = $denomMetadata->get($item['iddenom']);
+        $isSa = $denom ? StockProduct::isSa($denom) : false;
+        $start = trim((string) ($item['sn_start'] ?? ''));
+        $end = trim((string) ($item['sn_end'] ?? ''));
+        $pattern = $isSa ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+        if (!preg_match($pattern, $start) || ($end !== '' && !preg_match($pattern, $end))) {
+            throw ValidationException::withMessages(["items.{$index}.sn_start" => $isSa ? 'SN SA harus 16 digit dan diawali 0.' : 'SN PV harus tepat 12 digit.']);
+        }
+        if ($end === '') $end = $start;
+        $qty = (int) $end - (int) $start + 1;
+        if ($qty < 1 || $qty > 2_000_000) {
+            throw ValidationException::withMessages(["items.{$index}.sn_end" => 'SN akhir harus sama atau lebih besar dari SN awal; maksimal 2.000.000 SN.']);
+        }
+        if (isset($item['qty']) && (int) $item['qty'] !== $qty) {
+            throw ValidationException::withMessages(["items.{$index}.sn_end" => 'Qty harus sesuai jumlah SN dalam rentang.']);
+        }
+        $item['qty'] = $qty;
+        $item['sn'] = $start === $end ? $start : $start.'-'.$end;
+        foreach ($serialRanges as $range) {
+            if (strlen($start) === strlen($range['start']) && $start <= $range['end'] && $end >= $range['start']) {
+                throw ValidationException::withMessages(['items' => 'Rentang SN bertabrakan dengan baris lain. Pastikan setiap SN hanya diinput satu kali.']);
+            }
+        }
+        $serialRanges[] = ['start' => $start, 'end' => $end];
+    }
+    unset($item);
     usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
     if (session('idtap') !== 'SBP_DUMAI' && $validated['pengirim'] !== session('idtap')) {

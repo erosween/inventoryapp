@@ -49,6 +49,8 @@ class KeluarController extends Controller
                 'k.pengirim',
                 'k.penerima',
                 'k.sn',
+                DB::raw("CASE WHEN LOCATE('-', k.sn) > 0 THEN SUBSTRING_INDEX(k.sn, '-', 1) ELSE k.sn END AS sn_awal"),
+                DB::raw("CASE WHEN LOCATE('-', k.sn) > 0 THEN SUBSTRING_INDEX(k.sn, '-', -1) ELSE k.sn END AS sn_akhir"),
                 'k.tambahanket',
                 'k.status'
             )
@@ -59,6 +61,22 @@ class KeluarController extends Controller
 
         return datatables()
             ->of($query)
+            ->filterColumn('sn_awal', function ($query, $keyword) {
+                $start = "CASE WHEN LOCATE('-', k.sn) > 0 THEN SUBSTRING_INDEX(k.sn, '-', 1) ELSE k.sn END";
+                $end = "CASE WHEN LOCATE('-', k.sn) > 0 THEN SUBSTRING_INDEX(k.sn, '-', -1) ELSE k.sn END";
+                $query->where(function ($search) use ($keyword, $start, $end) {
+                    $search->whereRaw("{$start} LIKE ?", ['%'.$keyword.'%'])
+                        ->orWhereRaw("(? REGEXP '^[0-9]+$' AND CHAR_LENGTH({$start}) = CHAR_LENGTH(?) AND {$start} <= ? AND {$end} >= ?)", [$keyword, $keyword, $keyword, $keyword]);
+                });
+            })
+            ->filterColumn('sn_akhir', function ($query, $keyword) {
+                $start = "CASE WHEN LOCATE('-', k.sn) > 0 THEN SUBSTRING_INDEX(k.sn, '-', 1) ELSE k.sn END";
+                $end = "CASE WHEN LOCATE('-', k.sn) > 0 THEN SUBSTRING_INDEX(k.sn, '-', -1) ELSE k.sn END";
+                $query->where(function ($search) use ($keyword, $start, $end) {
+                    $search->whereRaw("{$end} LIKE ?", ['%'.$keyword.'%'])
+                        ->orWhereRaw("(? REGEXP '^[0-9]+$' AND CHAR_LENGTH({$start}) = CHAR_LENGTH(?) AND {$start} <= ? AND {$end} >= ?)", [$keyword, $keyword, $keyword, $keyword]);
+                });
+            })
             ->editColumn('qty', fn($r) => number_format($r->qty))
             ->addColumn('status_label', function ($r) {
                 if ($r->status == 0) {

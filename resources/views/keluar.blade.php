@@ -54,7 +54,8 @@
                                         <th class="text-end">Quantity</th>
                                         <th>Pengirim</th>
                                         <th>Penerima</th>
-                                        <th>SN</th>
+                                        <th>SN Awal</th>
+                                        <th>SN Akhir</th>
                                         <th>Keterangan</th>
                                         <th width="210">Status</th>
                                     </tr>
@@ -128,10 +129,8 @@
                         data: 'penerima',
                         name: 'k.penerima'
                     },
-                    {
-                        data: 'sn',
-                        name: 'k.sn'
-                    },
+                    { data: 'sn_awal', name: 'sn_awal', defaultContent: '—', render: data => data || '—' },
+                    { data: 'sn_akhir', name: 'sn_akhir', defaultContent: '—', render: data => data || '—' },
                     {
                         data: 'tambahanket',
                         name: 'k.tambahanket'
