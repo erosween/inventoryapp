@@ -31,7 +31,7 @@
         <div class="pt-field"><label for="sold-tap">TAP</label><select id="sold-tap" name="tap"><option value="">Semua TAP</option>@foreach($taps as $tap)<option value="{{ $tap }}" @selected($filters['tap']===$tap)>{{ $tap }}</option>@endforeach</select></div>
         <div class="pt-field"><label for="sold-sf">Sales Force</label><select id="sold-sf" name="sf"><option value="">Semua Sales Force</option>@foreach($sfs as $sf)<option value="{{ $sf->idsf }}" @selected($filters['sf']===$sf->idsf)>{{ $sf->namasf ?: $sf->idsf }}</option>@endforeach</select></div>
         <input type="hidden" name="tab" value="{{ $activeTab }}">
-        <div class="pt-sold-actions"><button class="pt-button" type="submit"><i class="fas fa-filter"></i> Terapkan filter</button><button class="pt-button primary" type="submit" formaction="{{ route('surya.product-tracking.sold.download') }}" @disabled($summary->serial_count === 0)><i class="fas fa-download"></i> Download detail CSV</button></div>
+        <div class="pt-sold-actions"><button class="pt-button pt-apply-filter" type="submit"><i class="fas fa-filter"></i><span>Terapkan filter</span></button><button class="pt-button primary" type="submit" formaction="{{ route('surya.product-tracking.sold.download') }}" @disabled($summary->serial_count === 0)><i class="fas fa-download"></i> Download detail CSV</button><span class="pt-loading-status" role="status" aria-live="polite" hidden></span></div>
     </form>
     @error('download')<div class="pt-alert error">{{ $message }}</div>@enderror
     @if(!$hasScanUploads)<div class="pt-alert error">Belum ada upload ST Digipos pada tanggal ini. Qty ditampilkan sebagai belum cocok sampai file scan diunggah.</div>@endif
@@ -116,5 +116,19 @@
         </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
     </div>
     <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
+    <script>
+    document.querySelector('.pt-sold-filter')?.addEventListener('submit', (event) => {
+        const button = event.submitter;
+        if (!button?.classList.contains('pt-apply-filter')) return;
+        const form = event.currentTarget;
+        if (form.dataset.submitting === 'true') { event.preventDefault(); return; }
+        form.dataset.submitting = 'true';
+        form.setAttribute('aria-busy', 'true');
+        button.disabled = true;
+        button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span><span>Memfilter…</span>';
+        const status = form.querySelector('.pt-loading-status');
+        if (status) { status.textContent = 'Sedang memuat ringkasan dan rincian SN untuk filter ini.'; status.hidden = false; }
+    });
+    </script>
     @if(!empty($summaryTarget['summary_status']))<script>requestAnimationFrame(() => document.getElementById('sold-outlet-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));</script>@endif
 @endsection
