@@ -448,7 +448,7 @@ class ProductTrackingController extends MonitaDumaiController
                 ->selectRaw("SUM(CASE WHEN LEFT(LOWER(u.filename), 3) = 'pv_' THEN d.serial_count ELSE 0 END) AS total_pv_qty")
                 ->selectRaw("SUM(CASE WHEN LEFT(LOWER(u.filename), 3) = 'sa_' THEN d.serial_count ELSE 0 END) AS total_sa_qty")
                 ->selectRaw('SUM(d.serial_count) AS total_qty')
-                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->simplePaginate(10) : collect();
+                ->groupBy('d.scan_date')->orderByDesc('d.scan_date')->simplePaginate(10)->appends(['kind' => $kind]) : collect();
 
         return view('surya.product-tracking.imports', [
             'kind' => $kind,
