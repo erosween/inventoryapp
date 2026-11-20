@@ -436,13 +436,10 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $kind = $request->query('kind', 'warehouse');
         abort_unless(in_array($kind, ['warehouse', 'scan'], true), 404);
-        $outletLookup = DB::table('appsdumais')
-            ->select('id_outlet', DB::raw('MAX(tap) AS tap'), DB::raw('MAX(cluster) AS cluster'))
-            ->groupBy('id_outlet');
         $regionSql = "CASE WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('ROKAN HILIR','CLUSTER ROHIL') THEN 'rokan_hilir' WHEN UPPER(TRIM(COALESCE(o.cluster,''))) IN ('DUMAI BENGKALIS','CLUSTER DUMAI') THEN 'dumai_bengkalis' WHEN UPPER(TRIM(COALESCE(o.tap,''))) IN ('DUMAI','DURI','BENGKALIS','RUPAT','SEI PAKNING') THEN 'dumai_bengkalis' WHEN UPPER(TRIM(COALESCE(o.tap,''))) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'rokan_hilir' ELSE NULL END";
         $dailyGroups = DB::table('product_tracking_digipos as d')
                 ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
-                ->leftJoinSub($outletLookup, 'o', 'o.id_outlet', '=', 'd.id_outlet')
+                ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'd.id_outlet')
                 ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
                 ->whereNotNull('d.scan_date')
                 ->select('d.scan_date')
