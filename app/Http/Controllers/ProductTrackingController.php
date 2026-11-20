@@ -180,6 +180,13 @@ class ProductTrackingController extends MonitaDumaiController
             'page' => 'nullable|integer|min:1|max:10000',
         ]);
         $page = (int) ($data['page'] ?? 1);
+        $scanRanges = DB::table('product_tracking_digipos as digipos')
+            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+            ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
+            ->where('digipos.id_outlet', $data['id_outlet'])
+            ->orderBy('digipos.serial_start')
+            ->get(['digipos.serial_start', 'digipos.serial_end']);
         $rows = $this->mobileSerialsQuery($filters)
             ->where('sale.id_outlet', $data['id_outlet'])
             ->where('serial.identifier_type', 'sn')
@@ -188,13 +195,30 @@ class ProductTrackingController extends MonitaDumaiController
             ->offset(($page - 1) * 50)->limit(51)
             ->get(['serial.serial_start', 'serial.serial_end', 'serial.qty', 'serial.iddenom', 'outlet_serial_denom.denom']);
 
+        $unmatchedRows = $rows->take(50)->flatMap(function ($row) use ($scanRanges) {
+            $start = (string) $row->serial_start;
+            $end = (string) $row->serial_end;
+            $cursor = $start;
+            $unmatched = [];
+            foreach ($scanRanges as $scan) {
+                $scanStart = (string) $scan->serial_start;
+                $scanEnd = (string) $scan->serial_end;
+                if ($this->compareSerials($scanEnd, $cursor) < 0 || $this->compareSerials($scanStart, $end) > 0) continue;
+                if ($this->compareSerials($scanStart, $cursor) > 0) {
+                    $gapEnd = $this->subtractOneFromSerial($scanStart);
+                    $unmatched[] = ['start' => $cursor, 'end' => $gapEnd, 'qty' => (int) $this->serialRangeCount($cursor, $gapEnd), 'denom' => $row->denom ?: $row->iddenom];
+                }
+                if ($this->compareSerials($scanEnd, $end) >= 0) { $cursor = null; break; }
+                if ($this->compareSerials($scanEnd, $cursor) >= 0) $cursor = $this->incrementSerial($scanEnd);
+            }
+            if ($cursor !== null && $this->compareSerials($cursor, $end) <= 0) {
+                $unmatched[] = ['start' => $cursor, 'end' => $end, 'qty' => (int) $this->serialRangeCount($cursor, $end), 'denom' => $row->denom ?: $row->iddenom];
+            }
+            return $unmatched;
+        })->values();
+
         return response()->json([
-            'rows' => $rows->take(50)->map(fn ($row) => [
-                'start' => $row->serial_start,
-                'end' => $row->serial_end,
-                'qty' => (int) $row->qty,
-                'denom' => $row->denom ?: $row->iddenom,
-            ])->values(),
+            'rows' => $unmatchedRows,
             'has_more' => $rows->count() > 50,
             'page' => $page,
         ]);
@@ -1021,6 +1045,18 @@ class ProductTrackingController extends MonitaDumaiController
         }
 
         return str_pad($result, $length, '0', STR_PAD_LEFT);
+    }
+
+    private function compareSerials(string $left, string $right): int
+    {
+        $left = ltrim($left, '0') ?: '0';
+        $right = ltrim($right, '0') ?: '0';
+        return strlen($left) <=> strlen($right) ?: strcmp($left, $right);
+    }
+
+    private function subtractOneFromSerial(string $serial): string
+    {
+        return $this->subtractSerialCount($serial, 1);
     }
 
     private function serialRangeCount(string $start, string $end): string

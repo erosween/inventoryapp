@@ -110,7 +110,7 @@
                 </tr></thead>
                 <tbody>
                 @forelse($outlets as $outlet)
-                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if($outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td><td><button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button></td></tr>
+                    <tr><td>{{ $outlet->nama_outlet ?: 'Nama outlet tidak tersedia' }}</td><td>{{ $outlet->id_outlet }}</td><td>{{ $outlet->kecamatan ?: '–' }}</td><td>{{ $outlet->tap }}</td><td>{{ $outlet->namasf ?: ($outlet->idsf ?: '—') }}</td><td>{{ number_format($outlet->qty) }}</td><td>{{ number_format($outlet->matched_qty) }}</td><td>{{ number_format($outlet->mismatch_qty) }}</td><td>@if((int) $outlet->mismatch_qty === 0)<span class="pt-chip good">Sesuai</span>@else<span class="pt-chip bad">Perlu dicek</span>@endif</td><td><button type="button" class="pt-button pt-view-outlet-sn" data-id-outlet="{{ $outlet->id_outlet }}" aria-expanded="false"><i class="fas fa-barcode"></i> Lihat SN</button></td></tr>
                     <tr class="pt-outlet-sn-row" hidden><td colspan="10"><div class="pt-outlet-sn-panel" data-outlet-sn-panel><span class="pt-muted">Klik “Lihat SN” untuk memuat data.</span></div></td></tr>
                 @empty
                     <tr><td colspan="10" class="pt-empty">Tidak ada outlet untuk pilihan status ini pada filter tanggal dan transaksi yang dipilih.</td></tr>
@@ -166,7 +166,7 @@
                 for (const value of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)]) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }
                 tbody.append(row);
             }
-            if (!data.rows.length && page === 1) panel.textContent = 'Tidak ada data SN untuk outlet ini pada tanggal tersebut.';
+            if (!data.rows.length && page === 1) panel.textContent = 'Tidak ada SN yang belum cocok untuk outlet ini.';
             else if (data.rows.length) {
                 if (!panel.querySelector('.pt-outlet-sn-search')) {
                     const searchForm = document.createElement('form');
