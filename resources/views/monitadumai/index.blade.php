@@ -693,6 +693,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="visit-mobile-list" data-visit-mobile-list aria-label="Ringkasan kinerja Sales Force"></div>
                     </div>
                     </div>
                     <div class="visit-subpanel" role="tabpanel" id="visit-panel-non-digipos" aria-labelledby="visit-tab-non-digipos" data-visit-subpanel="non-digipos" @if($activeVisitTab !== 'non-digipos') hidden @endif>
@@ -3754,7 +3755,9 @@
                 window.location.assign(url.toString());
             });
 
-            document.querySelectorAll('[data-visit-row]').forEach(button => button.addEventListener('click', () => {
+            document.addEventListener('click', event => {
+                const button = event.target.closest('[data-visit-row]');
+                if (!button) return;
                 const rowIndex = Number(button.dataset.visitRow);
                 const row = visitRows[rowIndex];
                 if (!row) return;
@@ -3774,11 +3777,11 @@
                         ? `<a href="${esc(outlet.front_photo_url || outlet.front_thumbnail_url)}" target="_blank" rel="noopener"><img class="visit-photo-thumb" src="${esc(outlet.front_thumbnail_url)}" alt="Foto tampak luar"></a>`
                         : '<div class="visit-photo-thumb" style="display:grid;place-items:center;background:#f1f5f9;color:#94a3b8"><i class="fas fa-image"></i></div>';
                     const activity = outlet.effective ? '<span class="cluster-chip" style="color:#047857;background:#ecfdf5">BELANJA</span>' : '<span class="cluster-chip">TIDAK BELANJA</span>';
-                    return `<div class="visit-outlet-row">${photo}<div><strong>${esc(outlet.outlet_name)}</strong><small>${esc(outlet.id_outlet)} · ${outlet.is_pjp ? 'PJP' : 'EXTRA CALL'}</small></div><div><strong>Masuk ${formatDate(outlet.visited_at)}</strong><small>Keluar ${formatDate(outlet.checkout_at)}</small><small>Durasi ${esc(formatDuration(outlet.duration_minutes))}</small><small>${activity}</small></div><div class="visit-outlet-metric"><small>PV</small><button type="button" data-outlet-metric="pv" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_pv || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-metric"><small>SA</small><button type="button" data-outlet-metric="sa" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_sa || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-metric"><small>Konsinyasi</small><button type="button" data-outlet-metric="consignment" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.consignment_qty || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-detail" data-outlet-detail="${rowIndex}-${outletIndex}"></div></div>`;
+                    return `<article class="visit-outlet-row"><div class="visit-outlet-identity">${photo}<div><strong>${esc(outlet.outlet_name)}</strong><small>${esc(outlet.id_outlet)} · ${outlet.is_pjp ? 'PJP' : 'EXTRA CALL'}</small></div></div><div class="visit-outlet-visit"><strong>Masuk ${formatDate(outlet.visited_at)}</strong><small>Keluar ${formatDate(outlet.checkout_at)}</small><small>Durasi ${esc(formatDuration(outlet.duration_minutes))}</small><span>${activity}</span></div><div class="visit-outlet-metrics"><div class="visit-outlet-metric"><small>PV</small><button type="button" data-outlet-metric="pv" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_pv || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-metric"><small>SA</small><button type="button" data-outlet-metric="sa" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.total_sa || 0).toLocaleString('en-US')}</button></div><div class="visit-outlet-metric"><small>Konsinyasi</small><button type="button" data-outlet-metric="consignment" data-row-index="${rowIndex}" data-outlet-index="${outletIndex}">${Number(outlet.consignment_qty || 0).toLocaleString('en-US')}</button></div></div><div class="visit-outlet-detail" data-outlet-detail="${rowIndex}-${outletIndex}"></div></article>`;
                 }).join('') || '<div class="visit-empty"><strong>Belum ada rincian outlet.</strong></div>';
                 modal.hidden = false;
                 modal.setAttribute('aria-hidden', 'false');
-            }));
+            });
 
             body.addEventListener('click', event => {
                 const button = event.target.closest('[data-outlet-metric]');
@@ -3863,15 +3866,33 @@
 
             const rows = Array.from(body.querySelectorAll('tr[data-visit-summary-row]'));
             const originalIndex = new Map(rows.map((row, index) => [row, index]));
+            const mobileList = document.querySelector('[data-visit-mobile-list]');
+            const mobileCards = new Map();
             const search = tools.querySelector('[data-visit-search]');
             const tap = tools.querySelector('[data-visit-tap]');
             const cluster = tools.querySelector('[data-visit-cluster]');
             const sortSelect = tools.querySelector('[data-visit-sort]');
             const headers = Array.from(table.querySelectorAll('th[data-sort]'));
+            const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
             const numericFields = new Set(['pjp', 'actual', 'visitPercent', 'effective', 'nonPjp', 'nonBuying', 'pv', 'sa']);
             const collator = new Intl.Collator('id', { numeric: true, sensitivity: 'base' });
             let sortKey = '';
             let sortDirection = 'asc';
+
+            if (mobileList) {
+                rows.forEach((row, index) => {
+                    const name = row.dataset.name || 'Sales Force';
+                    const card = document.createElement('article');
+                    card.className = 'visit-mobile-card';
+                    card.dataset.mobileRow = String(index);
+                    card.innerHTML = `<header><div><strong>${esc(name)}</strong><span>${esc(row.dataset.tap || 'Tanpa TAP')} · ${esc(row.dataset.cluster || '—')}</span></div><span class="visit-mobile-code">${esc(row.dataset.sfcode || '')}</span></header><div class="visit-mobile-main-metrics"><div><small>Total PJP</small><strong>${Number(row.dataset.pjp || 0).toLocaleString('id-ID')}</strong></div><button type="button" data-visit-row="${index}" data-visit-scope="actual"><small>Actual Call</small><strong>${Number(row.dataset.actual || 0).toLocaleString('id-ID')}</strong></button><div><small>% Visit</small><strong>${Number(row.dataset.visitPercent || 0).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})}%</strong></div></div><div class="visit-mobile-secondary-metrics"><button type="button" data-visit-row="${index}" data-visit-scope="effective"><small>Effective</small><strong>${Number(row.dataset.effective || 0).toLocaleString('id-ID')}</strong></button><button type="button" data-visit-row="${index}" data-visit-scope="non-pjp"><small>Extra Call</small><strong>${Number(row.dataset.nonPjp || 0).toLocaleString('id-ID')}</strong></button><button type="button" data-visit-row="${index}" data-visit-scope="non-buying"><small>Non Belanja</small><strong>${Number(row.dataset.nonBuying || 0).toLocaleString('id-ID')}</strong></button></div><footer><span>Total PV <strong>${Number(row.dataset.pv || 0).toLocaleString('id-ID')}</strong></span><span>Total SA <strong>${Number(row.dataset.sa || 0).toLocaleString('id-ID')}</strong></span></footer>`;
+                    mobileCards.set(row, card);
+                });
+                if (!rows.length) {
+                    const empty = body.querySelector('.visit-empty');
+                    if (empty) mobileList.appendChild(empty.cloneNode(true));
+                }
+            }
 
             const setHeaderState = () => headers.forEach(header => {
                 const active = header.dataset.sort === sortKey;
@@ -3905,6 +3926,9 @@
                 if (resultCount) resultCount.textContent = visible.length === rows.length ? `${rows.length} Sales Force` : `${visible.length} dari ${rows.length} Sales Force`;
                 visible.forEach(row => { row.hidden = false; row.style.display = ''; body.appendChild(row); });
                 rows.filter(row => !visibleSet.has(row)).forEach(row => { row.hidden = true; row.style.display = 'none'; body.appendChild(row); });
+                visible.forEach(row => { const card = mobileCards.get(row); if (card) mobileList?.appendChild(card); });
+                rows.filter(row => !visibleSet.has(row)).forEach(row => { const card = mobileCards.get(row); if (card) card.hidden = true; });
+                visible.forEach(row => { const card = mobileCards.get(row); if (card) card.hidden = false; });
                 setHeaderState();
             };
 
