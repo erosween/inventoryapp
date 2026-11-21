@@ -1319,6 +1319,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
                     ->whereRaw("{$normalizedSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
                     ->whereRaw("CHAR_LENGTH({$rangeStart}) = CHAR_LENGTH({$rangeEnd})")
+                    ->whereRaw("({$rangeStart} = {$rangeEnd} OR (m.qty BETWEEN 1 AND 2000000 AND CAST({$rangeEnd} AS DECIMAL(24,0)) >= CAST({$rangeStart} AS DECIMAL(24,0)) AND CAST({$rangeEnd} AS DECIMAL(24,0)) - CAST({$rangeStart} AS DECIMAL(24,0)) + 1 = m.qty))")
                     ->whereRaw('CAST('.$rangeStart.' AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0)) AND CAST('.$rangeEnd.' AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$canonical, $canonical])
                     ->where(function ($query) use ($isPv, $rangeStart) {
                         if ($isPv) $query->whereRaw("CHAR_LENGTH({$rangeStart}) = 12");

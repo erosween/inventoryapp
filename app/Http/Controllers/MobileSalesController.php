@@ -431,8 +431,9 @@ SQL;
         $adminRanges = DB::table('masuksf')->where('idsf', $idsf)->where('iddenom', $iddenom)
             ->whereNotNull('sn')->where('sn', '<>', '')
             ->when($lock, fn ($query) => $query->lockForUpdate())
-            ->pluck('sn');
-        foreach ($adminRanges as $value) {
+            ->get(['sn', 'qty']);
+        foreach ($adminRanges as $adminRange) {
+            $value = $adminRange->sn;
             $serialValue = trim((string) $value);
             if (preg_match('/^(\d+)(?:\s*[-–—]\s*|\s+)(\d+)$/u', $serialValue, $match)) {
                 $first = $match[1];
@@ -443,7 +444,12 @@ SQL;
                 continue;
             }
             if (strlen($first) !== strlen($last)) continue;
-            $ranges[] = [(int) $first, (int) $last];
+            $numericFirst = (int) $first;
+            $numericLast = (int) $last;
+            if ($numericLast < $numericFirst) continue;
+            $rangeQty = $numericLast - $numericFirst + 1;
+            if ($first !== $last && ($rangeQty > 2_000_000 || $rangeQty !== (int) $adminRange->qty)) continue;
+            $ranges[] = [$numericFirst, $numericLast];
         }
 
         usort($ranges, fn ($left, $right) => $left[0] <=> $right[0]);
