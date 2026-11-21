@@ -37,7 +37,7 @@
                                             <div class="form-group mb-1">
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
-                                                    value="{{ $data->tgl }}" required>
+                                                    value="{{ old('tgl', $data->tgl) }}" max="{{ now('Asia/Jakarta')->addDays(2)->toDateString() }}" required>
                                             </div>
                                         </div>
 

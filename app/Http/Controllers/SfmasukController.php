@@ -202,7 +202,7 @@ public function masuksfproses(Request $request)
     }
     $request->merge(['items' => $incomingItems]);
 
-    $latestAllowedDate = now('Asia/Jakarta')->addDay()->toDateString();
+    $latestAllowedDate = now('Asia/Jakarta')->addDays(2)->toDateString();
     $validated = $request->validate([
         'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$latestAllowedDate],
         'idtap' => 'required|exists:kodetap,idtap',
@@ -542,6 +542,11 @@ public function bulkDelete(Request $request)
 
     public function updateSfMasuk(Request $request, $id)
     {
+        $latestAllowedDate = now('Asia/Jakarta')->addDays(2)->toDateString();
+        $request->validate([
+            'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$latestAllowedDate],
+        ]);
+
         try {
             DB::transaction(function () use ($request, $id) {
                 // 1. Ambil data LAMA & LOCK
