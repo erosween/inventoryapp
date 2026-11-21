@@ -23,7 +23,7 @@
                     <div class="pt-field"><label for="{{ $key }}">{{ $label }}</label><select id="{{ $key }}" name="{{ $key }}" {{ $key==='outlet_column'?'required':'' }}><option value="">— Tidak dipetakan —</option>@foreach($headers as $column=>$header)<option value="{{ $column }}">{{ $header }}</option>@endforeach</select></div>
                 @endforeach
             </div>
-            <p class="pt-muted mt-3">Kolom SN wajib dan harus unik di dalam file ini. @if($isSerialDateUpload)Isi kolom tanggal sebagai teks dengan format <strong>dd-mmm-yyyy</strong>, contoh <strong>12-oct-2026</strong>; semua baris harus memakai tanggal yang sama. @endifSistem menyimpan serial secara berurutan dan menggabungkan SN berdekatan bila tanggal, outlet, SF, serta denom sama.</p>
+            <p class="pt-muted mt-3">Kolom SN wajib dan harus unik di dalam file ini. @if($isSerialDateUpload) Isi kolom tanggal sebagai teks dengan format <strong>dd-mmm-yyyy</strong>, contoh <strong>12-oct-2026</strong>; semua baris harus memakai tanggal yang sama. @endif Sistem menyimpan serial secara berurutan dan menggabungkan SN berdekatan bila tanggal, outlet, SF, serta denom sama.</p>
             @error('file')<div class="pt-alert error">{{ $message }}</div>@enderror
             @if($duplicateReportAvailable)<div class="pt-actions mt-2"><a class="pt-button" href="{{ route('surya.product-tracking.imports.duplicates.download',$upload->id) }}"><i class="fas fa-download"></i> Unduh daftar SN duplikat CSV</a></div>@endif
             @error('serial_column')<div class="pt-alert error">{{ $message }}</div>@enderror

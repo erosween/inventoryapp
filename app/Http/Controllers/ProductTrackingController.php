@@ -196,7 +196,7 @@ class ProductTrackingController extends MonitaDumaiController
             'tapSummaries' => $tapSummaries,
             'clusterSummaries' => $clusterSummaries,
             'sfSummaries' => $sfSummaries,
-            'taps' => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap'),
+            'taps' => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $this->applyTapScopeFilter($query, 'idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap'),
             'sfs' => $this->soldValidationSource($filters, false)->select('idsf', 'namasf')->distinct()->orderBy('namasf')->get(),
             'denoms' => $this->soldValidationSource($filters, false)->select('iddenom', 'denom_label as denom')->distinct()->orderBy('denom_label')->get(),
             'activeTab' => $activeTab,
@@ -291,7 +291,8 @@ class ProductTrackingController extends MonitaDumaiController
         $digipos = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
             ->leftJoin('appsdumais as scan_outlet', 'scan_outlet.id_outlet', '=', 'digipos.id_outlet')
-            ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
             ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
             ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
@@ -433,6 +434,28 @@ class ProductTrackingController extends MonitaDumaiController
             'matched_qty' => (int) $rows->sum('matched_qty'),
             'mismatch_qty' => (int) $rows->sum('mismatch_qty'),
         ];
+    }
+
+    private function applyTapScopeFilter($query, string $expression, array $scopes)
+    {
+        if (! $scopes) return $query;
+        $bindings = array_values($scopes);
+        $values = implode(', ', array_fill(0, count($bindings), 'CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci'));
+
+        return $query->whereRaw("CONVERT(($expression) USING utf8mb4) COLLATE utf8mb4_unicode_ci IN ({$values})", $bindings);
+    }
+
+    private function applyTextEquals($query, string $expression, string $value)
+    {
+        return $query->whereRaw("CONVERT(($expression) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$value]);
+    }
+
+    private function applyTextIn($query, string $expression, array $values, bool $not = false)
+    {
+        if (! $values) return $query;
+        $bindings = array_values($values);
+        $placeholders = implode(', ', array_fill(0, count($bindings), 'CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci'));
+        return $query->whereRaw('CONVERT(('.$expression.') USING utf8mb4) COLLATE utf8mb4_unicode_ci '.($not ? 'NOT IN' : 'IN')." ({$placeholders})", $bindings);
     }
 
     private function soldTableExpression(string $column): string
@@ -621,7 +644,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         $source = DB::query()->fromSub($mobile->unionAll($webForm), 'sales_rows');
         $scopes = $this->suryaTapScopes();
-        if ($scopes) $source->whereIn('sales_rows.tap', $scopes);
+        if ($scopes) $this->applyTapScopeFilter($source, 'sales_rows.tap', $scopes);
 
         if ($applyFilters) {
             $source->when($filters['tap'] !== '', fn ($query) => $query->where('sales_rows.tap', $filters['tap']))
@@ -659,11 +682,12 @@ class ProductTrackingController extends MonitaDumaiController
             ->when($filters['tab'] === 'approve', fn ($query) => $query->whereRaw("CONVERT(sale.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'approved' COLLATE utf8mb4_unicode_ci"), fn ($query) => $query->whereRaw("CONVERT(sale.status USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT IN (_utf8mb4'draft_wa' COLLATE utf8mb4_unicode_ci, _utf8mb4'rejected' COLLATE utf8mb4_unicode_ci)"))
             ->whereBetween('sale.tgl', [$filters['date_from'], $filters['date_to']]);
 
+        $tapExpression = "COALESCE(NULLIF(CONVERT(owner_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, _utf8mb4'' COLLATE utf8mb4_unicode_ci), CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci)";
         if ($scopes = $this->suryaTapScopes()) {
-            $query->whereIn(DB::raw("COALESCE(NULLIF(owner_sf.idtap, ''), outlet.tap)"), $scopes);
+            $this->applyTapScopeFilter($query, $tapExpression, $scopes);
         }
         if ($applyFilters) {
-            $query->when($filters['tap'] !== '', fn ($builder) => $builder->whereRaw("COALESCE(NULLIF(owner_sf.idtap, ''), outlet.tap) = ?", [$filters['tap']]))
+            $query->when($filters['tap'] !== '', fn ($builder) => $builder->whereRaw("CONVERT(($tapExpression) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$filters['tap']]))
                 ->when($filters['sf'] !== '', fn ($builder) => $builder->where('sale.idsf', $filters['sf']))
                 ->when($filters['iddenom'] !== '', fn ($builder) => $builder->where('serial.iddenom', $filters['iddenom']))
                 ->when($filters['identifier_type'] !== '', fn ($builder) => $builder->where('serial.identifier_type', $filters['identifier_type']));
@@ -704,7 +728,9 @@ class ProductTrackingController extends MonitaDumaiController
         $totalsQuery = $kind === 'scan' ? DB::table('product_tracking_digipos as d')
                 ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
                 ->leftJoin('appsdumais as outlet', 'outlet.id_outlet', '=', 'd.id_outlet')
-                ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
+                ->whereRaw("CONVERT(d.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(u.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(u.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
                 ->whereNotNull('d.scan_date')
                 ->selectRaw("SUM(CASE WHEN ({$scanClusterSql}) = 'DUMAI' AND ({$scanProductSql}) = 'PV' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_pv_qty")
                 ->selectRaw("SUM(CASE WHEN ({$scanClusterSql}) = 'DUMAI' AND ({$scanProductSql}) = 'SA' THEN d.serial_count ELSE 0 END) AS dumai_bengkalis_sa_qty")
@@ -731,8 +757,8 @@ class ProductTrackingController extends MonitaDumaiController
             'period' => $period,
             'uploads' => $kind === 'sales-stock'
                 ? DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get()
-                : DB::table('product_tracking_uploads')->where('kind', $kind)->whereIn('status', ['complete', 'duplicate'])->orderByDesc('id')->limit(30)->get(),
-            'pending' => DB::table('product_tracking_uploads')->where('kind', $kind)->where('status', 'mapping')->orderByDesc('id')->get(),
+                : $this->applyTextIn(DB::table('product_tracking_uploads'), 'kind', [$kind])->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (_utf8mb4'complete' COLLATE utf8mb4_unicode_ci, _utf8mb4'duplicate' COLLATE utf8mb4_unicode_ci)")->orderByDesc('id')->limit(30)->get(),
+            'pending' => $this->applyTextEquals(DB::table('product_tracking_uploads'), 'kind', $kind)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->orderByDesc('id')->get(),
             'dailyTotals' => $dailyTotals,
         ]);
     }
@@ -749,16 +775,17 @@ class ProductTrackingController extends MonitaDumaiController
         $serialLengthSql = $product === 'PV' ? '12' : '15,16';
         $mobileSt = DB::table('mobile_sales_serials as serial')
             ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
-            ->where('serial.identifier_type', 'sn')->whereNotIn('sale.status', ['draft_wa', 'rejected'])
+            ->whereRaw("CONVERT(serial.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("CONVERT(sale.status USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT IN (_utf8mb4'draft_wa' COLLATE utf8mb4_unicode_ci, _utf8mb4'rejected' COLLATE utf8mb4_unicode_ci)")
             ->whereNotNull('sale.id_outlet')->whereRaw("CHAR_LENGTH(serial.serial_start) IN ({$serialLengthSql})")
             ->selectRaw('sale.id_outlet, serial.serial_start, serial.serial_end, serial.qty AS serial_count, sale.tgl AS st_date');
         $webSt = DB::table('keluarsf as form_sale')
             ->whereNotNull('form_sale.id_outlet')->whereRaw("TRIM(form_sale.id_outlet) <> ''")
-            ->whereRaw("COALESCE(form_sale.tambahanket, '') NOT LIKE 'Mobile Approval ID: %'")
-            ->whereRaw("(form_sale.identifier_type IS NULL OR form_sale.identifier_type = 'sn')")
-            ->whereRaw("(form_sale.serial_mode IS NULL OR form_sale.serial_mode <> 'broken')")
+            ->whereRaw("CONVERT(COALESCE(form_sale.tambahanket, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT LIKE _utf8mb4'Mobile Approval ID: %' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("(form_sale.identifier_type IS NULL OR CONVERT(form_sale.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci)")
+            ->whereRaw("(form_sale.serial_mode IS NULL OR CONVERT(form_sale.serial_mode USING utf8mb4) COLLATE utf8mb4_unicode_ci <> _utf8mb4'broken' COLLATE utf8mb4_unicode_ci)")
             ->whereNotNull('form_sale.sn_awal')->whereRaw("TRIM(form_sale.sn_awal) <> ''")
-            ->whereRaw("(form_sale.sn_akhir IS NULL OR TRIM(form_sale.sn_akhir) = '' OR form_sale.sn_akhir >= form_sale.sn_awal)")
+            ->whereRaw("(form_sale.sn_akhir IS NULL OR TRIM(CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci) = _utf8mb4'' COLLATE utf8mb4_unicode_ci OR CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci >= CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci)")
             ->whereRaw("CHAR_LENGTH(form_sale.sn_awal) IN ({$serialLengthSql})")
             ->selectRaw("form_sale.id_outlet, form_sale.sn_awal AS serial_start, COALESCE(NULLIF(form_sale.sn_akhir, ''), form_sale.sn_awal) AS serial_end, form_sale.qty AS serial_count, form_sale.tgl AS st_date");
         $stSources = $mobileSt->unionAll($webSt);
@@ -766,7 +793,9 @@ class ProductTrackingController extends MonitaDumaiController
             ->selectRaw('source.id_outlet, SUM(source.serial_count) AS st_qty')->groupBy('source.id_outlet');
         $so = DB::table('product_tracking_digipos as so')
             ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
-            ->where('so.kind', $soKind)->where('u.kind', $soKind)->where('u.status', 'complete')
+            ->whereRaw("CONVERT(so.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
+            ->whereRaw("CONVERT(u.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
+            ->whereRaw("CONVERT(u.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->selectRaw('so.id_outlet, SUM(so.serial_count) AS so_qty')->groupBy('so.id_outlet');
         $redeem = DB::query()->fromSub($stSources, 'st')
             ->join('product_tracking_digipos as so', function ($join) use ($soKind, $serialLengthSql) {
@@ -776,11 +805,12 @@ class ProductTrackingController extends MonitaDumaiController
                     ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
             })
             ->join('product_tracking_uploads as so_upload', 'so_upload.id', '=', 'so.upload_id')
-            ->where('so_upload.kind', $soKind)->where('so_upload.status', 'complete')
+            ->whereRaw("CONVERT(so_upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
+            ->whereRaw("CONVERT(so_upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0)) AS redeemed_qty')
             ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(so.sold_at, st.st_date), 0)) AS days_to_customer_weighted')
             ->groupBy('st.id_outlet');
-        $outlets = DB::table('appsdumais as outlet')
+        $outletQuery = DB::table('appsdumais as outlet')
             ->leftJoinSub($st, 'st', 'st.id_outlet', '=', 'outlet.id_outlet')
             ->leftJoinSub($so, 'so', 'so.id_outlet', '=', 'outlet.id_outlet')
             ->leftJoinSub($redeem, 'redeem', 'redeem.id_outlet', '=', 'outlet.id_outlet')
@@ -789,14 +819,18 @@ class ProductTrackingController extends MonitaDumaiController
             ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(so.so_qty, 0) AS so_qty, COALESCE(redeem.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(redeem.redeemed_qty, 0), 0) AS remaining_qty')
             ->selectRaw('NULL AS days_sf_to_outlet, CASE WHEN COALESCE(redeem.redeemed_qty, 0) > 0 THEN ROUND(redeem.days_to_customer_weighted / redeem.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
             ->where(function ($query) { $query->whereNotNull('st.id_outlet')->orWhereNotNull('so.id_outlet'); })
-            ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet')->paginate(20)->withQueryString();
+            ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet');
+        if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
+        $outlets = $outletQuery->paginate(20)->withQueryString();
         return view('surya.product-tracking.stock-outlet', compact('product', 'outlets', 'soKind'));
     }
 
     public function downloadDuplicateScanReport(int $upload)
     {
         $this->requireEditor();
-        $record = DB::table('product_tracking_uploads')->where('id', $upload)->where('kind', 'scan')->where('status', 'mapping')->first();
+        $record = DB::table('product_tracking_uploads')->where('id', $upload)
+            ->whereRaw("CONVERT(kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
         abort_unless($record, 404);
         $path = "product-tracking/duplicate-reports/{$upload}.csv";
         abort_unless(Storage::disk('local')->exists($path), 404, 'Belum ada laporan SN duplikat untuk upload ini.');
@@ -939,7 +973,7 @@ class ProductTrackingController extends MonitaDumaiController
     public function mapping(int $upload, ProductTrackingFile $reader)
     {
         $this->requireEditor();
-        $record = DB::table('product_tracking_uploads')->where('id', $upload)->where('status', 'mapping')->first();
+        $record = DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
         abort_unless($record && $record->storage_path && Storage::disk('local')->exists($record->storage_path), 404);
         $headers = json_decode($record->headers, true, 512, JSON_THROW_ON_ERROR);
         return view('surya.product-tracking.mapping', [
@@ -953,13 +987,13 @@ class ProductTrackingController extends MonitaDumaiController
     public function cancelImport(int $upload)
     {
         $this->requireEditor();
-        $record = DB::table('product_tracking_uploads')->where('id', $upload)->where('status', 'mapping')->first();
+        $record = DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
         abort_unless($record, 404);
 
         if ($record->storage_path) {
             Storage::disk('local')->delete($record->storage_path);
         }
-        DB::table('product_tracking_uploads')->where('id', $upload)->where('status', 'mapping')->delete();
+        DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->delete();
 
         return redirect()->route('surya.product-tracking.imports', ['kind' => $record->kind])->with('success', 'Upload dibatalkan dan file sementara dihapus.');
     }
@@ -967,7 +1001,7 @@ class ProductTrackingController extends MonitaDumaiController
     public function completeImport(Request $request, int $upload, ProductTrackingFile $reader)
     {
         $this->requireEditor();
-        $record = DB::table('product_tracking_uploads')->where('id', $upload)->where('status', 'mapping')->first();
+        $record = DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
         abort_unless($record && $record->storage_path && Storage::disk('local')->exists($record->storage_path), 404);
         $headers = json_decode($record->headers, true, 512, JSON_THROW_ON_ERROR);
         $columnRule = Rule::in(array_map('strval', array_keys($headers)));
@@ -1098,10 +1132,13 @@ class ProductTrackingController extends MonitaDumaiController
         $from = $filters['date_from'] ?? now('Asia/Jakarta')->startOfMonth()->toDateString();
         $to = $filters['date_to'] ?? now('Asia/Jakarta')->toDateString();
         if ($from > $to) throw ValidationException::withMessages(['date_to' => 'Tanggal akhir harus sama atau sesudah tanggal awal.']);
-        $warehouseId = DB::table('product_tracking_uploads')->where('kind', 'warehouse')->where('status', 'complete')->orderByDesc('id')->value('id');
+        $warehouseId = DB::table('product_tracking_uploads')
+            ->whereRaw("CONVERT(kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'warehouse' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
+            ->orderByDesc('id')->value('id');
         $sales = $this->scopedSales()
             ->whereBetween('sale.sale_date', [$from, $to])
-            ->when(! empty($filters['tap']), fn ($query) => $query->where('outlet.tap', $filters['tap']))
+            ->when(! empty($filters['tap']), fn ($query) => $this->applyTextEquals($query, 'outlet.tap', $filters['tap']))
             ->when(! empty($filters['sf']), fn ($query) => $query->where('sale.sf', $filters['sf']))
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.sf')
             ->select('sale.*', 'outlet.tap', 'sales_force.namasf')
@@ -1111,12 +1148,12 @@ class ProductTrackingController extends MonitaDumaiController
             ->selectSub($this->matchedDigiposQuery('scan', null, true, $from, $to), 'scan_outlet_matches')
             ->orderByDesc('sale.sale_date')->orderByDesc('sale.id')
             ->paginate((int) ($filters['per_page'] ?? 25))->appends($request->query());
-        $taps = DB::table('appsdumais')->when($this->suryaTapScopes(), fn ($query, $scopes) => $query->whereIn('tap', $scopes))->distinct()->orderBy('tap')->pluck('tap');
+        $taps = DB::table('appsdumais')->when($this->suryaTapScopes(), fn ($query, $scopes) => $this->applyTapScopeFilter($query, 'tap', $scopes))->distinct()->orderBy('tap')->pluck('tap');
+        $outletScope = DB::table('appsdumais')->select('id_outlet');
+        if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletScope, 'tap', $scopes);
         $sfs = DB::table('product_tracking_sales as product_sales')
             ->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'product_sales.sf')
-            ->when($this->suryaTapScopes(), function ($query, $scopes) {
-                $query->whereIn('product_sales.id_outlet', DB::table('appsdumais')->select('id_outlet')->whereIn('tap', $scopes));
-            })->select('product_sales.sf', 'sales_force.namasf')->distinct()->orderBy('sales_force.namasf')->get();
+            ->whereIn('product_sales.id_outlet', $outletScope)->select('product_sales.sf', 'sales_force.namasf')->distinct()->orderBy('sales_force.namasf')->get();
         return view('surya.product-tracking.report', compact('sales', 'filters', 'from', 'to', 'taps', 'sfs', 'warehouseId'));
     }
 
@@ -1128,10 +1165,12 @@ class ProductTrackingController extends MonitaDumaiController
             abort_if(strlen($queryValue) > 24 || ! preg_match('/^\d{9,16}$/', $queryValue), 422, 'Masukkan SN atau nomor 9–16 digit.');
             $sales = $this->scopedSales()->leftJoin('denom as tracking_denom', 'tracking_denom.iddenom', '=', 'sale.iddenom')->where(function ($query) use ($queryValue) {
                 $query->where(function ($sa) use ($queryValue) {
-                    $sa->where('sale.identifier_type', 'sn')->whereRaw("UPPER(COALESCE(tracking_denom.product_group, '')) IN ('SA', 'SP')")
+                    $sa->whereRaw("CONVERT(sale.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")
+                        ->whereRaw("CONVERT(UPPER(COALESCE(tracking_denom.product_group, '')) USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (_utf8mb4'SA' COLLATE utf8mb4_unicode_ci, _utf8mb4'SP' COLLATE utf8mb4_unicode_ci)")
                         ->whereRaw('CAST(sale.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0)) AND CAST(sale.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$queryValue, $queryValue]);
                 })->orWhere(function ($pv) use ($queryValue) {
-                    $pv->where('sale.identifier_type', 'sn')->whereRaw("UPPER(COALESCE(tracking_denom.product_group, 'PV')) NOT IN ('SA', 'SP')")
+                    $pv->whereRaw("CONVERT(sale.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")
+                        ->whereRaw("CONVERT(UPPER(COALESCE(tracking_denom.product_group, 'PV')) USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT IN (_utf8mb4'SA' COLLATE utf8mb4_unicode_ci, _utf8mb4'SP' COLLATE utf8mb4_unicode_ci)")
                         ->where('sale.serial_start', '<=', $queryValue)->where('sale.serial_end', '>=', $queryValue);
                 })->orWhere(function ($sub) use ($queryValue) {
                     $sub->where('sale.identifier_type', 'number')->where('sale.serial_start', $queryValue);
@@ -1141,17 +1180,22 @@ class ProductTrackingController extends MonitaDumaiController
                 ->leftJoin('denom as sales_denom', 'sales_denom.iddenom', '=', 'sale.iddenom')
                 ->orderByDesc('sale.sale_date')->get(['sale.*', 'sales_force.namasf', 'sales_outlet.nama_outlet', 'sales_outlet.kecamatan', 'sales_denom.denom as denom_name']);
             $scansQuery = DB::table('product_tracking_digipos as d')->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
-                ->where('u.kind', 'scan')->where('u.status', 'complete')->where(function ($match) use ($queryValue) {
+                ->whereRaw("CONVERT(u.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(u.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")->where(function ($match) use ($queryValue) {
                     $match->where(function ($sa) use ($queryValue) {
-                        $sa->whereRaw("LEFT(LOWER(u.filename), 3) = 'sa_'")
+                        $sa->whereRaw("LEFT(LOWER(u.filename), 3) = _utf8mb4'sa_' COLLATE utf8mb4_unicode_ci")
                             ->whereRaw('CAST(d.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0)) AND CAST(d.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$queryValue, $queryValue]);
                     })->orWhere(function ($pv) use ($queryValue) {
-                        $pv->whereRaw("LEFT(LOWER(u.filename), 3) <> 'sa_'")
+                        $pv->whereRaw("LEFT(LOWER(u.filename), 3) <> _utf8mb4'sa_' COLLATE utf8mb4_unicode_ci")
                             ->where('d.serial_start', '<=', $queryValue)->where('d.serial_end', '>=', $queryValue);
                     });
                 })
                 ->orderByDesc('d.scan_date')->orderByDesc('d.id')->limit(100);
-            if ($scopes = $this->suryaTapScopes()) $scansQuery->whereIn('d.id_outlet', DB::table('appsdumais')->select('id_outlet')->whereIn('tap', $scopes));
+            if ($scopes = $this->suryaTapScopes()) {
+                $outletScope = DB::table('appsdumais')->select('id_outlet');
+                $this->applyTapScopeFilter($outletScope, 'tap', $scopes);
+                $scansQuery->whereIn('d.id_outlet', $outletScope);
+            }
             $scans = $scansQuery->leftJoin('idsf as digipos_sales_force', 'digipos_sales_force.digipos_id', '=', 'd.sf')
                 ->leftJoin('appsdumais as digipos_outlet', 'digipos_outlet.id_outlet', '=', 'd.id_outlet')
                 ->get(['d.*', 'u.filename', 'digipos_sales_force.namasf', 'digipos_outlet.nama_outlet', 'digipos_outlet.kecamatan']);
@@ -1159,11 +1203,15 @@ class ProductTrackingController extends MonitaDumaiController
                 $mobileQuery = DB::table('mobile_sales_serials as serial')->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
                     ->leftJoin('denom as mobile_tracking_denom', 'mobile_tracking_denom.iddenom', '=', 'serial.iddenom')
                     ->where(function ($query) use ($queryValue) {
-                        $query->where(function ($sa) use ($queryValue) { $sa->where('serial.identifier_type', 'sn')->whereRaw("UPPER(COALESCE(mobile_tracking_denom.product_group, '')) IN ('SA', 'SP')")->whereRaw('CAST(serial.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0)) AND CAST(serial.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$queryValue, $queryValue]); })
-                            ->orWhere(function ($pv) use ($queryValue) { $pv->where('serial.identifier_type', 'sn')->whereRaw("UPPER(COALESCE(mobile_tracking_denom.product_group, 'PV')) NOT IN ('SA', 'SP')")->where('serial.serial_start', '<=', $queryValue)->where('serial.serial_end', '>=', $queryValue); })
+                        $query->where(function ($sa) use ($queryValue) { $sa->whereRaw("CONVERT(serial.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")->whereRaw("CONVERT(UPPER(COALESCE(mobile_tracking_denom.product_group, '')) USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (_utf8mb4'SA' COLLATE utf8mb4_unicode_ci, _utf8mb4'SP' COLLATE utf8mb4_unicode_ci)")->whereRaw('CAST(serial.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0)) AND CAST(serial.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$queryValue, $queryValue]); })
+                            ->orWhere(function ($pv) use ($queryValue) { $pv->whereRaw("CONVERT(serial.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")->whereRaw("CONVERT(UPPER(COALESCE(mobile_tracking_denom.product_group, 'PV')) USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT IN (_utf8mb4'SA' COLLATE utf8mb4_unicode_ci, _utf8mb4'SP' COLLATE utf8mb4_unicode_ci)")->where('serial.serial_start', '<=', $queryValue)->where('serial.serial_end', '>=', $queryValue); })
                             ->orWhere(function ($sub) use ($queryValue) { $sub->where('serial.identifier_type', 'number')->where('serial.serial_start', $queryValue); });
-                    })->whereNotIn('sale.status', ['draft_wa', 'rejected'])->orderByDesc('sale.tgl')->limit(50);
-                if ($scopes = $this->suryaTapScopes()) $mobileQuery->whereIn('sale.id_outlet', DB::table('appsdumais')->select('id_outlet')->whereIn('tap', $scopes));
+                    })->whereRaw("CONVERT(sale.status USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT IN (_utf8mb4'draft_wa' COLLATE utf8mb4_unicode_ci, _utf8mb4'rejected' COLLATE utf8mb4_unicode_ci)")->orderByDesc('sale.tgl')->limit(50);
+                if ($scopes = $this->suryaTapScopes()) {
+                    $outletScope = DB::table('appsdumais')->select('id_outlet');
+                    $this->applyTapScopeFilter($outletScope, 'tap', $scopes);
+                    $mobileQuery->whereIn('sale.id_outlet', $outletScope);
+                }
                 $mobile = $mobileQuery->leftJoin('idsf as sales_force', 'sales_force.idsf', '=', 'sale.idsf')
                     ->leftJoin('appsdumais as mobile_outlet', 'mobile_outlet.id_outlet', '=', 'sale.id_outlet')
                     ->leftJoin('denom as mobile_denom', 'mobile_denom.iddenom', '=', 'serial.iddenom')
@@ -1186,13 +1234,15 @@ class ProductTrackingController extends MonitaDumaiController
         $query = DB::table('product_tracking_digipos as digipos')->selectRaw('COUNT(*)')
             ->whereRaw("(sale.identifier_type = 'sn' AND digipos.serial_start <= sale.serial_end AND digipos.serial_end >= sale.serial_start)");
         if ($scopes = $this->suryaTapScopes()) {
-            $query->join('appsdumais as digipos_outlet', 'digipos_outlet.id_outlet', '=', 'digipos.id_outlet')->whereIn('digipos_outlet.tap', $scopes);
+            $query->join('appsdumais as digipos_outlet', 'digipos_outlet.id_outlet', '=', 'digipos.id_outlet');
+            $this->applyTapScopeFilter($query, 'digipos_outlet.tap', $scopes);
         }
         if ($sameOutlet) $query->whereColumn('digipos.id_outlet', 'sale.id_outlet');
         if ($kind === 'warehouse') $query->where('digipos.upload_id', $warehouseId ?? 0);
         else {
             $query->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
                 ->whereBetween('upload.scan_date', [$from, $to]);
         }
         return $query;
@@ -1201,7 +1251,7 @@ class ProductTrackingController extends MonitaDumaiController
     private function scopedSales()
     {
         $query = DB::table('product_tracking_sales as sale')->leftJoin('appsdumais as outlet', 'outlet.id_outlet', '=', 'sale.id_outlet');
-        if ($scopes = $this->suryaTapScopes()) $query->whereIn('outlet.tap', $scopes);
+        if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($query, 'outlet.tap', $scopes);
         return $query;
     }
 
@@ -1233,7 +1283,9 @@ class ProductTrackingController extends MonitaDumaiController
         if (! array_key_exists($length, $this->maxScanSerialRangeCountByLength)) {
             $this->maxScanSerialRangeCountByLength[$length] = (int) (DB::table('product_tracking_digipos as digipos')
                 ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->where('digipos.kind', 'scan')->where('upload.kind', 'scan')->where('upload.status', 'complete')
+                ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
                 ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
                 ->max('digipos.serial_count') ?? 1);
         }
@@ -1241,8 +1293,9 @@ class ProductTrackingController extends MonitaDumaiController
 
         $existing = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-            ->where('digipos.kind', 'scan')
-            ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+            ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->where('digipos.serial_start', '>=', $minimumStart)
             ->where('digipos.serial_start', '<=', $range['serial_end'])
             ->where('digipos.serial_end', '>=', $range['serial_start'])
@@ -1266,7 +1319,9 @@ class ProductTrackingController extends MonitaDumaiController
     {
         return DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-            ->where('digipos.kind', $kind)->where('upload.kind', $kind)->where('upload.status', 'complete')
+            ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
+            ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
+            ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->where('digipos.id_outlet', $range['id_outlet'])
             ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [strlen($range['serial_start'])])
             ->whereRaw('digipos.serial_start <= ? AND digipos.serial_end >= ?', [$range['serial_end'], $range['serial_start']])
