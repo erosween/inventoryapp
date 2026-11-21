@@ -365,14 +365,21 @@
                 <div class="product-list-wrapper px-4 pt-3 pb-5">
                     <div class="list-group list-group-flush" id="modal-product-list">
                         @php
+                            // Hide zero-balance products from regular sales. Keep denoms
+                            // with uploaded serial stock available for SN-based selling.
+                            $selectableDenoms = $denoms->filter(fn ($d) => (int) ($d->stock_qty ?? 0) > 0 || $uploadedStockDenoms->contains('iddenom', $d->iddenom));
                             // Separate special items to ensure they are at the TOP
-                            $specialItems = $denoms->filter(function($d) {
+                            $specialItems = $selectableDenoms->filter(function($d) {
                                 return strtoupper((string) ($d->product_group ?? 'PV')) === 'SP';
                             });
-                            $otherItems = $denoms->reject(function($d) {
+                            $otherItems = $selectableDenoms->reject(function($d) {
                                 return strtoupper((string) ($d->product_group ?? 'PV')) === 'SP';
                             });
                         @endphp
+
+                        @if($selectableDenoms->isEmpty())
+                            <div class="text-center py-5 text-muted small fw-bold">Tidak ada denom dengan stok tersedia.</div>
+                        @endif
 
                         {{-- Render Special Items First --}}
                         @foreach($specialItems as $denom)
@@ -388,7 +395,11 @@
                                 <div class="fw-800 text-dark" style="font-size: 1.05rem; line-height: 1.2;">{{ $denom->denom }}</div>
                                 <div class="small text-muted fw-bold mt-1 d-flex align-items-center" style="font-size: 0.7rem;">
                                     <span class="badge bg-primary bg-opacity-10 text-primary me-2 px-2 py-1 rounded-pill">VIRTUAL</span>
-                                    <span class="text-primary">STOK: {{ number_format($denom->stock_qty) }}</span>
+                                    @if((int) $denom->stock_qty > 0)
+                                        <span class="text-primary">STOK: {{ number_format($denom->stock_qty) }}</span>
+                                    @else
+                                        <span class="text-primary">SN SALES TERDAFTAR</span>
+                                    @endif
                                 </div>
                             </div>
                             <i class="fas fa-chevron-right text-muted opacity-25"></i>
@@ -409,7 +420,11 @@
                                 <div class="fw-800 text-dark" style="font-size: 1.05rem; line-height: 1.2;">{{ $denom->denom }}</div>
                                 <div class="small text-muted fw-bold mt-1 d-flex align-items-center" style="font-size: 0.7rem;">
                                     <span class="badge bg-success bg-opacity-10 text-success me-2 px-2 py-1 rounded-pill">READY</span>
-                                    <span class="text-primary">STOK: {{ number_format($denom->stock_qty) }}</span>
+                                    @if((int) $denom->stock_qty > 0)
+                                        <span class="text-primary">STOK: {{ number_format($denom->stock_qty) }}</span>
+                                    @else
+                                        <span class="text-primary">SN SALES TERDAFTAR</span>
+                                    @endif
                                 </div>
                             </div>
                             <i class="fas fa-chevron-right text-muted opacity-25"></i>

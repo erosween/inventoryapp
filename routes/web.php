@@ -129,7 +129,6 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::get('/imports/{upload}/mapping', 'mapping')->whereNumber('upload')->name('mapping');
     Route::post('/imports/{upload}/cancel', 'cancelImport')->whereNumber('upload')->name('imports.cancel');
     Route::post('/imports/{upload}/complete', 'completeImport')->whereNumber('upload')->name('imports.complete');
-    Route::get('/report', 'report')->name('report');
     Route::get('/tracking', 'tracking')->name('tracking');
     Route::get('/sf-stock-lookup', 'sfStockLookup')->name('sf-stock-lookup');
     Route::post('/sf-stock-lookup', 'storeSfStockRange')->name('sf-stock-lookup.store');

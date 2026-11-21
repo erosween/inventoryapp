@@ -717,8 +717,9 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function imports(Request $request)
     {
-        $kind = $request->query('kind', 'warehouse');
-        abort_unless(in_array($kind, ['warehouse', 'scan', 'so-pv', 'so-sa', 'sales-stock'], true), 404);
+        $this->requireEditor();
+        $kind = $request->query('kind', 'scan');
+        abort_unless(in_array($kind, ['scan', 'so-pv', 'so-sa', 'sales-stock'], true), 404);
         if ($kind === 'sales-stock') {
             abort_unless(Schema::hasTable('product_tracking_sales_stock_uploads'), 503, 'Fitur upload stok SN Sales belum diaktifkan. Jalankan migrasi terbaru terlebih dahulu.');
         }
@@ -840,6 +841,7 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function salesStock()
     {
+        $this->requireEditor();
         abort_unless(Schema::hasTable('product_tracking_sales_stock_uploads'), 503, 'Fitur upload stok SN Sales belum diaktifkan. Jalankan migrasi terbaru terlebih dahulu.');
         return view('surya.product-tracking.sales-stock', [
             'uploads' => DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get(),
@@ -949,7 +951,7 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $this->requireEditor();
         $data = $request->validate([
-            'kind' => 'required|in:warehouse,scan,so-pv,so-sa,sales-stock',
+            'kind' => 'required|in:scan,so-pv,so-sa,sales-stock',
             'scan_date' => 'nullable|date|before_or_equal:today',
             'file' => 'required|file|mimes:csv,txt|max:102400',
         ]);
@@ -978,7 +980,7 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $this->requireEditor();
         $record = DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
-        abort_unless($record && $record->storage_path && Storage::disk('local')->exists($record->storage_path), 404);
+        abort_unless($record && $record->kind !== 'warehouse' && $record->storage_path && Storage::disk('local')->exists($record->storage_path), 404);
         $headers = json_decode($record->headers, true, 512, JSON_THROW_ON_ERROR);
         return view('surya.product-tracking.mapping', [
             'upload' => $record,
@@ -992,7 +994,7 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $this->requireEditor();
         $record = DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
-        abort_unless($record, 404);
+        abort_unless($record && $record->kind !== 'warehouse', 404);
 
         if ($record->storage_path) {
             Storage::disk('local')->delete($record->storage_path);
@@ -1006,7 +1008,7 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $this->requireEditor();
         $record = DB::table('product_tracking_uploads')->where('id', $upload)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->first();
-        abort_unless($record && $record->storage_path && Storage::disk('local')->exists($record->storage_path), 404);
+        abort_unless($record && $record->kind !== 'warehouse' && $record->storage_path && Storage::disk('local')->exists($record->storage_path), 404);
         $headers = json_decode($record->headers, true, 512, JSON_THROW_ON_ERROR);
         $columnRule = Rule::in(array_map('strval', array_keys($headers)));
         $mapping = $request->validate([
@@ -1263,6 +1265,7 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function sfStockLookup(Request $request)
     {
+        $this->requireEditor();
         $tab = $request->query('tab') === 'add' ? 'add' : 'tracking';
         if ($tab === 'add') $this->requireEditor();
         $raw = trim((string) $request->query('q', ''));
