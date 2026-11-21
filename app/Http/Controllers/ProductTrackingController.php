@@ -685,53 +685,50 @@ class ProductTrackingController extends MonitaDumaiController
         $outletCategory = Schema::hasColumn('appsdumais', 'kategori_outlet')
             ? DB::raw('outlet.kategori_outlet AS kategori_outlet')
             : DB::raw("'Reguler' AS kategori_outlet");
-        $prefix = strtolower($product).'_';
-        $legacySerialLengths = $product === 'PV' ? '12' : '15,16';
         $soKind = 'so-'.strtolower($product);
-        $st = DB::table('product_tracking_digipos as d')
-            ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
-            ->where('u.kind', 'scan')->where('u.status', 'complete')->where('d.kind', 'scan')
-            ->whereRaw("(LEFT(LOWER(u.filename), 3) = ? OR (LEFT(LOWER(u.filename), 3) NOT IN ('pv_','sa_') AND CHAR_LENGTH(d.serial_start) IN ({$legacySerialLengths})))", [$prefix])
-            ->selectRaw('d.id_outlet, SUM(d.serial_count) AS st_qty')->groupBy('d.id_outlet');
+        abort_unless(Schema::hasTable('mobile_sales_serials') && Schema::hasColumn('keluarsf', 'sn_awal') && Schema::hasColumn('keluarsf', 'sn_akhir'), 503, 'Sumber SN ST Nota belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
+        $serialLengthSql = $product === 'PV' ? '12' : '15,16';
+        $mobileSt = DB::table('mobile_sales_serials as serial')
+            ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
+            ->where('serial.identifier_type', 'sn')->whereNotIn('sale.status', ['draft_wa', 'rejected'])
+            ->whereNotNull('sale.id_outlet')->whereRaw("CHAR_LENGTH(serial.serial_start) IN ({$serialLengthSql})")
+            ->selectRaw('sale.id_outlet, serial.serial_start, serial.serial_end, serial.qty AS serial_count, sale.tgl AS st_date');
+        $webSt = DB::table('keluarsf as form_sale')
+            ->whereNotNull('form_sale.id_outlet')->whereRaw("TRIM(form_sale.id_outlet) <> ''")
+            ->whereRaw("COALESCE(form_sale.tambahanket, '') NOT LIKE 'Mobile Approval ID: %'")
+            ->whereRaw("(form_sale.identifier_type IS NULL OR form_sale.identifier_type = 'sn')")
+            ->whereRaw("(form_sale.serial_mode IS NULL OR form_sale.serial_mode <> 'broken')")
+            ->whereNotNull('form_sale.sn_awal')->whereRaw("TRIM(form_sale.sn_awal) <> ''")
+            ->whereRaw("(form_sale.sn_akhir IS NULL OR TRIM(form_sale.sn_akhir) = '' OR form_sale.sn_akhir >= form_sale.sn_awal)")
+            ->whereRaw("CHAR_LENGTH(form_sale.sn_awal) IN ({$serialLengthSql})")
+            ->selectRaw("form_sale.id_outlet, form_sale.sn_awal AS serial_start, COALESCE(NULLIF(form_sale.sn_akhir, ''), form_sale.sn_awal) AS serial_end, form_sale.qty AS serial_count, form_sale.tgl AS st_date");
+        $stSources = $mobileSt->unionAll($webSt);
+        $st = DB::query()->fromSub($stSources, 'source')
+            ->selectRaw('source.id_outlet, SUM(source.serial_count) AS st_qty')->groupBy('source.id_outlet');
         $so = DB::table('product_tracking_digipos as so')
             ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
             ->where('so.kind', $soKind)->where('u.kind', $soKind)->where('u.status', 'complete')
             ->selectRaw('so.id_outlet, SUM(so.serial_count) AS so_qty')->groupBy('so.id_outlet');
-        $redeem = DB::table('product_tracking_digipos as st')
-            ->join('product_tracking_uploads as st_upload', 'st_upload.id', '=', 'st.upload_id')
-            ->join('product_tracking_digipos as so', function ($join) use ($soKind) {
+        $redeem = DB::query()->fromSub($stSources, 'st')
+            ->join('product_tracking_digipos as so', function ($join) use ($soKind, $serialLengthSql) {
                 $join->on('so.id_outlet', '=', 'st.id_outlet')->where('so.kind', '=', $soKind)
+                    ->whereRaw("CHAR_LENGTH(st.serial_start) IN ({$serialLengthSql})")
                     ->whereRaw('CAST(so.serial_start AS DECIMAL(24,0)) <= CAST(st.serial_end AS DECIMAL(24,0))')
                     ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
             })
-            ->where('st.kind', 'scan')->where('st_upload.kind', 'scan')->where('st_upload.status', 'complete')
-            ->whereRaw("(LEFT(LOWER(st_upload.filename), 3) = ? OR (LEFT(LOWER(st_upload.filename), 3) NOT IN ('pv_','sa_') AND CHAR_LENGTH(st.serial_start) IN ({$legacySerialLengths})))", [$prefix])
+            ->join('product_tracking_uploads as so_upload', 'so_upload.id', '=', 'so.upload_id')
+            ->where('so_upload.kind', $soKind)->where('so_upload.status', 'complete')
             ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0)) AS redeemed_qty')
-            ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(so.sold_at, st.scan_date), 0)) AS days_to_customer_weighted')
-            ->groupBy('st.id_outlet');
-        $sfToOutlet = DB::table('product_tracking_digipos as st')
-            ->join('product_tracking_uploads as u', 'u.id', '=', 'st.upload_id')
-            ->join('mobile_sales_serials as serial', function ($join) {
-                $join->where('serial.identifier_type', '=', 'sn')
-                    ->whereRaw('CAST(serial.serial_start AS DECIMAL(24,0)) <= CAST(st.serial_end AS DECIMAL(24,0))')
-                    ->whereRaw('CAST(serial.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
-            })
-            ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
-            ->where('st.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
-            ->whereRaw("(LEFT(LOWER(u.filename), 3) = ? OR (LEFT(LOWER(u.filename), 3) NOT IN ('pv_','sa_') AND CHAR_LENGTH(st.serial_start) IN ({$legacySerialLengths})))", [$prefix])
-            ->whereColumn('sale.id_outlet', 'st.id_outlet')
-            ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0)) AS matched_sale_qty')
-            ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(serial.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(serial.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(st.scan_date, sale.tgl), 0)) AS days_to_outlet_weighted')
+            ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(so.sold_at, st.st_date), 0)) AS days_to_customer_weighted')
             ->groupBy('st.id_outlet');
         $outlets = DB::table('appsdumais as outlet')
             ->leftJoinSub($st, 'st', 'st.id_outlet', '=', 'outlet.id_outlet')
             ->leftJoinSub($so, 'so', 'so.id_outlet', '=', 'outlet.id_outlet')
             ->leftJoinSub($redeem, 'redeem', 'redeem.id_outlet', '=', 'outlet.id_outlet')
-            ->leftJoinSub($sfToOutlet, 'sf_days', 'sf_days.id_outlet', '=', 'outlet.id_outlet')
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
             ->addSelect($outletCategory)
             ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(so.so_qty, 0) AS so_qty, COALESCE(redeem.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(redeem.redeemed_qty, 0), 0) AS remaining_qty')
-            ->selectRaw('CASE WHEN COALESCE(sf_days.matched_sale_qty, 0) > 0 THEN ROUND(sf_days.days_to_outlet_weighted / sf_days.matched_sale_qty, 1) ELSE NULL END AS days_sf_to_outlet, CASE WHEN COALESCE(redeem.redeemed_qty, 0) > 0 THEN ROUND(redeem.days_to_customer_weighted / redeem.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
+            ->selectRaw('NULL AS days_sf_to_outlet, CASE WHEN COALESCE(redeem.redeemed_qty, 0) > 0 THEN ROUND(redeem.days_to_customer_weighted / redeem.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
             ->where(function ($query) { $query->whereNotNull('st.id_outlet')->orWhereNotNull('so.id_outlet'); })
             ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet')->paginate(20)->withQueryString();
         return view('surya.product-tracking.stock-outlet', compact('product', 'outlets', 'soKind'));
