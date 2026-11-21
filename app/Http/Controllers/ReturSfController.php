@@ -122,8 +122,8 @@ class ReturSfController extends Controller
         if (!is_array($request->input('items'))) {
             $request->merge(['items' => [[
                 'iddenom' => $request->iddenom,
-                'qty' => $request->qty,
-                'sn' => $request->sn,
+                'sn_start' => $request->sn_start ?: $request->sn,
+                'sn_end' => $request->sn_end,
                 'tambahket' => $request->tambahket,
             ]]]);
         }
@@ -135,17 +135,19 @@ class ReturSfController extends Controller
             'ketvf' => 'required|in:OK,RUSAK,MATI',
             'items' => 'required|array|min:1',
             'items.*.iddenom' => 'required|exists:denom,iddenom',
-            'items.*.qty' => 'required|integer|min:1',
-            'items.*.sn' => 'required|string|max:255',
+            'items.*.qty' => 'nullable|integer|min:1|max:2000000',
+            'items.*.sn_start' => 'required|string|max:24',
+            'items.*.sn_end' => 'nullable|string|max:24',
             'items.*.tambahket' => 'required|string|max:500',
         ]);
+        $validated['items'] = $this->normalizeSerialRanges($validated['items']);
         usort($validated['items'], fn ($a, $b) => strcmp($a['iddenom'], $b['iddenom']));
 
         if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) {
             abort(403);
         }
         abort_unless(
-            DB::table('idsf')->where('idsf', $validated['idsf'])->where('idtap', $validated['idtap'])->exists(),
+            \App\Support\SfVisibility::visible(DB::table('idsf'))->where('idsf', $validated['idsf'])->whereRaw('UPPER(TRIM(idtap)) = ?', [mb_strtoupper(trim($validated['idtap']))])->exists(),
             422,
             'Petugas tidak sesuai dengan TAP.'
         );
@@ -177,6 +179,8 @@ class ReturSfController extends Controller
                     'iddenom' => $item['iddenom'],
                     'qty' => $item['qty'],
                     'sn' => $item['sn'],
+                    'sn_awal' => $item['sn_start'],
+                    'sn_akhir' => $item['sn_end'],
                     'ketvf' => $validated['ketvf'],
                     'tambahket' => $item['tambahket'],
                 ]);
@@ -222,7 +226,9 @@ class ReturSfController extends Controller
             ->when($idtap_session !== 'SBP_DUMAI', fn ($q) => $q->where('idtap', $idtap_session))
             ->get();
 
-        $idsf = DB::table('idsf')->where('idtap', $edit->idtap)->get();
+        $idsf = \App\Support\SfVisibility::visible(DB::table('idsf'))
+            ->whereRaw('UPPER(TRIM(idtap)) = ?', [mb_strtoupper(trim((string) $edit->idtap))])
+            ->orderBy('namasf')->get();
         $denom = DB::table('denom')->get();
 
         return view('form.form-edit-retursf', compact('edit', 'tap', 'idsf', 'denom', 'idtap_session'));
@@ -230,44 +236,115 @@ class ReturSfController extends Controller
 
     public function update(Request $request, $id)
     {
-        DB::transaction(function () use ($request, $id) {
+        $validated = $request->validate([
+            'tgl' => 'required|date',
+            'idtap' => 'required|exists:kodetap,idtap',
+            'idsf' => 'required|exists:idsf,idsf',
+            'iddenom' => 'required|exists:denom,iddenom',
+            'sn_start' => 'required|string|max:24',
+            'sn_end' => 'nullable|string|max:24',
+            'qty' => 'nullable|integer|min:1|max:2000000',
+            'ketvf' => 'required|in:OK,RUSAK,MATI',
+            'tambahket' => 'required|string|max:500',
+        ]);
+        $item = $this->normalizeSerialRanges([[
+            'iddenom' => $validated['iddenom'],
+            'sn_start' => $validated['sn_start'],
+            'sn_end' => $validated['sn_end'] ?? '',
+            'qty' => $validated['qty'] ?? null,
+            'tambahket' => $validated['tambahket'],
+        ]])[0];
+
+        if (session('idtap') !== 'SBP_DUMAI' && $validated['idtap'] !== session('idtap')) abort(403);
+        abort_unless(\App\Support\SfVisibility::visible(DB::table('idsf'))
+            ->where('idsf', $validated['idsf'])
+            ->whereRaw('UPPER(TRIM(idtap)) = ?', [mb_strtoupper(trim($validated['idtap']))])->exists(),
+            422, 'Petugas tidak sesuai dengan TAP.');
+
+        DB::transaction(function () use ($validated, $item, $id) {
             $oldData = DB::table('retursf')->where('idretur', $id)->lockForUpdate()->first();
+            if (!$oldData) abort(404);
             
             // 1. Rollback stok lama
             // retur: SF -> TAP. Rollback: TAP -> SF
-            $stokTapOld = DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->lockForUpdate()->value('stock');
-            if ($stokTapOld < $oldData->qty) {
-                throw new \Exception('Stok TAP tidak mencukupi untuk membatalkan data lama');
+            $stokTapOld = DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->lockForUpdate()->value('stock') ?? 0;
+            if ((string) $oldData->idtap !== (string) $validated['idtap'] || (string) $oldData->iddenom !== (string) $item['iddenom'] || (string) $oldData->idsf !== (string) $validated['idsf']) {
+                if ($stokTapOld < $oldData->qty) {
+                    throw new \Exception('Stok TAP tidak mencukupi untuk membatalkan data lama');
+                }
+                DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
+                DB::table('stockawalsf')->where('idsf', $oldData->idsf)->where('iddenom', $oldData->iddenom)->increment('stock', $oldData->qty);
+            } else {
+                $netReturn = $item['qty'] - (int) $oldData->qty;
+                if ($netReturn > 0 && (int) (DB::table('stockawalsf')->where('idsf', $validated['idsf'])->where('iddenom', $item['iddenom'])->lockForUpdate()->value('stock') ?? 0) < $netReturn) {
+                    throw new \Exception('Stok SF tidak mencukupi untuk penambahan Qty retur.');
+                }
+                if ($netReturn < 0 && $stokTapOld < abs($netReturn)) throw new \Exception('Stok TAP tidak mencukupi untuk mengurangi Qty retur.');
+                if ($netReturn > 0) {
+                    DB::table('stockawalsf')->where('idsf', $validated['idsf'])->where('iddenom', $item['iddenom'])->decrement('stock', $netReturn);
+                    DB::table('stockawaltap')->where('idtap', $validated['idtap'])->where('iddenom', $item['iddenom'])->increment('stock', $netReturn);
+                } elseif ($netReturn < 0) {
+                    DB::table('stockawaltap')->where('idtap', $validated['idtap'])->where('iddenom', $item['iddenom'])->decrement('stock', abs($netReturn));
+                    DB::table('stockawalsf')->where('idsf', $validated['idsf'])->where('iddenom', $item['iddenom'])->increment('stock', abs($netReturn));
+                }
             }
-            DB::table('stockawaltap')->where('idtap', $oldData->idtap)->where('iddenom', $oldData->iddenom)->decrement('stock', $oldData->qty);
-            DB::table('stockawalsf')->where('idsf', $oldData->idsf)->where('iddenom', $oldData->iddenom)->increment('stock', $oldData->qty);
 
-            // 2. Terapkan stok baru
-            // retur baru: SF -> TAP
-            $stokSfNew = DB::table('stockawalsf')->where('idsf', $request->idsf)->where('iddenom', $request->iddenom)->lockForUpdate()->value('stock');
-            if ($stokSfNew < $request->qty) {
-                throw new \Exception('Stok SF tidak mencukupi untuk data baru ini');
+            if ((string) $oldData->idtap !== (string) $validated['idtap'] || (string) $oldData->iddenom !== (string) $item['iddenom'] || (string) $oldData->idsf !== (string) $validated['idsf']) {
+                DB::table('stockawalsf')->insertOrIgnore(['idsf' => $validated['idsf'], 'iddenom' => $item['iddenom'], 'stock' => 0]);
+                $stokSfNew = DB::table('stockawalsf')->where('idsf', $validated['idsf'])->where('iddenom', $item['iddenom'])->lockForUpdate()->value('stock') ?? 0;
+                if ($stokSfNew < $item['qty']) throw new \Exception('Stok SF tidak mencukupi untuk data baru ini');
+                DB::table('stockawalsf')->where('idsf', $validated['idsf'])->where('iddenom', $item['iddenom'])->decrement('stock', $item['qty']);
+                DB::table('stockawaltap')->insertOrIgnore(['idtap' => $validated['idtap'], 'iddenom' => $item['iddenom'], 'stock' => 0]);
+                DB::table('stockawaltap')->where('idtap', $validated['idtap'])->where('iddenom', $item['iddenom'])->increment('stock', $item['qty']);
             }
-            DB::table('stockawalsf')->where('idsf', $request->idsf)->where('iddenom', $request->iddenom)->decrement('stock', $request->qty);
-            DB::table('stockawaltap')->where('idtap', $request->idtap)->where('iddenom', $request->iddenom)->increment('stock', $request->qty);
 
             // 3. Update record
             DB::table('retursf')->where('idretur', $id)->update([
-                'tgl'        => $request->tgl,
-                'idtap'      => $request->idtap,
-                'idsf'       => $request->idsf,
-                'iddenom'    => $request->iddenom,
-                'qty'        => $request->qty,
-                'sn'         => $request->sn,
-                'ketvf'      => $request->ketvf,
-                'tambahket'  => $request->tambahket,
+                'tgl' => $validated['tgl'], 'idtap' => $validated['idtap'], 'idsf' => $validated['idsf'],
+                'iddenom' => $item['iddenom'], 'qty' => $item['qty'], 'sn' => $item['sn'],
+                'sn_awal' => $item['sn_start'], 'sn_akhir' => $item['sn_end'],
+                'ketvf' => $validated['ketvf'], 'tambahket' => $item['tambahket'],
             ]);
 
             // 📝 LOG
-            AuditLogger::log('UPDATE', 'Retur SF', $id, (array)$oldData, $request->all());
+            AuditLogger::log('UPDATE', 'Retur SF', $id, (array)$oldData, $validated + ['qty' => $item['qty'], 'sn' => $item['sn']]);
         });
 
         return redirect('retursf')->with('success', 'Data retur berhasil diperbarui');
+    }
+
+    private function normalizeSerialRanges(array $items): array
+    {
+        $denoms = DB::table('denom')->whereIn('iddenom', collect($items)->pluck('iddenom')->unique())
+            ->get(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name'])->keyBy('iddenom');
+        foreach ($items as $index => &$item) {
+            $denom = $denoms->get($item['iddenom']);
+            $id = strtoupper(trim((string) ($denom->iddenom ?? '')));
+            $product = strtoupper(trim((string) ($denom->product ?? '')));
+            $isSa = in_array($product, ['PV', 'SA'], true) ? $product === 'SA'
+                : (in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+                    || strtoupper(trim((string) ($denom->kategori_inject ?? '')))==='SA'
+                    || strtoupper(trim((string) ($denom->group_name ?? '')))==='SA' || str_starts_with($id, 'SP'));
+            $start = trim((string) ($item['sn_start'] ?? ''));
+            $end = trim((string) ($item['sn_end'] ?? ''));
+            $pattern = $isSa ? '/^0\d{15}$/' : '/^\d{12}$/';
+            if (!preg_match($pattern, $start) || ($end !== '' && !preg_match($pattern, $end))) {
+                throw \Illuminate\Validation\ValidationException::withMessages(["items.{$index}.sn_start" => $isSa ? 'SN SA wajib 16 digit dan diawali 0.' : 'SN PV wajib tepat 12 digit.']);
+            }
+            if ($end === '') $end = $start;
+            $qty = (int) ltrim($end, '0') - (int) ltrim($start, '0') + 1;
+            if ($qty < 1 || $qty > 2_000_000) throw \Illuminate\Validation\ValidationException::withMessages(["items.{$index}.sn_end" => 'SN akhir harus lebih besar atau sama dengan SN awal; maksimal 2.000.000 SN.']);
+            if (!empty($item['qty']) && (int) $item['qty'] !== $qty) throw \Illuminate\Validation\ValidationException::withMessages(["items.{$index}.sn_end" => 'Qty harus sama dengan jumlah SN di rentang.']);
+            $item['sn_start'] = $start; $item['sn_end'] = $end; $item['qty'] = $qty;
+            $item['sn'] = $start === $end ? $start : $start.'-'.$end;
+        }
+        unset($item);
+        for ($i = 0; $i < count($items); $i++) for ($j = $i + 1; $j < count($items); $j++) {
+            if (strlen($items[$i]['sn_start']) === strlen($items[$j]['sn_start']) && $items[$i]['sn_start'] <= $items[$j]['sn_end'] && $items[$i]['sn_end'] >= $items[$j]['sn_start']) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['items' => 'Rentang SN antar baris tidak boleh tumpang tindih.']);
+            }
+        }
+        return $items;
     }
 
     /* ===============================

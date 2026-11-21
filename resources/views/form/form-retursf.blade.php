@@ -8,9 +8,9 @@
             <div class="page-inner">
 
                 {{-- Error --}}
-                @if ($errors->has('error'))
+                @if ($errors->any())
                     <div class="alert alert-danger">
-                        {{ $errors->first('error') }}
+                        <ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
                     </div>
                 @endif
 
@@ -101,7 +101,8 @@
                                                             <th>Denom</th>
                                                             <th width="115">Stok SF</th>
                                                             <th width="110">Qty</th>
-                                                            <th>SN</th>
+                                                            <th>SN Awal</th>
+                                                            <th>SN Akhir</th>
                                                             <th>Keterangan</th>
                                                             <th width="50"></th>
                                                         </tr>
@@ -155,27 +156,28 @@
             });
 
             /* ================= TAP → SF ================= */
-            $('#kategoritap').on('change', function() {
-                const idtap = $(this).val();
+            function loadSalesForce(idtap, selectedSf = '') {
                 const $sf = $('#idsf');
 
                 $sf.prop('disabled', true).empty().trigger('change');
 
                 if (!idtap) return;
 
-                $.post('{{ route('ajax.get-sf-keluar') }}', {
+                $.post('{{ route('ajax.get-sf-masuk') }}', {
                     idtap,
                     _token: '{{ csrf_token() }}'
                 }).done(res => {
                     let options = '<option value="">-- Pilih SF --</option>';
                     res.forEach(item => {
-                        options += `<option value="${item.idsf}">${item.namasf}</option>`;
+                        const selected = String(item.idsf) === String(selectedSf) ? ' selected' : '';
+                        options += `<option value="${$('<div>').text(item.idsf).html()}"${selected}>${$('<div>').text(item.namasf).html()}</option>`;
                     });
                     $sf.html(options)
                         .prop('disabled', false)
                         .trigger('change');
                 });
-            });
+            }
+            $('#kategoritap').on('change', function() { loadSalesForce($(this).val()); });
 
             /* ================= RESET SAAT SF GANTI ================= */
             let currentStock = 0;
@@ -317,7 +319,8 @@
                     <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${denomOptions()}</select></td>
                     <td class="bulk-stock text-right align-middle">-</td>
                     <td><input type="number" name="items[${index}][qty]" class="form-control form-control-sm bulk-qty" min="1" required></td>
-                    <td><input type="text" name="items[${index}][sn]" class="form-control form-control-sm" required></td>
+                    <td><input type="text" name="items[${index}][sn_start]" class="form-control form-control-sm retur-sn-start" inputmode="numeric" required></td>
+                    <td><input type="text" name="items[${index}][sn_end]" class="form-control form-control-sm retur-sn-end" inputmode="numeric" placeholder="Kosong = satu SN"></td>
                     <td><input type="text" name="items[${index}][tambahket]" class="form-control form-control-sm" required></td>
                     <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row">×</button></td>
                 </tr>`);
@@ -346,7 +349,22 @@
             }).on('change', '.bulk-denom', function() {
                 const stock = parseInt(sfStockData[$(this).val()]) || 0;
                 $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
+                updateRangeQty($(this).closest('tr'));
+            }).on('input', '.retur-sn-start, .retur-sn-end', function() {
+                updateRangeQty($(this).closest('tr'));
             });
+
+            function updateRangeQty($row) {
+                const start = ($row.find('.retur-sn-start').val() || '').trim();
+                const endInput = ($row.find('.retur-sn-end').val() || '').trim();
+                if (!start) { $row.find('.bulk-qty').val(''); return; }
+                const end = endInput || start;
+                if (!/^\d+$/.test(start) || !/^\d+$/.test(end) || start.length !== end.length || end < start) {
+                    $row.find('.bulk-qty').val(''); return;
+                }
+                const qty = Number(BigInt(end) - BigInt(start) + 1n);
+                $row.find('.bulk-qty').val(Number.isSafeInteger(qty) ? qty : '');
+            }
             $('#input_mode').trigger('change');
 
         });

@@ -7,6 +7,10 @@
         <div class="content">
             <div class="page-inner">
 
+                @if ($errors->any())
+                    <div class="alert alert-danger"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+                @endif
+
                 <div class="page-header">
                     <h4 class="page-title">Edit Retur SF</h4>
                 </div>
@@ -82,17 +86,25 @@
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
                                                 <label>Quantity</label>
-                                                <input type="number" name="qty" class="form-control"
-                                                    value="{{ $edit->qty }}" min="1" required>
+                                            <input type="number" name="qty" id="qty" class="form-control"
+                                                    value="{{ $edit->qty }}" min="1" readonly required>
                                             </div>
                                         </div>
 
                                         {{-- SN --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>SN</label>
-                                                <input type="text" name="sn" class="form-control"
-                                                    value="{{ $edit->sn }}">
+                                                <label>SN Awal</label>
+                                                <input type="text" name="sn_start" id="sn_start" class="form-control" inputmode="numeric"
+                                                    value="{{ $edit->sn_awal ?? explode('-', (string) $edit->sn)[0] }}" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN Akhir <small class="text-muted">(kosong = satu SN)</small></label>
+                                                <input type="text" name="sn_end" id="sn_end" class="form-control" inputmode="numeric"
+                                                    value="{{ $edit->sn_akhir ?? (str_contains((string) $edit->sn, '-') ? explode('-', (string) $edit->sn)[1] : '') }}">
                                             </div>
                                         </div>
 
@@ -161,12 +173,23 @@
                     idtap: idtap,
                     _token: "{{ csrf_token() }}"
                 }, function(res) {
-                    $('#idsf').html(res).trigger('change');
-                    if (selectedSf) {
-                        $('#idsf').val(selectedSf).trigger('change');
-                    }
+                    const options = ['<option value="">-- Pilih SF --</option>'];
+                    res.forEach(item => options.push(`<option value="${$('<div>').text(item.idsf).html()}"${String(item.idsf) === String(selectedSf) ? ' selected' : ''}>${$('<div>').text(item.namasf).html()}</option>`));
+                    $('#idsf').html(options.join('')).trigger('change');
                 });
             }
+
+            function updateRangeQty() {
+                const start = ($('#sn_start').val() || '').trim();
+                const endInput = ($('#sn_end').val() || '').trim();
+                if (!start) { $('#qty').val(''); return; }
+                const end = endInput || start;
+                if (!/^\d+$/.test(start) || !/^\d+$/.test(end) || start.length !== end.length || end < start) { $('#qty').val(''); return; }
+                const qty = Number(BigInt(end) - BigInt(start) + 1n);
+                $('#qty').val(Number.isSafeInteger(qty) ? qty : '');
+            }
+            $('#sn_start, #sn_end').on('input', updateRangeQty);
+            updateRangeQty();
 
             let submitting = false;
             $('#mainForm').on('submit', function() {
