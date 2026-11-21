@@ -1301,6 +1301,16 @@ class ProductTrackingController extends MonitaDumaiController
                                 });
                             }
                         });
+                    $uploaded->whereNotExists(function ($override) use ($canonical, $isPv) {
+                        $override->selectRaw('1')
+                            ->from('product_tracking_sales_stock_ranges as correction')
+                            ->join('product_tracking_sales_stock_uploads as correction_upload', 'correction_upload.id', '=', 'correction.upload_id')
+                            ->whereColumn('correction.iddenom', 'stock.iddenom')
+                            ->whereColumn('correction.sfcode', '<>', 'stock.sfcode')
+                            ->where('correction_upload.filename', 'like', 'MANUAL:%')
+                            ->whereRaw('CHAR_LENGTH(correction.serial_start) IN ('.($isPv ? '12' : '15, 16').')')
+                            ->whereRaw('CAST(correction.serial_start AS DECIMAL(24,0)) <= ? AND CAST(correction.serial_end AS DECIMAL(24,0)) >= ?', [$canonical, $canonical]);
+                    });
                     if ($scopes) $this->applyTapScopeFilter($uploaded, 'owner.idtap', $scopes);
                     foreach ($uploaded->get(['stock.sfcode as sfcode', 'owner.namasf', 'owner.idtap', 'stock.tap', 'stock.cluster', 'stock.iddenom', 'd.denom', 'stock.serial_start', 'stock.serial_end', 'stock.qty', 'stock_upload.filename', 'stock_upload.username', 'stock_upload.created_at']) as $row) {
                         $matches->push((object) [
@@ -1331,6 +1341,16 @@ class ProductTrackingController extends MonitaDumaiController
                         if ($isPv) $query->whereRaw("CHAR_LENGTH({$rangeStart}) = 12");
                         else $query->whereRaw("CHAR_LENGTH({$rangeStart}) IN (15, 16)");
                     });
+                $admin->whereNotExists(function ($override) use ($canonical, $isPv) {
+                    $override->selectRaw('1')
+                        ->from('product_tracking_sales_stock_ranges as correction')
+                        ->join('product_tracking_sales_stock_uploads as correction_upload', 'correction_upload.id', '=', 'correction.upload_id')
+                        ->whereColumn('correction.iddenom', 'm.iddenom')
+                        ->whereColumn('correction.sfcode', '<>', 'm.idsf')
+                        ->where('correction_upload.filename', 'like', 'MANUAL:%')
+                        ->whereRaw('CHAR_LENGTH(correction.serial_start) IN ('.($isPv ? '12' : '15, 16').')')
+                        ->whereRaw('CAST(correction.serial_start AS DECIMAL(24,0)) <= ? AND CAST(correction.serial_end AS DECIMAL(24,0)) >= ?', [$canonical, $canonical]);
+                });
                 if ($scopes) $this->applyTapScopeFilter($admin, 'owner.idtap', $scopes);
                 foreach ($admin->get(['m.idsf as sfcode', 'owner.namasf', 'owner.idtap', 'm.iddenom', 'd.denom', 'm.sn', 'm.qty', 'm.tgl']) as $row) {
                     $parts = preg_split('/(?:\\s*[-–—]\\s*|\\s+)/u', trim((string) $row->sn), 2, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -1428,29 +1448,17 @@ class ProductTrackingController extends MonitaDumaiController
         $rangeQty = (int) $end - (int) $start + 1;
         if ($rangeQty < 1 || $rangeQty > 2_000_000) throw ValidationException::withMessages(['serial_end' => 'Rentang harus berisi maksimal 2.000.000 SN.']);
 
-        $startNumber = (int) $start;
-        $endNumber = (int) $end;
-        $sourceConflict = DB::table('product_tracking_sales_stock_ranges as stock')
+        $manualConflict = DB::table('product_tracking_sales_stock_ranges as stock')
+            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
             ->join('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
+            ->where('source.filename', 'like', 'MANUAL:%')
             ->whereRaw('CHAR_LENGTH(stock.serial_start) IN ('.($isSa ? '15, 16' : '12').')')
-            ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [$endNumber, $startNumber])
+            ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
             ->first(['stock.sfcode', 'owner.namasf']);
 
-        $normalizedSn = "REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '')";
-        $rangeStart = "SUBSTRING_INDEX({$normalizedSn}, '-', 1)";
-        $rangeEnd = "SUBSTRING_INDEX({$normalizedSn}, '-', -1)";
-        $adminConflict = DB::table('masuksf as m')
-            ->join('idsf as owner', 'owner.idsf', '=', 'm.idsf')
-            ->whereRaw("{$normalizedSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
-            ->whereRaw("CHAR_LENGTH({$rangeStart}) = CHAR_LENGTH({$rangeEnd})")
-            ->whereRaw("({$rangeStart} = {$rangeEnd} OR (m.qty BETWEEN 1 AND 2000000 AND CAST({$rangeEnd} AS DECIMAL(24,0)) >= CAST({$rangeStart} AS DECIMAL(24,0)) AND CAST({$rangeEnd} AS DECIMAL(24,0)) - CAST({$rangeStart} AS DECIMAL(24,0)) + 1 = m.qty))")
-            ->whereRaw("CHAR_LENGTH({$rangeStart}) IN (".($isSa ? '15, 16' : '12').")")
-            ->whereRaw('CAST('.$rangeStart.' AS DECIMAL(24,0)) <= ? AND CAST('.$rangeEnd.' AS DECIMAL(24,0)) >= ?', [$endNumber, $startNumber])
-            ->first(['m.idsf as sfcode', 'owner.namasf']);
-
-        $conflict = $sourceConflict ?: $adminConflict;
+        $conflict = $manualConflict;
         if ($conflict) {
-            throw ValidationException::withMessages(['serial_start' => "Rentang bertumpuk dengan SN yang sudah tercatat untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'. Periksa dulu sebelum menambahkan.']);
+            throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
         DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty) {
@@ -1474,11 +1482,11 @@ class ProductTrackingController extends MonitaDumaiController
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            // This is an SN-to-owner mapping only; it deliberately does not change masuksf or stockawalsf.
+            // Manual records override SN ownership mapping only; source history and stock balances are unchanged.
         });
 
         return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
-            ->with('success', number_format($rangeQty).' SN berhasil dicatat.');
+            ->with('success', number_format($rangeQty)." SN berhasil dipetakan ke {$sf->idsf}; saldo stok tidak berubah.");
     }
 
     public function updateSfStockRange(Request $request, int $range)
@@ -1514,25 +1522,16 @@ class ProductTrackingController extends MonitaDumaiController
 
         $lengths = $isSa ? '15, 16' : '12';
         $conflict = DB::table('product_tracking_sales_stock_ranges as stock')
+            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
             ->join('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
             ->where('stock.id', '!=', $range)
+            ->where('source.filename', 'like', 'MANUAL:%')
             ->whereRaw("CHAR_LENGTH(stock.serial_start) IN ({$lengths})")
             ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
             ->first(['stock.sfcode', 'owner.namasf']);
         if ($conflict) {
-            throw ValidationException::withMessages(['serial_start' => "Rentang bertumpuk dengan SN yang sudah tercatat untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
+            throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
-
-        $normalizedSn = "REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '')";
-        $rangeStart = "SUBSTRING_INDEX({$normalizedSn}, '-', 1)";
-        $rangeEnd = "SUBSTRING_INDEX({$normalizedSn}, '-', -1)";
-        $adminConflict = DB::table('masuksf as m')
-            ->whereRaw("{$normalizedSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
-            ->whereRaw("CHAR_LENGTH({$rangeStart}) = CHAR_LENGTH({$rangeEnd}) AND CHAR_LENGTH({$rangeStart}) IN ({$lengths})")
-            ->whereRaw("({$rangeStart} = {$rangeEnd} OR (m.qty BETWEEN 1 AND 2000000 AND CAST({$rangeEnd} AS DECIMAL(24,0)) - CAST({$rangeStart} AS DECIMAL(24,0)) + 1 = m.qty))")
-            ->whereRaw('CAST('.$rangeStart.' AS DECIMAL(24,0)) <= ? AND CAST('.$rangeEnd.' AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
-            ->exists();
-        if ($adminConflict) throw ValidationException::withMessages(['serial_start' => 'Rentang bertumpuk dengan SN yang sudah tercatat di SF Masuk admin.']);
 
         DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty) {
             DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([

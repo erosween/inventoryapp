@@ -452,6 +452,40 @@ SQL;
             $ranges[] = [$numericFirst, $numericLast];
         }
 
+        // Manual Cek SN SF entries are ownership corrections. They do not touch
+        // stock balances or SF Masuk history, but supersede the old owner mapping.
+        if (Schema::hasTable('product_tracking_sales_stock_uploads')) {
+            $corrections = DB::table('product_tracking_sales_stock_ranges as correction')
+                ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'correction.upload_id')
+                ->where('source.filename', 'like', 'MANUAL:%')
+                ->where('correction.iddenom', $iddenom)
+                ->when($lock, fn ($query) => $query->lockForUpdate())
+                ->get(['correction.sfcode', 'correction.serial_start', 'correction.serial_end']);
+
+            foreach ($corrections as $correction) {
+                if (! ctype_digit((string) $correction->serial_start) || ! ctype_digit((string) $correction->serial_end)) continue;
+                $correctionStart = (int) $correction->serial_start;
+                $correctionEnd = (int) $correction->serial_end;
+                if ($correctionEnd < $correctionStart) continue;
+
+                if ((string) $correction->sfcode === $idsf) {
+                    $ranges[] = [$correctionStart, $correctionEnd];
+                    continue;
+                }
+
+                $remaining = [];
+                foreach ($ranges as [$rangeStart, $rangeEnd]) {
+                    if ($correctionEnd < $rangeStart || $correctionStart > $rangeEnd) {
+                        $remaining[] = [$rangeStart, $rangeEnd];
+                        continue;
+                    }
+                    if ($rangeStart < $correctionStart) $remaining[] = [$rangeStart, $correctionStart - 1];
+                    if ($rangeEnd > $correctionEnd) $remaining[] = [$correctionEnd + 1, $rangeEnd];
+                }
+                $ranges = $remaining;
+            }
+        }
+
         usort($ranges, fn ($left, $right) => $left[0] <=> $right[0]);
         $merged = [];
         foreach ($ranges as [$start, $end]) {
