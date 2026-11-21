@@ -120,7 +120,14 @@
                         <td><div class="pt-manual-actions"><a class="pt-manual-action" href="{{ route('surya.product-tracking.sf-stock-lookup', ['tab'=>'add','edit'=>$row->id,'manual_page'=>$recentManual->currentPage()]) }}"><i class="fas fa-pen"></i> Edit</a><form method="post" action="{{ route('surya.product-tracking.sf-stock-lookup.delete',$row->id) }}" onsubmit="return confirm('Hapus rentang SN {{ $row->serial_start }}–{{ $row->serial_end }}?')">@csrf @method('DELETE')<button class="pt-manual-action danger" type="submit"><i class="fas fa-trash"></i> Hapus</button></form></div></td>
                     </tr>@empty<tr><td colspan="10" class="pt-empty">Belum ada rentang SN manual.</td></tr>@endforelse</tbody>
                 </table></div>
-                <div class="mt-3">{{ $recentManual->links() }}</div>
+                <nav class="pt-outlet-pagination" aria-label="Pagination riwayat input manual">
+                    <span class="pt-outlet-pagination-summary">Menampilkan {{ number_format($recentManual->firstItem() ?? 0) }}–{{ number_format($recentManual->lastItem() ?? 0) }} dari {{ number_format($recentManual->total()) }} rentang</span>
+                    <div class="pt-outlet-pagination-controls">
+                        @if($recentManual->onFirstPage())<span class="pt-page-button disabled" aria-disabled="true">‹ Sebelumnya</span>@else<a class="pt-page-button" href="{{ $recentManual->previousPageUrl() }}">‹ Sebelumnya</a>@endif
+                        <span class="pt-page-count">Halaman {{ $recentManual->currentPage() }} dari {{ max(1, $recentManual->lastPage()) }}</span>
+                        @if($recentManual->hasMorePages())<a class="pt-page-button primary" href="{{ $recentManual->nextPageUrl() }}">Berikutnya ›</a>@else<span class="pt-page-button disabled" aria-disabled="true">Berikutnya ›</span>@endif
+                    </div>
+                </nav>
             </section>
         @endif
     @endif

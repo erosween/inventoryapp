@@ -1371,7 +1371,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
                     ->where('source.filename', 'like', 'MANUAL:%');
                 if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($manualQuery, 'owner.idtap', $scopes);
-                $recentManual = $manualQuery->orderByDesc('source.updated_at')->orderByDesc('stock.id')->paginate(20, [
+                $recentManual = $manualQuery->orderByDesc('source.updated_at')->orderByDesc('stock.id')->paginate(10, [
                     'stock.id', 'stock.sfcode', 'owner.namasf', 'owner.idtap', 'stock.iddenom', 'd.denom',
                     'stock.serial_start', 'stock.serial_end', 'stock.qty', 'source.username', 'source.updated_at as created_at',
                 ], 'manual_page')->withQueryString();
