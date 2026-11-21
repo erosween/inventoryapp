@@ -528,7 +528,8 @@ SQL;
         if ($idsf === '' || $iddenom === '') return response()->json(['has_upload' => false, 'items' => []]);
         $denom = DB::table('denom')->where('iddenom', $iddenom)->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name', 'denom']);
         abort_unless($denom, 404);
-        $hasUpload = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)->exists();
+        $ownedRanges = $this->salesForceOwnedSerialRanges($idsf, $iddenom);
+        $hasStock = ! empty($ownedRanges);
         if ($request->filled('range_start') || $request->filled('range_end')) {
             $start = trim((string) $request->query('range_start', ''));
             $end = trim((string) $request->query('range_end', ''));
@@ -537,35 +538,44 @@ SQL;
                 && $this->isOwnedSalesSerialRange($idsf, $iddenom, $start, $end);
             return response()->json(['range_owned' => (bool) $valid]);
         }
-        if (! $hasUpload) return response()->json(['has_upload' => false, 'items' => []]);
-        if (strlen($prefix) < 3) return response()->json(['has_upload' => true, 'items' => []]);
+        if (! $hasStock) return response()->json(['has_upload' => false, 'items' => []]);
+        if ($prefix !== '' && strlen($prefix) < 3) return response()->json(['has_upload' => true, 'items' => []]);
         $isSa = $this->isStarterPackDenom($denom);
-        $lengths = $isSa ? [15, 16] : [12];
+        $length = $isSa ? 15 : 12;
         $available = [];
         $seen = [];
-        foreach ($lengths as $length) {
-            $searchPrefix = $prefix;
-            if ($length === 15 && strlen($searchPrefix) === 16 && str_starts_with($searchPrefix, '0')) {
-                $searchPrefix = substr($searchPrefix, 1);
-            }
-            if (strlen($searchPrefix) > $length) continue;
-            $searchPrefix = substr($searchPrefix, 0, $length);
+        $searchPrefix = $prefix;
+        if ($isSa && strlen($searchPrefix) === 16 && str_starts_with($searchPrefix, '0')) $searchPrefix = substr($searchPrefix, 1);
+        if (strlen($searchPrefix) <= $length) {
             $lower = str_pad($searchPrefix, $length, '0');
             $upper = str_pad($searchPrefix, $length, '9');
-            $ranges = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)
-                ->whereRaw('CHAR_LENGTH(serial_start) = ?', [$length])
-                ->where('serial_start', '<=', $upper)->where('serial_end', '>=', $lower)->orderBy('serial_start')->get(['serial_start', 'serial_end']);
             $usedRanges = DB::table('mobile_sales_serials as s')->join('mobile_penjualan as p', 'p.id', '=', 's.mobile_penjualan_id')
                 ->where('s.iddenom', $iddenom)->where('s.identifier_type', 'sn')->whereNotIn('p.status', ['rejected'])
-                ->whereRaw('LENGTH(s.serial_start) = ?', [$length])->where('s.serial_start', '<=', $upper)->where('s.serial_end', '>=', $lower)->get(['s.serial_start', 's.serial_end']);
-            foreach ($ranges as $range) {
-                $cursor = (int) max((string) $range->serial_start, $lower);
-                $last = (int) min((string) $range->serial_end, $upper);
-                while ($cursor <= $last && count($available) < 100) {
+                ->where(function ($query) use ($length, $isSa, $lower, $upper) {
+                    $query->where(function ($query) use ($length, $lower, $upper) {
+                        $query->whereRaw('LENGTH(s.serial_start) = ?', [$length])->where('s.serial_start', '<=', $upper)->where('s.serial_end', '>=', $lower);
+                    });
+                    if ($isSa) $query->orWhere(function ($query) use ($lower, $upper) {
+                        $query->whereRaw('LENGTH(s.serial_start) = 16')->where('s.serial_start', '<=', '0'.$upper)->where('s.serial_end', '>=', '0'.$lower);
+                    });
+                })->get(['s.serial_start', 's.serial_end']);
+            foreach ($ownedRanges as [$rangeStart, $rangeEnd]) {
+                $rangeStart = max($rangeStart, (int) $lower);
+                $rangeEnd = min($rangeEnd, (int) $upper);
+                if (strlen((string) $rangeStart) > $length || $rangeEnd < $rangeStart) continue;
+                $cursor = $rangeStart;
+                while ($cursor <= $rangeEnd && count($available) < 100) {
                     $sn = str_pad((string) $cursor, $length, '0', STR_PAD_LEFT);
                     $usedUntil = null;
-                    foreach ($usedRanges as $used) if ($sn >= $used->serial_start && $sn <= $used->serial_end) { $usedUntil = (int) $used->serial_end; break; }
-                    if ($usedUntil !== null) $cursor = $usedUntil + 1;
+                    foreach ($usedRanges as $used) {
+                        $usedStart = (int) $used->serial_start;
+                        $usedEnd = (int) $used->serial_end;
+                        if ($usedStart <= $cursor && $usedEnd >= $cursor) {
+                            $usedUntil = $usedEnd;
+                            break;
+                        }
+                    }
+                    if ($usedUntil !== null) $cursor = max($cursor + 1, $usedUntil + 1);
                     else {
                         if (! isset($seen[$sn])) { $available[] = ['sn' => $sn, 'denom' => (string) $denom->denom]; $seen[$sn] = true; }
                         $cursor++;
@@ -573,7 +583,6 @@ SQL;
                 }
                 if (count($available) >= 100) break;
             }
-            if (count($available) >= 100) break;
         }
         return response()->json(['has_upload' => true, 'items' => $available]);
     }
