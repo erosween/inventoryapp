@@ -17,7 +17,9 @@ return new class extends Migration {
         }
 
         if (Schema::hasColumn('retursf', 'sn')) {
-            DB::table('retursf')->whereNull('sn_awal')->update([
+            DB::table('retursf')->whereNull('sn_awal')
+                ->whereRaw("TRIM(sn) REGEXP '^[0-9]{12,16}(-[0-9]{12,16})?$'")
+                ->update([
                 'sn_awal' => DB::raw("CASE WHEN LOCATE('-', sn) > 0 THEN SUBSTRING_INDEX(sn, '-', 1) ELSE sn END"),
                 'sn_akhir' => DB::raw("CASE WHEN LOCATE('-', sn) > 0 THEN SUBSTRING_INDEX(sn, '-', -1) ELSE sn END"),
             ]);
