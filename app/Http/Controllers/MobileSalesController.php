@@ -415,6 +415,66 @@ SQL;
             || str_starts_with($id, 'SP');
     }
 
+    /** Return merged numeric SN intervals belonging to an SF from both stock sources. */
+    private function salesForceOwnedSerialRanges(string $idsf, string $iddenom, bool $lock = false): array
+    {
+        $ranges = [];
+        $uploaded = DB::table('product_tracking_sales_stock_ranges')
+            ->where('sfcode', $idsf)->where('iddenom', $iddenom)
+            ->when($lock, fn ($query) => $query->lockForUpdate())
+            ->get(['serial_start', 'serial_end']);
+        foreach ($uploaded as $range) {
+            if (! ctype_digit((string) $range->serial_start) || ! ctype_digit((string) $range->serial_end)) continue;
+            $ranges[] = [(int) $range->serial_start, (int) $range->serial_end];
+        }
+
+        $adminRanges = DB::table('masuksf')->where('idsf', $idsf)->where('iddenom', $iddenom)
+            ->whereNotNull('sn')->where('sn', '<>', '')
+            ->when($lock, fn ($query) => $query->lockForUpdate())
+            ->pluck('sn');
+        foreach ($adminRanges as $value) {
+            if (! preg_match('/^(\d+)(?:-(\d+))?$/', trim((string) $value), $match)) continue;
+            $first = $match[1];
+            $last = $match[2] ?? $first;
+            if (strlen($first) !== strlen($last)) continue;
+            $ranges[] = [(int) $first, (int) $last];
+        }
+
+        usort($ranges, fn ($left, $right) => $left[0] <=> $right[0]);
+        $merged = [];
+        foreach ($ranges as [$start, $end]) {
+            $lastIndex = count($merged) - 1;
+            if ($lastIndex >= 0 && $start <= $merged[$lastIndex][1] + 1) {
+                $merged[$lastIndex][1] = max($merged[$lastIndex][1], $end);
+            } else {
+                $merged[] = [$start, $end];
+            }
+        }
+        return $merged;
+    }
+
+    private function rangeCoveredByOwnedSerials(array $ranges, string $start, string $end): bool
+    {
+        if (! ctype_digit($start) || ! ctype_digit($end)) return false;
+        $wantedStart = (int) $start;
+        $wantedEnd = (int) $end;
+        if ($wantedEnd < $wantedStart) return false;
+        foreach ($ranges as [$rangeStart, $rangeEnd]) {
+            if ($rangeStart <= $wantedStart && $rangeEnd >= $wantedEnd) return true;
+            if ($rangeStart > $wantedStart) return false;
+        }
+        return false;
+    }
+
+    private function isOwnedSalesSerialRange(string $idsf, string $iddenom, string $start, string $end): bool
+    {
+        return $this->rangeCoveredByOwnedSerials(
+            $this->salesForceOwnedSerialRanges($idsf, $iddenom),
+            $start,
+            $end
+        );
+    }
+
     public function availableConsignmentSerials(Request $request)
     {
         $idsf = (string) session('mobile_sf_id');
@@ -469,6 +529,14 @@ SQL;
         $denom = DB::table('denom')->where('iddenom', $iddenom)->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name', 'denom']);
         abort_unless($denom, 404);
         $hasUpload = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)->exists();
+        if ($request->filled('range_start') || $request->filled('range_end')) {
+            $start = trim((string) $request->query('range_start', ''));
+            $end = trim((string) $request->query('range_end', ''));
+            $pattern = $this->isStarterPackDenom($denom) ? '/^(?:\d{15}|0\d{15})$/' : '/^\d{12}$/';
+            $valid = preg_match($pattern, $start) && preg_match($pattern, $end) && strlen($start) === strlen($end)
+                && $this->isOwnedSalesSerialRange($idsf, $iddenom, $start, $end);
+            return response()->json(['range_owned' => (bool) $valid]);
+        }
         if (! $hasUpload) return response()->json(['has_upload' => false, 'items' => []]);
         if (strlen($prefix) < 3) return response()->json(['has_upload' => true, 'items' => []]);
         $isSa = $this->isStarterPackDenom($denom);
@@ -589,7 +657,7 @@ SQL;
                 $start = $end = '';
                 $single = '';
             } elseif ($mode === 'single') {
-                $singlePattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+                $singlePattern = $isStarterPack ? '/^(?:\\d{15}|0\\d{15})$/' : '/^\\d{12}$/';
                 $uploadedStockPattern = $isStarterPack ? '/^(?:\\d{15}|0\\d{15})$/' : $singlePattern;
                 $uploadedSerials = collect($product['uploaded_stock_serials'] ?? [])->map(fn ($sn) => trim((string) $sn))->filter()->values();
                 if ($uploadedSerials->isNotEmpty()) {
@@ -599,13 +667,22 @@ SQL;
                     $singleSerials = $uploadedSerials->all();
                     $product['uploaded_stock_serials'] = $singleSerials;
                     $product['uploaded_stock'] = true;
+                    $qty = count($singleSerials);
+                    foreach ($singleSerials as $serial) {
+                        $serialInputs->push([
+                            'iddenom' => $product['iddenom'], 'type' => 'sn',
+                            'start' => $serial, 'end' => $serial,
+                            'identifier_type' => 'sn', 'serial_mode' => 'uploaded_stock',
+                            'serial_start' => $serial, 'serial_end' => $serial, 'qty' => 1,
+                        ]);
+                    }
                 } else {
                 $singleSerials = preg_split('/[\\s,;]+/u', $single, -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 $invalidSerials = array_values(array_filter($singleSerials, fn ($serial) => ! preg_match($singlePattern, $serial)));
                 if ($singleSerials === [] || $invalidSerials !== []) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         $errorKey => $isStarterPack
-                            ? 'Setiap SN perdana harus tepat 16 digit dan diawali 0.'
+                            ? 'Setiap SN perdana harus 15 digit atau 16 digit dengan 0 di depan.'
                             : 'Setiap SN voucher harus tepat 12 digit.',
                     ]);
                 }
@@ -621,10 +698,10 @@ SQL;
                 }
                 }
             } else {
-                if ($identifierType !== 'sn' || ! preg_match(($isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/'), $start) || ! preg_match(($isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/'), $end)) {
+                if ($identifierType !== 'sn' || ! preg_match(($isStarterPack ? '/^(?:\\d{15}|0\\d{15})$/' : '/^\\d{12}$/'), $start) || ! preg_match(($isStarterPack ? '/^(?:\\d{15}|0\\d{15})$/' : '/^\\d{12}$/'), $end) || strlen($start) !== strlen($end)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         "products.{$index}.serial_start" => $isStarterPack
-                            ? 'Rentang SN perdana harus berisi SN 16 digit.'
+                            ? 'Rentang SN perdana harus berisi SN 15 digit atau 16 digit dengan 0 di depan.'
                             : 'Rentang SN voucher harus berisi SN 12 digit.',
                     ]);
                 }
@@ -662,11 +739,15 @@ SQL;
             for ($j = $i + 1; $j < $serialInputs->count(); $j++) {
                 $left = $serialInputs[$i];
                 $right = $serialInputs[$j];
+                $leftIsSa = $this->isStarterPackDenom($denomMetadata->get($left['iddenom']));
+                $rightIsSa = $this->isStarterPackDenom($denomMetadata->get($right['iddenom']));
+                $saLengthMatch = $leftIsSa && $rightIsSa
+                    && in_array(strlen($left['start']), [15, 16], true)
+                    && in_array(strlen($right['start']), [15, 16], true);
+                $sameSerialSpace = strlen($left['start']) === strlen($right['start']) || $saLengthMatch;
                 $overlap = $left['type'] === 'number'
                     ? $left['start'] === $right['start']
-                    : (strlen($left['start']) === strlen($right['start'])
-                        && $left['start'] <= $right['end']
-                        && $left['end'] >= $right['start']);
+                    : ($sameSerialSpace && (int) $left['start'] <= (int) $right['end'] && (int) $left['end'] >= (int) $right['start']);
                 if ($left['type'] === $right['type'] && $overlap) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'products' => 'Ada SN/nomor yang tercatat lebih dari sekali pada daftar penjualan. Periksa kembali rentang SN setiap produk.',
@@ -830,7 +911,7 @@ SQL;
             }
             $ownerIdsf = $ownerIdsf ?: $idsf;
 
-            $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers, $consignmentDenomByNumber, $serialInputsByDenom, $serialInputs) {
+            $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers, $consignmentDenomByNumber, $serialInputsByDenom, $serialInputs, $denomMetadata) {
                 $selectedConsignmentSerials = collect($request->input('products', []))->filter(fn ($row) => ($row['serial_mode'] ?? '') === 'consignment')->flatMap(fn ($row) => collect($row['consignment_sources'] ?? [])->map(fn ($source) => ['source_sn' => (string) $source['source_sn'], 'sn' => (string) $source['sn'], 'iddenom' => (string) ($row['iddenom'] ?? '')]))->values();
                 if ($selectedConsignmentSerials->isNotEmpty()) {
                     $overlapWithNewConsignment = $selectedConsignmentSerials->pluck('sn')->intersect($consignmentNumbers);
@@ -845,23 +926,39 @@ SQL;
                         }
                     }
                 }
-                foreach (collect($request->input('products', []))->filter(fn ($row) => ! empty($row['uploaded_stock_serials'])) as $stockRow) {
-                    foreach ($stockRow['uploaded_stock_serials'] as $sn) {
-                        $owned = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $ownerIdsf)
-                            ->where('iddenom', $stockRow['iddenom'])->whereRaw('CHAR_LENGTH(serial_start) = ?', [strlen((string) $sn)])
-                            ->where('serial_start', '<=', $sn)->where('serial_end', '>=', $sn)
-                            ->lockForUpdate()->exists();
-                        if (! $owned) throw ValidationException::withMessages(['products' => "SN stok {$sn} tidak terdaftar untuk SF ini. Muat ulang daftar SN."]);
+                $ownershipRanges = [];
+                foreach ($serialInputs->where('serial_mode', '!=', 'consignment') as $serialInput) {
+                    $key = (string) $serialInput['iddenom'];
+                    if (! array_key_exists($key, $ownershipRanges)) {
+                        $ownershipRanges[$key] = $this->salesForceOwnedSerialRanges($ownerIdsf, $key, true);
+                    }
+                    if (! $this->rangeCoveredByOwnedSerials($ownershipRanges[$key], $serialInput['start'], $serialInput['end'])) {
+                        throw ValidationException::withMessages(['products' => "SN/rentang {$serialInput['start']}–{$serialInput['end']} tidak termasuk stok SN milik SF ini (Upload Stok SN Sales atau SF Masuk admin)."]);
                     }
                 }
                 foreach ($serialInputs as $serialInput) {
+                    $serialVariants = [[$serialInput['start'], $serialInput['end']]];
+                    if (strlen($serialInput['start']) === 15 && strlen($serialInput['end']) === 15
+                        && $this->isStarterPackDenom($denomMetadata->get($serialInput['iddenom']))) {
+                        $serialVariants[] = ['0'.$serialInput['start'], '0'.$serialInput['end']];
+                    } elseif (strlen($serialInput['start']) === 16 && strlen($serialInput['end']) === 16
+                        && str_starts_with($serialInput['start'], '0') && str_starts_with($serialInput['end'], '0')
+                        && $this->isStarterPackDenom($denomMetadata->get($serialInput['iddenom']))) {
+                        $serialVariants[] = [substr($serialInput['start'], 1), substr($serialInput['end'], 1)];
+                    }
                     $usedSerial = DB::table('mobile_sales_serials as existing')
                         ->join('mobile_penjualan as existing_sale', 'existing_sale.id', '=', 'existing.mobile_penjualan_id')
                         ->where('existing.identifier_type', 'sn')
                         ->whereNotIn('existing_sale.status', ['rejected'])
-                        ->whereRaw('LENGTH(existing.serial_start) = LENGTH(?)', [$serialInput['start']])
-                        ->where('existing.serial_start', '<=', $serialInput['end'])
-                        ->where('existing.serial_end', '>=', $serialInput['start'])
+                        ->where(function ($query) use ($serialVariants) {
+                            foreach ($serialVariants as [$variantStart, $variantEnd]) {
+                                $query->orWhere(function ($variantQuery) use ($variantStart, $variantEnd) {
+                                    $variantQuery->whereRaw('LENGTH(existing.serial_start) = ?', [strlen($variantStart)])
+                                        ->where('existing.serial_start', '<=', $variantEnd)
+                                        ->where('existing.serial_end', '>=', $variantStart);
+                                });
+                            }
+                        })
                         ->lockForUpdate()
                         ->first(['existing.serial_start', 'existing.serial_end', 'existing_sale.id_outlet']);
                     if ($usedSerial) {

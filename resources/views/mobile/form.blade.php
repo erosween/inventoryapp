@@ -899,7 +899,7 @@
             $.get("{{ route('mobile.sales-stock.available') }}", { iddenom: id, id_outlet: $('#id_outlet').val(), q: prefix }).done(function(response) {
                 if (String(row.find('.iddenom-input').val()) !== String(id)) return;
                 row.data('has-uploaded-stock', Boolean(response.has_upload));
-                row.find('.manual-single-sn').toggleClass('d-none', Boolean(response.has_upload));
+                row.find('.manual-single-sn').toggleClass('d-none', (row.data('selected-stock-serials') || []).length > 0);
                 wrap.toggleClass('d-none', !response.has_upload);
                 if (!response.has_upload) { updateSerialQuantity(row); return; }
                 const selected = new Set((row.data('selected-stock-serials') || []).map(String));
@@ -923,6 +923,8 @@
             const row = $(this).closest('.glass-card');
             const selected = row.find('.uploaded-stock-checkbox:checked').map(function() { return this.value; }).get();
             row.data('selected-stock-serials', selected);
+            row.find('.manual-single-sn').toggleClass('d-none', selected.length > 0);
+            row.find('.serial-value-input').prop('disabled', selected.length > 0);
             updateSerialQuantity(row); saveFormState();
         });
         $(document).on('change', '.consignment-sn-checkbox', function() {
@@ -977,12 +979,12 @@
                 const active = type === identifierType;
                 $(this).toggleClass('active', active).attr('aria-pressed', active).prop('disabled', !id || (type === 'number' && !isStarterPack));
             });
-            row.find('.serial-value-input').prop('disabled', !id || mode !== 'single');
-            if (row.data('has-uploaded-stock')) row.find('.serial-value-input').prop('disabled', true);
+            row.find('.serial-value-input').prop('disabled', !id || mode !== 'single' || (row.data('selected-stock-serials') || []).length > 0);
+            row.find('.manual-single-sn').toggleClass('d-none', mode === 'single' && (row.data('selected-stock-serials') || []).length > 0);
             row.find('.serial-start-input, .serial-end-input').prop('disabled', !id || mode !== 'range');
             row.find('.serial-mode-select, .identifier-type-select').prop('disabled', !id);
             row.find('.serial-single-hint').text(isStarterPack
-                ? 'Bisa masukkan beberapa SN sekaligus, satu SN per baris. Format: 16 digit diawali 0.'
+                ? 'Bisa masukkan beberapa SN sekaligus, satu SN per baris. Format: 15 digit atau 16 digit diawali 0.'
                 : 'Bisa masukkan beberapa SN sekaligus, satu SN per baris. Format: 12 digit.');
             const snLength = isStarterPack ? 16 : 12;
             row.find('.serial-start-input, .serial-end-input').attr('maxlength', snLength);
@@ -1018,26 +1020,26 @@
             } else if (mode === 'consignment') {
                 qty = row.find('.consignment-sn-checkbox:checked').length;
             } else if (mode === 'single') {
-                if (row.data('has-uploaded-stock')) {
-                    qty = row.data('selected-stock-serials')?.length || 0;
+                if ((row.data('selected-stock-serials') || []).length > 0) {
+                    qty = row.data('selected-stock-serials').length;
                     row.find('.serial-single-hint').text(`${qty} SN dipilih.`);
                 } else {
                     const value = row.find('.serial-value-input').val() || '';
                     const serials = value.trim() ? value.trim().split(/[\s,;]+/).filter(Boolean) : [];
-                    const pattern = identifierType === 'number' ? /^08\d{7,10}$/ : (isStarterPack ? /^0\d{15}$/ : /^\d{12}$/);
+                    const pattern = identifierType === 'number' ? /^08\d{7,10}$/ : (isStarterPack ? /^(?:\d{15}|0\d{15})$/ : /^\d{12}$/);
                     const invalidCount = serials.filter(serial => !pattern.test(serial)).length;
                     const valid = serials.length > 0 && invalidCount === 0;
                     if (valid) qty = serials.length;
-                    const hint = serials.length === 0 ? 'Bisa masukkan beberapa SN sekaligus, satu SN per baris.' : (invalidCount > 0 ? `${invalidCount} SN belum sesuai format ${isStarterPack ? '16 digit diawali 0' : '12 digit'}.` : `${serials.length} SN satuan terhitung.`);
+                    const hint = serials.length === 0 ? 'Bisa masukkan beberapa SN sekaligus, satu SN per baris.' : (invalidCount > 0 ? `${invalidCount} SN belum sesuai format ${isStarterPack ? '15 digit atau 16 digit diawali 0' : '12 digit'}.` : `${serials.length} SN satuan terhitung.`);
                     row.find('.serial-single-hint').text(hint).toggleClass('text-danger', serials.length > 0 && !valid).toggleClass('text-success', valid);
                 }
             } else {
                 const start = row.find('.serial-start-input').val() || '';
                 const end = row.find('.serial-end-input').val() || '';
                 const validFormat = isStarterPack
-                    ? /^0\d{15}$/.test(start) && /^0\d{15}$/.test(end)
+                    ? /^(?:\d{15}|0\d{15})$/.test(start) && /^(?:\d{15}|0\d{15})$/.test(end)
                     : /^\d{12}$/.test(start) && /^\d{12}$/.test(end);
-                if (validFormat) {
+                if (validFormat && start.length === end.length) {
                     const first = start.replace(/^0+(?=\d)/, '');
                     const last = end.replace(/^0+(?=\d)/, '');
                     if (last.length > first.length || (last.length === first.length && last >= first)) {
@@ -1071,8 +1073,30 @@
                 const start = row.find('.serial-start-input').val() || '';
                 const end = row.find('.serial-end-input').val() || '';
                 const hasInput = Boolean(start || end);
-                row.find('.serial-range-hint').text(qty ? `${qty.toLocaleString('id-ID')} SN terhitung dari rentang.` : (hasInput ? `Format wajib: ${isStarterPack ? '16 digit diawali 0' : '12 digit'}; rentang maksimal 2.000.000 SN.` : `SN harus ${isStarterPack ? '16 digit diawali 0' : '12 digit'}.`));
+                row.find('.serial-range-hint').text(qty ? `${qty.toLocaleString('id-ID')} SN terhitung dari rentang. Memeriksa kepemilikan SN…` : (hasInput ? `Format wajib: ${isStarterPack ? '15 digit atau 16 digit diawali 0' : '12 digit'}; panjang SN awal/akhir harus sama dan rentang maksimal 2.000.000 SN.` : `SN harus ${isStarterPack ? '15 digit atau 16 digit diawali 0' : '12 digit'}.`));
                 row.find('.serial-range-hint').toggleClass('text-danger', hasInput && !qty).toggleClass('text-success', Boolean(qty));
+                clearTimeout(row.data('serial-range-check-timer'));
+                if (qty) {
+                    const startValue = start, endValue = end;
+                    const timer = setTimeout(function() {
+                        $.get("{{ route('mobile.sales-stock.available') }}", {
+                            iddenom: id,
+                            id_outlet: $('#id_outlet').val(),
+                            range_start: startValue,
+                            range_end: endValue
+                        }).done(function(response) {
+                            if (row.find('.serial-start-input').val() !== startValue || row.find('.serial-end-input').val() !== endValue) return;
+                            const hint = row.find('.serial-range-hint');
+                            hint.text(response.range_owned
+                                ? `${qty.toLocaleString('id-ID')} SN terhitung; seluruh rentang terdaftar sebagai stok SF.`
+                                : 'Rentang SN ini tidak terdaftar pada Upload Stok SN Sales atau SF Masuk admin. Periksa SN awal dan akhir.');
+                            hint.toggleClass('text-danger', !response.range_owned).toggleClass('text-success', Boolean(response.range_owned));
+                        }).fail(function() {
+                            row.find('.serial-range-hint').text('Gagal memeriksa kepemilikan rentang SN. Coba lagi.').removeClass('text-success').addClass('text-danger');
+                        });
+                    }, 350);
+                    row.data('serial-range-check-timer', timer);
+                }
             }
             recalcTotal();
             validateStock(row, qty);
