@@ -84,7 +84,7 @@ class ProductTrackingFile
                         $index = (int) $column - 1;
                         $values[$column] = trim((string) ($row[$index] ?? ''));
                     }
-                    if (collect($values)->contains(fn ($value) => $value !== '')) yield $rowNumber => $values;
+                    if ($this->hasNonEmptyValue($values)) yield $rowNumber => $values;
                 }
             } finally {
                 fclose($handle);
@@ -101,7 +101,7 @@ class ProductTrackingFile
                     $cell = $sheet->getCellByColumnAndRow((int) $column, $row);
                     $values[$column] = $this->cellText($cell);
                 }
-                if (collect($values)->contains(fn ($value) => $value !== '')) yield $row => $values;
+                if ($this->hasNonEmptyValue($values)) yield $row => $values;
             }
         } finally {
             $book->disconnectWorksheets();
@@ -131,6 +131,12 @@ class ProductTrackingFile
         if (! $date || ($errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) return null;
 
         return $date->format('Y-m-d');
+    }
+
+    private function hasNonEmptyValue(array $values): bool
+    {
+        foreach ($values as $value) if ($value !== '') return true;
+        return false;
     }
 
     private function load(string $path, bool $readHeaderOnly = false)
