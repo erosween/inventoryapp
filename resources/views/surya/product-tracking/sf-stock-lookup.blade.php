@@ -19,6 +19,15 @@
     .pt-search-option:hover,.pt-search-option:focus { outline:0;background:#fff1f2;color:#be123c; }
     .pt-search-empty { padding:10px;color:#64748b;font-size:13px; }
     .pt-native-select-hidden { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important; }
+    .pt-manual-form { grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;gap:12px; }
+    .pt-manual-form .pt-actions { grid-column:1/-1;align-items:center;justify-content:flex-start;gap:14px;margin:2px 0 0; }
+    .pt-manual-form .pt-actions .pt-muted { margin-left:auto;font-size:12px; }
+    .pt-manual-actions { display:flex;align-items:center;gap:6px; }
+    .pt-manual-actions form { margin:0; }
+    .pt-manual-action { min-height:34px;padding:6px 9px;border:1px solid #dbe2ed;border-radius:8px;background:#fff;color:#344054;font-size:12px;font-weight:750;text-decoration:none; }
+    .pt-manual-action.danger { border-color:#fecdd3;color:#be123c; }
+    @media(max-width:900px){.pt-manual-form{grid-template-columns:repeat(2,minmax(0,1fr))}.pt-manual-form .pt-actions{grid-column:1/-1}}
+    @media(max-width:640px){.pt-manual-form{grid-template-columns:minmax(0,1fr)}.pt-manual-form .pt-actions{grid-column:1;align-items:stretch;flex-direction:column}.pt-manual-form .pt-actions .pt-muted{margin-left:0}.pt-manual-actions{flex-wrap:wrap}}
 </style>
 @endif
 @endpush
@@ -83,20 +92,19 @@
         <section class="pt-card">
             <div class="pt-lookup-heading">
                 <span class="pt-lookup-icon"><i class="fas fa-barcode"></i></span>
-                <div><h2>Daftarkan Rentang SN ke SF</h2><p class="pt-subtitle mb-0">Catat SN yang terlewat supaya dapat divalidasi saat SF melakukan penjualan.</p></div>
+                <div><h2>{{ $editingManual ? 'Edit Rentang SN' : 'Tambah Rentang SN' }}</h2></div>
             </div>
-            <div class="pt-empty mb-3" style="padding:12px 16px;border-radius:10px;background:#fff7ed;color:#9a3412;text-align:left">
-                Ini hanya mendaftarkan rentang SN ke SF dan denom. Tidak menambah stok, tidak mencatat SF Masuk, dan tidak mengubah saldo stok.
-            </div>
+            <p class="pt-muted mb-3">Daftar SN manual · saldo stok tidak berubah.</p>
             @if(session('success'))<div class="pt-chip good mb-3">{{ session('success') }}</div>@endif
             @if($errors->any())<div class="pt-empty mb-3" style="padding:12px 16px;border-radius:10px;background:#fff0f1;color:#c8102e;text-align:left">{{ $errors->first() }}</div>@endif
-            <form method="post" action="{{ route('surya.product-tracking.sf-stock-lookup.store') }}" class="pt-grid" data-loading-message="Mencatat rentang SN untuk SF…">
+            <form method="post" action="{{ $editingManual ? route('surya.product-tracking.sf-stock-lookup.update', $editingManual->id) : route('surya.product-tracking.sf-stock-lookup.store') }}" class="pt-grid pt-manual-form" data-loading-message="Menyimpan rentang SN…">
                 @csrf
-                <label class="pt-field"><span>Sales Force</span><select class="pt-search-select" name="sfcode" data-placeholder="Cari kode atau nama SF…" required><option value=""></option>@foreach($salesForces as $sf)<option value="{{ $sf->idsf }}" @selected(old('sfcode') === $sf->idsf)>{{ $sf->idsf }} · {{ $sf->namasf }} · {{ $sf->idtap }}</option>@endforeach</select></label>
-                <label class="pt-field"><span>Denom</span><select class="pt-search-select" name="iddenom" data-placeholder="Cari kode atau nama denom…" required><option value=""></option>@foreach($eligibleDenoms as $denom)<option value="{{ $denom->iddenom }}" @selected(old('iddenom') === $denom->iddenom)>{{ $denom->iddenom }} · {{ $denom->denom }} · {{ \App\Support\DenomGrouping::infer($denom)['product'] }}</option>@endforeach</select></label>
-                <label class="pt-field"><span>SN Awal</span><input name="serial_start" type="text" inputmode="numeric" maxlength="16" value="{{ old('serial_start') }}" placeholder="SN awal" required></label>
-                <label class="pt-field"><span>SN Akhir</span><input name="serial_end" type="text" inputmode="numeric" maxlength="16" value="{{ old('serial_end') }}" placeholder="SN akhir" required></label>
-                <div class="pt-actions"><button class="pt-button primary" type="submit"><i class="fas fa-plus"></i> Daftarkan Rentang SN</button><span class="pt-muted">PV: 12 digit · SA: 15 digit atau 16 digit dengan 0 di depan · Maksimal 2.000.000 SN.</span></div>
+                @if($editingManual) @method('PATCH') @endif
+                <label class="pt-field"><span>Sales Force</span><select class="pt-search-select" name="sfcode" data-placeholder="Cari kode atau nama SF…" required><option value=""></option>@foreach($salesForces as $sf)<option value="{{ $sf->idsf }}" @selected(old('sfcode', $editingManual->sfcode ?? '') === $sf->idsf)>{{ $sf->idsf }} · {{ $sf->namasf }} · {{ $sf->idtap }}</option>@endforeach</select></label>
+                <label class="pt-field"><span>Denom</span><select class="pt-search-select" name="iddenom" data-placeholder="Cari kode atau nama denom…" required><option value=""></option>@foreach($eligibleDenoms as $denom)<option value="{{ $denom->iddenom }}" @selected(old('iddenom', $editingManual->iddenom ?? '') === $denom->iddenom)>{{ $denom->iddenom }} · {{ $denom->denom }} · {{ \App\Support\DenomGrouping::infer($denom)['product'] }}</option>@endforeach</select></label>
+                <label class="pt-field"><span>SN Awal</span><input name="serial_start" type="text" inputmode="numeric" maxlength="16" value="{{ old('serial_start', $editingManual->serial_start ?? '') }}" placeholder="SN awal" required></label>
+                <label class="pt-field"><span>SN Akhir</span><input name="serial_end" type="text" inputmode="numeric" maxlength="16" value="{{ old('serial_end', $editingManual->serial_end ?? '') }}" placeholder="SN akhir" required></label>
+                <div class="pt-actions"><button class="pt-button primary" type="submit"><i class="fas {{ $editingManual ? 'fa-check' : 'fa-plus' }}"></i> {{ $editingManual ? 'Simpan Perubahan' : 'Tambah Rentang SN' }}</button>@if($editingManual)<a class="pt-button" href="{{ route('surya.product-tracking.sf-stock-lookup', ['tab'=>'add']) }}">Batal</a>@endif<span class="pt-muted">PV 12 digit · SA 15 digit (atau 16 diawali 0) · Maks. 2 juta SN</span></div>
             </form>
         </section>
 
@@ -104,13 +112,14 @@
             <section class="pt-card">
                 <div class="pt-result-head"><div><h2>Riwayat input manual</h2><p class="pt-subtitle mb-0">{{ $recentManual->total() }} rentang tercatat</p></div></div>
                 <div class="pt-table-wrap"><table class="pt-table">
-                    <thead><tr><th>SF</th><th>NAMA SF</th><th>TAP</th><th>DENOM</th><th>SN AWAL</th><th>SN AKHIR</th><th>QTY RENTANG</th><th>DIINPUT OLEH</th><th>WAKTU</th></tr></thead>
+                    <thead><tr><th>SF</th><th>NAMA SF</th><th>TAP</th><th>DENOM</th><th>SN AWAL</th><th>SN AKHIR</th><th>QTY RENTANG</th><th>DIINPUT OLEH</th><th>WAKTU</th><th>AKSI</th></tr></thead>
                     <tbody>@forelse($recentManual as $row)<tr>
                         <td><strong>{{ $row->sfcode }}</strong></td><td>{{ $row->namasf ?: '—' }}</td><td>{{ $row->idtap ?: '—' }}</td>
                         <td>{{ $row->denom ?: $row->iddenom }}</td><td>{{ $row->serial_start }}</td><td>{{ $row->serial_end }}</td>
                         <td>{{ number_format($row->qty) }}</td><td>{{ $row->username }}</td>
                         <td>{{ \Carbon\Carbon::parse($row->created_at)->locale('id')->translatedFormat('j M Y H:i') }}</td>
-                    </tr>@empty<tr><td colspan="9" class="pt-empty">Belum ada rentang SN yang ditambahkan manual.</td></tr>@endforelse</tbody>
+                        <td><div class="pt-manual-actions"><a class="pt-manual-action" href="{{ route('surya.product-tracking.sf-stock-lookup', ['tab'=>'add','edit'=>$row->id,'manual_page'=>$recentManual->currentPage()]) }}"><i class="fas fa-pen"></i> Edit</a><form method="post" action="{{ route('surya.product-tracking.sf-stock-lookup.delete',$row->id) }}" onsubmit="return confirm('Hapus rentang SN {{ $row->serial_start }}–{{ $row->serial_end }}?')">@csrf @method('DELETE')<button class="pt-manual-action danger" type="submit"><i class="fas fa-trash"></i> Hapus</button></form></div></td>
+                    </tr>@empty<tr><td colspan="10" class="pt-empty">Belum ada rentang SN manual.</td></tr>@endforelse</tbody>
                 </table></div>
                 <div class="mt-3">{{ $recentManual->links() }}</div>
             </section>

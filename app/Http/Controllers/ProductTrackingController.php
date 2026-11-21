@@ -1353,6 +1353,7 @@ class ProductTrackingController extends MonitaDumaiController
         $salesForces = collect();
         $eligibleDenoms = collect();
         $recentManual = null;
+        $editingManual = null;
         if ($tab === 'add') {
             $sfQuery = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%' ");
             if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($sfQuery, 'idtap', $scopes);
@@ -1370,10 +1371,13 @@ class ProductTrackingController extends MonitaDumaiController
                     ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
                     ->where('source.filename', 'like', 'MANUAL:%');
                 if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($manualQuery, 'owner.idtap', $scopes);
-                $recentManual = $manualQuery->orderByDesc('stock.id')->paginate(20, [
-                    'stock.sfcode', 'owner.namasf', 'owner.idtap', 'stock.iddenom', 'd.denom',
-                    'stock.serial_start', 'stock.serial_end', 'stock.qty', 'source.username', 'source.created_at',
+                $recentManual = $manualQuery->orderByDesc('source.updated_at')->orderByDesc('stock.id')->paginate(20, [
+                    'stock.id', 'stock.sfcode', 'owner.namasf', 'owner.idtap', 'stock.iddenom', 'd.denom',
+                    'stock.serial_start', 'stock.serial_end', 'stock.qty', 'source.username', 'source.updated_at as created_at',
                 ], 'manual_page')->withQueryString();
+                if ($request->filled('edit')) {
+                    $editingManual = $this->findManualSfStockRange((int) $request->query('edit'));
+                }
             }
         }
 
@@ -1385,6 +1389,7 @@ class ProductTrackingController extends MonitaDumaiController
             'salesForces' => $salesForces,
             'eligibleDenoms' => $eligibleDenoms,
             'recentManual' => $recentManual,
+            'editingManual' => $editingManual,
         ]);
     }
 
@@ -1474,6 +1479,102 @@ class ProductTrackingController extends MonitaDumaiController
 
         return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
             ->with('success', number_format($rangeQty).' SN berhasil dicatat untuk '.$sf->idsf.' · '.$data['iddenom'].'.');
+    }
+
+    public function updateSfStockRange(Request $request, int $range)
+    {
+        $this->requireEditor();
+        $record = $this->findManualSfStockRange($range);
+        $data = $request->validate([
+            'sfcode' => 'required|string|max:100',
+            'iddenom' => 'required|string|max:100|exists:denom,iddenom',
+            'serial_start' => 'required|string|regex:/^\\d{12,16}$/',
+            'serial_end' => 'required|string|regex:/^\\d{12,16}$/',
+        ]);
+        $sfQuery = DB::table('idsf')->where('idsf', $data['sfcode'])->whereRaw("UPPER(idsf) LIKE 'SF%' ");
+        if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($sfQuery, 'idtap', $scopes);
+        $sf = $sfQuery->first(['idsf', 'idtap']);
+        if (! $sf) throw ValidationException::withMessages(['sfcode' => 'Pilih Sales Force terdaftar dalam cakupan akun ini.']);
+
+        $denom = DB::table('denom')->where('iddenom', $data['iddenom'])
+            ->first(['iddenom', 'product_group', 'kategori_inject', 'group_name']);
+        $product = DenomGrouping::infer($denom)['product'];
+        $start = trim($data['serial_start']);
+        $end = trim($data['serial_end']);
+        $isSa = $product === 'SA';
+        $validSerial = fn (string $serial): bool => ctype_digit($serial)
+            && ($isSa ? ((strlen($serial) === 15 && ! str_starts_with($serial, '0')) || (strlen($serial) === 16 && str_starts_with($serial, '0')))
+                : strlen($serial) === 12);
+        if (! $validSerial($start) || ! $validSerial($end) || strlen($start) !== strlen($end)) {
+            throw ValidationException::withMessages(['serial_start' => $isSa ? 'SN SA harus 15 digit, atau 16 digit dengan 0 di depan; panjang awal dan akhir harus sama.' : 'SN PV harus tepat 12 digit; panjang awal dan akhir harus sama.']);
+        }
+        if (strcmp($start, $end) > 0) throw ValidationException::withMessages(['serial_end' => 'SN akhir harus sama dengan atau lebih besar dari SN awal.']);
+        $rangeQty = (int) $end - (int) $start + 1;
+        if ($rangeQty < 1 || $rangeQty > 2_000_000) throw ValidationException::withMessages(['serial_end' => 'Rentang harus berisi maksimal 2.000.000 SN.']);
+
+        $lengths = $isSa ? '15, 16' : '12';
+        $conflict = DB::table('product_tracking_sales_stock_ranges as stock')
+            ->join('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
+            ->where('stock.id', '!=', $range)
+            ->whereRaw("CHAR_LENGTH(stock.serial_start) IN ({$lengths})")
+            ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
+            ->first(['stock.sfcode', 'owner.namasf']);
+        if ($conflict) {
+            throw ValidationException::withMessages(['serial_start' => "Rentang bertumpuk dengan SN yang sudah tercatat untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
+        }
+
+        $normalizedSn = "REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '')";
+        $rangeStart = "SUBSTRING_INDEX({$normalizedSn}, '-', 1)";
+        $rangeEnd = "SUBSTRING_INDEX({$normalizedSn}, '-', -1)";
+        $adminConflict = DB::table('masuksf as m')
+            ->whereRaw("{$normalizedSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
+            ->whereRaw("CHAR_LENGTH({$rangeStart}) = CHAR_LENGTH({$rangeEnd}) AND CHAR_LENGTH({$rangeStart}) IN ({$lengths})")
+            ->whereRaw("({$rangeStart} = {$rangeEnd} OR (m.qty BETWEEN 1 AND 2000000 AND CAST({$rangeEnd} AS DECIMAL(24,0)) - CAST({$rangeStart} AS DECIMAL(24,0)) + 1 = m.qty))")
+            ->whereRaw('CAST('.$rangeStart.' AS DECIMAL(24,0)) <= ? AND CAST('.$rangeEnd.' AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
+            ->exists();
+        if ($adminConflict) throw ValidationException::withMessages(['serial_start' => 'Rentang bertumpuk dengan SN yang sudah tercatat di SF Masuk admin.']);
+
+        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty) {
+            DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([
+                'sfcode' => $sf->idsf, 'tap' => $sf->idtap,
+                'cluster' => $this->trackingClusterForTap((string) $sf->idtap),
+                'iddenom' => $data['iddenom'], 'serial_start' => $start, 'serial_end' => $end,
+                'qty' => $rangeQty, 'updated_at' => now(),
+            ]);
+            DB::table('product_tracking_sales_stock_uploads')->where('id', $record->upload_id)->update([
+                'username' => auth()->user()->username, 'updated_at' => now(),
+            ]);
+        });
+
+        return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
+            ->with('success', 'Rentang SN berhasil diperbarui.');
+    }
+
+    public function deleteSfStockRange(int $range)
+    {
+        $this->requireEditor();
+        $record = $this->findManualSfStockRange($range);
+        DB::transaction(function () use ($record) {
+            DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->delete();
+            if (! DB::table('product_tracking_sales_stock_ranges')->where('upload_id', $record->upload_id)->exists()) {
+                DB::table('product_tracking_sales_stock_uploads')->where('id', $record->upload_id)->delete();
+            }
+        });
+
+        return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
+            ->with('success', 'Rentang SN berhasil dihapus.');
+    }
+
+    private function findManualSfStockRange(int $range): object
+    {
+        $query = DB::table('product_tracking_sales_stock_ranges as stock')
+            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
+            ->leftJoin('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
+            ->where('stock.id', $range)->where('source.filename', 'like', 'MANUAL:%');
+        if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($query, 'owner.idtap', $scopes);
+        $record = $query->first(['stock.*', 'source.id as source_id', 'owner.idtap']);
+        abort_unless($record, 404);
+        return $record;
     }
 
     private function trackingClusterForTap(string $tap): string
