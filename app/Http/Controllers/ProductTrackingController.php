@@ -583,7 +583,7 @@ class ProductTrackingController extends MonitaDumaiController
                     ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
                     ->where('upload.kind', 'scan')->where('upload.status', 'complete')
                     ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-                    ->whereColumn('digipos.id_outlet', 'sales_rows.id_outlet')
+                    ->whereRaw('CONVERT(digipos.id_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(sales_rows.id_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(sales_rows.serial_end AS DECIMAL(24,0))')
                     ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(sales_rows.serial_start AS DECIMAL(24,0))')
                     ->selectRaw('COALESCE(SUM(GREATEST(LEAST(CAST(digipos.serial_end AS DECIMAL(24,0)), CAST(sales_rows.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(digipos.serial_start AS DECIMAL(24,0)), CAST(sales_rows.serial_start AS DECIMAL(24,0))) + 1, 0)), 0)');
