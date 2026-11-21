@@ -338,7 +338,7 @@ SQL;
             // Draft WhatsApp rows are not stock reservations. They are only
             // temporary client-side submissions until the receipt is sent.
             ->where('status', 'pending')
-            ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->where('mss.input_mode', 'consign'); })
+            ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->whereIn('mss.input_mode', ['consign', 'uploaded_stock']); })
             ->groupBy('iddenom');
 
         $denoms = DB::table('denom')
@@ -377,6 +377,16 @@ SQL;
             ->orderBy('denom')
             ->get(['iddenom', 'denom', 'product', 'product_group', 'kategori_inject', 'group_name']);
         $pickerDenoms = $denoms->keyBy('iddenom');
+        $uploadedStockDenoms = DB::table('product_tracking_sales_stock_ranges as r')
+            ->join('denom as d', 'd.iddenom', '=', 'r.iddenom')->where('r.sfcode', $stockOwnerIdsf)
+            ->select('d.iddenom', 'd.denom', 'd.product', 'd.group_name', 'd.product_group', 'd.kategori_inject')
+            ->distinct()->get();
+        foreach ($uploadedStockDenoms as $uploadedDenom) {
+            if (! $pickerDenoms->has($uploadedDenom->iddenom)) {
+                $uploadedDenom->stock_qty = 0;
+                $pickerDenoms->put($uploadedDenom->iddenom, $uploadedDenom);
+            }
+        }
         foreach ($consignmentDenoms as $consignmentDenom) {
             if (! $pickerDenoms->has($consignmentDenom->iddenom)) {
                 $consignmentDenom->stock_qty = 0;
@@ -392,7 +402,7 @@ SQL;
             'is_sa' => $this->isStarterPackDenom($denom),
         ])->values();
 
-        return view('mobile.form', compact('denoms', 'consignmentDenoms', 'consignmentDenomOptions', 'starterPackByDenom', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
+        return view('mobile.form', compact('denoms', 'consignmentDenoms', 'consignmentDenomOptions', 'uploadedStockDenoms', 'starterPackByDenom', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
     }
 
     private function isStarterPackDenom(object $denom): bool
@@ -442,6 +452,55 @@ SQL;
             }));
     }
 
+    public function availableUploadedStockSerials(Request $request)
+    {
+        $sessionIdsf = trim((string) session('mobile_sf_id'));
+        $idsf = $sessionIdsf;
+        $outletId = strtoupper(trim((string) $request->query('id_outlet')));
+        if ($outletId !== '') {
+            $allowed = $this->mobileOutletQuery()->where('id_outlet', $outletId)->exists()
+                || DB::table('surya_visits')->where('idsf', $sessionIdsf)->where('id_outlet', $outletId)->exists();
+            abort_unless($allowed, 403);
+            if ($this->isHelperAccount()) $idsf = $this->resolveOutletOwnerIdsf($outletId) ?: $idsf;
+        }
+        $iddenom = trim((string) $request->query('iddenom'));
+        $prefix = preg_replace('/\\D/', '', (string) $request->query('q', ''));
+        if ($idsf === '' || $iddenom === '') return response()->json(['has_upload' => false, 'items' => []]);
+        $denom = DB::table('denom')->where('iddenom', $iddenom)->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name', 'denom']);
+        abort_unless($denom, 404);
+        $hasUpload = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)->exists();
+        if (! $hasUpload) return response()->json(['has_upload' => false, 'items' => []]);
+        if (strlen($prefix) < 3) return response()->json(['has_upload' => true, 'items' => []]);
+        $length = $this->isStarterPackDenom($denom) ? 16 : 12;
+        $prefix = substr($prefix, 0, $length);
+        $lower = str_pad($prefix, $length, '0');
+        $upper = str_pad($prefix, $length, '9');
+        $ranges = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)
+            ->where('serial_start', '<=', $upper)->where('serial_end', '>=', $lower)->orderBy('serial_start')->get(['serial_start', 'serial_end']);
+        if ($ranges->isEmpty()) return response()->json(['has_upload' => true, 'items' => []]);
+        $usedRanges = DB::table('mobile_sales_serials as s')->join('mobile_penjualan as p', 'p.id', '=', 's.mobile_penjualan_id')
+            ->where('s.iddenom', $iddenom)->where('s.identifier_type', 'sn')->whereNotIn('p.status', ['rejected'])
+            ->whereRaw('LENGTH(s.serial_start) = ?', [$length])->where('s.serial_start', '<=', $upper)->where('s.serial_end', '>=', $lower)->get(['s.serial_start', 's.serial_end']);
+        $available = [];
+        $seen = [];
+        foreach ($ranges as $range) {
+            $cursor = (int) max((string) $range->serial_start, $lower);
+            $last = (int) min((string) $range->serial_end, $upper);
+            while ($cursor <= $last && count($available) < 100) {
+                $sn = str_pad((string) $cursor, $length, '0', STR_PAD_LEFT);
+                $usedUntil = null;
+                foreach ($usedRanges as $used) if ($sn >= $used->serial_start && $sn <= $used->serial_end) { $usedUntil = (int) $used->serial_end; break; }
+                if ($usedUntil !== null) $cursor = $usedUntil + 1;
+                else {
+                    if (! isset($seen[$sn])) { $available[] = ['sn' => $sn, 'denom' => (string) $denom->denom]; $seen[$sn] = true; }
+                    $cursor++;
+                }
+            }
+            if (count($available) >= 100) break;
+        }
+        return response()->json(['has_upload' => true, 'items' => $available]);
+    }
+
     // Submit penjualan mobile. Validasi outlet, stok, nota, dan nomor titip jual sebelum mencatat
     // transaksi untuk approval.
     public function store(Request $request)
@@ -462,7 +521,7 @@ SQL;
         }
 
         $products = collect($rawProducts)
-            ->filter(fn ($row) => filled($row['iddenom'] ?? null) || filled($row['qty'] ?? null) || filled($row['serial_value'] ?? null) || filled($row['serial_start'] ?? null) || filled($row['serial_end'] ?? null) || ! empty($row['consignment_serials']))
+            ->filter(fn ($row) => filled($row['iddenom'] ?? null) || filled($row['qty'] ?? null) || filled($row['serial_value'] ?? null) || filled($row['serial_start'] ?? null) || filled($row['serial_end'] ?? null) || ! empty($row['consignment_serials']) || ! empty($row['uploaded_stock_serials']))
             ->values()
             ->all();
 
@@ -522,6 +581,15 @@ SQL;
                 $single = '';
             } elseif ($mode === 'single') {
                 $singlePattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+                $uploadedSerials = collect($product['uploaded_stock_serials'] ?? [])->map(fn ($sn) => trim((string) $sn))->filter()->values();
+                if ($uploadedSerials->isNotEmpty()) {
+                    if ($uploadedSerials->count() > 2000 || $uploadedSerials->unique()->count() !== $uploadedSerials->count() || $uploadedSerials->contains(fn ($sn) => ! preg_match($singlePattern, $sn))) {
+                        throw ValidationException::withMessages(["products.{$index}.uploaded_stock_serials" => 'Pilihan SN stok SF tidak valid. Muat ulang daftar, lalu pilih kembali.']);
+                    }
+                    $singleSerials = $uploadedSerials->all();
+                    $product['uploaded_stock_serials'] = $singleSerials;
+                    $product['uploaded_stock'] = true;
+                } else {
                 $singleSerials = preg_split('/[\\s,;]+/u', $single, -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 $invalidSerials = array_values(array_filter($singleSerials, fn ($serial) => ! preg_match($singlePattern, $serial)));
                 if ($singleSerials === [] || $invalidSerials !== []) {
@@ -537,9 +605,10 @@ SQL;
                     $serialInputs->push([
                         'iddenom' => $product['iddenom'], 'type' => $identifierType,
                         'start' => $serial, 'end' => $serial,
-                        'identifier_type' => $identifierType, 'serial_mode' => 'single',
+                        'identifier_type' => $identifierType, 'serial_mode' => ! empty($product['uploaded_stock']) ? 'uploaded_stock' : 'single',
                         'serial_start' => $serial, 'serial_end' => $serial, 'qty' => 1,
                     ]);
+                }
                 }
             } else {
                 if ($identifierType !== 'sn' || ! preg_match(($isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/'), $start) || ! preg_match(($isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/'), $end)) {
@@ -604,6 +673,8 @@ SQL;
             'products.*.qty' => 'required|integer|min:1|max:2000000',
             'products.*.serial_mode' => 'required|in:single,range,broken,consignment',
             'products.*.consignment_serials' => 'required_if:products.*.serial_mode,consignment|array|max:2000',
+            'products.*.uploaded_stock_serials' => 'nullable|array|max:2000',
+            'products.*.uploaded_stock_serials.*' => ['required', 'string', 'distinct', 'regex:/^\\d{12}$|^0\\d{15}$/'],
             'products.*.consignment_serials.*' => ['required', 'string', 'distinct', 'regex:/^\d{1,24}$/'],
             'products.*.consignment_replacements' => 'nullable|array|max:2000',
             'products.*.consignment_replacements.*' => 'nullable|string|digits_between:12,16',
@@ -764,6 +835,14 @@ SQL;
                         }
                     }
                 }
+                foreach (collect($request->input('products', []))->filter(fn ($row) => ! empty($row['uploaded_stock_serials'])) as $stockRow) {
+                    foreach ($stockRow['uploaded_stock_serials'] as $sn) {
+                        $owned = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $ownerIdsf)
+                            ->where('iddenom', $stockRow['iddenom'])->where('serial_start', '<=', $sn)->where('serial_end', '>=', $sn)
+                            ->lockForUpdate()->exists();
+                        if (! $owned) throw ValidationException::withMessages(['products' => "SN stok {$sn} tidak terdaftar untuk SF ini. Muat ulang daftar SN."]);
+                    }
+                }
                 foreach ($serialInputs as $serialInput) {
                     $usedSerial = DB::table('mobile_sales_serials as existing')
                         ->join('mobile_penjualan as existing_sale', 'existing_sale.id', '=', 'existing.mobile_penjualan_id')
@@ -782,9 +861,9 @@ SQL;
                 }
 
                 $products = collect($request->products)
-                    ->groupBy(fn ($row) => ($row['iddenom'] ?? '').'|'.(($row['serial_mode'] ?? '') === 'consignment' ? 'consignment' : 'stock'))
+                    ->groupBy(fn ($row) => ($row['iddenom'] ?? '').'|'.(($row['serial_mode'] ?? '') === 'consignment' ? 'consignment' : (! empty($row['uploaded_stock']) ? 'uploaded_stock' : 'stock')))
                     ->map(fn ($rows, $key) => [
-                        'source' => str_ends_with($key, '|consignment') ? 'consignment' : 'stock',
+                        'source' => str_ends_with($key, '|consignment') ? 'consignment' : (str_ends_with($key, '|uploaded_stock') ? 'uploaded_stock' : 'stock'),
                         'iddenom' => (string) $rows->first()['iddenom'],
                         'qty' => (int) $rows->sum(fn ($row) => (int) $row['qty']),
                     ])
@@ -815,7 +894,7 @@ SQL;
                     $qty = $product['qty'];
 
                     // 🔒 Lock & cek stok SF
-                    $stockSf = $product['source'] === 'consignment' ? null : DB::table('stockawalsf')
+                    $stockSf = in_array($product['source'], ['consignment', 'uploaded_stock'], true) ? null : DB::table('stockawalsf')
                         ->where('idsf', $ownerIdsf)
                         ->where('iddenom', $iddenom)
                         ->lockForUpdate()
@@ -835,10 +914,10 @@ SQL;
                         // Keep submit validation consistent with the form stock.
                         // A draft WhatsApp receipt has not reserved stock yet.
                         ->where('status', 'pending')
-                        ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->where('mss.input_mode', 'consign'); })
+                        ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->whereIn('mss.input_mode', ['consign', 'uploaded_stock']); })
                         ->sum('qty');
                     $availableStock = max(0, (int) ($stockSf ?? 0) - $reservedQty);
-                    if ($product['source'] !== 'consignment' && $availableStock < $qty) {
+                    if ($product['source'] === 'stock' && $availableStock < $qty) {
                         throw new \Exception("Stok {$denomName} tidak cukup! Stok tersedia di mobile: " . number_format($availableStock) . ", dibutuhkan: " . number_format($qty));
                     }
 
@@ -861,8 +940,8 @@ SQL;
                         'longitude' => $request->longitude,
                     ]);
 
-                    $productRows = collect($request->products)->filter(fn ($row) => (string) $row['iddenom'] === (string) $iddenom && ((($row['serial_mode'] ?? '') === 'consignment') === ($product['source'] === 'consignment')));
-                    $sourceSerials = $productRows->flatMap(fn ($row) => $serialInputs->filter(fn ($item) => (string) $item['iddenom'] === (string) $iddenom && $item['serial_mode'] === ($row['serial_mode'] ?? 'single')))->unique(fn ($item) => $item['serial_start'].'|'.$item['serial_end']);
+                    $productRows = collect($request->products)->filter(fn ($row) => (string) $row['iddenom'] === (string) $iddenom && ((($row['serial_mode'] ?? '') === 'consignment') === ($product['source'] === 'consignment')) && ((! empty($row['uploaded_stock'])) === ($product['source'] === 'uploaded_stock')));
+                    $sourceSerials = $productRows->flatMap(fn ($row) => $serialInputs->filter(fn ($item) => (string) $item['iddenom'] === (string) $iddenom && $item['serial_mode'] === (! empty($row['uploaded_stock']) ? 'uploaded_stock' : ($row['serial_mode'] ?? 'single'))))->unique(fn ($item) => $item['serial_start'].'|'.$item['serial_end']);
                     foreach ($sourceSerials as $serialInput) {
                         DB::table('mobile_sales_serials')->insert([
                             'mobile_penjualan_id' => $sale->id,
@@ -1559,7 +1638,7 @@ SQL;
                         })
                         ->where('iddenom', $sale->iddenom)
                         ->where('status', 'pending')
-                        ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->where('mss.input_mode', 'consign'); })
+                        ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->whereIn('mss.input_mode', ['consign', 'uploaded_stock']); })
                         ->sum('qty');
                     $availableStock = max(0, (int) ($stock->stock ?? 0) - $reservedQty);
                     if (! $isConsignmentSale && (! $stock || $availableStock < (int) $sale->qty)) {
