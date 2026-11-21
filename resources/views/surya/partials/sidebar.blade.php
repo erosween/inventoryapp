@@ -24,6 +24,7 @@
         <a href="{{ route('surya.kpi-svp') }}" class="sidebar-link {{ $sidebarPage === 'kpi-svp' ? 'active' : '' }}" @if($sidebarPage === 'kpi-svp') aria-current="page" @endif><i class="fas fa-gauge-high"></i><span>KPI SVP</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'outlet']) }}#outlet" class="sidebar-link {{ $sidebarPage === 'dashboard' && $dashboardPanel === 'outlet' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="outlet" @endif><i class="fas fa-map-location-dot"></i><span>PETA OUTLET</span></a>
         <a href="{{ route('surya.dashboard', ['panel' => 'visit-detail']) }}#visit-detail" class="sidebar-link {{ in_array($sidebarPage, ['dashboard', 'visit-detail', 'visit-report', 'field-reports'], true) && $dashboardPanel === 'visit-detail' ? 'active' : '' }}" @if($sidebarPage === 'dashboard') data-dashboard-tab="visit-detail" @endif><i class="fas fa-clipboard-check"></i><span>DETAIL VISIT</span></a>
+        <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
         <details class="sidebar-taskforce" @if($productTrackingOpen) open @endif>
             <summary class="sidebar-link"><i class="fas fa-barcode"></i><span>PRODUCT TRACKING</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
             <a href="{{ route('surya.product-tracking.tracking') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-lookup' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-magnifying-glass"></i><span>TRACKING SN</span></a>
@@ -31,10 +32,8 @@
             <a href="{{ route('surya.product-tracking.stock-outlet') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-stock-outlet' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-store"></i><span>STOCK OUTLET</span></a>
             <a href="{{ route('surya.product-tracking.imports', ['kind'=>'warehouse']) }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-warehouse' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-warehouse"></i><span>WAREHOUSE DIGIPOS</span></a>
             <a href="{{ route('surya.product-tracking.imports', ['kind'=>'scan']) }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-upload' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-file-arrow-up"></i><span>UPLOAD</span></a>
-            <a href="{{ route('surya.product-tracking.sales-stock') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-sales-stock' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-boxes-stacked"></i><span>UPLOAD STOK SN SALES</span></a>
             <a href="{{ route('surya.product-tracking.report') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-report' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-code-compare"></i><span>REKONSILIASI</span></a>
         </details>
-        <a href="{{ route('surya.outlet-detail') }}" class="sidebar-link {{ $sidebarPage === 'outlet-detail' ? 'active' : '' }}"><i class="fas fa-table-list"></i><span>DETAIL OUTLET</span></a>
         <details class="sidebar-taskforce" @if(in_array($sidebarPage, ['ngrs','transactions-sa','transactions-pv','transactions-cvm'], true)) open @endif>
             <summary class="sidebar-link"><i class="fas fa-chart-column"></i><span>TRANSAKSI OUTLET</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
             <a href="{{ route('surya.ngrs') }}" class="sidebar-link {{ $sidebarPage === 'ngrs' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-signal"></i><span>NGRS</span></a>

@@ -9,13 +9,17 @@
 
 @section('content')
     <section class="pt-card">
-        @if(in_array($kind, ['scan','so-pv','so-sa'], true))
+        @if(in_array($kind, ['scan','so-pv','so-sa','sales-stock'], true))
             <nav class="pt-sold-tabs mb-3" aria-label="Jenis upload">
                 <a class="{{ $kind==='scan'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan']) }}">ST Digipos</a>
                 <a class="{{ $kind==='so-sa'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-sa']) }}">SO SA</a>
                 <a class="{{ $kind==='so-pv'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'so-pv']) }}">SO PV</a>
+                <a class="{{ $kind==='sales-stock'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'sales-stock']) }}">Stok SN Sales</a>
             </nav>
         @endif
+        @if($kind==='sales-stock')
+            @include('surya.product-tracking.sales-stock-upload')
+        @else
         <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':($kind==='scan'?'Upload ST Digipos':'Upload SO '.strtoupper(substr($kind,3))) }}</h2>
         <p class="pt-subtitle">Pilih file CSV. Setelah header terbaca, petakan kolom SN, ID outlet, SF, tanggal, dan denom sebelum impor.</p>
         @if(!auth()->user()?->isSuperAdmin())<div class="pt-muted">Upload hanya tersedia untuk Admin.</div>@else
@@ -24,8 +28,17 @@
             <div class="pt-field pt-upload-file-field"><label for="pt-file">{{ $kind==='scan'?'File ST Digipos':(str_starts_with($kind,'so-')?'File SO '.strtoupper(substr($kind,3)):'File Digipos') }}</label><div class="pt-file-control"><input class="pt-file-input" id="pt-file" type="file" name="file" accept=".csv,.txt" required><label class="pt-file-action" for="pt-file">Pilih file</label><span class="pt-file-name pt-muted" id="pt-file-name">Belum ada file dipilih</span></div><small class="pt-file-hint">CSV · Maksimal 100 MB · Header pada baris pertama</small></div>
             <div class="pt-field pt-upload-submit"><button class="pt-button primary" type="submit"><i class="fas fa-upload"></i><span>Baca Header</span></button><span class="pt-loading-status" role="status" aria-live="polite" hidden></span></div>
         </form>@endif
+        @endif
     </section>
 
+    @if($kind==='sales-stock')
+        <section class="pt-card">
+            <div class="pt-result-head"><div><h2>Riwayat Upload Stok SN Sales</h2><span class="pt-muted">Menampilkan maksimal 30 upload terbaru.</span></div></div>
+            <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>Jumlah Baris</th><th>Diunggah Oleh</th></tr></thead><tbody>
+                @forelse($uploads as $upload)<tr><td>{{ \Carbon\Carbon::parse($upload->created_at)->format('d M Y H:i') }}</td><td>{{ $upload->filename }}</td><td>{{ number_format($upload->row_count) }}</td><td>{{ $upload->username }}</td></tr>@empty<tr><td colspan="4" class="pt-empty">Belum ada stok SN Sales yang diunggah.</td></tr>@endforelse
+            </tbody></table></div>
+        </section>
+    @endif
     @if($kind==='scan')
         <section class="pt-card">
             <nav class="pt-sold-tabs" aria-label="Periode ringkasan upload"><a class="{{ $period==='daily'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan','period'=>'daily']) }}">Harian</a><a class="{{ $period==='monthly'?'active':'' }}" href="{{ route('surya.product-tracking.imports',['kind'=>'scan','period'=>'monthly']) }}">Bulanan</a></nav>
@@ -66,11 +79,12 @@
     @endif
     @if($pending->isNotEmpty())<section class="pt-card"><h2>Upload menunggu pemetaan</h2><div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>File</th><th>Tanggal</th><th>Diunggah</th><th>Aksi</th></tr></thead><tbody>@foreach($pending as $item)<tr><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ $item->created_at }}</td><td><a class="pt-button" href="{{ route('surya.product-tracking.mapping',$item->id) }}">Petakan Kolom</a></td></tr>@endforeach</tbody></table></div></section>@endif
 
-    <section class="pt-card"><div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">{{ str_starts_with($kind,'so-')?'Riwayat SN SO yang dipakai menghitung redeem Stock Outlet.':($kind==='warehouse'?'Warehouse terbaru yang selesai diimpor menjadi sumber pencocokan aktif.':'Riwayat ST Digipos yang dipakai mencocokkan SN outlet.') }}</span></div></div>
+    @if($kind!=='sales-stock')<section class="pt-card"><div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">{{ str_starts_with($kind,'so-')?'Riwayat SN SO yang dipakai menghitung redeem Stock Outlet.':($kind==='warehouse'?'Warehouse terbaru yang selesai diimpor menjadi sumber pencocokan aktif.':'Riwayat ST Digipos yang dipakai mencocokkan SN outlet.') }}</span></div></div>
         <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>{{ str_starts_with($kind,'so-')?'Tanggal SO':'Tanggal Scan' }}</th><th>Baris</th><th>Status</th></tr></thead><tbody>
         @forelse($uploads as $item)<tr><td>{{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') }}</td><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ number_format($item->row_count) }}</td><td>@if($item->status==='complete')<span class="pt-chip good">Selesai</span>@else<span class="pt-chip bad">Duplikat · tidak dihitung</span>@endif</td></tr>@empty<tr><td colspan="5" class="pt-empty">Belum ada file {{ str_starts_with($kind,'so-')?'SO':'ST Digipos' }}.</td></tr>@endforelse
         </tbody></table></div>
     </section>
+    @endif
     @if(auth()->user()?->isSuperAdmin())
         @push('scripts')
         <script>
@@ -84,7 +98,7 @@
                 document.querySelectorAll('form.pt-upload-form[data-loading-message]').forEach((form) => {
                     form.addEventListener('submit', () => {
                         if (form.dataset.submitting === 'true') return;
-                        if (!['scan','so-pv','so-sa'].includes(form.querySelector('[name="kind"]')?.value)) return;
+                        if (!['scan','so-pv','so-sa','sales-stock'].includes(form.querySelector('[name="kind"]')?.value)) return;
                         form.dataset.submitting = 'true';
                         form.setAttribute('aria-busy', 'true');
                         const button = form.querySelector('button[type="submit"]');
@@ -98,6 +112,12 @@
                             status.hidden = false;
                         }
                     });
+                });
+                const stockInput = document.getElementById('sales-stock-file');
+                const stockName = document.getElementById('sales-stock-file-name');
+                stockInput?.addEventListener('change', () => {
+                    const file = stockInput.files?.[0];
+                    stockName.textContent = file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Belum ada file dipilih';
                 });
             });
         </script>

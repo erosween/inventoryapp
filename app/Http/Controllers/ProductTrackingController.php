@@ -634,7 +634,10 @@ class ProductTrackingController extends MonitaDumaiController
     public function imports(Request $request)
     {
         $kind = $request->query('kind', 'warehouse');
-        abort_unless(in_array($kind, ['warehouse', 'scan', 'so-pv', 'so-sa'], true), 404);
+        abort_unless(in_array($kind, ['warehouse', 'scan', 'so-pv', 'so-sa', 'sales-stock'], true), 404);
+        if ($kind === 'sales-stock') {
+            abort_unless(Schema::hasTable('product_tracking_sales_stock_uploads'), 503, 'Fitur upload stok SN Sales belum diaktifkan. Jalankan migrasi terbaru terlebih dahulu.');
+        }
         $period = $request->query('period', 'daily');
         abort_unless(in_array($period, ['daily', 'monthly'], true), 404);
         $scanClusterSql = "CASE WHEN LOWER(u.filename) REGEXP '^(pv|sa)_dumai_' THEN 'DUMAI' WHEN LOWER(u.filename) REGEXP '^(pv|sa)_(rohil|rokan_hilir)_' THEN 'ROHIL' WHEN UPPER(COALESCE(outlet.tap, '')) IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN 'DUMAI' WHEN UPPER(COALESCE(outlet.tap, '')) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'ROHIL' ELSE NULL END";
@@ -667,7 +670,9 @@ class ProductTrackingController extends MonitaDumaiController
         return view('surya.product-tracking.imports', [
             'kind' => $kind,
             'period' => $period,
-            'uploads' => DB::table('product_tracking_uploads')->where('kind', $kind)->whereIn('status', ['complete', 'duplicate'])->orderByDesc('id')->limit(30)->get(),
+            'uploads' => $kind === 'sales-stock'
+                ? DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get()
+                : DB::table('product_tracking_uploads')->where('kind', $kind)->whereIn('status', ['complete', 'duplicate'])->orderByDesc('id')->limit(30)->get(),
             'pending' => DB::table('product_tracking_uploads')->where('kind', $kind)->where('status', 'mapping')->orderByDesc('id')->get(),
             'dailyTotals' => $dailyTotals,
         ]);
@@ -843,14 +848,14 @@ class ProductTrackingController extends MonitaDumaiController
             }
         });
 
-        return redirect()->route('surya.product-tracking.sales-stock')->with('success', number_format(count($rows)).' baris stok SN Sales berhasil diunggah.');
+        return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])->with('success', number_format(count($rows)).' baris stok SN Sales berhasil diunggah.');
     }
 
     public function stageImport(Request $request, ProductTrackingFile $reader)
     {
         $this->requireEditor();
         $data = $request->validate([
-            'kind' => 'required|in:warehouse,scan,so-pv,so-sa',
+            'kind' => 'required|in:warehouse,scan,so-pv,so-sa,sales-stock',
             'scan_date' => 'nullable|date|before_or_equal:today',
             'file' => 'required|file|mimes:csv,txt|max:102400',
         ]);
