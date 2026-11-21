@@ -15,7 +15,8 @@ use Illuminate\Support\Str;
 
 class ProductTrackingController extends MonitaDumaiController
 {
-    private array $maxScanSerialRangeCountByLength = [];
+    private array $scanRangesByLength = [];
+    private ?array $completeScanUploadIds = null;
 
     public function index(Request $request)
     {
@@ -1307,42 +1308,7 @@ class ProductTrackingController extends MonitaDumaiController
 
     private function findScanRangeDuplicates(array $range): array
     {
-        $length = strlen($range['serial_start']);
-        if (! array_key_exists($length, $this->maxScanSerialRangeCountByLength)) {
-            $this->maxScanSerialRangeCountByLength[$length] = (int) (DB::table('product_tracking_digipos as digipos')
-                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
-                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
-                ->max('digipos.serial_count') ?? 0);
-        }
-        if ($this->maxScanSerialRangeCountByLength[$length] === 0) return [];
-        $minimumStart = $this->subtractSerialCount($range['serial_start'], $this->maxScanSerialRangeCountByLength[$length]);
-
-        $existing = DB::table('product_tracking_digipos as digipos')
-            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-            ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-            ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-            ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-            ->where('digipos.serial_start', '>=', $minimumStart)
-            ->where('digipos.serial_start', '<=', $range['serial_end'])
-            ->where('digipos.serial_end', '>=', $range['serial_start'])
-            ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
-            ->orderBy('digipos.serial_start')
-            ->get(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'digipos.id_outlet', 'digipos.sf', 'digipos.product_name', 'upload.filename']);
-
-        return $existing->map(function ($row) use ($range) {
-            $start = strcmp((string) $row->serial_start, $range['serial_start']) > 0 ? (string) $row->serial_start : $range['serial_start'];
-            $end = strcmp((string) $row->serial_end, $range['serial_end']) < 0 ? (string) $row->serial_end : $range['serial_end'];
-            return [
-                'source_row' => $range['source_row'], 'duplicate_start' => $start, 'duplicate_end' => $end,
-                'duplicate_qty' => $this->serialRangeCount($start, $end),
-                'existing_filename' => $row->filename, 'existing_scan_date' => $row->scan_date,
-                'existing_outlet' => $row->id_outlet, 'existing_sf' => $row->sf, 'existing_product' => $row->product_name,
-            ];
-        })->all();
+        return $this->findScanRangeDuplicatesBatch([$range])[$range['source_row']] ?? [];
     }
 
     private function findScanRangeDuplicatesBatch(array $ranges): array
@@ -1350,50 +1316,62 @@ class ProductTrackingController extends MonitaDumaiController
         $matchesByRow = [];
         foreach (collect($ranges)->groupBy(fn ($range) => strlen($range['serial_start'])) as $length => $lengthRanges) {
             $length = (int) $length;
-            if (! array_key_exists($length, $this->maxScanSerialRangeCountByLength)) {
-                $this->maxScanSerialRangeCountByLength[$length] = (int) (DB::table('product_tracking_digipos as digipos')
-                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                    ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                    ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                    ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
-                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])->max('digipos.serial_count') ?? 0);
+            if (! array_key_exists($length, $this->scanRangesByLength)) {
+                $this->completeScanUploadIds ??= DB::table('product_tracking_uploads')
+                    ->where('kind', 'scan')->where('status', 'complete')->pluck('id')->map(fn ($id) => (int) $id)->all();
+                $rangesForLength = $this->completeScanUploadIds === [] ? collect() : DB::table('product_tracking_digipos')
+                    ->where('kind', 'scan')
+                    ->whereBetween('serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
+                    ->whereRaw('CHAR_LENGTH(serial_start) = ?', [$length])
+                    ->orderBy('serial_start')
+                    ->get(['upload_id', 'serial_start', 'serial_end', 'serial_count', 'scan_date', 'id_outlet', 'sf', 'product_name'])
+                    ->filter(fn ($row) => in_array((int) $row->upload_id, $this->completeScanUploadIds, true))
+                    ->map(fn ($row) => (array) $row)->values();
+                $this->scanRangesByLength[$length] = [
+                    'max_count' => (int) ($rangesForLength->max('serial_count') ?? 0),
+                    'ranges' => $rangesForLength->all(),
+                ];
             }
-            if ($this->maxScanSerialRangeCountByLength[$length] === 0) continue;
-            foreach ($lengthRanges->chunk(50) as $rangeChunk) {
-                $query = DB::table('product_tracking_digipos as digipos')
-                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                    ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                    ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                    ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                    ->where(function ($anyRange) use ($rangeChunk, $length) {
-                        foreach ($rangeChunk as $range) {
-                            $minimumStart = $this->subtractSerialCount($range['serial_start'], $this->maxScanSerialRangeCountByLength[$length]);
-                            $anyRange->orWhere(function ($overlap) use ($range, $minimumStart, $length) {
-                                $overlap->where('digipos.serial_start', '>=', $minimumStart)
-                                    ->where('digipos.serial_start', '<=', $range['serial_end'])
-                                    ->where('digipos.serial_end', '>=', $range['serial_start'])
-                                    ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
-                                    ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length]);
-                            });
-                        }
-                    });
-                $existing = $query->get(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'digipos.id_outlet', 'digipos.sf', 'digipos.product_name', 'upload.filename']);
-                foreach ($rangeChunk as $range) {
-                    foreach ($existing as $row) {
-                        if (strcmp((string) $row->serial_start, $range['serial_end']) > 0 || strcmp((string) $row->serial_end, $range['serial_start']) < 0) continue;
-                        $start = strcmp((string) $row->serial_start, $range['serial_start']) > 0 ? (string) $row->serial_start : $range['serial_start'];
-                        $end = strcmp((string) $row->serial_end, $range['serial_end']) < 0 ? (string) $row->serial_end : $range['serial_end'];
-                        $matchesByRow[$range['source_row']][] = [
-                            'source_row' => $range['source_row'], 'duplicate_start' => $start, 'duplicate_end' => $end,
-                            'duplicate_qty' => $this->serialRangeCount($start, $end),
-                            'existing_filename' => $row->filename, 'existing_scan_date' => $row->scan_date,
-                            'existing_outlet' => $row->id_outlet, 'existing_sf' => $row->sf, 'existing_product' => $row->product_name,
-                        ];
-                    }
+            $existing = $this->scanRangesByLength[$length]['ranges'];
+            $maxCount = $this->scanRangesByLength[$length]['max_count'];
+            if ($maxCount === 0 || $existing === []) continue;
+
+            $candidateRanges = $lengthRanges->sortBy('serial_start', SORT_STRING)->values();
+            foreach ($candidateRanges as $range) {
+                $minimumStart = $this->subtractSerialCount($range['serial_start'], $maxCount);
+                $low = 0;
+                $high = count($existing);
+                while ($low < $high) {
+                    $middle = intdiv($low + $high, 2);
+                    if (strcmp($existing[$middle]['serial_start'], $minimumStart) < 0) $low = $middle + 1;
+                    else $high = $middle;
+                }
+                for ($index = $low, $total = count($existing); $index < $total && strcmp($existing[$index]['serial_start'], $range['serial_end']) <= 0; $index++) {
+                    $row = $existing[$index];
+                    if (strcmp($row['serial_end'], $range['serial_start']) < 0) continue;
+                    $start = strcmp($row['serial_start'], $range['serial_start']) > 0 ? $row['serial_start'] : $range['serial_start'];
+                    $end = strcmp($row['serial_end'], $range['serial_end']) < 0 ? $row['serial_end'] : $range['serial_end'];
+                    $matchesByRow[$range['source_row']][] = [
+                        'source_row' => $range['source_row'], 'duplicate_start' => $start, 'duplicate_end' => $end,
+                        'duplicate_qty' => $this->serialRangeCount($start, $end), 'upload_id' => (int) $row['upload_id'],
+                        'existing_scan_date' => $row['scan_date'], 'existing_outlet' => $row['id_outlet'],
+                        'existing_sf' => $row['sf'], 'existing_product' => $row['product_name'],
+                    ];
                 }
             }
         }
+
+        $uploadIds = collect($matchesByRow)->flatten(1)->pluck('upload_id')->unique()->values();
+        $filenames = $uploadIds->isEmpty() ? collect() : DB::table('product_tracking_uploads')->whereIn('id', $uploadIds)->pluck('filename', 'id');
+        foreach ($matchesByRow as &$matches) {
+            foreach ($matches as &$match) {
+                $match['existing_filename'] = $filenames->get($match['upload_id']) ?? '';
+                unset($match['upload_id']);
+            }
+            unset($match);
+        }
+        unset($matches);
+
         return $matchesByRow;
     }
 
