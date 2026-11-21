@@ -1478,7 +1478,7 @@ class ProductTrackingController extends MonitaDumaiController
         });
 
         return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
-            ->with('success', number_format($rangeQty).' SN berhasil dicatat untuk '.$sf->idsf.' · '.$data['iddenom'].'.');
+            ->with('success', number_format($rangeQty).' SN berhasil dicatat.');
     }
 
     public function updateSfStockRange(Request $request, int $range)

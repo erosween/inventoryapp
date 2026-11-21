@@ -95,7 +95,6 @@
                 <div><h2>{{ $editingManual ? 'Edit Rentang SN' : 'Tambah Rentang SN' }}</h2></div>
             </div>
             <p class="pt-muted mb-3">Daftar SN manual · saldo stok tidak berubah.</p>
-            @if(session('success'))<div class="pt-chip good mb-3">{{ session('success') }}</div>@endif
             @if($errors->any())<div class="pt-empty mb-3" style="padding:12px 16px;border-radius:10px;background:#fff0f1;color:#c8102e;text-align:left">{{ $errors->first() }}</div>@endif
             <form method="post" action="{{ $editingManual ? route('surya.product-tracking.sf-stock-lookup.update', $editingManual->id) : route('surya.product-tracking.sf-stock-lookup.store') }}" class="pt-grid pt-manual-form" data-loading-message="Menyimpan rentang SN…">
                 @csrf
