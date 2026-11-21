@@ -412,6 +412,15 @@ SQL;
             ->join('denom as d', 'd.iddenom', '=', 'c.iddenom')
             ->where('c.idsf', $idsf)
             ->whereIn('c.status', ['consigned', 'approved'])
+            ->where(function ($formats) {
+                $formats->where(function ($sa) {
+                    $sa->whereRaw("UPPER(COALESCE(d.product, '')) = 'SA'")
+                        ->whereRaw("c.serial_number REGEXP '^0[0-9]{15}$'");
+                })->orWhere(function ($pv) {
+                    $pv->whereRaw("UPPER(COALESCE(d.product, '')) = 'PV'")
+                        ->whereRaw("c.serial_number REGEXP '^[0-9]{12}$'");
+                });
+            })
             ->whereNotExists(function ($subquery) {
                 $subquery->selectRaw('1')
                     ->from('mobile_sales_serials as mss')
