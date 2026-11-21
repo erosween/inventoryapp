@@ -433,9 +433,15 @@ SQL;
             ->when($lock, fn ($query) => $query->lockForUpdate())
             ->pluck('sn');
         foreach ($adminRanges as $value) {
-            if (! preg_match('/^(\d+)(?:-(\d+))?$/', trim((string) $value), $match)) continue;
-            $first = $match[1];
-            $last = $match[2] ?? $first;
+            $serialValue = trim((string) $value);
+            if (preg_match('/^(\d+)(?:\s*[-–—]\s*|\s+)(\d+)$/u', $serialValue, $match)) {
+                $first = $match[1];
+                $last = $match[2];
+            } elseif (preg_match('/^\d+$/', $serialValue)) {
+                $first = $last = $serialValue;
+            } else {
+                continue;
+            }
             if (strlen($first) !== strlen($last)) continue;
             $ranges[] = [(int) $first, (int) $last];
         }

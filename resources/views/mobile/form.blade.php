@@ -269,6 +269,12 @@
     .serial-consignment-wrap { padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc; }
     .uploaded-stock-sn { padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc; }
     .uploaded-stock-list { max-height:260px;overflow:auto;display:grid;gap:7px;-webkit-overflow-scrolling:touch; }
+    .range-stock-picker { margin-bottom:12px;padding:11px;border:1px solid #e2e8f0;border-radius:13px;background:#f8fafc; }
+    .range-stock-list { max-height:180px;overflow:auto;display:grid;gap:6px;-webkit-overflow-scrolling:touch; }
+    .range-stock-option { display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff; }
+    .range-stock-option strong { min-width:0;overflow-wrap:anywhere;color:#1f2937;font-size:.7rem; }
+    .range-stock-actions { display:flex;flex:0 0 auto;gap:5px; }
+    .range-stock-actions button { padding:5px 8px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;color:#475569;font-size:.6rem;font-weight:800; }
     .consignment-sn-list { max-height:260px;overflow:auto;display:grid;gap:7px;-webkit-overflow-scrolling:touch; }
     .consignment-sn-option { display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:11px;background:#fff; }
     .consignment-sn-option .form-check-input { flex:0 0 auto;margin:0;width:18px;height:18px; }
@@ -859,7 +865,7 @@
                                 <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${(serial.serial_mode || 'single') === 'single' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option><option value="broken" ${serial.serial_mode === 'broken' ? 'selected' : ''}>SN Pecah</option><option value="consignment" ${serial.serial_mode === 'consignment' ? 'selected' : ''}>SN Konsinyasi</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${(serial.serial_mode || 'single') === 'single' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${(serial.serial_mode || 'single') === 'single'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'broken' ? 'active' : ''}" data-serial-mode="broken" aria-pressed="${serial.serial_mode === 'broken'}"><i class="fas fa-scissors" aria-hidden="true"></i><span>SN Pecah</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'consignment' ? 'active' : ''}" data-serial-mode="consignment" aria-pressed="${serial.serial_mode === 'consignment'}"><i class="fas fa-box-open" aria-hidden="true"></i><span>SN Konsinyasi</span></button></div></div>
                                 <input type="hidden" name="products[${rowId}][identifier_type]" class="identifier-type-select" value="sn">
                                 <div class="serial-single-wrap ${(serial.serial_mode || 'single') !== 'single' ? 'd-none' : ''}"><div class="uploaded-stock-sn"><label class="serial-field-label">Pilih SN stok milik SF</label><input type="search" class="form-control form-control-sm uploaded-stock-search mb-2" inputmode="numeric" placeholder="Cari SN (minimal 3 digit)"><small class="text-muted d-block mb-2 uploaded-stock-count">Memuat daftar SN tersedia…</small><div class="uploaded-stock-list text-muted small"><i class="fas fa-circle-notch fa-spin me-1"></i> Memuat SN…</div></div><small class="serial-qty-hint serial-single-hint text-muted d-block mt-2"></small></div><textarea name="products[${rowId}][serial_value]" class="serial-value-input d-none" aria-hidden="true" tabindex="-1"></textarea>
-                                <div class="serial-range-wrap ${serial.serial_mode === 'range' ? '' : 'd-none'}"><label class="serial-field-label">Rentang SN</label><div class="serial-range-fields"><div class="serial-range-field"><label>SN awal</label><input name="products[${rowId}][serial_start]" class="form-control form-control-sm serial-start-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_start || '')}" placeholder="SN awal"></div><span class="serial-range-separator">SAMPAI</span><div class="serial-range-field"><label>SN akhir</label><input name="products[${rowId}][serial_end]" class="form-control form-control-sm serial-end-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_end || '')}" placeholder="SN akhir"></div></div><small class="serial-qty-hint serial-range-hint text-muted">Masukkan SN awal dan SN akhir; Qty dihitung otomatis.</small></div>
+                                <div class="serial-range-wrap ${serial.serial_mode === 'range' ? '' : 'd-none'}"><label class="serial-field-label">Rentang SN</label><div class="range-stock-picker"><label class="serial-field-label mb-1">Cari SN dari stok SF <span class="fw-normal text-muted">(opsional)</span></label><input type="search" class="form-control form-control-sm range-stock-search mb-2" inputmode="numeric" placeholder="Ketik minimal 3 digit SN"><small class="text-muted d-block mb-2 range-stock-count">Cari SN lalu pilih untuk mengisi awal atau akhir.</small><div class="range-stock-list text-muted small">Ketik minimal 3 digit untuk mencari SN stok.</div></div><div class="serial-range-fields"><div class="serial-range-field"><label>SN awal</label><input name="products[${rowId}][serial_start]" class="form-control form-control-sm serial-start-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_start || '')}" placeholder="SN awal"></div><span class="serial-range-separator">SAMPAI</span><div class="serial-range-field"><label>SN akhir</label><input name="products[${rowId}][serial_end]" class="form-control form-control-sm serial-end-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_end || '')}" placeholder="SN akhir"></div></div><small class="serial-qty-hint serial-range-hint text-muted">Masukkan SN awal dan SN akhir; Qty dihitung otomatis.</small></div>
                                 <div class="serial-broken-wrap ${serial.serial_mode === 'broken' ? '' : 'd-none'}"><small class="serial-qty-hint">SN pecah: masukkan jumlah unit pada kolom Quantity. Nomor SN tidak dicatat satu per satu.</small></div><div class="serial-consignment-wrap ${serial.serial_mode === 'consignment' ? '' : 'd-none'}"><div class="d-flex justify-content-between align-items-center mb-2"><label class="serial-field-label mb-0">Pilih SN konsinyasi milik SF ini</label><button type="button" class="btn btn-sm btn-outline-secondary refresh-consignment-sn">Muat ulang</button></div><div class="consignment-sn-list text-muted small">Pilih denom untuk memuat SN.</div></div>
                             </div>
                         </div>
@@ -871,6 +877,7 @@
             syncSerialFields(row);
             updateSerialQuantity(row);
             if (id && (serial.serial_mode || 'single') === 'single') loadUploadedStockSerials(row, (serial.uploaded_stock_serials || [])[0] || '');
+            if (id && serial.serial_mode === 'range') loadRangeStockSerials(row);
         }
 
         function loadConsignmentSerials(row) {
@@ -911,12 +918,48 @@
                 updateSerialQuantity(row);
             }).fail(function() { list.html('<span class="text-danger">Gagal memuat SN stok. Coba cari lagi.</span>'); });
         }
+        function loadRangeStockSerials(row, query = null) {
+            const id = row.find('.iddenom-input').val();
+            if (!id || row.find('.serial-mode-select').val() !== 'range') return;
+            const input = row.find('.range-stock-search');
+            const prefix = query === null ? String(input.val() || '').replace(/\D/g, '') : String(query).replace(/\D/g, '');
+            if (query !== null) input.val(prefix);
+            const list = row.find('.range-stock-list');
+            if (prefix.length < 3) {
+                list.html('<span class="text-muted">Ketik minimal 3 digit untuk mencari SN stok SF.</span>');
+                row.find('.range-stock-count').text('SN awal dan akhir juga bisa diketik manual.');
+                return;
+            }
+            list.html('<i class="fas fa-circle-notch fa-spin me-1"></i> Mencari SN…');
+            $.get("{{ route('mobile.sales-stock.available') }}", { iddenom: id, id_outlet: $('#id_outlet').val(), q: prefix }).done(function(response) {
+                if (String(row.find('.iddenom-input').val()) !== String(id) || row.find('.serial-mode-select').val() !== 'range') return;
+                const items = response.items || [];
+                row.find('.range-stock-count').text(items.length ? `${items.length} SN tersedia; pilih untuk mengisi SN awal atau akhir.` : 'Tidak ada SN tersedia yang cocok. SN awal/akhir tetap bisa diketik manual.');
+                if (!items.length) {
+                    list.html('<span class="text-muted">SN tidak ditemukan atau stoknya sudah terpakai.</span>');
+                    return;
+                }
+                list.html(items.map(item => `<div class="range-stock-option"><strong>${escapeHtml(item.sn)}</strong><span class="range-stock-actions"><button type="button" class="range-stock-fill" data-target="start" data-sn="${escapeHtml(item.sn)}">Isi awal</button><button type="button" class="range-stock-fill" data-target="end" data-sn="${escapeHtml(item.sn)}">Isi akhir</button></span></div>`).join(''));
+            }).fail(function() { list.html('<span class="text-danger">Gagal mencari SN stok. Coba lagi.</span>'); });
+        }
         let uploadedStockSearchTimer = null;
         $(document).on('input', '.uploaded-stock-search', function() {
             const input = this;
             input.value = input.value.replace(/\D/g, '').slice(0, 16);
             clearTimeout(uploadedStockSearchTimer);
             uploadedStockSearchTimer = setTimeout(() => loadUploadedStockSerials($(input).closest('.glass-card')), 250);
+        });
+        let rangeStockSearchTimer = null;
+        $(document).on('input', '.range-stock-search', function() {
+            const input = this;
+            input.value = input.value.replace(/\D/g, '').slice(0, 16);
+            clearTimeout(rangeStockSearchTimer);
+            rangeStockSearchTimer = setTimeout(() => loadRangeStockSerials($(input).closest('.glass-card')), 250);
+        });
+        $(document).on('click', '.range-stock-fill', function() {
+            const row = $(this).closest('.glass-card');
+            const target = $(this).data('target') === 'end' ? '.serial-end-input' : '.serial-start-input';
+            row.find(target).val(String($(this).data('sn'))).trigger('input').trigger('change');
         });
         $(document).on('change', '.uploaded-stock-checkbox', function() {
             const row = $(this).closest('.glass-card');
@@ -1183,6 +1226,7 @@
                 const maxDigits = starterPackMap[row.find('.iddenom-input').val()] ? 16 : 12;
                 this.value = String(this.value || '').replace(/\D/g, '').slice(0, maxDigits);
             }
+            if ($(this).is('.serial-mode-select') && $(this).val() === 'range') loadRangeStockSerials(row);
             updateSerialQuantity(row);
             saveFormState();
         });
