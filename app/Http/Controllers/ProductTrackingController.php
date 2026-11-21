@@ -1314,9 +1314,11 @@ class ProductTrackingController extends MonitaDumaiController
                 ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
                 ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
                 ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
+                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
                 ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
-                ->max('digipos.serial_count') ?? 1);
+                ->max('digipos.serial_count') ?? 0);
         }
+        if ($this->maxScanSerialRangeCountByLength[$length] === 0) return [];
         $minimumStart = $this->subtractSerialCount($range['serial_start'], $this->maxScanSerialRangeCountByLength[$length]);
 
         $existing = DB::table('product_tracking_digipos as digipos')
@@ -1354,8 +1356,10 @@ class ProductTrackingController extends MonitaDumaiController
                     ->whereRaw("CONVERT(digipos.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
                     ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
                     ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                    ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])->max('digipos.serial_count') ?? 1);
+                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
+                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])->max('digipos.serial_count') ?? 0);
             }
+            if ($this->maxScanSerialRangeCountByLength[$length] === 0) continue;
             foreach ($lengthRanges->chunk(50) as $rangeChunk) {
                 $query = DB::table('product_tracking_digipos as digipos')
                     ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
@@ -1369,6 +1373,7 @@ class ProductTrackingController extends MonitaDumaiController
                                 $overlap->where('digipos.serial_start', '>=', $minimumStart)
                                     ->where('digipos.serial_start', '<=', $range['serial_end'])
                                     ->where('digipos.serial_end', '>=', $range['serial_start'])
+                                    ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
                                     ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length]);
                             });
                         }
