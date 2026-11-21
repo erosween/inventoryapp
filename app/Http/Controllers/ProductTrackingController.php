@@ -1261,6 +1261,103 @@ class ProductTrackingController extends MonitaDumaiController
         return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'scans', 'mobile'));
     }
 
+    public function sfStockLookup(Request $request)
+    {
+        $raw = trim((string) $request->query('q', ''));
+        $serial = preg_replace('/\\D+/', '', $raw);
+        $matches = collect();
+        $error = null;
+
+        if ($raw !== '') {
+            $length = strlen($serial);
+            $isPv = $length === 12;
+            $isSa = $length === 15 || ($length === 16 && str_starts_with($serial, '0'));
+            if (! $isPv && ! $isSa) {
+                $error = 'Masukkan SN PV 12 digit atau SN SA 15 digit (boleh 16 digit dengan 0 di depan).';
+            } else {
+                $canonical = $isSa && $length === 16 ? substr($serial, 1) : $serial;
+                $scopes = $this->suryaTapScopes();
+
+                if (Schema::hasTable('product_tracking_sales_stock_ranges')) {
+                    $uploaded = DB::table('product_tracking_sales_stock_ranges as stock')
+                        ->leftJoin('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
+                        ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
+                        ->where(function ($query) use ($isPv, $canonical) {
+                            if ($isPv) {
+                                $query->where(function ($query) use ($canonical) {
+                                    $query->whereRaw('CHAR_LENGTH(stock.serial_start) = 12')->where('stock.serial_start', '<=', $canonical)->where('stock.serial_end', '>=', $canonical);
+                                });
+                            } else {
+                                $query->where(function ($query) use ($canonical) {
+                                    $query->whereRaw('CHAR_LENGTH(stock.serial_start) = 15')->where('stock.serial_start', '<=', $canonical)->where('stock.serial_end', '>=', $canonical);
+                                })->orWhere(function ($query) use ($canonical) {
+                                    $query->whereRaw('CHAR_LENGTH(stock.serial_start) = 16')->where('stock.serial_start', '<=', '0'.$canonical)->where('stock.serial_end', '>=', '0'.$canonical);
+                                });
+                            }
+                        });
+                    if ($scopes) $this->applyTapScopeFilter($uploaded, 'owner.idtap', $scopes);
+                    foreach ($uploaded->get(['stock.sfcode as sfcode', 'owner.namasf', 'owner.idtap', 'stock.tap', 'stock.cluster', 'stock.iddenom', 'd.denom', 'stock.serial_start', 'stock.serial_end', 'stock.qty']) as $row) {
+                        $matches->push((object) [
+                            'sfcode' => $row->sfcode,
+                            'namasf' => $row->namasf,
+                            'tap' => $row->tap ?: $row->idtap,
+                            'cluster' => $row->cluster ?: $this->trackingClusterForTap((string) ($row->tap ?: $row->idtap)),
+                            'iddenom' => $row->iddenom,
+                            'denom' => $row->denom,
+                            'source' => 'Upload Stok SN Sales',
+                            'serial_range' => $row->serial_start === $row->serial_end ? $row->serial_start : $row->serial_start.' – '.$row->serial_end,
+                            'date' => null,
+                        ]);
+                    }
+                }
+
+                $normalizedSn = "REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '')";
+                $rangeStart = "SUBSTRING_INDEX({$normalizedSn}, '-', 1)";
+                $rangeEnd = "SUBSTRING_INDEX({$normalizedSn}, '-', -1)";
+                $admin = DB::table('masuksf as m')
+                    ->join('idsf as owner', 'owner.idsf', '=', 'm.idsf')
+                    ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
+                    ->whereRaw("{$normalizedSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
+                    ->whereRaw("CHAR_LENGTH({$rangeStart}) = CHAR_LENGTH({$rangeEnd})")
+                    ->whereRaw('CAST('.$rangeStart.' AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0)) AND CAST('.$rangeEnd.' AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$canonical, $canonical])
+                    ->where(function ($query) use ($isPv, $rangeStart) {
+                        if ($isPv) $query->whereRaw("CHAR_LENGTH({$rangeStart}) = 12");
+                        else $query->whereRaw("CHAR_LENGTH({$rangeStart}) IN (15, 16)");
+                    });
+                if ($scopes) $this->applyTapScopeFilter($admin, 'owner.idtap', $scopes);
+                foreach ($admin->get(['m.idsf as sfcode', 'owner.namasf', 'owner.idtap', 'm.iddenom', 'd.denom', 'm.sn', 'm.qty', 'm.tgl']) as $row) {
+                    $parts = preg_split('/(?:\\s*[-–—]\\s*|\\s+)/u', trim((string) $row->sn), 2, PREG_SPLIT_NO_EMPTY) ?: [];
+                    $storedRange = count($parts) > 1 ? $parts[0].' – '.$parts[1] : ($parts[0] ?? (string) $row->sn);
+                    $matches->push((object) [
+                        'sfcode' => $row->sfcode,
+                        'namasf' => $row->namasf,
+                        'tap' => $row->idtap,
+                        'cluster' => $this->trackingClusterForTap((string) $row->idtap),
+                        'iddenom' => $row->iddenom,
+                        'denom' => $row->denom,
+                        'source' => 'SF Masuk admin',
+                        'serial_range' => $storedRange,
+                        'date' => $row->tgl,
+                    ]);
+                }
+            }
+        }
+
+        return view('surya.product-tracking.sf-stock-lookup', [
+            'queryValue' => $serial,
+            'matches' => $matches,
+            'error' => $error,
+        ]);
+    }
+
+    private function trackingClusterForTap(string $tap): string
+    {
+        $tap = strtoupper(trim($tap));
+        if (in_array($tap, ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'], true)) return 'DUMAI BENGKALIS';
+        if (in_array($tap, ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'], true)) return 'ROKAN HILIR';
+        return '—';
+    }
+
     private function matchedDigiposQuery(string $kind, $warehouseId = null, bool $sameOutlet = false, ?string $from = null, ?string $to = null)
     {
         $query = DB::table('product_tracking_digipos as digipos')->selectRaw('COUNT(*)')
