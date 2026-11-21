@@ -88,17 +88,17 @@
         @endphp
         <div class="consignment-shell mb-4">
             <button type="button" id="consignment-toggle" class="consignment-toggle" aria-expanded="{{ $consignmentOpen ? 'true' : 'false' }}" aria-controls="consignment-panel">
-                        <span><i class="fas fa-sim-card me-2"></i>Konsinyasi (SA / Voucher Fisik)</span>
-                <span class="consignment-toggle-action"><i class="fas fa-plus me-1"></i> Isi nomor perdana</span>
+                        <span><i class="fas fa-sim-card me-2"></i>Konsinyasi SN</span>
+                <span class="consignment-toggle-action"><i class="fas fa-plus me-1"></i> Input SN konsinyasi</span>
             </button>
             <input type="hidden" name="consignment_enabled" id="consignment_enabled" value="{{ $consignmentOpen ? '1' : '0' }}">
             <div id="consignment-panel" class="consignment-panel {{ $consignmentOpen ? '' : 'd-none' }}">
                 <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                     <div>
-                        <div class="fw-800 text-dark" style="font-size: .78rem;">Nomor perdana wajib diisi</div>
-                        <div class="text-muted fw-bold" style="font-size: .62rem;">Satu nomor per baris. Qty dihitung otomatis oleh sistem.</div>
+                        <div class="fw-800 text-dark" style="font-size: .78rem;">SN konsinyasi wajib diisi</div>
+                        <div class="text-muted fw-bold" style="font-size: .62rem;">SN PV 12 digit, SN SA 16 digit. Qty dihitung otomatis.</div>
                     </div>
-                    <span id="consignment-count" class="consignment-count">0 nomor</span>
+                    <span id="consignment-count" class="consignment-count">0 SN</span>
                 </div>
                 <div id="consignment-rows"></div>
                 <button type="button" id="consignment-add-denom" class="consignment-add-denom"><i class="fas fa-plus me-1"></i> Tambah denom</button>
@@ -266,6 +266,13 @@
     .select2-results__option { padding:10px 12px;font-size:.76rem; }
     .consignment-denom-row select { min-height:42px;margin-bottom:9px;font-size:.7rem;font-weight:800!important; }
     .consignment-denom-row .consignment-textarea { min-height:96px; }
+    .serial-consignment-wrap { padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc; }
+    .consignment-sn-list { max-height:260px;overflow:auto;display:grid;gap:7px;-webkit-overflow-scrolling:touch; }
+    .consignment-sn-option { display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:11px;background:#fff; }
+    .consignment-sn-option .form-check-input { flex:0 0 auto;margin:0;width:18px;height:18px; }
+    .consignment-sn-option span { display:grid;gap:2px;min-width:0; }
+    .consignment-sn-option strong { color:#1f2937;font-size:.78rem;letter-spacing:.02em; }
+    .consignment-sn-option small { color:#64748b;font-size:.65rem; }
     .consignment-row-count { color:#059669;font-size:.58rem;font-weight:850; }
     .consignment-row-head { display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px; }
     .consignment-row-title { color:#64748b;font-size:.65rem;font-weight:850; }
@@ -293,6 +300,7 @@
     .serial-qty-hint.text-danger { color:#dc2626!important; }
     .serial-qty-hint.text-success { color:#059669!important; }
     .serial-range-hint { padding:8px 10px;border-radius:10px;background:#f1f5f9; }
+    @media(max-width:520px){.serial-mode-choices{flex-wrap:wrap}.serial-mode-choices .serial-segment{flex:1 1 calc(50% - 6px)}}
     @media(max-width:360px){.serial-segment{gap:5px;padding-inline:6px;font-size:.62rem}.serial-segment i{font-size:.62rem}}
     .sales-input-form { padding-bottom:185px; }
     .sales-submit-bar { position:fixed;z-index:1050;bottom:calc(84px + env(safe-area-inset-bottom, 0px));left:50%;width:min(calc(100% - 24px),456px);padding:10px 12px;transform:translateX(-50%);border:1px solid rgba(226,232,240,.9);border-radius:20px;background:rgba(255,255,255,.96);box-shadow:0 12px 30px rgba(15,23,42,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:none; }
@@ -361,7 +369,7 @@
                                 style="background: #ffffff; border: 1px solid #f1f5f9 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s; display: flex !important;"
                                 data-id="{{ $denom->iddenom }}" 
                                 data-name="{{ $denom->denom }}"
-                                data-stock="{{ $denom->stock_qty ?? 0 }}">
+                                data-stock="{{ $denom->stock_qty ?? 0 }}" data-consignment="{{ $consignmentDenoms->contains('iddenom', $denom->iddenom) ? 1 : 0 }}">
                             <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3 text-primary">
                                 <i class="fas fa-star fs-5"></i>
                             </div>
@@ -382,7 +390,7 @@
                                 style="background: #ffffff; border: 1px solid #f1f5f9 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.2s; display: flex !important;"
                                 data-id="{{ $denom->iddenom }}" 
                                 data-name="{{ $denom->denom }}"
-                                data-stock="{{ $denom->stock_qty ?? 0 }}">
+                                data-stock="{{ $denom->stock_qty ?? 0 }}" data-consignment="{{ $consignmentDenoms->contains('iddenom', $denom->iddenom) ? 1 : 0 }}">
                             <div class="bg-primary bg-opacity-10 p-3 rounded-4 me-3 text-primary">
                                 <i class="fas fa-box-open fs-5"></i>
                             </div>
@@ -462,8 +470,8 @@
             $('#consignment-rows').append(`<div class="consignment-denom-row">
                 <div class="consignment-row-head"><span class="consignment-row-title">Denom konsinyasi</span><button type="button" class="remove-consignment-row" aria-label="Hapus denom"><i class="fas fa-times"></i></button></div>
                 <select name="consignments[${index}][iddenom]" class="form-select consignment-denom-select" required ${disabled}>${consignmentOptions(iddenom)}</select>
-                <div class="d-flex justify-content-between mb-1"><small class="fw-bold text-muted">Nomor perdana — satu nomor per baris</small><span class="consignment-row-count">0 nomor</span></div>
-                <textarea name="consignments[${index}][numbers]" class="form-control consignment-textarea consignment-row-numbers" rows="4" inputmode="text" enterkeyhint="enter" autocomplete="off" required ${disabled} placeholder="081234567890&#10;081234567891">${escapeHtml(numbers)}</textarea>
+                <div class="d-flex justify-content-between mb-1"><small class="fw-bold text-muted">SN — satu per baris</small><span class="consignment-row-count">0 SN</span></div>
+                <textarea name="consignments[${index}][numbers]" class="form-control consignment-textarea consignment-row-numbers" rows="4" inputmode="text" enterkeyhint="enter" autocomplete="off" required ${disabled} placeholder="SN PV: 123456789012&#10;SN SA: 0812345678901234">${escapeHtml(numbers)}</textarea>
             </div>`);
             const select = $('#consignment-rows .consignment-denom-row').last().find('.consignment-denom-select');
             if ($.fn.select2) {
@@ -485,12 +493,12 @@
             let total = 0;
             $('.consignment-row-numbers').each(function() {
                 const result = parseConsignmentNumbers($(this).val());
-                $(this).closest('.consignment-denom-row').find('.consignment-row-count').text(`${result.numbers.length} nomor`);
+                $(this).closest('.consignment-denom-row').find('.consignment-row-count').text(`${result.numbers.length} SN`);
                 values.push($(this).val());
                 total += result.numbers.length;
             });
             $('#consignment_numbers').val(values.join('\n'));
-            $('#consignment-count').text(`${total.toLocaleString('id-ID')} nomor`);
+            $('#consignment-count').text(`${total.toLocaleString('id-ID')} SN`);
         }
 
         function selectOutlet(outlet) {
@@ -606,7 +614,7 @@
                 const name = $(this).find('.product-placeholder').text();
                 const serialRow = $(this);
                 if (id || qty || serialRow.find('.serial-value-input, .serial-start-input, .serial-end-input').filter(function() { return $(this).val(); }).length) {
-                    formData.products.push({ id, name, qty, serial_mode: serialRow.find('.serial-mode-select').val(), identifier_type: 'sn', serial_value: serialRow.find('.serial-value-input').val(), serial_start: serialRow.find('.serial-start-input').val(), serial_end: serialRow.find('.serial-end-input').val() });
+                    formData.products.push({ id, name, qty, serial_mode: serialRow.find('.serial-mode-select').val(), identifier_type: 'sn', serial_value: serialRow.find('.serial-value-input').val(), serial_start: serialRow.find('.serial-start-input').val(), serial_end: serialRow.find('.serial-end-input').val(), consignment_serials: serialRow.find('.consignment-sn-checkbox:checked').map(function() { return this.value; }).get() });
                 }
             });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
@@ -628,18 +636,10 @@
             String(value || '').split(/[\r\n,;]+/).forEach(rawValue => {
                 const raw = rawValue.trim();
                 if (!raw) return;
-                const compact = raw.replace(/[\s().-]+/g, '');
-                if (!/^\+?\d+$/.test(compact)) {
+                const number = raw.replace(/[\s,-]+/g, '');
+                if (!/^\d{12}$|^0\d{15}$/.test(number)) {
                     invalid.push(raw);
-                    entries.push({ raw, number: null, state: 'invalid', message: 'Format nomor tidak valid' });
-                    return;
-                }
-                let number = compact.replace(/^\+/, '');
-                if (number.startsWith('0062')) number = number.slice(2);
-                else if (number.startsWith('0')) number = `62${number.slice(1)}`;
-                if (!/^\d{8,20}$/.test(number)) {
-                    invalid.push(raw);
-                    entries.push({ raw, number, state: 'invalid', message: 'Nomor harus berisi 8–20 digit' });
+                    entries.push({ raw, number: null, state: 'invalid', message: 'SN harus PV 12 digit atau SA 16 digit diawali 0' });
                     return;
                 }
                 if (numbers.includes(number)) {
@@ -797,7 +797,7 @@
                 if (data.products && data.products.length > 0) {
                     $('#product-container').empty();
                     data.products
-                        .filter(p => !p.id || Number(stockMap[p.id] || 0) > 0)
+                        .filter(p => !p.id || Number(stockMap[p.id] || 0) > 0 || (p.serial_mode === 'consignment' && (p.consignment_serials || []).length > 0))
                         .forEach(p => addProductRow(p.id, p.name, p.qty, p));
                     recalcTotal();
                 }
@@ -847,20 +847,40 @@
                             </div>
                             <div class="serial-input-area mt-3 ${id ? '' : 'd-none'}">
                                 <div class="serial-section-heading"><span class="serial-section-icon"><i class="fas fa-barcode"></i></span><div><strong>Serial Number</strong><small>Masukkan SN untuk menghitung jumlah otomatis.</small></div></div>
-                                <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${(serial.serial_mode || 'single') === 'single' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option><option value="broken" ${serial.serial_mode === 'broken' ? 'selected' : ''}>SN Pecah</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${(serial.serial_mode || 'single') === 'single' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${(serial.serial_mode || 'single') === 'single'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'broken' ? 'active' : ''}" data-serial-mode="broken" aria-pressed="${serial.serial_mode === 'broken'}"><i class="fas fa-scissors" aria-hidden="true"></i><span>SN Pecah</span></button></div></div>
+                                <div class="mb-3"><label class="serial-field-label">Cara input</label><select name="products[${rowId}][serial_mode]" class="serial-hidden-select serial-mode-select"><option value="single" ${(serial.serial_mode || 'single') === 'single' ? 'selected' : ''}>Satuan</option><option value="range" ${serial.serial_mode === 'range' ? 'selected' : ''}>Massal</option><option value="broken" ${serial.serial_mode === 'broken' ? 'selected' : ''}>SN Pecah</option><option value="consignment" ${serial.serial_mode === 'consignment' ? 'selected' : ''}>SN Konsinyasi</option></select><div class="serial-segmented serial-mode-choices" role="group" aria-label="Cara input SN"><button type="button" class="serial-segment ${(serial.serial_mode || 'single') === 'single' ? 'active' : ''}" data-serial-mode="single" aria-pressed="${(serial.serial_mode || 'single') === 'single'}"><i class="fas fa-barcode" aria-hidden="true"></i><span>Satuan</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'range' ? 'active' : ''}" data-serial-mode="range" aria-pressed="${serial.serial_mode === 'range'}"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Massal</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'broken' ? 'active' : ''}" data-serial-mode="broken" aria-pressed="${serial.serial_mode === 'broken'}"><i class="fas fa-scissors" aria-hidden="true"></i><span>SN Pecah</span></button><button type="button" class="serial-segment ${serial.serial_mode === 'consignment' ? 'active' : ''}" data-serial-mode="consignment" aria-pressed="${serial.serial_mode === 'consignment'}"><i class="fas fa-box-open" aria-hidden="true"></i><span>SN Konsinyasi</span></button></div></div>
                                 <input type="hidden" name="products[${rowId}][identifier_type]" class="identifier-type-select" value="sn">
                                 <div class="serial-single-wrap ${(serial.serial_mode || 'single') !== 'single' ? 'd-none' : ''}"><label class="serial-field-label">SN satuan</label><textarea name="products[${rowId}][serial_value]" class="form-control form-control-sm serial-value-input" inputmode="numeric" autocomplete="off" rows="3" placeholder="Masukkan beberapa SN, satu per baris">${escapeHtml(serial.serial_value || '')}</textarea><small class="serial-qty-hint serial-single-hint text-muted"></small></div>
                                 <div class="serial-range-wrap ${serial.serial_mode === 'range' ? '' : 'd-none'}"><label class="serial-field-label">Rentang SN</label><div class="serial-range-fields"><div class="serial-range-field"><label>SN awal</label><input name="products[${rowId}][serial_start]" class="form-control form-control-sm serial-start-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_start || '')}" placeholder="SN awal"></div><span class="serial-range-separator">SAMPAI</span><div class="serial-range-field"><label>SN akhir</label><input name="products[${rowId}][serial_end]" class="form-control form-control-sm serial-end-input" inputmode="numeric" autocomplete="off" value="${escapeHtml(serial.serial_end || '')}" placeholder="SN akhir"></div></div><small class="serial-qty-hint serial-range-hint text-muted">Masukkan SN awal dan SN akhir; Qty dihitung otomatis.</small></div>
-                                <div class="serial-broken-wrap ${serial.serial_mode === 'broken' ? '' : 'd-none'}"><small class="serial-qty-hint">SN pecah: masukkan jumlah unit pada kolom Quantity. Nomor SN tidak dicatat satu per satu.</small></div>
+                                <div class="serial-broken-wrap ${serial.serial_mode === 'broken' ? '' : 'd-none'}"><small class="serial-qty-hint">SN pecah: masukkan jumlah unit pada kolom Quantity. Nomor SN tidak dicatat satu per satu.</small></div><div class="serial-consignment-wrap ${serial.serial_mode === 'consignment' ? '' : 'd-none'}"><div class="d-flex justify-content-between align-items-center mb-2"><label class="serial-field-label mb-0">Pilih SN konsinyasi milik SF ini</label><button type="button" class="btn btn-sm btn-outline-secondary refresh-consignment-sn">Muat ulang</button></div><div class="consignment-sn-list text-muted small">Pilih denom untuk memuat SN.</div></div>
                             </div>
                         </div>
                     </div>
                 </div>`;
             $('#product-container').append(html);
             const row = $('#product-container .glass-card').last();
+            row.attr('data-row-id', rowId).data('row-id', rowId).data('selected-consignment', serial.consignment_serials || []);
             syncSerialFields(row);
             updateSerialQuantity(row);
         }
+
+        function loadConsignmentSerials(row) {
+            const id = row.find('.iddenom-input').val();
+            const list = row.find('.consignment-sn-list');
+            if (!id) { list.html('Pilih denom terlebih dahulu.'); return; }
+            list.html('<i class="fas fa-circle-notch fa-spin me-1"></i> Memuat SN konsinyasi…');
+            $.get("{{ route('mobile.consignment.available') }}", { iddenom: id }).done(function(items) {
+                const selected = new Set(row.data('selected-consignment') || []);
+                if (!items.length) { list.html('<span class="text-muted">Belum ada SN konsinyasi aktif milik SF ini.</span>'); updateSerialQuantity(row); return; }
+                list.html(items.map(item => `<label class="consignment-sn-option"><input class="form-check-input consignment-sn-checkbox" type="checkbox" name="products[${row.data('row-id')}][consignment_serials][]" value="${escapeHtml(item.sn)}" ${selected.has(String(item.sn)) ? 'checked' : ''}><span><strong>${escapeHtml(item.sn)}</strong><small>${escapeHtml(item.denom)}</small></span></label>`).join(''));
+                updateSerialQuantity(row); saveFormState();
+            }).fail(function() { list.html('<span class="text-danger">Gagal memuat SN konsinyasi. Coba muat ulang.</span>'); });
+        }
+        $(document).on('change', '.consignment-sn-checkbox', function() {
+            const row = $(this).closest('.glass-card');
+            row.data('selected-consignment', row.find('.consignment-sn-checkbox:checked').map(function() { return this.value; }).get());
+            updateSerialQuantity(row); saveFormState();
+        });
+        $(document).on('click', '.refresh-consignment-sn', function() { loadConsignmentSerials($(this).closest('.glass-card')); });
 
         function syncSerialFields(row) {
             const id = row.find('.iddenom-input').val();
@@ -872,7 +892,9 @@
             row.find('.serial-single-wrap').toggleClass('d-none', mode !== 'single');
             row.find('.serial-range-wrap').toggleClass('d-none', mode !== 'range');
             row.find('.serial-broken-wrap').toggleClass('d-none', mode !== 'broken');
+            row.find('.serial-consignment-wrap').toggleClass('d-none', mode !== 'consignment');
             row.find('.qty-input').prop('readonly', mode !== 'broken').attr('placeholder', mode === 'broken' ? 'Masukkan qty SN pecah' : 'Otomatis dari SN');
+            row.find('.serial-consignment-wrap').toggleClass('d-none', mode !== 'consignment');
             row.find('.quantity-label').text(mode === 'broken' ? 'Qty SN Pecah' : 'Quantity');
             const numberOption = row.find('.identifier-type-select option[value="number"]');
             numberOption.prop('disabled', !isStarterPack);
@@ -926,6 +948,8 @@
             let qty = 0;
             if (mode === 'broken') {
                 qty = parseInt(row.find('.qty-input').val(), 10) || 0;
+            } else if (mode === 'consignment') {
+                qty = row.find('.consignment-sn-checkbox:checked').length;
             } else if (mode === 'single') {
                 const value = row.find('.serial-value-input').val() || '';
                 const serials = value.trim() ? value.trim().split(/[\s,;]+/).filter(Boolean) : [];
@@ -1019,6 +1043,7 @@
             const qty = requestedQty ?? (parseInt(row.find('.qty-input').val()) || 0);
             const stock = Number(stockMap[id] || 0);
             const warning = row.find('.stock-warning');
+            if (row.find('.serial-mode-select').val() === 'consignment') { warning.addClass('d-none'); return true; }
             if (id && qty > stock) {
                 warning.text(`⚠️ Stok tidak cukup (Sisa: ${stock})`).removeClass('d-none');
                 return false;
@@ -1037,13 +1062,13 @@
                 const stock = parseInt($(this).data('stock')) || 0;
                 
                 if (val === '') {
-                    if (stock > 0) {
+                    if (stock > 0 || $(this).data('consignment') === 1) {
                         $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); 
                         matches++; 
                     }
                     else { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: none !important;'); }
                 } else {
-                    if (stock > 0 && (name.includes(val) || id.includes(val))) { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); matches++; }
+                    if ((stock > 0 || $(this).data('consignment') === 1) && (name.includes(val) || id.includes(val))) { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: flex !important;'); matches++; }
                     else { $(this).attr('style', (i,s) => s.replace(/display:[^;]+;?/g, '') + 'display: none !important;'); }
                 }
             });
@@ -1053,11 +1078,15 @@
 
         $(document).on('click', '.select-product-btn', function() {
             const id = $(this).data('id'), name = $(this).data('name'), stock = Number(stockMap[id] || 0);
+            const productRow = activeRow.closest('.glass-card');
+            if (String(productRow.find('.iddenom-input').val() || '') !== String(id)) {
+                productRow.removeData('selected-consignment').data('selected-consignment', []);
+                productRow.find('.consignment-sn-list').html('Pilih denom untuk memuat SN.');
+            }
             activeRow.find('.product-placeholder').text(name).removeClass('text-muted').addClass('text-dark');
             activeRow.find('.iddenom-input').prop('disabled', false).val(id);
             activeRow.closest('.glass-card').find('.qty-input').prop('disabled', false);
             activeRow.closest('.p-4').find('.stock-info').text(stock);
-            const productRow = activeRow.closest('.glass-card');
             productRow.find('.serial-mode-select').val('single');
             productRow.find('.identifier-type-select').val('sn');
             productRow.find('.serial-value-input, .serial-start-input, .serial-end-input').val('');
@@ -1080,7 +1109,9 @@
         });
         $(document).on('click', '.serial-mode-choices .serial-segment', function() {
             const row = $(this).closest('.glass-card');
-            row.find('.serial-mode-select').val(String($(this).data('serial-mode'))).trigger('change');
+            const mode = String($(this).data('serial-mode'));
+            row.find('.serial-mode-select').val(mode).trigger('change');
+            if (mode === 'consignment') loadConsignmentSerials(row);
         });
         $(document).on('click', '.identifier-type-choices .serial-segment:not(:disabled)', function() {
             const row = $(this).closest('.glass-card');
@@ -1111,12 +1142,14 @@
                 $('.consignment-denom-row').each(function() {
                     const denom = $(this).find('.consignment-denom-select').val();
                     const rowNumbers = parseConsignmentNumbers($(this).find('.consignment-row-numbers').val());
-                    if (!denom || !rowNumbers.numbers.length || selectedConsignmentDenoms.has(denom)) consignmentRowsValid = false;
+                    const denomInfo = consignmentDenoms.find(item => String(item.id) === String(denom));
+                    const expected = denomInfo?.is_sa ? /^0\d{15}$/ : /^\d{12}$/;
+                    if (!denom || !rowNumbers.numbers.length || rowNumbers.numbers.some(sn => !expected.test(sn)) || selectedConsignmentDenoms.has(denom)) consignmentRowsValid = false;
                     if (denom) selectedConsignmentDenoms.add(denom);
                 });
                 if (!consignmentRowsValid) {
                     e.preventDefault();
-                    Swal.fire({ icon: 'warning', title: 'Lengkapi Konsinyasi', text: 'Pilih denom yang berbeda pada setiap baris dan isi minimal satu nomor.', confirmButtonColor: 'var(--primary)' });
+                    Swal.fire({ icon: 'warning', title: 'Lengkapi Konsinyasi', text: 'Pilih denom yang berbeda dan pastikan SN sesuai: PV 12 digit, SA 16 digit diawali 0.', confirmButtonColor: 'var(--primary)' });
                     return;
                 }
                 if (!consignment.numbers.length || consignment.invalid.length || consignment.duplicates.length) {
@@ -1152,12 +1185,13 @@
                     hasProduct = true;
                     if (!id || qty < 1) incompleteProduct = true;
                 }
-                if (id) requested[id] = (requested[id] || 0) + qty;
+                if (id && $(this).closest('.glass-card').find('.serial-mode-select').val() !== 'consignment') requested[id] = (requested[id] || 0) + qty;
             });
             const hasConsignment = $('#consignment_enabled').val() === '1' && parseConsignmentNumbers($('#consignment_numbers').val()).numbers.length > 0;
-            if (!hasProduct && !hasConsignment) {
+            const hasConsignmentSale = $('.serial-mode-select').toArray().some(el => $(el).val() === 'consignment' && $(el).closest('.glass-card').find('.consignment-sn-checkbox:checked').length > 0);
+            if (!hasProduct && !hasConsignment && !hasConsignmentSale) {
                 e.preventDefault();
-                $('#sales-activity-feedback').removeClass('d-none').html('<i class="fas fa-exclamation-circle me-1"></i>Pilih produk atau isi nomor konsinyasi SA.');
+                $('#sales-activity-feedback').removeClass('d-none').html('<i class="fas fa-exclamation-circle me-1"></i>Pilih produk atau SN konsinyasi yang akan dijual.');
                 return;
             }
             if (incompleteProduct) {
@@ -1187,7 +1221,7 @@
                         row.find('.serial-value-input').trigger('focus');
                     }
                 }
-                if (!validateStock($(this), requested[id] || 0)) valid = false;
+                if (row.find('.serial-mode-select').val() !== 'consignment' && !validateStock($(this), requested[id] || 0)) valid = false;
             });
             if (!serialEntriesValid) {
                 e.preventDefault();

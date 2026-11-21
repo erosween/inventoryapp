@@ -36,8 +36,8 @@
             @endforeach
             @if($consignments->isNotEmpty())
                 <div class="confirmation-item consignment-confirmation-item">
-                    <div><strong>Konsinyasi SA</strong><small>{{ $consignments->count() }} nomor perdana tercatat</small></div>
-                    <div class="confirmation-qty">{{ $consignments->count() }} <small>NOMOR</small></div>
+                    <div><strong>Konsinyasi SN</strong><small>{{ $consignments->count() }} SN konsinyasi tercatat</small></div>
+                    <div class="confirmation-qty">{{ $consignments->count() }} <small>SN</small></div>
                 </div>
                 <div class="consignment-number-list">
                     @foreach($consignments as $consignment)<span><i class="fas fa-check-circle"></i><span>{{ $consignment->serial_number }}<small class="d-block text-muted">{{ $consignment->denom ?: ($consignment->iddenom ?: 'Denom lama belum tercatat') }}</small></span></span>@endforeach
@@ -63,7 +63,7 @@
             <a href="{{ route('mobile.history') }}" class="btn btn-danger rounded-pill w-100 py-3 fw-bold">Lihat Riwayat Penjualan</a>
         </section>
     @else
-        <div class="alert alert-warning rounded-4 small mb-3"><i class="fas fa-circle-info me-2"></i>{{ $items->isNotEmpty() ? 'Setelah dikonfirmasi, stok akan diamankan sementara dan transaksi dikirim ke admin untuk validasi.' : 'Setelah dikonfirmasi, nomor konsinyasi langsung dicatat ke outlet ini tanpa memotong stok.' }}</div>
+        <div class="alert alert-warning rounded-4 small mb-3"><i class="fas fa-circle-info me-2"></i>{{ $items->isNotEmpty() ? 'Setelah dikonfirmasi, transaksi dikirim ke admin untuk validasi. Stok reguler SF dan SN konsinyasi diproses sesuai sumbernya.' : 'Setelah dikonfirmasi, SN konsinyasi langsung dicatat ke outlet ini tanpa memotong stok.' }}</div>
         <form method="POST" action="{{ route('mobile.receipt.confirm', $receipt) }}" id="confirm-sales-form" enctype="multipart/form-data">
             @csrf
             <div class="glass-card p-3 mb-3 border-0 shadow-sm">

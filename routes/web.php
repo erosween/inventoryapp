@@ -392,6 +392,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
         // Submit penjualan, validasi nomor titip jual, dan alur bukti transaksi.
         Route::post('/input', [\App\Http\Controllers\MobileSalesController::class, 'store'])->name('store');
         Route::post('/consignment/check', [\App\Http\Controllers\MobileSalesController::class, 'checkConsignmentNumbers'])->name('consignment.check');
+        Route::get('/consignment/available', [\App\Http\Controllers\MobileSalesController::class, 'availableConsignmentSerials'])->name('consignment.available');
         Route::get('/receipt/{receipt}', [\App\Http\Controllers\MobileSalesController::class, 'showReceipt'])->name('receipt.show');
         Route::get('/receipt/{receipt}/image.jpg', [\App\Http\Controllers\MobileSalesController::class, 'receiptImage'])->name('receipt.image');
         Route::post('/receipt/{receipt}/whatsapp', [\App\Http\Controllers\MobileSalesController::class, 'prepareReceiptWhatsapp'])->name('receipt.whatsapp');

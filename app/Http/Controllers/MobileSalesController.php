@@ -338,6 +338,7 @@ SQL;
             // Draft WhatsApp rows are not stock reservations. They are only
             // temporary client-side submissions until the receipt is sent.
             ->where('status', 'pending')
+            ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->where('mss.input_mode', 'consign'); })
             ->groupBy('iddenom');
 
         $denoms = DB::table('denom')
@@ -349,7 +350,7 @@ SQL;
                 $join->on('reserved_sales.iddenom', '=', 'stockawalsf.iddenom');
             })
             ->whereRaw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) > 0')
-            ->select('denom.iddenom', 'denom.denom', 'denom.group_name', 'denom.product_group', 'denom.kategori_inject', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock_qty'))
+            ->select('denom.iddenom', 'denom.denom', 'denom.product', 'denom.group_name', 'denom.product_group', 'denom.kategori_inject', DB::raw('(stockawalsf.stock - COALESCE(reserved_sales.reserved_qty, 0)) as stock_qty'))
             ->get()
             ->sortByDesc(fn($item) => strtoupper((string) ($item->product_group ?? 'PV')) === 'SP' ? 1 : 0);
         $starterPackByDenom = $denoms->mapWithKeys(function ($denom) {
@@ -367,19 +368,64 @@ SQL;
         // selectable even when the SF has no stock row or its available stock is 0.
         $consignmentDenoms = DB::table('denom')
             ->where(function ($query) {
-                $query->whereIn(DB::raw("UPPER(COALESCE(kategori_inject, ''))"), ['SA', 'BYU', 'SEGEL'])
+                $query->whereIn(DB::raw("UPPER(COALESCE(product, ''))"), ['SA', 'PV'])
+                    ->orWhereIn(DB::raw("UPPER(COALESCE(kategori_inject, ''))"), ['SA', 'BYU', 'SEGEL'])
                     ->orWhereIn(DB::raw("UPPER(COALESCE(group_name, ''))"), ['SA', 'SEGEL'])
                     ->orWhereRaw("UPPER(COALESCE(group_name, '')) LIKE '%UNLIMITED%'")
                     ->orWhereRaw("UPPER(COALESCE(denom, '')) LIKE '%UNLIMITED%'");
             })
             ->orderBy('denom')
-            ->get(['iddenom', 'denom']);
+            ->get(['iddenom', 'denom', 'product', 'product_group', 'kategori_inject', 'group_name']);
+        $pickerDenoms = $denoms->keyBy('iddenom');
+        foreach ($consignmentDenoms as $consignmentDenom) {
+            if (! $pickerDenoms->has($consignmentDenom->iddenom)) {
+                $consignmentDenom->stock_qty = 0;
+                $pickerDenoms->put($consignmentDenom->iddenom, $consignmentDenom);
+            }
+        }
+        $denoms = $pickerDenoms->sortBy('denom')->values()->sortByDesc(fn ($item) => strtoupper((string) ($item->product_group ?? '')) === 'SP')->values();
+        $starterPackByDenom = $denoms->mapWithKeys(fn ($denom) => [$denom->iddenom => $this->isStarterPackDenom($denom)])->all();
+
         $consignmentDenomOptions = $consignmentDenoms->map(fn ($denom) => [
             'id' => $denom->iddenom,
             'name' => $denom->denom,
+            'is_sa' => $this->isStarterPackDenom($denom),
         ])->values();
 
         return view('mobile.form', compact('denoms', 'consignmentDenoms', 'consignmentDenomOptions', 'starterPackByDenom', 'idtap', 'idsf', 'pre_id_outlet', 'selected_outlet'));
+    }
+
+    private function isStarterPackDenom(object $denom): bool
+    {
+        $id = strtoupper(trim((string) ($denom->iddenom ?? '')));
+        return strtoupper(trim((string) ($denom->product ?? ''))) === 'SA'
+            || in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+            || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
+            || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
+            || str_starts_with($id, 'SP');
+    }
+
+    public function availableConsignmentSerials(Request $request)
+    {
+        $idsf = (string) session('mobile_sf_id');
+        $query = DB::table('surya_sa_consignment_numbers as c')
+            ->join('denom as d', 'd.iddenom', '=', 'c.iddenom')
+            ->where('c.idsf', $idsf)
+            ->whereIn('c.status', ['consigned', 'approved'])
+            ->whereNotExists(function ($subquery) {
+                $subquery->selectRaw('1')
+                    ->from('mobile_sales_serials as mss')
+                    ->join('mobile_penjualan as mp', 'mp.id', '=', 'mss.mobile_penjualan_id')
+                    ->whereColumn('mss.serial_start', 'c.serial_number')
+                    ->whereColumn('mss.serial_end', 'c.serial_number')
+                    ->where('mss.input_mode', 'consign')
+                    ->whereIn('mp.status', ['draft_wa', 'pending', 'approved']);
+            });
+        if ($request->filled('iddenom')) $query->where('c.iddenom', $request->string('iddenom'));
+
+        return response()->json($query->orderBy('c.id')->limit(2000)
+            ->get(['c.serial_number as sn', 'c.iddenom', 'd.denom'])
+            ->map(fn ($row) => ['sn' => (string) $row->sn, 'iddenom' => (string) $row->iddenom, 'denom' => (string) $row->denom]));
     }
 
     // Submit penjualan mobile. Validasi outlet, stok, nota, dan nomor titip jual sebelum mencatat
@@ -402,23 +448,20 @@ SQL;
         }
 
         $products = collect($rawProducts)
-            ->filter(fn ($row) => filled($row['iddenom'] ?? null) || filled($row['qty'] ?? null) || filled($row['serial_value'] ?? null) || filled($row['serial_start'] ?? null) || filled($row['serial_end'] ?? null))
+            ->filter(fn ($row) => filled($row['iddenom'] ?? null) || filled($row['qty'] ?? null) || filled($row['serial_value'] ?? null) || filled($row['serial_start'] ?? null) || filled($row['serial_end'] ?? null) || ! empty($row['consignment_serials']))
             ->values()
             ->all();
 
         $denomMetadata = DB::table('denom')
             ->whereIn('iddenom', collect($products)->pluck('iddenom')->filter()->unique())
-            ->get(['iddenom', 'product_group', 'kategori_inject', 'group_name'])
+            ->get(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name'])
             ->keyBy('iddenom');
         $serialInputs = collect();
         foreach ($products as $index => &$product) {
             $denom = $denomMetadata->get($product['iddenom'] ?? '');
             if (! $denom) continue;
             $id = strtoupper(trim((string) $denom->iddenom));
-            $isStarterPack = in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
-                || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
-                || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
-                || str_starts_with($id, 'SP');
+            $isStarterPack = $this->isStarterPackDenom($denom);
             $mode = strtolower(trim((string) ($product['serial_mode'] ?? '')));
             $identifierType = 'sn';
             $product['identifier_type'] = 'sn';
@@ -427,12 +470,23 @@ SQL;
             $single = trim((string) ($product['serial_value'] ?? ''));
             $errorKey = "products.{$index}.serial_value";
 
-            if (! in_array($mode, ['single', 'range', 'broken'], true)) {
+            if (! in_array($mode, ['single', 'range', 'broken', 'consignment'], true)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     "products.{$index}.serial_mode" => 'Pilih input SN satuan, massal, atau SN pecah.',
                 ]);
             }
-            if ($mode === 'broken') {
+            $consignmentSerials = collect($product['consignment_serials'] ?? [])->map(fn ($sn) => trim((string) $sn))->filter()->values();
+            if ($mode === 'consignment') {
+                $pattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+                if ($consignmentSerials->isEmpty() || $consignmentSerials->contains(fn ($sn) => ! preg_match($pattern, $sn)) || $consignmentSerials->unique()->count() !== $consignmentSerials->count()) {
+                    throw ValidationException::withMessages(["products.{$index}.consignment_serials" => $isStarterPack ? 'Pilih SN konsinyasi SA yang valid (16 digit, diawali 0).' : 'Pilih SN konsinyasi PV yang valid (12 digit).']);
+                }
+                $qty = $consignmentSerials->count();
+                $start = $consignmentSerials->first();
+                $end = $consignmentSerials->last();
+                foreach ($consignmentSerials as $sn) $serialInputs->push(['iddenom' => $product['iddenom'], 'type' => 'sn', 'start' => $sn, 'end' => $sn, 'identifier_type' => 'sn', 'serial_mode' => 'consignment', 'serial_start' => $sn, 'serial_end' => $sn, 'qty' => 1]);
+                $product['consignment_serials'] = $consignmentSerials->all();
+            } elseif ($mode === 'broken') {
                 $qty = (int) ($product['qty'] ?? 0);
                 if ($qty < 1 || $qty > 2_000_000) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -523,7 +577,9 @@ SQL;
             'products' => 'nullable|array',
             'products.*.iddenom' => 'required|exists:denom,iddenom',
             'products.*.qty' => 'required|integer|min:1|max:2000000',
-            'products.*.serial_mode' => 'required|in:single,range,broken',
+            'products.*.serial_mode' => 'required|in:single,range,broken,consignment',
+            'products.*.consignment_serials' => 'required_if:products.*.serial_mode,consignment|array|max:2000',
+            'products.*.consignment_serials.*' => 'required|string|distinct|digits_between:12,16',
             'products.*.identifier_type' => 'nullable|in:sn',
             'products.*.serial_start' => 'nullable|digits_between:1,24',
             'products.*.serial_end' => 'nullable|digits_between:1,24',
@@ -542,11 +598,14 @@ SQL;
         if ($request->boolean('consignment_enabled')) {
             foreach (collect($request->input('consignments', []))->values() as $index => $consignment) {
                 [$rowNumbers, $invalidNumbers, $duplicateNumbers] = $this->parseConsignmentNumbers($consignment['numbers'] ?? null);
+                $consignmentDenom = $denomMetadata->get($consignment['iddenom'] ?? '') ?? DB::table('denom')->where('iddenom', $consignment['iddenom'] ?? '')->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name']);
+                $pattern = $consignmentDenom && $this->isStarterPackDenom($consignmentDenom) ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+                $invalidNumbers = array_values(array_unique(array_merge($invalidNumbers, array_filter($rowNumbers, fn ($sn) => ! preg_match($pattern, $sn)))));
                 if ($rowNumbers === []) {
-                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Masukkan minimal satu nomor untuk denom ini.']);
+                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Masukkan minimal satu SN untuk denom ini.']);
                 }
                 if ($invalidNumbers !== []) {
-                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Format nomor tidak valid: '.implode(', ', array_slice($invalidNumbers, 0, 5)).'.']);
+                    return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'SN tidak sesuai denom: PV 12 digit, SA 16 digit diawali 0. Contoh salah: '.implode(', ', array_slice($invalidNumbers, 0, 5)).'.']);
                 }
                 if ($duplicateNumbers !== []) {
                     return back()->withInput()->withErrors(["consignments.{$index}.numbers" => 'Nomor duplikat pada denom ini: '.implode(', ', array_slice($duplicateNumbers, 0, 5)).'.']);
@@ -562,7 +621,7 @@ SQL;
 
             if ($consignmentNumbers === []) {
                 return back()->withInput()->withErrors([
-                    'consignments' => 'Tambahkan minimal satu denom dan isi nomor perdananya.',
+                    'consignments' => 'Tambahkan minimal satu denom dan isi SN konsinyasinya.',
                 ]);
             }
 
@@ -586,7 +645,7 @@ SQL;
 
         if ($products === [] && $consignmentNumbers === []) {
             return back()->withInput()->withErrors([
-                'products' => 'Pilih minimal satu produk atau isi nomor konsinyasi SA.',
+                    'products' => 'Pilih minimal satu produk atau isi SN konsinyasi.',
             ]);
         }
 
@@ -664,6 +723,15 @@ SQL;
             $ownerIdsf = $ownerIdsf ?: $idsf;
 
             $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers, $consignmentDenomByNumber, $serialInputsByDenom, $serialInputs) {
+                $selectedConsignmentSerials = collect($request->input('products', []))->filter(fn ($row) => ($row['serial_mode'] ?? '') === 'consignment')->flatMap(fn ($row) => collect($row['consignment_serials'] ?? [])->map(fn ($sn) => ['sn' => (string) $sn, 'iddenom' => (string) ($row['iddenom'] ?? '')]))->values();
+                if ($selectedConsignmentSerials->isNotEmpty()) {
+                    $overlapWithNewConsignment = $selectedConsignmentSerials->pluck('sn')->intersect($consignmentNumbers);
+                    if ($overlapWithNewConsignment->isNotEmpty()) throw ValidationException::withMessages(['products' => 'SN yang sama tidak bisa dikonsinyasikan dan dijual dalam satu transaksi.']);
+                    foreach ($selectedConsignmentSerials as $selected) {
+                        $owned = DB::table('surya_sa_consignment_numbers')->where('idsf', $idsf)->where('iddenom', $selected['iddenom'])->where('serial_number', $selected['sn'])->whereIn('status', ['consigned', 'approved'])->lockForUpdate()->first();
+                        if (! $owned) throw ValidationException::withMessages(['products' => "SN konsinyasi {$selected['sn']} sudah tidak tersedia untuk SF ini. Muat ulang daftar SN."]);
+                    }
+                }
                 foreach ($serialInputs as $serialInput) {
                     $usedSerial = DB::table('mobile_sales_serials as existing')
                         ->join('mobile_penjualan as existing_sale', 'existing_sale.id', '=', 'existing.mobile_penjualan_id')
@@ -682,9 +750,10 @@ SQL;
                 }
 
                 $products = collect($request->products)
-                    ->groupBy('iddenom')
-                    ->map(fn ($rows, $iddenom) => [
-                        'iddenom' => $iddenom,
+                    ->groupBy(fn ($row) => ($row['iddenom'] ?? '').'|'.(($row['serial_mode'] ?? '') === 'consignment' ? 'consignment' : 'stock'))
+                    ->map(fn ($rows, $key) => [
+                        'source' => str_ends_with($key, '|consignment') ? 'consignment' : 'stock',
+                        'iddenom' => (string) $rows->first()['iddenom'],
                         'qty' => (int) $rows->sum(fn ($row) => (int) $row['qty']),
                     ])
                     ->values();
@@ -714,7 +783,7 @@ SQL;
                     $qty = $product['qty'];
 
                     // 🔒 Lock & cek stok SF
-                    $stockSf = DB::table('stockawalsf')
+                    $stockSf = $product['source'] === 'consignment' ? null : DB::table('stockawalsf')
                         ->where('idsf', $ownerIdsf)
                         ->where('iddenom', $iddenom)
                         ->lockForUpdate()
@@ -734,9 +803,10 @@ SQL;
                         // Keep submit validation consistent with the form stock.
                         // A draft WhatsApp receipt has not reserved stock yet.
                         ->where('status', 'pending')
+                        ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->where('mss.input_mode', 'consign'); })
                         ->sum('qty');
                     $availableStock = max(0, (int) ($stockSf ?? 0) - $reservedQty);
-                    if ($availableStock < $qty) {
+                    if ($product['source'] !== 'consignment' && $availableStock < $qty) {
                         throw new \Exception("Stok {$denomName} tidak cukup! Stok tersedia di mobile: " . number_format($availableStock) . ", dibutuhkan: " . number_format($qty));
                     }
 
@@ -759,13 +829,15 @@ SQL;
                         'longitude' => $request->longitude,
                     ]);
 
-                    foreach ($serialInputsByDenom->get($iddenom, collect()) as $serialInput) {
+                    $productRows = collect($request->products)->filter(fn ($row) => (string) $row['iddenom'] === (string) $iddenom && ((($row['serial_mode'] ?? '') === 'consignment') === ($product['source'] === 'consignment')));
+                    $sourceSerials = $productRows->flatMap(fn ($row) => $serialInputs->filter(fn ($item) => (string) $item['iddenom'] === (string) $iddenom && $item['serial_mode'] === ($row['serial_mode'] ?? 'single')))->unique(fn ($item) => $item['serial_start'].'|'.$item['serial_end']);
+                    foreach ($sourceSerials as $serialInput) {
                         DB::table('mobile_sales_serials')->insert([
                             'mobile_penjualan_id' => $sale->id,
                             'receipt_id' => $receipt->id,
                             'iddenom' => $iddenom,
                             'identifier_type' => $serialInput['identifier_type'],
-                            'input_mode' => $serialInput['serial_mode'],
+                            'input_mode' => $serialInput['serial_mode'] === 'consignment' ? 'consign' : $serialInput['serial_mode'],
                             'serial_start' => $serialInput['serial_start'],
                             'serial_end' => $serialInput['serial_end'],
                             'qty' => (int) $serialInput['qty'],
@@ -891,11 +963,17 @@ SQL;
     {
         $validated = $request->validate([
             'numbers' => ['required', 'array', 'max:100'],
-            'numbers.*' => ['required', 'string', 'regex:/^\d{8,20}$/'],
+            'numbers.*' => ['required', 'string', 'regex:/^\d{12}$|^0\d{15}$/'],
+            'iddenom' => ['nullable', 'exists:denom,iddenom'],
             'id_outlet' => ['nullable', 'string', 'max:100'],
         ]);
 
         $numbers = collect($validated['numbers'])->unique()->values();
+        if (! empty($validated['iddenom'])) {
+            $denomType = DB::table('denom')->where('iddenom', $validated['iddenom'])->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name']);
+            $pattern = $this->isStarterPackDenom($denomType) ? '/^0\d{15}$/' : '/^\d{12}$/';
+            if ($numbers->contains(fn ($sn) => ! preg_match($pattern, $sn))) throw ValidationException::withMessages(['numbers' => $pattern === '/^0\d{15}$/' ? 'SN SA harus 16 digit dan diawali 0.' : 'SN PV harus tepat 12 digit.']);
+        }
         $registered = DB::table('surya_sa_consignment_numbers as c')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'c.id_outlet')
             ->whereIn('c.serial_number', $numbers)
@@ -1213,7 +1291,7 @@ SQL;
             ->leftJoin('denom as d', 'd.iddenom', '=', 'c.iddenom')
             ->where('c.idsf', $idsf)
             ->whereDate('c.reported_at', $tgl)
-            ->where('c.status', 'consigned')
+            ->whereIn('c.status', ['consigned', 'approved'])
             ->orderBy('c.id')
             ->get(['c.id_outlet', 'c.serial_number', 'c.iddenom', 'd.denom', 'o.nama_outlet']);
 
@@ -1432,8 +1510,9 @@ SQL;
                 }
 
                 foreach ($sales as $sale) {
+                    $isConsignmentSale = DB::table('mobile_sales_serials')->where('mobile_penjualan_id', $sale->id)->where('input_mode', 'consign')->exists();
                     $stockOwnerIdsf = $sale->owner_idsf ?: $sale->idsf;
-                    $stock = DB::table('stockawalsf')
+                    $stock = $isConsignmentSale ? null : DB::table('stockawalsf')
                         ->where('idsf', $stockOwnerIdsf)
                         ->where('iddenom', $sale->iddenom)
                         ->lockForUpdate()
@@ -1448,9 +1527,10 @@ SQL;
                         })
                         ->where('iddenom', $sale->iddenom)
                         ->where('status', 'pending')
+                        ->whereNotExists(function ($subquery) { $subquery->selectRaw('1')->from('mobile_sales_serials as mss')->whereColumn('mss.mobile_penjualan_id', 'mobile_penjualan.id')->where('mss.input_mode', 'consign'); })
                         ->sum('qty');
                     $availableStock = max(0, (int) ($stock->stock ?? 0) - $reservedQty);
-                    if (! $stock || $availableStock < (int) $sale->qty) {
+                    if (! $isConsignmentSale && (! $stock || $availableStock < (int) $sale->qty)) {
                         $denomName = DB::table('denom')->where('iddenom', $sale->iddenom)->value('denom') ?: $sale->iddenom;
                         throw new \RuntimeException(
                             "Stok {$denomName} tidak cukup. Stok tersedia di mobile " . number_format($availableStock) .
@@ -1580,20 +1660,14 @@ SQL;
                 continue;
             }
 
-            $candidate = preg_replace('/[\s().-]+/', '', $rawNumber);
-            if (! preg_match('/^\+?\d+$/', (string) $candidate)) {
+            $candidate = preg_replace('/[\s,-]+/', '', $rawNumber);
+            if (! preg_match('/^\d+$/', (string) $candidate)) {
                 $invalid[] = $rawNumber;
                 continue;
             }
 
-            $number = ltrim((string) $candidate, '+');
-            if (str_starts_with($number, '0062')) {
-                $number = substr($number, 2);
-            } elseif (str_starts_with($number, '0')) {
-                $number = '62'.substr($number, 1);
-            }
-
-            if (! preg_match('/^\d{8,20}$/', $number)) {
+            $number = (string) $candidate;
+            if (! preg_match('/^\d{12}$|^0\d{15}$/', $number)) {
                 $invalid[] = $rawNumber;
                 continue;
             }

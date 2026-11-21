@@ -344,7 +344,8 @@ class MobileApprovalController extends Controller
                 // Marker lama tetap dihormati untuk transaksi transisi agar tidak
                 // terjadi pemotongan dua kali saat proses deployment berlangsung.
                 $stockOwnerIdsf = $sale->owner_idsf ?: $sale->idsf;
-                if (! $sale->stock_reserved_at) {
+                $consignmentSerials = DB::table('mobile_sales_serials')->where('mobile_penjualan_id', $sale->id)->where('input_mode', 'consign')->lockForUpdate()->get();
+                if (! $sale->stock_reserved_at && $consignmentSerials->isEmpty()) {
                     $denom = DB::table('denom')->where('iddenom', $sale->iddenom)->first();
                     $stockSf = DB::table('stockawalsf')
                         ->where('idsf', $stockOwnerIdsf)
@@ -363,19 +364,44 @@ class MobileApprovalController extends Controller
                         ->decrement('stock', (int) $sale->qty);
                 }
 
-                DB::table('keluarsf')->insert([
-                    'idtap' => $sale->idtap,
-                    'idsf' => $stockOwnerIdsf,
-                    'id_outlet' => $sale->id_outlet,
-                    'iddenom' => $sale->iddenom,
-                    'qty' => $sale->qty,
-                    'tgl' => $sale->tgl,
-                    'tambahanket' => 'Mobile Approval ID: ' . $sale->id
-                ]);
+                if ($consignmentSerials->isEmpty()) {
+                    DB::table('keluarsf')->insert([
+                        'idtap' => $sale->idtap,
+                        'idsf' => $stockOwnerIdsf,
+                        'id_outlet' => $sale->id_outlet,
+                        'iddenom' => $sale->iddenom,
+                        'qty' => $sale->qty,
+                        'tgl' => $sale->tgl,
+                        'tambahanket' => 'Mobile Approval ID: ' . $sale->id
+                    ]);
+                }
+
+                foreach ($consignmentSerials as $serial) {
+                    $consignment = DB::table('surya_sa_consignment_numbers')
+                        ->where('idsf', $sale->idsf)
+                        ->where('iddenom', $serial->iddenom)
+                        ->where('serial_number', $serial->serial_start)
+                        ->whereIn('status', ['consigned', 'approved'])
+                        ->lockForUpdate()
+                        ->first();
+                    if (! $consignment) throw new \RuntimeException("SN konsinyasi {$serial->serial_start} tidak lagi aktif untuk SF ini.");
+                    DB::table('surya_sa_consignment_numbers')->where('id', $consignment->id)->update(['status' => 'sold', 'updated_at' => now()]);
+                    DB::table('surya_sa_consignment_movements')->insert([
+                        'serial_number' => $serial->serial_start,
+                        'from_id_outlet' => $consignment->id_outlet,
+                        'to_id_outlet' => $sale->id_outlet,
+                        'receipt_id' => $sale->receipt_id,
+                        'idtap' => $sale->idtap,
+                        'idsf' => $sale->idsf,
+                        'moved_at' => now(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
 
                 DB::table('mobile_penjualan')->where('id', $id)->update([
                     'status' => 'approved',
-                    'stock_reserved_at' => $sale->stock_reserved_at ?: now(),
+                    'stock_reserved_at' => $consignmentSerials->isEmpty() ? ($sale->stock_reserved_at ?: now()) : null,
                     'updated_at' => now()
                 ]);
 
