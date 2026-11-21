@@ -194,6 +194,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 
     // Master denom. Klasifikasi produk dan varian dipakai oleh stok, inject, dan laporan.
     Route::get('/denoms', [DenomController::class, 'index'])->name('denoms.index');
+    Route::get('/denoms/download', [DenomController::class, 'download'])->name('denoms.download');
     Route::post('/denoms', [DenomController::class, 'store'])->name('denoms.store');
     Route::post('/denoms/{iddenom}', [DenomController::class, 'update'])->name('denoms.update');
     Route::post('/denoms/delete/{iddenom}', [DenomController::class, 'destroy'])->name('denoms.destroy');

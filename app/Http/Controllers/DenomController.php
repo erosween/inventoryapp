@@ -67,6 +67,35 @@ class DenomController extends Controller
         return view('denom.index', compact('denoms', 'suggestedId', 'groups', 'kategoriInjects'));
     }
 
+    public function download()
+    {
+        $denoms = DB::table('denom')->orderBy('iddenom')->get();
+        $filename = 'daftar-denom-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($denoms) {
+            $output = fopen('php://output', 'w');
+            // BOM helps spreadsheet apps recognize UTF-8 correctly.
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['ID Denom', 'Nama Denom', 'Produk', 'Varian', 'Bentuk', 'Sumber Segel', 'Input DO', 'Grup', 'Kategori Inject', 'Harga Jual']);
+            foreach ($denoms as $denom) {
+                $grouping = DenomGrouping::infer($denom);
+                fputcsv($output, [
+                    $denom->iddenom,
+                    $denom->denom,
+                    $grouping['product'] ?? '',
+                    $grouping['product_variant'] ?? '',
+                    $grouping['stock_form'] ?? '',
+                    $denom->inject_source_id ?? '',
+                    ! empty($denom->allow_do) ? 'Ya' : 'Tidak',
+                    $denom->group_name ?? '',
+                    $denom->kategori_inject ?? '',
+                    $denom->harga_jual ?? 0,
+                ]);
+            }
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function store(Request $request)
     {
         $request->validate([

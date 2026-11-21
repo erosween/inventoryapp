@@ -33,10 +33,14 @@
                     <div class="col-md-12">
                         <div class="card premium-card">
                              <div class="card-header bg-white border-bottom py-3">
-                                 <div class="d-flex align-items-center">
+                                 <div class="d-flex align-items-center flex-wrap">
                                      <h4 class="card-title text-indigo font-weight-bold">
                                          <i class="fas fa-layer-group mr-2"></i>Daftar Denom
                                      </h4>
+                                     <a href="{{ route('denoms.download') }}" class="btn btn-outline-primary btn-round mr-2">
+                                         <i class="fas fa-download"></i>
+                                         Download Denom
+                                     </a>
                                      <button class="btn btn-primary btn-round ml-auto" data-toggle="modal"
                                          data-target="#addRowModal">
                                          <i class="fa fa-plus"></i>

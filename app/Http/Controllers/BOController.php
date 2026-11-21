@@ -143,18 +143,7 @@ public function getTap(Request $request)
     ========================= */
     public function proseskeluarboform(Request $request)
 {
-    $data = $request->validate([
-        'pengirim' => ['required', 'string'],
-        'penerima' => ['required', 'string'],
-        'qty' => ['required', 'integer', 'min:1'],
-        'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
-        'sn' => ['nullable', 'string'],
-        'tambahanket' => ['nullable', 'string'],
-        'tgl' => ['required', 'date'],
-    ]);
-    $data = collect($data)->only([
-        'pengirim','penerima','qty','iddenom','sn','tambahanket','tgl'
-    ])->all();
+    $data = $this->validatedReturnPayload($request);
 
     return DB::transaction(function () use ($data) {
 
@@ -215,20 +204,16 @@ public function getTap(Request $request)
 
         $packages = $this->returnablePackages();
 
-        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages'));
+        $serialParts = preg_split('/\s*(?:-|–|—)\s*/u', trim((string) ($edit->sn ?? '')), 2) ?: [];
+        $snStart = $serialParts[0] ?? '';
+        $snEnd = $serialParts[1] ?? '';
+
+        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages', 'snStart', 'snEnd'));
     }
 
     public function update(Request $request, $id)
     {
-        $validated = $request->validate([
-            'pengirim' => ['required', 'string'],
-            'penerima' => ['required', 'string'],
-            'qty' => ['required', 'integer', 'min:1'],
-            'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
-            'sn' => ['nullable', 'string'],
-            'tambahanket' => ['nullable', 'string'],
-            'tgl' => ['required', 'date'],
-        ]);
+        $validated = $this->validatedReturnPayload($request);
 
         DB::transaction(function () use ($validated, $id) {
             $oldData = DB::table('keluar')->where('idkeluar', $id)->lockForUpdate()->first();
@@ -370,6 +355,41 @@ public function getTap(Request $request)
             'SP1' => 'SIMPATI 3GB',
             'SP9' => 'SIMPATI 15GB',
         ];
+    }
+
+    private function validatedReturnPayload(Request $request): array
+    {
+        $data = $request->validate([
+            'pengirim' => ['required', 'string'],
+            'penerima' => ['required', 'string'],
+            'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
+            'sn_start' => ['required', 'string', 'regex:/^\\d+$/', 'max:16'],
+            'sn_end' => ['nullable', 'string', 'regex:/^\\d+$/', 'max:16'],
+            'qty' => ['nullable', 'integer', 'min:1', 'max:2000000'],
+            'tambahanket' => ['nullable', 'string'],
+            'tgl' => ['required', 'date'],
+        ]);
+
+        $isSa = in_array($data['iddenom'], ['SP6', 'SP7', 'SP1', 'SP9'], true);
+        $pattern = $isSa ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+        $expected = $isSa ? 'SN SA wajib 16 digit dan diawali 0.' : 'SN PV wajib tepat 12 digit.';
+        $start = trim($data['sn_start']);
+        $end = trim((string) ($data['sn_end'] ?? '')) ?: $start;
+
+        if (! preg_match($pattern, $start) || ! preg_match($pattern, $end)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['sn_start' => $expected]);
+        }
+
+        $qty = (int) $end - (int) $start + 1;
+        if ($qty < 1 || $qty > 2_000_000) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['sn_end' => 'SN akhir harus sama dengan atau lebih besar dari SN awal; maksimal 2.000.000 SN.']);
+        }
+
+        $data['qty'] = $qty;
+        $data['sn'] = $start === $end ? $start : $start.' - '.$end;
+        unset($data['sn_start'], $data['sn_end']);
+
+        return $data;
     }
 
     private function incrementTapStock(string $idtap, string $iddenom, int $qty): void
