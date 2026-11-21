@@ -414,8 +414,9 @@ SQL;
             ->whereIn('c.status', ['consigned', 'approved'])
             ->where(function ($formats) {
                 $formats->where(function ($sa) {
-                    $sa->whereRaw("UPPER(COALESCE(d.product, '')) = 'SA'")
-                        ->whereRaw("c.serial_number REGEXP '^0[0-9]{15}$'");
+                    // Keep legacy SA phone-number entries visible so the SF can replace
+                    // the old value with the actual serial while recording a sale.
+                    $sa->whereRaw("UPPER(COALESCE(d.product, '')) = 'SA'");
                 })->orWhere(function ($pv) {
                     $pv->whereRaw("UPPER(COALESCE(d.product, '')) = 'PV'")
                         ->whereRaw("c.serial_number REGEXP '^[0-9]{12}$'");
@@ -433,8 +434,12 @@ SQL;
         if ($request->filled('iddenom')) $query->where('c.iddenom', $request->string('iddenom'));
 
         return response()->json($query->orderBy('c.id')->limit(2000)
-            ->get(['c.serial_number as sn', 'c.iddenom', 'd.denom'])
-            ->map(fn ($row) => ['sn' => (string) $row->sn, 'iddenom' => (string) $row->iddenom, 'denom' => (string) $row->denom]));
+            ->get(['c.serial_number as sn', 'c.iddenom', 'd.denom', 'd.product'])
+            ->map(function ($row) {
+                $sn = (string) $row->sn;
+                $isSa = strtoupper((string) $row->product) === 'SA';
+                return ['sn' => $sn, 'iddenom' => (string) $row->iddenom, 'denom' => (string) $row->denom, 'requires_replacement' => $isSa && ! preg_match('/^0\d{15}$/', $sn)];
+            }));
     }
 
     // Submit penjualan mobile. Validasi outlet, stok, nota, dan nomor titip jual sebelum mencatat
@@ -486,15 +491,26 @@ SQL;
             }
             $consignmentSerials = collect($product['consignment_serials'] ?? [])->map(fn ($sn) => trim((string) $sn))->filter()->values();
             if ($mode === 'consignment') {
-                $pattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
-                if ($consignmentSerials->isEmpty() || $consignmentSerials->contains(fn ($sn) => ! preg_match($pattern, $sn)) || $consignmentSerials->unique()->count() !== $consignmentSerials->count()) {
+                $replacements = (array) ($product['consignment_replacements'] ?? []);
+                $sources = [];
+                foreach ($consignmentSerials as $sourceSn) {
+                    $actualSn = trim((string) ($replacements[$sourceSn] ?? $sourceSn));
+                    $valid = $isStarterPack ? (bool) preg_match('/^0\\d{15}$/', $actualSn) : (bool) preg_match('/^\\d{12}$/', $actualSn);
+                    if (! $valid || (! $isStarterPack && $actualSn !== $sourceSn)) {
+                        throw ValidationException::withMessages(["products.{$index}.consignment_serials" => $isStarterPack ? 'Untuk SA lama, masukkan SN pengganti 16 digit yang diawali 0.' : 'Pilih SN konsinyasi PV yang valid (12 digit).']);
+                    }
+                    $sources[] = ['source_sn' => $sourceSn, 'sn' => $actualSn];
+                }
+                $actualSerials = collect($sources)->pluck('sn');
+                if ($consignmentSerials->isEmpty() || $actualSerials->unique()->count() !== $actualSerials->count()) {
                     throw ValidationException::withMessages(["products.{$index}.consignment_serials" => $isStarterPack ? 'Pilih SN konsinyasi SA yang valid (16 digit, diawali 0).' : 'Pilih SN konsinyasi PV yang valid (12 digit).']);
                 }
-                $qty = $consignmentSerials->count();
-                $start = $consignmentSerials->first();
-                $end = $consignmentSerials->last();
-                foreach ($consignmentSerials as $sn) $serialInputs->push(['iddenom' => $product['iddenom'], 'type' => 'sn', 'start' => $sn, 'end' => $sn, 'identifier_type' => 'sn', 'serial_mode' => 'consignment', 'serial_start' => $sn, 'serial_end' => $sn, 'qty' => 1]);
-                $product['consignment_serials'] = $consignmentSerials->all();
+                $qty = $actualSerials->count();
+                $start = $actualSerials->first();
+                $end = $actualSerials->last();
+                foreach ($sources as $source) $serialInputs->push(['iddenom' => $product['iddenom'], 'type' => 'sn', 'start' => $source['sn'], 'end' => $source['sn'], 'identifier_type' => 'sn', 'serial_mode' => 'consignment', 'serial_start' => $source['sn'], 'serial_end' => $source['sn'], 'qty' => 1]);
+                $product['consignment_serials'] = $actualSerials->all();
+                $product['consignment_sources'] = $sources;
             } elseif ($mode === 'broken') {
                 $qty = (int) ($product['qty'] ?? 0);
                 if ($qty < 1 || $qty > 2_000_000) {
@@ -588,7 +604,9 @@ SQL;
             'products.*.qty' => 'required|integer|min:1|max:2000000',
             'products.*.serial_mode' => 'required|in:single,range,broken,consignment',
             'products.*.consignment_serials' => 'required_if:products.*.serial_mode,consignment|array|max:2000',
-            'products.*.consignment_serials.*' => 'required|string|distinct|digits_between:12,16',
+            'products.*.consignment_serials.*' => ['required', 'string', 'distinct', 'regex:/^\d{1,24}$/'],
+            'products.*.consignment_replacements' => 'nullable|array|max:2000',
+            'products.*.consignment_replacements.*' => 'nullable|string|digits_between:12,16',
             'products.*.identifier_type' => 'nullable|in:sn',
             'products.*.serial_start' => 'nullable|digits_between:1,24',
             'products.*.serial_end' => 'nullable|digits_between:1,24',
@@ -732,13 +750,18 @@ SQL;
             $ownerIdsf = $ownerIdsf ?: $idsf;
 
             $receipt = DB::transaction(function () use ($request, $idsf, $ownerIdsf, $salesDate, $requestedOutlet, $consignmentNumbers, $consignmentDenomByNumber, $serialInputsByDenom, $serialInputs) {
-                $selectedConsignmentSerials = collect($request->input('products', []))->filter(fn ($row) => ($row['serial_mode'] ?? '') === 'consignment')->flatMap(fn ($row) => collect($row['consignment_serials'] ?? [])->map(fn ($sn) => ['sn' => (string) $sn, 'iddenom' => (string) ($row['iddenom'] ?? '')]))->values();
+                $selectedConsignmentSerials = collect($request->input('products', []))->filter(fn ($row) => ($row['serial_mode'] ?? '') === 'consignment')->flatMap(fn ($row) => collect($row['consignment_sources'] ?? [])->map(fn ($source) => ['source_sn' => (string) $source['source_sn'], 'sn' => (string) $source['sn'], 'iddenom' => (string) ($row['iddenom'] ?? '')]))->values();
                 if ($selectedConsignmentSerials->isNotEmpty()) {
                     $overlapWithNewConsignment = $selectedConsignmentSerials->pluck('sn')->intersect($consignmentNumbers);
                     if ($overlapWithNewConsignment->isNotEmpty()) throw ValidationException::withMessages(['products' => 'SN yang sama tidak bisa dikonsinyasikan dan dijual dalam satu transaksi.']);
                     foreach ($selectedConsignmentSerials as $selected) {
-                        $owned = DB::table('surya_sa_consignment_numbers')->where('idsf', $idsf)->where('iddenom', $selected['iddenom'])->where('serial_number', $selected['sn'])->whereIn('status', ['consigned', 'approved'])->lockForUpdate()->first();
-                        if (! $owned) throw ValidationException::withMessages(['products' => "SN konsinyasi {$selected['sn']} sudah tidak tersedia untuk SF ini. Muat ulang daftar SN."]);
+                        $owned = DB::table('surya_sa_consignment_numbers')->where('idsf', $idsf)->where('iddenom', $selected['iddenom'])->where('serial_number', $selected['source_sn'])->whereIn('status', ['consigned', 'approved'])->lockForUpdate()->first();
+                        if (! $owned) throw ValidationException::withMessages(['products' => "Data konsinyasi {$selected['source_sn']} sudah tidak tersedia untuk SF ini. Muat ulang daftar SN."]);
+                        if ($selected['sn'] !== $selected['source_sn']) {
+                            $duplicate = DB::table('surya_sa_consignment_numbers')->where('iddenom', $selected['iddenom'])->where('serial_number', $selected['sn'])->whereIn('status', ['consigned', 'approved'])->where('id', '<>', $owned->id)->lockForUpdate()->exists();
+                            if ($duplicate) throw ValidationException::withMessages(['products' => "SN pengganti {$selected['sn']} sudah tercatat sebagai konsinyasi aktif."]);
+                            DB::table('surya_sa_consignment_numbers')->where('id', $owned->id)->update(['serial_number' => $selected['sn'], 'updated_at' => now()]);
+                        }
                     }
                 }
                 foreach ($serialInputs as $serialInput) {

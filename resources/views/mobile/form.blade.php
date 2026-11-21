@@ -268,9 +268,12 @@
     .consignment-denom-row .consignment-textarea { min-height:96px; }
     .serial-consignment-wrap { padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc; }
     .consignment-sn-list { max-height:260px;overflow:auto;display:grid;gap:7px;-webkit-overflow-scrolling:touch; }
-    .consignment-sn-option { display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:11px;background:#fff; }
+    .consignment-sn-option { display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:11px;background:#fff; }
     .consignment-sn-option .form-check-input { flex:0 0 auto;margin:0;width:18px;height:18px; }
     .consignment-sn-option span { display:grid;gap:2px;min-width:0; }
+    .consignment-sn-item { display:grid;gap:8px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:11px;background:#fff; }
+    .consignment-sn-item .consignment-sn-option { padding:0;border:0;background:transparent; }
+    .consignment-replacement-wrap { padding-left:28px; }
     .consignment-sn-option strong { color:#1f2937;font-size:.78rem;letter-spacing:.02em; }
     .consignment-sn-option small { color:#64748b;font-size:.65rem; }
     .consignment-row-count { color:#059669;font-size:.58rem;font-weight:850; }
@@ -614,7 +617,11 @@
                 const name = $(this).find('.product-placeholder').text();
                 const serialRow = $(this);
                 if (id || qty || serialRow.find('.serial-value-input, .serial-start-input, .serial-end-input').filter(function() { return $(this).val(); }).length) {
-                    formData.products.push({ id, name, qty, serial_mode: serialRow.find('.serial-mode-select').val(), identifier_type: 'sn', serial_value: serialRow.find('.serial-value-input').val(), serial_start: serialRow.find('.serial-start-input').val(), serial_end: serialRow.find('.serial-end-input').val(), consignment_serials: serialRow.find('.consignment-sn-checkbox:checked').map(function() { return this.value; }).get() });
+                    const replacements = {};
+                    serialRow.find('.consignment-sn-checkbox:checked').each(function() {
+                        if (this.dataset.requiresReplacement === '1') replacements[this.value] = serialRow.find(`.consignment-sn-replacement[data-source="${this.value}"]`).val() || '';
+                    });
+                    formData.products.push({ id, name, qty, serial_mode: serialRow.find('.serial-mode-select').val(), identifier_type: 'sn', serial_value: serialRow.find('.serial-value-input').val(), serial_start: serialRow.find('.serial-start-input').val(), serial_end: serialRow.find('.serial-end-input').val(), consignment_serials: serialRow.find('.consignment-sn-checkbox:checked').map(function() { return this.value; }).get(), consignment_replacements: replacements });
                 }
             });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
@@ -858,7 +865,7 @@
                 </div>`;
             $('#product-container').append(html);
             const row = $('#product-container .glass-card').last();
-            row.attr('data-row-id', rowId).data('row-id', rowId).data('selected-consignment', serial.consignment_serials || []);
+            row.attr('data-row-id', rowId).data('row-id', rowId).data('selected-consignment', serial.consignment_serials || []).data('consignment-replacements', serial.consignment_replacements || {});
             syncSerialFields(row);
             updateSerialQuantity(row);
         }
@@ -871,14 +878,35 @@
             $.get("{{ route('mobile.consignment.available') }}", { iddenom: id }).done(function(items) {
                 const selected = new Set(row.data('selected-consignment') || []);
                 if (!items.length) { list.html('<span class="text-muted">Belum ada SN konsinyasi aktif milik SF ini.</span>'); updateSerialQuantity(row); return; }
-                list.html(items.map(item => `<label class="consignment-sn-option"><input class="form-check-input consignment-sn-checkbox" type="checkbox" name="products[${row.data('row-id')}][consignment_serials][]" value="${escapeHtml(item.sn)}" ${selected.has(String(item.sn)) ? 'checked' : ''}><span><strong>${escapeHtml(item.sn)}</strong><small>${escapeHtml(item.denom)}</small></span></label>`).join(''));
+                const replacements = row.data('consignment-replacements') || {};
+                list.html(items.map(item => {
+                    const checked = selected.has(String(item.sn));
+                    const replacement = item.requires_replacement ? `<div class="consignment-replacement-wrap ${checked ? '' : 'd-none'}"><small class="text-warning d-block mt-1">Nomor SA lama. Masukkan SN pengganti (16 digit, diawali 0).</small><input class="form-control form-control-sm consignment-sn-replacement mt-1" data-source="${escapeHtml(item.sn)}" name="products[${row.data('row-id')}][consignment_replacements][${escapeHtml(item.sn)}]" type="text" inputmode="numeric" maxlength="16" placeholder="SN SA baru" value="${escapeHtml(replacements[item.sn] || '')}" ${checked ? 'required' : 'disabled'}></div>` : '';
+                    return `<div class="consignment-sn-item"><label class="consignment-sn-option"><input class="form-check-input consignment-sn-checkbox" type="checkbox" name="products[${row.data('row-id')}][consignment_serials][]" value="${escapeHtml(item.sn)}" data-requires-replacement="${item.requires_replacement ? '1' : '0'}" ${checked ? 'checked' : ''}><span><strong>${escapeHtml(item.sn)}</strong><small>${escapeHtml(item.denom)}</small></span></label>${replacement}</div>`;
+                }).join(''));
                 updateSerialQuantity(row); saveFormState();
             }).fail(function() { list.html('<span class="text-danger">Gagal memuat SN konsinyasi. Coba muat ulang.</span>'); });
         }
         $(document).on('change', '.consignment-sn-checkbox', function() {
             const row = $(this).closest('.glass-card');
+            const replacement = row.find(`.consignment-sn-replacement[data-source="${this.value}"]`);
+            replacement.prop('disabled', !this.checked).prop('required', this.checked);
+            replacement.closest('.consignment-replacement-wrap').toggleClass('d-none', !this.checked);
             row.data('selected-consignment', row.find('.consignment-sn-checkbox:checked').map(function() { return this.value; }).get());
+            const replacements = {};
+            row.find('.consignment-sn-checkbox:checked[data-requires-replacement="1"]').each(function() {
+                replacements[this.value] = row.find(`.consignment-sn-replacement[data-source="${this.value}"]`).val() || '';
+            });
+            row.data('consignment-replacements', replacements);
             updateSerialQuantity(row); saveFormState();
+        });
+        $(document).on('input', '.consignment-sn-replacement', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 16);
+            const row = $(this).closest('.glass-card');
+            const replacements = row.data('consignment-replacements') || {};
+            replacements[this.dataset.source] = this.value;
+            row.data('consignment-replacements', replacements);
+            saveFormState();
         });
         $(document).on('click', '.refresh-consignment-sn', function() { loadConsignmentSerials($(this).closest('.glass-card')); });
 
