@@ -132,6 +132,7 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::get('/report', 'report')->name('report');
     Route::get('/tracking', 'tracking')->name('tracking');
     Route::get('/sf-stock-lookup', 'sfStockLookup')->name('sf-stock-lookup');
+    Route::post('/sf-stock-lookup', 'storeSfStockRange')->name('sf-stock-lookup.store');
 });
 // Endpoint Detail Outlet. Ringkasan dan daftar outlet dapat dimuat terpisah oleh browser.
 Route::get('/surya/detail-outlet/sales-summary/download', [MonitaDumaiController::class, 'outletSalesSummary'])->name('surya.outlet-detail.sales-summary.download');
