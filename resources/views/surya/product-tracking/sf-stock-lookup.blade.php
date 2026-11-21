@@ -8,15 +8,17 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">
 @if($tab === 'add')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
 <style>
-    .pt-page .pt-field .select2-container { width:100%!important; }
-    .pt-page .pt-field .select2-selection--single { height:44px!important;padding:7px 10px!important;border:1px solid #d7dfeb!important;border-radius:10px!important;background:#fff!important; }
-    .pt-page .pt-field .select2-selection__rendered { padding-left:2px!important;color:#172033!important;font-size:14px;line-height:28px!important; }
-    .pt-page .pt-field .select2-selection__arrow { top:8px!important;right:8px!important; }
-    .pt-page .select2-container--open .select2-dropdown { z-index:1080;border-color:#d7dfeb;border-radius:10px;overflow:hidden; }
-    .pt-page .select2-search__field { min-height:38px;border:1px solid #d7dfeb!important;border-radius:7px;padding:7px 10px;outline:none; }
-    .pt-page .select2-results__option { padding:9px 11px;font-size:13px; }
+    .pt-search-picker { position:relative; }
+    .pt-search-picker input { width:100%;min-height:44px;padding:10px 38px 10px 12px;border:1px solid #d7dfeb;border-radius:10px;background:#fff;color:#172033;font:inherit;font-size:14px; }
+    .pt-search-picker input:focus { outline:0;border-color:#c8102e;box-shadow:0 0 0 3px rgba(200,16,46,.1); }
+    .pt-search-picker:after { content:'⌄';position:absolute;right:13px;top:8px;color:#64748b;font-size:18px;pointer-events:none; }
+    .pt-search-options { position:absolute;z-index:1080;top:calc(100% + 5px);left:0;right:0;max-height:250px;overflow:auto;padding:5px;border:1px solid #d7dfeb;border-radius:10px;background:#fff;box-shadow:0 12px 28px rgba(15,23,42,.16); }
+    .pt-search-options[hidden] { display:none; }
+    .pt-search-option { display:block;width:100%;padding:10px;border:0;border-radius:7px;background:#fff;color:#334155;text-align:left;font:inherit;font-size:13px; }
+    .pt-search-option:hover,.pt-search-option:focus { outline:0;background:#fff1f2;color:#be123c; }
+    .pt-search-empty { padding:10px;color:#64748b;font-size:13px; }
+    .pt-native-select-hidden { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important; }
 </style>
 @endif
 @endpush
@@ -117,24 +119,98 @@
 @endsection
 
 @push('scripts')
-@if($tab === 'add')
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-@endif
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    if (window.jQuery && $.fn.select2) {
-        $('.pt-search-select').select2({
-            width: '100%',
-            placeholder: function () { return $(this).data('placeholder'); },
-            allowClear: true,
-            minimumResultsForSearch: 0,
-            language: { noResults: () => 'Tidak ditemukan' }
+    document.querySelectorAll('.pt-search-select').forEach((select) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pt-search-picker';
+        const input = document.createElement('input');
+        input.type = 'search';
+        input.placeholder = select.dataset.placeholder || 'Ketik untuk mencari…';
+        input.autocomplete = 'off';
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-autocomplete', 'list');
+        input.setAttribute('aria-expanded', 'false');
+        input.required = select.required;
+        input.setAttribute('aria-label', select.closest('.pt-field')?.querySelector('span')?.textContent || 'Cari pilihan');
+        const options = document.createElement('div');
+        options.className = 'pt-search-options';
+        options.setAttribute('role', 'listbox');
+        options.hidden = true;
+        const selected = select.selectedOptions[0];
+        if (selected?.value) input.value = selected.textContent.trim();
+        select.required = false;
+        select.classList.add('pt-native-select-hidden');
+        wrapper.append(input, options);
+        select.after(wrapper);
+
+        const close = () => { options.hidden = true; input.setAttribute('aria-expanded', 'false'); };
+        const choose = (option) => {
+            select.value = option.value;
+            input.value = option.textContent.trim();
+            input.setCustomValidity('');
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            close();
+        };
+        const render = (searchValue = input.value) => {
+            const query = searchValue.trim().toLocaleLowerCase();
+            const matches = Array.from(select.options).filter(option => option.value && option.textContent.toLocaleLowerCase().includes(query));
+            options.replaceChildren();
+            if (!matches.length) {
+                const empty = document.createElement('div');
+                empty.className = 'pt-search-empty';
+                empty.textContent = 'Tidak ditemukan';
+                options.append(empty);
+            } else {
+                matches.slice(0, 80).forEach(option => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'pt-search-option';
+                    button.setAttribute('role', 'option');
+                    button.textContent = option.textContent.trim();
+                    button.addEventListener('click', () => choose(option));
+                    options.append(button);
+                });
+                if (matches.length > 80) {
+                    const more = document.createElement('div');
+                    more.className = 'pt-search-empty';
+                    more.textContent = 'Ketik lagi agar hasil lebih spesifik.';
+                    options.append(more);
+                }
+            }
+            options.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+        };
+        input.addEventListener('focus', () => {
+            if (select.value) { input.select(); render(''); }
+            else render();
         });
-        $(document).on('select2:open', () => {
-            setTimeout(() => document.querySelector('.select2-container--open .select2-search__field')?.focus(), 30);
+        input.addEventListener('input', () => {
+            select.value = '';
+            input.setCustomValidity('Pilih salah satu hasil pencarian.');
+            render();
         });
-    }
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') close();
+            if (event.key === 'ArrowDown' && !options.hidden) {
+                event.preventDefault(); options.querySelector('.pt-search-option')?.focus();
+            }
+            if (event.key === 'Enter' && !options.hidden) {
+                const first = options.querySelector('.pt-search-option');
+                if (first) { event.preventDefault(); first.click(); }
+            }
+        });
+        options.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') { close(); input.focus(); }
+            if (event.key === 'ArrowDown') { event.preventDefault(); event.target.nextElementSibling?.focus(); }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (event.target.previousElementSibling?.matches('.pt-search-option')) event.target.previousElementSibling.focus();
+                else input.focus();
+            }
+        });
+        document.addEventListener('click', (event) => { if (!wrapper.contains(event.target)) close(); });
+    });
     document.querySelectorAll('form.pt-lookup[data-loading-message]').forEach((form) => {
         form.addEventListener('submit', () => {
             if (form.dataset.submitting === 'true') return;
