@@ -471,30 +471,39 @@ SQL;
         $hasUpload = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)->exists();
         if (! $hasUpload) return response()->json(['has_upload' => false, 'items' => []]);
         if (strlen($prefix) < 3) return response()->json(['has_upload' => true, 'items' => []]);
-        $length = $this->isStarterPackDenom($denom) ? 16 : 12;
-        $prefix = substr($prefix, 0, $length);
-        $lower = str_pad($prefix, $length, '0');
-        $upper = str_pad($prefix, $length, '9');
-        $ranges = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)
-            ->where('serial_start', '<=', $upper)->where('serial_end', '>=', $lower)->orderBy('serial_start')->get(['serial_start', 'serial_end']);
-        if ($ranges->isEmpty()) return response()->json(['has_upload' => true, 'items' => []]);
-        $usedRanges = DB::table('mobile_sales_serials as s')->join('mobile_penjualan as p', 'p.id', '=', 's.mobile_penjualan_id')
-            ->where('s.iddenom', $iddenom)->where('s.identifier_type', 'sn')->whereNotIn('p.status', ['rejected'])
-            ->whereRaw('LENGTH(s.serial_start) = ?', [$length])->where('s.serial_start', '<=', $upper)->where('s.serial_end', '>=', $lower)->get(['s.serial_start', 's.serial_end']);
+        $isSa = $this->isStarterPackDenom($denom);
+        $lengths = $isSa ? [15, 16] : [12];
         $available = [];
         $seen = [];
-        foreach ($ranges as $range) {
-            $cursor = (int) max((string) $range->serial_start, $lower);
-            $last = (int) min((string) $range->serial_end, $upper);
-            while ($cursor <= $last && count($available) < 100) {
-                $sn = str_pad((string) $cursor, $length, '0', STR_PAD_LEFT);
-                $usedUntil = null;
-                foreach ($usedRanges as $used) if ($sn >= $used->serial_start && $sn <= $used->serial_end) { $usedUntil = (int) $used->serial_end; break; }
-                if ($usedUntil !== null) $cursor = $usedUntil + 1;
-                else {
-                    if (! isset($seen[$sn])) { $available[] = ['sn' => $sn, 'denom' => (string) $denom->denom]; $seen[$sn] = true; }
-                    $cursor++;
+        foreach ($lengths as $length) {
+            $searchPrefix = $prefix;
+            if ($length === 15 && strlen($searchPrefix) === 16 && str_starts_with($searchPrefix, '0')) {
+                $searchPrefix = substr($searchPrefix, 1);
+            }
+            if (strlen($searchPrefix) > $length) continue;
+            $searchPrefix = substr($searchPrefix, 0, $length);
+            $lower = str_pad($searchPrefix, $length, '0');
+            $upper = str_pad($searchPrefix, $length, '9');
+            $ranges = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $idsf)->where('iddenom', $iddenom)
+                ->whereRaw('CHAR_LENGTH(serial_start) = ?', [$length])
+                ->where('serial_start', '<=', $upper)->where('serial_end', '>=', $lower)->orderBy('serial_start')->get(['serial_start', 'serial_end']);
+            $usedRanges = DB::table('mobile_sales_serials as s')->join('mobile_penjualan as p', 'p.id', '=', 's.mobile_penjualan_id')
+                ->where('s.iddenom', $iddenom)->where('s.identifier_type', 'sn')->whereNotIn('p.status', ['rejected'])
+                ->whereRaw('LENGTH(s.serial_start) = ?', [$length])->where('s.serial_start', '<=', $upper)->where('s.serial_end', '>=', $lower)->get(['s.serial_start', 's.serial_end']);
+            foreach ($ranges as $range) {
+                $cursor = (int) max((string) $range->serial_start, $lower);
+                $last = (int) min((string) $range->serial_end, $upper);
+                while ($cursor <= $last && count($available) < 100) {
+                    $sn = str_pad((string) $cursor, $length, '0', STR_PAD_LEFT);
+                    $usedUntil = null;
+                    foreach ($usedRanges as $used) if ($sn >= $used->serial_start && $sn <= $used->serial_end) { $usedUntil = (int) $used->serial_end; break; }
+                    if ($usedUntil !== null) $cursor = $usedUntil + 1;
+                    else {
+                        if (! isset($seen[$sn])) { $available[] = ['sn' => $sn, 'denom' => (string) $denom->denom]; $seen[$sn] = true; }
+                        $cursor++;
+                    }
                 }
+                if (count($available) >= 100) break;
             }
             if (count($available) >= 100) break;
         }
@@ -581,9 +590,10 @@ SQL;
                 $single = '';
             } elseif ($mode === 'single') {
                 $singlePattern = $isStarterPack ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+                $uploadedStockPattern = $isStarterPack ? '/^(?:\\d{15}|0\\d{15})$/' : $singlePattern;
                 $uploadedSerials = collect($product['uploaded_stock_serials'] ?? [])->map(fn ($sn) => trim((string) $sn))->filter()->values();
                 if ($uploadedSerials->isNotEmpty()) {
-                    if ($uploadedSerials->count() > 2000 || $uploadedSerials->unique()->count() !== $uploadedSerials->count() || $uploadedSerials->contains(fn ($sn) => ! preg_match($singlePattern, $sn))) {
+                    if ($uploadedSerials->count() > 2000 || $uploadedSerials->unique()->count() !== $uploadedSerials->count() || $uploadedSerials->contains(fn ($sn) => ! preg_match($uploadedStockPattern, $sn))) {
                         throw ValidationException::withMessages(["products.{$index}.uploaded_stock_serials" => 'Pilihan SN stok SF tidak valid. Muat ulang daftar, lalu pilih kembali.']);
                     }
                     $singleSerials = $uploadedSerials->all();
@@ -674,7 +684,7 @@ SQL;
             'products.*.serial_mode' => 'required|in:single,range,broken,consignment',
             'products.*.consignment_serials' => 'required_if:products.*.serial_mode,consignment|array|max:2000',
             'products.*.uploaded_stock_serials' => 'nullable|array|max:2000',
-            'products.*.uploaded_stock_serials.*' => ['required', 'string', 'distinct', 'regex:/^\\d{12}$|^0\\d{15}$/'],
+            'products.*.uploaded_stock_serials.*' => ['required', 'string', 'distinct', 'regex:/^(?:\\d{12}|\\d{15}|0\\d{15})$/'],
             'products.*.consignment_serials.*' => ['required', 'string', 'distinct', 'regex:/^\d{1,24}$/'],
             'products.*.consignment_replacements' => 'nullable|array|max:2000',
             'products.*.consignment_replacements.*' => 'nullable|string|digits_between:12,16',
@@ -838,7 +848,8 @@ SQL;
                 foreach (collect($request->input('products', []))->filter(fn ($row) => ! empty($row['uploaded_stock_serials'])) as $stockRow) {
                     foreach ($stockRow['uploaded_stock_serials'] as $sn) {
                         $owned = DB::table('product_tracking_sales_stock_ranges')->where('sfcode', $ownerIdsf)
-                            ->where('iddenom', $stockRow['iddenom'])->where('serial_start', '<=', $sn)->where('serial_end', '>=', $sn)
+                            ->where('iddenom', $stockRow['iddenom'])->whereRaw('CHAR_LENGTH(serial_start) = ?', [strlen((string) $sn)])
+                            ->where('serial_start', '<=', $sn)->where('serial_end', '>=', $sn)
                             ->lockForUpdate()->exists();
                         if (! $owned) throw ValidationException::withMessages(['products' => "SN stok {$sn} tidak terdaftar untuk SF ini. Muat ulang daftar SN."]);
                     }

@@ -7,10 +7,10 @@
 </div>
 <div class="pt-table-wrap pt-sales-stock-template">
     <table class="pt-table"><thead><tr><th>SFCODE</th><th>TAP</th><th>CLUSTER</th><th>IDDENOM</th><th>SN AWAL</th><th>SN AKHIR</th><th>QTY</th></tr></thead>
-        <tbody><tr><td>—</td><td>—</td><td>—</td><td>Isi IDDENOM dari master denom</td><td>SN pertama</td><td>SN terakhir</td><td>Jumlah SN</td></tr></tbody>
+        <tbody><tr><td>—</td><td>—</td><td>—</td><td>Isi IDDENOM dari master denom</td><td>SN pertama</td><td>SN terakhir</td><td>Opsional, dihitung otomatis</td></tr></tbody>
     </table>
 </div>
-<p class="pt-muted"><strong>IDDENOM</strong> harus cocok dengan master denom. Satu nomor saja diisi dengan SN Awal = SN Akhir dan QTY = 1. SN PV harus 12 digit; SN SA harus 16 digit dan diawali 0. Simpan kolom SN sebagai teks agar nol di depan tidak hilang.</p>
+<p class="pt-muted"><strong>IDDENOM</strong> harus cocok dengan master denom. Stok PV memakai SN 12 digit; stok SA memakai SN 15 digit tanpa 0 depan (SN 16 digit dengan 0 depan juga diterima). Isi SN Awal dan SN Akhir sama untuk satu nomor. QTY boleh dikosongkan karena dihitung dari rentang; jika diisi, nilainya harus cocok.</p>
 @if(auth()->user()?->isSuperAdmin())
     <form method="post" action="{{ route('surya.product-tracking.sales-stock.upload') }}" enctype="multipart/form-data" class="pt-grid pt-upload-form" data-loading-message="Memvalidasi data dan menyimpan rentang SN…" data-loading-label="Mengunggah…">
         @csrf
