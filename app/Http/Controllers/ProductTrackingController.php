@@ -794,15 +794,13 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereRaw("CONVERT(so.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
             ->whereRaw("CONVERT(u.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
             ->whereRaw("CONVERT(u.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci");
-
-        // Page the outlet identities first. Range joins and aggregates then touch only
-        // the 20 outlets shown, instead of materializing all SF sales and SO ranges.
+        // SO rows are attributed through the matching ST serial, so every SO outlet
+        // must already exist in these ST sources. Page those outlet identities first.
         $mobileExists = (clone $mobileSt)->whereColumn('sale.id_outlet', 'outlet.id_outlet')->selectRaw('1');
         $webExists = (clone $webSt)->whereColumn('form_sale.id_outlet', 'outlet.id_outlet')->selectRaw('1');
-        $soExists = (clone $soBase)->whereColumn('so.id_outlet', 'outlet.id_outlet')->selectRaw('1');
         $outletQuery = DB::table('appsdumais as outlet')
-            ->where(function ($query) use ($mobileExists, $webExists, $soExists) {
-                $query->whereExists($mobileExists)->orWhereExists($webExists)->orWhereExists($soExists);
+            ->where(function ($query) use ($mobileExists, $webExists) {
+                $query->whereExists($mobileExists)->orWhereExists($webExists);
             })
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
             ->addSelect($outletCategory)
@@ -817,21 +815,30 @@ class ProductTrackingController extends MonitaDumaiController
             $stSources = $mobilePage->unionAll($webPage);
             $st = DB::query()->fromSub($stSources, 'source')
                 ->selectRaw('source.id_outlet, SUM(source.serial_count) AS st_qty')->groupBy('source.id_outlet');
-            $so = (clone $soBase)->whereIn('so.id_outlet', $outletIds)
-                ->selectRaw('so.id_outlet, SUM(so.serial_count) AS so_qty')->groupBy('so.id_outlet');
-            $redeem = DB::query()->fromSub($stSources, 'st')
-            ->join('product_tracking_digipos as so', function ($join) use ($soKind, $serialLengthSql) {
-                $join->on('so.id_outlet', '=', 'st.id_outlet')->where('so.kind', '=', $soKind)
-                    ->whereRaw("CHAR_LENGTH(st.serial_start) IN ({$serialLengthSql})")
-                    ->whereRaw('CAST(so.serial_start AS DECIMAL(24,0)) <= CAST(st.serial_end AS DECIMAL(24,0))')
-                    ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
+            $matchedSo = DB::query()->fromSub(clone $stSources, 'st')
+            ->joinSub(clone $soBase, 'so', function ($join) use ($serialLengthSql) {
+                $join->whereRaw("CHAR_LENGTH(st.serial_start) IN ({$serialLengthSql})")
+                    ->whereRaw("CHAR_LENGTH(so.serial_start) IN ({$serialLengthSql})")
+                    ->where(function ($sameLength) {
+                        $sameLength->where(function ($match) {
+                            $match->whereRaw('CHAR_LENGTH(so.serial_start) = CHAR_LENGTH(st.serial_start)')
+                                ->whereColumn('so.serial_start', '<=', 'st.serial_end')
+                                ->whereColumn('so.serial_end', '>=', 'st.serial_start');
+                        })->orWhere(function ($differentLength) {
+                            $differentLength->whereRaw('CHAR_LENGTH(so.serial_start) <> CHAR_LENGTH(st.serial_start)')
+                                ->whereRaw('CAST(so.serial_start AS DECIMAL(24,0)) <= CAST(st.serial_end AS DECIMAL(24,0))')
+                                ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
+                        });
+                    });
             })
-            ->join('product_tracking_uploads as so_upload', 'so_upload.id', '=', 'so.upload_id')
-            ->whereRaw("CONVERT(so_upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
-            ->whereRaw("CONVERT(so_upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-            ->selectRaw('st.id_outlet, SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0)) AS redeemed_qty')
-            ->selectRaw('SUM(GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) * GREATEST(DATEDIFF(so.sold_at, st.st_date), 0)) AS days_to_customer_weighted')
-            ->groupBy('st.id_outlet');
+            ->whereIn('st.id_outlet', $outletIds)
+            ->selectRaw('st.id_outlet, so.sold_at, st.st_date, GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) AS matched_qty');
+            $so = DB::query()->fromSub(clone $matchedSo, 'matched_so')
+                ->select('id_outlet')->selectRaw('SUM(matched_qty) AS so_qty')->groupBy('id_outlet');
+            $redeem = DB::query()->fromSub($matchedSo, 'matched_so')
+                ->select('id_outlet')->selectRaw('SUM(matched_qty) AS redeemed_qty')
+                ->selectRaw('SUM(matched_qty * GREATEST(DATEDIFF(sold_at, st_date), 0)) AS days_to_customer_weighted')
+                ->groupBy('id_outlet');
             $metrics = DB::table('appsdumais as outlet')
                 ->leftJoinSub($st, 'st', 'st.id_outlet', '=', 'outlet.id_outlet')
                 ->leftJoinSub($so, 'so', 'so.id_outlet', '=', 'outlet.id_outlet')
@@ -1117,12 +1124,15 @@ class ProductTrackingController extends MonitaDumaiController
         $columnRule = Rule::in(array_map('strval', array_keys($headers)));
         $mapping = $request->validate([
             'serial_column' => ['nullable', $columnRule],
-            'outlet_column' => ['required', $columnRule],
+            'outlet_column' => [$record->kind === 'scan' ? 'required' : 'nullable', $columnRule],
             'sf_column' => ['nullable', Rule::in(array_map('strval', array_keys($headers)))],
             'date_column' => ['nullable', Rule::in(array_map('strval', array_keys($headers)))],
             'product_column' => ['nullable', Rule::in(array_map('strval', array_keys($headers)))],
         ]);
         if (empty($mapping['serial_column'])) throw ValidationException::withMessages(['serial_column' => 'Pilih kolom SN.']);
+        if ($record->kind === 'scan' && empty($mapping['outlet_column'])) {
+            throw ValidationException::withMessages(['outlet_column' => 'Pilih kolom ID Outlet untuk data ST Digipos.']);
+        }
         if ($record->kind !== 'warehouse' && empty($mapping['date_column'])) {
             throw ValidationException::withMessages(['date_column' => 'Pilih kolom tanggal agar tanggal scan/redeem tercatat otomatis.']);
         }
@@ -1130,6 +1140,7 @@ class ProductTrackingController extends MonitaDumaiController
         $now = now();
         $count = 0;
         $detectedScanDate = $record->scan_date;
+        $mixedSoDates = false;
         $batch = [];
         $range = null;
         $seenSerials = [];
@@ -1168,7 +1179,7 @@ class ProductTrackingController extends MonitaDumaiController
                 $matches = $this->findExistingOutletRedeemRangesBatch($record->kind, $ranges);
                 foreach ($ranges as $rangeCandidate) {
                     if (isset($matches[$rangeCandidate['source_row']])) {
-                        throw ValidationException::withMessages(['file' => "Baris {$rangeCandidate['source_row']}: rentang SN ini sudah pernah diupload sebagai SO untuk outlet {$rangeCandidate['id_outlet']}. Upload dibatalkan agar jumlah redeem tidak terhitung ganda."]);
+                        throw ValidationException::withMessages(['file' => "Baris {$rangeCandidate['source_row']}: rentang SN ini sudah pernah diupload sebagai SO. Upload dibatalkan agar redeem tidak terhitung ganda."]);
                     }
                     $batch[] = $this->digiposRangeRow($record->id, $record->kind, $rangeCandidate, $now);
                 }
@@ -1180,10 +1191,9 @@ class ProductTrackingController extends MonitaDumaiController
             foreach ($reader->rows($path, $headers) as $rowNumber => $values) {
                 $serial = $this->mappedValue($values, $mapping['serial_column'] ?? null);
                 if (in_array($serial, ['-', '—'], true)) $serial = '';
-                $outletId = $this->mappedValue($values, $mapping['outlet_column']);
+                $outletId = str_starts_with($record->kind, 'so-') ? '' : $this->mappedValue($values, $mapping['outlet_column'] ?? null);
                 if ($serial === '' && $outletId === '') continue;
-                if ($outletId === '') throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: ID Outlet kosong."]);
-                if (strlen($outletId) > 50 || ! preg_match('/^[A-Za-z0-9_-]+$/', $outletId)) {
+                if ($outletId !== '' && (strlen($outletId) > 50 || ! preg_match('/^[A-Za-z0-9_-]+$/', $outletId))) {
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: format ID Outlet tidak valid. Simpan ID sebagai teks."]);
                 }
                 if ($serial === '') throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: SN kosong."]);
@@ -1191,13 +1201,17 @@ class ProductTrackingController extends MonitaDumaiController
                 if ($record->kind === 'so-pv' && strlen($serial) !== 12) {
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: Upload SO PV harus berisi SN 12 digit."]);
                 }
-                if ($record->kind === 'so-sa' && ! preg_match('/^0\d{15}$/', $serial)) {
-                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: Upload SO SA harus berisi SN 16 digit yang diawali 0."]);
+                if ($record->kind === 'so-sa' && ! preg_match('/^(?:[1-9]\d{14}|0\d{15})$/', $serial)) {
+                    throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: Upload SO SA harus berisi SN 15 digit, atau 16 digit dengan 0 di depan."]);
                 }
-                if (isset($seenSerials[$serial])) {
-                    throw ValidationException::withMessages(['file' => "SN duplikat {$serial} ditemukan di baris {$seenSerials[$serial]} dan {$rowNumber}. Hapus salah satu baris lalu upload ulang."]);
+                // Store SA SO serials in the canonical 15-digit form. A leading zero
+                // is only a file-format variant and must not create a second redeem.
+                if ($record->kind === 'so-sa' && strlen($serial) === 16) $serial = substr($serial, 1);
+                $serialIdentity = $serial;
+                if (isset($seenSerials[$serialIdentity])) {
+                    throw ValidationException::withMessages(['file' => "SN duplikat {$serialIdentity} ditemukan di baris {$seenSerials[$serialIdentity]} dan {$rowNumber}. Hapus salah satu baris lalu upload ulang."]);
                 }
-                $seenSerials[$serial] = $rowNumber;
+                $seenSerials[$serialIdentity] = $rowNumber;
                 if (count($seenSerials) >= 500) $flushSeenSerials();
                 $soldAtValue = $this->mappedValue($values, $mapping['date_column'] ?? null);
                 if ($record->kind !== 'warehouse' && $soldAtValue === '') {
@@ -1210,15 +1224,20 @@ class ProductTrackingController extends MonitaDumaiController
                     $hint = $record->kind !== 'warehouse' ? 'Gunakan format dd-mmm-yyyy, contoh 12-oct-2026.' : 'Format tanggal tidak dikenali.';
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: {$hint}"]);
                 }
-                if ($record->kind !== 'warehouse' && $detectedScanDate === null && $soldAt !== null) {
+                if ($record->kind === 'scan' && $detectedScanDate === null && $soldAt !== null) {
                     $detectedScanDate = $soldAt;
-                } elseif ($record->kind !== 'warehouse' && $soldAt !== null && $detectedScanDate !== $soldAt) {
+                } elseif ($record->kind === 'scan' && $soldAt !== null && $detectedScanDate !== $soldAt) {
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal berbeda dari baris sebelumnya. Satu file upload harus memakai satu tanggal yang sama."]);
+                } elseif (str_starts_with($record->kind, 'so-') && ! $mixedSoDates && $detectedScanDate === null && $soldAt !== null) {
+                    $detectedScanDate = $soldAt;
+                } elseif (str_starts_with($record->kind, 'so-') && $soldAt !== null && $detectedScanDate !== $soldAt) {
+                    $detectedScanDate = null;
+                    $mixedSoDates = true;
                 }
                 $sf = mb_substr($this->mappedValue($values, $mapping['sf_column'] ?? null), 0, 150);
                 $product = mb_substr($this->mappedValue($values, $mapping['product_column'] ?? null), 0, 200);
                 $date = $soldAt ?? ($record->kind !== 'warehouse' ? $detectedScanDate : null);
-                $key = implode("\x1f", [$date ?? '', $outletId, $sf, $product]);
+                $key = implode("\x1f", [$date ?? '', $record->kind === 'scan' ? $outletId : '', $sf, $product]);
                 if ($range !== null && $key === $range['key'] && $this->incrementSerial($range['serial_end']) === $serial) {
                     $range['serial_end'] = $serial;
                     $range['serial_count']++;
@@ -1234,7 +1253,7 @@ class ProductTrackingController extends MonitaDumaiController
                             $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
                         }
                     }
-                    $range = ['key' => $key, 'scan_date' => $record->kind !== 'warehouse' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
+                    $range = ['key' => $key, 'scan_date' => $record->kind !== 'warehouse' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId !== '' ? $outletId : null, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
                 }
                 $count++;
                 if (count($batch) >= 500) {
@@ -1274,7 +1293,8 @@ class ProductTrackingController extends MonitaDumaiController
         }
         DB::statement("DROP TEMPORARY TABLE IF EXISTS `{$seenTable}`");
         Storage::disk('local')->delete($record->storage_path);
-        return redirect()->route('surya.product-tracking.imports', ['kind' => $record->kind])->with('success', number_format($count).' baris Digipos berhasil diimpor.');
+        $label = str_starts_with($record->kind, 'so-') ? 'baris SO' : ($record->kind === 'scan' ? 'baris ST Digipos' : 'baris Digipos');
+        return redirect()->route('surya.product-tracking.imports', ['kind' => $record->kind])->with('success', number_format($count).' '.$label.' berhasil diimpor.');
     }
 
     public function report(Request $request)
@@ -1802,32 +1822,56 @@ class ProductTrackingController extends MonitaDumaiController
     private function findExistingOutletRedeemRangesBatch(string $kind, array $ranges): array
     {
         if ($ranges === []) return [];
-        $length = strlen($ranges[0]['serial_start']);
-        $existingRanges = DB::table('product_tracking_digipos as digipos')
-            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-            ->where('digipos.kind', $kind)
-            ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
-            ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-            ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
-            ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
-            ->where(function ($query) use ($ranges) {
-                foreach ($ranges as $range) {
-                    $query->orWhere(function ($overlap) use ($range) {
-                        $overlap->where('digipos.id_outlet', $range['id_outlet'])
-                            ->where('digipos.serial_start', '<=', $range['serial_end'])
-                            ->where('digipos.serial_end', '>=', $range['serial_start']);
-                    });
-                }
-            })
-            ->get(['digipos.id_outlet', 'digipos.serial_start', 'digipos.serial_end']);
-
         $matches = [];
-        foreach ($ranges as $range) {
-            foreach ($existingRanges as $existing) {
-                if ((string) $existing->id_outlet !== (string) $range['id_outlet']) continue;
-                if (strcmp($existing->serial_start, $range['serial_end']) <= 0 && strcmp($existing->serial_end, $range['serial_start']) >= 0) {
-                    $matches[$range['source_row']] = true;
-                    break;
+        foreach (collect($ranges)->groupBy(fn ($range) => strlen($range['serial_start'])) as $length => $lengthRanges) {
+            $length = (int) $length;
+            $candidates = $lengthRanges->values()->all();
+            $existingRanges = DB::table('product_tracking_digipos as digipos')
+                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                ->where('digipos.kind', $kind)
+                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
+                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
+                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
+                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
+                ->where(function ($query) use ($candidates) {
+                    foreach ($candidates as $range) {
+                        $query->orWhere(function ($overlap) use ($range) {
+                            $overlap->where('digipos.serial_start', '<=', $range['serial_end'])
+                                ->where('digipos.serial_end', '>=', $range['serial_start']);
+                        });
+                    }
+                })
+                ->get(['digipos.serial_start', 'digipos.serial_end']);
+
+            if ($kind === 'so-sa' && $length === 15) {
+                $legacyRanges = DB::table('product_tracking_digipos as digipos')
+                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                    ->where('digipos.kind', $kind)
+                    ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
+                    ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
+                    ->whereRaw("CHAR_LENGTH(digipos.serial_start) = 16 AND LEFT(digipos.serial_start, 1) = '0' AND LEFT(digipos.serial_end, 1) = '0'")
+                    ->where(function ($query) use ($candidates) {
+                        foreach ($candidates as $range) {
+                            $query->orWhere(function ($overlap) use ($range) {
+                                $overlap->where('digipos.serial_start', '<=', '0'.$range['serial_end'])
+                                    ->where('digipos.serial_end', '>=', '0'.$range['serial_start']);
+                            });
+                        }
+                    })
+                    ->get(['digipos.serial_start', 'digipos.serial_end'])
+                    ->map(fn ($range) => (object) [
+                        'serial_start' => substr($range->serial_start, 1),
+                        'serial_end' => substr($range->serial_end, 1),
+                    ]);
+                $existingRanges = $existingRanges->concat($legacyRanges);
+            }
+
+            foreach ($candidates as $range) {
+                foreach ($existingRanges as $existing) {
+                    if (strcmp($existing->serial_start, $range['serial_end']) <= 0 && strcmp($existing->serial_end, $range['serial_start']) >= 0) {
+                        $matches[$range['source_row']] = true;
+                        break;
+                    }
                 }
             }
         }

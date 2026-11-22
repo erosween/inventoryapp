@@ -21,7 +21,8 @@
             @include('surya.product-tracking.sales-stock-upload')
         @else
         <h2>{{ $kind==='warehouse'?'Upload Warehouse Digipos':($kind==='scan'?'Upload ST Digipos':'Upload SO '.strtoupper(substr($kind,3))) }}</h2>
-        <p class="pt-subtitle">Pilih file CSV. Setelah header terbaca, petakan kolom SN, ID outlet, SF, tanggal, dan denom sebelum impor.</p>
+        <p class="pt-subtitle">Pilih file CSV. {{ str_starts_with($kind, 'so-') ? 'Kolom wajib hanya tanggal SO dan SN; outlet dicocokkan otomatis dari transaksi ST Surya.' : 'Setelah header terbaca, petakan kolom sesuai data transaksi.' }}</p>
+        @if(str_starts_with($kind, 'so-'))<div class="pt-alert info">Format file: <strong>tanggal SO | SN</strong>. Tanggal SO diisi pada setiap baris; outlet dicari otomatis dari ST Surya.</div>@endif
         @if(!auth()->user()?->isSuperAdmin())<div class="pt-muted">Upload hanya tersedia untuk Admin.</div>@else
         <form method="post" action="{{ route('surya.product-tracking.imports.stage') }}" enctype="multipart/form-data" class="pt-grid pt-upload-form" data-loading-message="Membaca header dan menyiapkan pratinjau file…" data-loading-label="Membaca…">
             @csrf<input type="hidden" name="kind" value="{{ $kind }}">
