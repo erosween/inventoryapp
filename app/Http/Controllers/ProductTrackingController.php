@@ -794,14 +794,12 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereRaw("CONVERT(so.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
             ->whereRaw("CONVERT(u.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
             ->whereRaw("CONVERT(u.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci");
-        // SO rows are attributed through the matching ST serial, so every SO outlet
-        // must already exist in these ST sources. Page those outlet identities first.
-        $mobileExists = (clone $mobileSt)->whereColumn('sale.id_outlet', 'outlet.id_outlet')->selectRaw('1');
-        $webExists = (clone $webSt)->whereColumn('form_sale.id_outlet', 'outlet.id_outlet')->selectRaw('1');
+        // Find eligible outlets from the ST sources in one pass. Correlated EXISTS
+        // checks made the list query re-scan serial history for every outlet row.
+        $stOutletIds = (clone $mobileSt)->select('sale.id_outlet')
+            ->union((clone $webSt)->select('form_sale.id_outlet'));
         $outletQuery = DB::table('appsdumais as outlet')
-            ->where(function ($query) use ($mobileExists, $webExists) {
-                $query->whereExists($mobileExists)->orWhereExists($webExists);
-            })
+            ->whereIn('outlet.id_outlet', $stOutletIds)
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
             ->addSelect($outletCategory)
             ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet');
@@ -835,20 +833,20 @@ class ProductTrackingController extends MonitaDumaiController
             })
             ->whereIn('st.id_outlet', $outletIds)
             ->selectRaw('st.id_outlet, so.sold_at, st.st_date, GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) AS matched_qty');
-            $so = DB::query()->fromSub(clone $matchedSo, 'matched_so')
-                ->select('id_outlet')->selectRaw('SUM(matched_qty) AS so_qty')->groupBy('id_outlet');
-            $redeem = DB::query()->fromSub($matchedSo, 'matched_so')
-                ->select('id_outlet')->selectRaw('SUM(matched_qty) AS redeemed_qty')
+            // Aggregate the expensive serial overlap once; SO qty, redeemed qty,
+            // and weighted duration all come from the same matched range rows.
+            $matchedMetrics = DB::query()->fromSub($matchedSo, 'matched_so')
+                ->select('id_outlet')
+                ->selectRaw('SUM(matched_qty) AS so_qty, SUM(matched_qty) AS redeemed_qty')
                 ->selectRaw('SUM(matched_qty * GREATEST(DATEDIFF(sold_at, st_date), 0)) AS days_to_customer_weighted')
                 ->groupBy('id_outlet');
             $metrics = DB::table('appsdumais as outlet')
                 ->leftJoinSub($st, 'st', 'st.id_outlet', '=', 'outlet.id_outlet')
-                ->leftJoinSub($so, 'so', 'so.id_outlet', '=', 'outlet.id_outlet')
-                ->leftJoinSub($redeem, 'redeem', 'redeem.id_outlet', '=', 'outlet.id_outlet')
+                ->leftJoinSub($matchedMetrics, 'matched', 'matched.id_outlet', '=', 'outlet.id_outlet')
                 ->whereIn('outlet.id_outlet', $outletIds)
                 ->select('outlet.id_outlet')
-                ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(so.so_qty, 0) AS so_qty, COALESCE(redeem.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(redeem.redeemed_qty, 0), 0) AS remaining_qty')
-                ->selectRaw('CASE WHEN COALESCE(redeem.redeemed_qty, 0) > 0 THEN ROUND(redeem.days_to_customer_weighted / redeem.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
+                ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(matched.so_qty, 0) AS so_qty, COALESCE(matched.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(matched.redeemed_qty, 0), 0) AS remaining_qty')
+                ->selectRaw('CASE WHEN COALESCE(matched.redeemed_qty, 0) > 0 THEN ROUND(matched.days_to_customer_weighted / matched.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
                 ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
             $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet(
                 DB::query()->fromSub($stSources, 'source')->select('source.id_outlet', 'source.owner_sf', 'source.iddenom', 'source.serial_start', 'source.serial_end', 'source.st_date')->get(),
