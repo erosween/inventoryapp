@@ -9,7 +9,7 @@
 
 @section('content')
 <section class="pt-card">
-    <div class="pt-result-head"><div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stock Outlet = SN ST Digipos dikurangi SN SO yang cocok di outlet yang sama. SO menampilkan jumlah SN yang diupload; hanya SN SO yang ditemukan di ST outlet tersebut yang dikurangkan.</p></div>
+    <div class="pt-result-head"><div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stock Outlet = SN ST Surya dikurangi SN SO yang cocok di outlet yang sama.</p></div>
         @if(auth()->user()?->isSuperAdmin())<a class="pt-button primary" href="{{ route('surya.product-tracking.imports',['kind'=>$soKind]) }}"><i class="fas fa-upload"></i> Upload SO {{ $product }}</a>@endif
     </div>
     <nav class="pt-sold-tabs" aria-label="Kategori produk Stock Outlet">
@@ -53,6 +53,6 @@
 </section>
 <section class="pt-card">
     <h2>Arti insight durasi</h2>
-    <p class="pt-subtitle mb-0"><strong>SF → Outlet</strong> dihitung dari tanggal penjualan SN oleh SF sampai tanggal ST Digipos. <strong>Outlet → Pelanggan</strong> dihitung dari tanggal ST Digipos sampai tanggal SN tersebut muncul pada upload SO. Angka memakai rata-rata tertimbang SN yang cocok; tanda — berarti belum ada pasangan serial bertanggal.</p>
+    <p class="pt-subtitle mb-0"><strong>SF → Outlet</strong> dihitung dari tanggal SN masuk ke SF sampai tanggal ST Surya. Tanggal masuk SF diambil dari SF Masuk admin, atau tanggal upload Stok SN Sales jika SN tidak tercatat di SF Masuk. <strong>Outlet → Pelanggan</strong> dihitung dari tanggal ST Surya sampai tanggal SO. Durasi adalah rata-rata tertimbang berdasarkan jumlah SN yang cocok; — berarti belum ada pasangan SN bertanggal.</p>
 </section>
 @endsection
