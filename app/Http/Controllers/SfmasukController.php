@@ -214,6 +214,9 @@ public function masuksfproses(Request $request)
         'items.*.sn_start' => 'nullable|string|max:24',
         'items.*.sn_end' => 'nullable|string|max:24',
     ]);
+    // Rows removed in the browser can leave sparse item keys (0, 2, 4, ...).
+    // Normalize before the indexed overlap checks and persistence loops.
+    $validated['items'] = array_values($validated['items']);
 
     $denomMetadata = DB::table('denom')
         ->whereIn('iddenom', collect($validated['items'])->pluck('iddenom')->unique())
