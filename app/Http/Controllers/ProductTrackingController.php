@@ -804,7 +804,8 @@ class ProductTrackingController extends MonitaDumaiController
             ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
             ->where('so.kind', $soKind)
             ->where('u.kind', $soKind)
-            ->where('u.status', 'complete');
+            ->where('u.status', 'complete')
+            ->select('so.serial_start', 'so.serial_end', 'so.sold_at');
         $applySerialLengths($soBase, 'so.serial_start');
         // Find eligible outlets from the ST sources in one pass. Correlated EXISTS
         // checks made the list query re-scan serial history for every outlet row.
