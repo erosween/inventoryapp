@@ -773,22 +773,33 @@ class ProductTrackingController extends MonitaDumaiController
             : DB::raw("'Reguler' AS kategori_outlet");
         $soKind = 'so-'.strtolower($product);
         abort_unless(Schema::hasTable('mobile_sales_serials') && Schema::hasColumn('keluarsf', 'sn_awal') && Schema::hasColumn('keluarsf', 'sn_akhir'), 503, 'Sumber SN ST Nota belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
-        $serialLengthSql = $product === 'PV' ? '12' : '15,16';
+        $serialLengths = $product === 'PV' ? [12] : [15, 16];
+        $applySerialLengths = static function ($query, string $column) use ($serialLengths): void {
+            $query->where(function ($lengthQuery) use ($column, $serialLengths) {
+                foreach ($serialLengths as $length) {
+                    $lengthQuery->orWhere(function ($rangeQuery) use ($column, $length) {
+                        $rangeQuery->whereBetween($column, [str_repeat('0', $length), str_repeat('9', $length)])
+                            ->whereRaw("CHAR_LENGTH({$column}) = ?", [$length]);
+                    });
+                }
+            });
+        };
         $mobileSt = DB::table('mobile_sales_serials as serial')
             ->join('mobile_penjualan as sale', 'sale.id', '=', 'serial.mobile_penjualan_id')
-            ->whereRaw("CONVERT(serial.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")
-            ->whereRaw("CONVERT(sale.status USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT IN (_utf8mb4'draft_wa' COLLATE utf8mb4_unicode_ci, _utf8mb4'rejected' COLLATE utf8mb4_unicode_ci)")
-            ->whereNotNull('sale.id_outlet')->whereRaw("CHAR_LENGTH(serial.serial_start) IN ({$serialLengthSql})")
+            ->where('serial.identifier_type', 'sn')
+            ->whereNotIn('sale.status', ['draft_wa', 'rejected'])
+            ->whereNotNull('sale.id_outlet')
             ->selectRaw("sale.id_outlet, COALESCE(NULLIF(sale.owner_idsf, ''), sale.idsf) AS owner_sf, serial.iddenom, serial.serial_start, serial.serial_end, serial.qty AS serial_count, sale.tgl AS st_date");
+        $applySerialLengths($mobileSt, 'serial.serial_start');
         $webSt = DB::table('keluarsf as form_sale')
-            ->whereNotNull('form_sale.id_outlet')->whereRaw("TRIM(form_sale.id_outlet) <> ''")
-            ->whereRaw("CONVERT(COALESCE(form_sale.tambahanket, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci NOT LIKE _utf8mb4'Mobile Approval ID: %' COLLATE utf8mb4_unicode_ci")
-            ->whereRaw("(form_sale.identifier_type IS NULL OR CONVERT(form_sale.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci)")
-            ->whereRaw("(form_sale.serial_mode IS NULL OR CONVERT(form_sale.serial_mode USING utf8mb4) COLLATE utf8mb4_unicode_ci <> _utf8mb4'broken' COLLATE utf8mb4_unicode_ci)")
-            ->whereNotNull('form_sale.sn_awal')->whereRaw("TRIM(form_sale.sn_awal) <> ''")
+            ->whereNotNull('form_sale.id_outlet')->where('form_sale.id_outlet', '<>', '')
+            ->whereRaw("COALESCE(form_sale.tambahanket, '') NOT LIKE 'Mobile Approval ID: %'")
+            ->where(function ($query) { $query->whereNull('form_sale.identifier_type')->orWhere('form_sale.identifier_type', 'sn'); })
+            ->where(function ($query) { $query->whereNull('form_sale.serial_mode')->orWhere('form_sale.serial_mode', '<>', 'broken'); })
+            ->whereNotNull('form_sale.sn_awal')->where('form_sale.sn_awal', '<>', '')
             ->whereRaw("(form_sale.sn_akhir IS NULL OR TRIM(CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci) = _utf8mb4'' COLLATE utf8mb4_unicode_ci OR CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci >= CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci)")
-            ->whereRaw("CHAR_LENGTH(form_sale.sn_awal) IN ({$serialLengthSql})")
             ->selectRaw("form_sale.id_outlet, form_sale.idsf AS owner_sf, form_sale.iddenom, form_sale.sn_awal AS serial_start, COALESCE(NULLIF(form_sale.sn_akhir, ''), form_sale.sn_awal) AS serial_end, form_sale.qty AS serial_count, form_sale.tgl AS st_date");
+        $applySerialLengths($webSt, 'form_sale.sn_awal');
         $soBase = DB::table('product_tracking_digipos as so')
             ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
             ->whereRaw("CONVERT(so.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
@@ -816,10 +827,10 @@ class ProductTrackingController extends MonitaDumaiController
             $st = DB::query()->fromSub($stSources, 'source')
                 ->selectRaw('source.id_outlet, SUM(source.serial_count) AS st_qty')->groupBy('source.id_outlet');
             $matchedSo = DB::query()->fromSub(clone $stSources, 'st')
-            ->joinSub(clone $soBase, 'so', function ($join) use ($serialLengthSql) {
-                $join->whereRaw("CHAR_LENGTH(st.serial_start) IN ({$serialLengthSql})")
-                    ->whereRaw("CHAR_LENGTH(so.serial_start) IN ({$serialLengthSql})")
-                    ->where(function ($sameLength) {
+            ->joinSub(clone $soBase, 'so', function ($join) use ($applySerialLengths) {
+                $applySerialLengths($join, 'st.serial_start');
+                $applySerialLengths($join, 'so.serial_start');
+                $join->where(function ($sameLength) {
                         $sameLength->where(function ($match) {
                             $match->whereRaw('CHAR_LENGTH(so.serial_start) = CHAR_LENGTH(st.serial_start)')
                                 ->whereColumn('so.serial_start', '<=', 'st.serial_end')
