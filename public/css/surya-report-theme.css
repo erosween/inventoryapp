@@ -56,4 +56,115 @@
 [data-surya-workspace] .surya-inventory-dashboard-page .card.sales-summary-card{background:#fffcf6;border-color:#e0dfd3}
 @media(max-width:1100px){.surya-report-context{gap:8px;padding-left:14px}}
 @media(max-width:640px){[data-surya-workspace] .surya-navbar{grid-template-columns:36px minmax(0,1fr);gap:9px;min-height:72px}.surya-report-context{display:none}[data-surya-workspace] .surya-navbar-title{font-size:13px}[data-surya-workspace] .surya-navbar-subtitle{font-size:9px}[data-surya-workspace] .surya-page-heading{padding:18px 0 18px;margin-bottom:18px}[data-surya-workspace] .surya-page-heading h1{font-size:24px;letter-spacing:-.5px}[data-surya-workspace] :is(.photo-thumb,.visit-photo-thumb){width:68px;height:51px}}
+
+/* Modern shared action buttons: Surya red stays the primary brand cue. */
+[data-surya-workspace] .surya-content :is(
+    .btn:not(.btn-link), .pt-button, .pt-page-button, .ngrs-button,
+    .svp-primary, .svp-copy-button, .svp-edit-button, .stock-filter-button,
+    .surya-page-link, .page-link, .approve-btn
+) {
+    border-radius: 11px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    text-decoration: none;
+    transition: transform .16s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+}
+[data-surya-workspace] .surya-content :is(
+    .btn:not(.btn-secondary,.btn-light,.btn-outline-secondary,.btn-outline-danger,.btn-outline-primary,.btn-success,.btn-link),
+    .pt-button.primary, .pt-page-button.primary, .ngrs-button:not(.secondary),
+    .svp-primary, .stock-filter-button, .surya-page-link.active, .page-link.active,
+    .outlet-tab.active, .pt-sold-tabs a.active, .approve-btn
+) {
+    border: 1px solid #a80929;
+    background: linear-gradient(135deg, #dc2347 0%, #c10d31 58%, #a80929 100%);
+    color: #fff !important;
+    box-shadow: 0 5px 13px rgba(168, 9, 41, .19), inset 0 1px 0 rgba(255,255,255,.24);
+}
+[data-surya-workspace] .surya-content :is(
+    .btn:not(.btn-secondary,.btn-light,.btn-outline-secondary,.btn-outline-danger,.btn-outline-primary,.btn-success,.btn-link),
+    .pt-button.primary, .pt-page-button.primary, .ngrs-button:not(.secondary),
+    .svp-primary, .stock-filter-button, .surya-page-link.active, .page-link.active,
+    .outlet-tab.active, .pt-sold-tabs a.active, .approve-btn
+):hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #92051f;
+    background: linear-gradient(135deg, #e52a4e 0%, #c8102e 56%, #980720 100%);
+    color: #fff !important;
+    box-shadow: 0 9px 19px rgba(168, 9, 41, .25), inset 0 1px 0 rgba(255,255,255,.28);
+}
+[data-surya-workspace] .surya-content :is(
+    .btn:not(.btn-link), .pt-button, .pt-page-button, .ngrs-button,
+    .svp-primary, .svp-copy-button, .svp-edit-button, .stock-filter-button,
+    .surya-page-link, .page-link, .approve-btn
+):active:not(:disabled) { transform: translateY(0) scale(.985); }
+[data-surya-workspace] .surya-content :is(
+    .btn-secondary, .btn-light, .btn-outline-secondary, .pt-button:not(.primary),
+    .pt-page-button:not(.primary), .ngrs-button.secondary, .svp-edit-button,
+    .surya-page-link:not(.active), .page-link:not(.active)
+) {
+    border: 1px solid #d8e0e9;
+    background: linear-gradient(180deg, #fff 0%, #f7f8fb 100%);
+    color: #344054;
+    box-shadow: 0 1px 2px rgba(16,24,40,.05), inset 0 1px 0 rgba(255,255,255,.9);
+}
+[data-surya-workspace] .surya-content :is(
+    .btn-secondary, .btn-light, .btn-outline-secondary, .pt-button:not(.primary),
+    .pt-page-button:not(.primary), .ngrs-button.secondary, .svp-edit-button,
+    .surya-page-link:not(.active), .page-link:not(.active)
+):hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #e4a0ae;
+    background: linear-gradient(180deg, #fff 0%, #fff3f5 100%);
+    color: #a80929;
+    box-shadow: 0 6px 13px rgba(32,43,59,.09), inset 0 1px 0 #fff;
+}
+[data-surya-workspace] .surya-content .svp-copy-button,
+[data-surya-workspace] .surya-content :is(.btn-outline-danger,.btn-outline-primary) {
+    border: 1px solid #edb2be;
+    background: linear-gradient(180deg, #fff 0%, #fff4f6 100%);
+    color: #b20d30;
+    box-shadow: 0 2px 5px rgba(168,9,41,.08), inset 0 1px 0 #fff;
+}
+[data-surya-workspace] .surya-content .svp-copy-button:hover,
+[data-surya-workspace] .surya-content :is(.btn-outline-danger,.btn-outline-primary):hover {
+    transform: translateY(-1px);
+    border-color: #d94662;
+    background: #ffeaee;
+    color: #970720;
+    box-shadow: 0 7px 14px rgba(168,9,41,.13);
+}
+[data-surya-workspace] .surya-content .btn-success {
+    border: 1px solid #08744d;
+    background: linear-gradient(135deg, #10a66d 0%, #08744d 100%);
+    color: #fff;
+    box-shadow: 0 5px 13px rgba(8,116,77,.18), inset 0 1px 0 rgba(255,255,255,.22);
+}
+[data-surya-workspace] .surya-content .btn-success:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #065b3d;
+    background: linear-gradient(135deg, #12b579 0%, #08744d 100%);
+    color: #fff;
+    box-shadow: 0 9px 19px rgba(8,116,77,.24), inset 0 1px 0 rgba(255,255,255,.24);
+}
+[data-surya-workspace] .surya-content :is(
+    .btn, .pt-button, .pt-page-button, .ngrs-button, .svp-primary,
+    .svp-copy-button, .svp-edit-button, .stock-filter-button,
+    .surya-page-link, .page-link, .approve-btn
+):focus-visible {
+    outline: 3px solid rgba(200,16,46,.25);
+    outline-offset: 3px;
+}
+[data-surya-workspace] .surya-content :is(
+    .btn, .pt-button, .pt-page-button, .ngrs-button, .svp-primary,
+    .svp-copy-button, .svp-edit-button, .stock-filter-button,
+    .surya-page-link, .page-link, .approve-btn
+):disabled,
+[data-surya-workspace] .surya-content :is(.pt-page-button,.surya-page-link,.page-link).disabled {
+    transform: none;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+@media(prefers-reduced-motion:reduce){
+    [data-surya-workspace] .surya-content :is(.btn,.pt-button,.pt-page-button,.ngrs-button,.svp-primary,.svp-copy-button,.svp-edit-button,.stock-filter-button,.surya-page-link,.page-link,.approve-btn){transition:none}
+}
 @media print{[data-surya-workspace]>.surya-workspace-main,[data-surya-workspace] .surya-content{background:#fff!important}.surya-report-context{display:none}}
