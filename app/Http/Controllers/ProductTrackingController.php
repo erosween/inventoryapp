@@ -802,9 +802,10 @@ class ProductTrackingController extends MonitaDumaiController
         $applySerialLengths($webSt, 'form_sale.sn_awal');
         $soBase = DB::table('product_tracking_digipos as so')
             ->join('product_tracking_uploads as u', 'u.id', '=', 'so.upload_id')
-            ->whereRaw("CONVERT(so.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
-            ->whereRaw("CONVERT(u.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$soKind])
-            ->whereRaw("CONVERT(u.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci");
+            ->where('so.kind', $soKind)
+            ->where('u.kind', $soKind)
+            ->where('u.status', 'complete');
+        $applySerialLengths($soBase, 'so.serial_start');
         // Find eligible outlets from the ST sources in one pass. Correlated EXISTS
         // checks made the list query re-scan serial history for every outlet row.
         $stOutletIds = (clone $mobileSt)->select('sale.id_outlet')
@@ -834,7 +835,6 @@ class ProductTrackingController extends MonitaDumaiController
             $matchedSo = DB::query()->fromSub(clone $stSources, 'st')
             ->joinSub(clone $soBase, 'so', function ($join) use ($applySerialLengths) {
                 $applySerialLengths($join, 'st.serial_start');
-                $applySerialLengths($join, 'so.serial_start');
                 $join->where(function ($sameLength) {
                         $sameLength->where(function ($match) {
                             $match->whereRaw('CHAR_LENGTH(so.serial_start) = CHAR_LENGTH(st.serial_start)')
