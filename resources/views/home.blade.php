@@ -14,11 +14,14 @@
 @endphp
 <link rel="stylesheet" href="{{ asset('css/surya-validity-mom.css') }}?v={{ filemtime(public_path('css/surya-validity-mom.css')) }}">
 <style>
-    .distribution-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 8px; }
-    .distribution-controls label { margin:0; font-size:11px; color:#667085; font-weight:700; }
-    .distribution-product { height:38px; width:170px; padding:0 12px; border:1px solid #dce4eb; border-radius:9px; color:#344054; background:#fff; font-family:inherit;font-size:12px;font-weight:600; }
+    .distribution-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0; }
+    .distribution-controls label { margin:0 0 0 6px; font-size:11px; color:#667085; font-weight:700; }
+    .distribution-product,.distribution-filter-select { height:40px; min-width:145px; padding:0 34px 0 12px; border:1px solid #dce4eb; border-radius:10px; color:#344054; background:#fff; font-family:inherit;font-size:12px;font-weight:650; cursor:pointer; transition:border-color .15s,box-shadow .15s; }
+    .distribution-product { min-width:155px; }
+    .distribution-filter-select:focus,.distribution-product:focus { outline:0; border-color:#c8102e; box-shadow:0 0 0 3px #c8102e18; }
     .distribution-status { font-size:12px; color:#667085; }
-    .distribution-product[aria-busy="true"] { opacity:.6; }
+    .distribution-product[aria-busy="true"],.distribution-filter-select[aria-busy="true"] { opacity:.6; }
+    @media(max-width:760px){.distribution-controls{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}.distribution-controls label{margin-left:0}.distribution-product,.distribution-filter-select{width:100%;min-width:0}}
     .card.sales-summary-card { padding:26px 28px; border:1px solid #e8e2d9; border-radius:20px; background:#fffaf4; box-shadow:0 5px 20px rgba(40,36,28,.04); color:#292923; }
     .sales-summary-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .sales-summary-label { font-size:12px; font-weight:750; letter-spacing:1.1px; text-transform:uppercase; color:#78766f; }
@@ -390,12 +393,12 @@
                         <h6 class="font-weight-bold text-dark mb-0">Analisa Penjualan (Bulan Berjalan)</h6>
                         <small class="text-muted">Validasi dan 10 denom terlaris · Cutoff {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') }}</small>
                     </div>
-                    @include('surya.partials.distribution-filter', ['kind'=>'sales', 'selectedProduct'=>$distributionSalesProduct])
+                    @include('surya.partials.distribution-filter', ['kind'=>'sales', 'selectedProduct'=>$distributionSalesProduct, 'clusters'=>$allowedDistributionClusters, 'taps'=>$distributionSalesTaps, 'selectedCluster'=>$distributionSalesCluster, 'selectedTap'=>$distributionSalesTap])
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-lg-6 mb-3 mb-lg-0">
-                            <h6 class="font-weight-bold text-dark">Penjualan per Validasi</h6>
+                            <h6 class="font-weight-bold text-dark">Penjualan Per Validity</h6>
                             <div style="height:300px"><canvas id="pieSales"></canvas></div>
                         </div>
                         <div class="col-lg-6">
@@ -2943,18 +2946,36 @@
         }
         createDistributionBars('pieSales', @json($pieSales->pluck('group_name')), @json($pieSales->pluck('total')), '#c8102e');
         createDistributionBars('topDenoms', @json($pieDenoms->pluck('denom_name')), @json($pieDenoms->pluck('total')), '#099268');
-        document.querySelectorAll('.distribution-product').forEach(select => {
+        const distributionControls = document.querySelector('[data-distribution-controls]');
+        if (distributionControls) {
+            const productSelect = distributionControls.querySelector('.distribution-product');
+            const clusterSelect = distributionControls.querySelector('#distribution-cluster');
+            const tapSelect = distributionControls.querySelector('#distribution-tap');
+            const status = distributionControls.querySelector('.distribution-status');
+            const filterSelects = [productSelect, clusterSelect, tapSelect].filter(Boolean);
             let controller;
-            let committed = select.value;
-            select.addEventListener('change', async () => {
+            let committed = Object.fromEntries(filterSelects.map(select => [select.name || select.id, select.value]));
+            const updateTapOptions = () => {
+                const cluster = clusterSelect?.value || 'all';
+                let selectedStillAvailable = false;
+                [...(tapSelect?.options || [])].forEach((option, index) => {
+                    if (index === 0) return;
+                    const clusters = (option.dataset.clusters || '').split(',').filter(Boolean);
+                    option.hidden = cluster !== 'all' && !clusters.includes(cluster);
+                    if (!option.hidden && option.value === tapSelect.value) selectedStillAvailable = true;
+                });
+                if (tapSelect && !selectedStillAvailable) tapSelect.value = 'all';
+            };
+            const refreshDistribution = async () => {
                 controller?.abort();
                 const active = new AbortController();
                 controller = active;
-                const status = select.parentElement.querySelector('.distribution-status');
                 status.textContent = 'Memuat data…';
-                select.setAttribute('aria-busy', 'true');
+                filterSelects.forEach(select => select.setAttribute('aria-busy', 'true'));
                 const url = new URL(window.location.href);
-                url.searchParams.set('distribution_sales_product', select.value);
+                url.searchParams.set('distribution_sales_product', productSelect.value);
+                url.searchParams.set('distribution_sales_cluster', clusterSelect.value);
+                url.searchParams.set('distribution_sales_tap', tapSelect.value);
                 try {
                     const response = await fetch(url, {signal:active.signal, headers:{'X-Surya-Card':'distribution-sales', 'Accept':'application/json'}});
                     if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -2962,21 +2983,28 @@
                     if (controller !== active) return;
                     createDistributionBars('pieSales', data.labels, data.values, '#c8102e');
                     createDistributionBars('topDenoms', data.denom_labels, data.denom_values, '#099268');
-                    committed = select.value;
+                    committed = Object.fromEntries(filterSelects.map(select => [select.name || select.id, select.value]));
                     status.textContent = '';
                     const currentUrl = new URL(window.location.href);
-                    currentUrl.searchParams.set('distribution_sales_product', committed);
+                    currentUrl.searchParams.set('distribution_sales_product', productSelect.value);
+                    currentUrl.searchParams.set('distribution_sales_cluster', clusterSelect.value);
+                    currentUrl.searchParams.set('distribution_sales_tap', tapSelect.value);
                     window.history.replaceState({}, '', currentUrl);
                 } catch (error) {
                     if (error.name !== 'AbortError' && controller === active) {
-                        select.value = committed;
+                        filterSelects.forEach(select => { select.value = committed[select.name || select.id]; });
+                        updateTapOptions();
                         status.textContent = 'Gagal memuat. Silakan coba lagi.';
                     }
                 } finally {
-                    if (controller === active) select.removeAttribute('aria-busy');
+                    if (controller === active) filterSelects.forEach(select => select.removeAttribute('aria-busy'));
                 }
-            });
-        });
+            };
+            clusterSelect?.addEventListener('change', () => { updateTapOptions(); refreshDistribution(); });
+            productSelect?.addEventListener('change', refreshDistribution);
+            tapSelect?.addEventListener('change', refreshDistribution);
+            updateTapOptions();
+        }
 
         // ================= INTERACTIVE TOGGLES ================= 
         $(document).off('click.dashboardToggle', '.toggle-validity').on('click.dashboardToggle', '.toggle-validity', function() {

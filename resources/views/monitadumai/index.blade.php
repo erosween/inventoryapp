@@ -34,6 +34,8 @@
     @include('surya.partials.assets')
     <link rel="stylesheet" href="{{ asset('css/surya-visit-photo-preview.css') }}?v={{ filemtime(public_path('css/surya-visit-photo-preview.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/surya-visit-layout.css') }}?v={{ filemtime(public_path('css/surya-visit-layout.css')) }}">
+    <link rel="stylesheet" href="{{ asset('vendor/flatpickr/flatpickr.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/surya-outlet-date.css') }}?v={{ filemtime(public_path('css/surya-outlet-date.css')) }}">
 </head>
 
 <body>
@@ -619,11 +621,18 @@
                     <header class="visit-page-header">
                         <div class="visit-page-title"><span class="visit-eyebrow">AKTIVITAS LAPANGAN</span><h1>Detail Visit</h1><p>Pantau kunjungan, pencapaian PJP, dan aktivitas Sales Force.</p></div>
                         <div class="visit-page-actions">
-                            <form class="visit-date-filter" method="GET" action="{{ route('surya.dashboard') }}#visit-detail">
+                            <form class="visit-date-filter visit-period" method="GET" action="{{ route('surya.dashboard') }}#visit-detail">
                                 <input type="hidden" name="panel" value="visit-detail">
                                 <input type="hidden" name="visit_tab" id="visit-tab-filter" value="{{ in_array(request('visit_tab'), ['approval', 'non-digipos'], true) ? request('visit_tab') : 'summary' }}">
-                                <label for="visit-date">Tanggal laporan</label>
-                                <div><input id="visit-date" type="date" name="visit_date" value="{{ $visitDate }}" required><button type="submit">Tampilkan</button></div>
+                                <div class="outlet-period-copy"><label for="visit-date">Tanggal laporan</label><span id="visit-period-caption" data-visit-period-caption>{{ \Carbon\Carbon::parse($visitDate)->locale('id')->translatedFormat('l, d F Y') }}</span></div>
+                                <div class="visit-period-controls">
+                                    <div class="outlet-date-control">
+                                        <input class="input" id="visit-date" type="date" name="visit_date" value="{{ $visitDate }}" max="{{ now('Asia/Jakarta')->toDateString() }}" required aria-describedby="visit-period-caption">
+                                        <button type="button" data-open-visit-date aria-label="Buka kalender tanggal visit"><i class="fas fa-calendar-days" aria-hidden="true"></i></button>
+                                    </div>
+                                    <div class="outlet-period-presets" aria-label="Pilihan tanggal cepat"><button type="button" data-visit-date-preset="today">Hari ini</button><button type="button" data-visit-date-preset="yesterday">Kemarin</button></div>
+                                    <button class="visit-date-submit" type="submit">Tampilkan</button>
+                                </div>
                             </form>
                             <button type="button" class="visit-export-trigger" data-visit-export-open aria-haspopup="dialog"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</button>
                         </div>
@@ -3973,6 +3982,9 @@
                         @error('date_to')<span class="text-danger">{{ $message }}</span>@enderror
                     </form>
     </dialog>
+    <script src="{{ asset('vendor/flatpickr/flatpickr.min.js') }}" defer></script>
+    <script src="{{ asset('vendor/flatpickr/id.js') }}" defer></script>
+    <script src="{{ asset('js/surya-visit-date.js') }}?v={{ filemtime(public_path('js/surya-visit-date.js')) }}" defer></script>
     <script src="{{ asset('js/surya-visit-layout.js') }}?v={{ filemtime(public_path('js/surya-visit-layout.js')) }}" defer></script>
     @include('surya.partials.photo-preview')
 </body>

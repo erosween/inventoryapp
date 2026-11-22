@@ -6,11 +6,18 @@
 .visit-page-title h1{margin:0;color:#172033;font-size:30px;line-height:1.2;letter-spacing:-.035em;font-weight:750}
 .visit-page-title p{margin:8px 0 0;color:#667085;font-size:13px;line-height:1.5}
 .visit-page-actions{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px}
-.visit-page-header .visit-date-filter{flex:initial;min-width:0;width:auto}
-.visit-page-header .visit-date-filter label{margin:0 0 6px;font-size:11px;text-transform:none;letter-spacing:0;font-weight:600;color:#667085}
-.visit-page-header .visit-date-filter input{width:170px;flex:initial;font-weight:550}
-.visit-page-header .visit-date-filter button{font-size:12px;font-weight:650;padding:0 16px}
-.visit-page-header .visit-date-filter input,.visit-page-header .visit-date-filter button,.visit-export-trigger{height:42px;min-height:42px;border-radius:8px}
+.visit-page-header .visit-date-filter.visit-period{display:flex;flex:initial;flex-direction:column;align-items:stretch;gap:10px;min-width:390px;width:auto;padding:12px 14px;border:1px solid #e0e5ed;border-radius:12px;background:#fff}
+.visit-page-header .visit-date-filter .outlet-period-copy label{margin:0;font-size:12px;text-transform:none;letter-spacing:0;font-weight:750;color:#172033}
+.visit-page-header .visit-date-filter .outlet-period-copy span{font-size:11px;color:#667085}
+.visit-period-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.visit-period-controls .outlet-date-control{min-width:190px;flex:1}
+.visit-period-controls .outlet-date-control .input{width:100%;height:42px;min-height:42px;flex:initial;padding:0 42px 0 12px;font-weight:600;border-radius:8px}
+.visit-period-controls .outlet-date-control>button{top:3px;right:3px;width:36px;height:36px;padding:0;border-radius:8px}
+.visit-period-controls .outlet-period-presets{gap:5px}
+.visit-period-controls .outlet-period-presets button{min-height:34px;padding:0 9px}
+.visit-date-submit{height:38px;min-height:38px;padding:0 12px;border:1px solid #c8102e;border-radius:8px;background:#c8102e;color:#fff;font:inherit;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
+.visit-date-submit:hover{background:#a90d27}
+.visit-export-trigger{height:42px;min-height:42px;border-radius:8px}
 .visit-export-trigger{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;border:1px solid #d5dce6;background:#fff;color:#344054;font:inherit;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}
 .visit-export-trigger:hover{border-color:#98a2b3;background:#f8fafc}
 #dashboard-panel-visit-detail .visit-navigation{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #dce3eb}
@@ -69,6 +76,7 @@
 @media(max-width:1100px){.visit-page-header{gap:18px}.visit-page-actions{width:100%}.visit-kpi-grid{gap:10px}.visit-kpi{padding:16px}.visit-kpi-label{font-size:11px}.visit-secondary-metrics>div{padding:0 15px}#dashboard-panel-visit-detail .visit-table-tools{grid-template-columns:minmax(160px,1fr) repeat(3,minmax(115px,1fr))}}
 @media(max-width:760px){.visit-page-title h1{font-size:26px}.visit-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.visit-secondary-metrics{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:18px}.visit-secondary-metrics>div:nth-child(3){border:0}#dashboard-panel-visit-detail .visit-table-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#dashboard-panel-visit-detail .visit-table-tools input{grid-column:1/-1}.visit-kpi>strong{font-size:29px}}
 @media(max-width:520px){#dashboard-panel-visit-detail .visit-detail-page{gap:16px}.visit-page-title p{font-size:12px}.visit-page-header .visit-date-filter{width:100%}.visit-page-header .visit-date-filter>div{flex-wrap:nowrap}.visit-page-header .visit-date-filter input{width:auto;flex:1;font-size:16px}.visit-page-header .visit-date-filter button{width:auto;flex:0 0 auto}.visit-export-trigger{width:100%;height:40px}.visit-kpi{padding:14px}.visit-kpi-label{font-size:11px}.visit-kpi-icon{flex-basis:26px;height:26px;font-size:11px}.visit-kpi>strong{font-size:27px}.visit-kpi>small{font-size:10px}.visit-secondary-metrics>div{padding:0 12px}.visit-secondary-metrics span{font-size:10px}.visit-secondary-metrics strong{font-size:19px}#dashboard-panel-visit-detail .visit-module-tabs{gap:17px}#dashboard-panel-visit-detail .visit-module-tab{font-size:11px;gap:5px}#dashboard-panel-visit-detail .visit-navigation .visit-refresh-button{min-width:32px;padding:0 8px}#dashboard-panel-visit-detail .visit-navigation .visit-refresh-button span{display:none}.visit-table-heading{padding:16px 14px 0}.visit-table-heading h2{font-size:14px}#dashboard-panel-visit-detail .visit-table-tools{gap:7px;padding:14px}#dashboard-panel-visit-detail .visit-table-tools input,#dashboard-panel-visit-detail .visit-table-tools select{font-size:16px}.visit-export-dialog>header{padding:18px}.visit-export-dialog .visit-export-range{padding:18px}.visit-export-dialog .visit-export-range input{font-size:16px}}
+@media(max-width:520px){.visit-page-header .visit-date-filter.visit-period{width:100%;min-width:0;padding:11px}.visit-period-controls{width:100%;flex-wrap:nowrap;gap:6px}.visit-period-controls .outlet-date-control{min-width:0;flex:1}.visit-period-controls .outlet-date-control .input{width:100%;font-size:16px}.visit-period-controls .outlet-period-presets{flex:0 0 auto;gap:4px}.visit-period-controls .outlet-period-presets button{min-height:38px;padding:0 7px;font-size:10px}.visit-period-controls .visit-date-submit{padding:0 9px;font-size:10px}}
 /* Only the two business identifiers stay frozen in the visit recap. */
 #dashboard-panel-visit-detail .visit-summary-table{--visit-name-width:220px;--visit-tap-width:140px;table-layout:fixed;border-collapse:separate;border-spacing:0}
 #dashboard-panel-visit-detail .visit-summary-table .visit-name-col{width:var(--visit-name-width)}

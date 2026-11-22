@@ -281,6 +281,33 @@ class HomeController extends Controller
         $productFilterOptions = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
         $distributionSalesProduct = (string) $request->query('distribution_sales_product', 'pv_all');
         if (!in_array($distributionSalesProduct, $productFilterOptions, true)) $distributionSalesProduct = 'pv_all';
+        $distributionClusters = [
+            'dumai_bengkalis' => ['label' => 'Dumai & Bengkalis', 'taps' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING']],
+            'rokan_hilir' => ['label' => 'Rokan Hilir', 'taps' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG']],
+        ];
+        $userTapScope = strtoupper(trim((string) $idtap));
+        $allowedDistributionTaps = DB::table('idsf')->whereNotNull('idtap')->distinct()->orderBy('idtap')->pluck('idtap')
+            ->map(fn ($tap) => strtoupper(trim((string) $tap)))->filter()->unique()->values();
+        if ($userTapScope === 'CLUSTER_DUMAI') {
+            $allowedDistributionTaps = $allowedDistributionTaps->intersect($distributionClusters['dumai_bengkalis']['taps'])->values();
+        } elseif ($userTapScope === 'CLUSTER_ROHIL') {
+            $allowedDistributionTaps = $allowedDistributionTaps->intersect($distributionClusters['rokan_hilir']['taps'])->values();
+        } elseif (! in_array($userTapScope, ['SBP_DUMAI', 'ALL TAP'], true)) {
+            $allowedDistributionTaps = $allowedDistributionTaps->contains($userTapScope) ? collect([$userTapScope]) : collect();
+        }
+        $allowedDistributionClusters = collect($distributionClusters)->filter(fn ($cluster) => collect($cluster['taps'])->intersect($allowedDistributionTaps)->isNotEmpty());
+        $distributionSalesCluster = (string) $request->query('distribution_sales_cluster', 'all');
+        if (! in_array($userTapScope, ['SBP_DUMAI', 'ALL TAP'], true)) {
+            $distributionSalesCluster = $userTapScope === 'CLUSTER_ROHIL' ? 'rokan_hilir' : ($userTapScope === 'CLUSTER_DUMAI' ? 'dumai_bengkalis' : 'all');
+        } elseif ($distributionSalesCluster !== 'all' && ! $allowedDistributionClusters->has($distributionSalesCluster)) {
+            $distributionSalesCluster = 'all';
+        }
+        $distributionSalesTaps = $allowedDistributionTaps;
+        if ($distributionSalesCluster !== 'all') {
+            $distributionSalesTaps = $distributionSalesTaps->intersect($distributionClusters[$distributionSalesCluster]['taps'])->values();
+        }
+        $distributionSalesTap = strtoupper(trim((string) $request->query('distribution_sales_tap', 'all')));
+        if ($distributionSalesTap !== 'all' && ! $distributionSalesTaps->contains($distributionSalesTap)) $distributionSalesTap = 'all';
         $momProductFilter = strtolower((string) $request->query('mom_product', 'pv_all'));
         if (!in_array($momProductFilter, $productFilterOptions, true)) $momProductFilter = 'pv_all';
         $salesProductFilter = strtolower((string) $request->query('sales_product', 'pv_all'));
@@ -307,6 +334,12 @@ class HomeController extends Controller
                     ->groupBy('distribution_denom.iddenom', 'distribution_denom.group_name', 'distribution_denom.denom')
                     ->orderByDesc('total')->orderBy('distribution_denom.denom');
                 $applyFilter($denomQuery, 'combined_sales.idtap');
+                if ($distributionSalesCluster !== 'all') {
+                    $denomQuery->whereIn('combined_sales.idtap', $distributionClusters[$distributionSalesCluster]['taps']);
+                }
+                if ($distributionSalesTap !== 'all') {
+                    $denomQuery->where('combined_sales.idtap', $distributionSalesTap);
+                }
                 $applyProductFilter($denomQuery, 'combined_sales', $distributionSalesProduct);
                 $denomRows = $denomQuery->get();
                 $pieDenoms = $denomRows->sortByDesc('total')->take(10)->values();
@@ -321,6 +354,8 @@ class HomeController extends Controller
                     'denom_labels' => $pieDenoms->pluck('denom_name'),
                     'denom_values' => $pieDenoms->pluck('total'),
                     'cutoff' => $momSelectedDate->toDateString(),
+                    'cluster' => $distributionSalesCluster,
+                    'tap' => $distributionSalesTap,
                 ];
             }
         }
@@ -753,6 +788,10 @@ class HomeController extends Controller
         return compact(
             'stokSaSegel', 'stokSaInject',
             'distributionSalesProduct',
+            'distributionSalesCluster',
+            'distributionSalesTap',
+            'allowedDistributionClusters',
+            'distributionSalesTaps',
             'momProductFilter', 'momProductRows', 'momProductClusters', 'momProductSfByTap',
             'mode',
             'selectedYear',
