@@ -42,7 +42,7 @@
     </div>
     @if($outlets->hasPages())
         <nav class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi halaman outlet">
-            <span class="pt-muted">{{ $outlets->firstItem() }}–{{ $outlets->lastItem() }} dari {{ $outlets->total() }} outlet · 20 per halaman</span>
+            <span class="pt-muted">Menampilkan {{ $outlets->firstItem() }}–{{ $outlets->lastItem() }} outlet · 20 per halaman</span>
             <div class="d-flex align-items-center" style="gap:8px">
                 @if($outlets->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $outlets->previousPageUrl() }}">Sebelumnya</a>@endif
                 <span class="pt-muted">Halaman {{ $outlets->currentPage() }}</span>

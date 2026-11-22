@@ -806,7 +806,9 @@ class ProductTrackingController extends MonitaDumaiController
             ->addSelect($outletCategory)
             ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet');
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
-        $outlets = $outletQuery->paginate(20)->withQueryString();
+        // Avoid Laravel's COUNT(*) pagination query: this outlet filter contains
+        // correlated serial-range EXISTS checks that become very expensive as history grows.
+        $outlets = $outletQuery->simplePaginate(20)->withQueryString();
         $outletIds = $outlets->getCollection()->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
 
         if ($outletIds !== []) {
