@@ -654,12 +654,13 @@
                         $visitRows = collect($visitDetails);
                         $totalPjp = (int) $visitRows->sum('pjp_total');
                         $totalActualCall = (int) $visitRows->sum('actual_call');
-                        $visitPercentage = $totalPjp > 0 ? ($totalActualCall / $totalPjp) * 100 : 0;
+                        $totalPjpActualCall = (int) $visitRows->sum('pjp_actual_call');
+                        $visitPercentage = $totalPjp > 0 ? ($totalPjpActualCall / $totalPjp) * 100 : 0;
                     @endphp
                     <div class="visit-kpi-grid">
                         <article class="visit-kpi"><div class="visit-kpi-label">Total PJP<span class="visit-kpi-icon"><i class="fas fa-route" aria-hidden="true"></i></span></div><strong>{{ number_format($totalPjp,0) }}</strong><small>Outlet terjadwal</small></article>
-                        <article class="visit-kpi"><div class="visit-kpi-label">Actual Call<span class="visit-kpi-icon blue"><i class="fas fa-location-dot" aria-hidden="true"></i></span></div><strong>{{ number_format($totalActualCall,0) }}</strong><small>Kunjungan sesuai PJP</small></article>
-                        <article class="visit-kpi visit-kpi-highlight"><div class="visit-kpi-label">Pencapaian Visit<span class="visit-kpi-icon green"><i class="fas fa-chart-simple" aria-hidden="true"></i></span></div><strong>{{ number_format($visitPercentage,1) }}<span>%</span></strong><progress max="100" value="{{ min(100,max(0,$visitPercentage)) }}" aria-label="Pencapaian visit"></progress><small>Actual Call ÷ Total PJP</small></article>
+                        <article class="visit-kpi"><div class="visit-kpi-label">Actual Call<span class="visit-kpi-icon blue"><i class="fas fa-location-dot" aria-hidden="true"></i></span></div><strong>{{ number_format($totalActualCall,0) }}</strong><small>PJP + Extra Call</small></article>
+                        <article class="visit-kpi visit-kpi-highlight"><div class="visit-kpi-label">Pencapaian Visit<span class="visit-kpi-icon green"><i class="fas fa-chart-simple" aria-hidden="true"></i></span></div><strong>{{ number_format($visitPercentage,1) }}<span>%</span></strong><progress max="100" value="{{ min(100,max(0,$visitPercentage)) }}" aria-label="Pencapaian visit"></progress><small>Actual Call PJP ÷ Total PJP</small></article>
                         <article class="visit-kpi"><div class="visit-kpi-label">Effective Call<span class="visit-kpi-icon green"><i class="fas fa-bag-shopping" aria-hidden="true"></i></span></div><strong>{{ number_format($visitRows->sum('effective_call'),0) }}</strong><small>Kunjungan dengan transaksi</small></article>
                     </div>
                     <div class="visit-secondary-metrics">

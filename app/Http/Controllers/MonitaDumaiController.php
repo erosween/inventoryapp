@@ -984,10 +984,10 @@ class MonitaDumaiController extends Controller
 
                 $nonPjp = collect($actualDetails)->where('is_pjp', false)->count();
                 $nonBuying = collect($actualDetails)->where('effective', false)->count();
-                // Actual Call untuk persentase visit hanya menghitung outlet
-                // yang memang masuk jadwal PJP. Extra Call ditampilkan
-                // terpisah dan tidak boleh menaikkan % Visit.
-                $actualCall = collect($actualDetails)->where('is_pjp', true)->count();
+                // Actual Call mencakup semua outlet yang dikunjungi, termasuk Extra Call.
+                // Persentase PJP tetap memakai kunjungan yang sesuai jadwal saja.
+                $actualCall = count($actualDetails);
+                $pjpActualCall = collect($actualDetails)->where('is_pjp', true)->count();
                 $pjpTotal = (int) $pjpCountsBySalesForce->get(mb_strtoupper(trim((string) $sf->namasf)), 0);
 
                 return [
@@ -997,7 +997,8 @@ class MonitaDumaiController extends Controller
                     'cluster' => $this->clusterForTap((string) $sf->idtap),
                     'pjp_total' => $pjpTotal,
                     'actual_call' => $actualCall,
-                    'visit_percentage' => $pjpTotal > 0 ? round(($actualCall / $pjpTotal) * 100, 1) : 0,
+                    'pjp_actual_call' => $pjpActualCall,
+                    'visit_percentage' => $pjpTotal > 0 ? round(($pjpActualCall / $pjpTotal) * 100, 1) : 0,
                     'effective_call' => $effectiveOutlets->count(),
                     'non_pjp' => $nonPjp,
                     'non_buying' => $nonBuying,
