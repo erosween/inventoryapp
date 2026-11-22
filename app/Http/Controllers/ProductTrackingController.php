@@ -1108,6 +1108,7 @@ class ProductTrackingController extends MonitaDumaiController
                 foreach ($activeRanges as $active) {
                     $duplicateEnd = strcmp($active['end'], $end) <= 0 ? $active['end'] : $end;
                     $duplicates[] = [
+                        'first_id' => (int) $active['id'], 'duplicate_id' => (int) $row->id,
                         'serial_start' => $start, 'serial_end' => $duplicateEnd,
                         'quantity' => $this->serialRangeCount($start, $duplicateEnd),
                         'first_file' => $active['filename'], 'first_date' => $active['sold_at'] ?: $active['scan_date'],
@@ -1120,12 +1121,78 @@ class ProductTrackingController extends MonitaDumaiController
                     }
                 }
 
-                $activeRanges[] = ['start' => $start, 'end' => $end, 'filename' => $row->filename,
+                $activeRanges[] = ['id' => $row->id, 'start' => $start, 'end' => $end, 'filename' => $row->filename,
                     'sold_at' => $row->sold_at, 'scan_date' => $row->scan_date, 'id_outlet' => $row->id_outlet];
             }
         }
 
         return view('surya.product-tracking.duplicates', compact('kind', 'duplicates', 'truncated'));
+    }
+
+    public function removeDuplicateUploadRange(Request $request)
+    {
+        $this->requireEditor();
+        $data = $request->validate([
+            'kind' => 'required|in:scan,so-pv,so-sa',
+            'first_id' => 'required|integer|min:1|different:duplicate_id',
+            'duplicate_id' => 'required|integer|min:1',
+            'remove_from' => 'required|in:first,duplicate',
+        ]);
+
+        $removedCount = DB::transaction(function () use ($data) {
+            $rows = DB::table('product_tracking_digipos as d')
+                ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+                ->whereIn('d.id', [$data['first_id'], $data['duplicate_id']])
+                ->where('d.kind', $data['kind'])->where('u.kind', $data['kind'])->where('u.status', 'complete')
+                ->select('d.*')->orderBy('d.id')->lockForUpdate()->get()->keyBy('id');
+
+            abort_unless($rows->count() === 2, 409, 'Data upload sudah berubah. Muat ulang daftar duplikat.');
+            $first = $rows->get((int) $data['first_id']);
+            $duplicate = $rows->get((int) $data['duplicate_id']);
+            abort_unless($first && $duplicate, 409, 'Data upload sudah berubah. Muat ulang daftar duplikat.');
+
+            $canonical = static fn (string $serial): string => strlen($serial) === 16 && str_starts_with($serial, '0') ? substr($serial, 1) : $serial;
+            $firstStart = $canonical((string) $first->serial_start);
+            $firstEnd = $canonical((string) $first->serial_end);
+            $duplicateStart = $canonical((string) $duplicate->serial_start);
+            $duplicateEnd = $canonical((string) $duplicate->serial_end);
+            $overlapStart = strcmp($firstStart, $duplicateStart) >= 0 ? $firstStart : $duplicateStart;
+            $overlapEnd = strcmp($firstEnd, $duplicateEnd) <= 0 ? $firstEnd : $duplicateEnd;
+            abort_unless(strlen($overlapStart) === strlen($overlapEnd) && strcmp($overlapStart, $overlapEnd) <= 0, 409, 'Rentang tidak lagi bertumpuk. Muat ulang daftar duplikat.');
+
+            $target = $data['remove_from'] === 'first' ? $first : $duplicate;
+            $targetStart = (string) $target->serial_start;
+            $targetEnd = (string) $target->serial_end;
+            $pad = strlen($targetStart) === 16 && str_starts_with($targetStart, '0');
+            $cutStart = $pad ? '0'.$overlapStart : $overlapStart;
+            $cutEnd = $pad ? '0'.$overlapEnd : $overlapEnd;
+            $segments = [];
+
+            if (strcmp($targetStart, $cutStart) < 0) {
+                $leftEnd = $this->subtractOneFromSerial($cutStart);
+                if (strcmp($targetStart, $leftEnd) <= 0) $segments[] = [$targetStart, $leftEnd];
+            }
+            if (strcmp($cutEnd, $targetEnd) < 0) {
+                $rightStart = $this->incrementSerial($cutEnd);
+                if (strcmp($rightStart, $targetEnd) <= 0) $segments[] = [$rightStart, $targetEnd];
+            }
+
+            DB::table('product_tracking_digipos')->where('id', $target->id)->delete();
+            foreach ($segments as [$start, $end]) {
+                DB::table('product_tracking_digipos')->insert([
+                    'upload_id' => $target->upload_id, 'kind' => $target->kind,
+                    'scan_date' => $target->scan_date, 'serial_start' => $start, 'serial_end' => $end,
+                    'serial_count' => (int) $this->serialRangeCount($start, $end),
+                    'id_outlet' => $target->id_outlet, 'sf' => $target->sf, 'sold_at' => $target->sold_at,
+                    'product_name' => $target->product_name, 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+
+            return (int) $this->serialRangeCount($cutStart, $cutEnd);
+        });
+
+        return redirect()->route('surya.product-tracking.imports.duplicates', ['kind' => $data['kind']])
+            ->with('success', number_format($removedCount).' SN dihapus dari catatan yang dipilih. Bagian rentang yang tidak duplikat tetap tersimpan.');
     }
 
     public function salesStock()
