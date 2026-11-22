@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Cache;
 use App\Services\OptimizedImageStorage;
 use App\Services\SuryaOutletCoordinates;
 use App\Support\DenomGrouping;
@@ -133,8 +134,18 @@ class MonitaDumaiController extends Controller
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
             ->when($selectedTap !== '', fn ($query) => $query->where('tap', $selectedTap))
             ->distinct()->orderBy('sf')->pluck('sf');
-        $outletCount = $this->outletDetailBaseQuery($tapScopes, $selectedTap, '', $selectedPjp, $selectedSf)->count();
-        $nonDigiposCount = $this->nonDigiposOutletBaseQuery($tapScopes)->count();
+        $outletCountKey = 'surya-outlet-detail-count-v1-'.hash('sha256', json_encode([
+            $tapScopes, $selectedTap, $selectedPjp, $selectedSf,
+        ]));
+        $outletCount = Cache::remember($outletCountKey, 30, fn () =>
+            $this->outletDetailBaseQuery($tapScopes, $selectedTap, '', $selectedPjp, $selectedSf)->count()
+        );
+        $nonDigiposCountKey = 'surya-outlet-detail-nondigipos-count-v1-'.hash('sha256', json_encode($tapScopes));
+        $nonDigiposCount = Cache::remember($nonDigiposCountKey, 30, function () use ($tapScopes) {
+            return DB::table('surya_visits')->where('visit_type', 'non_digipos')
+                ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
+                ->distinct()->count('id_outlet');
+        });
         $search = trim((string) $request->input('q'));
         $perPage = (int) $request->input('per_page', 25);
         if (! in_array($perPage, [10, 25, 50, 100], true)) {

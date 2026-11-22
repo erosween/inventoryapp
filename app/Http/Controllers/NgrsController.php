@@ -5,7 +5,9 @@ use App\Services\NgrsImport;
 use App\Services\NgrsReport;
 use App\Services\NgrsColumnFilters;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class NgrsController extends Controller
@@ -30,8 +32,23 @@ class NgrsController extends Controller
         $includeCategory = ($options['sort'] ?? null) === 'kategori_outlet'
             || isset($options['columns']['kategori_outlet']) || isset($options['exclude']['kategori_outlet']);
         $summary = $report->summary($filters);
-        $outlets = $columns->apply($report->details($filters, $includeCategory), $options)
-            ->paginate($filters['per_page'])->withQueryString();
+        $detailQuery = $columns->apply($report->details($filters, $includeCategory), $options);
+        $activeUploads = DB::table('surya_ngrs_months')
+            ->whereBetween('month', [$filters['year'].'-01-01', $filters['year'].'-12-01'])
+            ->orderBy('month')->pluck('upload_id', 'month')->toJson();
+        $countKey = 'surya-ngrs-detail-count-v1-'.hash('sha256', json_encode([
+            $filters['year'], $filters['tap'], $filters['q'], $scopes, $options,
+            $activeUploads, Cache::get('surya-ngrs-outlet-map-v1', ''),
+        ]));
+        $total = Cache::remember($countKey, 60, fn () => (clone $detailQuery)->count());
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $outlets = new LengthAwarePaginator(
+            (clone $detailQuery)->forPage($page, $filters['per_page'])->get(),
+            $total,
+            $filters['per_page'],
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
         if (! $includeCategory) $report->attachCategories($outlets);
         $days=$report->dayDivisors($filters['year'],$months);$summaryView=$request->input('summary_view','monthly');$summaryMetric=$request->input('summary_metric','trx');
         $comparison=app(\App\Services\NgrsComparison::class)->plan($filters['year']);

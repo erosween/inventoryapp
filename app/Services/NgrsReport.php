@@ -19,7 +19,7 @@ class NgrsReport
     private bool $mapReady=false;
     public function master()
     {
-        if(!$this->mapReady){app(NgrsOutletMap::class)->refresh();$this->mapReady=true;}
+        if(!$this->mapReady){app(NgrsOutletMap::class)->refresh(false);$this->mapReady=true;}
         return DB::table('surya_ngrs_outlet_map')->select('rs','candidates','id_outlet','nama_outlet','master_tap');
     }
 

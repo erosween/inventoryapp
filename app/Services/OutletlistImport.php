@@ -50,6 +50,7 @@ class OutletlistImport
                 }
                 if ($batch) $this->save($batch);
             });
+            app(NgrsOutletMap::class)->invalidate();
             return ['count' => $count];
         } finally { $lock->release(); }
     }
