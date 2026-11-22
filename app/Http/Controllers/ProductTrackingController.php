@@ -768,7 +768,10 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
-        $outletCategory = Schema::hasColumn('appsdumais', 'kategori_outlet')
+        $stockColumns = $this->stockOutletColumnMap();
+        $options = $this->stockOutletTableOptions($request, array_keys($stockColumns));
+        $hasOutletCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
+        $outletCategory = $hasOutletCategory
             ? DB::raw('outlet.kategori_outlet AS kategori_outlet')
             : DB::raw("'Reguler' AS kategori_outlet");
         $soKind = 'so-'.strtolower($product);
@@ -820,7 +823,31 @@ class ProductTrackingController extends MonitaDumaiController
             })
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
             ->addSelect($outletCategory)
-            ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet');
+            ->orderBy($options['sort'] === 'kategori_outlet' && ! $hasOutletCategory ? DB::raw("'Reguler'") : $stockColumns[$options['sort']], $options['direction'])
+            ->orderBy('outlet.id_outlet');
+        foreach ($stockColumns as $key => $column) {
+            $included = $options['columns'][$key] ?? null;
+            $excluded = $options['exclude'][$key] ?? null;
+            if ($key === 'kategori_outlet' && ! $hasOutletCategory) {
+                if ($included !== null && ! in_array('Reguler', $included, true)) $outletQuery->whereRaw('1 = 0');
+                if ($excluded !== null && in_array('Reguler', $excluded, true)) $outletQuery->whereRaw('1 = 0');
+                continue;
+            }
+            if ($included !== null) {
+                $outletQuery->where(function ($query) use ($included, $column) {
+                    $values = array_values(array_filter($included, fn ($value) => $value !== ''));
+                    if ($values !== []) $query->whereIn($column, $values);
+                    if (in_array('', $included, true)) {
+                        $values === [] ? $query->whereNull($column)->orWhere($column, '') : $query->orWhereNull($column)->orWhere($column, '');
+                    }
+                });
+            }
+            if ($excluded !== null) {
+                $values = array_values(array_filter($excluded, fn ($value) => $value !== ''));
+                if ($values !== []) $outletQuery->whereNotIn($column, $values);
+                if (in_array('', $excluded, true)) $outletQuery->whereNotNull($column)->where($column, '<>', '');
+            }
+        }
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Avoid Laravel's COUNT(*) pagination query: this outlet filter contains
         // correlated serial-range EXISTS checks that become very expensive as history grows.
@@ -880,7 +907,94 @@ class ProductTrackingController extends MonitaDumaiController
                 return $outlet;
             }));
         }
-        return view('surya.product-tracking.stock-outlet', compact('product', 'outlets', 'soKind'));
+        return view('surya.product-tracking.stock-outlet', [
+            'product' => $product,
+            'outlets' => $outlets,
+            'soKind' => $soKind,
+            'stockTableOptions' => $options,
+        ]);
+    }
+
+    public function stockOutletColumnValues(Request $request)
+    {
+        $columns = $this->stockOutletColumnMap();
+        $request->validate([
+            'column' => ['required', Rule::in(array_keys($columns))],
+            'q' => 'nullable|string|max:150',
+            'value_page' => 'nullable|integer|min:1|max:10000',
+        ]);
+        $key = (string) $request->query('column');
+        if ($key === 'kategori_outlet' && ! Schema::hasColumn('appsdumais', 'kategori_outlet')) {
+            $values = ['Reguler'];
+        } else {
+            $column = $columns[$key];
+            $expression = str_contains($column, '.') ? $column : 'outlet.'.$column;
+            $values = DB::table('appsdumais as outlet')->selectRaw($expression.' AS value')->distinct()
+                ->when($request->filled('q'), fn ($query) => $query->whereRaw('CAST('.$expression.' AS CHAR) LIKE ?', ['%'.$request->query('q').'%']))
+                ->orderBy('value')->offset((max(1, (int) $request->query('value_page', 1)) - 1) * 100)->limit(101)
+                ->pluck('value')->map(fn ($value) => (string) ($value ?? ''))->all();
+        }
+
+        return response()->json(['values' => array_slice($values, 0, 100), 'has_more' => count($values) > 100]);
+    }
+
+    public function downloadStockOutlet(Request $request)
+    {
+        $view = $this->stockOutlet($request);
+        $data = $view->getData();
+        $rows = $data['outlets']->getCollection()->values();
+        $product = $data['product'];
+        $page = $data['outlets']->currentPage();
+
+        return response()->streamDownload(function () use ($rows, $product) {
+            $stream = fopen('php://output', 'w');
+            fwrite($stream, "\xEF\xBB\xBF");
+            fputcsv($stream, ['ID Outlet', 'Nama Outlet', 'Kecamatan', 'TAP', 'Sales Force', 'Kategori Outlet', 'Stock Outlet', 'ST '.$product, 'SO '.$product, 'SF ke Outlet (hari)', 'Outlet ke Pelanggan (hari)']);
+            foreach ($rows as $outlet) {
+                fputcsv($stream, [
+                    $outlet->id_outlet, $outlet->nama_outlet, $outlet->kecamatan, $outlet->tap, $outlet->sf,
+                    $outlet->kategori_outlet, $outlet->remaining_qty, $outlet->st_qty, $outlet->so_qty,
+                    $outlet->days_sf_to_outlet, $outlet->days_outlet_to_customer,
+                ]);
+            }
+            fclose($stream);
+        }, 'stock-outlet-'.$product.'-halaman-'.$page.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function stockOutletColumnMap(): array
+    {
+        return [
+            'id_outlet' => 'outlet.id_outlet',
+            'nama_outlet' => 'outlet.nama_outlet',
+            'kecamatan' => 'outlet.kecamatan',
+            'tap' => 'outlet.tap',
+            'sf' => 'outlet.sf',
+            'kategori_outlet' => Schema::hasColumn('appsdumais', 'kategori_outlet') ? 'outlet.kategori_outlet' : 'kategori_outlet',
+        ];
+    }
+
+    private function stockOutletTableOptions(Request $request, array $allowedColumns): array
+    {
+        $data = $request->validate([
+            'columns' => 'nullable|array|max:6', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
+            'exclude' => 'nullable|array|max:6', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
+            'sort' => ['nullable', Rule::in($allowedColumns)],
+            'direction' => 'nullable|in:asc,desc',
+            'page' => 'nullable|integer|min:1|max:100000',
+        ]);
+        foreach (['columns', 'exclude'] as $mode) {
+            foreach ($data[$mode] ?? [] as $column => $values) {
+                if (! in_array($column, $allowedColumns, true)) throw ValidationException::withMessages(['column' => 'Kolom Stock Outlet tidak valid.']);
+                $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
+            }
+        }
+
+        return [
+            'columns' => $data['columns'] ?? [],
+            'exclude' => $data['exclude'] ?? [],
+            'sort' => $data['sort'] ?? 'nama_outlet',
+            'direction' => $data['direction'] ?? 'asc',
+        ];
     }
 
     public function downloadDuplicateScanReport(int $upload)

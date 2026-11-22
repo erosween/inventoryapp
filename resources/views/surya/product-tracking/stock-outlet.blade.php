@@ -5,25 +5,40 @@
 @section('description', 'Pantau SN PV dan SA yang masuk ke outlet dan sudah redeem.')
 @section('content-class', 'pt-page')
 
-@push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">@endpush
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}">
+@endpush
 
 @section('content')
+@php
+    $filterColumns = [
+        'id_outlet' => 'ID Outlet', 'nama_outlet' => 'Nama Outlet', 'kecamatan' => 'Kecamatan',
+        'tap' => 'TAP', 'sf' => 'Sales Force', 'kategori_outlet' => 'Kategori Outlet',
+    ];
+@endphp
 <section class="pt-card">
-    <div class="pt-result-head"><div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stock Outlet = SN ST Surya dikurangi SN SO yang cocok di outlet yang sama.</p></div>
-        @if(auth()->user()?->isSuperAdmin())<a class="pt-button primary" href="{{ route('surya.product-tracking.imports',['kind'=>$soKind]) }}"><i class="fas fa-upload"></i> Upload SO {{ $product }}</a>@endif
+    <div class="pt-result-head">
+        <div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stock Outlet = SN ST Surya dikurangi SN SO yang cocok di outlet yang sama.</p></div>
+        <a class="pt-button primary" href="{{ route('surya.product-tracking.stock-outlet.download', request()->query()) }}"><i class="fas fa-download"></i> Unduh halaman CSV</a>
     </div>
     <nav class="pt-sold-tabs" aria-label="Kategori produk Stock Outlet">
         <a class="{{ $product==='PV'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet',['product'=>'PV']) }}">PV</a>
         <a class="{{ $product==='SA'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet',['product'=>'SA']) }}">SA</a>
     </nav>
     <div class="pt-table-wrap">
-        <table class="pt-table">
-            <thead><tr><th>Nama Outlet</th><th>ID Outlet</th><th>Kecamatan</th><th>TAP</th><th>Sales Force</th><th>Kategori Outlet</th><th>Stock Outlet</th><th>ST {{ $product }}</th><th>SO {{ $product }}</th><th>SF → Outlet</th><th>Outlet → Pelanggan</th></tr></thead>
+        <table class="pt-table detail-table">
+            <thead><tr>
+                @foreach($filterColumns as $column => $label)
+                    <th><div class="tf-column-heading"><span>{{ $label }}@if(($stockTableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($stockTableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $stockTableOptions['columns'] ?? []) || array_key_exists($column, $stockTableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
+                @endforeach
+                <th>Stock Outlet</th><th>ST {{ $product }}</th><th>SO {{ $product }}</th><th>SF → Outlet</th><th>Outlet → Pelanggan</th>
+            </tr></thead>
             <tbody>
                 @forelse($outlets as $outlet)
                     <tr>
-                        <td><strong>{{ $outlet->nama_outlet ?: 'Outlet tanpa nama' }}</strong></td>
                         <td>{{ $outlet->id_outlet }}</td>
+                        <td><strong>{{ $outlet->nama_outlet ?: 'Outlet tanpa nama' }}</strong></td>
                         <td>{{ $outlet->kecamatan ?: '—' }}</td>
                         <td>{{ $outlet->tap ?: 'Tanpa TAP' }}</td>
                         <td>{{ $outlet->sf ?: '—' }}</td>
@@ -40,19 +55,23 @@
             </tbody>
         </table>
     </div>
-    @if($outlets->hasPages())
-        <nav class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi halaman outlet">
-            <span class="pt-muted">Menampilkan {{ $outlets->firstItem() }}–{{ $outlets->lastItem() }} outlet · 20 per halaman</span>
-            <div class="d-flex align-items-center" style="gap:8px">
-                @if($outlets->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $outlets->previousPageUrl() }}">Sebelumnya</a>@endif
-                <span class="pt-muted">Halaman {{ $outlets->currentPage() }}</span>
-                @if($outlets->hasMorePages())<a class="pt-button" href="{{ $outlets->nextPageUrl() }}">Berikutnya</a>@else<span class="pt-button" aria-disabled="true">Berikutnya</span>@endif
-            </div>
-        </nav>
-    @endif
+    <div class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi halaman outlet">
+        <span class="pt-muted">Halaman {{ $outlets->currentPage() }} · menampilkan {{ $outlets->firstItem() ?? 0 }}–{{ $outlets->lastItem() ?? 0 }} outlet</span>
+        <div class="d-flex align-items-center" style="gap:8px">
+            @if($outlets->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $outlets->previousPageUrl() }}">Sebelumnya</a>@endif
+            @if($outlets->hasMorePages())<a class="pt-button" href="{{ $outlets->nextPageUrl() }}">Berikutnya</a>@else<span class="pt-button" aria-disabled="true">Berikutnya</span>@endif
+        </div>
+    </div>
 </section>
 <section class="pt-card">
     <h2>Arti insight durasi</h2>
     <p class="pt-subtitle mb-0"><strong>SF → Outlet</strong> dihitung dari tanggal SN masuk ke SF sampai tanggal ST Surya. Tanggal masuk SF diambil dari SF Masuk admin, atau tanggal upload Stok SN Sales jika SN tidak tercatat di SF Masuk. <strong>Outlet → Pelanggan</strong> dihitung dari tanggal ST Surya sampai tanggal SO. Durasi adalah rata-rata tertimbang berdasarkan jumlah SN yang cocok; — berarti belum ada pasangan SN bertanggal.</p>
 </section>
+<div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-values-url="{{ route('surya.product-tracking.stock-outlet.filter-values') }}" data-selection="{{ json_encode($stockTableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($stockTableOptions['exclude'] ?? new \stdClass()) }}">
+    <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
+        <div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> A ke Z / terkecil</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Z ke A / terbesar</button><button type="button" data-sort-clear>Urutan default</button></div>
+        <input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter"><div class="tf-column-menu-tools"><button type="button" data-filter-all>Pilih semua</button><button type="button" data-filter-none>Kosongkan pilihan</button></div><div data-filter-values class="tf-column-values"></div><p data-filter-message role="status" aria-live="polite"></p><button type="button" data-filter-more hidden>Muat lainnya</button>
+    </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
+</div>
+<script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
 @endsection
