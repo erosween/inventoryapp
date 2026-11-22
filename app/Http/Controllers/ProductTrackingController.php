@@ -809,8 +809,13 @@ class ProductTrackingController extends MonitaDumaiController
         // checks made the list query re-scan serial history for every outlet row.
         $stOutletIds = (clone $mobileSt)->select('sale.id_outlet')
             ->union((clone $webSt)->select('form_sale.id_outlet'));
+        // Keep the UNION as a derived table and join it once. MariaDB rewrites
+        // WHERE IN (UNION ...) as a dependent subquery and rechecks the serial
+        // sources for every outlet (20k+ rows), even when the SN index is used.
         $outletQuery = DB::table('appsdumais as outlet')
-            ->whereIn('outlet.id_outlet', $stOutletIds)
+            ->joinSub($stOutletIds, 'eligible_outlets', function ($join) {
+                $join->on('eligible_outlets.id_outlet', '=', 'outlet.id_outlet');
+            })
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
             ->addSelect($outletCategory)
             ->orderBy('outlet.nama_outlet')->orderBy('outlet.id_outlet');
