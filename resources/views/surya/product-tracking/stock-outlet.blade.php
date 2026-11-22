@@ -22,11 +22,7 @@
 <section class="pt-card">
     <div class="pt-result-head">
         <div><h2>Stock Outlet</h2><p class="pt-subtitle mb-0">Stock Outlet = SN ST Surya dikurangi SN SO yang cocok di outlet yang sama.</p></div>
-        <div class="d-flex align-items-center" style="gap:8px">
-            @foreach(['PV', 'SA'] as $downloadProduct)
-                <a class="pt-button primary" href="{{ route('surya.product-tracking.stock-outlet.download', array_merge(request()->query(), ['product' => $downloadProduct])) }}"><i class="fas fa-download"></i> Unduh SO {{ $downloadProduct }}</a>
-            @endforeach
-        </div>
+        <a class="pt-button primary" href="{{ route('surya.product-tracking.stock-outlet.download', request()->query()) }}"><i class="fas fa-download"></i> Unduh</a>
     </div>
     <nav class="pt-sold-tabs" aria-label="Kategori produk Stock Outlet">
         <a class="{{ $product==='PV'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet',['product'=>'PV']) }}">PV</a>

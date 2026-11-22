@@ -925,21 +925,56 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
-        $rows = $this->stockOutletRowsForFilters($request, $product);
+        $allowedColumns = array_keys($this->stockOutletColumnMap());
+        $options = $this->stockOutletTableOptions($request, $allowedColumns);
+        $combinedRows = [];
 
-        return response()->streamDownload(function () use ($rows, $product) {
+        foreach (['PV', 'SA'] as $reportProduct) {
+            foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $outlet) {
+                $id = (string) $outlet['id_outlet'];
+                $combinedRows[$id] ??= [
+                    'id_outlet' => $outlet['id_outlet'], 'nama_outlet' => $outlet['nama_outlet'],
+                    'kecamatan' => $outlet['kecamatan'], 'tap' => $outlet['tap'], 'sf' => $outlet['sf'],
+                    'kategori_outlet' => $outlet['kategori_outlet'],
+                ];
+                $suffix = strtolower($reportProduct);
+                $combinedRows[$id]['remaining_qty_'.$suffix] = $outlet['remaining_qty'];
+                $combinedRows[$id]['st_qty_'.$suffix] = $outlet['st_qty'];
+                $combinedRows[$id]['so_qty_'.$suffix] = $outlet['so_qty'];
+                $combinedRows[$id]['days_sf_to_outlet_'.$suffix] = $outlet['days_sf_to_outlet'];
+                $combinedRows[$id]['days_outlet_to_customer_'.$suffix] = $outlet['days_outlet_to_customer'];
+
+                if ($reportProduct === $product) {
+                    $combinedRows[$id]['remaining_qty'] = $outlet['remaining_qty'];
+                    $combinedRows[$id]['st_qty'] = $outlet['st_qty'];
+                    $combinedRows[$id]['so_qty'] = $outlet['so_qty'];
+                    $combinedRows[$id]['days_sf_to_outlet'] = $outlet['days_sf_to_outlet'];
+                    $combinedRows[$id]['days_outlet_to_customer'] = $outlet['days_outlet_to_customer'];
+                }
+            }
+        }
+
+        $rows = $this->filterAndSortStockOutletRows(collect($combinedRows)->map(fn ($row) => (object) $row), $options);
+
+        return response()->streamDownload(function () use ($rows) {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
-            fputcsv($stream, ['ID Outlet', 'Nama Outlet', 'Kecamatan', 'TAP', 'Sales Force', 'Kategori Outlet', 'Stock Outlet', 'ST '.$product, 'SO '.$product, 'SF ke Outlet (hari)', 'Outlet ke Pelanggan (hari)']);
+            fputcsv($stream, [
+                'ID Outlet', 'Nama Outlet', 'Kecamatan', 'TAP', 'Sales Force', 'Kategori Outlet',
+                'Sisa Stock SA', 'ST SA', 'SO SA', 'SF ke Outlet SA (hari)', 'Outlet ke Pelanggan SA (hari)',
+                'Sisa Stock PV', 'ST PV', 'SO PV', 'SF ke Outlet PV (hari)', 'Outlet ke Pelanggan PV (hari)',
+            ]);
             foreach ($rows as $outlet) {
                 fputcsv($stream, [
-                    $outlet['id_outlet'], $outlet['nama_outlet'], $outlet['kecamatan'], $outlet['tap'], $outlet['sf'],
-                    $outlet['kategori_outlet'], $outlet['remaining_qty'], $outlet['st_qty'], $outlet['so_qty'],
-                    $outlet['days_sf_to_outlet'], $outlet['days_outlet_to_customer'],
+                    $outlet->id_outlet, $outlet->nama_outlet, $outlet->kecamatan, $outlet->tap, $outlet->sf, $outlet->kategori_outlet,
+                    $outlet->remaining_qty_sa ?? 0, $outlet->st_qty_sa ?? 0, $outlet->so_qty_sa ?? 0,
+                    $outlet->days_sf_to_outlet_sa ?? null, $outlet->days_outlet_to_customer_sa ?? null,
+                    $outlet->remaining_qty_pv ?? 0, $outlet->st_qty_pv ?? 0, $outlet->so_qty_pv ?? 0,
+                    $outlet->days_sf_to_outlet_pv ?? null, $outlet->days_outlet_to_customer_pv ?? null,
                 ]);
             }
             fclose($stream);
-        }, 'stock-outlet-'.$product.'-semua-outlet.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'stock-outlet-gabungan-semua-outlet.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function stockOutletColumnMap(): array
