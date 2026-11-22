@@ -16,8 +16,6 @@ use Illuminate\Support\Str;
 
 class ProductTrackingController extends MonitaDumaiController
 {
-    private ?int $maxScanUploadRowCount = null;
-
     public function index(Request $request)
     {
         return redirect()->route('surya.product-tracking.sold', $request->query());
@@ -1068,6 +1066,68 @@ class ProductTrackingController extends MonitaDumaiController
         return Storage::disk('local')->download($path, 'sn-duplikat-upload-'.$upload.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    public function duplicateUploadRanges(Request $request)
+    {
+        $this->requireEditor();
+        $data = $request->validate(['kind' => 'required|in:scan,so-pv,so-sa']);
+        $kind = $data['kind'];
+        $serialFamilies = $kind === 'scan' ? [[12], [15, 16]] : [str_ends_with($kind, 'pv') ? [12] : [15, 16]];
+        $duplicates = [];
+        $limit = 500;
+        $truncated = false;
+
+        foreach ($serialFamilies as $lengths) {
+            $normalizedStart = count($lengths) === 2
+                ? "CASE WHEN CHAR_LENGTH(digipos.serial_start) = 16 AND LEFT(digipos.serial_start, 1) = '0' THEN SUBSTRING(digipos.serial_start, 2) ELSE digipos.serial_start END"
+                : 'digipos.serial_start';
+            $normalizedEnd = count($lengths) === 2
+                ? "CASE WHEN CHAR_LENGTH(digipos.serial_end) = 16 AND LEFT(digipos.serial_end, 1) = '0' THEN SUBSTRING(digipos.serial_end, 2) ELSE digipos.serial_end END"
+                : 'digipos.serial_end';
+            $query = DB::table('product_tracking_digipos as digipos')
+                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                ->where('digipos.kind', $kind)->where('upload.kind', $kind)->where('upload.status', 'complete')
+                ->whereNotNull('digipos.serial_start')->whereNotNull('digipos.serial_end')
+                ->where(function ($lengthQuery) use ($lengths) {
+                    foreach ($lengths as $length) {
+                        $lengthQuery->orWhere(function ($matchLength) use ($length) {
+                            $matchLength->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length]);
+                            if ($length === 16) $matchLength->whereRaw("LEFT(digipos.serial_start, 1) = '0' AND CHAR_LENGTH(digipos.serial_end) = 16 AND LEFT(digipos.serial_end, 1) = '0'");
+                        });
+                    }
+                })
+                ->select('digipos.id', 'digipos.upload_id', 'digipos.serial_start', 'digipos.serial_end', 'digipos.sold_at', 'digipos.scan_date', 'digipos.id_outlet', 'upload.filename')
+                ->selectRaw("{$normalizedStart} AS normalized_start, {$normalizedEnd} AS normalized_end")
+                ->orderByRaw("{$normalizedStart} ASC")->orderBy('digipos.id');
+            $activeRanges = [];
+
+            foreach ($query->cursor() as $row) {
+                $start = (string) $row->normalized_start;
+                $end = (string) $row->normalized_end;
+                $activeRanges = array_values(array_filter($activeRanges, fn ($active) => strcmp($active['end'], $start) >= 0));
+
+                foreach ($activeRanges as $active) {
+                    $duplicateEnd = strcmp($active['end'], $end) <= 0 ? $active['end'] : $end;
+                    $duplicates[] = [
+                        'serial_start' => $start, 'serial_end' => $duplicateEnd,
+                        'quantity' => $this->serialRangeCount($start, $duplicateEnd),
+                        'first_file' => $active['filename'], 'first_date' => $active['sold_at'] ?: $active['scan_date'],
+                        'first_outlet' => $active['id_outlet'], 'duplicate_file' => $row->filename,
+                        'duplicate_date' => $row->sold_at ?: $row->scan_date, 'duplicate_outlet' => $row->id_outlet,
+                    ];
+                    if (count($duplicates) >= $limit) {
+                        $truncated = true;
+                        break 3;
+                    }
+                }
+
+                $activeRanges[] = ['start' => $start, 'end' => $end, 'filename' => $row->filename,
+                    'sold_at' => $row->sold_at, 'scan_date' => $row->scan_date, 'id_outlet' => $row->id_outlet];
+            }
+        }
+
+        return view('surya.product-tracking.duplicates', compact('kind', 'duplicates', 'truncated'));
+    }
+
     public function salesStock()
     {
         $this->requireEditor();
@@ -1333,50 +1393,13 @@ class ProductTrackingController extends MonitaDumaiController
         $mixedSoDates = false;
         $batch = [];
         $range = null;
-        $seenSerials = [];
-        $duplicateRanges = [];
-        $duplicateReportPath = "product-tracking/duplicate-reports/{$record->id}.csv";
-        $seenTable = 'pt_import_seen_serials';
-        DB::statement("DROP TEMPORARY TABLE IF EXISTS `{$seenTable}`");
-        DB::statement("CREATE TEMPORARY TABLE `{$seenTable}` (serial_number VARBINARY(24) NOT NULL PRIMARY KEY, source_row INT UNSIGNED NOT NULL) ENGINE=InnoDB");
-        $scanRangeBatch = [];
-        $soRangeBatch = [];
-        $flushSeenSerials = function () use (&$seenSerials, $seenTable) {
-            if ($seenSerials === []) return;
-            $existing = DB::table($seenTable)->whereIn('serial_number', array_keys($seenSerials))->first(['serial_number', 'source_row']);
-            if ($existing) {
-                $serial = (string) $existing->serial_number;
-                throw ValidationException::withMessages(['file' => "SN duplikat {$serial} ditemukan di baris {$existing->source_row} dan {$seenSerials[$serial]}. Hapus salah satu baris lalu upload ulang."]);
+        $appendRange = function (array $rangeToStore) use (&$batch, $record, $now): void {
+            $batch[] = $this->digiposRangeRow($record->id, $record->kind, $rangeToStore, $now);
+            if (count($batch) >= 500) {
+                DB::table('product_tracking_digipos')->insert($batch);
+                $batch = [];
             }
-            $insert = [];
-            foreach ($seenSerials as $serial => $sourceRow) $insert[] = ['serial_number' => $serial, 'source_row' => $sourceRow];
-            DB::table($seenTable)->insert($insert);
-            $seenSerials = [];
         };
-        $flushScanRanges = function () use (&$scanRangeBatch, &$duplicateRanges, &$batch, $record, $now) {
-            if ($scanRangeBatch === []) return;
-            $matchesByRange = $this->findScanRangeDuplicatesBatch($scanRangeBatch);
-            foreach ($scanRangeBatch as $rangeCandidate) {
-                $matches = $matchesByRange[$rangeCandidate['source_row']] ?? [];
-                if ($matches !== []) foreach ($matches as $match) $duplicateRanges[] = $match;
-                else $batch[] = $this->digiposRangeRow($record->id, $record->kind, $rangeCandidate, $now);
-            }
-            $scanRangeBatch = [];
-        };
-        $flushSoRanges = function () use (&$soRangeBatch, &$batch, $record, $now) {
-            if ($soRangeBatch === []) return;
-            foreach (array_chunk($soRangeBatch, 50) as $ranges) {
-                $matches = $this->findExistingOutletRedeemRangesBatch($record->kind, $ranges);
-                foreach ($ranges as $rangeCandidate) {
-                    if (isset($matches[$rangeCandidate['source_row']])) {
-                        throw ValidationException::withMessages(['file' => "Baris {$rangeCandidate['source_row']}: rentang SN ini sudah pernah diupload sebagai SO. Upload dibatalkan agar redeem tidak terhitung ganda."]);
-                    }
-                    $batch[] = $this->digiposRangeRow($record->id, $record->kind, $rangeCandidate, $now);
-                }
-            }
-            $soRangeBatch = [];
-        };
-        Storage::disk('local')->delete($duplicateReportPath);
         try {
             foreach ($reader->rows($path, $headers) as $rowNumber => $values) {
                 $serial = $this->mappedValue($values, $mapping['serial_column'] ?? null);
@@ -1397,12 +1420,6 @@ class ProductTrackingController extends MonitaDumaiController
                 // Store SA SO serials in the canonical 15-digit form. A leading zero
                 // is only a file-format variant and must not create a second redeem.
                 if ($record->kind === 'so-sa' && strlen($serial) === 16) $serial = substr($serial, 1);
-                $serialIdentity = $serial;
-                if (isset($seenSerials[$serialIdentity])) {
-                    throw ValidationException::withMessages(['file' => "SN duplikat {$serialIdentity} ditemukan di baris {$seenSerials[$serialIdentity]} dan {$rowNumber}. Hapus salah satu baris lalu upload ulang."]);
-                }
-                $seenSerials[$serialIdentity] = $rowNumber;
-                if (count($seenSerials) >= 500) $flushSeenSerials();
                 $soldAtValue = $this->mappedValue($values, $mapping['date_column'] ?? null);
                 if ($record->kind !== 'warehouse' && $soldAtValue === '') {
                     throw ValidationException::withMessages(['file' => "Baris {$rowNumber}: tanggal wajib diisi dengan format dd-mmm-yyyy, contoh 12-oct-2026."]);
@@ -1432,42 +1449,12 @@ class ProductTrackingController extends MonitaDumaiController
                     $range['serial_end'] = $serial;
                     $range['serial_count']++;
                 } else {
-                    if ($range !== null) {
-                        if ($record->kind === 'scan') {
-                            $scanRangeBatch[] = $range;
-                            if (count($scanRangeBatch) >= 50) $flushScanRanges();
-                        } elseif (str_starts_with($record->kind, 'so-')) {
-                            $soRangeBatch[] = $range;
-                            if (count($soRangeBatch) >= 50) $flushSoRanges();
-                        } else {
-                            $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
-                        }
-                    }
+                    if ($range !== null) $appendRange($range);
                     $range = ['key' => $key, 'scan_date' => $record->kind !== 'warehouse' ? $date : null, 'serial_start' => $serial, 'serial_end' => $serial, 'serial_count' => 1, 'id_outlet' => $outletId !== '' ? $outletId : null, 'sf' => $sf, 'sold_at' => $date, 'product_name' => $product, 'source_row' => $rowNumber];
                 }
                 $count++;
-                if (count($batch) >= 500) {
-                    DB::table('product_tracking_digipos')->insert($batch);
-                    $batch = [];
-                }
             }
-            $flushSeenSerials();
-            if ($range !== null) {
-                if ($record->kind === 'scan') {
-                    $scanRangeBatch[] = $range;
-                    $flushScanRanges();
-                } elseif (str_starts_with($record->kind, 'so-')) {
-                    $soRangeBatch[] = $range;
-                    $flushSoRanges();
-                } else {
-                    $batch[] = $this->digiposRangeRow($record->id, $record->kind, $range, $now);
-                }
-            }
-            if ($duplicateRanges !== []) {
-                $this->storeDuplicateScanReport($duplicateReportPath, $duplicateRanges);
-                $first = $duplicateRanges[0];
-                throw ValidationException::withMessages(['file' => count($duplicateRanges).' rentang SN duplikat ditemukan. Contoh: baris '.$first['source_row'].', SN '.$first['duplicate_start'].($first['duplicate_end'] !== $first['duplicate_start'] ? '–'.$first['duplicate_end'] : '').' sudah ada di '.$first['existing_filename'].'. Data tidak disimpan; unduh daftar SN duplikat di bawah.']);
-            }
+            if ($range !== null) $appendRange($range);
             if ($batch !== []) DB::table('product_tracking_digipos')->insert($batch);
             if ($count === 0) throw ValidationException::withMessages(['file' => 'File tidak berisi baris transaksi yang dapat diimpor.']);
             if ($record->kind === 'scan' && $detectedScanDate === null) {
@@ -1478,10 +1465,8 @@ class ProductTrackingController extends MonitaDumaiController
             ]);
         } catch (\Throwable $exception) {
             DB::table('product_tracking_digipos')->where('upload_id', $record->id)->delete();
-            try { DB::statement("DROP TEMPORARY TABLE IF EXISTS `{$seenTable}`"); } catch (\Throwable) {}
             throw $exception;
         }
-        DB::statement("DROP TEMPORARY TABLE IF EXISTS `{$seenTable}`");
         Storage::disk('local')->delete($record->storage_path);
         $label = str_starts_with($record->kind, 'so-') ? 'baris SO' : ($record->kind === 'scan' ? 'baris ST Digipos' : 'baris Digipos');
         return redirect()->route('surya.product-tracking.imports', ['kind' => $record->kind])->with('success', number_format($count).' '.$label.' berhasil diimpor.');
@@ -1962,113 +1947,6 @@ class ProductTrackingController extends MonitaDumaiController
         ];
     }
 
-    private function findScanRangeDuplicatesBatch(array $ranges): array
-    {
-        $matchesByRow = [];
-        foreach (collect($ranges)->groupBy(fn ($range) => strlen($range['serial_start'])) as $length => $lengthRanges) {
-            $length = (int) $length;
-            $this->maxScanUploadRowCount ??= (int) DB::table('product_tracking_uploads')
-                ->where('kind', 'scan')->where('status', 'complete')->max('row_count');
-            $maxCount = $this->maxScanUploadRowCount;
-            if ($maxCount === 0) continue;
-
-            $candidates = $lengthRanges->values()->all();
-            $existingRanges = DB::table('product_tracking_digipos as digipos')
-                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->where('digipos.kind', 'scan')
-                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
-                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
-                ->where(function ($query) use ($candidates, $maxCount) {
-                    foreach ($candidates as $range) {
-                        $minimumStart = $this->subtractSerialCount($range['serial_start'], $maxCount);
-                        $query->orWhere(function ($overlap) use ($range, $minimumStart) {
-                            $overlap->whereBetween('digipos.serial_start', [$minimumStart, $range['serial_end']])
-                                ->where('digipos.serial_end', '>=', $range['serial_start']);
-                        });
-                    }
-                })
-                ->get(['digipos.serial_start', 'digipos.serial_end', 'digipos.scan_date', 'digipos.id_outlet', 'digipos.sf', 'digipos.product_name', 'upload.filename']);
-
-            foreach ($existingRanges as $row) {
-                foreach ($candidates as $range) {
-                    if (strcmp($row->serial_start, $range['serial_end']) > 0 || strcmp($row->serial_end, $range['serial_start']) < 0) continue;
-                    $start = strcmp($row->serial_start, $range['serial_start']) > 0 ? $row->serial_start : $range['serial_start'];
-                    $end = strcmp($row->serial_end, $range['serial_end']) < 0 ? $row->serial_end : $range['serial_end'];
-                    $matchesByRow[$range['source_row']][] = [
-                        'source_row' => $range['source_row'], 'duplicate_start' => $start, 'duplicate_end' => $end,
-                        'duplicate_qty' => $this->serialRangeCount($start, $end), 'existing_filename' => $row->filename,
-                        'existing_scan_date' => $row->scan_date, 'existing_outlet' => $row->id_outlet,
-                        'existing_sf' => $row->sf, 'existing_product' => $row->product_name,
-                    ];
-                }
-            }
-        }
-
-        return $matchesByRow;
-    }
-
-    private function findExistingOutletRedeemRangesBatch(string $kind, array $ranges): array
-    {
-        if ($ranges === []) return [];
-        $matches = [];
-        foreach (collect($ranges)->groupBy(fn ($range) => strlen($range['serial_start'])) as $length => $lengthRanges) {
-            $length = (int) $length;
-            $candidates = $lengthRanges->values()->all();
-            $existingRanges = DB::table('product_tracking_digipos as digipos')
-                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->where('digipos.kind', $kind)
-                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
-                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                ->whereBetween('digipos.serial_start', [str_repeat('0', $length), str_repeat('9', $length)])
-                ->whereRaw('CHAR_LENGTH(digipos.serial_start) = ?', [$length])
-                ->where(function ($query) use ($candidates) {
-                    foreach ($candidates as $range) {
-                        $query->orWhere(function ($overlap) use ($range) {
-                            $overlap->where('digipos.serial_start', '<=', $range['serial_end'])
-                                ->where('digipos.serial_end', '>=', $range['serial_start']);
-                        });
-                    }
-                })
-                ->get(['digipos.serial_start', 'digipos.serial_end']);
-
-            if ($kind === 'so-sa' && $length === 15) {
-                $legacyRanges = DB::table('product_tracking_digipos as digipos')
-                    ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                    ->where('digipos.kind', $kind)
-                    ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$kind])
-                    ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-                    ->whereRaw("CHAR_LENGTH(digipos.serial_start) = 16 AND LEFT(digipos.serial_start, 1) = '0' AND LEFT(digipos.serial_end, 1) = '0'")
-                    ->where(function ($query) use ($candidates) {
-                        foreach ($candidates as $range) {
-                            $query->orWhere(function ($overlap) use ($range) {
-                                $overlap->where('digipos.serial_start', '<=', '0'.$range['serial_end'])
-                                    ->where('digipos.serial_end', '>=', '0'.$range['serial_start']);
-                            });
-                        }
-                    })
-                    ->get(['digipos.serial_start', 'digipos.serial_end'])
-                    ->map(fn ($range) => (object) [
-                        'serial_start' => substr($range->serial_start, 1),
-                        'serial_end' => substr($range->serial_end, 1),
-                    ]);
-                $existingRanges = $existingRanges->concat($legacyRanges);
-            }
-
-            foreach ($candidates as $range) {
-                foreach ($existingRanges as $existing) {
-                    if (strcmp($existing->serial_start, $range['serial_end']) <= 0 && strcmp($existing->serial_end, $range['serial_start']) >= 0) {
-                        $matches[$range['source_row']] = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        return $matches;
-    }
-
     private function subtractSerialCount(string $serial, int $count): string
     {
         $length = strlen($serial);
@@ -2120,20 +1998,5 @@ class ProductTrackingController extends MonitaDumaiController
         return ($carry ? '1' : '').(ltrim($difference, '0') ?: '0');
     }
 
-    private function storeDuplicateScanReport(string $path, array $rows): void
-    {
-        $stream = fopen('php://temp', 'r+');
-        fputcsv($stream, ['Baris awal file baru', 'SN duplikat awal', 'SN duplikat akhir', 'Qty SN duplikat', 'File upload sebelumnya', 'Tanggal scan sebelumnya', 'ID Outlet sebelumnya', 'Sales Force sebelumnya', 'Denom sebelumnya']);
-        foreach ($rows as $row) {
-            fputcsv($stream, [
-                $row['source_row'], $row['duplicate_start'], $row['duplicate_end'], $row['duplicate_qty'],
-                $this->csvSafe((string) $row['existing_filename']), $row['existing_scan_date'],
-                $this->csvSafe((string) $row['existing_outlet']), $this->csvSafe((string) $row['existing_sf']),
-                $this->csvSafe((string) $row['existing_product']),
-            ]);
-        }
-        rewind($stream);
-        Storage::disk('local')->put($path, "\xEF\xBB\xBF".stream_get_contents($stream));
-        fclose($stream);
-    }
+
 }
