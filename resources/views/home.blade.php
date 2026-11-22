@@ -383,34 +383,24 @@
                 @endforeach
             </div>
 
-            {{-- ================= DOUGHNUT CHARTS (VALIDITY DISTRIBUTION) ================= --}}
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="card enterprise-shadow h-100">
-                        <div class="card-header bg-white border-0 pt-4 pb-0">
-                            <h6 class="font-weight-bold text-dark mb-0">Distribusi Sales (Bulan Berjalan)</h6>
-                            <small class="text-muted">Porsi penjualan per validity / grup</small>
-                            @include('surya.partials.distribution-filter', ['kind'=>'sales', 'selectedProduct'=>$distributionSalesProduct])
-                        </div>
-                        <div class="card-body">
-                            <div style="height:260px">
-                                <canvas id="pieSales"></canvas>
-                            </div>
-                        </div>
+            {{-- ================= SALES ANALYSIS ================= --}}
+            <div class="card enterprise-shadow mb-4">
+                <div class="card-header bg-white border-0 pt-4 pb-0 d-flex align-items-start justify-content-between flex-wrap" style="gap:12px">
+                    <div>
+                        <h6 class="font-weight-bold text-dark mb-0">Analisa Penjualan (Bulan Berjalan)</h6>
+                        <small class="text-muted">Validasi dan 10 denom terlaris · Cutoff {{ $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') }}</small>
                     </div>
+                    @include('surya.partials.distribution-filter', ['kind'=>'sales', 'selectedProduct'=>$distributionSalesProduct])
                 </div>
-
-                <div class="col-md-6">
-                    <div class="card enterprise-shadow h-100">
-                        <div class="card-header bg-white border-0 pt-4 pb-0">
-                            <h6 class="font-weight-bold text-dark mb-0">Inject Voucher Fisik (Bulan Berjalan)</h6>
-                            <small class="text-muted">Porsi Inject Voucher Fisik</small>
-                            @include('surya.partials.distribution-filter', ['kind'=>'inject', 'selectedProduct'=>$distributionInjectProduct])
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-6 mb-3 mb-lg-0">
+                            <h6 class="font-weight-bold text-dark">Penjualan per Validasi</h6>
+                            <div style="height:300px"><canvas id="pieSales"></canvas></div>
                         </div>
-                        <div class="card-body">
-                            <div style="height:260px">
-                                <canvas id="pieInject"></canvas>
-                            </div>
+                        <div class="col-lg-6">
+                            <h6 class="font-weight-bold text-dark">10 Denom Terlaris</h6>
+                            <div style="height:300px"><canvas id="topDenoms"></canvas></div>
                         </div>
                     </div>
                 </div>
@@ -2952,7 +2942,7 @@
             });
         }
         createDistributionBars('pieSales', @json($pieSales->pluck('group_name')), @json($pieSales->pluck('total')), '#c8102e');
-        createDistributionBars('pieInject', @json($pieInject->pluck('group_name')), @json($pieInject->pluck('total')), '#099268');
+        createDistributionBars('topDenoms', @json($pieDenoms->pluck('denom_name')), @json($pieDenoms->pluck('total')), '#099268');
         document.querySelectorAll('.distribution-product').forEach(select => {
             let controller;
             let committed = select.value;
@@ -2960,22 +2950,22 @@
                 controller?.abort();
                 const active = new AbortController();
                 controller = active;
-                const kind = select.dataset.kind;
                 const status = select.parentElement.querySelector('.distribution-status');
                 status.textContent = 'Memuat data…';
                 select.setAttribute('aria-busy', 'true');
                 const url = new URL(window.location.href);
-                document.querySelectorAll('.distribution-product').forEach(input => url.searchParams.set('distribution_' + input.dataset.kind + '_product', input.value));
+                url.searchParams.set('distribution_sales_product', select.value);
                 try {
-                    const response = await fetch(url, {signal:active.signal, headers:{'X-Surya-Card':'distribution-' + kind, 'Accept':'application/json'}});
+                    const response = await fetch(url, {signal:active.signal, headers:{'X-Surya-Card':'distribution-sales', 'Accept':'application/json'}});
                     if (!response.ok) throw new Error('HTTP ' + response.status);
                     const data = await response.json();
                     if (controller !== active) return;
-                    createDistributionBars(kind === 'sales' ? 'pieSales' : 'pieInject', data.labels, data.values, kind === 'sales' ? '#c8102e' : '#099268');
+                    createDistributionBars('pieSales', data.labels, data.values, '#c8102e');
+                    createDistributionBars('topDenoms', data.denom_labels, data.denom_values, '#099268');
                     committed = select.value;
                     status.textContent = '';
                     const currentUrl = new URL(window.location.href);
-                    currentUrl.searchParams.set('distribution_' + kind + '_product', committed);
+                    currentUrl.searchParams.set('distribution_sales_product', committed);
                     window.history.replaceState({}, '', currentUrl);
                 } catch (error) {
                     if (error.name !== 'AbortError' && controller === active) {

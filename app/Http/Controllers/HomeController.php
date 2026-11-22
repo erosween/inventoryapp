@@ -17,7 +17,7 @@ class HomeController extends Controller
     {
         $request->validate(['mom_date'=>['nullable','date_format:Y-m-d']]);
         $momOnly = $request->header('X-Surya-Card') === 'mom';
-        $chartOnly = in_array($request->header('X-Surya-Card'), ['distribution-sales', 'distribution-inject'], true);
+        $chartOnly = $request->header('X-Surya-Card') === 'distribution-sales';
         $fullHistorical = $request->header('X-Surya-Card','full') === 'full' && $request->filled('mom_date');
         $baseRequest = clone $request;
         if ($fullHistorical) $baseRequest->query->remove('mom_date');
@@ -38,7 +38,7 @@ class HomeController extends Controller
     {
         $query=$request->query();ksort($query);
         $scope=strtoupper(trim((string)session('idtap')));
-        $key='home-dashboard:v22:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        $key='home-dashboard:v23:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
         return app()->environment('testing') ? $this->dashboardData($request)
             : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
@@ -280,9 +280,7 @@ class HomeController extends Controller
         $salesPeriod = $request->query('sales_period') === 'annual' ? 'annual' : 'monthly';
         $productFilterOptions = ['pv_all', 'pv_reg', 'pv_byu', 'sa_all', 'sa_simpati', 'sa_byu'];
         $distributionSalesProduct = (string) $request->query('distribution_sales_product', 'pv_all');
-        $distributionInjectProduct = (string) $request->query('distribution_inject_product', 'pv_all');
         if (!in_array($distributionSalesProduct, $productFilterOptions, true)) $distributionSalesProduct = 'pv_all';
-        if (!in_array($distributionInjectProduct, $productFilterOptions, true)) $distributionInjectProduct = 'pv_all';
         $momProductFilter = strtolower((string) $request->query('mom_product', 'pv_all'));
         if (!in_array($momProductFilter, $productFilterOptions, true)) $momProductFilter = 'pv_all';
         $salesProductFilter = strtolower((string) $request->query('sales_product', 'pv_all'));
@@ -299,23 +297,31 @@ class HomeController extends Controller
 
         $chartKind = $request->header('X-Surya-Card');
         $pieSales = collect();
-        $pieInject = collect();
+        $pieDenoms = collect();
         if ($chartKind !== 'mom') {
-            foreach (['sales', 'inject'] as $kind) {
-                if (str_starts_with((string) $chartKind, 'distribution-') && $chartKind !== 'distribution-'.$kind) continue;
-                $source = $kind === 'sales' ? 'combined_sales' : 'injectvf';
-                $query = $kind === 'sales' ? $this->combinedSalesQuery($momStartThisMonth, $momSelectedDate) : DB::table('injectvf');
-                $query->join('denom as distribution_denom', $source.'.iddenom', '=', 'distribution_denom.iddenom')
-                    ->whereBetween($source.'.tgl', [$momStartThisMonth, $momSelectedDate])
-                    ->selectRaw('distribution_denom.group_name, SUM('.$source.'.qty) AS total')
-                    ->groupBy('distribution_denom.group_name')->orderByDesc('total');
-                $applyFilter($query, $source.'.idtap');
-                $applyProductFilter($query, $source, $kind === 'sales' ? $distributionSalesProduct : $distributionInjectProduct);
-                if ($kind === 'sales') $pieSales = $query->get(); else $pieInject = $query->get();
+            if (! str_starts_with((string) $chartKind, 'distribution-') || $chartKind === 'distribution-sales') {
+                $denomQuery = $this->combinedSalesQuery($momStartThisMonth, $momSelectedDate)
+                    ->join('denom as distribution_denom', 'combined_sales.iddenom', '=', 'distribution_denom.iddenom')
+                    ->whereBetween('combined_sales.tgl', [$momStartThisMonth, $momSelectedDate])
+                    ->selectRaw('distribution_denom.iddenom, distribution_denom.group_name, distribution_denom.denom AS denom_name, SUM(combined_sales.qty) AS total')
+                    ->groupBy('distribution_denom.iddenom', 'distribution_denom.group_name', 'distribution_denom.denom')
+                    ->orderByDesc('total')->orderBy('distribution_denom.denom');
+                $applyFilter($denomQuery, 'combined_sales.idtap');
+                $applyProductFilter($denomQuery, 'combined_sales', $distributionSalesProduct);
+                $denomRows = $denomQuery->get();
+                $pieDenoms = $denomRows->sortByDesc('total')->take(10)->values();
+                $pieSales = $denomRows->groupBy('group_name')
+                    ->map(fn ($rows, $label) => (object) ['group_name' => $label, 'total' => $rows->sum('total')])
+                    ->sortByDesc('total')->values();
             }
-            if (in_array($chartKind, ['distribution-sales', 'distribution-inject'], true)) {
-                $rows = $chartKind === 'distribution-sales' ? $pieSales : $pieInject;
-                return ['labels' => $rows->pluck('group_name'), 'values' => $rows->pluck('total'), 'cutoff' => $momSelectedDate->toDateString()];
+            if ($chartKind === 'distribution-sales') {
+                return [
+                    'labels' => $pieSales->pluck('group_name'),
+                    'values' => $pieSales->pluck('total'),
+                    'denom_labels' => $pieDenoms->pluck('denom_name'),
+                    'denom_values' => $pieDenoms->pluck('total'),
+                    'cutoff' => $momSelectedDate->toDateString(),
+                ];
             }
         }
 
@@ -746,7 +752,7 @@ class HomeController extends Controller
 
         return compact(
             'stokSaSegel', 'stokSaInject',
-            'distributionSalesProduct', 'distributionInjectProduct',
+            'distributionSalesProduct',
             'momProductFilter', 'momProductRows', 'momProductClusters', 'momProductSfByTap',
             'mode',
             'selectedYear',
@@ -772,7 +778,7 @@ class HomeController extends Controller
             'validityGroups',
             'salesDetailGroups', 'salesDetailHeading', 'injectDetailGroups', 'injectDetailHeading',
             'pieSales',
-            'pieInject',
+            'pieDenoms',
             'stokSegel',
             'stokInject',
             'salesBulanIni',
