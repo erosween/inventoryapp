@@ -827,7 +827,7 @@ class ProductTrackingController extends MonitaDumaiController
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $cacheKey = 'stock-outlet-report-v3-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
+        $cacheKey = 'stock-outlet-report-v4-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
         $cachedRows = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
@@ -862,7 +862,7 @@ class ProductTrackingController extends MonitaDumaiController
                 ->leftJoinSub($matchedMetrics, 'matched', 'matched.id_outlet', '=', 'outlet.id_outlet')
                 ->select('outlet.id_outlet')
                 ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(matched.so_qty, 0) AS so_qty, COALESCE(matched.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(matched.redeemed_qty, 0), 0) AS remaining_qty')
-                ->selectRaw('CASE WHEN COALESCE(matched.redeemed_qty, 0) > 0 THEN ROUND(matched.days_to_customer_weighted / matched.redeemed_qty, 1) ELSE NULL END AS days_outlet_to_customer')
+                ->selectRaw('CASE WHEN COALESCE(matched.redeemed_qty, 0) > 0 THEN CAST(ROUND(matched.days_to_customer_weighted / matched.redeemed_qty, 0) AS SIGNED) ELSE NULL END AS days_outlet_to_customer')
                 ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
             $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet(
                 DB::query()->fromSub($stSources, 'source')->select('source.id_outlet', 'source.owner_sf', 'source.iddenom', 'source.serial_start', 'source.serial_end', 'source.st_date')->get(),
