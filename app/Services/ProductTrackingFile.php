@@ -91,20 +91,41 @@ class ProductTrackingFile
             }
             return;
         }
-        $book = $this->load($path);
-        try {
-            $sheet = $book->getSheet(0);
-            $lastRow = (int) $sheet->getHighestDataRow();
-            for ($row = 2; $row <= $lastRow; $row++) {
-                $values = [];
-                foreach ($headers as $column => $header) {
-                    $cell = $sheet->getCellByColumnAndRow((int) $column, $row);
-                    $values[$column] = $this->cellText($cell);
+        $infoReader = IOFactory::createReaderForFile($path);
+        $worksheetInfo = $infoReader->listWorksheetInfo($path);
+        $lastRow = (int) ($worksheetInfo[0]['totalRows'] ?? 0);
+        unset($infoReader, $worksheetInfo);
+
+        // XLSX/XLS files can be large; load only a small row window at a time.
+        for ($startRow = 2; $startRow <= $lastRow; $startRow += 500) {
+            $endRow = min($lastRow, $startRow + 499);
+            $reader = IOFactory::createReaderForFile($path);
+            $reader->setReadDataOnly(false);
+            $reader->setReadFilter(new class($startRow, $endRow, array_map('intval', array_keys($headers))) implements IReadFilter
+            {
+                public function __construct(private int $startRow, private int $endRow, private array $columns) {}
+
+                public function readCell($columnAddress, $row, $worksheetName = ''): bool
+                {
+                    return ($row === 1 || ($row >= $this->startRow && $row <= $this->endRow))
+                        && in_array(Coordinate::columnIndexFromString($columnAddress), $this->columns, true);
                 }
-                if ($this->hasNonEmptyValue($values)) yield $row => $values;
+            });
+            $book = $reader->load($path);
+            try {
+                $sheet = $book->getSheet(0);
+                for ($row = $startRow; $row <= $endRow; $row++) {
+                    $values = [];
+                    foreach ($headers as $column => $header) {
+                        $cell = $sheet->getCellByColumnAndRow((int) $column, $row);
+                        $values[$column] = $this->cellText($cell);
+                    }
+                    if ($this->hasNonEmptyValue($values)) yield $row => $values;
+                }
+            } finally {
+                $book->disconnectWorksheets();
+                unset($book, $reader);
             }
-        } finally {
-            $book->disconnectWorksheets();
         }
     }
 
