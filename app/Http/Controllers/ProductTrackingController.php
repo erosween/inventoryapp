@@ -931,6 +931,12 @@ class ProductTrackingController extends MonitaDumaiController
             }
         }
 
+        [$rows, $overlapQty] = $this->removeSfMasukDuplicatesFromSalesStock($rows);
+        if ($rows === []) {
+            return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])
+                ->with('success', number_format($overlapQty).' SN tidak diunggah karena sudah tercatat di SF Masuk admin.');
+        }
+
         DB::transaction(function () use ($data, $rows) {
             $now = now();
             $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
@@ -944,7 +950,73 @@ class ProductTrackingController extends MonitaDumaiController
             }
         });
 
-        return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])->with('success', number_format(count($rows)).' baris stok SN Sales berhasil diunggah.');
+        $message = number_format(count($rows)).' baris stok SN Sales berhasil diunggah.';
+        if ($overlapQty > 0) $message .= ' '.number_format($overlapQty).' SN yang sudah tercatat di SF Masuk admin dilewati.';
+        return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])->with('success', $message);
+    }
+
+    /** Remove portions already recorded for the same SF and denom in admin SF Masuk. */
+    private function removeSfMasukDuplicatesFromSalesStock(array $rows): array
+    {
+        $adminRangesByOwner = [];
+        $remainingRows = [];
+        $removedQty = 0;
+
+        foreach ($rows as $row) {
+            $key = $row['sfcode']."\x1f".$row['iddenom'];
+            if (! array_key_exists($key, $adminRangesByOwner)) {
+                $adminRangesByOwner[$key] = [];
+                foreach (DB::table('masuksf')->where('idsf', $row['sfcode'])->where('iddenom', $row['iddenom'])->get(['sn', 'qty']) as $adminRow) {
+                    $sn = trim((string) $adminRow->sn);
+                    if (preg_match('/^(\d+)(?:\s*[-–—]\s*|\s+)(\d+)$/u', $sn, $match)) {
+                        [$first, $last] = [$match[1], $match[2]];
+                    } elseif (preg_match('/^\d+$/', $sn)) {
+                        $first = $last = $sn;
+                    } else {
+                        continue;
+                    }
+                    if (strlen($first) !== strlen($last) || strcmp($last, $first) < 0) continue;
+                    $qty = (int) $last - (int) $first + 1;
+                    if ($qty > 2_000_000 || ($first !== $last && $qty !== (int) $adminRow->qty)) continue;
+                    $adminRangesByOwner[$key][] = [(int) $first, (int) $last];
+                }
+                usort($adminRangesByOwner[$key], fn ($a, $b) => $a[0] <=> $b[0]);
+            }
+
+            $start = (int) $row['serial_start'];
+            $end = (int) $row['serial_end'];
+            $originalQty = $end - $start + 1;
+            $remaining = [[$start, $end]];
+            foreach ($adminRangesByOwner[$key] as [$adminStart, $adminEnd]) {
+                $rowLength = strlen($row['serial_start']);
+                $adminLength = strlen((string) $adminStart);
+                if (($rowLength === 12 && $adminLength !== 12) || ($rowLength !== 12 && ! in_array($adminLength, [15, 16], true))) continue;
+                $next = [];
+                foreach ($remaining as [$rangeStart, $rangeEnd]) {
+                    if ($adminEnd < $rangeStart || $adminStart > $rangeEnd) {
+                        $next[] = [$rangeStart, $rangeEnd];
+                        continue;
+                    }
+                    if ($rangeStart < $adminStart) $next[] = [$rangeStart, $adminStart - 1];
+                    if ($rangeEnd > $adminEnd) $next[] = [$adminEnd + 1, $rangeEnd];
+                }
+                $remaining = $next;
+                if ($remaining === []) break;
+            }
+
+            $remainingQty = array_sum(array_map(fn ($range) => $range[1] - $range[0] + 1, $remaining));
+            $removedQty += max(0, $originalQty - $remainingQty);
+            foreach ($remaining as [$rangeStart, $rangeEnd]) {
+                $segment = $row;
+                $width = strlen($row['serial_start']);
+                $segment['serial_start'] = str_pad((string) $rangeStart, $width, '0', STR_PAD_LEFT);
+                $segment['serial_end'] = str_pad((string) $rangeEnd, $width, '0', STR_PAD_LEFT);
+                $segment['qty'] = $rangeEnd - $rangeStart + 1;
+                $remainingRows[] = $segment;
+            }
+        }
+
+        return [$remainingRows, $removedQty];
     }
 
     public function stageImport(Request $request, ProductTrackingFile $reader)
