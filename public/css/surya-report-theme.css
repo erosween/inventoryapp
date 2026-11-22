@@ -14,16 +14,28 @@
 [data-surya-workspace] .surya-menu-button:hover{background:#ffffff16!important;border-color:#e2a1b1}
 .surya-report-context{display:flex;align-items:center;gap:18px;text-align:right;padding-left:20px;border-left:1px solid #b74e64}
 .surya-report-context span,.surya-report-context time{display:block}.surya-report-context span{font-size:8px;letter-spacing:1.9px;color:#edb9c4;font-weight:550}.surya-report-context time{font-size:11px;line-height:1.4;color:#f1f4ef;margin-top:4px;font-weight:550;font-variant-numeric:tabular-nums}
-[data-surya-workspace] .enterprise-sidebar{background:linear-gradient(180deg,#3a000a 0%,#970017 52%,#d10b20 100%);border-right:1px solid #ffffff0a;box-shadow:none}
-[data-surya-workspace] .enterprise-sidebar .sidebar-brand{padding-bottom:28px}
+[data-surya-workspace] .enterprise-sidebar{background:radial-gradient(ellipse at 0 0,rgba(255,111,132,.2),transparent 36%),linear-gradient(160deg,#39000b 0%,#790019 42%,#b5092b 100%);border-right:1px solid #ffffff1c;box-shadow:12px 0 36px #27111c18}
+[data-surya-workspace] .enterprise-sidebar .sidebar-brand{padding:8px 9px 24px;margin:0 0 6px;border-bottom:1px solid #ffffff16}
+[data-surya-workspace] .enterprise-sidebar .sidebar-logo{width:40px;height:40px;flex-basis:40px;border:1px solid #ffffff40;border-radius:13px;box-shadow:0 5px 16px #1b00094a}
+[data-surya-workspace] .enterprise-sidebar .sidebar-brand strong{font-size:16px;letter-spacing:.2px}
 [data-surya-workspace] .enterprise-sidebar .sidebar-brand small{font-size:8px;letter-spacing:1.5px;color:#ecc0c8;line-height:1.6}
-[data-surya-workspace] .enterprise-sidebar .sidebar-label{color:#e0a3af;font-size:8px;letter-spacing:1.9px}
-[data-surya-workspace] .enterprise-sidebar .sidebar-link{color:#f1ced5;border-radius:7px;min-height:43px;font-size:11px;font-weight:550;gap:11px}
-[data-surya-workspace] .enterprise-sidebar .sidebar-link:hover{color:#fff;background:#ffffff0b}
-[data-surya-workspace] .enterprise-sidebar .sidebar-link.active{background:#f9f7f1;color:#9e1b35;box-shadow:inset 3px 0 0 #b32a44,0 3px 8px #071a2112;font-weight:700}
-[data-surya-workspace] .enterprise-sidebar .sidebar-link i{font-size:13px}
-[data-surya-workspace] .enterprise-sidebar .sidebar-foot{border-color:#ffffff16}
-[data-surya-workspace] .enterprise-sidebar .sidebar-avatar{background:#ffffff0b}
+[data-surya-workspace] .enterprise-sidebar .sidebar-label{padding-bottom:12px;color:#f0aebc;font-size:8px;letter-spacing:2px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-nav{gap:5px;padding:0 2px 14px;scrollbar-color:#ffffff40 transparent}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link{position:relative;color:#f5dce1;border:1px solid transparent;border-radius:12px;min-height:44px;padding-right:12px;font-size:11px;font-weight:570;gap:11px;transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link:hover{color:#fff;background:#ffffff12;border-color:#ffffff12;transform:translateX(2px)}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link i:not(.taskforce-chevron){display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;border:1px solid #ffffff18;border-radius:9px;background:#ffffff0b;color:#ffd8df;font-size:12px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link.active{background:linear-gradient(110deg,#fffdfa,#fff5f5);border-color:#ffffffb8;color:#95142d;box-shadow:0 7px 18px #24000c35,inset 0 1px #fff;font-weight:750}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link.active::before{position:absolute;left:-3px;top:9px;bottom:9px;width:4px;border-radius:0 4px 4px 0;background:#ff536e;content:""}
+[data-surya-workspace] .enterprise-sidebar .sidebar-link.active i:not(.taskforce-chevron){border-color:#f3dbe0;background:#fff;color:#b5092b}
+[data-surya-workspace] .enterprise-sidebar .sidebar-taskforce[open] > summary{background:#ffffff0d;color:#fff;border-color:#ffffff12}
+[data-surya-workspace] .enterprise-sidebar .sidebar-taskforce > a{margin-top:2px;color:#f2cbd3}
+[data-surya-workspace] .enterprise-sidebar .sidebar-taskforce > a i:not(.taskforce-chevron){width:24px;height:24px;flex-basis:24px;border-radius:8px;font-size:10px}
+[data-surya-workspace] .enterprise-sidebar .sidebar-taskforce > a.active{color:#95142d}
+[data-surya-workspace] .enterprise-sidebar .sidebar-foot{padding:12px 8px 2px;border-color:#ffffff24}
+[data-surya-workspace] .enterprise-sidebar .sidebar-user{padding:9px;border:1px solid #ffffff17;border-radius:13px;background:#ffffff0a}
+[data-surya-workspace] .enterprise-sidebar .sidebar-avatar{width:36px;height:36px;flex-basis:36px;border:1px solid #ffffff20;border-radius:11px;background:#ffffff12}
+[data-surya-workspace] .enterprise-sidebar .sidebar-logout{border:1px solid #ffffff20;border-radius:11px;background:linear-gradient(105deg,#ffffff18,#ffffff0b);transition:background .18s ease,transform .18s ease}
+[data-surya-workspace] .enterprise-sidebar .sidebar-logout:hover{background:#ffffff25;transform:translateY(-1px)}
 [data-surya-workspace] .surya-page-heading{position:relative;padding:18px 0 20px;margin-bottom:22px;border-bottom:1px solid var(--surya-line);background:none;box-shadow:none}
 [data-surya-workspace] .surya-page-heading::before{content:'';position:absolute;left:0;top:2px;width:34px;height:4px;border-radius:3px;background:var(--surya-red);pointer-events:none}
 [data-surya-workspace] .surya-page-heading h1{font-size:28px;color:var(--surya-ink);letter-spacing:-.7px;font-weight:720;line-height:1.25}
