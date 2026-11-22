@@ -38,7 +38,7 @@ class HomeController extends Controller
     {
         $query=$request->query();ksort($query);
         $scope=strtoupper(trim((string)session('idtap')));
-        $key='home-dashboard:v23:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        $key='home-dashboard:v24:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
         return app()->environment('testing') ? $this->dashboardData($request)
             : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
