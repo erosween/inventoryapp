@@ -852,7 +852,7 @@ class ProductTrackingController extends MonitaDumaiController
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $cacheKey = 'stock-outlet-report-v5-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
+        $cacheKey = 'stock-outlet-report-v6-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
         $cachedRows = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
