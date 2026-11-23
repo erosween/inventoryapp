@@ -1918,6 +1918,7 @@ class ProductTrackingController extends MonitaDumaiController
                         $override->selectRaw('1')
                             ->from('product_tracking_sales_stock_ranges as correction')
                             ->join('product_tracking_sales_stock_uploads as correction_upload', 'correction_upload.id', '=', 'correction.upload_id')
+                            ->where('stock_upload.filename', 'not like', 'MANUAL:%')
                             ->whereColumn('correction.iddenom', 'stock.iddenom')
                             ->where('correction_upload.filename', 'like', 'MANUAL:%')
                             ->whereRaw('CHAR_LENGTH(correction.serial_start) IN ('.($isPv ? '12' : '15, 16').')')
