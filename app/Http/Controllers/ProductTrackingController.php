@@ -2005,7 +2005,7 @@ class ProductTrackingController extends MonitaDumaiController
                 if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($manualQuery, 'owner.idtap', $scopes);
                 $recentManual = $manualQuery->orderByDesc('source.updated_at')->orderByDesc('stock.id')->paginate(10, [
                     'stock.id', 'stock.sfcode', 'owner.namasf', 'owner.idtap', 'stock.iddenom', 'd.denom',
-                    'stock.serial_start', 'stock.serial_end', 'stock.qty', 'source.username', 'source.updated_at as created_at',
+                    'stock.serial_start', 'stock.serial_end', 'stock.qty', 'stock.keterangan', 'source.username', 'source.updated_at as created_at',
                 ], 'manual_page')->withQueryString();
                 if ($request->filled('edit')) {
                     $editingManual = $this->findManualSfStockRange((int) $request->query('edit'));
@@ -2073,9 +2073,9 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
-        $this->validateReturnedBeforeReassign($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
+        $previousOwners = $this->previousSfOwnersForRange($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
 
-        DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty) {
+        DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty, $previousOwners) {
             $now = now();
             $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
                 'filename' => 'MANUAL: Cek SN SF',
@@ -2093,6 +2093,7 @@ class ProductTrackingController extends MonitaDumaiController
                 'serial_start' => $start,
                 'serial_end' => $end,
                 'qty' => $rangeQty,
+                'keterangan' => $previousOwners->isEmpty() ? null : 'Sebelumnya tercatat pada: '.$previousOwners->implode('; ').'. Perlu retur admin.',
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -2147,14 +2148,15 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
-        $this->validateReturnedBeforeReassign($data['sfcode'], $data['iddenom'], $start, $end, $isSa, $record->id);
+        $previousOwners = $this->previousSfOwnersForRange($data['sfcode'], $data['iddenom'], $start, $end, $isSa, $record->id);
 
-        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty) {
+        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty, $previousOwners) {
             DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([
                 'sfcode' => $sf->idsf, 'tap' => $sf->idtap,
                 'cluster' => $this->trackingClusterForTap((string) $sf->idtap),
                 'iddenom' => $data['iddenom'], 'serial_start' => $start, 'serial_end' => $end,
                 'qty' => $rangeQty, 'updated_at' => now(),
+                'keterangan' => $previousOwners->isEmpty() ? $record->keterangan : 'Sebelumnya tercatat pada: '.$previousOwners->implode('; ').'. Perlu retur admin.',
             ]);
             DB::table('product_tracking_sales_stock_uploads')->where('id', $record->upload_id)->update([
                 'username' => auth()->user()->username, 'updated_at' => now(),
@@ -2180,8 +2182,8 @@ class ProductTrackingController extends MonitaDumaiController
             ->with('success', 'Rentang SN berhasil dihapus.');
     }
 
-    /** Require the previous admin SF receipt to be fully covered by a recorded return before reassignment. */
-    private function validateReturnedBeforeReassign(string $newSf, string $iddenom, string $start, string $end, bool $isSa, ?int $ignoreManualRange = null): void
+    /** Keep an audit note when a manual SN assignment overlaps a receipt to another SF. */
+    private function previousSfOwnersForRange(string $newSf, string $iddenom, string $start, string $end, bool $isSa, ?int $ignoreManualRange = null)
     {
         $startValue = (int) ltrim($start, '0');
         $endValue = (int) ltrim($end, '0');
@@ -2192,40 +2194,12 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereRaw("CAST(SUBSTRING_INDEX(incoming.sn, '-', 1) AS DECIMAL(24,0)) <= ?", [$endValue])
             ->whereRaw("CAST(CASE WHEN LOCATE('-', incoming.sn) > 0 THEN SUBSTRING_INDEX(incoming.sn, '-', -1) ELSE incoming.sn END AS DECIMAL(24,0)) >= ?", [$startValue])
             ->where('incoming.idsf', '<>', $newSf)
-            ->get(['incoming.idsf', 'incoming.sn']);
+            ->distinct()->get(['incoming.idsf', 'incoming.sn']);
 
-        foreach ($sources as $source) {
-            $sourceParts = preg_split('/\s*-\s*/', trim((string) $source->sn)) ?: [];
-            $sourceStart = (int) ltrim($sourceParts[0] ?? '', '0');
-            $sourceEnd = (int) ltrim($sourceParts[1] ?? $sourceParts[0] ?? '', '0');
-            $neededStart = max($startValue, $sourceStart);
-            $neededEnd = min($endValue, $sourceEnd);
-            if ($neededStart > $neededEnd) continue;
-
-            $returns = DB::table('retursf')
-                ->where('idsf', $source->idsf)
-                ->where('iddenom', $iddenom)
-                ->get(['sn_awal', 'sn_akhir', 'sn']);
-            $intervals = $returns->map(function ($return) {
-                $parts = preg_split('/\s*[-–—]\s*/u', trim((string) ($return->sn_awal ?: $return->sn))) ?: [];
-                $low = (int) ltrim($parts[0] ?? '', '0');
-                $highText = trim((string) ($return->sn_akhir ?? '')) ?: ($parts[1] ?? $parts[0] ?? '');
-                return [$low, (int) ltrim($highText, '0')];
-            })->filter(fn ($interval) => $interval[1] >= $interval[0])
-                ->sortBy(fn ($interval) => $interval[0])->values();
-
-            $coveredThrough = $neededStart - 1;
-            foreach ($intervals as [$returnStart, $returnEnd]) {
-                if ($returnEnd < $coveredThrough + 1) continue;
-                if ($returnStart > $coveredThrough + 1) break;
-                $coveredThrough = max($coveredThrough, $returnEnd);
-                if ($coveredThrough >= $neededEnd) break;
-            }
-            if ($coveredThrough < $neededEnd) {
-                $sfName = DB::table('idsf')->where('idsf', $source->idsf)->value('namasf') ?: $source->idsf;
-                throw ValidationException::withMessages(['serial_start' => "SN ini masih tercatat pada {$sfName} ({$source->idsf}). Minta admin mencatat retur untuk seluruh SN yang dipindahkan, baru petakan ke SF baru."]);
-            }
-        }
+        return $sources->map(function ($source) {
+            $name = DB::table('idsf')->where('idsf', $source->idsf)->value('namasf') ?: $source->idsf;
+            return $name.' ('.$source->idsf.'; '.$source->sn.')';
+        })->unique()->values();
     }
 
     private function findManualSfStockRange(int $range): object

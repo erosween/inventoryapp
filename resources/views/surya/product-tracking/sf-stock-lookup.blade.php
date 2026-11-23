@@ -111,14 +111,14 @@
             <section class="pt-card">
                 <div class="pt-result-head"><div><h2>Riwayat input manual</h2><p class="pt-subtitle mb-0">{{ $recentManual->total() }} rentang tercatat</p></div></div>
                 <div class="pt-table-wrap"><table class="pt-table">
-                    <thead><tr><th>SF</th><th>NAMA SF</th><th>TAP</th><th>DENOM</th><th>SN AWAL</th><th>SN AKHIR</th><th>QTY RENTANG</th><th>DIINPUT OLEH</th><th>WAKTU</th><th>AKSI</th></tr></thead>
+                    <thead><tr><th>SF</th><th>NAMA SF</th><th>TAP</th><th>DENOM</th><th>SN AWAL</th><th>SN AKHIR</th><th>QTY RENTANG</th><th>KETERANGAN</th><th>DIINPUT OLEH</th><th>WAKTU</th><th>AKSI</th></tr></thead>
                     <tbody>@forelse($recentManual as $row)<tr>
                         <td><strong>{{ $row->sfcode }}</strong></td><td>{{ $row->namasf ?: '—' }}</td><td>{{ $row->idtap ?: '—' }}</td>
                         <td>{{ $row->denom ?: $row->iddenom }}</td><td>{{ $row->serial_start }}</td><td>{{ $row->serial_end }}</td>
-                        <td>{{ number_format($row->qty) }}</td><td>{{ $row->username }}</td>
+                        <td>{{ number_format($row->qty) }}</td><td>{{ $row->keterangan ?: '—' }}</td><td>{{ $row->username }}</td>
                         <td>{{ \Carbon\Carbon::parse($row->created_at)->locale('id')->translatedFormat('j M Y H:i') }}</td>
                         <td><div class="pt-manual-actions"><a class="pt-manual-action" href="{{ route('surya.product-tracking.sf-stock-lookup', ['tab'=>'add','edit'=>$row->id,'manual_page'=>$recentManual->currentPage()]) }}"><i class="fas fa-pen"></i> Edit</a><form method="post" action="{{ route('surya.product-tracking.sf-stock-lookup.delete',$row->id) }}" onsubmit="return confirm('Hapus rentang SN {{ $row->serial_start }}–{{ $row->serial_end }}?')">@csrf @method('DELETE')<button class="pt-manual-action danger" type="submit"><i class="fas fa-trash"></i> Hapus</button></form></div></td>
-                    </tr>@empty<tr><td colspan="10" class="pt-empty">Belum ada rentang SN manual.</td></tr>@endforelse</tbody>
+                    </tr>@empty<tr><td colspan="11" class="pt-empty">Belum ada rentang SN manual.</td></tr>@endforelse</tbody>
                 </table></div>
                 <nav class="pt-outlet-pagination" aria-label="Pagination riwayat input manual">
                     <span class="pt-outlet-pagination-summary">Menampilkan {{ number_format($recentManual->firstItem() ?? 0) }}–{{ number_format($recentManual->lastItem() ?? 0) }} dari {{ number_format($recentManual->total()) }} rentang</span>
