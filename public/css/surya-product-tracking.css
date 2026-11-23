@@ -53,6 +53,7 @@
 .pt-stock-outlet-detail thead th:nth-child(n+8) .tf-column-heading>span { text-align:right; }
 .pt-stock-outlet-detail tbody tr:nth-child(odd) td { background:#fff; }
 .pt-stock-outlet-detail tbody tr:nth-child(even) td { background:#f1f3f5; }
+.pt-stock-outlet-detail tbody td:nth-child(8) { text-align:right; }
 .pt-stock-outlet-detail tbody td:nth-child(n+9) { text-align:right; }
 .pt-stock-outlet-detail tbody td:first-child,.pt-stock-outlet-detail tbody td:nth-child(2) { z-index:3; }
 .pt-stock-outlet-detail th:nth-child(2),.pt-stock-outlet-detail td:nth-child(2) { box-shadow:2px 0 5px rgba(25,36,58,.1); }
