@@ -73,7 +73,7 @@
                         <td>{{ $outlet->kecamatan ?: '—' }}</td><td>{{ $outlet->tap ?: 'Tanpa TAP' }}</td><td>{{ $outlet->cluster ?: '—' }}</td>
                         <td>{{ $outlet->sf ?: '—' }}</td><td>{{ $outlet->kategori_outlet ?: 'Reguler' }}</td>
                         @foreach($metricColumns as [$column, $label, $bold])
-                            <td class="{{ in_array($column, $durationColumns, true) ? 'pt-duration-column' : '' }}">@if($bold)<strong>@endif{{ str_starts_with($column, 'days_') ? ($outlet->{$column} === null ? '—' : $outlet->{$column}.' hari') : number_format($outlet->{$column} ?? 0) }}@if($bold)</strong>@endif</td>
+                            <td class="{{ in_array($column, $durationColumns, true) ? 'pt-duration-column' : '' }}">@if($bold)<strong>@endif{{ str_starts_with($column, 'days_') ? (($outlet->{$column} ?? null) === null ? '—' : $outlet->{$column}.' hari') : number_format($outlet->{$column} ?? 0) }}@if($bold)</strong>@endif</td>
                         @endforeach
                     </tr>
                 @empty
