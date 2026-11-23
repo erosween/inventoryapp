@@ -97,7 +97,11 @@ class StockOutletTiming
 
         $result = [];
         foreach ($totals as $outlet => $total) {
-            if ($total['qty'] > 0) $result[$outlet] = (int) round($total['weighted_days'] / $total['qty']);
+            if ($total['qty'] > 0) $result[$outlet] = [
+                'qty' => (int) $total['qty'],
+                'weighted_days' => (int) $total['weighted_days'],
+                'average_days' => (int) round($total['weighted_days'] / $total['qty']),
+            ];
         }
 
         return $result;

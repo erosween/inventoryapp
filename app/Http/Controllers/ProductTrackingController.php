@@ -954,19 +954,49 @@ class ProductTrackingController extends MonitaDumaiController
             $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet($stRanges, $product);
             $outletRows->transform(function ($outlet) use ($metrics, $daysToOutlet) {
                 $metric = $metrics[(string) $outlet->id_outlet] ?? ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
+                $sfTiming = $daysToOutlet[(string) $outlet->id_outlet] ?? ['qty' => 0, 'weighted_days' => 0, 'average_days' => null];
                 $outlet->st_qty = (int) $metric['st_qty'];
                 $outlet->so_qty = (int) $metric['redeemed_qty'];
                 $outlet->redeemed_qty = (int) $metric['redeemed_qty'];
                 $outlet->remaining_qty = max($outlet->st_qty - $outlet->redeemed_qty, 0);
-                $outlet->days_sf_to_outlet = $daysToOutlet[(string) $outlet->id_outlet] ?? null;
+                $outlet->days_sf_to_outlet = $sfTiming['average_days'];
+                $outlet->days_sf_to_outlet_qty = $sfTiming['qty'];
+                $outlet->days_sf_to_outlet_weighted = $sfTiming['weighted_days'];
                 $outlet->days_outlet_to_customer = $metric['timed_qty'] > 0
                     ? (int) round($metric['days_weighted'] / $metric['timed_qty']) : null;
+                $outlet->days_outlet_to_customer_qty = (int) $metric['timed_qty'];
+                $outlet->days_outlet_to_customer_weighted = (int) $metric['days_weighted'];
                 return $outlet;
             });
             return $outletRows->map(fn ($row) => (array) $row)->all();
         });
         $outletRows = collect($cachedRows)->map(fn ($row) => (object) $row);
-        $outletRows = $this->filterAndSortStockOutletRows($outletRows, $options);
+        $viewMode = (string) $request->query('view', 'outlet');
+        abort_unless(in_array($viewMode, ['outlet', 'tap', 'cluster'], true), 404);
+        if ($viewMode !== 'outlet') {
+            $groupColumn = $viewMode === 'tap' ? 'tap' : 'cluster';
+            $outletRows = $outletRows->groupBy(fn ($row) => trim((string) ($row->{$groupColumn} ?? '')) ?: 'Tanpa '.$groupColumn)
+                ->map(function ($group, $label) use ($viewMode) {
+                    $stQty = (int) $group->sum('st_qty');
+                    $soQty = (int) $group->sum('so_qty');
+                    $sfQty = (int) $group->sum('days_sf_to_outlet_qty');
+                    $customerQty = (int) $group->sum('days_outlet_to_customer_qty');
+                    $row = (object) [
+                        'id_outlet' => $label,
+                        'group_label' => $label,
+                        'outlet_count' => $group->count(),
+                        'st_qty' => $stQty,
+                        'so_qty' => $soQty,
+                        'remaining_qty' => max($stQty - $soQty, 0),
+                        'days_sf_to_outlet' => $sfQty > 0 ? (int) round($group->sum('days_sf_to_outlet_weighted') / $sfQty) : null,
+                        'days_outlet_to_customer' => $customerQty > 0 ? (int) round($group->sum('days_outlet_to_customer_weighted') / $customerQty) : null,
+                    ];
+                    if ($viewMode === 'tap') $row->cluster = $group->first()->cluster;
+                    return $row;
+                })->values()->sortBy('group_label', SORT_NATURAL | SORT_FLAG_CASE)->values();
+        } else {
+            $outletRows = $this->filterAndSortStockOutletRows($outletRows, $options);
+        }
         $page = LengthAwarePaginator::resolveCurrentPage();
         $allRows = filter_var($request->query('all_rows', false), FILTER_VALIDATE_BOOLEAN);
         $outlets = new LengthAwarePaginator(
@@ -981,6 +1011,7 @@ class ProductTrackingController extends MonitaDumaiController
             'outlets' => $outlets,
             'soKind' => $soKind,
             'stockTableOptions' => $options,
+            'viewMode' => $viewMode,
         ]);
     }
 
