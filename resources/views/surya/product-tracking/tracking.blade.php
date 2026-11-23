@@ -2,14 +2,14 @@
 
 @section('title', 'Tracking SN')
 @section('active-page', 'product-tracking-lookup')
-@section('description', 'Lihat detail ST Nota Surya dan ST Digipos berdasarkan SN.')
+@section('description', 'Lihat ST Nota, ST DigiPOS, dan riwayat dropping SF berdasarkan SN.')
 @section('content-class', 'pt-page')
 
 @push('styles')<link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">@endpush
 
 @section('content')
     <section class="pt-card pt-lookup-card">
-        <div class="pt-lookup-heading"><span class="pt-lookup-icon"><i class="fas fa-barcode"></i></span><div><h2>Cari Produk by SN</h2><p class="pt-subtitle mb-0">Masukkan serial number untuk melihat riwayat penjualan dan scan.</p></div></div>
+        <div class="pt-lookup-heading"><span class="pt-lookup-icon"><i class="fas fa-barcode"></i></span><div><h2>Tracking Serial Number</h2><p class="pt-subtitle mb-0">Masukkan SN untuk melihat ST Nota, ST DigiPOS, dan riwayat dropping/pemilik SF.</p></div></div>
         <form method="get" class="pt-lookup" data-loading-message="Sedang mencari SN dan menelusuri riwayat penjualan serta scan…">
             <input type="search" name="q" value="{{ $queryValue }}" inputmode="numeric" minlength="1" maxlength="24" placeholder="Masukkan Serial Number (SN)" aria-label="Serial Number" required>
             <button class="pt-button primary" type="submit"><i class="fas fa-magnifying-glass"></i><span>Lacak</span></button>
@@ -52,6 +52,31 @@
                 @empty
                     <div class="pt-empty">Belum ditemukan pada hasil scan harian.</div>
                 @endforelse
+            </section>
+
+            <section class="pt-card pt-detail-card">
+                <div class="pt-result-head"><div><h2>RIWAYAT DROPPING SF</h2><p class="pt-subtitle mb-0">{{ $sfMatches->count() }} catatan rentang cocok untuk SN {{ $queryValue }}</p></div></div>
+                @if($sfMatches->isEmpty())
+                    <div class="pt-empty">Belum ada riwayat dropping atau label SF yang cocok.</div>
+                @else
+                    <div class="pt-table-wrap">
+                        <table class="pt-table">
+                            <thead><tr><th>SF CODE</th><th>NAMA SALES FORCE</th><th>TAP</th><th>CLUSTER</th><th>DENOM</th><th>SUMBER</th><th>RENTANG TERCATAT</th><th>TANGGAL / WAKTU WIB</th></tr></thead>
+                            <tbody>@foreach($sfMatches as $row)
+                                <tr>
+                                    <td><strong>{{ $row->sfcode }}</strong></td>
+                                    <td>{{ $row->namasf ?: 'Nama SF tidak ditemukan' }}</td>
+                                    <td>{{ $row->tap ?: '—' }}</td>
+                                    <td>{{ $row->cluster ?: '—' }}</td>
+                                    <td>{{ $row->denom ?: $row->iddenom }}</td>
+                                    <td><span class="pt-chip">{{ $row->source }}</span></td>
+                                    <td>{{ $row->serial_range }}</td>
+                                    <td>{{ $row->date ? \Carbon\Carbon::parse($row->date, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('j M Y H:i:s').' WIB' : '—' }}</td>
+                                </tr>
+                            @endforeach</tbody>
+                        </table>
+                    </div>
+                @endif
             </section>
         </div>
     @endif

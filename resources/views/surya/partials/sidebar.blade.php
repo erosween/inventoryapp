@@ -31,7 +31,7 @@
             <summary class="sidebar-link"><i class="fas fa-barcode"></i><span>PRODUCT TRACKING</span><i class="fas fa-chevron-down taskforce-chevron"></i></summary>
             <a href="{{ route('surya.product-tracking.tracking') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-lookup' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-magnifying-glass"></i><span>TRACKING SN</span></a>
             @if($sidebarAccount?->isSuperAdmin())
-                <a href="{{ route('surya.product-tracking.sf-stock-lookup') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-sf-stock-lookup' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-user-tag"></i><span>CEK SN SF</span></a>
+                <a href="{{ route('surya.product-tracking.sf-stock-lookup') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-sf-stock-lookup' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-user-tag"></i><span>ADD LABEL SN</span></a>
             @endif
             <a href="{{ route('surya.product-tracking.sold') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-sold' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-file-circle-check"></i><span>VALIDASI ST</span></a>
             <a href="{{ route('surya.product-tracking.stock-outlet') }}" class="sidebar-link {{ $sidebarPage === 'product-tracking-stock-outlet' ? 'active' : '' }}" style="padding-left:42px"><i class="fas fa-store"></i><span>STOCK OUTLET</span></a>

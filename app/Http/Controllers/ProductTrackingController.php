@@ -1925,9 +1925,12 @@ class ProductTrackingController extends MonitaDumaiController
     public function tracking(Request $request)
     {
         $queryValue = trim((string) $request->query('q', ''));
-        $sales = collect(); $scans = collect(); $mobile = collect();
+        $sales = collect(); $scans = collect(); $mobile = collect(); $sfMatches = collect();
         if ($queryValue !== '') {
             abort_if(strlen($queryValue) > 24 || ! preg_match('/^\d{9,16}$/', $queryValue), 422, 'Masukkan SN atau nomor 9–16 digit.');
+            if (in_array(strlen($queryValue), [12, 15, 16], true)) {
+                [, $sfMatches] = $this->sfOwnershipMatches($queryValue);
+            }
             $sales = $this->scopedSales()->leftJoin('denom as tracking_denom', 'tracking_denom.iddenom', '=', 'sale.iddenom')->where(function ($query) use ($queryValue) {
                 $query->where(function ($sa) use ($queryValue) {
                     $sa->whereRaw("CONVERT(sale.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")
@@ -1991,15 +1994,12 @@ class ProductTrackingController extends MonitaDumaiController
                 if ($matchedNota) $scan->product_name = $matchedNota->denom_name ?: $matchedNota->iddenom;
             }
         }
-        return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'scans', 'mobile'));
+        return view('surya.product-tracking.tracking', compact('queryValue', 'sales', 'scans', 'mobile', 'sfMatches'));
     }
 
-    public function sfStockLookup(Request $request)
+    private function sfOwnershipMatches(string $raw): array
     {
-        $this->requireEditor();
-        $tab = $request->query('tab') === 'add' ? 'add' : 'tracking';
-        if ($tab === 'add') $this->requireEditor();
-        $raw = trim((string) $request->query('q', ''));
+        $raw = trim($raw);
         $serial = preg_replace('/\\D+/', '', $raw);
         $matches = collect();
         $error = null;
@@ -2099,6 +2099,17 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             }
         }
+
+        return [$serial, $matches, $error];
+    }
+
+    public function sfStockLookup(Request $request)
+    {
+        $this->requireEditor();
+        $tab = 'add';
+        $serial = '';
+        $matches = collect();
+        $error = null;
 
         $salesForces = collect();
         $eligibleDenoms = collect();
