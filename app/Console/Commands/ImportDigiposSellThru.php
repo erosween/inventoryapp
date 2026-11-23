@@ -50,7 +50,7 @@ class ImportDigiposSellThru extends Command
                     continue;
                 }
                 $seen[$canonical] = true;
-                $serialsForCheck[$canonical] = $serial;
+                $serialsForCheck[$date][$canonical] = $serial;
                 $records[$date][] = [
                     'serial_start' => $serial,
                     'serial_end' => $serial,
@@ -176,51 +176,56 @@ class ImportDigiposSellThru extends Command
         return ProductTrackingFile::date($value);
     }
 
-    private function existingCanonicalSerials(array $serials): array
+    private function existingCanonicalSerials(array $serialsByDate): array
     {
-        if ($serials === []) return [];
+        if ($serialsByDate === []) return [];
 
         $variants = [];
-        $byLength = [];
-        foreach ($serials as $canonical => $serial) {
-            $candidates = [$serial];
-            if (strlen($serial) === 16 && str_starts_with($serial, '0')) $candidates[] = substr($serial, 1);
-            elseif (strlen($serial) === 15) $candidates[] = '0'.$serial;
-            $variants[$canonical] = $candidates;
-            foreach ($candidates as $candidate) $byLength[strlen($candidate)][$candidate] = true;
+        $byDateAndLength = [];
+        foreach ($serialsByDate as $date => $serials) {
+            foreach ($serials as $canonical => $serial) {
+                $candidates = [$serial];
+                if (strlen($serial) === 16 && str_starts_with($serial, '0')) $candidates[] = substr($serial, 1);
+                elseif (strlen($serial) === 15) $candidates[] = '0'.$serial;
+                $variants[$canonical] = ['date' => $date, 'candidates' => $candidates];
+                foreach ($candidates as $candidate) $byDateAndLength[$date][strlen($candidate)][$candidate] = true;
+            }
         }
 
         $rangesByLength = [];
-        foreach ($byLength as $length => $values) {
-            $values = array_keys($values);
-            sort($values, SORT_STRING);
-            $ranges = DB::table('product_tracking_digipos as d')
-                ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
-                ->where('d.kind', 'scan')->where('u.kind', 'scan')->where('u.status', 'complete')
-                ->whereRaw('CHAR_LENGTH(d.serial_start) = ?', [$length])
-                ->whereRaw('CHAR_LENGTH(d.serial_end) = ?', [$length])
-                ->where('d.serial_start', '<=', end($values))
-                ->where('d.serial_end', '>=', reset($values))
-                ->get(['d.serial_start', 'd.serial_end']);
+        foreach ($byDateAndLength as $date => $lengthGroups) {
+            foreach ($lengthGroups as $length => $values) {
+                $values = array_keys($values);
+                sort($values, SORT_STRING);
+                $ranges = DB::table('product_tracking_digipos as d')
+                    ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+                    ->where('d.kind', 'scan')->where('d.scan_date', $date)
+                    ->where('u.kind', 'scan')->where('u.status', 'complete')
+                    ->whereRaw('CHAR_LENGTH(d.serial_start) = ?', [$length])
+                    ->whereRaw('CHAR_LENGTH(d.serial_end) = ?', [$length])
+                    ->where('d.serial_start', '<=', end($values))
+                    ->where('d.serial_end', '>=', reset($values))
+                    ->get(['d.serial_start', 'd.serial_end']);
 
-            $intervals = $ranges->map(fn ($range) => [(string) $range->serial_start, (string) $range->serial_end])->all();
-            usort($intervals, fn ($a, $b) => strcmp($a[0], $b[0]));
-            $merged = [];
-            foreach ($intervals as [$start, $end]) {
-                $last = count($merged) - 1;
-                if ($last >= 0 && strcmp($start, $merged[$last][1]) <= 0) {
-                    if (strcmp($end, $merged[$last][1]) > 0) $merged[$last][1] = $end;
-                } else {
-                    $merged[] = [$start, $end];
+                $intervals = $ranges->map(fn ($range) => [(string) $range->serial_start, (string) $range->serial_end])->all();
+                usort($intervals, fn ($a, $b) => strcmp($a[0], $b[0]));
+                $merged = [];
+                foreach ($intervals as [$start, $end]) {
+                    $last = count($merged) - 1;
+                    if ($last >= 0 && strcmp($start, $merged[$last][1]) <= 0) {
+                        if (strcmp($end, $merged[$last][1]) > 0) $merged[$last][1] = $end;
+                    } else {
+                        $merged[] = [$start, $end];
+                    }
                 }
+                $rangesByLength[$date][$length] = $merged;
             }
-            $rangesByLength[$length] = $merged;
         }
 
         $existing = [];
-        foreach ($variants as $canonical => $candidates) {
-            foreach ($candidates as $candidate) {
-                foreach ($rangesByLength[strlen($candidate)] ?? [] as [$start, $end]) {
+        foreach ($variants as $canonical => $entry) {
+            foreach ($entry['candidates'] as $candidate) {
+                foreach ($rangesByLength[$entry['date']][strlen($candidate)] ?? [] as [$start, $end]) {
                     if (strcmp($candidate, $start) >= 0 && strcmp($candidate, $end) <= 0) {
                         $existing[$canonical] = true;
                         break 2;
