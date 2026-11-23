@@ -971,25 +971,42 @@ class ProductTrackingController extends MonitaDumaiController
             return $outletRows->map(fn ($row) => (array) $row)->all();
         });
         $outletRows = collect($cachedRows)->map(fn ($row) => (object) $row);
+        if (! $request->boolean('_single_product')) {
+            $combined = [];
+            foreach (['PV', 'SA'] as $reportProduct) {
+                foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $row) {
+                    $id = (string) $row['id_outlet'];
+                    $combined[$id] ??= array_intersect_key($row, array_flip(['id_outlet', 'nama_outlet', 'kecamatan', 'tap', 'cluster', 'sf', 'kategori_outlet']));
+                    $suffix = strtolower($reportProduct);
+                    foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
+                        $combined[$id][$metric.'_'.$suffix] = $row[$metric] ?? null;
+                    }
+                }
+            }
+            $outletRows = collect($combined)->map(fn ($row) => (object) $row);
+        }
         $viewMode = (string) $request->query('view', 'outlet');
         abort_unless(in_array($viewMode, ['outlet', 'tap'], true), 404);
         if ($viewMode !== 'outlet') {
             $summarizeStockGroup = static function ($group, string $label, string $rowType, string $cluster = ''): object {
-                $stQty = (int) $group->sum('st_qty');
-                $soQty = (int) $group->sum('so_qty');
-                $sfQty = (int) $group->sum('days_sf_to_outlet_qty');
-                $customerQty = (int) $group->sum('days_outlet_to_customer_qty');
-                return (object) [
+                $summary = [
                     'group_label' => $label,
                     'row_type' => $rowType,
                     'cluster' => $cluster,
                     'outlet_count' => $group->count(),
-                    'st_qty' => $stQty,
-                    'so_qty' => $soQty,
-                    'remaining_qty' => max($stQty - $soQty, 0),
-                    'days_sf_to_outlet' => $sfQty > 0 ? (int) round($group->sum('days_sf_to_outlet_weighted') / $sfQty) : null,
-                    'days_outlet_to_customer' => $customerQty > 0 ? (int) round($group->sum('days_outlet_to_customer_weighted') / $customerQty) : null,
                 ];
+                foreach (['pv', 'sa'] as $suffix) {
+                    $stQty = (int) $group->sum('st_qty_'.$suffix);
+                    $soQty = (int) $group->sum('so_qty_'.$suffix);
+                    $sfQty = (int) $group->sum('days_sf_to_outlet_qty_'.$suffix);
+                    $customerQty = (int) $group->sum('days_outlet_to_customer_qty_'.$suffix);
+                    $summary['st_qty_'.$suffix] = $stQty;
+                    $summary['so_qty_'.$suffix] = $soQty;
+                    $summary['remaining_qty_'.$suffix] = max($stQty - $soQty, 0);
+                    $summary['days_sf_to_outlet_'.$suffix] = $sfQty > 0 ? (int) round($group->sum('days_sf_to_outlet_weighted_'.$suffix) / $sfQty) : null;
+                    $summary['days_outlet_to_customer_'.$suffix] = $customerQty > 0 ? (int) round($group->sum('days_outlet_to_customer_weighted_'.$suffix) / $customerQty) : null;
+                }
+                return (object) $summary;
             };
             $clusterOrder = ['DUMAI BENGKALIS', 'ROKAN HILIR'];
             $tapOrder = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
@@ -1052,7 +1069,12 @@ class ProductTrackingController extends MonitaDumaiController
         $key = (string) $request->query('column');
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
-        $rows = Cache::remember('stock-outlet-filter-values-v3-'.$product, now()->addSeconds(45), fn () => $this->stockOutletRowsForFilters($request, $product, false));
+        $allRequest = clone $request;
+        $allRequest->query->set('product', 'PV');
+        $allRequest->query->set('view', 'outlet');
+        $allRequest->query->set('all_rows', 1);
+        foreach (['columns', 'exclude', 'sort', 'direction', 'page'] as $option) $allRequest->query->remove($option);
+        $rows = collect($this->stockOutlet($allRequest)->getData()['outlets']->getCollection())->map(fn ($row) => (array) $row)->all();
         $needle = mb_strtolower(trim((string) $request->query('q')));
         $values = collect($rows)->map(fn ($row) => (string) ($row[$key] ?? ''))->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
             ->filter(fn ($value) => $needle === '' || str_contains(mb_strtolower($value), $needle))
@@ -1069,50 +1091,29 @@ class ProductTrackingController extends MonitaDumaiController
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
         $allowedColumns = array_keys($this->stockOutletColumnMap());
         $options = $this->stockOutletTableOptions($request, $allowedColumns);
-        $combinedRows = [];
-
-        foreach (['PV', 'SA'] as $reportProduct) {
-            foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $outlet) {
-                $id = (string) $outlet['id_outlet'];
-                $combinedRows[$id] ??= [
-                    'id_outlet' => $outlet['id_outlet'], 'nama_outlet' => $outlet['nama_outlet'],
-                    'kecamatan' => $outlet['kecamatan'], 'tap' => $outlet['tap'], 'cluster' => $outlet['cluster'], 'sf' => $outlet['sf'],
-                    'kategori_outlet' => $outlet['kategori_outlet'],
-                ];
-                $suffix = strtolower($reportProduct);
-                $combinedRows[$id]['remaining_qty_'.$suffix] = $outlet['remaining_qty'];
-                $combinedRows[$id]['st_qty_'.$suffix] = $outlet['st_qty'];
-                $combinedRows[$id]['so_qty_'.$suffix] = $outlet['so_qty'];
-                $combinedRows[$id]['days_sf_to_outlet_'.$suffix] = $outlet['days_sf_to_outlet'];
-                $combinedRows[$id]['days_outlet_to_customer_'.$suffix] = $outlet['days_outlet_to_customer'];
-
-                if ($reportProduct === $product) {
-                    $combinedRows[$id]['remaining_qty'] = $outlet['remaining_qty'];
-                    $combinedRows[$id]['st_qty'] = $outlet['st_qty'];
-                    $combinedRows[$id]['so_qty'] = $outlet['so_qty'];
-                    $combinedRows[$id]['days_sf_to_outlet'] = $outlet['days_sf_to_outlet'];
-                    $combinedRows[$id]['days_outlet_to_customer'] = $outlet['days_outlet_to_customer'];
-                }
-            }
-        }
-
-        $rows = $this->filterAndSortStockOutletRows(collect($combinedRows)->map(fn ($row) => (object) $row), $options);
+        $allRequest = clone $request;
+        $allRequest->query->set('product', 'PV');
+        $allRequest->query->set('view', 'outlet');
+        $allRequest->query->set('all_rows', 1);
+        foreach (['columns', 'exclude', 'sort', 'direction', 'page'] as $option) $allRequest->query->remove($option);
+        $combinedRows = collect($this->stockOutlet($allRequest)->getData()['outlets']->getCollection());
+        $rows = $this->filterAndSortStockOutletRows($combinedRows, $options);
 
         return response()->streamDownload(function () use ($rows) {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
             fputcsv($stream, [
                 'ID Outlet', 'Nama Outlet', 'Kecamatan', 'TAP', 'Cluster', 'Sales Force', 'Kategori Outlet',
-                'Sisa Stock SA', 'ST SA', 'SO SA', 'SF ke Outlet SA (hari)', 'Outlet ke Pelanggan SA (hari)',
                 'Sisa Stock PV', 'ST PV', 'SO PV', 'SF ke Outlet PV (hari)', 'Outlet ke Pelanggan PV (hari)',
+                'Sisa Stock SA', 'ST SA', 'SO SA', 'SF ke Outlet SA (hari)', 'Outlet ke Pelanggan SA (hari)',
             ]);
             foreach ($rows as $outlet) {
                 fputcsv($stream, [
                     $outlet->id_outlet, $outlet->nama_outlet, $outlet->kecamatan, $outlet->tap, $outlet->cluster, $outlet->sf, $outlet->kategori_outlet,
-                    $outlet->remaining_qty_sa ?? 0, $outlet->st_qty_sa ?? 0, $outlet->so_qty_sa ?? 0,
-                    $outlet->days_sf_to_outlet_sa ?? null, $outlet->days_outlet_to_customer_sa ?? null,
                     $outlet->remaining_qty_pv ?? 0, $outlet->st_qty_pv ?? 0, $outlet->so_qty_pv ?? 0,
                     $outlet->days_sf_to_outlet_pv ?? null, $outlet->days_outlet_to_customer_pv ?? null,
+                    $outlet->remaining_qty_sa ?? 0, $outlet->st_qty_sa ?? 0, $outlet->so_qty_sa ?? 0,
+                    $outlet->days_sf_to_outlet_sa ?? null, $outlet->days_outlet_to_customer_sa ?? null,
                 ]);
             }
             fclose($stream);
@@ -1129,11 +1130,10 @@ class ProductTrackingController extends MonitaDumaiController
             'cluster' => 'cluster',
             'sf' => 'outlet.sf',
             'kategori_outlet' => Schema::hasColumn('appsdumais', 'kategori_outlet') ? 'outlet.kategori_outlet' : 'kategori_outlet',
-            'remaining_qty' => 'remaining_qty',
-            'st_qty' => 'st_qty',
-            'so_qty' => 'so_qty',
-            'days_sf_to_outlet' => 'days_sf_to_outlet',
-            'days_outlet_to_customer' => 'days_outlet_to_customer',
+            'remaining_qty_pv' => 'remaining_qty_pv', 'st_qty_pv' => 'st_qty_pv', 'so_qty_pv' => 'so_qty_pv',
+            'days_sf_to_outlet_pv' => 'days_sf_to_outlet_pv', 'days_outlet_to_customer_pv' => 'days_outlet_to_customer_pv',
+            'remaining_qty_sa' => 'remaining_qty_sa', 'st_qty_sa' => 'st_qty_sa', 'so_qty_sa' => 'so_qty_sa',
+            'days_sf_to_outlet_sa' => 'days_sf_to_outlet_sa', 'days_outlet_to_customer_sa' => 'days_outlet_to_customer_sa',
         ];
     }
 
@@ -1150,7 +1150,7 @@ class ProductTrackingController extends MonitaDumaiController
         }
 
         $sort = $options['sort'];
-        $numeric = in_array($sort, ['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_outlet_to_customer'], true);
+        $numeric = in_array($sort, ['remaining_qty_pv', 'st_qty_pv', 'so_qty_pv', 'days_sf_to_outlet_pv', 'days_outlet_to_customer_pv', 'remaining_qty_sa', 'st_qty_sa', 'so_qty_sa', 'days_sf_to_outlet_sa', 'days_outlet_to_customer_sa'], true);
         $direction = $options['direction'] === 'desc' ? -1 : 1;
         return $rows->sort(function ($a, $b) use ($sort, $numeric, $direction) {
             $left = $a->{$sort} ?? null;
@@ -1165,6 +1165,8 @@ class ProductTrackingController extends MonitaDumaiController
         $allRequest = clone $request;
         $allRequest->query->set('product', $product);
         $allRequest->query->set('all_rows', 1);
+        $allRequest->query->set('_single_product', 1);
+        $allRequest->query->set('view', 'outlet');
         $allRequest->query->remove('page');
         if (! $includeFilters) {
             foreach (['columns', 'exclude', 'sort', 'direction'] as $key) $allRequest->query->remove($key);
@@ -1177,8 +1179,8 @@ class ProductTrackingController extends MonitaDumaiController
     private function stockOutletTableOptions(Request $request, array $allowedColumns): array
     {
         $data = $request->validate([
-            'columns' => 'nullable|array|max:12', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
-            'exclude' => 'nullable|array|max:12', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
+            'columns' => 'nullable|array|max:20', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
+            'exclude' => 'nullable|array|max:20', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
             'sort' => ['nullable', Rule::in($allowedColumns)],
             'direction' => 'nullable|in:asc,desc',
             'page' => 'nullable|integer|min:1|max:100000',
