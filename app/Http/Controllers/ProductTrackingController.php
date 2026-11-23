@@ -1079,7 +1079,13 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             }
         }
-        $outletRows = collect($combined)->map(fn ($row) => (object) $row);
+        $metricDefaults = [];
+        foreach (['pv', 'sa'] as $suffix) {
+            foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
+                $metricDefaults[$metric.'_'.$suffix] = null;
+            }
+        }
+        $outletRows = collect($combined)->map(fn ($row) => (object) array_merge($metricDefaults, $row));
         $viewMode = (string) $request->query('view', 'outlet');
         abort_unless(in_array($viewMode, ['outlet', 'tap'], true), 404);
         if ($viewMode === 'tap') {
@@ -2148,7 +2154,7 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
-        $previousOwners = $this->previousSfOwnersForRange($data['sfcode'], $data['iddenom'], $start, $end, $isSa, $record->id);
+        $previousOwners = $this->previousSfOwnersForRange($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
 
         DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty, $previousOwners) {
             DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([
@@ -2183,23 +2189,48 @@ class ProductTrackingController extends MonitaDumaiController
     }
 
     /** Keep an audit note when a manual SN assignment overlaps a receipt to another SF. */
-    private function previousSfOwnersForRange(string $newSf, string $iddenom, string $start, string $end, bool $isSa, ?int $ignoreManualRange = null)
+    private function previousSfOwnersForRange(string $newSf, string $iddenom, string $start, string $end, bool $isSa)
     {
-        $startValue = (int) ltrim($start, '0');
-        $endValue = (int) ltrim($end, '0');
-        $rangeLengths = $isSa ? '15, 16' : '12';
+        $widths = $isSa ? [15, 16] : [12];
+        $targetStart = (int) ltrim($start, '0');
+        $targetEnd = (int) ltrim($end, '0');
         $sources = DB::table('masuksf as incoming')
             ->where('incoming.iddenom', $iddenom)
-            ->whereRaw("CHAR_LENGTH(SUBSTRING_INDEX(incoming.sn, '-', 1)) IN ({$rangeLengths})")
-            ->whereRaw("CAST(SUBSTRING_INDEX(incoming.sn, '-', 1) AS DECIMAL(24,0)) <= ?", [$endValue])
-            ->whereRaw("CAST(CASE WHEN LOCATE('-', incoming.sn) > 0 THEN SUBSTRING_INDEX(incoming.sn, '-', -1) ELSE incoming.sn END AS DECIMAL(24,0)) >= ?", [$startValue])
+            ->whereRaw('incoming.sn REGEXP ?', [$isSa ? '[0-9]{15}' : '[0-9]{12}'])
             ->where('incoming.idsf', '<>', $newSf)
             ->distinct()->get(['incoming.idsf', 'incoming.sn']);
 
-        return $sources->map(function ($source) {
-            $name = DB::table('idsf')->where('idsf', $source->idsf)->value('namasf') ?: $source->idsf;
-            return $name.' ('.$source->idsf.'; '.$source->sn.')';
-        })->unique()->values();
+        $segmentsByOwner = [];
+        foreach ($sources as $source) {
+            $parts = preg_split('/\s*[,;|\n]+\s*/u', trim((string) $source->sn), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            foreach ($parts as $part) {
+                if (preg_match('/^(\d+)\s*[-–—]\s*(\d+)$/u', trim($part), $match)) {
+                    [$serialStart, $serialEnd] = [$match[1], $match[2]];
+                } elseif (preg_match('/^\d+$/', trim($part))) {
+                    $serialStart = $serialEnd = trim($part);
+                } else {
+                    continue;
+                }
+
+                if (! in_array(strlen($serialStart), $widths, true) || strlen($serialStart) !== strlen($serialEnd)) continue;
+                if ($isSa && strlen($serialStart) === 16 && (! str_starts_with($serialStart, '0') || ! str_starts_with($serialEnd, '0'))) continue;
+                $sourceStart = (int) ltrim($serialStart, '0');
+                $sourceEnd = (int) ltrim($serialEnd, '0');
+                if ($sourceEnd < $sourceStart) continue;
+
+                $overlapStart = max($targetStart, $sourceStart);
+                $overlapEnd = min($targetEnd, $sourceEnd);
+                if ($overlapStart > $overlapEnd) continue;
+
+                $segmentsByOwner[$source->idsf][] = str_pad((string) $overlapStart, strlen($serialStart), '0', STR_PAD_LEFT)
+                    .'-'.str_pad((string) $overlapEnd, strlen($serialEnd), '0', STR_PAD_LEFT);
+            }
+        }
+
+        if ($segmentsByOwner === []) return collect();
+        $names = DB::table('idsf')->whereIn('idsf', array_keys($segmentsByOwner))->pluck('namasf', 'idsf');
+        return collect($segmentsByOwner)->map(fn ($segments, $sfCode) => ($names[$sfCode] ?? $sfCode)
+            .' ('.$sfCode.'; '.collect($segments)->unique()->implode(', ').')')->values();
     }
 
     private function findManualSfStockRange(int $range): object
