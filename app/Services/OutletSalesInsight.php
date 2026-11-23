@@ -11,7 +11,7 @@ class OutletSalesInsight
     public const GROUPS = [
         'st_sa' => ['label' => 'ST SA', 'threshold' => 5],
         'st_pv' => ['label' => 'ST PV', 'threshold' => 40],
-        'cvm' => ['label' => 'CVM', 'threshold' => 5],
+        'cvm' => ['label' => 'CVM', 'threshold' => 11],
         'super_seru' => ['label' => 'Super Seru', 'threshold' => 5],
         'comsak' => ['label' => 'Comsak', 'threshold' => 5],
         'hot_promo' => ['label' => 'Hot Promo', 'threshold' => 5],
@@ -63,7 +63,8 @@ class OutletSalesInsight
         if ($ids !== []) {
             $biometrikRows = SuryaTransactions::query()
                 ->whereIn('id_outlet', $ids)
-                ->whereBetween('metric_date', [$monthStart->toDateString(), $cutoff->toDateString()])
+                // Biometrik is an uploaded snapshot, and may be newer than the sales cutoff.
+                ->whereBetween('metric_date', [$monthStart->toDateString(), $monthStart->copy()->endOfMonth()->toDateString()])
                 ->orderByDesc('metric_date')->orderByDesc('id')->get()
                 ->groupBy(fn ($row) => (string) $row->id_outlet);
             foreach ($biometrikRows as $id => $rows) {

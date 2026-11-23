@@ -2,7 +2,7 @@
 <div class="outlet-insight-meta">
     <strong>Outlet Aktif</strong>
     <span>FM-1 bulan penuh · M-1 dan MTD sampai tanggal {{ $insight['cutoff']->format('d') }}</span>
-    <span>Ambang aktif: PV 40 · SA 5 · CVM/Sub-CVM 5 · Biometrik 1</span>
+    <span>Ambang aktif: PV 40 · SA 5 · CVM 11 · Sub-CVM 5 · Biometrik 1</span>
     <span>{{ number_format($insight['outletCount']) }} outlet sesuai filter</span>
 </div>
 @foreach(['tap'=>'Summary per TAP','district'=>'Summary per Kecamatan'] as $type=>$title)
