@@ -548,6 +548,8 @@ public function bulkDelete(Request $request)
         $latestAllowedDate = now('Asia/Jakarta')->addDays(2)->toDateString();
         $request->validate([
             'tgl' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$latestAllowedDate],
+            'sn_awal' => ['required', 'string', 'max:24'],
+            'sn_akhir' => ['nullable', 'string', 'max:24'],
         ]);
 
         try {
@@ -608,12 +610,14 @@ public function bulkDelete(Request $request)
                     ->increment('stock', $newQty);
 
                 // 4. UPDATE RECORD
+                $serialStart = trim((string) $request->input('sn_awal'));
+                $serialEnd = trim((string) $request->input('sn_akhir'));
                 DB::table('masuksf')->where('idmasuk', $id)->update([
                     'idtap'   => $newIdtap,
                     'idsf'    => $newIdsf,
                     'iddenom' => $newIddenom,
                     'qty'     => $newQty,
-                    'sn'      => $request->sn,
+                    'sn'      => $serialEnd === '' ? $serialStart : $serialStart.'-'.$serialEnd,
                     'tgl'     => $request->tgl
                 ]);
 

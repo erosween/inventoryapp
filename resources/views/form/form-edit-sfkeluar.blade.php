@@ -106,12 +106,30 @@
                                             </div>
                                         </div>
 
+                                        @php
+                                            $legacySerialParts = explode('-', (string) ($edit->tambahanket ?? ''), 2);
+                                            $legacySerialInNote = empty($edit->sn_awal) && empty($edit->sn_akhir) && count($legacySerialParts) === 2;
+                                            $serialStartValue = $edit->sn_awal ?? (count($legacySerialParts) === 2 ? trim($legacySerialParts[0]) : '');
+                                            $serialEndValue = $edit->sn_akhir ?? (count($legacySerialParts) === 2 ? trim($legacySerialParts[1]) : '');
+                                        @endphp
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>SN Awal - SN Akhir</label>
+                                                <label>SN Awal</label>
+                                                <input type="text" name="sn_awal" class="form-control" value="{{ old('sn_awal', $serialStartValue) }}" maxlength="24">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN Akhir</label>
+                                                <input type="text" name="sn_akhir" class="form-control" value="{{ old('sn_akhir', $serialEndValue) }}" maxlength="24">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>Catatan</label>
                                                 <input type="text" name="tambahanket" id="tambahanket"
-                                                    value="{{ $edit->tambahanket }}" class="form-control"
-                                                    placeholder="SN Awal - SN Akhir">
+                                                    value="{{ old('tambahanket', $legacySerialInNote ? '' : $edit->tambahanket) }}" class="form-control"
+                                                    placeholder="Catatan (opsional)">
                                             </div>
                                         </div>
 

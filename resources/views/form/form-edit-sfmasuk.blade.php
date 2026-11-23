@@ -96,12 +96,20 @@
                                             </div>
                                         </div>
 
-                                        {{-- SN --}}
+                                        {{-- Rentang SN --}}
+                                        @php $serialParts = explode('-', (string) $data->sn, 2); @endphp
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>SN</label>
-                                                <input type="text" name="sn" class="form-control"
-                                                    value="{{ $data->sn }}" placeholder="SN Awal - SN Akhir" required>
+                                                <label>SN Awal</label>
+                                                <input type="text" name="sn_awal" class="form-control"
+                                                    value="{{ old('sn_awal', trim($serialParts[0] ?? '')) }}" maxlength="24" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-1">
+                                                <label>SN Akhir <small class="text-muted">(Opsional untuk satu SN)</small></label>
+                                                <input type="text" name="sn_akhir" class="form-control"
+                                                    value="{{ old('sn_akhir', trim($serialParts[1] ?? '')) }}" maxlength="24">
                                             </div>
                                         </div>
 

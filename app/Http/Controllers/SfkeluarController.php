@@ -575,6 +575,8 @@ public function updateSfKeluar(Request $request, $id)
         'iddenom' => 'required|exists:denom,iddenom',
         'qty' => 'required|integer|min:1',
         'tambahanket' => 'nullable|string|max:255',
+        'sn_awal' => 'nullable|string|max:24',
+        'sn_akhir' => 'nullable|string|max:24',
     ]);
 
     DB::transaction(function () use ($validated, $id) {
@@ -634,7 +636,9 @@ public function updateSfKeluar(Request $request, $id)
                     'qty'         => $newQty,
                     'tgl'         => $newTgl,
                     'id_outlet'   => $newOutlet,
-                    'tambahanket' => $newKet
+                    'tambahanket' => $newKet,
+                    'sn_awal'     => $validated['sn_awal'] ?? null,
+                    'sn_akhir'    => $validated['sn_akhir'] ?? null,
                 ]);
 
             // 📝 LOG

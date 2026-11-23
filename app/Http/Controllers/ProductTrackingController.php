@@ -1919,7 +1919,6 @@ class ProductTrackingController extends MonitaDumaiController
                             ->from('product_tracking_sales_stock_ranges as correction')
                             ->join('product_tracking_sales_stock_uploads as correction_upload', 'correction_upload.id', '=', 'correction.upload_id')
                             ->whereColumn('correction.iddenom', 'stock.iddenom')
-                            ->whereColumn('correction.sfcode', '<>', 'stock.sfcode')
                             ->where('correction_upload.filename', 'like', 'MANUAL:%')
                             ->whereRaw('CHAR_LENGTH(correction.serial_start) IN ('.($isPv ? '12' : '15, 16').')')
                             ->whereRaw('CAST(correction.serial_start AS DECIMAL(24,0)) <= ? AND CAST(correction.serial_end AS DECIMAL(24,0)) >= ?', [$canonical, $canonical]);
@@ -1959,7 +1958,6 @@ class ProductTrackingController extends MonitaDumaiController
                         ->from('product_tracking_sales_stock_ranges as correction')
                         ->join('product_tracking_sales_stock_uploads as correction_upload', 'correction_upload.id', '=', 'correction.upload_id')
                         ->whereColumn('correction.iddenom', 'm.iddenom')
-                        ->whereColumn('correction.sfcode', '<>', 'm.idsf')
                         ->where('correction_upload.filename', 'like', 'MANUAL:%')
                         ->whereRaw('CHAR_LENGTH(correction.serial_start) IN ('.($isPv ? '12' : '15, 16').')')
                         ->whereRaw('CAST(correction.serial_start AS DECIMAL(24,0)) <= ? AND CAST(correction.serial_end AS DECIMAL(24,0)) >= ?', [$canonical, $canonical]);
@@ -2074,6 +2072,8 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
+        $this->validateReturnedBeforeReassign($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
+
         DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty) {
             $now = now();
             $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
@@ -2146,6 +2146,8 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
+        $this->validateReturnedBeforeReassign($data['sfcode'], $data['iddenom'], $start, $end, $isSa, $record->id);
+
         DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty) {
             DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([
                 'sfcode' => $sf->idsf, 'tap' => $sf->idtap,
@@ -2175,6 +2177,54 @@ class ProductTrackingController extends MonitaDumaiController
 
         return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
             ->with('success', 'Rentang SN berhasil dihapus.');
+    }
+
+    /** Require the previous admin SF receipt to be fully covered by a recorded return before reassignment. */
+    private function validateReturnedBeforeReassign(string $newSf, string $iddenom, string $start, string $end, bool $isSa, ?int $ignoreManualRange = null): void
+    {
+        $startValue = (int) ltrim($start, '0');
+        $endValue = (int) ltrim($end, '0');
+        $rangeLengths = $isSa ? '15, 16' : '12';
+        $sources = DB::table('masuksf as incoming')
+            ->where('incoming.iddenom', $iddenom)
+            ->whereRaw("CHAR_LENGTH(SUBSTRING_INDEX(incoming.sn, '-', 1)) IN ({$rangeLengths})")
+            ->whereRaw("CAST(SUBSTRING_INDEX(incoming.sn, '-', 1) AS DECIMAL(24,0)) <= ?", [$endValue])
+            ->whereRaw("CAST(CASE WHEN LOCATE('-', incoming.sn) > 0 THEN SUBSTRING_INDEX(incoming.sn, '-', -1) ELSE incoming.sn END AS DECIMAL(24,0)) >= ?", [$startValue])
+            ->where('incoming.idsf', '<>', $newSf)
+            ->get(['incoming.idsf', 'incoming.sn']);
+
+        foreach ($sources as $source) {
+            $sourceParts = preg_split('/\s*-\s*/', trim((string) $source->sn)) ?: [];
+            $sourceStart = (int) ltrim($sourceParts[0] ?? '', '0');
+            $sourceEnd = (int) ltrim($sourceParts[1] ?? $sourceParts[0] ?? '', '0');
+            $neededStart = max($startValue, $sourceStart);
+            $neededEnd = min($endValue, $sourceEnd);
+            if ($neededStart > $neededEnd) continue;
+
+            $returns = DB::table('retursf')
+                ->where('idsf', $source->idsf)
+                ->where('iddenom', $iddenom)
+                ->get(['sn_awal', 'sn_akhir', 'sn']);
+            $intervals = $returns->map(function ($return) {
+                $parts = preg_split('/\s*[-–—]\s*/u', trim((string) ($return->sn_awal ?: $return->sn))) ?: [];
+                $low = (int) ltrim($parts[0] ?? '', '0');
+                $highText = trim((string) ($return->sn_akhir ?? '')) ?: ($parts[1] ?? $parts[0] ?? '');
+                return [$low, (int) ltrim($highText, '0')];
+            })->filter(fn ($interval) => $interval[1] >= $interval[0])
+                ->sortBy(fn ($interval) => $interval[0])->values();
+
+            $coveredThrough = $neededStart - 1;
+            foreach ($intervals as [$returnStart, $returnEnd]) {
+                if ($returnEnd < $coveredThrough + 1) continue;
+                if ($returnStart > $coveredThrough + 1) break;
+                $coveredThrough = max($coveredThrough, $returnEnd);
+                if ($coveredThrough >= $neededEnd) break;
+            }
+            if ($coveredThrough < $neededEnd) {
+                $sfName = DB::table('idsf')->where('idsf', $source->idsf)->value('namasf') ?: $source->idsf;
+                throw ValidationException::withMessages(['serial_start' => "SN ini masih tercatat pada {$sfName} ({$source->idsf}). Minta admin mencatat retur untuk seluruh SN yang dipindahkan, baru petakan ke SF baru."]);
+            }
+        }
     }
 
     private function findManualSfStockRange(int $range): object
