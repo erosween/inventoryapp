@@ -117,6 +117,15 @@ class ProductTrackingController extends MonitaDumaiController
                 'mismatch_qty' => max($qty - $matchedQty, 0),
             ];
         })->values();
+        $outletIds = $allOutletRows->pluck('id_outlet')->filter()->unique()->values();
+        $visitTimes = $outletIds->isEmpty() ? collect() : DB::table('surya_visits')
+            ->whereIn('id_outlet', $outletIds)
+            ->where('visited_at', '>=', $filters['date'].' 00:00:00')
+            ->where('visited_at', '<', \Carbon\Carbon::parse($filters['date'])->addDay()->toDateString().' 00:00:00')
+            ->selectRaw('id_outlet, MAX(visited_at) AS visit_at')
+            ->groupBy('id_outlet')
+            ->pluck('visit_at', 'id_outlet');
+        $allOutletRows->each(fn ($row) => $row->visit_at = $visitTimes->get($row->id_outlet));
         $outletRows = $allOutletRows;
         foreach (['columns', 'exclude'] as $mode) {
             $detailTableOptions[$mode] = array_filter($detailTableOptions[$mode] ?? [], fn ($values, $column) => ! in_array($column, ['sf','outlet_count','matched_outlets','mismatch_outlets'], true), ARRAY_FILTER_USE_BOTH);
