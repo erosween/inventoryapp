@@ -2,18 +2,13 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /** Range-based timing; never expands a serial interval into individual SN rows. */
 class StockOutletTiming
 {
-    public function daysToOutlet(Collection $salesRanges, string $product): array
+    public function daysToOutlet(iterable $salesRanges, string $product, array $owners, array $denoms): array
     {
-        if ($salesRanges->isEmpty()) return [];
-
-        $owners = $salesRanges->pluck('owner_sf')->filter()->unique()->values()->all();
-        $denoms = $salesRanges->pluck('iddenom')->filter()->unique()->values()->all();
         if ($owners === [] || $denoms === []) return [];
 
         $candidates = [];

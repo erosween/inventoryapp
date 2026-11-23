@@ -892,7 +892,7 @@ class ProductTrackingController extends MonitaDumaiController
             $scopedMobileSt = (clone $mobileSt)->whereIn('sale.id_outlet', $eligibleOutletIds);
             $scopedWebSt = (clone $webSt)->whereIn('form_sale.id_outlet', $eligibleOutletIds);
             $stSources = $scopedMobileSt->unionAll($scopedWebSt);
-            $stRanges = DB::query()->fromSub($stSources, 'source')->get([
+            $stRangesQuery = DB::query()->fromSub($stSources, 'source')->select([
                 'source.id_outlet', 'source.owner_sf', 'source.iddenom', 'source.serial_start',
                 'source.serial_end', 'source.serial_count', 'source.st_date',
             ]);
@@ -902,7 +902,7 @@ class ProductTrackingController extends MonitaDumaiController
             $canonical = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
                 ? substr((string) $serial, 1) : (string) $serial;
             $serialBounds = [];
-            foreach ($stRanges as $stRange) {
+            foreach ((clone $stRangesQuery)->cursor() as $stRange) {
                 $start = $canonical($stRange->serial_start);
                 $end = $canonical($stRange->serial_end);
                 if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
@@ -932,25 +932,25 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             });
             $soByLength = [];
-            foreach ($soQuery->get() as $so) {
+            foreach ($soQuery->cursor() as $so) {
                 $start = $canonical($so->serial_start);
                 $end = $canonical($so->serial_end);
                 if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
-                $soByLength[strlen($start)][] = ['start' => (int) $start, 'end' => (int) $end, 'sold_at' => $so->sold_at];
+                $soByLength[strlen($start)][] = [(int) $start, (int) $end, $so->sold_at];
             }
             foreach ($soByLength as &$ranges) {
-                usort($ranges, fn ($a, $b) => $a['start'] <=> $b['start'] ?: $a['end'] <=> $b['end']);
+                usort($ranges, fn ($a, $b) => $a[0] <=> $b[0] ?: $a[1] <=> $b[1]);
                 $maxEnd = -1;
                 foreach ($ranges as &$range) {
-                    $maxEnd = max($maxEnd, $range['end']);
-                    $range['prefix_end'] = $maxEnd;
+                    $maxEnd = max($maxEnd, $range[1]);
+                    $range[3] = $maxEnd;
                 }
                 unset($range);
             }
             unset($ranges);
 
             $metrics = [];
-            foreach ($stRanges as $stRange) {
+            foreach ((clone $stRangesQuery)->cursor() as $stRange) {
                 $outletId = (string) $stRange->id_outlet;
                 $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
                 $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
@@ -965,24 +965,29 @@ class ProductTrackingController extends MonitaDumaiController
                 $high = count($ranges);
                 while ($low < $high) {
                     $middle = intdiv($low + $high, 2);
-                    if ($ranges[$middle]['prefix_end'] < $startNumber) $low = $middle + 1;
+                    if ($ranges[$middle][3] < $startNumber) $low = $middle + 1;
                     else $high = $middle;
                 }
-                for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index]['start'] <= $endNumber; $index++) {
+                for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index][0] <= $endNumber; $index++) {
                     $soRange = $ranges[$index];
-                    if ($soRange['end'] < $startNumber) continue;
-                    $overlap = min($endNumber, $soRange['end']) - max($startNumber, $soRange['start']) + 1;
+                    if ($soRange[1] < $startNumber) continue;
+                    $overlap = min($endNumber, $soRange[1]) - max($startNumber, $soRange[0]) + 1;
                     if ($overlap <= 0) continue;
                     $metrics[$outletId]['redeemed_qty'] += $overlap;
                     $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
-                    $soTime = $soRange['sold_at'] ? strtotime((string) $soRange['sold_at']) : false;
+                    $soTime = $soRange[2] ? strtotime((string) $soRange[2]) : false;
                     if ($stTime !== false && $soTime !== false) {
                         $metrics[$outletId]['timed_qty'] += $overlap;
                         $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
                     }
                 }
             }
-            $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet($stRanges, $product);
+            $sourceMeta = DB::query()->fromSub(clone $stSources, 'source')->select('source.owner_sf', 'source.iddenom')->distinct()->get();
+            $owners = $sourceMeta->pluck('owner_sf')->filter()->unique()->values()->all();
+            $denoms = $sourceMeta->pluck('iddenom')->filter()->unique()->values()->all();
+            $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet(
+                (clone $stRangesQuery)->cursor(), $product, $owners, $denoms,
+            );
             $outletRows->transform(function ($outlet) use ($metrics, $daysToOutlet) {
                 $metric = $metrics[(string) $outlet->id_outlet] ?? ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
                 $sfTiming = $daysToOutlet[(string) $outlet->id_outlet] ?? ['qty' => 0, 'weighted_days' => 0, 'average_days' => null];
