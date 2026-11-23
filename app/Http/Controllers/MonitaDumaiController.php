@@ -230,17 +230,16 @@ class MonitaDumaiController extends Controller
     public function outletSalesSummary(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request),403);
-        $request->validate(['summary_product'=>'nullable|in:pv_all,pv_reg,pv_byu,sa_all,sa_simpati,sa_byu']);
         $service=app(\App\Services\OutletColumnFilters::class);
         $options=$service->options($request);unset($options['sort'],$options['direction']);
         $base=$this->outletDetailBaseQuery($this->suryaTapScopes(),trim((string)$request->input('tap')),trim((string)$request->input('q')),trim((string)$request->input('pjp')),trim((string)$request->input('sf')));
         $cutoff=$this->outletSalesCutoff($request);
-        $outlets=$service->query($base,$cutoff,$options)->select('id_outlet','tap','kecamatan')->get();
-        $insight=app(\App\Services\OutletSalesInsight::class)->data($outlets,$cutoff,($request->input('summary_product') ?: 'pv_all'));
+        $outlets=$service->query($base,$cutoff,$options)->select('id_outlet','tap','kecamatan','pjp')->get();
+        $insight=app(\App\Services\OutletSalesInsight::class)->data($outlets,$cutoff);
         if ($request->routeIs('surya.outlet-detail.sales-summary.download')) {
             return \Maatwebsite\Excel\Facades\Excel::download(
                 new \App\Exports\OutletSalesInsightExport($insight),
-                'Insight_Outlet_'.$insight['product'].'_'.$cutoff->format('Y-m-d').'.xlsx'
+                'Outlet_Aktif_PV_'.$cutoff->format('Y-m-d').'.xlsx'
             );
         }
         return response()->view('surya.partials.outlet-sales-insight',compact('insight'))->header('Cache-Control','no-store');

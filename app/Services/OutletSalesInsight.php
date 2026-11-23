@@ -1,51 +1,74 @@
 <?php
+
 namespace App\Services;
-use App\Support\DenomGrouping;
-use App\Support\SalesSource;
+
+use App\Support\OutletReportPeriod;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class OutletSalesInsight
 {
- public function data($outlets,Carbon $cutoff,string $product):array
- {
-  $nota=app(OutletNotaSales::class);
-  $family=str_starts_with($product,'sa_')?'SA':'PV';
-  $variant=match($product){'pv_reg'=>'REGULER','pv_byu','sa_byu'=>'BYU','sa_simpati'=>'SIMPATI',default=>null};
-  $end=$cutoff->copy()->endOfDay();$start=$end->copy()->startOfMonth();$prevStart=$start->copy()->subMonth();$prevEnd=\App\Support\OutletReportPeriod::previousEnd($cutoff);
-  $master=$outlets->keyBy(fn($o)=>(string)$o->id_outlet);$taps=[];$districts=[];$columns=[];
-  foreach($master as$o){$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=mb_strtoupper(preg_replace('/\s+/u',' ',$district));
-   $taps[$tap]??=$this->area($tap,$tap);$districts[$key]??=$this->area($district,'');
-  }
-  if($master->isNotEmpty())foreach(['keluarsf','mobile_penjualan']as$table){
-   $q=DB::table($table.' as t')->join('denom as d','d.iddenom','=','t.iddenom')->whereIn('t.id_outlet',$master->keys()->all())->whereBetween('t.tgl',[$prevStart,$end]);
-   $nota->excludeSpecialPeriod($q,'t.tgl');
-   if($table==='mobile_penjualan'){SalesSource::excludePostedMobile($q,'t');$q->where('t.status','approved');}
-   DenomGrouping::filterDenoms($q,strtolower($family).'_all','d');
-   $data=$q->select('t.id_outlet','d.group_name','d.product_variant')->selectRaw('SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS current_qty,SUM(CASE WHEN t.tgl BETWEEN ? AND ? THEN t.qty ELSE 0 END) AS previous_qty',[$start,$end,$prevStart,$prevEnd])->groupBy('t.id_outlet','d.group_name','d.product_variant')->get();
-   if($table==='keluarsf') {
-    $column=$family==='SA'?'sa':'pv';
-    foreach(['current'=>[$start,$end],'previous'=>[$prevStart,$prevEnd]] as $period=>[$periodStart,$periodEnd]) {
-     if($periodStart->toDateString()<OutletNotaSales::FROM || $periodStart->format('Y-m')>'2026-10')continue;
-     $history=$nota->historyRows($periodStart,$periodEnd,$master->keys()->all());
-     $historical=DB::query()->fromSub($history,'hist')->select('id_outlet')->selectRaw("SUM($column) AS qty")->groupBy('id_outlet')->get();
-     foreach($historical as$r){if(!(int)$r->qty)continue;$r->group_name='HISTORI TANPA RINCIAN';$r->product_variant=null;$r->current_qty=$period==='current'?(int)$r->qty:0;$r->previous_qty=$period==='previous'?(int)$r->qty:0;$data->push($r);}
+    public function data($outlets, Carbon $cutoff): array
+    {
+        $outlets = $outlets->keyBy(fn ($outlet) => (string) $outlet->id_outlet);
+        $monthStart = $cutoff->copy()->startOfMonth();
+        $previousStart = $monthStart->copy()->subMonth();
+        $previousFullEnd = $previousStart->copy()->endOfMonth();
+        $previousEnd = OutletReportPeriod::previousEnd($cutoff);
+        $ids = $outlets->keys()->all();
+        $nota = app(OutletNotaSales::class);
+        $periods = [
+            'fm1' => $nota->totals($previousStart, $previousFullEnd, $ids, true)->get()->keyBy(fn ($row) => (string) $row->id_outlet),
+            'm1' => $nota->totals($previousStart, $previousEnd, $ids, true)->get()->keyBy(fn ($row) => (string) $row->id_outlet),
+            'mtd' => $nota->totals($monthStart, $cutoff, $ids)->get()->keyBy(fn ($row) => (string) $row->id_outlet),
+        ];
+
+        $tapRows = $this->aggregate($outlets, $periods, 'tap');
+        $districtRows = $this->aggregate($outlets, $periods, 'kecamatan');
+        $grand = $this->sumRows($tapRows, 'Grand Total');
+        $clusters = [];
+        foreach ([
+            'Dumai Bengkalis' => ['DUMAI', 'BENGKALIS', 'DURI', 'RUPAT', 'SEI PAKNING'],
+            'Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+        ] as $name => $members) {
+            $rows = array_values(array_filter($tapRows, fn ($row) => in_array(strtoupper($row['area']), $members, true)));
+            if ($rows !== []) $clusters[] = $this->sumRows($rows, $name) + ['cluster' => true];
+        }
+
+        return compact('cutoff', 'previousEnd', 'tapRows', 'districtRows', 'grand', 'clusters')
+            + ['outletCount' => $outlets->count()];
     }
-   }
-   foreach($data as$r){$o=$master->get((string)$r->id_outlet);$tap=trim((string)$o->tap)?:'Belum dipetakan';$district=trim((string)$o->kecamatan)?:'Belum dipetakan';$key=mb_strtoupper(preg_replace('/\s+/u',' ',$district));$g=$this->validity($r->group_name);
-    foreach(['current'=>(int)$r->current_qty,'previous'=>(int)$r->previous_qty]as$p=>$value){$taps[$tap]['denominator'][$p]+=$value;$districts[$key]['denominator'][$p]+=$value;
-     if($variant===null||$variant===$r->product_variant){$columns[$g]=true;$taps[$tap]['values'][$g][$p]=($taps[$tap]['values'][$g][$p]??0)+$value;$districts[$key]['values'][$g][$p]=($districts[$key]['values'][$g][$p]??0)+$value;}
+
+    private function aggregate($outlets, array $periods, string $areaColumn): array
+    {
+        $groups = [];
+        foreach ($outlets as $id => $outlet) {
+            $area = trim((string) ($outlet->{$areaColumn} ?? '')) ?: 'Belum dipetakan';
+            $pjp = trim((string) ($outlet->pjp ?? '')) ?: 'Belum diatur';
+            $key = mb_strtoupper($area).'|'.mb_strtoupper($pjp);
+            $groups[$key] ??= [
+                'area' => $area,
+                'pjp' => $pjp,
+                'outlet_total' => 0,
+                'values' => ['fm1' => 0, 'm1' => 0, 'mtd' => 0],
+            ];
+            $groups[$key]['outlet_total']++;
+            foreach ($periods as $period => $sales) {
+                if ((int) ($sales->get((string) $id)?->pv ?? 0) > 0) $groups[$key]['values'][$period]++;
+            }
+        }
+
+        $rows = array_values($groups);
+        usort($rows, fn ($a, $b) => strnatcasecmp($a['area'], $b['area']) ?: strnatcasecmp($a['pjp'], $b['pjp']));
+        return $rows;
     }
-   }
-  }
-  $columns=array_keys($columns);usort($columns,fn($a,$b)=>($this->weight($a)<=>$this->weight($b))?:strnatcasecmp($a,$b));
-  $tapRows=array_values($taps);usort($tapRows,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));$districtRows=array_values($districts);usort($districtRows,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));
-  $grand=$this->sum($tapRows,'Grand Total');
-  $clusters=[];foreach(['Dumai Bengkalis'=>['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'],'Rokan Hilir'=>['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG']]as$name=>$members){$rows=array_values(array_filter($tapRows,fn($r)=>in_array($r['tap'],$members,true)));if($rows){$row=$this->sum($rows,$name);$row['cluster']=true;$clusters[]=$row;}}
-  return compact('family','product','cutoff','prevEnd','columns','tapRows','districtRows','grand','clusters')+['outletCount'=>$master->count()];
- }
- private function area(string$name,string$tap):array{return ['name'=>$name,'tap'=>$tap,'denominator'=>['current'=>0,'previous'=>0],'values'=>[]];}
- private function sum(array$rows,string$name):array{$total=$this->area($name,'');foreach($rows as$row){foreach(['current','previous']as$p){$total['denominator'][$p]+=$row['denominator'][$p];foreach($row['values']as$g=>$values)$total['values'][$g][$p]=($total['values'][$g][$p]??0)+($values[$p]??0);}}return$total;}
- private function validity(?string$name):string{$name=strtoupper(trim((string)$name));if(preg_match('/^(\d+)\s*(HARI|DAYS?|D)$/D',$name,$m))return (int)$m[1].'D';return$name?:'LAINNYA';}
- private function weight(string$g):int{return preg_match('/^(\d+)D$/D',$g,$m)?(int)$m[1]:1000;}
+
+    private function sumRows(array $rows, string $name): array
+    {
+        $total = ['area' => $name, 'pjp' => '', 'outlet_total' => 0, 'values' => ['fm1' => 0, 'm1' => 0, 'mtd' => 0]];
+        foreach ($rows as $row) {
+            $total['outlet_total'] += $row['outlet_total'];
+            foreach (['fm1', 'm1', 'mtd'] as $period) $total['values'][$period] += $row['values'][$period];
+        }
+        return $total;
+    }
 }
