@@ -1443,6 +1443,102 @@ class ProductTrackingController extends MonitaDumaiController
             ->with('success', number_format($removedCount).' SN dihapus dari catatan yang dipilih. Bagian rentang yang tidak duplikat tetap tersimpan.');
     }
 
+    public function removeAllDuplicateUploadRanges(Request $request)
+    {
+        $this->requireEditor();
+        $data = $request->validate(['kind' => 'required|in:scan,so-pv,so-sa']);
+
+        [$removedCount, $changedRanges] = DB::transaction(function () use ($data) {
+            $kind = $data['kind'];
+            $families = $kind === 'scan' ? [[12], [15, 16]] : [str_ends_with($kind, 'pv') ? [12] : [15, 16]];
+            $removedCount = 0;
+            $changedRanges = 0;
+
+            foreach ($families as $lengths) {
+                $normalizedStart = count($lengths) === 2
+                    ? "CASE WHEN CHAR_LENGTH(d.serial_start) = 16 AND LEFT(d.serial_start, 1) = '0' THEN SUBSTRING(d.serial_start, 2) ELSE d.serial_start END"
+                    : 'd.serial_start';
+                $normalizedEnd = count($lengths) === 2
+                    ? "CASE WHEN CHAR_LENGTH(d.serial_end) = 16 AND LEFT(d.serial_end, 1) = '0' THEN SUBSTRING(d.serial_end, 2) ELSE d.serial_end END"
+                    : 'd.serial_end';
+                $query = DB::table('product_tracking_digipos as d')
+                    ->join('product_tracking_uploads as u', 'u.id', '=', 'd.upload_id')
+                    ->where('d.kind', $kind)->where('u.kind', $kind)->where('u.status', 'complete')
+                    ->whereNotNull('d.serial_start')->whereNotNull('d.serial_end')
+                    ->where(function ($lengthQuery) use ($lengths) {
+                        foreach ($lengths as $length) {
+                            $lengthQuery->orWhere(function ($matchLength) use ($length) {
+                                $matchLength->whereRaw('CHAR_LENGTH(d.serial_start) = ?', [$length]);
+                                if ($length === 16) $matchLength->whereRaw("LEFT(d.serial_start, 1) = '0' AND CHAR_LENGTH(d.serial_end) = 16 AND LEFT(d.serial_end, 1) = '0'");
+                            });
+                        }
+                    })
+                    ->select('d.*')->selectRaw("{$normalizedStart} AS normalized_start, {$normalizedEnd} AS normalized_end")
+                    ->orderByRaw("{$normalizedStart} ASC")->orderBy('d.id');
+
+                // Earlier ranges win. For each later row, retain only serials not covered before it.
+                $covered = [];
+                $changes = [];
+                foreach ($query->cursor() as $row) {
+                    $start = (string) $row->normalized_start;
+                    $end = (string) $row->normalized_end;
+                    $covered = array_values(array_filter($covered, fn ($range) => strcmp($range['end'], $start) >= 0));
+                    usort($covered, fn ($left, $right) => strcmp($left['start'], $right['start']));
+
+                    $segments = [];
+                    $cursor = $start;
+                    foreach ($covered as $range) {
+                        if (strcmp($range['end'], $cursor) < 0) continue;
+                        if (strcmp($range['start'], $end) > 0) break;
+                        if (strcmp($range['start'], $cursor) > 0) {
+                            $gapEnd = $this->subtractOneFromSerial($range['start']);
+                            if (strcmp($cursor, $gapEnd) <= 0) $segments[] = [$cursor, $gapEnd];
+                        }
+                        if (strcmp($range['end'], $cursor) >= 0) $cursor = $this->incrementSerial($range['end']);
+                        if (strcmp($cursor, $end) > 0) break;
+                    }
+                    if (strcmp($cursor, $end) <= 0) $segments[] = [$cursor, $end];
+
+                    if (count($segments) !== 1 || $segments[0][0] !== $start || $segments[0][1] !== $end) {
+                        $changes[] = ['row' => $row, 'segments' => $segments, 'start' => $start, 'end' => $end];
+                    }
+                    $covered[] = ['start' => $start, 'end' => $end];
+                }
+
+                foreach ($changes as $change) {
+                    $row = $change['row'];
+                    $pad = strlen((string) $row->serial_start) === 16 && str_starts_with((string) $row->serial_start, '0');
+                    $keptCount = 0;
+                    foreach ($change['segments'] as [$segmentStart, $segmentEnd]) {
+                        $keptCount += (int) $this->serialRangeCount($segmentStart, $segmentEnd);
+                    }
+                    $removedCount += max(0, (int) $this->serialRangeCount((string) $row->serial_start, (string) $row->serial_end) - $keptCount);
+                    DB::table('product_tracking_digipos')->where('id', $row->id)->delete();
+                    foreach ($change['segments'] as [$segmentStart, $segmentEnd]) {
+                        if ($pad) {
+                            $segmentStart = '0'.$segmentStart;
+                            $segmentEnd = '0'.$segmentEnd;
+                        }
+                        $copy = (array) $row;
+                        unset($copy['id'], $copy['normalized_start'], $copy['normalized_end']);
+                        $copy['serial_start'] = $segmentStart;
+                        $copy['serial_end'] = $segmentEnd;
+                        $copy['serial_count'] = (int) $this->serialRangeCount($segmentStart, $segmentEnd);
+                        $copy['created_at'] = now();
+                        $copy['updated_at'] = now();
+                        DB::table('product_tracking_digipos')->insert($copy);
+                    }
+                    $changedRanges++;
+                }
+            }
+
+            return [$removedCount, $changedRanges];
+        }, 3);
+
+        return redirect()->route('surya.product-tracking.imports.duplicates', ['kind' => $data['kind']])
+            ->with('success', number_format($removedCount).' SN duplikat dibersihkan dari '.$changedRanges.' rentang. Bagian rentang yang unik tetap disimpan.');
+    }
+
     public function salesStock()
     {
         $this->requireEditor();

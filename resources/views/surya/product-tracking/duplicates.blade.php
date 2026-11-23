@@ -34,7 +34,14 @@
     @if($duplicates === [])
         <div class="pt-alert success">Tidak ditemukan rentang SN yang bertumpuk pada upload {{ $kind === 'scan' ? 'ST Digipos' : 'SO '.strtoupper(substr($kind, 3)) }} yang selesai.</div>
     @else
-        <p class="pt-subtitle">{{ number_format(count($duplicates)) }} rentang SN bertumpuk ditemukan.</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <p class="pt-subtitle mb-0">{{ number_format(count($duplicates)) }} rentang SN bertumpuk ditemukan{{ $truncated ? ' (daftar dibatasi 500; tombol bersihkan memproses semuanya)' : '' }}.</p>
+        <form method="POST" action="{{ route('surya.product-tracking.imports.duplicates.remove-all') }}" onsubmit="return confirm('Bersihkan SEMUA SN duplikat untuk data ini? Catatan pertama untuk setiap SN dipertahankan dan bagian rentang unik tetap disimpan. Proses dapat memakan waktu.');">
+            @csrf
+            <input type="hidden" name="kind" value="{{ $kind }}">
+            <button class="pt-button" type="submit"><i class="fas fa-broom"></i> Hapus semua duplikat</button>
+        </form>
+    </div>
         <div class="pt-table-wrap">
             <table class="pt-table">
                 <thead><tr><th>SN Duplikat</th><th>Jumlah SN</th><th>File Pertama</th><th>Tanggal</th><th>ID Outlet</th><th>File Duplikat</th><th>Tanggal</th><th>ID Outlet</th><th>Aksi</th></tr></thead>

@@ -123,6 +123,7 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::post('/imports', 'stageImport')->name('imports.stage');
     Route::get('/imports/duplicates', 'duplicateUploadRanges')->name('imports.duplicates');
     Route::post('/imports/duplicates/remove', 'removeDuplicateUploadRange')->name('imports.duplicates.remove');
+    Route::post('/imports/duplicates/remove-all', 'removeAllDuplicateUploadRanges')->name('imports.duplicates.remove-all');
     Route::get('/imports/{upload}/duplicates/download', 'downloadDuplicateScanReport')->whereNumber('upload')->name('imports.duplicates.download');
     Route::get('/sales-stock', 'salesStock')->name('sales-stock');
     Route::post('/sales-stock', 'uploadSalesStock')->name('sales-stock.upload');
