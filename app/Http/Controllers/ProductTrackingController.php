@@ -848,7 +848,7 @@ class ProductTrackingController extends MonitaDumaiController
                 $join->on('eligible_outlets.id_outlet', '=', 'outlet.id_outlet');
             })
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
-            ->selectRaw("CASE WHEN UPPER(TRIM(outlet.tap)) IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN 'Dumai Bengkalis' WHEN UPPER(TRIM(outlet.tap)) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'Rokan Hilir' ELSE '—' END AS cluster")
+            ->selectRaw("CASE WHEN UPPER(TRIM(outlet.tap)) IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN 'DUMAI BENGKALIS' WHEN UPPER(TRIM(outlet.tap)) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'ROKAN HILIR' ELSE '—' END AS cluster")
             ->addSelect($outletCategory);
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
@@ -991,7 +991,7 @@ class ProductTrackingController extends MonitaDumaiController
                     'days_outlet_to_customer' => $customerQty > 0 ? (int) round($group->sum('days_outlet_to_customer_weighted') / $customerQty) : null,
                 ];
             };
-            $clusterOrder = ['Dumai Bengkalis', 'Rokan Hilir'];
+            $clusterOrder = ['DUMAI BENGKALIS', 'ROKAN HILIR'];
             $tapOrder = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
             $clusterGroups = $outletRows->groupBy(fn ($row) => trim((string) ($row->cluster ?? '')) ?: 'Cluster Lainnya');
             $summaryRows = collect();
