@@ -43,30 +43,29 @@ class OutletSalesInsight
         $groups = [];
         foreach ($outlets as $id => $outlet) {
             $area = trim((string) ($outlet->{$areaColumn} ?? '')) ?: 'Belum dipetakan';
-            $pjp = trim((string) ($outlet->pjp ?? '')) ?: 'Belum diatur';
-            $key = mb_strtoupper($area).'|'.mb_strtoupper($pjp);
+            $pjp = trim((string) ($outlet->pjp ?? ''));
+            $key = mb_strtoupper($area);
             $groups[$key] ??= [
                 'area' => $area,
-                'pjp' => $pjp,
-                'outlet_total' => 0,
+                'pjp' => 0,
                 'values' => ['fm1' => 0, 'm1' => 0, 'mtd' => 0],
             ];
-            $groups[$key]['outlet_total']++;
+            if ($pjp !== '' && mb_strtoupper($pjp) !== 'UNMAPPING') $groups[$key]['pjp']++;
             foreach ($periods as $period => $sales) {
                 if ((int) ($sales->get((string) $id)?->pv ?? 0) > 0) $groups[$key]['values'][$period]++;
             }
         }
 
         $rows = array_values($groups);
-        usort($rows, fn ($a, $b) => strnatcasecmp($a['area'], $b['area']) ?: strnatcasecmp($a['pjp'], $b['pjp']));
+        usort($rows, fn ($a, $b) => strnatcasecmp($a['area'], $b['area']));
         return $rows;
     }
 
     private function sumRows(array $rows, string $name): array
     {
-        $total = ['area' => $name, 'pjp' => '', 'outlet_total' => 0, 'values' => ['fm1' => 0, 'm1' => 0, 'mtd' => 0]];
+        $total = ['area' => $name, 'pjp' => 0, 'values' => ['fm1' => 0, 'm1' => 0, 'mtd' => 0]];
         foreach ($rows as $row) {
-            $total['outlet_total'] += $row['outlet_total'];
+            $total['pjp'] += $row['pjp'];
             foreach (['fm1', 'm1', 'mtd'] as $period) $total['values'][$period] += $row['values'][$period];
         }
         return $total;

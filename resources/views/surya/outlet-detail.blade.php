@@ -41,7 +41,7 @@
         @if($activeTab === 'digipos')<p class="outlet-metrics-note">CVM–RENEWAL BYU–Biometrik: data terbaru bulan terpilih · —: belum tersedia.</p>@endif
         @if($activeTab === 'digipos')
         <section id="outlet-sales-summary" class="outlet-insight" data-summary-owner="{{ auth()->id() }}" data-summary-url="{{ route('surya.outlet-detail.sales-summary') }}" data-summary-download-url="{{ route('surya.outlet-detail.sales-summary.download') }}">
-            <header class="outlet-insight-heading"><div><h2>Outlet Aktif</h2><p>Rekap outlet aktif PV per TAP dan kecamatan, dikelompokkan berdasarkan PJP.</p></div><div class="outlet-insight-actions"><a class="insight-download" data-summary-download href="{{ route('surya.outlet-detail.sales-summary.download', request()->query()) }}"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</a></div></header>
+            <header class="outlet-insight-heading"><div><h2>Outlet Aktif</h2><p>Rekap outlet aktif PV dan total outlet PJP per TAP dan kecamatan.</p></div><div class="outlet-insight-actions"><a class="insight-download" data-summary-download href="{{ route('surya.outlet-detail.sales-summary.download', request()->query()) }}"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</a></div></header>
             <p data-summary-status role="status" aria-live="polite">Memuat ringkasan outlet aktif…</p><div data-summary-content></div>
         </section>
         <link rel="stylesheet" href="{{ asset('css/surya-outlet-insight.css') }}?v={{ filemtime(public_path('css/surya-outlet-insight.css')) }}">

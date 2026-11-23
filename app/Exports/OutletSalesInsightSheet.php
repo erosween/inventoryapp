@@ -30,7 +30,7 @@ class OutletSalesInsightSheet implements FromArray, WithHeadings, WithTitle, Wit
         $area = $this->type === 'tap' ? 'TAP' : 'Kecamatan';
         return [
             [$this->title().' · RS Aktif PV'],
-            ['FM-1 dan M-1 mengikuti periode pembanding; Rate = MTD aktif ÷ total outlet pada PJP.'],
+            ['PJP = jumlah outlet terjadwal; Rate = RS aktif MTD ÷ jumlah outlet PJP di wilayah.'],
             [$area, 'PJP', 'RS Aktif PV', '', '', '', '', ''],
             ['', '', 'FM-1', 'M-1', 'MTD', 'MoM', '%MoM', 'Rate'],
         ];
@@ -45,7 +45,7 @@ class OutletSalesInsightSheet implements FromArray, WithHeadings, WithTitle, Wit
             return [
                 $row['area'], $row['pjp'], $fm1, $m1, $mtd, $mtd - $m1,
                 $m1 > 0 ? ($mtd / $m1) - 1 : null,
-                $row['outlet_total'] > 0 ? $mtd / $row['outlet_total'] : null,
+                $row['pjp'] > 0 ? $mtd / $row['pjp'] : null,
             ];
         }, $this->rows);
     }
