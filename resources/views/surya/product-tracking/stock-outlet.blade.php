@@ -14,7 +14,7 @@
 @php
     $filterColumns = [
         'id_outlet' => 'ID Outlet', 'nama_outlet' => 'Nama Outlet', 'kecamatan' => 'Kecamatan',
-        'tap' => 'TAP', 'sf' => 'Sales Force', 'kategori_outlet' => 'Kategori Outlet',
+        'tap' => 'TAP', 'cluster' => 'Cluster', 'sf' => 'Sales Force', 'kategori_outlet' => 'Kategori Outlet',
         'remaining_qty' => 'Stock Outlet', 'st_qty' => 'ST '.$product, 'so_qty' => 'SO '.$product,
         'days_sf_to_outlet' => 'Rata-rata SF → Outlet (hari)', 'days_outlet_to_customer' => 'Rata-rata Outlet → Pelanggan (hari)',
     ];
@@ -42,6 +42,7 @@
                         <td><strong>{{ $outlet->nama_outlet ?: 'Outlet tanpa nama' }}</strong></td>
                         <td>{{ $outlet->kecamatan ?: '—' }}</td>
                         <td>{{ $outlet->tap ?: 'Tanpa TAP' }}</td>
+                        <td>{{ $outlet->cluster ?: '—' }}</td>
                         <td>{{ $outlet->sf ?: '—' }}</td>
                         <td>{{ $outlet->kategori_outlet ?: 'Reguler' }}</td>
                         <td><strong>{{ number_format($outlet->remaining_qty) }}</strong></td>
@@ -51,7 +52,7 @@
                         <td>{{ $outlet->days_outlet_to_customer === null ? '—' : $outlet->days_outlet_to_customer.' hari' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="11" class="pt-empty">Belum ada data ST atau upload SO untuk produk {{ $product }}.</td></tr>
+                    <tr><td colspan="12" class="pt-empty">Belum ada data ST atau upload SO untuk produk {{ $product }}.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -66,7 +67,7 @@
 </section>
 <section class="pt-card">
     <h2>Arti insight durasi</h2>
-    <p class="pt-subtitle mb-0"><strong>SF → Outlet</strong> adalah rata-rata hari dari tanggal SN masuk ke SF sampai tanggal ST Surya. Tanggal masuk SF diambil dari SF Masuk admin, atau tanggal upload Stok SN Sales jika SN tidak tercatat di SF Masuk. <strong>Outlet → Pelanggan</strong> adalah rata-rata hari dari tanggal ST Surya sampai tanggal SO. Keduanya dihitung per jumlah SN yang cocok dan memiliki tanggal; SN yang tidak cocok atau tidak bertanggal tidak ikut dihitung. — berarti belum ada pasangan SN bertanggal.</p>
+    <p class="pt-subtitle mb-0"><strong>0 hari</strong> berarti ada SN bertanggal yang cocok dan rata-ratanya dibulatkan menjadi nol. <strong>—</strong> berarti belum ada SN cocok yang punya tanggal lengkap untuk dihitung. <strong>SF → Outlet</strong> dihitung dari tanggal SN masuk SF sampai tanggal ST Surya; sumber tanggal SF adalah SF Masuk admin, lalu tanggal upload Stok SN Sales sebagai cadangan. <strong>Outlet → Pelanggan</strong> dihitung dari tanggal ST Surya sampai tanggal SO.</p>
 </section>
 <div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-values-url="{{ route('surya.product-tracking.stock-outlet.filter-values', ['product' => $product]) }}" data-selection="{{ json_encode($stockTableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($stockTableOptions['exclude'] ?? new \stdClass()) }}">
     <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>

@@ -848,11 +848,12 @@ class ProductTrackingController extends MonitaDumaiController
                 $join->on('eligible_outlets.id_outlet', '=', 'outlet.id_outlet');
             })
             ->select('outlet.id_outlet', 'outlet.nama_outlet', 'outlet.kecamatan', 'outlet.tap', 'outlet.sf')
+            ->selectRaw("CASE WHEN UPPER(TRIM(outlet.tap)) IN ('DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING') THEN 'Dumai Bengkalis' WHEN UPPER(TRIM(outlet.tap)) IN ('BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG') THEN 'Rokan Hilir' ELSE '—' END AS cluster")
             ->addSelect($outletCategory);
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $cacheKey = 'stock-outlet-report-v6-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
+        $cacheKey = 'stock-outlet-report-v7-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
         $cachedRows = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
@@ -994,7 +995,7 @@ class ProductTrackingController extends MonitaDumaiController
         $key = (string) $request->query('column');
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
-        $rows = Cache::remember('stock-outlet-filter-values-v2-'.$product, now()->addSeconds(45), fn () => $this->stockOutletRowsForFilters($request, $product, false));
+        $rows = Cache::remember('stock-outlet-filter-values-v3-'.$product, now()->addSeconds(45), fn () => $this->stockOutletRowsForFilters($request, $product, false));
         $needle = mb_strtolower(trim((string) $request->query('q')));
         $values = collect($rows)->map(fn ($row) => (string) ($row[$key] ?? ''))->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
             ->filter(fn ($value) => $needle === '' || str_contains(mb_strtolower($value), $needle))
@@ -1018,7 +1019,7 @@ class ProductTrackingController extends MonitaDumaiController
                 $id = (string) $outlet['id_outlet'];
                 $combinedRows[$id] ??= [
                     'id_outlet' => $outlet['id_outlet'], 'nama_outlet' => $outlet['nama_outlet'],
-                    'kecamatan' => $outlet['kecamatan'], 'tap' => $outlet['tap'], 'sf' => $outlet['sf'],
+                    'kecamatan' => $outlet['kecamatan'], 'tap' => $outlet['tap'], 'cluster' => $outlet['cluster'], 'sf' => $outlet['sf'],
                     'kategori_outlet' => $outlet['kategori_outlet'],
                 ];
                 $suffix = strtolower($reportProduct);
@@ -1044,13 +1045,13 @@ class ProductTrackingController extends MonitaDumaiController
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
             fputcsv($stream, [
-                'ID Outlet', 'Nama Outlet', 'Kecamatan', 'TAP', 'Sales Force', 'Kategori Outlet',
+                'ID Outlet', 'Nama Outlet', 'Kecamatan', 'TAP', 'Cluster', 'Sales Force', 'Kategori Outlet',
                 'Sisa Stock SA', 'ST SA', 'SO SA', 'SF ke Outlet SA (hari)', 'Outlet ke Pelanggan SA (hari)',
                 'Sisa Stock PV', 'ST PV', 'SO PV', 'SF ke Outlet PV (hari)', 'Outlet ke Pelanggan PV (hari)',
             ]);
             foreach ($rows as $outlet) {
                 fputcsv($stream, [
-                    $outlet->id_outlet, $outlet->nama_outlet, $outlet->kecamatan, $outlet->tap, $outlet->sf, $outlet->kategori_outlet,
+                    $outlet->id_outlet, $outlet->nama_outlet, $outlet->kecamatan, $outlet->tap, $outlet->cluster, $outlet->sf, $outlet->kategori_outlet,
                     $outlet->remaining_qty_sa ?? 0, $outlet->st_qty_sa ?? 0, $outlet->so_qty_sa ?? 0,
                     $outlet->days_sf_to_outlet_sa ?? null, $outlet->days_outlet_to_customer_sa ?? null,
                     $outlet->remaining_qty_pv ?? 0, $outlet->st_qty_pv ?? 0, $outlet->so_qty_pv ?? 0,
@@ -1068,6 +1069,7 @@ class ProductTrackingController extends MonitaDumaiController
             'nama_outlet' => 'outlet.nama_outlet',
             'kecamatan' => 'outlet.kecamatan',
             'tap' => 'outlet.tap',
+            'cluster' => 'cluster',
             'sf' => 'outlet.sf',
             'kategori_outlet' => Schema::hasColumn('appsdumais', 'kategori_outlet') ? 'outlet.kategori_outlet' : 'kategori_outlet',
             'remaining_qty' => 'remaining_qty',
@@ -1118,8 +1120,8 @@ class ProductTrackingController extends MonitaDumaiController
     private function stockOutletTableOptions(Request $request, array $allowedColumns): array
     {
         $data = $request->validate([
-            'columns' => 'nullable|array|max:11', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
-            'exclude' => 'nullable|array|max:11', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
+            'columns' => 'nullable|array|max:12', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
+            'exclude' => 'nullable|array|max:12', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
             'sort' => ['nullable', Rule::in($allowedColumns)],
             'direction' => 'nullable|in:asc,desc',
             'page' => 'nullable|integer|min:1|max:100000',
