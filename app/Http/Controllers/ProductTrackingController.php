@@ -46,27 +46,54 @@ class ProductTrackingController extends MonitaDumaiController
         // Load the small daily scan set once and match serial intervals in memory.
         // The former correlated range query ran once per sale row and repeatedly
         // cast both sides of the scan indexes, causing the 504 on busy dates.
+        $canonicalSerial = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
+            ? substr((string) $serial, 1) : (string) $serial;
         $scanRangesByOutlet = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
             ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
             ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
             ->get(['digipos.id_outlet', 'digipos.serial_start', 'digipos.serial_end'])
-            ->groupBy('id_outlet');
-        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRangesByOutlet) {
+            ->map(fn ($scan) => (object) [
+                'id_outlet' => $scan->id_outlet,
+                'serial_start' => $canonicalSerial($scan->serial_start),
+                'serial_end' => $canonicalSerial($scan->serial_end),
+            ])
+            ->groupBy('id_outlet')
+            ->map(function ($ranges) {
+                $ranges = $ranges->sort(fn ($a, $b) => $this->compareSerials($a->serial_start, $b->serial_start)
+                    ?: $this->compareSerials($a->serial_end, $b->serial_end))->values();
+                $maxEnd = null;
+                foreach ($ranges as $range) {
+                    if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
+                    $range->prefix_end = $maxEnd;
+                }
+                return $ranges->all();
+            });
+        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRangesByOutlet, $canonicalSerial) {
             $first = $sales->first();
             $qty = 0;
             $matchedQty = 0;
+            $scans = $scanRangesByOutlet->get($idOutlet, []);
             foreach ($sales as $sale) {
                 $saleQty = (int) $sale->qty;
                 $qty += $saleQty;
                 $matched = 0;
-                foreach ($scanRangesByOutlet->get($idOutlet, collect()) as $scan) {
-                    $scanStart = (string) $scan->serial_start;
-                    $scanEnd = (string) $scan->serial_end;
-                    $saleStart = (string) $sale->serial_start;
-                    $saleEnd = (string) $sale->serial_end;
-                    if ($this->compareSerials($scanEnd, $saleStart) < 0 || $this->compareSerials($scanStart, $saleEnd) > 0) continue;
+                $saleStart = $canonicalSerial($sale->serial_start);
+                $saleEnd = $canonicalSerial($sale->serial_end);
+                $low = 0;
+                $high = count($scans);
+                while ($low < $high) {
+                    $middle = intdiv($low + $high, 2);
+                    if ($this->compareSerials($scans[$middle]->prefix_end, $saleStart) < 0) $low = $middle + 1;
+                    else $high = $middle;
+                }
+                for ($index = $low, $scanCount = count($scans); $index < $scanCount; $index++) {
+                    $scan = $scans[$index];
+                    if ($this->compareSerials($scan->serial_start, $saleEnd) > 0) break;
+                    if ($this->compareSerials($scan->serial_end, $saleStart) < 0) continue;
+                    $scanStart = $scan->serial_start;
+                    $scanEnd = $scan->serial_end;
                     $overlapStart = $this->compareSerials($saleStart, $scanStart) >= 0 ? $saleStart : $scanStart;
                     $overlapEnd = $this->compareSerials($saleEnd, $scanEnd) <= 0 ? $saleEnd : $scanEnd;
                     $matched += (int) $this->serialRangeCount($overlapStart, $overlapEnd);
@@ -825,55 +852,113 @@ class ProductTrackingController extends MonitaDumaiController
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $cacheKey = 'stock-outlet-report-v4-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
+        $cacheKey = 'stock-outlet-report-v5-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
         $cachedRows = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
-            $stSources = (clone $mobileSt)->unionAll(clone $webSt);
-            $st = DB::query()->fromSub($stSources, 'source')
-                ->selectRaw('source.id_outlet, SUM(source.serial_count) AS st_qty')->groupBy('source.id_outlet');
-            $matchedSo = DB::query()->fromSub(clone $stSources, 'st')
-            ->joinSub(clone $soBase, 'so', function ($join) use ($applySerialLengths) {
-                $applySerialLengths($join, 'st.serial_start');
-                $join->where(function ($sameLength) {
-                        $sameLength->where(function ($match) {
-                            $match->whereRaw('CHAR_LENGTH(so.serial_start) = CHAR_LENGTH(st.serial_start)')
-                                ->whereColumn('so.serial_start', '<=', 'st.serial_end')
-                                ->whereColumn('so.serial_end', '>=', 'st.serial_start');
-                        })->orWhere(function ($differentLength) {
-                            $differentLength->whereRaw('CHAR_LENGTH(so.serial_start) <> CHAR_LENGTH(st.serial_start)')
-                                ->whereRaw('CAST(so.serial_start AS DECIMAL(24,0)) <= CAST(st.serial_end AS DECIMAL(24,0))')
-                                ->whereRaw('CAST(so.serial_end AS DECIMAL(24,0)) >= CAST(st.serial_start AS DECIMAL(24,0))');
+            $eligibleOutletIds = $outletRows->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+            $scopedMobileSt = (clone $mobileSt)->whereIn('sale.id_outlet', $eligibleOutletIds);
+            $scopedWebSt = (clone $webSt)->whereIn('form_sale.id_outlet', $eligibleOutletIds);
+            $stSources = $scopedMobileSt->unionAll($scopedWebSt);
+            $stRanges = DB::query()->fromSub($stSources, 'source')->get([
+                'source.id_outlet', 'source.owner_sf', 'source.iddenom', 'source.serial_start',
+                'source.serial_end', 'source.serial_count', 'source.st_date',
+            ]);
+
+            // Match sorted intervals in PHP instead of asking MariaDB to join every
+            // ST range against the complete SO history with DECIMAL casts.
+            $canonical = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
+                ? substr((string) $serial, 1) : (string) $serial;
+            $serialBounds = [];
+            foreach ($stRanges as $stRange) {
+                $start = $canonical($stRange->serial_start);
+                $end = $canonical($stRange->serial_end);
+                if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
+                $length = strlen($start);
+                $serialBounds[$length] ??= ['min' => (int) $start, 'max' => (int) $end];
+                $serialBounds[$length]['min'] = min($serialBounds[$length]['min'], (int) $start);
+                $serialBounds[$length]['max'] = max($serialBounds[$length]['max'], (int) $end);
+            }
+            $soQuery = clone $soBase;
+            $soQuery->where(function ($query) use ($serialBounds) {
+                foreach ($serialBounds as $length => $bounds) {
+                    $min = str_pad((string) $bounds['min'], $length, '0', STR_PAD_LEFT);
+                    $max = str_pad((string) $bounds['max'], $length, '0', STR_PAD_LEFT);
+                    if ((int) $length === 15) {
+                        $query->orWhere(function ($family) use ($min, $max) {
+                            $family->whereRaw('CHAR_LENGTH(so.serial_start) = 15')->where('so.serial_end', '>=', $min)->where('so.serial_start', '<=', $max);
+                        })->orWhere(function ($family) use ($min, $max) {
+                            $family->whereRaw("CHAR_LENGTH(so.serial_start) = 16 AND LEFT(so.serial_start, 1) = '0' AND LEFT(so.serial_end, 1) = '0'")
+                                ->where('so.serial_end', '>=', '0'.$min)->where('so.serial_start', '<=', '0'.$max);
                         });
-                    });
-            })
-            ->selectRaw('st.id_outlet, so.sold_at, st.st_date, GREATEST(LEAST(CAST(st.serial_end AS DECIMAL(24,0)), CAST(so.serial_end AS DECIMAL(24,0))) - GREATEST(CAST(st.serial_start AS DECIMAL(24,0)), CAST(so.serial_start AS DECIMAL(24,0))) + 1, 0) AS matched_qty');
-            // Aggregate the expensive serial overlap once; SO qty, redeemed qty,
-            // and weighted duration all come from the same matched range rows.
-            $matchedMetrics = DB::query()->fromSub($matchedSo, 'matched_so')
-                ->select('id_outlet')
-                ->selectRaw('SUM(matched_qty) AS so_qty, SUM(matched_qty) AS redeemed_qty')
-                ->selectRaw('SUM(matched_qty * GREATEST(DATEDIFF(sold_at, st_date), 0)) AS days_to_customer_weighted')
-                ->groupBy('id_outlet');
-            $metrics = DB::table('appsdumais as outlet')
-                ->leftJoinSub($st, 'st', 'st.id_outlet', '=', 'outlet.id_outlet')
-                ->leftJoinSub($matchedMetrics, 'matched', 'matched.id_outlet', '=', 'outlet.id_outlet')
-                ->select('outlet.id_outlet')
-                ->selectRaw('COALESCE(st.st_qty, 0) AS st_qty, COALESCE(matched.so_qty, 0) AS so_qty, COALESCE(matched.redeemed_qty, 0) AS redeemed_qty, GREATEST(COALESCE(st.st_qty, 0) - COALESCE(matched.redeemed_qty, 0), 0) AS remaining_qty')
-                ->selectRaw('CASE WHEN COALESCE(matched.redeemed_qty, 0) > 0 THEN CAST(ROUND(matched.days_to_customer_weighted / matched.redeemed_qty, 0) AS SIGNED) ELSE NULL END AS days_outlet_to_customer')
-                ->get()->keyBy(fn ($row) => (string) $row->id_outlet);
-            $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet(
-                DB::query()->fromSub($stSources, 'source')->select('source.id_outlet', 'source.owner_sf', 'source.iddenom', 'source.serial_start', 'source.serial_end', 'source.st_date')->get(),
-                $product
-            );
+                    } else {
+                        $query->orWhere(function ($family) use ($length, $min, $max) {
+                            $family->whereRaw('CHAR_LENGTH(so.serial_start) = ?', [(int) $length])
+                                ->where('so.serial_end', '>=', $min)->where('so.serial_start', '<=', $max);
+                        });
+                    }
+                }
+            });
+            $soByLength = [];
+            foreach ($soQuery->get() as $so) {
+                $start = $canonical($so->serial_start);
+                $end = $canonical($so->serial_end);
+                if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
+                $soByLength[strlen($start)][] = ['start' => (int) $start, 'end' => (int) $end, 'sold_at' => $so->sold_at];
+            }
+            foreach ($soByLength as &$ranges) {
+                usort($ranges, fn ($a, $b) => $a['start'] <=> $b['start'] ?: $a['end'] <=> $b['end']);
+                $maxEnd = -1;
+                foreach ($ranges as &$range) {
+                    $maxEnd = max($maxEnd, $range['end']);
+                    $range['prefix_end'] = $maxEnd;
+                }
+                unset($range);
+            }
+            unset($ranges);
+
+            $metrics = [];
+            foreach ($stRanges as $stRange) {
+                $outletId = (string) $stRange->id_outlet;
+                $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'days_weighted' => 0];
+                $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
+                $start = $canonical($stRange->serial_start);
+                $end = $canonical($stRange->serial_end);
+                $length = strlen($start);
+                $ranges = $soByLength[$length] ?? [];
+                if ($ranges === [] || strlen($end) !== $length || ! ctype_digit($start) || ! ctype_digit($end)) continue;
+                $startNumber = (int) $start;
+                $endNumber = (int) $end;
+                $low = 0;
+                $high = count($ranges);
+                while ($low < $high) {
+                    $middle = intdiv($low + $high, 2);
+                    if ($ranges[$middle]['prefix_end'] < $startNumber) $low = $middle + 1;
+                    else $high = $middle;
+                }
+                for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index]['start'] <= $endNumber; $index++) {
+                    $soRange = $ranges[$index];
+                    if ($soRange['end'] < $startNumber) continue;
+                    $overlap = min($endNumber, $soRange['end']) - max($startNumber, $soRange['start']) + 1;
+                    if ($overlap <= 0) continue;
+                    $metrics[$outletId]['redeemed_qty'] += $overlap;
+                    $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
+                    $soTime = $soRange['sold_at'] ? strtotime((string) $soRange['sold_at']) : false;
+                    if ($stTime !== false && $soTime !== false) {
+                        $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
+                    }
+                }
+            }
+            $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet($stRanges, $product);
             $outletRows->transform(function ($outlet) use ($metrics, $daysToOutlet) {
-                $metric = $metrics->get((string) $outlet->id_outlet);
-                $outlet->st_qty = (int) ($metric->st_qty ?? 0);
-                $outlet->so_qty = (int) ($metric->so_qty ?? 0);
-                $outlet->redeemed_qty = (int) ($metric->redeemed_qty ?? 0);
-                $outlet->remaining_qty = (int) ($metric->remaining_qty ?? 0);
+                $metric = $metrics[(string) $outlet->id_outlet] ?? ['st_qty' => 0, 'redeemed_qty' => 0, 'days_weighted' => 0];
+                $outlet->st_qty = (int) $metric['st_qty'];
+                $outlet->so_qty = (int) $metric['redeemed_qty'];
+                $outlet->redeemed_qty = (int) $metric['redeemed_qty'];
+                $outlet->remaining_qty = max($outlet->st_qty - $outlet->redeemed_qty, 0);
                 $outlet->days_sf_to_outlet = $daysToOutlet[(string) $outlet->id_outlet] ?? null;
-                $outlet->days_outlet_to_customer = $metric->days_outlet_to_customer;
+                $outlet->days_outlet_to_customer = $outlet->redeemed_qty > 0
+                    ? (int) round($metric['days_weighted'] / $outlet->redeemed_qty) : null;
                 return $outlet;
             });
             return $outletRows->map(fn ($row) => (array) $row)->all();
