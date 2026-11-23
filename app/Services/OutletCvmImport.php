@@ -42,6 +42,9 @@ class OutletCvmImport
                 while (($values = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
                     $line++;
                     $values = array_map(fn ($value) => trim((string) $value), $values);
+                    while ($values !== [] && end($values) === '') {
+                        array_pop($values);
+                    }
                     if (!array_filter($values, fn ($value) => $value !== '')) {
                         continue;
                     }
@@ -108,6 +111,9 @@ class OutletCvmImport
                 fn ($value) => trim(preg_replace('/[^a-z0-9]+/', '_', strtolower(trim((string) $value))), '_'),
                 $values
             );
+            while ($header !== [] && end($header) === '') {
+                array_pop($header);
+            }
             if (count($header) === count($expected) && !array_diff($expected, $header)) {
                 return [$header, $delimiter];
             }
