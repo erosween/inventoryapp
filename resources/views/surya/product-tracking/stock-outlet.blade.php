@@ -31,18 +31,17 @@
     <nav class="pt-sold-tabs pt-stock-outlet-views" aria-label="Tampilan ringkasan Stock Outlet">
         <a class="{{ $viewMode==='outlet'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet', ['product'=>$product, 'view'=>'outlet']) }}">Per Outlet</a>
         <a class="{{ $viewMode==='tap'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet', ['product'=>$product, 'view'=>'tap']) }}">Rekap TAP</a>
-        <a class="{{ $viewMode==='cluster'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet', ['product'=>$product, 'view'=>'cluster']) }}">Rekap Cluster</a>
     </nav>
     @if($viewMode !== 'outlet')
     <p class="pt-subtitle">Ringkasan {{ $viewMode === 'tap' ? 'per TAP' : 'per Cluster' }}. Rata-rata durasi dihitung berbobot berdasarkan jumlah SN yang memiliki tanggal lengkap.</p>
     <div class="pt-table-wrap">
         <table class="pt-table detail-table pt-stock-outlet-table">
-            <thead><tr><th>{{ $viewMode === 'tap' ? 'TAP' : 'Cluster' }}</th>@if($viewMode === 'tap')<th>Cluster</th>@endif<th>Total Outlet</th><th>Stock Outlet</th><th>ST {{ $product }}</th><th>SO {{ $product }}</th><th class="pt-duration-column">Rata-rata SF → Outlet (hari)</th><th class="pt-duration-column">Rata-rata Outlet → Pelanggan (hari)</th></tr></thead>
+            <thead><tr><th>TAP</th><th>Total Outlet</th><th>Stock Outlet</th><th>ST {{ $product }}</th><th>SO {{ $product }}</th><th class="pt-duration-column">Rata-rata SF → Outlet (hari)</th><th class="pt-duration-column">Rata-rata Outlet → Pelanggan (hari)</th></tr></thead>
             <tbody>
                 @forelse($outlets as $summary)
-                    <tr class="{{ $summary->row_type === 'grand-total' ? 'pt-grand-total-row' : ($summary->row_type === 'cluster-total' ? 'pt-cluster-summary-row' : '') }}"><td><strong>{{ $summary->group_label }}</strong></td>@if($viewMode === 'tap')<td>{{ $summary->row_type === 'detail' ? ($summary->cluster ?: '—') : '' }}</td>@endif<td>{{ number_format($summary->outlet_count) }}</td><td><strong>{{ number_format($summary->remaining_qty) }}</strong></td><td>{{ number_format($summary->st_qty) }}</td><td>{{ number_format($summary->so_qty) }}</td><td class="pt-duration-column">{{ $summary->days_sf_to_outlet === null ? '—' : $summary->days_sf_to_outlet.' hari' }}</td><td class="pt-duration-column">{{ $summary->days_outlet_to_customer === null ? '—' : $summary->days_outlet_to_customer.' hari' }}</td></tr>
+                    <tr class="{{ $summary->row_type === 'grand-total' ? 'pt-grand-total-row' : ($summary->row_type === 'cluster-total' ? 'pt-cluster-summary-row' : '') }}"><td><strong>{{ $summary->group_label }}</strong></td><td>{{ number_format($summary->outlet_count) }}</td><td><strong>{{ number_format($summary->remaining_qty) }}</strong></td><td>{{ number_format($summary->st_qty) }}</td><td>{{ number_format($summary->so_qty) }}</td><td class="pt-duration-column">{{ $summary->days_sf_to_outlet === null ? '—' : $summary->days_sf_to_outlet.' hari' }}</td><td class="pt-duration-column">{{ $summary->days_outlet_to_customer === null ? '—' : $summary->days_outlet_to_customer.' hari' }}</td></tr>
                 @empty
-                    <tr><td colspan="8" class="pt-empty">Belum ada data untuk rekap {{ $viewMode === 'tap' ? 'TAP' : 'Cluster' }}.</td></tr>
+                    <tr><td colspan="7" class="pt-empty">Belum ada data untuk rekap TAP.</td></tr>
                 @endforelse
             </tbody>
         </table>

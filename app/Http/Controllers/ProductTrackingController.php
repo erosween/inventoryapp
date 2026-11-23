@@ -972,7 +972,7 @@ class ProductTrackingController extends MonitaDumaiController
         });
         $outletRows = collect($cachedRows)->map(fn ($row) => (object) $row);
         $viewMode = (string) $request->query('view', 'outlet');
-        abort_unless(in_array($viewMode, ['outlet', 'tap', 'cluster'], true), 404);
+        abort_unless(in_array($viewMode, ['outlet', 'tap'], true), 404);
         if ($viewMode !== 'outlet') {
             $summarizeStockGroup = static function ($group, string $label, string $rowType, string $cluster = ''): object {
                 $stQty = (int) $group->sum('st_qty');
