@@ -40,7 +40,7 @@
             <thead><tr><th>{{ $viewMode === 'tap' ? 'TAP' : 'Cluster' }}</th>@if($viewMode === 'tap')<th>Cluster</th>@endif<th>Total Outlet</th><th>Stock Outlet</th><th>ST {{ $product }}</th><th>SO {{ $product }}</th><th class="pt-duration-column">Rata-rata SF → Outlet (hari)</th><th class="pt-duration-column">Rata-rata Outlet → Pelanggan (hari)</th></tr></thead>
             <tbody>
                 @forelse($outlets as $summary)
-                    <tr><td><strong>{{ $summary->group_label }}</strong></td>@if($viewMode === 'tap')<td>{{ $summary->cluster ?: '—' }}</td>@endif<td>{{ number_format($summary->outlet_count) }}</td><td><strong>{{ number_format($summary->remaining_qty) }}</strong></td><td>{{ number_format($summary->st_qty) }}</td><td>{{ number_format($summary->so_qty) }}</td><td class="pt-duration-column">{{ $summary->days_sf_to_outlet === null ? '—' : $summary->days_sf_to_outlet.' hari' }}</td><td class="pt-duration-column">{{ $summary->days_outlet_to_customer === null ? '—' : $summary->days_outlet_to_customer.' hari' }}</td></tr>
+                    <tr class="{{ $summary->row_type === 'grand-total' ? 'pt-grand-total-row' : ($summary->row_type === 'cluster-total' ? 'pt-cluster-summary-row' : '') }}"><td><strong>{{ $summary->group_label }}</strong></td>@if($viewMode === 'tap')<td>{{ $summary->row_type === 'detail' ? ($summary->cluster ?: '—') : '' }}</td>@endif<td>{{ number_format($summary->outlet_count) }}</td><td><strong>{{ number_format($summary->remaining_qty) }}</strong></td><td>{{ number_format($summary->st_qty) }}</td><td>{{ number_format($summary->so_qty) }}</td><td class="pt-duration-column">{{ $summary->days_sf_to_outlet === null ? '—' : $summary->days_sf_to_outlet.' hari' }}</td><td class="pt-duration-column">{{ $summary->days_outlet_to_customer === null ? '—' : $summary->days_outlet_to_customer.' hari' }}</td></tr>
                 @empty
                     <tr><td colspan="8" class="pt-empty">Belum ada data untuk rekap {{ $viewMode === 'tap' ? 'TAP' : 'Cluster' }}.</td></tr>
                 @endforelse
@@ -79,7 +79,7 @@
     </div>
     @endif
     <div class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi halaman outlet">
-        <span class="pt-muted">Halaman {{ $outlets->currentPage() }} · menampilkan {{ $outlets->firstItem() ?? 0 }}–{{ $outlets->lastItem() ?? 0 }} {{ $viewMode === 'outlet' ? 'outlet' : ($viewMode === 'tap' ? 'TAP' : 'cluster') }}</span>
+        <span class="pt-muted">Halaman {{ $outlets->currentPage() }} · menampilkan {{ $outlets->firstItem() ?? 0 }}–{{ $outlets->lastItem() ?? 0 }} {{ $viewMode === 'outlet' ? 'outlet' : 'baris rekap' }}</span>
         <div class="d-flex align-items-center" style="gap:8px">
             @if($outlets->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $outlets->previousPageUrl() }}">Sebelumnya</a>@endif
             @if($outlets->hasMorePages())<a class="pt-button" href="{{ $outlets->nextPageUrl() }}">Berikutnya</a>@else<span class="pt-button" aria-disabled="true">Berikutnya</span>@endif
