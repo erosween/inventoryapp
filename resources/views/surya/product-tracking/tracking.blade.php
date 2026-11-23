@@ -54,7 +54,7 @@
                 @endforelse
             </section>
 
-            <section class="pt-card pt-detail-card">
+            <section class="pt-card pt-detail-card pt-tracking-history">
                 <div class="pt-result-head"><div><h2>RIWAYAT DROPPING SF</h2><p class="pt-subtitle mb-0">{{ $sfMatches->count() }} catatan rentang cocok untuk SN {{ $queryValue }}</p></div></div>
                 @if($sfMatches->isEmpty())
                     <div class="pt-empty">Belum ada riwayat dropping atau label SF yang cocok.</div>

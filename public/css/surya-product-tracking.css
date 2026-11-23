@@ -142,6 +142,7 @@
 .pt-lookup input:focus{outline:0;border-color:#c8102e;box-shadow:0 0 0 3px rgba(200,16,46,.1)}
 .pt-lookup .pt-button{min-width:112px}
 .pt-tracking-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:18px}
+.pt-tracking-results>.pt-tracking-history{grid-column:1/-1;width:100%}
 .pt-detail-card{min-width:0;margin:0;padding:20px}
 .pt-detail-card .pt-result-head{align-items:flex-start}
 .pt-detail-list{display:grid;gap:0;margin:14px 0 0}
