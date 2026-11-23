@@ -29,20 +29,26 @@
 .pt-qty { display:inline-flex; align-items:center; min-height:40px; padding:0 12px; border-radius:10px; background:#f3f5f9; color:#172033; font-weight:850; }
 .pt-actions { display:flex; justify-content:flex-end; margin-top:18px; }
 .pt-table-wrap { overflow:auto; border:1px solid #e3e8f0; border-radius:12px; }
+.pt-stock-outlet-scroll { max-height:min(72vh,760px); overscroll-behavior:contain; }
 .pt-table { width:100%; border-collapse:collapse; font-size:13px; }
 .pt-table th,.pt-table td { padding:11px 12px; border-bottom:1px solid #edf0f5; text-align:left; vertical-align:top; white-space:nowrap; }
 .pt-table th { background:#f7f8fb; color:#58657b; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 .pt-stock-outlet-table th.pt-duration-column,.pt-stock-outlet-table td.pt-duration-column { width:150px; min-width:150px; max-width:150px; }
+.pt-stock-outlet-table thead th { position:sticky; top:0; z-index:5; background:#f7f8fb; }
+.pt-stock-outlet-table thead th:first-child { border-top-left-radius:11px; }
+.pt-stock-outlet-table thead th:last-child { border-top-right-radius:11px; }
 .pt-stock-outlet-table th { white-space:nowrap; }
 .pt-stock-outlet-table th .tf-column-heading { position:relative; display:flex; align-items:center; justify-content:center; min-height:34px; padding:0 27px; box-sizing:border-box; text-align:center; }
 .pt-stock-outlet-table th .tf-column-heading>span { min-width:0; text-align:center; }
 .pt-stock-outlet-table th .tf-column-filter { position:absolute; top:0; right:0; }
 .pt-stock-outlet-table th.pt-duration-column { white-space:normal; }
 .pt-stock-outlet-table th.pt-duration-column .tf-column-heading>span { overflow-wrap:normal; }
-.pt-stock-outlet-detail { min-width:2250px; }
+.pt-stock-outlet-detail { min-width:2250px; border-collapse:separate; border-spacing:0; }
+.pt-stock-outlet-detail .tf-column-filter { z-index:1; }
+.pt-stock-outlet-detail thead th:first-child,.pt-stock-outlet-detail thead th:nth-child(2) { z-index:7; }
 .pt-stock-outlet-detail th:first-child,.pt-stock-outlet-detail td:first-child { position:sticky; left:0; width:122px; min-width:122px; max-width:122px; box-sizing:border-box; }
 .pt-stock-outlet-detail th:nth-child(2),.pt-stock-outlet-detail td:nth-child(2) { position:sticky; left:122px; width:205px; min-width:205px; max-width:205px; box-sizing:border-box; }
-.pt-stock-outlet-detail thead th:first-child,.pt-stock-outlet-detail thead th:nth-child(2) { z-index:6; background:#f7f8fb; }
+.pt-stock-outlet-detail thead th:first-child,.pt-stock-outlet-detail thead th:nth-child(2) { z-index:7; background:#f7f8fb; }
 .pt-stock-outlet-detail tbody td:first-child,.pt-stock-outlet-detail tbody td:nth-child(2) { z-index:3; background:#fff; }
 .pt-stock-outlet-detail tbody tr:nth-child(even) td:first-child,.pt-stock-outlet-detail tbody tr:nth-child(even) td:nth-child(2) { background:#f7f8fb; }
 .pt-stock-outlet-detail th:nth-child(2),.pt-stock-outlet-detail td:nth-child(2) { box-shadow:2px 0 5px rgba(25,36,58,.1); }

@@ -39,7 +39,7 @@
     </nav>
     @if($viewMode === 'tap')
     <p class="pt-subtitle">Ringkasan per TAP. Rata-rata durasi dihitung berbobot berdasarkan jumlah SN yang memiliki tanggal lengkap.</p>
-    <div class="pt-table-wrap">
+    <div class="pt-table-wrap pt-stock-outlet-scroll">
         <table class="pt-table detail-table pt-stock-outlet-table">
             <thead><tr><th>TAP</th><th>Total Outlet</th>
                 @foreach($metricColumns as [$column, $label, $bold])<th class="{{ in_array($column, $durationColumns, true) ? 'pt-duration-column' : '' }}">{{ $label }}</th>@endforeach
@@ -59,7 +59,7 @@
         </table>
     </div>
     @else
-    <div class="pt-table-wrap">
+    <div class="pt-table-wrap pt-stock-outlet-scroll">
         <table class="pt-table detail-table pt-stock-outlet-table pt-stock-outlet-detail">
             <thead><tr>
                 @foreach($filterColumns as $column => $label)
