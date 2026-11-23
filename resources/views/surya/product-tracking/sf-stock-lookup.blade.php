@@ -68,7 +68,7 @@
                 @else
                     <div class="pt-table-wrap">
                         <table class="pt-table">
-                            <thead><tr><th>SF CODE</th><th>NAMA SALES FORCE</th><th>TAP</th><th>CLUSTER</th><th>DENOM</th><th>SUMBER</th><th>RENTANG TERCATAT</th><th>TANGGAL</th></tr></thead>
+                            <thead><tr><th>SF CODE</th><th>NAMA SALES FORCE</th><th>TAP</th><th>CLUSTER</th><th>DENOM</th><th>SUMBER</th><th>RENTANG TERCATAT</th><th>TANGGAL / WAKTU WIB</th></tr></thead>
                             <tbody>
                                 @foreach($matches as $row)
                                     <tr>
@@ -79,7 +79,7 @@
                                         <td>{{ $row->denom ?: $row->iddenom }}</td>
                                         <td><span class="pt-chip">{{ $row->source }}</span></td>
                                         <td>{{ $row->serial_range }}</td>
-                                        <td>{{ $row->date ? \Carbon\Carbon::parse($row->date)->locale('id')->translatedFormat('j M Y H:i:s') : '—' }}</td>
+                                        <td>{{ $row->date ? \Carbon\Carbon::parse($row->date, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('j M Y H:i:s').' WIB' : '—' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -116,7 +116,7 @@
                         <td><strong>{{ $row->sfcode }}</strong></td><td>{{ $row->namasf ?: '—' }}</td><td>{{ $row->idtap ?: '—' }}</td>
                         <td>{{ $row->denom ?: $row->iddenom }}</td><td>{{ $row->serial_start }}</td><td>{{ $row->serial_end }}</td>
                         <td>{{ number_format($row->qty) }}</td><td>{{ $row->username }}</td>
-                        <td>{{ \Carbon\Carbon::parse($row->created_at)->locale('id')->translatedFormat('j M Y H:i') }}</td>
+                        <td>{{ \Carbon\Carbon::parse($row->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('j M Y H:i') }} WIB</td>
                         <td><div class="pt-manual-actions"><a class="pt-manual-action" href="{{ route('surya.product-tracking.sf-stock-lookup', ['tab'=>'add','edit'=>$row->id,'manual_page'=>$recentManual->currentPage()]) }}"><i class="fas fa-pen"></i> Edit</a><form method="post" action="{{ route('surya.product-tracking.sf-stock-lookup.delete',$row->id) }}" onsubmit="return confirm('Hapus rentang SN {{ $row->serial_start }}–{{ $row->serial_end }}?')">@csrf @method('DELETE')<button class="pt-manual-action danger" type="submit"><i class="fas fa-trash"></i> Hapus</button></form></div></td><td>{{ $row->keterangan ?: '—' }}</td>
                     </tr>@empty<tr><td colspan="11" class="pt-empty">Belum ada rentang SN manual.</td></tr>@endforelse</tbody>
                 </table></div>

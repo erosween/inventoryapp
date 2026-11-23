@@ -41,8 +41,8 @@
     @if($kind==='sales-stock')
         <section class="pt-card">
             <div class="pt-result-head"><div><h2>Riwayat Upload Stok SN Sales</h2><span class="pt-muted">Menampilkan maksimal 30 upload terbaru.</span></div></div>
-            <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>Jumlah Baris</th><th>Diunggah Oleh</th></tr></thead><tbody>
-                @forelse($uploads as $upload)<tr><td>{{ \Carbon\Carbon::parse($upload->created_at)->format('d M Y H:i') }}</td><td>{{ $upload->filename }}</td><td>{{ number_format($upload->row_count) }}</td><td>{{ $upload->username }}</td></tr>@empty<tr><td colspan="4" class="pt-empty">Belum ada stok SN Sales yang diunggah.</td></tr>@endforelse
+            <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload (WIB)</th><th>File</th><th>Jumlah Baris</th><th>Diunggah Oleh</th></tr></thead><tbody>
+                @forelse($uploads as $upload)<tr><td>{{ \Carbon\Carbon::parse($upload->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB</td><td>{{ $upload->filename }}</td><td>{{ number_format($upload->row_count) }}</td><td>{{ $upload->username }}</td></tr>@empty<tr><td colspan="4" class="pt-empty">Belum ada stok SN Sales yang diunggah.</td></tr>@endforelse
             </tbody></table></div>
         </section>
     @endif
@@ -84,11 +84,11 @@
             @endif
         </section>
     @endif
-    @if($pending->isNotEmpty())<section class="pt-card"><h2>Upload menunggu pemetaan</h2><div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>File</th><th>Tanggal</th><th>Diunggah</th><th>Aksi</th></tr></thead><tbody>@foreach($pending as $item)<tr><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ $item->created_at }}</td><td><a class="pt-button" href="{{ route('surya.product-tracking.mapping',$item->id) }}">Petakan Kolom</a></td></tr>@endforeach</tbody></table></div></section>@endif
+    @if($pending->isNotEmpty())<section class="pt-card"><h2>Upload menunggu pemetaan</h2><div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>File</th><th>Tanggal</th><th>Diunggah (WIB)</th><th>Aksi</th></tr></thead><tbody>@foreach($pending as $item)<tr><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ \Carbon\Carbon::parse($item->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</td><td><a class="pt-button" href="{{ route('surya.product-tracking.mapping',$item->id) }}">Petakan Kolom</a></td></tr>@endforeach</tbody></table></div></section>@endif
 
     @if($kind!=='sales-stock')<section class="pt-card"><div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">{{ str_starts_with($kind,'so-')?'Riwayat SN SO yang dipakai menghitung redeem Stock Outlet.':($kind==='warehouse'?'Warehouse terbaru yang selesai diimpor menjadi sumber pencocokan aktif.':'Riwayat ST Digipos yang dipakai mencocokkan SN outlet.') }}</span></div></div>
-        <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>{{ str_starts_with($kind,'so-')?'Tanggal SO':'Tanggal Scan' }}</th><th>Baris</th><th>Status</th></tr></thead><tbody>
-        @forelse($uploads as $item)<tr><td>{{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') }}</td><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ number_format($item->row_count) }}</td><td>@if($item->status==='complete')<span class="pt-chip good">Selesai</span>@else<span class="pt-chip bad">Duplikat · tidak dihitung</span>@endif</td></tr>@empty<tr><td colspan="5" class="pt-empty">Belum ada file {{ str_starts_with($kind,'so-')?'SO':'ST Digipos' }}.</td></tr>@endforelse
+        <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload (WIB)</th><th>File</th><th>{{ str_starts_with($kind,'so-')?'Tanggal SO':'Tanggal Scan' }}</th><th>Baris</th><th>Status</th></tr></thead><tbody>
+        @forelse($uploads as $item)<tr><td>{{ \Carbon\Carbon::parse($item->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</td><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ number_format($item->row_count) }}</td><td>@if($item->status==='complete')<span class="pt-chip good">Selesai</span>@else<span class="pt-chip bad">Duplikat · tidak dihitung</span>@endif</td></tr>@empty<tr><td colspan="5" class="pt-empty">Belum ada file {{ str_starts_with($kind,'so-')?'SO':'ST Digipos' }}.</td></tr>@endforelse
         </tbody></table></div>
     </section>
     @endif

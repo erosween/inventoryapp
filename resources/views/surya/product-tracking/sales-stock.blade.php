@@ -37,9 +37,9 @@
 
     <section class="pt-card">
         <div class="pt-result-head"><div><h2>Riwayat Upload</h2><span class="pt-muted">Menampilkan maksimal 30 upload terbaru.</span></div></div>
-        <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload</th><th>File</th><th>Jumlah Baris</th><th>Diunggah Oleh</th></tr></thead><tbody>
+        <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload (WIB)</th><th>File</th><th>Jumlah Baris</th><th>Diunggah Oleh</th></tr></thead><tbody>
             @forelse($uploads as $upload)
-                <tr><td>{{ \Carbon\Carbon::parse($upload->created_at)->format('d M Y H:i') }}</td><td>{{ $upload->filename }}</td><td>{{ number_format($upload->row_count) }}</td><td>{{ $upload->username }}</td></tr>
+                <tr><td>{{ \Carbon\Carbon::parse($upload->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB</td><td>{{ $upload->filename }}</td><td>{{ number_format($upload->row_count) }}</td><td>{{ $upload->username }}</td></tr>
             @empty
                 <tr><td colspan="4" class="pt-empty">Belum ada stok SN Sales yang diunggah.</td></tr>
             @endforelse
