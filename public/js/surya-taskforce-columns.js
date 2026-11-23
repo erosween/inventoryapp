@@ -17,7 +17,8 @@
     const more = menu.querySelector('[data-filter-more]');
     let trigger, key, mode, chosen, values, page, timer, pending;
     function navigatePage(url) {
-        if (menu.dataset.standalone === 'true') window.location.assign(url);
+        if (menu.dataset.preserveScroll === 'true') window.StockOutletNavigate?.(url);
+        else if (menu.dataset.standalone === 'true') window.location.assign(url);
         else if (window.SuryaTaskforceNavigate) window.SuryaTaskforceNavigate(url);
         else window.location.assign(url);
     }
@@ -134,6 +135,53 @@
         apply.textContent = 'Terapkan';
         apply.disabled = mode === 'include' && chosen?.size === 0;
     }, {signal:events.signal});
+    if (menu.dataset.preserveScroll === 'true' && !window.StockOutletNavigate) {
+        let navigation;
+        window.StockOutletNavigate = async (target, push = true) => {
+            navigation?.abort();
+            const controller = new AbortController(); navigation = controller;
+            const wrap = document.querySelector('.pt-stock-outlet-scroll');
+            const pagination = document.querySelector('.pt-pagination');
+            const state = { x: scrollX, y: scrollY, left: wrap?.scrollLeft || 0, top: wrap?.scrollTop || 0 };
+            wrap?.setAttribute('aria-busy', 'true');
+            try {
+                const response = await fetch(target, {signal: controller.signal, headers: {'X-Requested-With':'XMLHttpRequest'}});
+                if (!response.ok) throw Error('Data gagal dimuat. Coba kembali.');
+                const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+                const nextWrap = doc.querySelector('.pt-stock-outlet-scroll');
+                const nextPagination = doc.querySelector('.pt-pagination');
+                const nextMenu = doc.querySelector('#tf-column-menu');
+                if (!nextWrap || !nextPagination || !nextMenu) throw Error('Sesi berakhir. Muat ulang halaman untuk masuk kembali.');
+                if (controller.signal.aborted) return;
+                wrap.innerHTML = nextWrap.innerHTML;
+                pagination.innerHTML = nextPagination.innerHTML;
+                menu.dataset.selection = nextMenu.dataset.selection || '{}';
+                menu.dataset.excluded = nextMenu.dataset.excluded || '{}';
+                menu.dataset.valuesUrl = nextMenu.dataset.valuesUrl || menu.dataset.valuesUrl;
+                menu.hidden = true;
+                if (push) history.pushState({}, '', target);
+                const restore = () => { wrap.scrollLeft = state.left; wrap.scrollTop = state.top; window.scrollTo(state.x, state.y); };
+                restore(); requestAnimationFrame(restore);
+                document.dispatchEvent(new Event('taskforce:updated'));
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    menu.hidden = false;
+                    menu.querySelector('[data-filter-message]').textContent = error.message;
+                }
+            } finally {
+                if (navigation === controller) {
+                    wrap?.removeAttribute('aria-busy');
+                    document.dispatchEvent(new Event('taskforce:navigation-end'));
+                }
+            }
+        };
+        document.addEventListener('click', event => {
+            const link = event.target.closest('.pt-pagination a[href]');
+            if (!link || link.getAttribute('aria-disabled') === 'true') return;
+            event.preventDefault(); window.StockOutletNavigate(link.href);
+        }, {signal:events.signal});
+        window.addEventListener('popstate', () => window.StockOutletNavigate(location.href, false), {signal:events.signal});
+    }
     document.querySelectorAll('.tf-column-filter').forEach(button => button.addEventListener('click', async () => {
         if (!menu.hidden && trigger === button) { close(); return; }
         close(); trigger = button; key = button.dataset.column;
