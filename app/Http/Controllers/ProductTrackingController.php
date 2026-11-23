@@ -16,6 +16,8 @@ use Illuminate\Support\Str;
 
 class ProductTrackingController extends MonitaDumaiController
 {
+    private array $sfStockOwnershipHistoryCache = [];
+
     public function index(Request $request)
     {
         return redirect()->route('surya.product-tracking.sold', $request->query());
@@ -2013,6 +2015,12 @@ class ProductTrackingController extends MonitaDumaiController
                     'stock.id', 'stock.sfcode', 'owner.namasf', 'owner.idtap', 'stock.iddenom', 'd.denom',
                     'stock.serial_start', 'stock.serial_end', 'stock.qty', 'stock.keterangan', 'source.username', 'source.updated_at as created_at',
                 ], 'manual_page')->withQueryString();
+                $recentManual->getCollection()->transform(function ($row) use ($eligibleDenoms) {
+                    $denom = $eligibleDenoms->firstWhere('iddenom', $row->iddenom);
+                    $isSa = $denom && DenomGrouping::infer($denom)['product'] === 'SA';
+                    $row->keterangan = $this->previousSfLocationNote($row->sfcode, $row->iddenom, $row->serial_start, $row->serial_end, $isSa);
+                    return $row;
+                });
                 if ($request->filled('edit')) {
                     $editingManual = $this->findManualSfStockRange((int) $request->query('edit'));
                 }
@@ -2079,9 +2087,9 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
-        $previousOwners = $this->previousSfOwnersForRange($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
+        $previousLocationNote = $this->previousSfLocationNote($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
 
-        DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty, $previousOwners) {
+        DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty, $previousLocationNote) {
             $now = now();
             $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
                 'filename' => 'MANUAL: Cek SN SF',
@@ -2099,7 +2107,7 @@ class ProductTrackingController extends MonitaDumaiController
                 'serial_start' => $start,
                 'serial_end' => $end,
                 'qty' => $rangeQty,
-                'keterangan' => $previousOwners->isEmpty() ? null : 'Sebelumnya tercatat pada: '.$previousOwners->implode('; ').'. Perlu retur admin.',
+                'keterangan' => $previousLocationNote,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -2154,15 +2162,15 @@ class ProductTrackingController extends MonitaDumaiController
             throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
         }
 
-        $previousOwners = $this->previousSfOwnersForRange($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
+        $previousLocationNote = $this->previousSfLocationNote($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
 
-        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty, $previousOwners) {
+        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty, $previousLocationNote) {
             DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([
                 'sfcode' => $sf->idsf, 'tap' => $sf->idtap,
                 'cluster' => $this->trackingClusterForTap((string) $sf->idtap),
                 'iddenom' => $data['iddenom'], 'serial_start' => $start, 'serial_end' => $end,
                 'qty' => $rangeQty, 'updated_at' => now(),
-                'keterangan' => $previousOwners->isEmpty() ? $record->keterangan : 'Sebelumnya tercatat pada: '.$previousOwners->implode('; ').'. Perlu retur admin.',
+                'keterangan' => $previousLocationNote,
             ]);
             DB::table('product_tracking_sales_stock_uploads')->where('id', $record->upload_id)->update([
                 'username' => auth()->user()->username, 'updated_at' => now(),
@@ -2188,21 +2196,33 @@ class ProductTrackingController extends MonitaDumaiController
             ->with('success', 'Rentang SN berhasil dihapus.');
     }
 
-    /** Keep an audit note when a manual SN assignment overlaps a receipt to another SF. */
-    private function previousSfOwnersForRange(string $newSf, string $iddenom, string $start, string $end, bool $isSa)
+    /** Report only the last known holder of each overlapping SN segment before manual reassignment. */
+    private function previousSfLocationNote(string $newSf, string $iddenom, string $start, string $end, bool $isSa): ?string
     {
         $widths = $isSa ? [15, 16] : [12];
         $targetStart = (int) ltrim($start, '0');
         $targetEnd = (int) ltrim($end, '0');
-        $sources = DB::table('masuksf as incoming')
-            ->where('incoming.iddenom', $iddenom)
-            ->whereRaw('incoming.sn REGEXP ?', [$isSa ? '[0-9]{15}' : '[0-9]{12}'])
-            ->where('incoming.idsf', '<>', $newSf)
-            ->distinct()->get(['incoming.idsf', 'incoming.sn']);
+        $pattern = $isSa ? '[0-9]{15,16}' : '[0-9]{12}';
+        $cacheKey = $iddenom.'|'.($isSa ? 'SA' : 'PV');
+        if (! isset($this->sfStockOwnershipHistoryCache[$cacheKey])) {
+            $receipts = DB::table('masuksf as incoming')
+                ->where('incoming.iddenom', $iddenom)
+                ->whereRaw('incoming.sn REGEXP ?', [$pattern])
+                ->get(['incoming.idsf', 'incoming.sn', 'incoming.tgl', 'incoming.idmasuk']);
+            $returns = DB::table('retursf as returned')
+                ->where('returned.iddenom', $iddenom)
+                ->where(function ($query) use ($pattern) {
+                    $query->whereRaw('COALESCE(NULLIF(returned.sn_awal, ?), returned.sn) REGEXP ?', ['', $pattern])
+                        ->orWhereRaw('COALESCE(NULLIF(returned.sn_akhir, ?), returned.sn) REGEXP ?', ['', $pattern]);
+                })
+                ->get(['returned.idsf', 'returned.sn', 'returned.sn_awal', 'returned.sn_akhir', 'returned.tgl', 'returned.idretur']);
+            $this->sfStockOwnershipHistoryCache[$cacheKey] = [$receipts, $returns];
+        }
+        [$receipts, $returns] = $this->sfStockOwnershipHistoryCache[$cacheKey];
 
-        $segmentsByOwner = [];
-        foreach ($sources as $source) {
-            $parts = preg_split('/\s*[,;|\n]+\s*/u', trim((string) $source->sn), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $events = [];
+        $appendRanges = function (string $sfCode, string $rawRanges, $date, int $id, string $type) use (&$events, $widths, $isSa, $targetStart, $targetEnd): void {
+            $parts = preg_split('/\s*[,;|\n]+\s*/u', trim($rawRanges), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             foreach ($parts as $part) {
                 if (preg_match('/^(\d+)\s*[-–—]\s*(\d+)$/u', trim($part), $match)) {
                     [$serialStart, $serialEnd] = [$match[1], $match[2]];
@@ -2211,26 +2231,69 @@ class ProductTrackingController extends MonitaDumaiController
                 } else {
                     continue;
                 }
-
                 if (! in_array(strlen($serialStart), $widths, true) || strlen($serialStart) !== strlen($serialEnd)) continue;
                 if ($isSa && strlen($serialStart) === 16 && (! str_starts_with($serialStart, '0') || ! str_starts_with($serialEnd, '0'))) continue;
-                $sourceStart = (int) ltrim($serialStart, '0');
-                $sourceEnd = (int) ltrim($serialEnd, '0');
-                if ($sourceEnd < $sourceStart) continue;
-
-                $overlapStart = max($targetStart, $sourceStart);
-                $overlapEnd = min($targetEnd, $sourceEnd);
-                if ($overlapStart > $overlapEnd) continue;
-
-                $segmentsByOwner[$source->idsf][] = str_pad((string) $overlapStart, strlen($serialStart), '0', STR_PAD_LEFT)
-                    .'-'.str_pad((string) $overlapEnd, strlen($serialEnd), '0', STR_PAD_LEFT);
+                $low = (int) ltrim($serialStart, '0');
+                $high = (int) ltrim($serialEnd, '0');
+                if ($high < $low || $low > $targetEnd || $high < $targetStart) continue;
+                $events[] = [
+                    'sfcode' => $sfCode,
+                    'start' => max($targetStart, $low),
+                    'end' => min($targetEnd, $high),
+                    'date' => strtotime((string) $date) ?: 0,
+                    'type' => $type,
+                    'id' => $id,
+                ];
             }
-        }
+        };
 
-        if ($segmentsByOwner === []) return collect();
-        $names = DB::table('idsf')->whereIn('idsf', array_keys($segmentsByOwner))->pluck('namasf', 'idsf');
-        return collect($segmentsByOwner)->map(fn ($segments, $sfCode) => ($names[$sfCode] ?? $sfCode)
-            .' ('.$sfCode.'; '.collect($segments)->unique()->implode(', ').')')->values();
+        foreach ($receipts as $receipt) {
+            $appendRanges((string) $receipt->idsf, (string) $receipt->sn, $receipt->tgl, (int) $receipt->idmasuk, 'receipt');
+        }
+        foreach ($returns as $return) {
+            $returnStart = trim((string) ($return->sn_awal ?? ''));
+            $returnEnd = trim((string) ($return->sn_akhir ?? ''));
+            $rawRange = $returnStart !== '' ? ($returnEnd !== '' ? $returnStart.'-'.$returnEnd : $returnStart) : (string) $return->sn;
+            $appendRanges((string) $return->idsf, $rawRange, $return->tgl, (int) $return->idretur, 'return');
+        }
+        if ($events === []) return null;
+
+        $boundaries = [$targetStart, $targetEnd + 1];
+        foreach ($events as $event) {
+            $boundaries[] = $event['start'];
+            $boundaries[] = $event['end'] + 1;
+        }
+        $boundaries = array_values(array_unique($boundaries));
+        sort($boundaries, SORT_NUMERIC);
+        $latestSegments = [];
+        foreach (array_slice($boundaries, 0, -1) as $index => $segmentStart) {
+            $segmentEnd = $boundaries[$index + 1] - 1;
+            $active = array_filter($events, fn ($event) => $event['start'] <= $segmentStart && $event['end'] >= $segmentEnd);
+            if ($active === []) continue;
+            usort($active, fn ($a, $b) => ($a['date'] <=> $b['date'])
+                ?: (($a['type'] === 'receipt' ? 1 : 0) <=> ($b['type'] === 'receipt' ? 1 : 0))
+                ?: ($a['id'] <=> $b['id']));
+            $latest = end($active);
+            if ($latest['type'] === 'receipt' && $latest['sfcode'] === $newSf) continue;
+            $latestSegments[] = array_merge($latest, ['start' => $segmentStart, 'end' => $segmentEnd]);
+        }
+        if ($latestSegments === []) return null;
+
+        $sfCodes = collect($latestSegments)->pluck('sfcode')->unique()->all();
+        $names = DB::table('idsf')->whereIn('idsf', $sfCodes)->pluck('namasf', 'idsf');
+        $requiresReturn = false;
+        $labels = collect($latestSegments)->map(function ($segment) use ($names, &$requiresReturn, $start) {
+            $width = strlen($start);
+            $serialRange = str_pad((string) $segment['start'], $width, '0', STR_PAD_LEFT)
+                .'-'.str_pad((string) $segment['end'], $width, '0', STR_PAD_LEFT);
+            $name = $names[$segment['sfcode']] ?? $segment['sfcode'];
+            if ($segment['type'] === 'return') return 'TAP setelah retur dari '.$name.' ('.$segment['sfcode'].'; '.$serialRange.')';
+            $requiresReturn = true;
+            return $name.' ('.$segment['sfcode'].'; '.$serialRange.')';
+        })->unique()->values();
+
+        return 'Lokasi terakhir sebelum mapping: '.$labels->implode('; ').'. '
+            .($requiresReturn ? 'Retur admin masih diperlukan untuk SN yang masih tercatat di SF.' : 'SN tersebut sudah tercatat diretur ke TAP.');
     }
 
     private function findManualSfStockRange(int $range): object
