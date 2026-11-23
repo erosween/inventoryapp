@@ -920,7 +920,7 @@ class ProductTrackingController extends MonitaDumaiController
             $metrics = [];
             foreach ($stRanges as $stRange) {
                 $outletId = (string) $stRange->id_outlet;
-                $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'days_weighted' => 0];
+                $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
                 $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
                 $start = $canonical($stRange->serial_start);
                 $end = $canonical($stRange->serial_end);
@@ -945,20 +945,21 @@ class ProductTrackingController extends MonitaDumaiController
                     $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
                     $soTime = $soRange['sold_at'] ? strtotime((string) $soRange['sold_at']) : false;
                     if ($stTime !== false && $soTime !== false) {
+                        $metrics[$outletId]['timed_qty'] += $overlap;
                         $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
                     }
                 }
             }
             $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet($stRanges, $product);
             $outletRows->transform(function ($outlet) use ($metrics, $daysToOutlet) {
-                $metric = $metrics[(string) $outlet->id_outlet] ?? ['st_qty' => 0, 'redeemed_qty' => 0, 'days_weighted' => 0];
+                $metric = $metrics[(string) $outlet->id_outlet] ?? ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
                 $outlet->st_qty = (int) $metric['st_qty'];
                 $outlet->so_qty = (int) $metric['redeemed_qty'];
                 $outlet->redeemed_qty = (int) $metric['redeemed_qty'];
                 $outlet->remaining_qty = max($outlet->st_qty - $outlet->redeemed_qty, 0);
                 $outlet->days_sf_to_outlet = $daysToOutlet[(string) $outlet->id_outlet] ?? null;
-                $outlet->days_outlet_to_customer = $outlet->redeemed_qty > 0
-                    ? (int) round($metric['days_weighted'] / $outlet->redeemed_qty) : null;
+                $outlet->days_outlet_to_customer = $metric['timed_qty'] > 0
+                    ? (int) round($metric['days_weighted'] / $metric['timed_qty']) : null;
                 return $outlet;
             });
             return $outletRows->map(fn ($row) => (array) $row)->all();
