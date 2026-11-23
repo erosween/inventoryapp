@@ -779,12 +779,29 @@ class ProductTrackingController extends MonitaDumaiController
             $dailyTotals = collect();
         }
 
+        $uploads = $kind === 'sales-stock'
+            ? DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get()
+            : $this->applyTextIn(DB::table('product_tracking_uploads'), 'kind', [$kind])
+                ->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (_utf8mb4'complete' COLLATE utf8mb4_unicode_ci, _utf8mb4'duplicate' COLLATE utf8mb4_unicode_ci)")
+                ->orderByDesc('id')->limit(30)->get();
+        if (str_starts_with($kind, 'so-') && $uploads->isNotEmpty()) {
+            $dateSummaries = DB::table('product_tracking_digipos')
+                ->whereIn('upload_id', $uploads->pluck('id'))
+                ->selectRaw('upload_id, MIN(sold_at) AS first_date, MAX(sold_at) AS last_date, COUNT(DISTINCT sold_at) AS date_count')
+                ->groupBy('upload_id')->get()->keyBy('upload_id');
+            foreach ($uploads as $item) {
+                $dates = $dateSummaries->get($item->id);
+                if (! $dates || ! $dates->first_date) continue;
+                $first = \Carbon\Carbon::parse($dates->first_date)->format('d/m/Y');
+                $last = \Carbon\Carbon::parse($dates->last_date)->format('d/m/Y');
+                $item->scan_date = (int) $dates->date_count > 1 ? "Beragam · {$first}–{$last}" : $first;
+            }
+        }
+
         return view('surya.product-tracking.imports', [
             'kind' => $kind,
             'period' => $period,
-            'uploads' => $kind === 'sales-stock'
-                ? DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get()
-                : $this->applyTextIn(DB::table('product_tracking_uploads'), 'kind', [$kind])->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (_utf8mb4'complete' COLLATE utf8mb4_unicode_ci, _utf8mb4'duplicate' COLLATE utf8mb4_unicode_ci)")->orderByDesc('id')->limit(30)->get(),
+            'uploads' => $uploads,
             'pending' => $this->applyTextEquals(DB::table('product_tracking_uploads'), 'kind', $kind)->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'mapping' COLLATE utf8mb4_unicode_ci")->orderByDesc('id')->get(),
             'dailyTotals' => $dailyTotals,
         ]);
