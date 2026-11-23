@@ -809,6 +809,9 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function stockOutlet(Request $request)
     {
+        if (! $request->boolean('_single_product')) {
+            return $this->combinedStockOutlet($request);
+        }
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
         $stockColumns = $this->stockOutletColumnMap();
@@ -988,20 +991,6 @@ class ProductTrackingController extends MonitaDumaiController
             return $outletRows->map(fn ($row) => (array) $row)->all();
         });
         $outletRows = collect($cachedRows)->map(fn ($row) => (object) $row);
-        if (! $request->boolean('_single_product')) {
-            $combined = [];
-            foreach (['PV', 'SA'] as $reportProduct) {
-                foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $row) {
-                    $id = (string) $row['id_outlet'];
-                    $combined[$id] ??= array_intersect_key($row, array_flip(['id_outlet', 'nama_outlet', 'kecamatan', 'tap', 'cluster', 'sf', 'kategori_outlet']));
-                    $suffix = strtolower($reportProduct);
-                    foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
-                        $combined[$id][$metric.'_'.$suffix] = $row[$metric] ?? null;
-                    }
-                }
-            }
-            $outletRows = collect($combined)->map(fn ($row) => (object) $row);
-        }
         $viewMode = (string) $request->query('view', 'outlet');
         abort_unless(in_array($viewMode, ['outlet', 'tap'], true), 404);
         if ($viewMode !== 'outlet') {
@@ -1072,6 +1061,84 @@ class ProductTrackingController extends MonitaDumaiController
             'soKind' => $soKind,
             'stockTableOptions' => $options,
             'viewMode' => $viewMode,
+        ]);
+    }
+
+    private function combinedStockOutlet(Request $request)
+    {
+        $stockColumns = $this->stockOutletColumnMap();
+        $options = $this->stockOutletTableOptions($request, array_keys($stockColumns));
+        $combined = [];
+        foreach (['PV', 'SA'] as $reportProduct) {
+            foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $row) {
+                $id = (string) $row['id_outlet'];
+                $combined[$id] ??= array_intersect_key($row, array_flip(['id_outlet', 'nama_outlet', 'kecamatan', 'tap', 'cluster', 'sf', 'kategori_outlet']));
+                $suffix = strtolower($reportProduct);
+                foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
+                    $combined[$id][$metric.'_'.$suffix] = $row[$metric] ?? null;
+                }
+            }
+        }
+        $outletRows = collect($combined)->map(fn ($row) => (object) $row);
+        $viewMode = (string) $request->query('view', 'outlet');
+        abort_unless(in_array($viewMode, ['outlet', 'tap'], true), 404);
+        if ($viewMode === 'tap') {
+            $summarizeStockGroup = static function ($group, string $label, string $rowType, string $cluster = ''): object {
+                $summary = ['group_label' => $label, 'row_type' => $rowType, 'cluster' => $cluster, 'outlet_count' => $group->count()];
+                foreach (['pv', 'sa'] as $suffix) {
+                    $stQty = (int) $group->sum('st_qty_'.$suffix);
+                    $soQty = (int) $group->sum('so_qty_'.$suffix);
+                    $sfQty = (int) $group->sum('days_sf_to_outlet_qty_'.$suffix);
+                    $customerQty = (int) $group->sum('days_outlet_to_customer_qty_'.$suffix);
+                    $summary['st_qty_'.$suffix] = $stQty;
+                    $summary['so_qty_'.$suffix] = $soQty;
+                    $summary['remaining_qty_'.$suffix] = max($stQty - $soQty, 0);
+                    $summary['days_sf_to_outlet_'.$suffix] = $sfQty > 0 ? (int) round($group->sum('days_sf_to_outlet_weighted_'.$suffix) / $sfQty) : null;
+                    $summary['days_outlet_to_customer_'.$suffix] = $customerQty > 0 ? (int) round($group->sum('days_outlet_to_customer_weighted_'.$suffix) / $customerQty) : null;
+                }
+                return (object) $summary;
+            };
+            $clusterOrder = ['DUMAI BENGKALIS', 'ROKAN HILIR'];
+            $tapOrder = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
+            $clusterGroups = $outletRows->groupBy(fn ($row) => trim((string) ($row->cluster ?? '')) ?: 'Cluster Lainnya');
+            $summaryRows = collect();
+            foreach ($clusterOrder as $clusterName) {
+                $clusterOutlets = $clusterGroups->get($clusterName, collect());
+                if ($clusterOutlets->isEmpty()) continue;
+                $tapGroups = $clusterOutlets->groupBy(fn ($row) => strtoupper(trim((string) ($row->tap ?? ''))) ?: 'TANPA TAP');
+                foreach ($tapOrder as $tapName) {
+                    $tapOutlets = $tapGroups->get($tapName, collect());
+                    if ($tapOutlets->isNotEmpty()) $summaryRows->push($summarizeStockGroup($tapOutlets, $tapName, 'detail', $clusterName));
+                }
+                foreach ($tapGroups as $tapName => $tapOutlets) {
+                    if (! in_array($tapName, $tapOrder, true)) $summaryRows->push($summarizeStockGroup($tapOutlets, $tapName, 'detail', $clusterName));
+                }
+                $summaryRows->push($summarizeStockGroup($clusterOutlets, 'Total '.$clusterName, 'cluster-total', $clusterName));
+            }
+            foreach ($clusterGroups as $clusterName => $clusterOutlets) {
+                if (! in_array($clusterName, $clusterOrder, true)) {
+                    $summaryRows->push($summarizeStockGroup($clusterOutlets, $clusterName, 'detail', $clusterName));
+                    $summaryRows->push($summarizeStockGroup($clusterOutlets, 'Total '.$clusterName, 'cluster-total', $clusterName));
+                }
+            }
+            if ($outletRows->isNotEmpty()) $summaryRows->push($summarizeStockGroup($outletRows, 'Grand Total', 'grand-total'));
+            $outletRows = $summaryRows->values();
+        } else {
+            $outletRows = $this->filterAndSortStockOutletRows($outletRows, $options);
+        }
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $allRows = filter_var($request->query('all_rows', false), FILTER_VALIDATE_BOOLEAN);
+        $outlets = new LengthAwarePaginator(
+            $allRows ? $outletRows : $outletRows->forPage($page, 20)->values(),
+            $outletRows->count(),
+            $allRows ? max(1, $outletRows->count()) : 20,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('surya.product-tracking.stock-outlet', [
+            'product' => 'PV', 'outlets' => $outlets, 'soKind' => 'so-pv',
+            'stockTableOptions' => $options, 'viewMode' => $viewMode,
         ]);
     }
 
