@@ -29,10 +29,10 @@
         <a class="{{ $product==='SA'?'active':'' }}" href="{{ route('surya.product-tracking.stock-outlet',['product'=>'SA']) }}">SA</a>
     </nav>
     <div class="pt-table-wrap">
-        <table class="pt-table detail-table">
+        <table class="pt-table detail-table pt-stock-outlet-table">
             <thead><tr>
                 @foreach($filterColumns as $column => $label)
-                    <th><div class="tf-column-heading"><span>{{ $label }}@if(($stockTableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($stockTableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $stockTableOptions['columns'] ?? []) || array_key_exists($column, $stockTableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
+                    <th class="{{ in_array($column, ['days_sf_to_outlet', 'days_outlet_to_customer'], true) ? 'pt-duration-column' : '' }}"><div class="tf-column-heading"><span>{{ $label }}@if(($stockTableOptions['sort'] ?? '') === $column)<i class="fas fa-arrow-{{ ($stockTableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $stockTableOptions['columns'] ?? []) || array_key_exists($column, $stockTableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                 @endforeach
             </tr></thead>
             <tbody>
@@ -48,8 +48,8 @@
                         <td><strong>{{ number_format($outlet->remaining_qty) }}</strong></td>
                         <td>{{ number_format($outlet->st_qty) }}</td>
                         <td>{{ number_format($outlet->so_qty) }}</td>
-                        <td>{{ $outlet->days_sf_to_outlet === null ? '—' : $outlet->days_sf_to_outlet.' hari' }}</td>
-                        <td>{{ $outlet->days_outlet_to_customer === null ? '—' : $outlet->days_outlet_to_customer.' hari' }}</td>
+                        <td class="pt-duration-column">{{ $outlet->days_sf_to_outlet === null ? '—' : $outlet->days_sf_to_outlet.' hari' }}</td>
+                        <td class="pt-duration-column">{{ $outlet->days_outlet_to_customer === null ? '—' : $outlet->days_outlet_to_customer.' hari' }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="12" class="pt-empty">Belum ada data ST atau upload SO untuk produk {{ $product }}.</td></tr>
