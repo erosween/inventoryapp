@@ -245,13 +245,9 @@
             }
             if (!data.rows.length && page === 1) panel.textContent = @json(($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Tidak ada SN cocok untuk outlet ini.' : 'Tidak ada SN yang belum cocok untuk outlet ini.');
             else if (data.rows.length) {
-                if (!panel.querySelector('.pt-outlet-sn-search')) {
-                    const searchForm = document.createElement('form');
-                    searchForm.className = 'pt-outlet-sn-search';
-                    searchForm.dataset.idOutlet = outletId;
-                    searchForm.innerHTML = '<label>Cari SN di outlet ini</label><div><input type="search" name="sn" inputmode="numeric" pattern="[0-9]{9,24}" maxlength="24" placeholder="Masukkan SN" required><button class="pt-button primary" type="submit"><i class="fas fa-magnifying-glass"></i> Cek SN</button></div><p class="pt-outlet-sn-search-result" role="status" aria-live="polite" hidden></p>';
+                if (!panel.querySelector('.pt-outlet-sn-description')) {
                     const description = document.createElement('p'); description.className = 'pt-muted pt-outlet-sn-description'; description.textContent = @json(($summaryTarget['summary_status'] ?? '') === 'matched') ? 'Daftar SN yang cocok di outlet ini.' : `SN belum cocok: ${new Intl.NumberFormat('id-ID').format(Number(button?.dataset.mismatchQty || 0))} · ST: ${new Intl.NumberFormat('id-ID').format(Number(button?.dataset.stQty || 0))} · Non ST: ${new Intl.NumberFormat('id-ID').format(Number(button?.dataset.nonStQty || 0))}`;
-                    panel.replaceChildren(description, searchForm, tableWrap);
+                    panel.replaceChildren(description, tableWrap);
                 } else if (!tableWrap.isConnected) panel.append(tableWrap);
                 panel.querySelector('.pt-load-more-outlet-sn')?.remove();
                 if (data.has_more) { const loadMore = document.createElement('button'); loadMore.type = 'button'; loadMore.className = 'pt-button pt-load-more-outlet-sn'; loadMore.textContent = 'Muat 50 rentang berikutnya'; panel.append(loadMore); panel.dataset.nextPage = String(page + 1); }
@@ -259,43 +255,6 @@
             panel.dataset.loaded = 'true';
         } catch (error) { if (moreButton) { moreButton.disabled = false; moreButton.textContent = 'Coba muat lagi'; } else panel.textContent = error.message || 'Gagal memuat SN outlet.'; }
         finally { if (button) { button.disabled = false; button.classList.remove('is-loading'); button.innerHTML = buttonOriginal; } }
-    });
-    document.addEventListener('submit', async (event) => {
-        const form = event.target.closest('.pt-outlet-sn-search');
-        if (!form) return;
-        event.preventDefault();
-        const input = form.querySelector('[name="sn"]');
-        const button = form.querySelector('button[type="submit"]');
-        const output = form.querySelector('.pt-outlet-sn-search-result');
-        const sn = input.value.trim();
-        if (!/^[0-9]{9,24}$/.test(sn)) { input.reportValidity(); return; }
-        button.disabled = true;
-        button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Mencari…';
-        output.hidden = false;
-        output.textContent = 'Memeriksa SN di Nota dan Digipos…';
-        const params = new URLSearchParams({id_outlet: form.dataset.idOutlet, sn, date: @json($filters['date']), tab: @json($activeTab)});
-        try {
-            const response = await fetch(@json(route('surya.product-tracking.sold.outlet-sn-lookup')) + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Pencarian SN gagal.');
-            output.replaceChildren();
-            const status = document.createElement('strong');
-            status.textContent = data.nota.length && data.digipos.length ? `SN ${sn} ditemukan di ST Nota dan Digipos.` : data.nota.length ? `SN ${sn} ada di ST Nota, belum ditemukan di Digipos.` : data.digipos.length ? `SN ${sn} ada di Digipos, belum ditemukan di ST Nota.` : `SN ${sn} tidak ditemukan di outlet ini pada tanggal terpilih.`;
-            output.append(status);
-            for (const [title, rows, kind] of [['ST Nota', data.nota, 'nota'], ['ST Digipos', data.digipos, 'digipos']]) {
-                const section = document.createElement('section');
-                const heading = document.createElement('h4'); heading.textContent = title; section.append(heading);
-                if (!rows.length) { const empty = document.createElement('p'); empty.textContent = 'Tidak ditemukan.'; section.append(empty); }
-                for (const row of rows) {
-                    const line = document.createElement('p');
-                    const formattedDate = new Intl.DateTimeFormat('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}).format(new Date(`${row.date}T00:00:00`));
-                    line.textContent = kind === 'nota' ? `${formattedDate} · ${row.denom} · ${row.source}` : `${formattedDate} · ${row.outlet} (${row.id_outlet}) · ${row.product}`;
-                    section.append(line);
-                }
-                output.append(section);
-            }
-        } catch (error) { output.textContent = error.message || 'Pencarian SN gagal.'; }
-        finally { button.disabled = false; button.innerHTML = '<i class="fas fa-magnifying-glass"></i> Cek SN'; }
     });
     document.addEventListener('click', async (event) => {
         const button = event.target.closest('.pt-copy-sn');
