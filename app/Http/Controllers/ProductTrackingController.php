@@ -23,6 +23,19 @@ class ProductTrackingController extends MonitaDumaiController
         return redirect()->route('surya.product-tracking.sold', $request->query());
     }
 
+    private function soldValidationCacheKey(array $filters): string
+    {
+        return 'product-tracking:sold-outlet-validation:v1:'.sha1(json_encode([
+            $filters['date'] ?? null,
+            $filters['tab'] ?? null,
+            $filters['tap'] ?? null,
+            $filters['sf'] ?? null,
+            $filters['iddenom'] ?? null,
+            $filters['identifier_type'] ?? null,
+            $this->suryaTapScopes(),
+        ]));
+    }
+
     public function soldSerials(Request $request)
     {
         $filters = $this->soldSerialFilters($request);
@@ -43,121 +56,125 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])->exists();
 
         $activeTab = $filters['tab'];
-        $sourceQuery = $this->soldValidationSource($filters);
+        $validationRowsCacheKey = $this->soldValidationCacheKey($filters);
+        $allOutletRows = Cache::get($validationRowsCacheKey);
+        if (! $allOutletRows instanceof \Illuminate\Support\Collection) {
+            $sourceQuery = $this->soldValidationSource($filters);
+            // Load the small daily scan set once and match serial intervals in memory.
+            // The former correlated range query ran once per sale row and repeatedly
+            // cast both sides of the scan indexes, causing the 504 on busy dates.
+            $canonicalSerial = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
+                ? substr((string) $serial, 1) : (string) $serial;
+            $scanRanges = DB::table('product_tracking_digipos as digipos')
+                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
+                ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
+                ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
+                ->get(['digipos.serial_start', 'digipos.serial_end'])
+                ->map(fn ($scan) => (object) [
+                    'serial_start' => $canonicalSerial($scan->serial_start),
+                    'serial_end' => $canonicalSerial($scan->serial_end),
+                ])
+                ->sort(fn ($a, $b) => $this->compareSerials($a->serial_start, $b->serial_start)
+                        ?: $this->compareSerials($a->serial_end, $b->serial_end))->values();
+            $maxEnd = null;
+            foreach ($scanRanges as $range) {
+                if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
+                $range->prefix_end = $maxEnd;
+            }
+            $allCoverageRanges = $this->allCompleteDigiposCoverageRanges();
+            $currentCoverageRanges = $this->mergeSerialRanges($scanRanges->map(fn ($range) => [
+                'serial_start' => $range->serial_start,
+                'serial_end' => $range->serial_end,
+            ])->all());
 
-        // Load the small daily scan set once and match serial intervals in memory.
-        // The former correlated range query ran once per sale row and repeatedly
-        // cast both sides of the scan indexes, causing the 504 on busy dates.
-        $canonicalSerial = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
-            ? substr((string) $serial, 1) : (string) $serial;
-        $scanRanges = DB::table('product_tracking_digipos as digipos')
-            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-            ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
-            ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-            ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-            ->get(['digipos.serial_start', 'digipos.serial_end'])
-            ->map(fn ($scan) => (object) [
-                'serial_start' => $canonicalSerial($scan->serial_start),
-                'serial_end' => $canonicalSerial($scan->serial_end),
-            ])
-            ->sort(fn ($a, $b) => $this->compareSerials($a->serial_start, $b->serial_start)
-                    ?: $this->compareSerials($a->serial_end, $b->serial_end))->values();
-        $maxEnd = null;
-        foreach ($scanRanges as $range) {
-            if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
-            $range->prefix_end = $maxEnd;
+            $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRanges, $canonicalSerial, $allCoverageRanges, $currentCoverageRanges) {
+                $first = $sales->first();
+                $qty = 0;
+                $matchedQty = 0;
+                $mismatchAlreadyDigiposQty = 0;
+                // DigiPOS and ST Nota may store different IDs for the same physical outlet.
+                // Validate by SN range across the selected scan window, not by outlet ID.
+                $scans = $scanRanges;
+                foreach ($sales as $sale) {
+                    $saleQty = (int) $sale->qty;
+                    $qty += $saleQty;
+                    $matched = 0;
+                    $saleStart = $canonicalSerial($sale->serial_start);
+                    $saleEnd = $canonicalSerial($sale->serial_end);
+                    $low = 0;
+                    $high = count($scans);
+                    while ($low < $high) {
+                        $middle = intdiv($low + $high, 2);
+                        if ($this->compareSerials($scans[$middle]->prefix_end, $saleStart) < 0) $low = $middle + 1;
+                        else $high = $middle;
+                    }
+                    for ($index = $low, $scanCount = count($scans); $index < $scanCount; $index++) {
+                        $scan = $scans[$index];
+                        if ($this->compareSerials($scan->serial_start, $saleEnd) > 0) break;
+                        if ($this->compareSerials($scan->serial_end, $saleStart) < 0) continue;
+                        $scanStart = $scan->serial_start;
+                        $scanEnd = $scan->serial_end;
+                        $overlapStart = $this->compareSerials($saleStart, $scanStart) >= 0 ? $saleStart : $scanStart;
+                        $overlapEnd = $this->compareSerials($saleEnd, $scanEnd) <= 0 ? $saleEnd : $scanEnd;
+                        $matched += (int) $this->serialRangeCount($overlapStart, $overlapEnd);
+                    }
+                    $matchedQty += min($saleQty, $matched);
+
+                    $coveredCurrent = min($saleQty, $this->serialCoverageCount($saleStart, $saleEnd, $currentCoverageRanges));
+                    $coveredAnyDate = min($saleQty, $this->serialCoverageCount($saleStart, $saleEnd, $allCoverageRanges));
+                    $saleMismatchQty = max($saleQty - min($saleQty, $matched), 0);
+                    $mismatchAlreadyDigiposQty += min($saleMismatchQty, max($coveredAnyDate - $coveredCurrent, 0));
+                }
+
+                $mismatchQty = max($qty - $matchedQty, 0);
+                $mismatchAlreadyDigiposQty = min($mismatchQty, $mismatchAlreadyDigiposQty);
+
+                return (object) [
+                    'id_outlet' => (string) $idOutlet,
+                    'nama_outlet' => $sales->pluck('nama_outlet')->filter()->sort()->last(),
+                    'tap' => $sales->pluck('tap')->filter()->sort()->last() ?: 'Tanpa TAP',
+                    'idsf' => $sales->pluck('idsf')->filter()->sort()->last(),
+                    'namasf' => $sales->pluck('outlet_sf')->filter()->map(fn ($name) => trim((string) $name))->filter()->sort()->last()
+                        ?: $sales->pluck('namasf')->filter()->map(fn ($name) => trim((string) $name))->filter()->sort()->last(),
+                    'kategori_outlet' => $sales->pluck('kategori_outlet')->filter()->map(fn ($value) => trim((string) $value))->filter()->sort()->last() ?: 'Reguler',
+                    'kecamatan' => $sales->pluck('kecamatan')->filter()->sort()->last(),
+                    'qty' => $qty,
+                    'matched_qty' => $matchedQty,
+                    'mismatch_qty' => $mismatchQty,
+                    'mismatch_digipos_qty' => $mismatchAlreadyDigiposQty,
+                    'mismatch_non_digipos_qty' => max($mismatchQty - $mismatchAlreadyDigiposQty, 0),
+                    'has_mobile_sale' => $sales->contains(fn ($sale) => $sale->source === 'SF Mobile'),
+                    'latest_input_at' => $sales->pluck('input_at')->filter()->sort()->last(),
+                ];
+            })->values();
+            $outletIds = $allOutletRows->pluck('id_outlet')->filter()->unique()->values();
+            $visitTimes = $outletIds->isEmpty() ? collect() : DB::table('surya_visits')
+                ->whereIn('id_outlet', $outletIds)
+                ->where('visited_at', '<', \Carbon\Carbon::parse($filters['date'])->addDay()->toDateString().' 00:00:00')
+                ->selectRaw('id_outlet, MAX(visited_at) AS visit_at')
+                ->groupBy('id_outlet')
+                ->pluck('visit_at', 'id_outlet');
+            $allOutletRows->each(function ($row) use ($filters, $visitTimes) {
+                if ($row->has_mobile_sale) {
+                    $row->visit_at = $visitTimes->get($row->id_outlet);
+                    $row->visit_at_display = null;
+                    if ($row->visit_at) {
+                        $visitAt = \Carbon\Carbon::parse($row->visit_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta');
+                        $format = $visitAt->toDateString() === $filters['date'] ? 'H:i' : 'd M Y · H:i';
+                        $row->visit_at_display = $visitAt->format($format).' WIB';
+                    }
+                    return;
+                }
+
+                $inputAt = $row->latest_input_at
+                    ? \Carbon\Carbon::parse($row->latest_input_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('H:i').' WIB'
+                    : '—';
+                $row->visit_at = null;
+                $row->visit_at_display = $inputAt;
+            });
+            Cache::put($validationRowsCacheKey, $allOutletRows, now()->addSeconds(45));
         }
-        $allCoverageRanges = $this->allCompleteDigiposCoverageRanges();
-        $currentCoverageRanges = $this->mergeSerialRanges($scanRanges->map(fn ($range) => [
-            'serial_start' => $range->serial_start,
-            'serial_end' => $range->serial_end,
-        ])->all());
-
-        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRanges, $canonicalSerial, $allCoverageRanges, $currentCoverageRanges) {
-            $first = $sales->first();
-            $qty = 0;
-            $matchedQty = 0;
-            $mismatchAlreadyDigiposQty = 0;
-            // DigiPOS and ST Nota may store different IDs for the same physical outlet.
-            // Validate by SN range across the selected scan window, not by outlet ID.
-            $scans = $scanRanges;
-            foreach ($sales as $sale) {
-                $saleQty = (int) $sale->qty;
-                $qty += $saleQty;
-                $matched = 0;
-                $saleStart = $canonicalSerial($sale->serial_start);
-                $saleEnd = $canonicalSerial($sale->serial_end);
-                $low = 0;
-                $high = count($scans);
-                while ($low < $high) {
-                    $middle = intdiv($low + $high, 2);
-                    if ($this->compareSerials($scans[$middle]->prefix_end, $saleStart) < 0) $low = $middle + 1;
-                    else $high = $middle;
-                }
-                for ($index = $low, $scanCount = count($scans); $index < $scanCount; $index++) {
-                    $scan = $scans[$index];
-                    if ($this->compareSerials($scan->serial_start, $saleEnd) > 0) break;
-                    if ($this->compareSerials($scan->serial_end, $saleStart) < 0) continue;
-                    $scanStart = $scan->serial_start;
-                    $scanEnd = $scan->serial_end;
-                    $overlapStart = $this->compareSerials($saleStart, $scanStart) >= 0 ? $saleStart : $scanStart;
-                    $overlapEnd = $this->compareSerials($saleEnd, $scanEnd) <= 0 ? $saleEnd : $scanEnd;
-                    $matched += (int) $this->serialRangeCount($overlapStart, $overlapEnd);
-                }
-                $matchedQty += min($saleQty, $matched);
-
-                $coveredCurrent = min($saleQty, $this->serialCoverageCount($saleStart, $saleEnd, $currentCoverageRanges));
-                $coveredAnyDate = min($saleQty, $this->serialCoverageCount($saleStart, $saleEnd, $allCoverageRanges));
-                $saleMismatchQty = max($saleQty - min($saleQty, $matched), 0);
-                $mismatchAlreadyDigiposQty += min($saleMismatchQty, max($coveredAnyDate - $coveredCurrent, 0));
-            }
-
-            $mismatchQty = max($qty - $matchedQty, 0);
-            $mismatchAlreadyDigiposQty = min($mismatchQty, $mismatchAlreadyDigiposQty);
-
-            return (object) [
-                'id_outlet' => (string) $idOutlet,
-                'nama_outlet' => $sales->pluck('nama_outlet')->filter()->sort()->last(),
-                'tap' => $sales->pluck('tap')->filter()->sort()->last() ?: 'Tanpa TAP',
-                'idsf' => $sales->pluck('idsf')->filter()->sort()->last(),
-                'namasf' => $sales->pluck('outlet_sf')->filter()->map(fn ($name) => trim((string) $name))->filter()->sort()->last()
-                    ?: $sales->pluck('namasf')->filter()->map(fn ($name) => trim((string) $name))->filter()->sort()->last(),
-                'kategori_outlet' => $sales->pluck('kategori_outlet')->filter()->map(fn ($value) => trim((string) $value))->filter()->sort()->last() ?: 'Reguler',
-                'kecamatan' => $sales->pluck('kecamatan')->filter()->sort()->last(),
-                'qty' => $qty,
-                'matched_qty' => $matchedQty,
-                'mismatch_qty' => $mismatchQty,
-                'mismatch_digipos_qty' => $mismatchAlreadyDigiposQty,
-                'mismatch_non_digipos_qty' => max($mismatchQty - $mismatchAlreadyDigiposQty, 0),
-                'has_mobile_sale' => $sales->contains(fn ($sale) => $sale->source === 'SF Mobile'),
-                'latest_input_at' => $sales->pluck('input_at')->filter()->sort()->last(),
-            ];
-        })->values();
-        $outletIds = $allOutletRows->pluck('id_outlet')->filter()->unique()->values();
-        $visitTimes = $outletIds->isEmpty() ? collect() : DB::table('surya_visits')
-            ->whereIn('id_outlet', $outletIds)
-            ->where('visited_at', '<', \Carbon\Carbon::parse($filters['date'])->addDay()->toDateString().' 00:00:00')
-            ->selectRaw('id_outlet, MAX(visited_at) AS visit_at')
-            ->groupBy('id_outlet')
-            ->pluck('visit_at', 'id_outlet');
-        $allOutletRows->each(function ($row) use ($filters, $visitTimes) {
-            if ($row->has_mobile_sale) {
-                $row->visit_at = $visitTimes->get($row->id_outlet);
-                $row->visit_at_display = null;
-                if ($row->visit_at) {
-                    $visitAt = \Carbon\Carbon::parse($row->visit_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta');
-                    $format = $visitAt->toDateString() === $filters['date'] ? 'H:i' : 'd M Y · H:i';
-                    $row->visit_at_display = $visitAt->format($format).' WIB';
-                }
-                return;
-            }
-
-            $inputAt = $row->latest_input_at
-                ? \Carbon\Carbon::parse($row->latest_input_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('H:i').' WIB'
-                : '—';
-            $row->visit_at = null;
-            $row->visit_at_display = $inputAt;
-        });
         $outletRows = $allOutletRows;
         foreach (['columns', 'exclude'] as $mode) {
             $detailTableOptions[$mode] = array_filter($detailTableOptions[$mode] ?? [], fn ($values, $column) => ! in_array($column, ['sf','outlet_count','matched_outlets','mismatch_outlets'], true), ARRAY_FILTER_USE_BOTH);
@@ -273,9 +290,9 @@ class ProductTrackingController extends MonitaDumaiController
             'tapSummaries' => $tapSummaries,
             'clusterSummaries' => $clusterSummaries,
             'sfSummaries' => $sfSummaries,
-            'taps' => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $this->applyTapScopeFilter($query, 'idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap'),
-            'sfs' => $this->soldValidationSource($filters, false)->select('idsf', 'namasf')->distinct()->orderBy('namasf')->get(),
-            'denoms' => $this->soldValidationSource($filters, false)->select('iddenom', 'denom_label as denom')->distinct()->orderBy('denom_label')->get(),
+            'taps' => Cache::remember('product-tracking:sold-taps:v1:'.sha1(json_encode($this->suryaTapScopes())), now()->addMinutes(5), fn () => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $this->applyTapScopeFilter($query, 'idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap')),
+            'sfs' => Cache::remember($validationRowsCacheKey.':sf-options', now()->addSeconds(45), fn () => $this->soldValidationSource($filters, false)->select('idsf', 'namasf')->distinct()->orderBy('namasf')->get()),
+            'denoms' => Cache::remember($validationRowsCacheKey.':denom-options', now()->addSeconds(45), fn () => $this->soldValidationSource($filters, false)->select('iddenom', 'denom_label as denom')->distinct()->orderBy('denom_label')->get()),
             'activeTab' => $activeTab,
             'exportLimit' => 500000,
         ]);
@@ -517,6 +534,65 @@ class ProductTrackingController extends MonitaDumaiController
         $summaryTableLevel = $request->input('summary_table') === 'sf' ? 'sf' : 'tap';
         if ($request->filled('summary_table')) {
             abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true) || ($summaryTableLevel === 'sf' && $column === 'tap'), 422, 'Kolom ringkasan tidak valid.');
+        }
+        $cachedOutletRows = Cache::get($this->soldValidationCacheKey($filters));
+        if ($cachedOutletRows instanceof \Illuminate\Support\Collection) {
+            $valueSource = $cachedOutletRows;
+            $summaryGroupsBuilt = false;
+            if ($request->filled('summary_table')) {
+                if ($summaryTableLevel === 'sf' && $column !== 'tap') {
+                    $registeredSfNames = DB::table('idsf')->get(['idsf', 'namasf'])
+                        ->filter(fn ($sf) => str_starts_with(strtoupper(trim((string) $sf->idsf)), 'SF'))
+                        ->pluck('namasf')->map(fn ($name) => mb_strtolower(trim((string) $name)))->flip();
+                    $valueSource = $valueSource
+                        ->filter(fn ($row) => ! str_starts_with((string) $row->id_outlet, 'NON-DIGIPOS-') && $registeredSfNames->has(mb_strtolower(trim((string) $row->namasf))))
+                        ->groupBy('namasf')
+                        ->map(function ($rows, $name) {
+                            $group = $this->summarizeSoldOutlets($rows, (string) $name, (string) $name);
+                            $group->tap = $rows->pluck('tap')->unique()->implode(', ') ?: 'Tanpa TAP';
+                            return $group;
+                        });
+                    $summaryGroupsBuilt = true;
+                } else {
+                    if (! ($summaryTableLevel === 'sf' && $column === 'tap')) {
+                        $summaryField = $summaryTableLevel === 'sf' ? 'namasf' : 'tap';
+                        $valueSource = $valueSource->groupBy($summaryField)
+                            ->map(fn ($rows, $key) => $this->summarizeSoldOutlets($rows, (string) $key, (string) $key));
+                        $summaryGroupsBuilt = true;
+                    }
+                }
+                if ($summaryGroupsBuilt) {
+                    $valueSource = $valueSource->map(fn ($group) => (object) array_merge((array) $group, [
+                        'summary_key' => $group->key,
+                        'label' => $group->label,
+                    ]));
+                }
+            }
+
+            $values = $valueSource->map(function ($row) use ($column, $request, $summaryTableLevel) {
+                if ($request->filled('summary_table') && $column === $summaryTableLevel) {
+                    return $summaryTableLevel === 'sf' ? (string) $row->label : (string) $row->summary_key;
+                }
+                if ($column === 'status') return $row->mismatch_qty === 0 ? 'Sesuai' : 'Perlu dicek';
+                if ($column === 'nama_outlet') return $row->nama_outlet ?: 'Nama outlet tidak tersedia';
+                if ($column === 'namasf') return $row->namasf ?: '—';
+                if ($column === 'kategori_outlet') return $row->kategori_outlet ?: 'Reguler';
+                return (string) ($row->{$column} ?? '');
+            })->filter(fn ($value) => ! $request->filled('q') || mb_stripos((string) $value, (string) $request->input('q')) !== false)
+                ->unique(fn ($value) => mb_strtolower((string) $value));
+            $numericColumns = ['outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'];
+            $values = in_array($column, $numericColumns, true)
+                ? $values->sortBy(fn ($value) => (float) $value)->values()
+                : $values->sortBy(fn ($value) => mb_strtolower((string) $value), SORT_STRING)->values();
+            $offset = (max(1, (int) $request->input('value_page', 1)) - 1) * 100;
+            $pageValues = $values->slice($offset, 101)->values();
+
+            return response()->json([
+                'values' => $pageValues->take(100)->map(fn ($value) => (string) $value)->values(),
+                'has_more' => $pageValues->count() > 100,
+            ]);
+        }
+        if ($request->filled('summary_table')) {
             if ($summaryTableLevel === 'sf' && $column === 'tap') {
                 $values = DB::query()->fromSub($this->soldOutletRows($filters), 'outlet_rows')
                     ->select('outlet_rows.tap as value')->distinct()
