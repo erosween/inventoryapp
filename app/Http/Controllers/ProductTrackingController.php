@@ -67,17 +67,7 @@ class ProductTrackingController extends MonitaDumaiController
             if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
             $range->prefix_end = $maxEnd;
         }
-        $latestCompleteScanUpload = DB::table('product_tracking_uploads')
-            ->where('kind', 'scan')->where('status', 'complete')->max('id');
-        $allCoverageRanges = Cache::remember(
-            'product-tracking:sold-all-digipos-ranges:v2:'.($latestCompleteScanUpload ?: 'none'),
-            now()->addMinutes(10),
-            fn () => $this->mergeSerialRangesFromQuery(DB::table('product_tracking_digipos as digipos')
-                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->where('upload.kind', 'scan')->where('upload.status', 'complete'),
-                $canonicalSerial
-            )
-        );
+        $allCoverageRanges = $this->allCompleteDigiposCoverageRanges();
         $currentCoverageRanges = $this->mergeSerialRanges($scanRanges->map(fn ($range) => [
             'serial_start' => $range->serial_start,
             'serial_end' => $range->serial_end,
@@ -283,6 +273,7 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
         $page = (int) ($data['page'] ?? 1);
         $matchType = $data['match_type'] ?? 'mismatch';
+        $allCoverageRanges = $matchType === 'mismatch' ? $this->allCompleteDigiposCoverageRanges() : [];
         $scanRanges = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
             ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
@@ -297,7 +288,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->select('serial_start', 'serial_end', 'qty', 'iddenom', 'denom_label as denom', 'source')
             ->get();
 
-        $displayRows = $rows->take(50)->flatMap(function ($row) use ($scanRanges, $matchType) {
+        $displayRows = $rows->take(50)->flatMap(function ($row) use ($scanRanges, $matchType, $allCoverageRanges) {
             $start = (string) $row->serial_start;
             $end = (string) $row->serial_end;
             if ($matchType === 'matched') {
@@ -309,7 +300,7 @@ class ProductTrackingController extends MonitaDumaiController
                     $matchedStart = $this->compareSerials($start, $scanStart) >= 0 ? $start : $scanStart;
                     $matchedEnd = $this->compareSerials($end, $scanEnd) <= 0 ? $end : $scanEnd;
                     if ($this->compareSerials($matchedStart, $matchedEnd) <= 0) {
-                        $matched[] = ['start' => $matchedStart, 'end' => $matchedEnd, 'qty' => (int) $this->serialRangeCount($matchedStart, $matchedEnd), 'denom' => $row->denom ?: $row->iddenom, 'source' => $row->source];
+                        $matched[] = ['start' => $matchedStart, 'end' => $matchedEnd, 'qty' => (int) $this->serialRangeCount($matchedStart, $matchedEnd), 'denom' => $row->denom ?: $row->iddenom, 'source' => $row->source, 'coverage' => 'ST'];
                     }
                 }
                 return $matched;
@@ -330,7 +321,16 @@ class ProductTrackingController extends MonitaDumaiController
             if ($cursor !== null && $this->compareSerials($cursor, $end) <= 0) {
                 $unmatched[] = ['start' => $cursor, 'end' => $end, 'qty' => (int) $this->serialRangeCount($cursor, $end), 'denom' => $row->denom ?: $row->iddenom, 'source' => $row->source];
             }
-            return $unmatched;
+            return collect($unmatched)->flatMap(function ($range) use ($allCoverageRanges) {
+                return array_map(fn ($piece) => [
+                    'start' => $piece['start'],
+                    'end' => $piece['end'],
+                    'qty' => (int) $this->serialRangeCount($piece['start'], $piece['end']),
+                    'denom' => $range['denom'],
+                    'source' => $range['source'],
+                    'coverage' => $piece['in_digipos'] ? 'ST' : 'Non ST',
+                ], $this->splitSerialRangeByCoverage($range['start'], $range['end'], $allCoverageRanges));
+            })->values();
         })->values();
 
         return response()->json([
@@ -2630,6 +2630,53 @@ class ProductTrackingController extends MonitaDumaiController
         }
 
         return $merged;
+    }
+
+    private function allCompleteDigiposCoverageRanges(): array
+    {
+        $latestCompleteScanUpload = DB::table('product_tracking_uploads')
+            ->where('kind', 'scan')->where('status', 'complete')->max('id');
+        $canonicalSerial = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
+            ? substr((string) $serial, 1) : (string) $serial;
+
+        return Cache::remember(
+            'product-tracking:sold-all-digipos-ranges:v2:'.($latestCompleteScanUpload ?: 'none'),
+            now()->addMinutes(10),
+            fn () => $this->mergeSerialRangesFromQuery(DB::table('product_tracking_digipos as digipos')
+                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                ->where('upload.kind', 'scan')->where('upload.status', 'complete'), $canonicalSerial)
+        );
+    }
+
+    private function splitSerialRangeByCoverage(string $start, string $end, array $coverageRanges): array
+    {
+        $pieces = [];
+        $cursor = $start;
+        foreach ($coverageRanges as $coverage) {
+            if ($this->compareSerials($coverage['serial_end'], $cursor) < 0) continue;
+            if ($this->compareSerials($coverage['serial_start'], $end) > 0) break;
+
+            if ($this->compareSerials($coverage['serial_start'], $cursor) > 0) {
+                $gapEnd = $this->subtractOneFromSerial($coverage['serial_start']);
+                if ($this->compareSerials($cursor, $gapEnd) <= 0) {
+                    $pieces[] = ['start' => $cursor, 'end' => $gapEnd, 'in_digipos' => false];
+                }
+            }
+
+            $overlapStart = $this->compareSerials($cursor, $coverage['serial_start']) >= 0 ? $cursor : $coverage['serial_start'];
+            $overlapEnd = $this->compareSerials($end, $coverage['serial_end']) <= 0 ? $end : $coverage['serial_end'];
+            if ($this->compareSerials($overlapStart, $overlapEnd) <= 0) {
+                $pieces[] = ['start' => $overlapStart, 'end' => $overlapEnd, 'in_digipos' => true];
+                if ($this->compareSerials($overlapEnd, $end) >= 0) return $pieces;
+                $cursor = $this->incrementSerial($overlapEnd);
+            }
+        }
+
+        if ($this->compareSerials($cursor, $end) <= 0) {
+            $pieces[] = ['start' => $cursor, 'end' => $end, 'in_digipos' => false];
+        }
+
+        return $pieces;
     }
 
     private function mergeSerialRangesFromQuery($query, callable $canonicalSerial): array
