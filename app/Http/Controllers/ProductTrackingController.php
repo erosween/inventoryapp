@@ -129,6 +129,8 @@ class ProductTrackingController extends MonitaDumaiController
                 'mismatch_qty' => $mismatchQty,
                 'mismatch_digipos_qty' => $mismatchAlreadyDigiposQty,
                 'mismatch_non_digipos_qty' => max($mismatchQty - $mismatchAlreadyDigiposQty, 0),
+                'has_mobile_sale' => $sales->contains(fn ($sale) => $sale->source === 'SF Mobile'),
+                'latest_input_at' => $sales->pluck('input_at')->filter()->sort()->last(),
             ];
         })->values();
         $outletIds = $allOutletRows->pluck('id_outlet')->filter()->unique()->values();
@@ -138,14 +140,24 @@ class ProductTrackingController extends MonitaDumaiController
             ->selectRaw('id_outlet, MAX(visited_at) AS visit_at')
             ->groupBy('id_outlet')
             ->pluck('visit_at', 'id_outlet');
-        $allOutletRows->each(function ($row) use ($visitTimes, $filters) {
-            $row->visit_at = $visitTimes->get($row->id_outlet);
-            $row->visit_at_display = null;
-            if ($row->visit_at) {
-                $visitAt = \Carbon\Carbon::parse($row->visit_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta');
-                $format = $visitAt->toDateString() === $filters['date'] ? 'H:i' : 'd M Y · H:i';
-                $row->visit_at_display = $visitAt->format($format).' WIB';
+        $allOutletRows->each(function ($row) use ($filters, $visitTimes) {
+            if ($row->has_mobile_sale) {
+                $row->visit_at = $visitTimes->get($row->id_outlet);
+                $row->visit_at_display = null;
+                if ($row->visit_at) {
+                    $visitAt = \Carbon\Carbon::parse($row->visit_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta');
+                    $format = $visitAt->toDateString() === $filters['date'] ? 'H:i' : 'd M Y · H:i';
+                    $row->visit_at_display = $visitAt->format($format).' WIB';
+                }
+                return;
             }
+
+            $saleDate = \Carbon\Carbon::parse($filters['date'], 'Asia/Jakarta');
+            $inputAt = $row->latest_input_at
+                ? \Carbon\Carbon::parse($row->latest_input_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('H:i').' WIB'
+                : 'jam input tidak tercatat';
+            $row->visit_at = null;
+            $row->visit_at_display = $saleDate->format('d M Y').' · input terakhir '.$inputAt;
         });
         $outletRows = $allOutletRows;
         foreach (['columns', 'exclude'] as $mode) {
@@ -778,13 +790,19 @@ class ProductTrackingController extends MonitaDumaiController
             ->selectRaw('id_outlet, MAX(id) AS id')
             ->whereRaw("CONVERT(visit_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'non_digipos' COLLATE utf8mb4_unicode_ci")
             ->groupBy('id_outlet');
+        $bulkInputTimes = DB::table('logs')
+            ->where('action', 'INSERT')
+            ->where('module', 'Stok Keluar SF (Bulk)')
+            ->select('record_id')
+            ->selectRaw('MAX(created_at) AS input_at')
+            ->groupBy('record_id');
         $mobile = $this->mobileSerialsQuery($filters, false)
             ->whereRaw("CONVERT(serial.identifier_type USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'sn' COLLATE utf8mb4_unicode_ci")
             ->leftJoinSub(clone $latestNonDigiposVisit, 'latest_non_digipos_visit', fn ($join) => $join->on('latest_non_digipos_visit.id_outlet', '=', 'sale.id_outlet'))
             ->leftJoin('surya_visits as non_digipos_visit', 'non_digipos_visit.id', '=', 'latest_non_digipos_visit.id');
         $mobile->select([
             'serial.id as source_id', 'serial.iddenom', 'serial.serial_start', 'serial.serial_end', 'serial.qty',
-            'sale.tgl as sale_date', 'sale.id_outlet', 'sale.idsf',
+            'sale.tgl as sale_date', 'sale.created_at as input_at', 'sale.id_outlet', 'sale.idsf',
             DB::raw("COALESCE(CONVERT(owner_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
             DB::raw('COALESCE(CONVERT(outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(non_digipos_visit.outlet_name USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS nama_outlet'),
             DB::raw('CONVERT(outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
@@ -800,6 +818,7 @@ class ProductTrackingController extends MonitaDumaiController
             ->join('denom as form_denom', 'form_denom.iddenom', '=', 'form_sale.iddenom')
             ->leftJoin('appsdumais as form_outlet', 'form_outlet.id_outlet', '=', 'form_sale.id_outlet')
             ->leftJoin('idsf as form_sf', 'form_sf.idsf', '=', 'form_sale.idsf')
+            ->leftJoinSub(clone $bulkInputTimes, 'bulk_input', fn ($join) => $join->on('bulk_input.record_id', '=', 'form_sale.idkeluar'))
             ->leftJoinSub(clone $latestNonDigiposVisit, 'latest_non_digipos_visit', fn ($join) => $join->on('latest_non_digipos_visit.id_outlet', '=', 'form_sale.id_outlet'))
             ->leftJoin('surya_visits as non_digipos_visit', 'non_digipos_visit.id', '=', 'latest_non_digipos_visit.id')
             ->whereBetween('form_sale.tgl', [$filters['date_from'], $filters['date_to']])
@@ -813,7 +832,7 @@ class ProductTrackingController extends MonitaDumaiController
                 'form_sale.idkeluar as source_id', 'form_sale.iddenom',
                 DB::raw("CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci AS serial_start"),
                 DB::raw("COALESCE(NULLIF(CONVERT(form_sale.sn_akhir USING utf8mb4) COLLATE utf8mb4_unicode_ci, _utf8mb4'' COLLATE utf8mb4_unicode_ci), CONVERT(form_sale.sn_awal USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS serial_end"),
-                'form_sale.qty', 'form_sale.tgl as sale_date', 'form_sale.id_outlet', 'form_sale.idsf',
+                'form_sale.qty', 'form_sale.tgl as sale_date', 'bulk_input.input_at', 'form_sale.id_outlet', 'form_sale.idsf',
                 DB::raw("COALESCE(CONVERT(form_sf.idtap USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(form_outlet.tap USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS tap"),
                 DB::raw('COALESCE(CONVERT(form_outlet.nama_outlet USING utf8mb4) COLLATE utf8mb4_unicode_ci, CONVERT(non_digipos_visit.outlet_name USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS nama_outlet'),
                 DB::raw('CONVERT(form_outlet.kecamatan USING utf8mb4) COLLATE utf8mb4_unicode_ci AS kecamatan'),
