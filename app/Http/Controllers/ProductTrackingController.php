@@ -134,12 +134,19 @@ class ProductTrackingController extends MonitaDumaiController
         $outletIds = $allOutletRows->pluck('id_outlet')->filter()->unique()->values();
         $visitTimes = $outletIds->isEmpty() ? collect() : DB::table('surya_visits')
             ->whereIn('id_outlet', $outletIds)
-            ->where('visited_at', '>=', $filters['date'].' 00:00:00')
             ->where('visited_at', '<', \Carbon\Carbon::parse($filters['date'])->addDay()->toDateString().' 00:00:00')
             ->selectRaw('id_outlet, MAX(visited_at) AS visit_at')
             ->groupBy('id_outlet')
             ->pluck('visit_at', 'id_outlet');
-        $allOutletRows->each(fn ($row) => $row->visit_at = $visitTimes->get($row->id_outlet));
+        $allOutletRows->each(function ($row) use ($visitTimes, $filters) {
+            $row->visit_at = $visitTimes->get($row->id_outlet);
+            $row->visit_at_display = null;
+            if ($row->visit_at) {
+                $visitAt = \Carbon\Carbon::parse($row->visit_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta');
+                $format = $visitAt->toDateString() === $filters['date'] ? 'H:i' : 'd M Y · H:i';
+                $row->visit_at_display = $visitAt->format($format).' WIB';
+            }
+        });
         $outletRows = $allOutletRows;
         foreach (['columns', 'exclude'] as $mode) {
             $detailTableOptions[$mode] = array_filter($detailTableOptions[$mode] ?? [], fn ($values, $column) => ! in_array($column, ['sf','outlet_count','matched_outlets','mismatch_outlets'], true), ARRAY_FILTER_USE_BOTH);
