@@ -318,9 +318,11 @@ SQL;
         }
         
         $stockOwnerIdsf = $idsf;
-        if ($this->isHelperAccount() && $selected_outlet) {
-            $stockOwnerIdsf = $this->resolveOutletOwnerIdsf((string) $selected_outlet->id_outlet);
-            if (! $stockOwnerIdsf) {
+        if ($selected_outlet) {
+            $resolvedStockOwnerIdsf = $this->resolveOutletOwnerIdsf((string) $selected_outlet->id_outlet);
+            if ($resolvedStockOwnerIdsf) {
+                $stockOwnerIdsf = $resolvedStockOwnerIdsf;
+            } elseif ($this->isHelperAccount()) {
                 return redirect()
                     ->route('mobile.visit.menu', ['id_outlet' => $selected_outlet->id_outlet])
                     ->with('error', 'SF pemilik outlet belum terhubung. Hubungi admin sebelum input penjualan.');
@@ -567,7 +569,7 @@ SQL;
             $allowed = $this->mobileOutletQuery()->where('id_outlet', $outletId)->exists()
                 || DB::table('surya_visits')->where('idsf', $sessionIdsf)->where('id_outlet', $outletId)->exists();
             abort_unless($allowed, 403);
-            if ($this->isHelperAccount()) $idsf = $this->resolveOutletOwnerIdsf($outletId) ?: $idsf;
+            $idsf = $this->resolveOutletOwnerIdsf($outletId) ?: $idsf;
         }
         $iddenom = trim((string) $request->query('iddenom'));
         $prefix = preg_replace('/\\D/', '', (string) $request->query('q', ''));
