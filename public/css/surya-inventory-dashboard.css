@@ -81,18 +81,8 @@
 .surya-inventory-dashboard-page #heatmap-inject-card .export-action-btn,
 .surya-inventory-dashboard-page #heatmap-inject-card .export-action-btn:disabled,
 .surya-inventory-dashboard-page #heatmap-inject-card .export-action-btn[disabled],
-.surya-inventory-dashboard-page #heatmap-sales-wrap .heatmap-cell,
-.surya-inventory-dashboard-page #heatmap-inject-wrap .heatmap-cell,
-.surya-inventory-dashboard-page #heatmap-sales-wrap .validity-row .rincian-content,
-.surya-inventory-dashboard-page #heatmap-inject-wrap .validity-row table {
-    color: #111827 !important;
-}
-.surya-inventory-dashboard-page #heatmap-sales-wrap .validity-row table,
-.surya-inventory-dashboard-page #heatmap-inject-wrap .validity-row table,
-.surya-inventory-dashboard-page #heatmap-sales-wrap .validity-row table td,
-.surya-inventory-dashboard-page #heatmap-sales-wrap .validity-row table th,
-.surya-inventory-dashboard-page #heatmap-inject-wrap .validity-row table td,
-.surya-inventory-dashboard-page #heatmap-inject-wrap .validity-row table th {
+.surya-inventory-dashboard-page #heatmap-sales-card button,
+.surya-inventory-dashboard-page #heatmap-inject-card button {
     color: #111827 !important;
 }
 .surya-inventory-dashboard-page #heatmap-sales-card .export-action-btn:disabled,

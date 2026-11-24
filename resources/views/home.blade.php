@@ -689,7 +689,7 @@
                                                 $opacity = $val > 0 ? min($val / 200000, 1) : 0; 
                                                 $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
                                                 $bg = $val > 0 ? "rgba(66, 133, 244, $opacity)" : "transparent"; 
-                                                $color = '#111827';
+                                                $color = $opacity > 0.5 ? '#fff' : '#444';
 
                                                 // MoM Logic Sales
                                                 $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
@@ -1253,7 +1253,7 @@
                                                 $opacity = $val > 0 ? min($val / 20000, 1) : 0; 
                                                 $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
                                                 $bg = $val > 0 ? "rgba(25, 135, 84, $opacity)" : "transparent"; 
-                                                $color = '#111827';
+                                                $color = $opacity > 0.5 ? '#fff' : '#444';
 
                                                 // MoM Logic Inject
                                                 $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
