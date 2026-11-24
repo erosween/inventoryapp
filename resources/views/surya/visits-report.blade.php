@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Approval Visit — SURYA</title>
-    <link rel="icon" href="/assets/img/surya-logo-mobile.webp">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192-round.png?v=round1">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{{ asset('css/surya-visits.css') }}?v={{ filemtime(public_path('css/surya-visits.css')) }}">
     @include('surya.partials.assets')

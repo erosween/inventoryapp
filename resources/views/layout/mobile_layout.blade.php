@@ -17,7 +17,7 @@
     <meta name="theme-color" content="#b40012" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#250006" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/surya/icon-180.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192-round.png?v=round1">
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#b40012">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">

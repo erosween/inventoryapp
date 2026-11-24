@@ -20,7 +20,7 @@
     <meta name="msapplication-TileColor" content="#b40012">
     <meta name="msapplication-TileImage" content="/assets/pwa/surya/icon-144.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/surya/icon-180.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192-round.png?v=round1">
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#b40012">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"

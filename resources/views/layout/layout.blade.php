@@ -40,7 +40,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/inventory/icon-180.png">
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#4f46e5">
 
-    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png?v=20261124" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192-round.png?v=round1" />
     <!-- SELECT2 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
