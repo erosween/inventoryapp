@@ -796,10 +796,11 @@ class ProductTrackingController extends MonitaDumaiController
         }
 
         $uploads = $kind === 'sales-stock'
-            ? DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->limit(30)->get()
+            ? DB::table('product_tracking_sales_stock_uploads')->orderByDesc('id')->simplePaginate(10, ['*'], 'upload_page')
             : $this->applyTextIn(DB::table('product_tracking_uploads'), 'kind', [$kind])
                 ->whereRaw("CONVERT(status USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (_utf8mb4'complete' COLLATE utf8mb4_unicode_ci, _utf8mb4'duplicate' COLLATE utf8mb4_unicode_ci)")
-                ->orderByDesc('id')->limit(30)->get();
+                ->orderByDesc('id')->simplePaginate(10, ['*'], 'upload_page');
+        $uploads->appends($request->except('upload_page'));
         if (str_starts_with($kind, 'so-') && $uploads->isNotEmpty()) {
             $dateSummaries = DB::table('product_tracking_digipos')
                 ->whereIn('upload_id', $uploads->pluck('id'))

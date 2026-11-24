@@ -40,10 +40,19 @@
 
     @if($kind==='sales-stock')
         <section class="pt-card">
-            <div class="pt-result-head"><div><h2>Riwayat Upload Stok SN Sales</h2><span class="pt-muted">Menampilkan maksimal 30 upload terbaru.</span></div></div>
+            <div class="pt-result-head"><div><h2>Riwayat Upload Stok SN Sales</h2><span class="pt-muted">10 upload per halaman.</span></div></div>
             <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload (WIB)</th><th>File</th><th>Jumlah Baris</th><th>Diunggah Oleh</th></tr></thead><tbody>
                 @forelse($uploads as $upload)<tr><td>{{ \Carbon\Carbon::parse($upload->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB</td><td>{{ $upload->filename }}</td><td>{{ number_format($upload->row_count) }}</td><td>{{ $upload->username }}</td></tr>@empty<tr><td colspan="4" class="pt-empty">Belum ada stok SN Sales yang diunggah.</td></tr>@endforelse
             </tbody></table></div>
+            @if($uploads->hasPages())
+                <nav class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi riwayat upload stok SN Sales">
+                    <span class="pt-muted">10 upload per halaman · Halaman {{ $uploads->currentPage() }}</span>
+                    <div class="d-flex align-items-center" style="gap:8px">
+                        @if($uploads->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $uploads->previousPageUrl() }}">Sebelumnya</a>@endif
+                        @if($uploads->hasMorePages())<a class="pt-button" href="{{ $uploads->nextPageUrl() }}">Berikutnya</a>@else<span class="pt-button" aria-disabled="true">Berikutnya</span>@endif
+                    </div>
+                </nav>
+            @endif
         </section>
     @endif
     @if($kind==='scan')
@@ -90,6 +99,15 @@
         <div class="pt-table-wrap"><table class="pt-table"><thead><tr><th>Waktu Upload (WIB)</th><th>File</th><th>{{ str_starts_with($kind,'so-')?'Tanggal SO':'Tanggal Scan' }}</th><th>Baris</th><th>Status</th></tr></thead><tbody>
         @forelse($uploads as $item)<tr><td>{{ \Carbon\Carbon::parse($item->created_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</td><td>{{ $item->filename }}</td><td>{{ $item->scan_date?:'—' }}</td><td>{{ number_format($item->row_count) }}</td><td>@if($item->status==='complete')<span class="pt-chip good">Selesai</span>@else<span class="pt-chip bad">Duplikat · tidak dihitung</span>@endif</td></tr>@empty<tr><td colspan="5" class="pt-empty">Belum ada file {{ str_starts_with($kind,'so-')?'SO':'ST Digipos' }}.</td></tr>@endforelse
         </tbody></table></div>
+        @if($uploads->hasPages())
+            <nav class="pt-pagination d-flex align-items-center justify-content-between" aria-label="Navigasi riwayat upload">
+                <span class="pt-muted">10 upload per halaman · Halaman {{ $uploads->currentPage() }}</span>
+                <div class="d-flex align-items-center" style="gap:8px">
+                    @if($uploads->onFirstPage())<span class="pt-button" aria-disabled="true">Sebelumnya</span>@else<a class="pt-button" href="{{ $uploads->previousPageUrl() }}">Sebelumnya</a>@endif
+                    @if($uploads->hasMorePages())<a class="pt-button" href="{{ $uploads->nextPageUrl() }}">Berikutnya</a>@else<span class="pt-button" aria-disabled="true">Berikutnya</span>@endif
+                </div>
+            </nav>
+        @endif
     </section>
     @endif
     @if(auth()->user()?->isSuperAdmin())
