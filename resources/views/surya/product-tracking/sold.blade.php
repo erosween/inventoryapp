@@ -180,10 +180,9 @@
                 for (const match of data.rows) {
                     const line = document.createElement('div');
                     const formattedDate = new Intl.DateTimeFormat('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}).format(new Date(`${match.date}T00:00:00`));
-                    line.textContent = `${formattedDate} · ${match.outlet} (${match.id_outlet}) · ${match.product} · SN ${match.overlap_start}–${match.overlap_end} · ${new Intl.NumberFormat('id-ID').format(match.qty)} SN`;
+                    line.textContent = `${formattedDate} · ${match.outlet} (${match.id_outlet}) · ${match.product} · ${new Intl.NumberFormat('id-ID').format(match.qty)} SN`;
                     result.append(line);
                 }
-                if (data.has_more) { const note = document.createElement('small'); note.textContent = 'Menampilkan 100 catatan ST pertama.'; result.append(note); }
                 cell.append(result);
             } catch (error) {
                 rangeHistoryButton.textContent = 'Coba lagi';

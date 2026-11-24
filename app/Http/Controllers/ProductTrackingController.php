@@ -442,13 +442,12 @@ class ProductTrackingController extends MonitaDumaiController
             $query->whereIn('digipos.id_outlet', $outletScope);
         }
         $rows = $query->orderByDesc('digipos.scan_date')->orderBy('digipos.id_outlet')->orderBy('digipos.product_name')->orderBy('digipos.serial_start')
-            ->limit(101)
             ->get([
                 'digipos.scan_date', 'digipos.id_outlet', 'scan_outlet.nama_outlet',
                 'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name',
             ]);
 
-        $matches = $rows->take(100)->map(function ($row) use ($start, $end) {
+        $matches = $rows->map(function ($row) use ($start, $end) {
             $overlapStart = $this->compareSerials($start, (string) $row->serial_start) >= 0 ? $start : (string) $row->serial_start;
             $overlapEnd = $this->compareSerials($end, (string) $row->serial_end) <= 0 ? $end : (string) $row->serial_end;
 
@@ -489,7 +488,7 @@ class ProductTrackingController extends MonitaDumaiController
             $groupedMatches->push($match);
         }
 
-        return response()->json(['rows' => $groupedMatches->values(), 'has_more' => $rows->count() > 100]);
+        return response()->json(['rows' => $groupedMatches->values(), 'has_more' => false]);
     }
 
     public function soldColumnValues(Request $request)
