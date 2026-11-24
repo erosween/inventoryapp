@@ -228,8 +228,15 @@
                 for (const [index, value] of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 1 || index === 2) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
                 const statusCell = document.createElement('td'); const statusChip = document.createElement('span'); statusChip.className = `pt-chip ${item.coverage === 'ST' ? 'good' : 'bad'}`; statusChip.textContent = item.coverage || '—'; statusCell.append(statusChip); row.append(statusCell);
                 const historyCell = document.createElement('td');
-                const historyButton = document.createElement('button'); historyButton.type = 'button'; historyButton.className = 'pt-button pt-range-digipos'; historyButton.dataset.idOutlet = outletId; historyButton.dataset.start = item.start; historyButton.dataset.end = item.end; historyButton.textContent = 'Cek DigiPOS';
-                historyCell.append(historyButton); row.append(historyCell);
+                if (item.coverage === 'ST') {
+                    const historyButton = document.createElement('button'); historyButton.type = 'button'; historyButton.className = 'pt-button pt-range-digipos'; historyButton.dataset.idOutlet = outletId; historyButton.dataset.start = item.start; historyButton.dataset.end = item.end; historyButton.textContent = 'Cek DigiPOS';
+                    historyCell.append(historyButton);
+                } else {
+                    historyCell.textContent = '—';
+                    historyCell.className = 'pt-muted';
+                    historyCell.title = 'Rentang Non ST tidak memiliki riwayat ST DigiPOS.';
+                }
+                row.append(historyCell);
                 tbody.append(row);
             }
             if (!data.rows.length && page === 1) panel.textContent = @json(($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Tidak ada SN cocok untuk outlet ini.' : 'Tidak ada SN yang belum cocok untuk outlet ini.');
