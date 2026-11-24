@@ -259,6 +259,12 @@
             stroke-width: 1.5
         }
 
+        .operations-map .center-axis {
+            fill: none;
+            stroke: rgba(255, 43, 65, .62);
+            stroke-width: 1.5
+        }
+
         .operations-map .card {
             fill: rgba(19, 20, 26, .84);
             stroke: rgba(255, 255, 255, .2);
@@ -562,26 +568,27 @@
                     <circle class="orbit" cx="500" cy="260" r="166" />
                     <circle class="orbit" cx="500" cy="260" r="118" />
 
-                    <path class="connector" d="M500 260 L280 140" />
-                    <path class="connector" d="M500 260 L720 140" />
-                    <path class="connector" d="M500 260 L280 380" />
-                    <path class="connector" d="M500 260 L720 380" />
+                    <path class="center-axis" d="M500 38 V482" />
+                    <path class="connector" d="M280 140 H335 L500 260" />
+                    <path class="connector" d="M720 140 H665 L500 260" />
+                    <path class="connector" d="M280 380 H335 L500 260" />
+                    <path class="connector" d="M720 380 H665 L500 260" />
                     <circle class="anchor-dot" cx="280" cy="140" r="4" />
                     <circle class="anchor-dot" cx="720" cy="140" r="4" />
                     <circle class="anchor-dot" cx="280" cy="380" r="4" />
                     <circle class="anchor-dot" cx="720" cy="380" r="4" />
 
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="8s" repeatCount="indefinite" path="M500 260 L280 140 L500 260" />
+                        <animateMotion dur="8s" repeatCount="indefinite" path="M500 260 L335 140 H280 H335 L500 260" />
                     </circle>
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="8.8s" begin="-2.2s" repeatCount="indefinite" path="M500 260 L720 140 L500 260" />
+                        <animateMotion dur="8.8s" begin="-2.2s" repeatCount="indefinite" path="M500 260 L665 140 H720 H665 L500 260" />
                     </circle>
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="9.5s" begin="-4.4s" repeatCount="indefinite" path="M500 260 L280 380 L500 260" />
+                        <animateMotion dur="9.5s" begin="-4.4s" repeatCount="indefinite" path="M500 260 L335 380 H280 H335 L500 260" />
                     </circle>
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="8.5s" begin="-6s" repeatCount="indefinite" path="M500 260 L720 380 L500 260" />
+                        <animateMotion dur="8.5s" begin="-6s" repeatCount="indefinite" path="M500 260 L665 380 H720 H665 L500 260" />
                     </circle>
 
                     <g>
@@ -626,22 +633,23 @@
                 <svg class="operations-map-mobile" viewBox="0 0 360 280" preserveAspectRatio="xMidYMid meet">
                     <circle class="orbit orbit--dashed" cx="180" cy="140" r="112" />
                     <circle class="orbit" cx="180" cy="140" r="73" />
-                    <path class="connector" d="M180 140 L156 45 M180 140 L204 45 M180 140 L156 235 M180 140 L204 235" />
+                    <path class="center-axis" d="M180 25 V255" />
+                    <path class="connector" d="M156 45 H168 L180 140 M204 45 H192 L180 140 M156 235 H168 L180 140 M204 235 H192 L180 140" />
                     <circle class="anchor-dot" cx="156" cy="45" r="3" />
                     <circle class="anchor-dot" cx="204" cy="45" r="3" />
                     <circle class="anchor-dot" cx="156" cy="235" r="3" />
                     <circle class="anchor-dot" cx="204" cy="235" r="3" />
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="7.5s" repeatCount="indefinite" path="M180 140 L156 45 L180 140" />
+                        <animateMotion dur="7.5s" repeatCount="indefinite" path="M180 140 L168 45 H156 H168 L180 140" />
                     </circle>
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="8s" begin="-2s" repeatCount="indefinite" path="M180 140 L204 45 L180 140" />
+                        <animateMotion dur="8s" begin="-2s" repeatCount="indefinite" path="M180 140 L192 45 H204 H192 L180 140" />
                     </circle>
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="8.5s" begin="-4s" repeatCount="indefinite" path="M180 140 L156 235 L180 140" />
+                        <animateMotion dur="8.5s" begin="-4s" repeatCount="indefinite" path="M180 140 L168 235 H156 H168 L180 140" />
                     </circle>
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="7.8s" begin="-5.2s" repeatCount="indefinite" path="M180 140 L204 235 L180 140" />
+                        <animateMotion dur="7.8s" begin="-5.2s" repeatCount="indefinite" path="M180 140 L192 235 H204 H192 L180 140" />
                     </circle>
                     <rect class="card" x="3" y="12" width="153" height="66" rx="12" />
                     <text class="card-category" x="15" y="37">INVENTORY</text>
