@@ -50,33 +50,30 @@ class ProductTrackingController extends MonitaDumaiController
         // cast both sides of the scan indexes, causing the 504 on busy dates.
         $canonicalSerial = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
             ? substr((string) $serial, 1) : (string) $serial;
-        $scanRangesByOutlet = DB::table('product_tracking_digipos as digipos')
+        $scanRanges = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
             ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
             ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-            ->get(['digipos.id_outlet', 'digipos.serial_start', 'digipos.serial_end'])
+            ->get(['digipos.serial_start', 'digipos.serial_end'])
             ->map(fn ($scan) => (object) [
-                'id_outlet' => $scan->id_outlet,
                 'serial_start' => $canonicalSerial($scan->serial_start),
                 'serial_end' => $canonicalSerial($scan->serial_end),
             ])
-            ->groupBy('id_outlet')
-            ->map(function ($ranges) {
-                $ranges = $ranges->sort(fn ($a, $b) => $this->compareSerials($a->serial_start, $b->serial_start)
+            ->sort(fn ($a, $b) => $this->compareSerials($a->serial_start, $b->serial_start)
                     ?: $this->compareSerials($a->serial_end, $b->serial_end))->values();
-                $maxEnd = null;
-                foreach ($ranges as $range) {
-                    if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
-                    $range->prefix_end = $maxEnd;
-                }
-                return $ranges->all();
-            });
-        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRangesByOutlet, $canonicalSerial) {
+        $maxEnd = null;
+        foreach ($scanRanges as $range) {
+            if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
+            $range->prefix_end = $maxEnd;
+        }
+        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRanges, $canonicalSerial) {
             $first = $sales->first();
             $qty = 0;
             $matchedQty = 0;
-            $scans = $scanRangesByOutlet->get($idOutlet, []);
+            // DigiPOS and ST Nota may store different IDs for the same physical outlet.
+            // Validate by SN range across the selected scan window, not by outlet ID.
+            $scans = $scanRanges;
             foreach ($sales as $sale) {
                 $saleQty = (int) $sale->qty;
                 $qty += $saleQty;
@@ -256,7 +253,6 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
             ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
             ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
-            ->where('digipos.id_outlet', $data['id_outlet'])
             ->orderBy('digipos.serial_start')
             ->get(['digipos.serial_start', 'digipos.serial_end']);
         $rows = $this->soldValidationSource($filters)
@@ -884,7 +880,7 @@ class ProductTrackingController extends MonitaDumaiController
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $cacheKey = 'stock-outlet-report-v7-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
+        $cacheKey = 'stock-outlet-report-v8-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
         $cachedRows = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
