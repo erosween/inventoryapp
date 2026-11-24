@@ -333,8 +333,31 @@ class ProductTrackingController extends MonitaDumaiController
             })->values();
         })->values();
 
+        $groupedRows = collect();
+        foreach ($displayRows as $displayRow) {
+            $lastIndex = $groupedRows->count() - 1;
+            if ($lastIndex >= 0) {
+                $last = $groupedRows[$lastIndex];
+                $nextSerial = $this->incrementSerial((string) $last['end']);
+                $sameGroup = $last['denom'] === $displayRow['denom']
+                    && $last['coverage'] === $displayRow['coverage']
+                    && $this->compareSerials((string) $displayRow['start'], $nextSerial) <= 0;
+
+                if ($sameGroup) {
+                    if ($this->compareSerials((string) $displayRow['end'], (string) $last['end']) > 0) {
+                        $last['end'] = $displayRow['end'];
+                    }
+                    $last['qty'] = (int) $this->serialRangeCount((string) $last['start'], (string) $last['end']);
+                    $groupedRows[$lastIndex] = $last;
+                    continue;
+                }
+            }
+
+            $groupedRows->push($displayRow);
+        }
+
         return response()->json([
-            'rows' => $displayRows,
+            'rows' => $groupedRows->values(),
             'has_more' => $rows->count() > 50,
             'page' => $page,
         ]);
