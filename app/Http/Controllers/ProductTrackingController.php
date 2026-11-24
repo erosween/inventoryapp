@@ -70,16 +70,13 @@ class ProductTrackingController extends MonitaDumaiController
         $latestCompleteScanUpload = DB::table('product_tracking_uploads')
             ->where('kind', 'scan')->where('status', 'complete')->max('id');
         $allCoverageRanges = Cache::remember(
-            'product-tracking:sold-all-digipos-ranges:'.($latestCompleteScanUpload ?: 'none'),
+            'product-tracking:sold-all-digipos-ranges:v2:'.($latestCompleteScanUpload ?: 'none'),
             now()->addMinutes(10),
-            fn () => $this->mergeSerialRanges(DB::table('product_tracking_digipos as digipos')
+            fn () => $this->mergeSerialRangesFromQuery(DB::table('product_tracking_digipos as digipos')
                 ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
-                ->where('upload.kind', 'scan')->where('upload.status', 'complete')
-                ->get(['digipos.serial_start', 'digipos.serial_end'])
-                ->map(fn ($range) => [
-                    'serial_start' => $canonicalSerial($range->serial_start),
-                    'serial_end' => $canonicalSerial($range->serial_end),
-                ])->all())
+                ->where('upload.kind', 'scan')->where('upload.status', 'complete'),
+                $canonicalSerial
+            )
         );
         $currentCoverageRanges = $this->mergeSerialRanges($scanRanges->map(fn ($range) => [
             'serial_start' => $range->serial_start,
@@ -2579,6 +2576,34 @@ class ProductTrackingController extends MonitaDumaiController
                 continue;
             }
             $merged[] = $range;
+        }
+
+        return $merged;
+    }
+
+    private function mergeSerialRangesFromQuery($query, callable $canonicalSerial): array
+    {
+        $merged = [];
+        $rows = $query
+            ->orderByRaw('CAST(digipos.serial_start AS DECIMAL(24,0))')
+            ->orderByRaw('CAST(digipos.serial_end AS DECIMAL(24,0))')
+            ->select(['digipos.serial_start', 'digipos.serial_end'])
+            ->cursor();
+
+        foreach ($rows as $row) {
+            $start = $canonicalSerial($row->serial_start);
+            $end = $canonicalSerial($row->serial_end);
+            if ($start === '' || $end === '' || $this->compareSerials($start, $end) > 0) continue;
+
+            $lastIndex = count($merged) - 1;
+            if ($lastIndex >= 0 && $this->compareSerials($start, $merged[$lastIndex]['serial_end']) <= 0) {
+                if ($this->compareSerials($end, $merged[$lastIndex]['serial_end']) > 0) {
+                    $merged[$lastIndex]['serial_end'] = $end;
+                }
+                continue;
+            }
+
+            $merged[] = ['serial_start' => $start, 'serial_end' => $end];
         }
 
         return $merged;
