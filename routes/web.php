@@ -152,7 +152,7 @@ Route::put('/surya/detail-outlet/{idOutlet}/profile', [MonitaDumaiController::cl
 Route::get('/surya/export-visits', [MonitaDumaiController::class, 'exportVisits'])->name('surya.visits.export');
 Route::post('/surya', [MonitaDumaiController::class, 'leaderLogin'])->name('surya.leader.login.post');
 Route::get('/surya/leader-login', [MonitaDumaiController::class, 'showLeaderLogin']);
-Route::get('/surya/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('surya.leader.logout');
+Route::match(['get', 'post'], '/surya/leader-logout', [MonitaDumaiController::class, 'leaderLogout'])->name('surya.leader.logout');
 // Peta Outlet. Pencarian, data peta, foto, lokasi sekitar, dan performa outlet.
 Route::get('/surya/search', [MonitaDumaiController::class, 'search']);
 Route::get('/surya/suggest', [MonitaDumaiController::class, 'suggest']);

@@ -63,6 +63,9 @@
     </nav>
     <div class="sidebar-foot">
         <div class="sidebar-user"><div class="sidebar-avatar"><i class="fas fa-user-shield"></i></div><div class="sidebar-user-copy"><strong>{{ $sidebarAccountLabel }}</strong><small>{{ $sidebarAccountScope ?: 'Akun aktif' }}</small></div></div>
-        <a href="{{ route('surya.leader.logout') }}" class="sidebar-logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Logout</span></a>
+        <form action="{{ route('surya.leader.logout') }}" method="POST" class="sidebar-logout-form">
+            @csrf
+            <button type="submit" class="sidebar-logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Logout</span></button>
+        </form>
     </div>
 </aside>

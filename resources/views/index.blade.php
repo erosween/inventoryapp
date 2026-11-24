@@ -554,7 +554,7 @@
             </div>
             <div class="hero-copy">
                 <span>UNIFIED OPERATIONS</span>
-                <h1>Satu kendali.</h1>
+                <h1>Semua operasional, dalam kendali.</h1>
             </div>
             <div class="operations-map" aria-hidden="true">
                 <svg class="operations-map-desktop" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet">

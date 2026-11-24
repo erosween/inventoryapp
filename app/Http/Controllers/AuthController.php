@@ -11,7 +11,7 @@ class AuthController extends Controller
 {
     public function showLoginForm()
     {
-        return view('/index');
+        return response()->view('/index')->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
 
@@ -75,18 +75,22 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        if (Auth::check()) {
-            AuditLogger::log('LOGOUT', 'Authentication', auth()->id(), [
-                'idtap' => auth()->user()->idtap,
+        $guard = Auth::guard('web');
+        if ($guard->check()) {
+            AuditLogger::log('LOGOUT', 'Authentication', $guard->id(), [
+                'idtap' => $guard->user()->idtap,
             ]);
         }
 
-        Auth::logout();
-
+        $guard->logout();
+        $request->session()->flush();
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        $response = redirect()->route('/');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 }

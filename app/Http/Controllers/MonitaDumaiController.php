@@ -730,15 +730,19 @@ class MonitaDumaiController extends Controller
 
     public function leaderLogout(Request $request)
     {
-        $request->session()->forget(['monita_leader_auth', 'monita_leader_login_at']);
-
-        if (Auth::check()) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+        if (Auth::guard('web')->check()) {
+            Auth::guard('web')->logout();
         }
 
-        return redirect('/')->with('success', 'Akses SURYA ditutup.');
+        $request->session()->flush();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        $response = redirect()->route('/')->with('success', 'Akses SURYA ditutup.');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 
     private function hasSuryaAccess(Request $request): bool
