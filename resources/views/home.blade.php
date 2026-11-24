@@ -455,6 +455,9 @@
                                     </select>
                                 </div>
                             </form>
+                            <button type="button" class="btn btn-sm export-action-btn d-inline-flex align-items-center justify-content-center" id="monthly-sales-download-excel-btn" title="Download tabel penjualan ke Excel" style="gap:6px;">
+                                <i data-feather="download" style="width:14px;height:14px"></i> Excel
+                            </button>
                             <div class="monthly-sales-view-toggle" role="group" aria-label="Pilih tampilan penjualan bulanan">
                                 <button type="button" class="btn btn-sm monthly-sales-view-btn {{ $salesView === 'table' ? 'active' : '' }}" id="monthly-sales-table-btn" aria-pressed="{{ $salesView === 'table' ? 'true' : 'false' }}">Tabel</button>
                                 <button type="button" class="btn btn-sm monthly-sales-view-btn {{ $salesView === 'chart' ? 'active' : '' }}" id="monthly-sales-chart-btn" aria-pressed="{{ $salesView === 'chart' ? 'true' : 'false' }}">Grafik</button>
@@ -2810,6 +2813,14 @@
         });
 
         document.addEventListener('click', event => {
+            if (event.target.closest('#monthly-sales-download-excel-btn')) {
+                const form = document.getElementById('monthly-sales-filter-form');
+                if (!form) return;
+                const params = new URLSearchParams(new FormData(form));
+                params.set('sales_download', '1');
+                window.location.assign(`${form.action.split('#')[0]}?${params.toString()}`);
+                return;
+            }
             const periodButton = event.target.closest('.sales-period-btn');
             if (periodButton) {
                 const form = periodButton.closest('form');

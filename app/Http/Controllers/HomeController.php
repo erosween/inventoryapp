@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Support\StockProduct;
+use Maatwebsite\Excel\Facades\Excel;
 
 class HomeController extends Controller
 {
@@ -22,6 +23,12 @@ class HomeController extends Controller
         $baseRequest = clone $request;
         if ($fullHistorical) $baseRequest->query->remove('mom_date');
         $data = $this->cachedDashboardData($baseRequest);
+        if ($request->boolean('sales_download')) {
+            return Excel::download(
+                new \App\Exports\MonthlySalesWorkbookExport($data),
+                'penjualan-'.$data['salesPeriod'].'-'.$data['salesYear'].'-'.$data['salesProductFilter'].'.xlsx'
+            );
+        }
         if ($fullHistorical) {
             $momRequest = clone $request;
             $momRequest->headers->set('X-Surya-Card','mom');
