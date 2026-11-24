@@ -128,7 +128,7 @@
             stroke: rgba(255, 255, 255, .9);
             stroke-width: 2;
             stroke-linecap: round;
-            stroke-dasharray: 72 1050;
+            stroke-dasharray: 64 936;
             filter: drop-shadow(0 0 5px rgba(255, 255, 255, .95));
             animation: brand-energy-travel 8s linear infinite
         }
@@ -156,7 +156,7 @@
         }
 
         @keyframes brand-energy-travel {
-            to { stroke-dashoffset: -1122 }
+            to { stroke-dashoffset: -1000 }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -470,10 +470,10 @@
     <main class="auth-shell">
         <section class="brand-panel">
             <svg class="brand-energy-lines brand-energy-lines--primary" viewBox="0 0 310 310" aria-hidden="true">
-                <rect x="1" y="1" width="308" height="308" rx="44" />
+                <rect x="1" y="1" width="308" height="308" rx="44" pathLength="1000" />
             </svg>
             <svg class="brand-energy-lines brand-energy-lines--secondary" viewBox="0 0 210 210" aria-hidden="true">
-                <rect x="1" y="1" width="208" height="208" rx="44" />
+                <rect x="1" y="1" width="208" height="208" rx="44" pathLength="1000" />
             </svg>
             <div class="brand"><img src="/assets/img/surya-logo-mobile.webp" alt="Logo SURYA" width="58"
                     height="58">
