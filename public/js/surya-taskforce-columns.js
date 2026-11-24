@@ -90,6 +90,7 @@
         if (menu.dataset.outletSearch !== undefined) url.searchParams.set('outlet_q',menu.dataset.outletSearch);
         if (menu.dataset.valuesUrl?.includes('/sold-serials/')) url.searchParams.delete('outlet_q');
         if (trigger?.dataset.summaryTable) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
+        else url.searchParams.delete('summary_table');
         url.searchParams.delete('page');
         url.searchParams.set('column',key);
         url.searchParams.set('q',search.value);
