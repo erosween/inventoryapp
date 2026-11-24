@@ -90,14 +90,16 @@
             padding: 48px;
             color: #fff;
             overflow: hidden;
-            background: linear-gradient(145deg, #300008 0%, #8d0014 48%, #ed1b2f 100%)
+            background:
+                radial-gradient(ellipse at 52% 73%, rgba(166, 6, 34, .3) 0%, rgba(91, 5, 25, .16) 38%, transparent 70%),
+                linear-gradient(145deg, #090a0d 0%, #100a0d 56%, #1a090f 100%)
         }
 
         .brand-panel:before,
         .brand-panel:after {
             content: "";
             position: absolute;
-            border: 1px solid rgba(255, 255, 255, .15);
+            border: 1px solid rgba(255, 65, 83, .12);
             border-radius: 44px;
             transform: rotate(18deg)
         }
@@ -125,11 +127,11 @@
 
         .brand-energy-lines rect {
             fill: none;
-            stroke: rgba(255, 255, 255, .9);
+            stroke: rgba(255, 71, 89, .96);
             stroke-width: 2;
             stroke-linecap: round;
             stroke-dasharray: 64 936;
-            filter: drop-shadow(0 0 5px rgba(255, 255, 255, .95));
+            filter: drop-shadow(0 0 5px rgba(255, 40, 65, .9));
             animation: brand-energy-travel 8s linear infinite
         }
 
@@ -220,6 +222,10 @@
             letter-spacing: -.055em
         }
 
+        .hero-copy h1 .hero-accent {
+            color: #ff3049
+        }
+
         .hero-copy p {
             max-width: 480px;
             margin: 0;
@@ -241,7 +247,7 @@
             width: 100%;
             height: 100%;
             overflow: visible;
-            background: radial-gradient(ellipse at center, rgba(20, 2, 7, .78) 0%, rgba(20, 2, 7, .45) 50%, transparent 76%)
+            background: radial-gradient(ellipse at center, rgba(151, 5, 32, .22) 0%, rgba(74, 7, 24, .12) 48%, transparent 76%)
         }
 
         .operations-map-mobile { display: none !important; }
@@ -560,7 +566,7 @@
                 <div><strong>SURYA</strong><small>INVENTORY & SALES CONTROL</small></div>
             </div>
             <div class="hero-copy"><span>UNIFIED OPERATIONS</span>
-                <h1>Satu kendali untuk seluruh distribusi.</h1>
+                <h1>Satu kendali untuk seluruh <span class="hero-accent">distribusi.</span></h1>
                 <p>Pantau stok, aktivitas Sales Force, validasi transaksi, dan performa wilayah dalam workspace yang
                     terhubung.</p>
             </div>
