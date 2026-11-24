@@ -22,9 +22,9 @@ class MonthlySalesArraySheet implements FromArray, WithTitle, WithStyles, WithCo
     public function columnFormats(): array
     {
         $formats = [];
-        if ($this->sheetTitle === 'Rekap TAP') {
-            for ($column = 3; $column <= 25; $column += 2) {
-                $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column);
+        foreach ($this->rows[0] ?? [] as $index => $heading) {
+            if (str_contains((string) $heading, 'MoM')) {
+                $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
                 $formats[$letter] = NumberFormat::FORMAT_PERCENTAGE_0;
             }
         }

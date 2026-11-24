@@ -152,6 +152,14 @@
         gap: 6px !important;
         box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04), 0 4px 12px rgba(31,41,51,0.06);
     }
+    .export-action-btn:disabled,
+    .export-action-btn[disabled] {
+        color: #111827 !important;
+        opacity: 1 !important;
+        cursor: not-allowed;
+    }
+    .export-action-btn:disabled i,
+    .export-action-btn[disabled] i { opacity: 1; }
     .export-action-btn:hover {
         background: #e9ecef !important;
         color: #111827 !important;
@@ -176,7 +184,7 @@
         padding: 7px 13px !important;
         border: 0 !important;
         border-radius: 9px !important;
-        color: #6b7280 !important;
+        color: #111827 !important;
         background: transparent !important;
         font-weight: 700 !important;
         box-shadow: none !important;
@@ -652,13 +660,18 @@
                                 </tfoot>
                             </table>
                         @else
+                        @php
+                            $previousMtdMonthNumber = $previousMtdMonth->month;
+                            $showPreviousMtdComparison = $salesYear === $momSelectedDate->year && $previousMtdMonthNumber < $momSelectedDate->month;
+                            $previousMtdMonthLabel = $previousMtdMonth->locale('id')->translatedFormat('M');
+                        @endphp
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
                                 <tr class="text-secondary">
                                     <th class="text-left font-weight-bold border-0 text-secondary sticky-tap-col">NAMA TAP</th>
-                                    @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                    @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $monthIndex => $m)
                                         <th class="border-light">{{ $m }}</th>
-                                        <th class="border-light text-muted" style="font-size: 10px;">MoM %</th>
+                                        <th class="border-light text-muted" style="font-size: 10px;">{{ $showPreviousMtdComparison && $monthIndex + 1 === $previousMtdMonthNumber ? $previousMtdMonthLabel.'-MoM' : 'MoM %' }}</th>
                                     @endforeach
                                 </tr>
                             </thead>
@@ -682,10 +695,15 @@
                                                 $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
                                                 $prevVal = ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
                                                 
+                                                $isPreviousMtdMonth = $showPreviousMtdComparison && $i === $previousMtdMonthNumber;
                                                 if($isCurrentMonth) {
                                                     $momData = $momTapSales->firstWhere('idtap', $tap);
                                                     $pct = $momData ? $momData->mom : 0;
                                                     $hasPrev = $momData && $momData->prev_partial_qty > 0;
+                                                } elseif ($isPreviousMtdMonth) {
+                                                    $comparison = $previousMtdComparisonByTap[$tap] ?? ['current' => 0, 'previous' => 0];
+                                                    $pct = $comparison['previous'] > 0 ? (($comparison['current'] - $comparison['previous']) / $comparison['previous']) * 100 : 0;
+                                                    $hasPrev = $comparison['previous'] > 0;
                                                 } else {
                                                     $pct = $prevVal > 0 ? (($val - $prevVal) / $prevVal) * 100 : 0;
                                                     $hasPrev = $prevVal > 0;
@@ -721,8 +739,11 @@
                                                         <thead class="bg-white">
                                                             <tr class="text-primary">
                                                                 <th class="text-left border-0 sticky-validity-col" style="background: #f8fafc !important;">Nama Petugas</th>
-                                                                @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $m)
+                                                                @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $monthIndex => $m)
                                                                     <th class="border-0">{{ $m }}</th>
+                                                                    @if($showPreviousMtdComparison && $monthIndex + 1 === $previousMtdMonthNumber)
+                                                                        <th class="border-0 text-muted">{{ $previousMtdMonthLabel }}-MoM</th>
+                                                                    @endif
                                                                 @endforeach
                                                                 <th class="border-0 bg-light">TOTAL</th>
                                                             </tr>
@@ -732,9 +753,28 @@
                                                                 @php $sfTotal = 0; @endphp
                                                                 <tr>
                                                                     <td class="text-left font-weight-bold sticky-validity-col">{{ $sf->namasf }}</td>
+                                                                    @php
+                                                                        $sfIds = $sf->idsfs ?? [$sf->idsf];
+                                                                        $sfMtdCurrent = 0;
+                                                                        $sfMtdPrevious = 0;
+                                                                    @endphp
                                                                     @for($m=1; $m<=12; $m++)
-                                                                        @php $mv = collect($sf->idsfs ?? [$sf->idsf])->sum(fn ($idsf) => $matrixSalesSf[$idsf][$m] ?? 0); $sfTotal += $mv; @endphp
+                                                                        @php
+                                                                            $mv = collect($sfIds)->sum(fn ($idsf) => $matrixSalesSf[$idsf][$m] ?? 0);
+                                                                            $sfTotal += $mv;
+                                                                            if ($showPreviousMtdComparison && $m === $previousMtdMonthNumber) {
+                                                                                foreach ($sfIds as $idsf) {
+                                                                                    $comparison = $previousMtdComparisonBySf[$tap][$idsf] ?? ['current' => 0, 'previous' => 0];
+                                                                                    $sfMtdCurrent += $comparison['current'];
+                                                                                    $sfMtdPrevious += $comparison['previous'];
+                                                                                }
+                                                                            }
+                                                                        @endphp
                                                                         <td>{{ $mv > 0 ? number_format($mv) : '-' }}</td>
+                                                                        @if($showPreviousMtdComparison && $m === $previousMtdMonthNumber)
+                                                                            @php $staffMom = $sfMtdPrevious > 0 ? (($sfMtdCurrent - $sfMtdPrevious) / $sfMtdPrevious) * 100 : null; @endphp
+                                                                            <td class="{{ is_null($staffMom) ? 'text-muted' : ($staffMom >= 0 ? 'text-success' : 'text-danger') }} font-weight-bold">{{ is_null($staffMom) ? '-' : number_format($staffMom, 1).'%' }}</td>
+                                                                        @endif
                                                                     @endfor
                                                                     <td class="bg-light font-weight-bold">{{ number_format($sfTotal) }}</td>
                                                                 </tr>
@@ -817,14 +857,21 @@
                                         @php
                                             $totalDumai = 0;
                                             $prevTotalDumai = 0;
+                                            $mtdCurrentDumai = 0;
+                                            $mtdPreviousDumai = 0;
                                             foreach($clusterDumai as $tap) { 
                                                 $totalDumai += ($matrixSales[$tap][$i] ?? 0); 
                                                 $prevTotalDumai += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($matrixSales[$tap][$i-1] ?? 0);
+                                                $mtdCurrentDumai += $previousMtdComparisonByTap[$tap]['current'] ?? 0;
+                                                $mtdPreviousDumai += $previousMtdComparisonByTap[$tap]['previous'] ?? 0;
                                             }
 
                                             $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
+                                            $isPreviousMtdMonth = $showPreviousMtdComparison && $i === $previousMtdMonthNumber;
                                             if($isCurrentMonth) {
                                                 $pct = $momClusterSales['dumai_bengkalis'] ?? 0;
+                                            } elseif ($isPreviousMtdMonth) {
+                                                $pct = $mtdPreviousDumai > 0 ? (($mtdCurrentDumai - $mtdPreviousDumai) / $mtdPreviousDumai) * 100 : 0;
                                             } else {
                                                 $pct = $prevTotalDumai > 0 ? (($totalDumai - $prevTotalDumai) / $prevTotalDumai) * 100 : 0;
                                             }
@@ -909,14 +956,21 @@
                                         @php
                                             $totalRohil = 0;
                                             $prevTotalRohil = 0;
+                                            $mtdCurrentRohil = 0;
+                                            $mtdPreviousRohil = 0;
                                             foreach($clusterRohil as $tap) { 
                                                 $totalRohil += ($matrixSales[$tap][$i] ?? 0); 
                                                 $prevTotalRohil += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($matrixSales[$tap][$i-1] ?? 0);
+                                                $mtdCurrentRohil += $previousMtdComparisonByTap[$tap]['current'] ?? 0;
+                                                $mtdPreviousRohil += $previousMtdComparisonByTap[$tap]['previous'] ?? 0;
                                             }
 
                                             $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
+                                            $isPreviousMtdMonth = $showPreviousMtdComparison && $i === $previousMtdMonthNumber;
                                             if($isCurrentMonth) {
                                                 $pct = $momClusterSales['rokan_hilir'] ?? 0;
+                                            } elseif ($isPreviousMtdMonth) {
+                                                $pct = $mtdPreviousRohil > 0 ? (($mtdCurrentRohil - $mtdPreviousRohil) / $mtdPreviousRohil) * 100 : 0;
                                             } else {
                                                 $pct = $prevTotalRohil > 0 ? (($totalRohil - $prevTotalRohil) / $prevTotalRohil) * 100 : 0;
                                             }
@@ -1001,14 +1055,21 @@
                                         @php
                                             $totalGT = 0;
                                             $prevTotalGT = 0;
+                                            $mtdCurrentGT = 0;
+                                            $mtdPreviousGT = 0;
                                             foreach($matrixSales as $tap => $months) { 
                                                 $totalGT += ($months[$i] ?? 0); 
                                                 $prevTotalGT += ($i == 1) ? ($prevDecSales[$tap] ?? 0) : ($months[$i-1] ?? 0);
+                                                $mtdCurrentGT += $previousMtdComparisonByTap[$tap]['current'] ?? 0;
+                                                $mtdPreviousGT += $previousMtdComparisonByTap[$tap]['previous'] ?? 0;
                                             }
 
                                             $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
+                                            $isPreviousMtdMonth = $showPreviousMtdComparison && $i === $previousMtdMonthNumber;
                                             if($isCurrentMonth) {
                                                 $pct = $mom; // Global Sales MoM
+                                            } elseif ($isPreviousMtdMonth) {
+                                                $pct = $mtdPreviousGT > 0 ? (($mtdCurrentGT - $mtdPreviousGT) / $mtdPreviousGT) * 100 : 0;
                                             } else {
                                                 $pct = $prevTotalGT > 0 ? (($totalGT - $prevTotalGT) / $prevTotalGT) * 100 : 0;
                                             }

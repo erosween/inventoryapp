@@ -23,34 +23,70 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
             return [new MonthlySalesArraySheet('Penjualan Tahunan', array_merge([['TAP', ...$years]], $rows))];
         }
 
+        $momSelectedDate = $this->data['momSelectedDate'] ?? null;
+        $previousMtdMonth = $momSelectedDate?->copy()->subMonthNoOverflow();
+        $showPreviousMtdComparison = $previousMtdMonth
+            && (int) ($this->data['salesYear'] ?? 0) === $momSelectedDate->year
+            && $previousMtdMonth->month < $momSelectedDate->month;
+        $previousMtdMonthNumber = $showPreviousMtdComparison ? $previousMtdMonth->month : null;
+        $previousMtdMonthLabel = $showPreviousMtdComparison ? $months[$previousMtdMonthNumber - 1] : null;
+
         $headers = ['NAMA TAP'];
-        foreach ($months as $month) array_push($headers, $month, 'MoM %');
+        foreach ($months as $index => $month) array_push(
+            $headers,
+            $month,
+            $showPreviousMtdComparison && $index + 1 === $previousMtdMonthNumber ? $previousMtdMonthLabel.'-MoM %' : 'MoM %'
+        );
         $tapRows = [];
         foreach ($this->data['matrixSales'] ?? [] as $tap => $values) {
             $line = [$tap];
             for ($month = 1; $month <= 12; $month++) {
                 $current = (int) ($values[$month] ?? 0);
-                $previous = $month === 1
-                    ? (int) (($this->data['prevDecSales'][$tap] ?? 0))
-                    : (int) ($values[$month - 1] ?? 0);
                 $line[] = $current;
-                $line[] = $previous > 0 ? ($current / $previous) - 1 : null;
+                if ($showPreviousMtdComparison && $month === $previousMtdMonthNumber) {
+                    $comparison = $this->data['previousMtdComparisonByTap'][$tap] ?? ['current' => 0, 'previous' => 0];
+                    $line[] = $comparison['previous'] > 0
+                        ? ($comparison['current'] / $comparison['previous']) - 1
+                        : null;
+                } else {
+                    $previous = $month === 1
+                        ? (int) (($this->data['prevDecSales'][$tap] ?? 0))
+                        : (int) ($values[$month - 1] ?? 0);
+                    $line[] = $previous > 0 ? ($current / $previous) - 1 : null;
+                }
             }
             $tapRows[] = $line;
         }
 
-        $sfHeaders = ['TAP', 'Nama Petugas', ...$months, 'TOTAL'];
+        $sfHeaders = ['TAP', 'Nama Petugas'];
+        foreach ($months as $index => $month) {
+            $sfHeaders[] = $month;
+            if ($showPreviousMtdComparison && $index + 1 === $previousMtdMonthNumber) {
+                $sfHeaders[] = $previousMtdMonthLabel.'-MoM %';
+            }
+        }
+        $sfHeaders[] = 'TOTAL';
         $sfRows = [];
         foreach ($this->data['sfByTap'] ?? [] as $tap => $staff) {
             foreach ($staff as $sf) {
                 $ids = $sf->idsfs ?? [$sf->idsf];
                 $line = [$tap, $sf->namasf];
                 $total = 0;
+                $mtdCurrent = 0;
+                $mtdPrevious = 0;
                 foreach (range(1, 12) as $month) {
                     $value = 0;
                     foreach ($ids as $id) $value += (int) ($this->data['matrixSalesSf'][$id][$month] ?? 0);
                     $line[] = $value;
                     $total += $value;
+                    if ($showPreviousMtdComparison && $month === $previousMtdMonthNumber) {
+                        foreach ($ids as $id) {
+                            $comparison = $this->data['previousMtdComparisonBySf'][$tap][$id] ?? ['current' => 0, 'previous' => 0];
+                            $mtdCurrent += (int) $comparison['current'];
+                            $mtdPrevious += (int) $comparison['previous'];
+                        }
+                        $line[] = $mtdPrevious > 0 ? ($mtdCurrent / $mtdPrevious) - 1 : null;
+                    }
                 }
                 $line[] = $total;
                 $sfRows[] = $line;

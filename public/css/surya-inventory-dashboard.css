@@ -74,6 +74,16 @@
 .surya-inventory-dashboard-page .card-header small { font-size: 12px !important; line-height: 1.5; }
 .surya-inventory-dashboard-page .card .export-actions { gap: 8px; }
 .surya-inventory-dashboard-page .card .export-action-btn { min-width: 72px; height: 38px; border: 1px solid #e2e6ed !important; }
+.surya-inventory-dashboard-page #heatmap-sales-card .export-action-btn,
+.surya-inventory-dashboard-page #heatmap-sales-card .export-action-btn:disabled,
+.surya-inventory-dashboard-page #heatmap-sales-card .export-action-btn[disabled],
+.surya-inventory-dashboard-page #heatmap-sales-card .monthly-sales-view-btn:not(.active) {
+    color: #111827 !important;
+}
+.surya-inventory-dashboard-page #heatmap-sales-card .export-action-btn:disabled,
+.surya-inventory-dashboard-page #heatmap-sales-card .export-action-btn[disabled] {
+    opacity: 1 !important;
+}
 .surya-inventory-dashboard-page .card .sales-reload-btn { min-width: 38px !important; width: 38px; padding: 8px !important; }
 .surya-inventory-dashboard-page .card .monthly-sales-view-toggle { padding: 2px; gap: 2px; border-radius: 9px; flex-wrap: nowrap; }
 .surya-inventory-dashboard-page .card .monthly-sales-view-btn { min-width: 64px; min-height: 34px; padding: 7px 10px !important; }

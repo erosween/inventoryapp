@@ -45,7 +45,7 @@ class HomeController extends Controller
     {
         $query=$request->query();ksort($query);
         $scope=strtoupper(trim((string)session('idtap')));
-        $key='home-dashboard:v24:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
+        $key='home-dashboard:v25:'.sha1($scope.'|'.$request->header('X-Surya-Card','full').'|'.http_build_query($query));
         return app()->environment('testing') ? $this->dashboardData($request)
             : Cache::remember($key,now()->addMinutes(15),fn()=>$this->dashboardData($request));
     }
@@ -548,6 +548,40 @@ class HomeController extends Controller
             }
         }
 
+        // Add a fair MTD comparison for the month immediately before the active
+        // MTD month (e.g. Oct 1–23 vs Sep 1–23 while November is in progress).
+        $previousMtdMonth = $momSelectedDate->copy()->subMonthNoOverflow();
+        $previousMtdBaseMonth = $previousMtdMonth->copy()->subMonthNoOverflow();
+        $previousMtdMonthStart = $previousMtdMonth->copy()->startOfMonth();
+        $previousMtdMonthEnd = $previousMtdMonthStart->copy()
+            ->day(min($momSelectedDate->day, $previousMtdMonth->daysInMonth))
+            ->endOfDay();
+        $previousMtdBaseStart = $previousMtdBaseMonth->copy()->startOfMonth();
+        $previousMtdBaseEnd = $previousMtdBaseStart->copy()
+            ->day(min($momSelectedDate->day, $previousMtdBaseMonth->daysInMonth))
+            ->endOfDay();
+        $previousMtdComparisonQuery = $this->combinedSalesQuery($previousMtdBaseStart, $previousMtdMonthEnd)
+            ->whereBetween('tgl', [$previousMtdBaseStart, $previousMtdMonthEnd])
+            ->selectRaw('idtap, idsf,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS current_qty,
+                SUM(CASE WHEN tgl BETWEEN ? AND ? THEN qty ELSE 0 END) AS previous_qty', [
+                $previousMtdMonthStart, $previousMtdMonthEnd,
+                $previousMtdBaseStart, $previousMtdBaseEnd,
+            ])
+            ->groupBy('idtap', 'idsf');
+        $applyFilter($previousMtdComparisonQuery);
+        $applyProductFilter($previousMtdComparisonQuery, 'combined_sales', $salesProductFilter);
+        $previousMtdComparisonByTap = [];
+        $previousMtdComparisonBySf = [];
+        foreach ($previousMtdComparisonQuery->get() as $row) {
+            $previousMtdComparisonByTap[$row->idtap]['current'] = ($previousMtdComparisonByTap[$row->idtap]['current'] ?? 0) + (int) $row->current_qty;
+            $previousMtdComparisonByTap[$row->idtap]['previous'] = ($previousMtdComparisonByTap[$row->idtap]['previous'] ?? 0) + (int) $row->previous_qty;
+            $previousMtdComparisonBySf[$row->idtap][$row->idsf] = [
+                'current' => (int) $row->current_qty,
+                'previous' => (int) $row->previous_qty,
+            ];
+        }
+
         /* ================= SALES TAHUNAN PER TAP ================= */
         $annualSales = [];
         $annualCurrentYtdSales = [];
@@ -817,6 +851,9 @@ class HomeController extends Controller
             'annualCutoff',
             'annualPeriodComparisons',
             'matrixSales',
+            'previousMtdMonth',
+            'previousMtdComparisonByTap',
+            'previousMtdComparisonBySf',
             'matrixInject',
             'matrixSalesSf',
             'validityMatrixSales',
