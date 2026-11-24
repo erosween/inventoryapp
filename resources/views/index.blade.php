@@ -202,12 +202,33 @@
             letter-spacing: .16em
         }
 
+        .hero-copy {
+            position: relative;
+            z-index: 1;
+            margin: clamp(42px, 7vh, 88px) 0 0
+        }
+
+        .hero-copy span {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .18em;
+            opacity: .72
+        }
+
+        .hero-copy h1 {
+            margin: 13px 0 0;
+            max-width: 720px;
+            font-size: clamp(38px, 5vw, 62px);
+            line-height: 1.02;
+            letter-spacing: -.055em
+        }
+
         .operations-map {
             width: 100%;
             max-width: 1200px;
-            height: clamp(400px, 54vh, 720px);
+            height: clamp(380px, 46vh, 640px);
             align-self: center;
-            margin: clamp(28px, 6vh, 88px) auto 0;
+            margin: clamp(22px, 4vh, 56px) auto 0;
             overflow: visible
         }
 
@@ -478,10 +499,13 @@
                 padding: 30px 26px
             }
 
+            .hero-copy { margin-top: 36px; }
+            .hero-copy h1 { font-size: 40px; max-width: 520px; }
+
             .operations-map {
                 height: 300px;
                 max-width: 620px;
-                margin-top: 38px
+                margin-top: 28px
             }
 
             .login-panel {
@@ -498,6 +522,8 @@
             .brand-panel {
                 min-height: 300px
             }
+
+            .hero-copy h1 { font-size: 35px; }
 
             .login-panel {
                 padding-left: 20px;
@@ -521,6 +547,10 @@
             <div class="brand"><img src="/assets/img/surya-logo-mobile.webp" alt="Logo SURYA" width="58"
                     height="58">
                 <div><strong>SURYA</strong><small>INVENTORY & SALES CONTROL</small></div>
+            </div>
+            <div class="hero-copy">
+                <span>UNIFIED OPERATIONS</span>
+                <h1>Satu kendali.</h1>
             </div>
             <div class="operations-map" aria-hidden="true">
                 <svg class="operations-map-desktop" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet">
