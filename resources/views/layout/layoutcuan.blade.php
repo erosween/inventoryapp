@@ -10,7 +10,7 @@
     <title>NOCAN MSP</title>
     <meta content='width=device-width, initial-scale=1.0, shrink-to-fit=no' name='viewport' />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png?v=20261124" />
 
     @include('layout.web-typography')
     <!-- Fonts and icons -->

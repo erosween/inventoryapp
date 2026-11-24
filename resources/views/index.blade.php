@@ -19,7 +19,7 @@
     <meta name="msapplication-config" content="/browserconfig.xml">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/inventory/icon-180.png">
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#bd001c">
-    <link rel="icon" href="/assets/img/MSP5.png" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/pwa/surya/icon-192.png?v=20261124">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
