@@ -93,6 +93,7 @@ Route::post('/surya/transaction-upload/{upload}/process', [MonitaDumaiController
 Route::post('/surya/transaction-upload/historical-sa', [\App\Http\Controllers\HistoricalSaSalesController::class, 'store'])->name('surya.historical-sa.store');
 // Stok dan target. Stock On Hand, Stock Gudang per tanggal, dan pengelolaan target.
 Route::get('/surya/stock-on-hand', [SuryaStockController::class, 'stock'])->name('surya.stock-on-hand');
+Route::get('/surya/stock-on-hand/export', [SuryaStockController::class, 'export'])->name('surya.stock-on-hand.export');
 Route::get('/surya/stock-gudang', [sisaStockController::class, 'index'])->middleware('auth')->name('surya.stock-gudang');
 Route::get('/surya/input-target', [SuryaStockController::class, 'targets'])->name('surya.input-target');
 Route::post('/surya/input-target/upload', [SuryaStockController::class, 'upload'])->name('surya.input-target.upload');

@@ -25,6 +25,7 @@
 <section class="surya-card">
     <div class="stock-toolbar">
         <p class="muted">Target harian = sisa target bulanan ÷ sisa hari kerja ({{ $daysLeft }} hari).</p>
+        <a class="stock-filter-button" href="{{ route('surya.stock-on-hand.export', ['family' => $family, 'tap' => $selectedTap, 'q' => $search]) }}"><i class="fas fa-download" aria-hidden="true"></i> Download Excel</a>
     </div>
     <ul class="stock-status-guide" aria-label="Keterangan status stok">
         <li><span class="status low">STOCK KURANG</span><span>OH &lt; TARGET DAILY</span></li>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Imports\SuryaTargetImport;
+use App\Exports\SuryaStockOnHandExport;
 use App\Support\SuryaTapScope;
 use App\Support\SuryaStockStatus;
 use Carbon\Carbon;
@@ -63,9 +64,30 @@ class SuryaStockController extends Controller
             return ['idsf' => $sf->idsf, 'namasf' => $sf->namasf, 'idtap' => $sf->idtap, 'cluster' => $this->clusterFor($sf->idtap), 'items' => $items];
         })->filter(fn ($row) => $row['items']->isNotEmpty());
 
+        if ($request->boolean('download')) {
+            $normalizedSearch = mb_strtolower($search);
+            $exportRows = $rows->filter(function ($row) use ($normalizedSearch) {
+                return $normalizedSearch === '' || str_contains(mb_strtolower(implode(' ', [
+                    $row['idsf'], $row['namasf'], $row['idtap'], $row['cluster'],
+                ])), $normalizedSearch);
+            })->values();
+
+            return Excel::download(
+                new SuryaStockOnHandExport($family, $exportRows),
+                'surya-stock-on-hand-'.$family.'-'.now()->format('Y-m-d-His').'.xlsx'
+            );
+        }
+
         $stockBufferDays = SuryaStockStatus::BUFFER_DAYS;
 
         return view('surya.stock-on-hand', compact('family', 'rows', 'daysLeft', 'taps', 'selectedTap', 'search', 'stockBufferDays'));
+    }
+
+    public function export(Request $request)
+    {
+        $request->merge(['download' => true]);
+
+        return $this->stock($request);
     }
 
     // Input Target. Halaman, upload, dan perubahan target memakai controller ini.
