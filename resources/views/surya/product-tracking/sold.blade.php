@@ -160,7 +160,11 @@
         if (rangeHistoryButton) {
             const cell = rangeHistoryButton.closest('td');
             const details = cell.querySelector('.pt-range-digipos-results');
-            if (details) { details.hidden = !details.hidden; return; }
+            if (details) {
+                details.hidden = !details.hidden;
+                rangeHistoryButton.textContent = details.hidden ? 'Cek DigiPOS' : 'Tutup riwayat';
+                return;
+            }
             rangeHistoryButton.disabled = true;
             rangeHistoryButton.textContent = 'Memuat…';
             const params = new URLSearchParams({id_outlet: rangeHistoryButton.dataset.idOutlet, start: rangeHistoryButton.dataset.start, end: rangeHistoryButton.dataset.end, date: @json($filters['date']), tab: @json($activeTab)});

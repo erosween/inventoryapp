@@ -441,7 +441,7 @@ class ProductTrackingController extends MonitaDumaiController
             $this->applyTapScopeFilter($outletScope, 'tap', $scopes);
             $query->whereIn('digipos.id_outlet', $outletScope);
         }
-        $rows = $query->orderByDesc('digipos.scan_date')->orderBy('digipos.serial_start')
+        $rows = $query->orderByDesc('digipos.scan_date')->orderBy('digipos.id_outlet')->orderBy('digipos.product_name')->orderBy('digipos.serial_start')
             ->limit(101)
             ->get([
                 'digipos.scan_date', 'digipos.id_outlet', 'scan_outlet.nama_outlet',
@@ -465,7 +465,31 @@ class ProductTrackingController extends MonitaDumaiController
             ];
         })->values();
 
-        return response()->json(['rows' => $matches, 'has_more' => $rows->count() > 100]);
+        $groupedMatches = collect();
+        foreach ($matches as $match) {
+            $lastIndex = $groupedMatches->count() - 1;
+            if ($lastIndex >= 0) {
+                $last = $groupedMatches[$lastIndex];
+                $nextSerial = $this->incrementSerial((string) $last['overlap_end']);
+                $sameGroup = $last['date'] === $match['date']
+                    && $last['id_outlet'] === $match['id_outlet']
+                    && $last['product'] === $match['product']
+                    && $this->compareSerials((string) $match['overlap_start'], $nextSerial) <= 0;
+
+                if ($sameGroup) {
+                    if ($this->compareSerials((string) $match['overlap_end'], (string) $last['overlap_end']) > 0) {
+                        $last['overlap_end'] = $match['overlap_end'];
+                    }
+                    $last['qty'] = (int) $this->serialRangeCount((string) $last['overlap_start'], (string) $last['overlap_end']);
+                    $groupedMatches[$lastIndex] = $last;
+                    continue;
+                }
+            }
+
+            $groupedMatches->push($match);
+        }
+
+        return response()->json(['rows' => $groupedMatches->values(), 'has_more' => $rows->count() > 100]);
     }
 
     public function soldColumnValues(Request $request)
