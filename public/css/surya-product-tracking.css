@@ -77,9 +77,9 @@
 .pt-outlet-sn-row td{background:#fbfcfe;white-space:normal}
 .pt-outlet-sn-panel{display:grid;gap:10px;width:100%;max-width:1100px}
 .pt-outlet-sn-table{width:100%;max-width:900px;table-layout:fixed;border-collapse:collapse;font-size:12px}
-.pt-outlet-sn-table th,.pt-outlet-sn-table td{padding:8px 10px;border-bottom:1px solid #e9edf3;text-align:left}
-.pt-outlet-sn-table th{color:#58657b;font-size:10px;text-transform:uppercase}
-.pt-outlet-sn-table th:nth-child(1),.pt-outlet-sn-table td:nth-child(1){width:82px}.pt-outlet-sn-table th:nth-child(2),.pt-outlet-sn-table td:nth-child(2){width:165px}.pt-outlet-sn-table th:nth-child(3),.pt-outlet-sn-table td:nth-child(3),.pt-outlet-sn-table th:nth-child(4),.pt-outlet-sn-table td:nth-child(4){width:135px}.pt-outlet-sn-table th:nth-child(5),.pt-outlet-sn-table td:nth-child(5){width:54px}.pt-outlet-sn-table th:nth-child(6),.pt-outlet-sn-table td:nth-child(6){width:72px}.pt-outlet-sn-table th:nth-child(7),.pt-outlet-sn-table td:nth-child(7){width:250px;white-space:normal;overflow-wrap:anywhere}
+.pt-outlet-sn-table th,.pt-outlet-sn-table td{padding:8px 10px;border-bottom:1px solid #e9edf3;text-align:left;vertical-align:middle}
+.pt-outlet-sn-table th{color:#58657b;font-size:10px;text-transform:uppercase;white-space:nowrap}
+.pt-outlet-sn-table th:nth-child(1),.pt-outlet-sn-table td:nth-child(1){width:190px}.pt-outlet-sn-table th:nth-child(2),.pt-outlet-sn-table td:nth-child(2),.pt-outlet-sn-table th:nth-child(3),.pt-outlet-sn-table td:nth-child(3){width:155px}.pt-outlet-sn-table th:nth-child(4),.pt-outlet-sn-table td:nth-child(4){width:70px}.pt-outlet-sn-table th:nth-child(5),.pt-outlet-sn-table td:nth-child(5){width:82px}.pt-outlet-sn-table th:nth-child(6),.pt-outlet-sn-table td:nth-child(6){width:230px;white-space:normal;overflow-wrap:anywhere}.pt-outlet-sn-table .pt-chip{white-space:nowrap}
 .pt-load-more-outlet-sn{justify-self:start;font-size:11px}
 .pt-outlet-sn-search{display:grid;gap:7px;padding:10px;border:1px solid #e3e8f0;border-radius:10px;background:#fff}
 .pt-outlet-sn-search>label{color:#48556c;font-size:12px;font-weight:800}

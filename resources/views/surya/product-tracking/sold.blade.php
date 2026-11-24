@@ -220,12 +220,12 @@
             const data = await response.json();
             let tableWrap = panel.querySelector('.pt-outlet-sn-table-wrap');
             let table = tableWrap?.querySelector('.pt-outlet-sn-table');
-            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Sumber</th><th>Denom / PV</th><th>SN awal</th><th>SN akhir</th><th>Qty</th><th>Status</th><th>Riwayat ST DigiPOS</th></tr></thead><tbody></tbody>'; }
+            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Denom / PV</th><th>SN awal</th><th>SN akhir</th><th>Qty</th><th>Status</th><th>Riwayat ST DigiPOS</th></tr></thead><tbody></tbody>'; }
             if (!tableWrap) { tableWrap = document.createElement('div'); tableWrap.className = 'pt-outlet-sn-table-wrap'; tableWrap.append(table); }
             const tbody = table.querySelector('tbody');
             for (const item of data.rows) {
                 const row = document.createElement('tr');
-                for (const [index, value] of [item.source, item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 2 || index === 3) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
+                for (const [index, value] of [item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 1 || index === 2) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
                 const statusCell = document.createElement('td'); const statusChip = document.createElement('span'); statusChip.className = `pt-chip ${item.coverage === 'ST' ? 'good' : 'bad'}`; statusChip.textContent = item.coverage || '—'; statusCell.append(statusChip); row.append(statusCell);
                 const historyCell = document.createElement('td');
                 const historyButton = document.createElement('button'); historyButton.type = 'button'; historyButton.className = 'pt-button pt-range-digipos'; historyButton.dataset.idOutlet = outletId; historyButton.dataset.start = item.start; historyButton.dataset.end = item.end; historyButton.textContent = 'Cek DigiPOS';
