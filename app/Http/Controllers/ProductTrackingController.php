@@ -321,16 +321,25 @@ class ProductTrackingController extends MonitaDumaiController
             ->select('sale_date as tgl', 'serial_start', 'serial_end', 'qty', 'iddenom', 'denom_label as denom', 'source')
             ->get();
 
-        $digipos = DB::table('product_tracking_digipos as digipos')
+        $digiposQuery = DB::table('product_tracking_digipos as digipos')
             ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
             ->leftJoin('appsdumais as scan_outlet', 'scan_outlet.id_outlet', '=', 'digipos.id_outlet')
             ->whereRaw("CONVERT(upload.kind USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'scan' COLLATE utf8mb4_unicode_ci")
             ->whereRaw("CONVERT(upload.status USING utf8mb4) COLLATE utf8mb4_unicode_ci = _utf8mb4'complete' COLLATE utf8mb4_unicode_ci")
-            ->whereBetween('digipos.scan_date', [$filters['date_from'], $filters['date_to']])
             ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$sn])
             ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$sn])
-            ->orderByDesc('digipos.scan_date')->limit(20)
-            ->get(['digipos.scan_date', 'digipos.id_outlet', 'scan_outlet.nama_outlet', 'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name']);
+            ->orderByDesc('digipos.scan_date')->limit(20);
+        // A Digipos scan can be recorded on another day and under its own outlet ID.
+        // Match by SN across scan history, while keeping the user's TAP access scope.
+        if ($scopes = $this->suryaTapScopes()) {
+            $outletScope = DB::table('appsdumais')->select('id_outlet');
+            $this->applyTapScopeFilter($outletScope, 'tap', $scopes);
+            $digiposQuery->whereIn('digipos.id_outlet', $outletScope);
+        }
+        $digipos = $digiposQuery->get([
+            'digipos.scan_date', 'digipos.id_outlet', 'scan_outlet.nama_outlet',
+            'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name',
+        ]);
 
         return response()->json([
             'sn' => $sn,
