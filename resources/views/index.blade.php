@@ -86,7 +86,7 @@
             position: relative;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
             padding: 48px;
             color: #fff;
             overflow: hidden;
@@ -132,7 +132,7 @@
             stroke-linecap: round;
             stroke-dasharray: 64 936;
             filter: drop-shadow(0 0 5px rgba(255, 40, 65, .9));
-            animation: brand-energy-travel 8s linear infinite
+            animation: brand-energy-travel 16s linear infinite
         }
 
         .brand-energy-lines--primary {
@@ -169,7 +169,6 @@
         }
 
         .brand,
-        .hero-copy,
         .operations-map {
             position: relative;
             z-index: 1
@@ -203,42 +202,12 @@
             letter-spacing: .16em
         }
 
-        .hero-copy {
-            margin: 48px 0 40px
-        }
-
-        .hero-copy span {
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: .18em;
-            opacity: .72
-        }
-
-        .hero-copy h1 {
-            margin: 13px 0 16px;
-            max-width: 470px;
-            font-size: clamp(38px, 5vw, 62px);
-            line-height: 1.02;
-            letter-spacing: -.055em
-        }
-
-        .hero-copy h1 .hero-accent {
-            color: #ff3049
-        }
-
-        .hero-copy p {
-            max-width: 480px;
-            margin: 0;
-            color: rgba(255, 255, 255, .78);
-            line-height: 1.7
-        }
-
         .operations-map {
             width: 100%;
-            max-width: 1000px;
-            height: clamp(280px, 34vh, 450px);
+            max-width: 1200px;
+            height: clamp(400px, 54vh, 720px);
             align-self: center;
-            margin: 0 auto;
+            margin: clamp(28px, 6vh, 88px) auto 0;
             overflow: visible
         }
 
@@ -332,7 +301,7 @@
         }
 
         @media (max-width: 560px) {
-            .operations-map { height: 280px; }
+            .operations-map { height: 280px; margin-top: 24px; }
             .operations-map-desktop { display: none !important; }
             .operations-map-mobile { display: block !important; }
             .operations-map-mobile .card { fill: rgba(19, 20, 26, .88); }
@@ -509,18 +478,10 @@
                 padding: 30px 26px
             }
 
-            .hero-copy {
-                margin: 38px 0 28px
-            }
-
-            .hero-copy h1 {
-                font-size: 40px;
-                max-width: 520px
-            }
-
             .operations-map {
-                height: 280px;
-                max-width: 620px
+                height: 300px;
+                max-width: 620px;
+                margin-top: 38px
             }
 
             .login-panel {
@@ -536,10 +497,6 @@
         @media(max-width:430px) {
             .brand-panel {
                 min-height: 300px
-            }
-
-            .hero-copy h1 {
-                font-size: 35px
             }
 
             .login-panel {
@@ -565,11 +522,6 @@
                     height="58">
                 <div><strong>SURYA</strong><small>INVENTORY & SALES CONTROL</small></div>
             </div>
-            <div class="hero-copy"><span>UNIFIED OPERATIONS</span>
-                <h1>Satu kendali untuk seluruh <span class="hero-accent">distribusi.</span></h1>
-                <p>Pantau stok, aktivitas Sales Force, validasi transaksi, dan performa wilayah dalam workspace yang
-                    terhubung.</p>
-            </div>
             <div class="operations-map" aria-hidden="true">
                 <svg class="operations-map-desktop" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet">
                     <circle class="orbit orbit--dashed" cx="500" cy="260" r="222" />
@@ -586,16 +538,16 @@
                     <circle class="anchor-dot" cx="720" cy="380" r="4" />
 
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="3.8s" repeatCount="indefinite" path="M500 260 L280 140 L500 260" />
+                        <animateMotion dur="8s" repeatCount="indefinite" path="M500 260 L280 140 L500 260" />
                     </circle>
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="4.2s" begin="-1.1s" repeatCount="indefinite" path="M500 260 L720 140 L500 260" />
+                        <animateMotion dur="8.8s" begin="-2.2s" repeatCount="indefinite" path="M500 260 L720 140 L500 260" />
                     </circle>
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="4.5s" begin="-2.2s" repeatCount="indefinite" path="M500 260 L280 380 L500 260" />
+                        <animateMotion dur="9.5s" begin="-4.4s" repeatCount="indefinite" path="M500 260 L280 380 L500 260" />
                     </circle>
                     <circle class="moving-dot" r="4">
-                        <animateMotion dur="4s" begin="-3s" repeatCount="indefinite" path="M500 260 L720 380 L500 260" />
+                        <animateMotion dur="8.5s" begin="-6s" repeatCount="indefinite" path="M500 260 L720 380 L500 260" />
                     </circle>
 
                     <g>
@@ -629,8 +581,11 @@
                         <circle class="card-led" cx="952" cy="380" r="3.5" />
                     </g>
 
-                    <circle class="center-logo-ring" cx="500" cy="260" r="61" />
-                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="450" y="210" width="100" height="100" />
+                    <circle class="center-logo-ring" cx="500" cy="260" r="78" />
+                    <defs>
+                        <clipPath id="desktop-surya-logo-circle"><circle cx="500" cy="260" r="68" /></clipPath>
+                    </defs>
+                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="430" y="190" width="140" height="140" clip-path="url(#desktop-surya-logo-circle)" />
                     <text class="center-title" x="500" y="345" text-anchor="middle">SURYA</text>
                     <text class="center-caption" x="500" y="365" text-anchor="middle">CONNECTED WORKSPACE</text>
                 </svg>
@@ -643,16 +598,16 @@
                     <circle class="anchor-dot" cx="156" cy="235" r="3" />
                     <circle class="anchor-dot" cx="204" cy="235" r="3" />
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="3.2s" repeatCount="indefinite" path="M180 140 L156 45 L180 140" />
+                        <animateMotion dur="7.5s" repeatCount="indefinite" path="M180 140 L156 45 L180 140" />
                     </circle>
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="3.8s" begin="-1s" repeatCount="indefinite" path="M180 140 L204 45 L180 140" />
+                        <animateMotion dur="8s" begin="-2s" repeatCount="indefinite" path="M180 140 L204 45 L180 140" />
                     </circle>
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="4s" begin="-2s" repeatCount="indefinite" path="M180 140 L156 235 L180 140" />
+                        <animateMotion dur="8.5s" begin="-4s" repeatCount="indefinite" path="M180 140 L156 235 L180 140" />
                     </circle>
                     <circle class="moving-dot" r="3">
-                        <animateMotion dur="3.5s" begin="-2.7s" repeatCount="indefinite" path="M180 140 L204 235 L180 140" />
+                        <animateMotion dur="7.8s" begin="-5.2s" repeatCount="indefinite" path="M180 140 L204 235 L180 140" />
                     </circle>
                     <rect class="card" x="3" y="12" width="153" height="66" rx="12" />
                     <text class="card-category" x="15" y="37">INVENTORY</text>
@@ -670,8 +625,11 @@
                     <text class="card-category" x="216" y="227">CONTROL</text>
                     <text class="card-title" x="216" y="247">Approval &amp; audit</text>
                     <circle class="card-led" cx="343" cy="235" r="2.5" />
-                    <circle class="center-logo-ring" cx="180" cy="140" r="34" />
-                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="151" y="111" width="58" height="58" />
+                    <circle class="center-logo-ring" cx="180" cy="140" r="45" />
+                    <defs>
+                        <clipPath id="mobile-surya-logo-circle"><circle cx="180" cy="140" r="38" /></clipPath>
+                    </defs>
+                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="140" y="100" width="80" height="80" clip-path="url(#mobile-surya-logo-circle)" />
                     <text class="center-title" x="180" y="190" text-anchor="middle">SURYA</text>
                     <text class="center-caption" x="180" y="198" text-anchor="middle">CONNECTED WORKSPACE</text>
                 </svg>
