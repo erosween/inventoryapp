@@ -136,7 +136,8 @@ class ReturSfController extends Controller
             'items' => 'required|array|min:1',
             'items.*.iddenom' => 'required|exists:denom,iddenom',
             'items.*.qty' => 'nullable|integer|min:1|max:2000000',
-            'items.*.sn_start' => 'required|string|max:24',
+            'items.*.serial_mode' => 'nullable|in:range,broken',
+            'items.*.sn_start' => 'nullable|string|max:24',
             'items.*.sn_end' => 'nullable|string|max:24',
             'items.*.tambahket' => 'required|string|max:500',
         ]);
@@ -318,6 +319,17 @@ class ReturSfController extends Controller
         $denoms = DB::table('denom')->whereIn('iddenom', collect($items)->pluck('iddenom')->unique())
             ->get(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name'])->keyBy('iddenom');
         foreach ($items as $index => &$item) {
+            if (($item['serial_mode'] ?? 'range') === 'broken') {
+                $qty = (int) ($item['qty'] ?? 0);
+                if ($qty < 1 || $qty > 2_000_000) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(["items.{$index}.qty" => 'Qty SN pecah harus antara 1 dan 2.000.000.']);
+                }
+                $item['sn_start'] = '';
+                $item['sn_end'] = '';
+                $item['qty'] = $qty;
+                $item['sn'] = '';
+                continue;
+            }
             $denom = $denoms->get($item['iddenom']);
             $id = strtoupper(trim((string) ($denom->iddenom ?? '')));
             $product = strtoupper(trim((string) ($denom->product ?? '')));
@@ -340,6 +352,7 @@ class ReturSfController extends Controller
         }
         unset($item);
         for ($i = 0; $i < count($items); $i++) for ($j = $i + 1; $j < count($items); $j++) {
+            if (($items[$i]['serial_mode'] ?? 'range') === 'broken' || ($items[$j]['serial_mode'] ?? 'range') === 'broken') continue;
             if (strlen($items[$i]['sn_start']) === strlen($items[$j]['sn_start']) && $items[$i]['sn_start'] <= $items[$j]['sn_end'] && $items[$i]['sn_end'] >= $items[$j]['sn_start']) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['items' => 'Rentang SN antar baris tidak boleh tumpang tindih.']);
             }
