@@ -228,7 +228,10 @@ return [
         | Drivers: memory|illuminate|batch
         |
         */
-        'driver'     => 'memory',
+        // Large SURYA workbooks can exceed PHP-FPM's memory limit when every
+        // worksheet cell remains in RAM. Batch cells to the configured cache
+        // store once the in-memory buffer reaches the threshold below.
+        'driver'     => 'batch',
 
         /*
         |--------------------------------------------------------------------------
