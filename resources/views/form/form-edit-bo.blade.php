@@ -137,7 +137,7 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            const productByDenom = @json(collect($packages)->mapWithKeys(fn ($label, $id) => [$id => in_array($id, ['SP6', 'SP7', 'SP1', 'SP9'], true) ? 'SA' : 'PV']));
+            const productByDenom = @json($productByDenom);
             $('select[name="iddenom"] option').each(function() {
                 $(this).attr('data-product', productByDenom[this.value] || '');
             });

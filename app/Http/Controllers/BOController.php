@@ -203,12 +203,15 @@ public function getTap(Request $request)
             ->get();
 
         $packages = $this->returnablePackages();
+        $productByDenom = collect($packages)->mapWithKeys(fn ($label, $id) => [
+            $id => in_array($id, ['SP6', 'SP7', 'SP1', 'SP9'], true) ? 'SA' : 'PV',
+        ]);
 
         $serialParts = preg_split('/\s*(?:-|–|—)\s*/u', trim((string) ($edit->sn ?? '')), 2) ?: [];
         $snStart = $serialParts[0] ?? '';
         $snEnd = $serialParts[1] ?? '';
 
-        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages', 'snStart', 'snEnd'));
+        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages', 'productByDenom', 'snStart', 'snEnd'));
     }
 
     public function update(Request $request, $id)

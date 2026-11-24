@@ -152,12 +152,11 @@ class ProductTrackingController extends MonitaDumaiController
                 return;
             }
 
-            $saleDate = \Carbon\Carbon::parse($filters['date'], 'Asia/Jakarta');
             $inputAt = $row->latest_input_at
                 ? \Carbon\Carbon::parse($row->latest_input_at, 'Asia/Jakarta')->setTimezone('Asia/Jakarta')->format('H:i').' WIB'
-                : 'jam input tidak tercatat';
+                : '—';
             $row->visit_at = null;
-            $row->visit_at_display = $saleDate->format('d M Y').' · input terakhir '.$inputAt;
+            $row->visit_at_display = $inputAt;
         });
         $outletRows = $allOutletRows;
         foreach (['columns', 'exclude'] as $mode) {
