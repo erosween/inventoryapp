@@ -302,7 +302,7 @@
         }
 
         .operations-map .center-logo {
-            filter: drop-shadow(0 0 14px rgba(240, 20, 48, .45))
+            filter: drop-shadow(0 0 7px rgba(240, 20, 48, .35))
         }
 
         .operations-map .center-title {
@@ -499,6 +499,10 @@
                 padding: 30px 26px
             }
 
+            .brand-panel:before,
+            .brand-panel:after,
+            .brand-energy-lines { display: none; }
+
             .hero-copy { margin-top: 36px; }
             .hero-copy h1 { font-size: 40px; max-width: 520px; }
 
@@ -615,7 +619,7 @@
                     <defs>
                         <clipPath id="desktop-surya-logo-circle"><circle cx="500" cy="260" r="68" /></clipPath>
                     </defs>
-                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="430" y="190" width="140" height="140" clip-path="url(#desktop-surya-logo-circle)" />
+                    <image class="center-logo" href="/assets/img/surya-logo.png" x="430" y="190" width="140" height="140" clip-path="url(#desktop-surya-logo-circle)" />
                     <text class="center-title" x="500" y="345" text-anchor="middle">SURYA</text>
                     <text class="center-caption" x="500" y="365" text-anchor="middle">CONNECTED WORKSPACE</text>
                 </svg>
@@ -659,7 +663,7 @@
                     <defs>
                         <clipPath id="mobile-surya-logo-circle"><circle cx="180" cy="140" r="38" /></clipPath>
                     </defs>
-                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="140" y="100" width="80" height="80" clip-path="url(#mobile-surya-logo-circle)" />
+                    <image class="center-logo" href="/assets/img/surya-logo.png" x="140" y="100" width="80" height="80" clip-path="url(#mobile-surya-logo-circle)" />
                     <text class="center-title" x="180" y="190" text-anchor="middle">SURYA</text>
                     <text class="center-caption" x="180" y="198" text-anchor="middle">CONNECTED WORKSPACE</text>
                 </svg>
