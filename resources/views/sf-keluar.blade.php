@@ -66,6 +66,8 @@
                                         <th>SF</th>
                                         <th>ID Outlet</th>
                                         <th>Keterangan</th>
+                                        <th>Jenis Bayar</th>
+                                        <th>Tanggal Bayar</th>
                                         <th width="130">Action</th>
                                     </tr>
                                 </thead>
@@ -171,6 +173,20 @@
                     {
                         data: 'tambahanket',
                         name: 'f.tambahanket'
+                    },
+                    {
+                        data: 'payment_status',
+                        name: 'f.payment_status',
+                        render: function(data) {
+                            const labels = {cash:'Cash', pending:'Pending Stor', paid:'Sudah Bayar'};
+                            return labels[data] || data || 'Cash';
+                        }
+                    },
+                    {
+                        data: 'paid_at',
+                        name: 'f.paid_at',
+                        defaultContent: '—',
+                        render: function(data) { return data ? moment(data).format('DD-MM-YYYY HH:mm') : '—'; }
                     },
                     {
                         data: 'action',

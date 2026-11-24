@@ -325,6 +325,10 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('sf-keluar/bulk-delete', [SfkeluarController::class, 'bulkDelete'])->name('sf-keluar.bulk-delete');
 	Route::post('sf-keluar/{idkeluar}', [SfkeluarController::class, 'delete']);
 	Route::post('sf-keluar', [SfkeluarController::class, 'keluarsfproses']);
+	Route::get('/pending-stor', [SfkeluarController::class, 'pendingStor'])->name('pending-stor.index');
+	Route::get('/pending-stor/data', [SfkeluarController::class, 'pendingStorData'])->name('pending-stor.data');
+	Route::post('/pending-stor/{id}/paid', [SfkeluarController::class, 'markPendingStorPaid'])->whereNumber('id')->name('pending-stor.paid');
+	Route::post('/pending-stor/{id}/delete', [SfkeluarController::class, 'deletePendingStor'])->whereNumber('id')->name('pending-stor.delete');
 
 	// Retur SF. Pengembalian barang dari SF ke TAP dan pembatalan retur.
 	Route::get('/retursf', [ReturSfController::class, 'index'])->name('retursf.index');

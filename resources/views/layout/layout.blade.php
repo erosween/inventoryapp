@@ -579,7 +579,7 @@
                                         <p>SALES FORCE</p>
                                         <span class="caret"></span>
                                     </a>
-                                    <div class="collapse {{ request()->is('sf-masuk', 'sf-keluar', 'retursf') ? 'show' : '' }}"
+                                    <div class="collapse {{ request()->is('sf-masuk', 'sf-keluar', 'retursf', 'pending-stor*') ? 'show' : '' }}"
                                         id="SF">
                                         <ul class="nav nav-collapse">
                                             <li class="nav-item {{ request()->is('sf-masuk') ? 'active' : '' }}">
@@ -590,6 +590,11 @@
                                             <li class="nav-item {{ request()->is('sf-keluar') ? 'active' : '' }}">
                                                 <a href="{{ url('sf-keluar') }}">
                                                     <span class="sub-item">Stok Keluar</span>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item {{ request()->is('pending-stor*') ? 'active' : '' }}">
+                                                <a href="{{ route('pending-stor.index') }}">
+                                                    <span class="sub-item">Pending Stor (Konsinyasi)</span>
                                                 </a>
                                             </li>
                                             <li class="nav-item {{ request()->is('retursf') ? 'active' : '' }}">

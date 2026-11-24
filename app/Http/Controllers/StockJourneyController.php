@@ -202,8 +202,17 @@ class StockJourneyController extends Controller
         $returSf = DB::table('retursf as x')->whereBetween('x.tgl', [$startDate, $endDate])
             ->selectRaw("x.tgl event_date, 'RETUR_SF' movement_type, 'SF' from_type, x.idsf from_id, 'TAP' to_type, x.idtap to_id, x.idtap, x.idsf, x.iddenom, x.qty, 'retursf' source_table, x.idretur source_id, COALESCE(x.tambahket, x.ketvf, x.sn, '') note");
 
-        $outSf = DB::table('keluarsf as x')->whereBetween('x.tgl', [$startDate, $endDate])
-            ->selectRaw("x.tgl event_date, 'KELUAR_SF' movement_type, 'SF' from_type, x.idsf from_id, 'OUTSIDE' to_type, 'PELANGGAN' to_id, x.idtap, x.idsf, x.iddenom, x.qty, 'keluarsf' source_table, x.idkeluar source_id, COALESCE(x.tambahanket, '') note");
+        $outSf = DB::table('keluarsf as x')
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->where(function ($cash) use ($startDate, $endDate) {
+                    $cash->where(function ($status) {
+                        $status->whereNull('x.payment_status')->orWhere('x.payment_status', 'cash');
+                    })->whereBetween('x.tgl', [$startDate, $endDate]);
+                })->orWhere(function ($paid) use ($startDate, $endDate) {
+                    $paid->where('x.payment_status', 'paid')->whereBetween(DB::raw('DATE(x.paid_at)'), [$startDate, $endDate]);
+                });
+            })
+            ->selectRaw("CASE WHEN x.payment_status = 'paid' THEN DATE(x.paid_at) ELSE DATE(x.tgl) END event_date, 'KELUAR_SF' movement_type, 'SF' from_type, x.idsf from_id, 'OUTSIDE' to_type, 'PELANGGAN' to_id, x.idtap, x.idsf, x.iddenom, x.qty, 'keluarsf' source_table, x.idkeluar source_id, COALESCE(x.tambahanket, '') note");
 
         $injectOut = DB::table('injectvf as x')->whereBetween('x.tgl', [$startDate, $endDate])
             ->selectRaw("x.tgl event_date, 'KONVERSI_KELUAR' movement_type, 'TAP' from_type, x.idtap from_id, 'CONVERSION' to_type, x.idtap to_id, x.idtap, NULL idsf, COALESCE(x.kategori, 'SEGEL') iddenom, x.qty, 'injectvf' source_table, x.idinject source_id, COALESCE(x.sn, '') note");

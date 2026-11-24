@@ -297,6 +297,14 @@
             .sf-serial-fields { gap:5px; grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr); }
             .sf-serial-fields .form-control { min-width:0; padding:0 9px; }
         }
+        .sf-payment-choice { display:flex; flex-wrap:wrap; gap:10px; padding:0; border:0; }
+        .sf-payment-choice legend { width:100%; color:#344054; font-size:13px; font-weight:700; }
+        .sf-payment-option { display:flex; align-items:flex-start; gap:10px; min-width:220px; padding:12px 15px; border:1px solid #e1e5ee; border-radius:11px; background:#fff; cursor:pointer; }
+        .sf-payment-option:has(input:checked) { border-color:#5648d8; background:#f5f4ff; box-shadow:0 0 0 2px rgba(86,72,216,.08); }
+        .sf-payment-option input { margin-top:4px; accent-color:#5145cd; }
+        .sf-payment-option strong,.sf-payment-option small { display:block; }
+        .sf-payment-option strong { color:#283245; font-size:13px; }
+        .sf-payment-option small { margin-top:3px; color:#778196; font-size:11px; line-height:1.4; }
     </style>
 
     <div class="main-panel sf-out-page">
@@ -369,7 +377,7 @@
                                         {{-- OUTLET --}}
                                         <div class="sf-field">
                                             <div class="form-group mb-1">
-                                                <label for="id_outlet"><i class="fas fa-store"></i>ID Outlet (Opsional)</label>
+                                            <label for="id_outlet"><i class="fas fa-store"></i>ID Outlet <span id="outlet-required-note">(Opsional untuk Cash)</span></label>
                                                 <select name="id_outlet" id="id_outlet" class="form-control select2" disabled>
                                                     <option value="">-- Pilih Outlet --</option>
                                                 </select>
@@ -377,6 +385,18 @@
                                         </div>
 
                                     </div>
+
+                                    <fieldset class="sf-payment-choice mt-3">
+                                        <legend class="mb-2">Jenis Transaksi <span class="text-danger">*</span></legend>
+                                        <label class="sf-payment-option">
+                                            <input type="radio" name="payment_type" value="cash" required {{ old('payment_type') === 'cash' ? 'checked' : '' }}>
+                                            <span><strong>Cash</strong><small>Stok SF langsung dipotong.</small></span>
+                                        </label>
+                                        <label class="sf-payment-option">
+                                            <input type="radio" name="payment_type" value="pending" required {{ old('payment_type') === 'pending' ? 'checked' : '' }}>
+                                            <span><strong>Pending Stor (Konsinyasi)</strong><small>Dicatat sebagai penjualan outlet; stok dipotong setelah pembayaran dikonfirmasi.</small></span>
+                                        </label>
+                                    </fieldset>
 
                                     <div id="bulk-entry">
                                         <div class="sf-denom-section">
@@ -427,6 +447,14 @@
                     dropdownParent: $(this).closest('.card-body')
                 });
             });
+
+            function updatePaymentRequirement() {
+                const pending = $('input[name="payment_type"]:checked').val() === 'pending';
+                $('#id_outlet').prop('required', pending);
+                $('#outlet-required-note').text(pending ? '(Wajib untuk Pending Stor)' : '(Opsional untuk Cash)');
+            }
+            $('input[name="payment_type"]').on('change', updatePaymentRequirement);
+            updatePaymentRequirement();
 
             $(document).on('select2:open', function() {
                 setTimeout(function() {

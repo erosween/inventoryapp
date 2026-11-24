@@ -203,7 +203,15 @@ class sisaStockController extends Controller
             // f. Penjualan Keluar SF
             $keluarSf = DB::table('keluarsf')
                 ->select('idtap', 'idsf', 'iddenom', DB::raw('SUM(qty) as total'))
-                ->where('tgl', '>=', $afterDate);
+                ->where(function ($query) use ($afterDate) {
+                    $query->where(function ($cash) use ($afterDate) {
+                        $cash->where(function ($status) {
+                            $status->whereNull('payment_status')->orWhere('payment_status', 'cash');
+                        })->where('tgl', '>=', $afterDate);
+                    })->orWhere(function ($paid) use ($afterDate) {
+                        $paid->where('payment_status', 'paid')->whereDate('paid_at', '>=', $afterDate);
+                    });
+                });
             $applyFilter($keluarSf);
             foreach ($keluarSf->groupBy('idtap', 'idsf', 'iddenom')->get() as $r) {
                 $key = $r->idtap . '|' . $r->idsf . '|' . $r->iddenom;

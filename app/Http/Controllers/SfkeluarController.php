@@ -25,6 +25,79 @@ use Illuminate\Validation\ValidationException;
         return view('sf-keluar');
     }
 
+    public function pendingStor()
+    {
+        return view('pending-stor');
+    }
+
+    public function pendingStorData(Request $request)
+    {
+        $query = DB::table('keluarsf as f')
+            ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
+            ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
+            ->where('f.payment_status', 'pending')
+            ->select('f.idkeluar', 'f.tgl', 'd.denom', 'f.qty', 'f.idtap', 'i.namasf', 'f.id_outlet', 'f.tambahanket', 'f.sn_awal', 'f.sn_akhir', 'f.payment_status');
+
+        if (! $this->isGlobalAdmin()) TapFilter::apply($query, 'f.idtap');
+        if ($request->filled('daterange')) {
+            [$start, $end] = explode(' - ', $request->daterange, 2);
+            $query->whereBetween('f.tgl', [$start.' 00:00:00', $end.' 23:59:59']);
+        }
+
+        return DataTables::of($query)
+            ->editColumn('qty', fn ($row) => number_format($row->qty))
+            ->addColumn('action', function ($row) {
+                $paid = '<form method="POST" action="'.route('pending-stor.paid', $row->idkeluar).'" class="d-inline mr-1">'.csrf_field().'<button class="btn btn-sm btn-success" type="submit">Sudah Bayar</button></form>';
+                if (! auth()->user()->hasClusterAdminAccess()) return $paid;
+                $delete = '<form method="POST" action="'.route('pending-stor.delete', $row->idkeluar).'" class="d-inline" onsubmit="return confirm(\'Hapus transaksi Pending Stor ini?\')">'.csrf_field().'<button class="btn btn-sm btn-danger" type="submit">Hapus</button></form>';
+                return $paid.$delete;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function markPendingStorPaid(Request $request, int $id)
+    {
+        try {
+            DB::transaction(function () use ($request, $id) {
+                $sale = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
+                abort_unless($sale && $sale->payment_status === 'pending', 404, 'Transaksi Pending Stor tidak ditemukan.');
+                if (! $this->isGlobalAdmin()) abort_unless((string) $sale->idtap === (string) session('idtap'), 403);
+
+                $stock = DB::table('stockawalsf')->where('idsf', $sale->idsf)->where('iddenom', $sale->iddenom)->lockForUpdate()->value('stock');
+                if ($stock === null || (int) $stock < (int) $sale->qty) {
+                    throw ValidationException::withMessages(['stock' => 'Stok SF tidak cukup untuk menandai transaksi ini sudah dibayar.']);
+                }
+
+                $paidAt = now('Asia/Jakarta')->toDateTimeString();
+                DB::table('stockawalsf')->where('idsf', $sale->idsf)->where('iddenom', $sale->iddenom)->decrement('stock', $sale->qty);
+                DB::table('keluarsf')->where('idkeluar', $id)->update([
+                    'payment_status' => 'paid',
+                    'paid_at' => $paidAt,
+                ]);
+                AuditLogger::log('PAYMENT', 'Pending Stor SF', $id, (array) $sale, ['payment_status' => 'paid', 'paid_at' => $paidAt]);
+            });
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput();
+        }
+
+        return back()->with('success', 'Pembayaran dicatat dan stok SF berhasil dipotong.');
+    }
+
+    public function deletePendingStor(Request $request, int $id)
+    {
+        abort_unless(auth()->user()->hasClusterAdminAccess(), 403, 'Hanya Admin Super dan Admin Cluster yang boleh menghapus.');
+        DB::transaction(function () use ($id) {
+            $sale = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
+            abort_unless($sale && $sale->payment_status === 'pending', 404, 'Transaksi Pending Stor tidak ditemukan.');
+            if (! $this->isGlobalAdmin()) abort_unless((string) $sale->idtap === (string) session('idtap'), 403);
+            DB::table('keluarsf')->where('idkeluar', $id)->delete();
+            AuditLogger::log('DELETE', 'Pending Stor SF', $id, (array) $sale);
+        });
+
+        return back()->with('success', 'Transaksi Pending Stor dihapus.');
+    }
+
     /* =========================
        SERVER SIDE DATATABLE
     ========================= */
@@ -35,7 +108,7 @@ use Illuminate\Validation\ValidationException;
 
     // Keep the view and export on the same posted-journal-first sales source.
     $journal = \App\Support\SalesSource::legacy()->select([
-        'idkeluar', 'tgl', 'iddenom', 'qty', 'idtap', 'idsf', 'id_outlet', 'tambahanket', 'sn_awal', 'sn_akhir',
+        'idkeluar', 'tgl', 'iddenom', 'qty', 'idtap', 'idsf', 'id_outlet', 'tambahanket', 'sn_awal', 'sn_akhir', 'payment_status', 'paid_at',
     ]);
     $unpostedMobile = \App\Support\SalesSource::mobile()->select([
         DB::raw('-id AS idkeluar'), 'tgl', 'iddenom', 'qty', 'idtap',
@@ -43,6 +116,7 @@ use Illuminate\Validation\ValidationException;
         DB::raw("'Mobile approved' AS tambahanket"),
         DB::raw("(SELECT GROUP_CONCAT(serial_start ORDER BY id SEPARATOR ', ') FROM mobile_sales_serials WHERE mobile_penjualan_id = mobile_penjualan.id AND mobile_sales_serials.iddenom = mobile_penjualan.iddenom) AS sn_awal"),
         DB::raw("(SELECT GROUP_CONCAT(serial_end ORDER BY id SEPARATOR ', ') FROM mobile_sales_serials WHERE mobile_penjualan_id = mobile_penjualan.id AND mobile_sales_serials.iddenom = mobile_penjualan.iddenom) AS sn_akhir"),
+        DB::raw("'paid' AS payment_status"), DB::raw('NULL AS paid_at'),
     ]);
     $query = DB::query()->fromSub($journal->unionAll($unpostedMobile), 'f')
         ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
@@ -57,7 +131,9 @@ use Illuminate\Validation\ValidationException;
             'f.id_outlet',
             'f.tambahanket',
             'f.sn_awal',
-            'f.sn_akhir'
+            'f.sn_akhir',
+            'f.payment_status',
+            'f.paid_at'
         );
 
     if (! $this->isGlobalAdmin()) TapFilter::apply($query, 'f.idtap');
@@ -83,6 +159,11 @@ use Illuminate\Validation\ValidationException;
             $query->where('f.sn_akhir', 'like', '%'.$keyword.'%');
         })
         ->editColumn('qty', fn ($r) => number_format($r->qty))
+        ->editColumn('payment_status', fn ($r) => match ($r->payment_status) {
+            'pending' => 'Pending Stor',
+            'paid' => 'Sudah Bayar',
+            default => 'Cash',
+        })
         ->addColumn('action', function ($row) {
             if ((int) $row->idkeluar < 0) return '<span class="text-muted">Mobile approved</span>';
             $btnEdit = '
@@ -231,11 +312,13 @@ use Illuminate\Validation\ValidationException;
         'idtap' => 'required|exists:kodetap,idtap',
         'idsf' => 'required|exists:idsf,idsf',
         'id_outlet' => [
+            'required_if:payment_type,pending',
             'nullable',
             Rule::exists('appsdumais', 'id_outlet')->where(
                 fn ($query) => $query->whereRaw('UPPER(TRIM(tap)) = ?', [mb_strtoupper(trim((string) $request->idtap))])
             ),
         ],
+        'payment_type' => 'required|in:cash,pending',
         'items' => 'required|array|min:1',
         'items.*.iddenom' => 'required|exists:denom,iddenom',
             'items.*.qty' => 'required|integer|min:1|max:2000000',
@@ -328,6 +411,7 @@ use Illuminate\Validation\ValidationException;
     );
 
     DB::transaction(function () use ($validated) {
+        if ($validated['payment_type'] === 'cash') {
         $requestedByDenom = collect($validated['items'])
             ->groupBy('iddenom')
             ->map(fn ($items) => $items->sum('qty'));
@@ -357,12 +441,15 @@ use Illuminate\Validation\ValidationException;
                 ]);
             }
         }
+        }
 
         foreach ($validated['items'] as $item) {
-            DB::table('stockawalsf')
-                ->where('idsf', $validated['idsf'])
-                ->where('iddenom', $item['iddenom'])
-                ->decrement('stock', $item['qty']);
+            if ($validated['payment_type'] === 'cash') {
+                DB::table('stockawalsf')
+                    ->where('idsf', $validated['idsf'])
+                    ->where('iddenom', $item['iddenom'])
+                    ->decrement('stock', $item['qty']);
+            }
 
             $newId = DB::table('keluarsf')->insertGetId([
                 'idtap' => $validated['idtap'],
@@ -376,6 +463,8 @@ use Illuminate\Validation\ValidationException;
                 'sn_akhir' => $item['sn_end'],
                 'serial_mode' => $item['serial_mode'],
                 'identifier_type' => $item['identifier_type'],
+                'payment_status' => $validated['payment_type'] === 'cash' ? 'cash' : 'pending',
+                'paid_at' => $validated['payment_type'] === 'cash' ? now('Asia/Jakarta') : null,
             ]);
 
             AuditLogger::log('INSERT', 'Stok Keluar SF (Bulk)', $newId, null, $item + [
@@ -386,7 +475,7 @@ use Illuminate\Validation\ValidationException;
         }
     });
 
-    return redirect('sf-keluar')->with('success', count($validated['items']) . ' denom berhasil ditambahkan');
+    return redirect('sf-keluar')->with('success', count($validated['items']) . ' denom berhasil ditambahkan'.($validated['payment_type'] === 'pending' ? ' sebagai Pending Stor; stok belum dipotong.' : '.'));
 }
 
 
@@ -450,10 +539,12 @@ use Illuminate\Validation\ValidationException;
             ->lockForUpdate()
             ->value('stock');
 
-        DB::table('stockawalsf')
-            ->where('idsf', $data->idsf)
-            ->where('iddenom', $data->iddenom)
-            ->increment('stock', $data->qty);
+        if (($data->payment_status ?? 'cash') !== 'pending') {
+            DB::table('stockawalsf')
+                ->where('idsf', $data->idsf)
+                ->where('iddenom', $data->iddenom)
+                ->increment('stock', $data->qty);
+        }
 
         DB::table('keluarsf')
             ->where('idkeluar', $idkeluar)
@@ -500,10 +591,12 @@ public function bulkDelete(Request $request)
                     ->value('stock');
 
                 // BALIKKAN STOK
-                DB::table('stockawalsf')
-                    ->where('idsf', $data->idsf)
-                    ->where('iddenom', $data->iddenom)
-                    ->increment('stock', $data->qty);
+                if (($data->payment_status ?? 'cash') !== 'pending') {
+                    DB::table('stockawalsf')
+                        ->where('idsf', $data->idsf)
+                        ->where('iddenom', $data->iddenom)
+                        ->increment('stock', $data->qty);
+                }
 
                 DB::table('keluarsf')
                     ->where('idkeluar', $idkeluar)
@@ -593,38 +686,31 @@ public function updateSfKeluar(Request $request, $id)
         $old = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
         if (!$old) throw new \Exception('Data transaksi tidak ditemukan');
 
-        // 2. Kembalikan Stok Lama
-        DB::table('stockawalsf')
-            ->where('idsf', $old->idsf)
-            ->where('iddenom', $old->iddenom)
-            ->increment('stock', $old->qty);
+        $stockWasPosted = ($old->payment_status ?? 'cash') !== 'pending';
+        if ($stockWasPosted) {
+            DB::table('stockawalsf')
+                ->where('idsf', $old->idsf)
+                ->where('iddenom', $old->iddenom)
+                ->increment('stock', $old->qty);
 
-        // 3. Potong Stok Baru & Lock
-        $currentStock = DB::table('stockawalsf')
-            ->where('idsf', $newIdsf)
-            ->where('iddenom', $newIddenom)
-            ->lockForUpdate()
-            ->value('stock');
+            $currentStock = DB::table('stockawalsf')
+                ->where('idsf', $newIdsf)
+                ->where('iddenom', $newIddenom)
+                ->lockForUpdate()
+                ->value('stock');
+            $historicalStock = $this->sfStockAtDate($newIdsf, $newIddenom, $newTgl, (int) $currentStock, (int) $old->idkeluar);
+            $availableStock = min((int) $currentStock, $historicalStock);
+            if ($availableStock < $newQty) {
+                throw ValidationException::withMessages([
+                    'qty' => "Quantity tidak mencukupi. Tersedia pada tanggal {$newTgl}: {$historicalStock}, stok saat ini: " . (int) $currentStock . '.',
+                ]);
+            }
 
-        $historicalStock = $this->sfStockAtDate(
-            $newIdsf,
-            $newIddenom,
-            $newTgl,
-            (int) $currentStock,
-            (int) $old->idkeluar
-        );
-
-        $availableStock = min((int) $currentStock, $historicalStock);
-        if ($availableStock < $newQty) {
-            throw ValidationException::withMessages([
-                'qty' => "Quantity tidak mencukupi. Tersedia pada tanggal {$newTgl}: {$historicalStock}, stok saat ini: " . (int) $currentStock . '.',
-            ]);
+            DB::table('stockawalsf')
+                ->where('idsf', $newIdsf)
+                ->where('iddenom', $newIddenom)
+                ->decrement('stock', $newQty);
         }
-
-        DB::table('stockawalsf')
-            ->where('idsf', $newIdsf)
-            ->where('iddenom', $newIddenom)
-            ->decrement('stock', $newQty);
 
             // 4. Update Transaksi
             DB::table('keluarsf')
@@ -692,7 +778,15 @@ public function updateSfKeluar(Request $request, $id)
         $futureKeluar = DB::table('keluarsf')
             ->where('idsf', $idsf)
             ->where('iddenom', $iddenom)
-            ->whereDate('tgl', '>', $date);
+            ->where(function ($query) use ($date) {
+                $query->where(function ($cash) use ($date) {
+                    $cash->where(function ($status) {
+                        $status->whereNull('payment_status')->orWhere('payment_status', 'cash');
+                    })->whereDate('tgl', '>', $date);
+                })->orWhere(function ($paid) use ($date) {
+                    $paid->where('payment_status', 'paid')->whereDate('paid_at', '>', $date);
+                });
+            });
         if ($excludedKeluarId !== null) {
             $futureKeluar->where('idkeluar', '!=', $excludedKeluarId);
         }
