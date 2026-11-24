@@ -156,6 +156,37 @@
     <script src="{{ asset('js/surya-sold-date.js') }}?v={{ filemtime(public_path('js/surya-sold-date.js')) }}" defer></script>
     <script>
     document.addEventListener('click', async (event) => {
+        const rangeHistoryButton = event.target.closest('.pt-range-digipos');
+        if (rangeHistoryButton) {
+            const cell = rangeHistoryButton.closest('td');
+            const details = cell.querySelector('.pt-range-digipos-results');
+            if (details) { details.hidden = !details.hidden; return; }
+            rangeHistoryButton.disabled = true;
+            rangeHistoryButton.textContent = 'Memuat…';
+            const params = new URLSearchParams({id_outlet: rangeHistoryButton.dataset.idOutlet, start: rangeHistoryButton.dataset.start, end: rangeHistoryButton.dataset.end, date: @json($filters['date']), tab: @json($activeTab)});
+            if (@json($filters['tap'])) params.set('tap', @json($filters['tap']));
+            if (@json($filters['sf'])) params.set('sf', @json($filters['sf']));
+            try {
+                const response = await fetch(@json(route('surya.product-tracking.sold.outlet-range-digipos')) + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Riwayat DigiPOS gagal dimuat.');
+                rangeHistoryButton.textContent = 'Tutup riwayat';
+                const result = document.createElement('div'); result.className = 'pt-range-digipos-results';
+                if (!data.rows.length) result.textContent = 'Belum ditemukan di ST DigiPOS.';
+                for (const match of data.rows) {
+                    const line = document.createElement('div');
+                    const formattedDate = new Intl.DateTimeFormat('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}).format(new Date(`${match.date}T00:00:00`));
+                    line.textContent = `${formattedDate} · ${match.outlet} (${match.id_outlet}) · ${match.product} · SN ${match.overlap_start}–${match.overlap_end} · ${new Intl.NumberFormat('id-ID').format(match.qty)} SN`;
+                    result.append(line);
+                }
+                if (data.has_more) { const note = document.createElement('small'); note.textContent = 'Menampilkan 100 catatan ST pertama.'; result.append(note); }
+                cell.append(result);
+            } catch (error) {
+                rangeHistoryButton.textContent = 'Coba lagi';
+                rangeHistoryButton.title = error.message || 'Riwayat DigiPOS gagal dimuat.';
+            } finally { rangeHistoryButton.disabled = false; }
+            return;
+        }
         const button = event.target.closest('.pt-view-outlet-sn');
         const moreButton = event.target.closest('.pt-load-more-outlet-sn');
         if (!button && !moreButton) return;
@@ -189,12 +220,15 @@
             const data = await response.json();
             let tableWrap = panel.querySelector('.pt-outlet-sn-table-wrap');
             let table = tableWrap?.querySelector('.pt-outlet-sn-table');
-            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Sumber</th><th>Denom</th><th>SN awal</th><th>SN akhir</th><th>Qty</th></tr></thead><tbody></tbody>'; }
+            if (!table) { table = document.createElement('table'); table.className = 'pt-outlet-sn-table'; table.innerHTML = '<thead><tr><th>Sumber</th><th>Denom / PV</th><th>SN awal</th><th>SN akhir</th><th>Qty</th><th>Riwayat ST DigiPOS</th></tr></thead><tbody></tbody>'; }
             if (!tableWrap) { tableWrap = document.createElement('div'); tableWrap.className = 'pt-outlet-sn-table-wrap'; tableWrap.append(table); }
             const tbody = table.querySelector('tbody');
             for (const item of data.rows) {
                 const row = document.createElement('tr');
                 for (const [index, value] of [item.source, item.denom, item.start, item.end, new Intl.NumberFormat('id-ID').format(item.qty)].entries()) { const cell = document.createElement('td'); if (index === 2 || index === 3) { const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'pt-copy-sn'; copy.dataset.copySn = value; copy.setAttribute('aria-label', `Salin SN ${value}`); copy.textContent = value; cell.append(copy); } else cell.textContent = value; row.append(cell); }
+                const historyCell = document.createElement('td');
+                const historyButton = document.createElement('button'); historyButton.type = 'button'; historyButton.className = 'pt-button pt-range-digipos'; historyButton.dataset.idOutlet = outletId; historyButton.dataset.start = item.start; historyButton.dataset.end = item.end; historyButton.textContent = 'Cek DigiPOS';
+                historyCell.append(historyButton); row.append(historyCell);
                 tbody.append(row);
             }
             if (!data.rows.length && page === 1) panel.textContent = @json(($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Tidak ada SN cocok untuk outlet ini.' : 'Tidak ada SN yang belum cocok untuk outlet ini.');

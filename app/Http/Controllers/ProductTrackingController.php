@@ -394,6 +394,57 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
     }
 
+    public function soldOutletRangeDigipos(Request $request)
+    {
+        $filters = $this->soldSerialFilters($request);
+        $data = $request->validate([
+            'id_outlet' => 'required|string|max:50',
+            'start' => ['required', 'regex:/^\\d{9,24}$/'],
+            'end' => ['required', 'regex:/^\\d{9,24}$/'],
+        ]);
+        abort_unless($this->soldValidationSource($filters)->where('id_outlet', $data['id_outlet'])->exists(), 404);
+        $start = (string) $data['start'];
+        $end = (string) $data['end'];
+        abort_if($this->compareSerials($start, $end) > 0, 422, 'Rentang SN tidak valid.');
+
+        $query = DB::table('product_tracking_digipos as digipos')
+            ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+            ->leftJoin('appsdumais as scan_outlet', 'scan_outlet.id_outlet', '=', 'digipos.id_outlet')
+            ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+            ->whereRaw('CAST(digipos.serial_start AS DECIMAL(24,0)) <= CAST(? AS DECIMAL(24,0))', [$end])
+            ->whereRaw('CAST(digipos.serial_end AS DECIMAL(24,0)) >= CAST(? AS DECIMAL(24,0))', [$start]);
+        if ($scopes = $this->suryaTapScopes()) {
+            $outletScope = DB::table('appsdumais')->select('id_outlet');
+            $this->applyTapScopeFilter($outletScope, 'tap', $scopes);
+            $query->whereIn('digipos.id_outlet', $outletScope);
+        }
+        $rows = $query->orderByDesc('digipos.scan_date')->orderBy('digipos.serial_start')
+            ->limit(101)
+            ->get([
+                'digipos.scan_date', 'digipos.id_outlet', 'scan_outlet.nama_outlet',
+                'digipos.serial_start', 'digipos.serial_end', 'digipos.product_name',
+            ]);
+
+        $matches = $rows->take(100)->map(function ($row) use ($start, $end) {
+            $overlapStart = $this->compareSerials($start, (string) $row->serial_start) >= 0 ? $start : (string) $row->serial_start;
+            $overlapEnd = $this->compareSerials($end, (string) $row->serial_end) <= 0 ? $end : (string) $row->serial_end;
+
+            return [
+                'date' => $row->scan_date,
+                'id_outlet' => $row->id_outlet,
+                'outlet' => $row->nama_outlet ?: 'Nama outlet tidak tersedia',
+                'product' => $row->product_name ?: '—',
+                'start' => $row->serial_start,
+                'end' => $row->serial_end,
+                'overlap_start' => $overlapStart,
+                'overlap_end' => $overlapEnd,
+                'qty' => (int) $this->serialRangeCount($overlapStart, $overlapEnd),
+            ];
+        })->values();
+
+        return response()->json(['rows' => $matches, 'has_more' => $rows->count() > 100]);
+    }
+
     public function soldColumnValues(Request $request)
     {
         $filters = $this->soldSerialFilters($request);
