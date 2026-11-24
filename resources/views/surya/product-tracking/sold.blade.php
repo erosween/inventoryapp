@@ -45,7 +45,7 @@
                 @php($summaryColumns = [$summaryLevel => $summaryLevel === 'tap' ? 'TAP' : 'Sales Force'])
                 @if($summaryLevel === 'sf') @php($summaryColumns['tap'] = 'TAP') @endif
                 @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Total Qty', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
-                <div class="pt-table-wrap"><table class="pt-table pt-summary-table">
+                <div class="pt-table-wrap"><table class="pt-table pt-summary-table" data-summary-level="{{ $summaryLevel }}">
                     <thead><tr>
                         @foreach($summaryColumns as $column => $label)
                             @php($isSummarySorted = ($summaryTableOptions['summary_table'] ?? '') === $summaryLevel && ($summaryTableOptions['summary_sort'] ?? '') === $column)
