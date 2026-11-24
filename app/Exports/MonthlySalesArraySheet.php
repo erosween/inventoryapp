@@ -23,11 +23,12 @@ class MonthlySalesArraySheet implements FromArray, WithTitle, WithStyles, WithCo
     {
         $formats = [];
         foreach ($this->rows[0] ?? [] as $index => $heading) {
+            if ($index === 0) continue;
+            $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
             if (str_contains((string) $heading, 'MoM') && str_contains((string) $heading, '%')) {
-                $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
                 $formats[$letter] = NumberFormat::FORMAT_PERCENTAGE_0;
-            } elseif (str_contains((string) $heading, 'MoM Qty')) {
-                $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+            } else {
+                // Keep quantities numeric while displaying thousands separators in Excel.
                 $formats[$letter] = '#,##0';
             }
         }
