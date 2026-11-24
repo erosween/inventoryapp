@@ -168,7 +168,7 @@
 
         .brand,
         .hero-copy,
-        .feature-grid {
+        .operations-map {
             position: relative;
             z-index: 1
         }
@@ -227,34 +227,113 @@
             line-height: 1.7
         }
 
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px
+        .operations-map {
+            width: 100%;
+            max-width: 1000px;
+            height: clamp(280px, 34vh, 450px);
+            align-self: center;
+            margin: 0 auto;
+            overflow: visible
         }
 
-        .feature {
-            padding: 16px 13px;
-            border: 1px solid rgba(255, 255, 255, .16);
-            border-radius: 15px;
-            background: rgba(255, 255, 255, .08)
-        }
-
-        .feature i {
-            margin-bottom: 13px;
-            font-size: 18px
-        }
-
-        .feature strong {
+        .operations-map svg {
             display: block;
-            font-size: 12px
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            background: radial-gradient(ellipse at center, rgba(20, 2, 7, .78) 0%, rgba(20, 2, 7, .45) 50%, transparent 76%)
         }
 
-        .feature small {
-            display: block;
-            margin-top: 4px;
-            font-size: 10px;
-            opacity: .68
+        .operations-map-mobile { display: none !important; }
+
+        .operations-map .orbit {
+            fill: none;
+            stroke: rgba(255, 42, 65, .24);
+            stroke-width: 1.5
+        }
+
+        .operations-map .orbit--dashed {
+            stroke: rgba(255, 42, 65, .22);
+            stroke-dasharray: 5 7
+        }
+
+        .operations-map .connector {
+            fill: none;
+            stroke: rgba(255, 43, 65, .7);
+            stroke-width: 1.5
+        }
+
+        .operations-map .card {
+            fill: rgba(19, 20, 26, .84);
+            stroke: rgba(255, 255, 255, .2);
+            stroke-width: 1.5
+        }
+
+        .operations-map .card-category {
+            fill: rgba(255, 255, 255, .45);
+            font: 700 11px var(--web-font);
+            letter-spacing: 3px
+        }
+
+        .operations-map .card-title {
+            fill: rgba(255, 255, 255, .92);
+            font: 500 17px var(--web-font)
+        }
+
+        .operations-map .card-icon {
+            fill: none;
+            stroke: rgba(255, 255, 255, .65);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round
+        }
+
+        .operations-map .card-led,
+        .operations-map .anchor-dot {
+            fill: #ff2945;
+            filter: drop-shadow(0 0 5px rgba(255, 41, 69, .9))
+        }
+
+        .operations-map .moving-dot {
+            fill: #ff5366;
+            filter: drop-shadow(0 0 7px rgba(255, 41, 69, 1))
+        }
+
+        .operations-map .center-logo-ring {
+            fill: rgba(165, 8, 30, .3);
+            stroke: rgba(255, 45, 68, .85);
+            stroke-width: 1.5
+        }
+
+        .operations-map .center-logo {
+            filter: drop-shadow(0 0 14px rgba(240, 20, 48, .45))
+        }
+
+        .operations-map .center-title {
+            fill: rgba(255, 255, 255, .92);
+            font: 800 16px var(--web-font);
+            letter-spacing: 5px
+        }
+
+        .operations-map .center-caption {
+            fill: rgba(255, 255, 255, .45);
+            font: 600 7px var(--web-font);
+            letter-spacing: 2px
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .operations-map .moving-dot { display: none }
+        }
+
+        @media (max-width: 560px) {
+            .operations-map { height: 280px; }
+            .operations-map-desktop { display: none !important; }
+            .operations-map-mobile { display: block !important; }
+            .operations-map-mobile .card { fill: rgba(19, 20, 26, .88); }
+            .operations-map-mobile .card-category { font-size: 7px; letter-spacing: 1.6px; }
+            .operations-map-mobile .card-title { font-size: 10px; }
+            .operations-map-mobile .center-title { font-size: 9px; letter-spacing: 2px; }
+            .operations-map-mobile .center-caption { font-size: 4px; letter-spacing: 1px; }
         }
 
         .login-panel {
@@ -433,8 +512,9 @@
                 max-width: 520px
             }
 
-            .feature-grid {
-                display: none
+            .operations-map {
+                height: 280px;
+                max-width: 620px
             }
 
             .login-panel {
@@ -484,13 +564,111 @@
                 <p>Pantau stok, aktivitas Sales Force, validasi transaksi, dan performa wilayah dalam workspace yang
                     terhubung.</p>
             </div>
-            <div class="feature-grid">
-                <div class="feature"><i class="fas fa-warehouse"></i><strong>Stock Gudang</strong><small>Monitoring
-                        real-time</small></div>
-                <div class="feature"><i class="fas fa-people-group"></i><strong>Sales Force</strong><small>Aktivitas
-                        lapangan</small></div>
-                <div class="feature"><i class="fas fa-shield-halved"></i><strong>Approval & Audit</strong><small>Kontrol
-                        terpusat</small></div>
+            <div class="operations-map" aria-hidden="true">
+                <svg class="operations-map-desktop" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet">
+                    <circle class="orbit orbit--dashed" cx="500" cy="260" r="222" />
+                    <circle class="orbit" cx="500" cy="260" r="166" />
+                    <circle class="orbit" cx="500" cy="260" r="118" />
+
+                    <path class="connector" d="M500 260 L280 140" />
+                    <path class="connector" d="M500 260 L720 140" />
+                    <path class="connector" d="M500 260 L280 380" />
+                    <path class="connector" d="M500 260 L720 380" />
+                    <circle class="anchor-dot" cx="280" cy="140" r="4" />
+                    <circle class="anchor-dot" cx="720" cy="140" r="4" />
+                    <circle class="anchor-dot" cx="280" cy="380" r="4" />
+                    <circle class="anchor-dot" cx="720" cy="380" r="4" />
+
+                    <circle class="moving-dot" r="4">
+                        <animateMotion dur="3.8s" repeatCount="indefinite" path="M500 260 L280 140 L500 260" />
+                    </circle>
+                    <circle class="moving-dot" r="4">
+                        <animateMotion dur="4.2s" begin="-1.1s" repeatCount="indefinite" path="M500 260 L720 140 L500 260" />
+                    </circle>
+                    <circle class="moving-dot" r="4">
+                        <animateMotion dur="4.5s" begin="-2.2s" repeatCount="indefinite" path="M500 260 L280 380 L500 260" />
+                    </circle>
+                    <circle class="moving-dot" r="4">
+                        <animateMotion dur="4s" begin="-3s" repeatCount="indefinite" path="M500 260 L720 380 L500 260" />
+                    </circle>
+
+                    <g>
+                        <rect class="card" x="18" y="80" width="262" height="120" rx="18" />
+                        <path class="card-icon" d="M46 122l16-9 16 9-16 9-16-9zm0 0v19l16 9 16-9v-19m-16 9v19" />
+                        <text class="card-category" x="98" y="119">INVENTORY</text>
+                        <text class="card-title" x="98" y="153">Stok gudang</text>
+                        <circle class="card-led" cx="250" cy="140" r="3.5" />
+                    </g>
+                    <g>
+                        <rect class="card" x="720" y="80" width="262" height="120" rx="18" />
+                        <path class="card-icon" d="M748 151v-35m0 35h38m-31-10 10-10 9 5 13-16" />
+                        <text class="card-category" x="800" y="119">SALES</text>
+                        <text class="card-title" x="800" y="153">Penjualan</text>
+                        <circle class="card-led" cx="952" cy="140" r="3.5" />
+                    </g>
+                    <g>
+                        <rect class="card" x="18" y="320" width="262" height="120" rx="18" />
+                        <circle class="card-icon" cx="54" cy="357" r="7" />
+                        <circle class="card-icon" cx="75" cy="360" r="6" />
+                        <path class="card-icon" d="M40 389c1-12 7-18 14-18s13 6 14 18m-1-15c10 0 16 5 17 15" />
+                        <text class="card-category" x="98" y="359">PEOPLE</text>
+                        <text class="card-title" x="98" y="393">Tim lapangan</text>
+                        <circle class="card-led" cx="250" cy="380" r="3.5" />
+                    </g>
+                    <g>
+                        <rect class="card" x="720" y="320" width="262" height="120" rx="18" />
+                        <path class="card-icon" d="M765 346l17 6v13c0 12-7 20-17 25-10-5-17-13-17-25v-13l17-6zm-8 19 6 6 12-13" />
+                        <text class="card-category" x="800" y="359">CONTROL</text>
+                        <text class="card-title" x="800" y="393">Approval &amp; audit</text>
+                        <circle class="card-led" cx="952" cy="380" r="3.5" />
+                    </g>
+
+                    <circle class="center-logo-ring" cx="500" cy="260" r="61" />
+                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="450" y="210" width="100" height="100" />
+                    <text class="center-title" x="500" y="345" text-anchor="middle">SURYA</text>
+                    <text class="center-caption" x="500" y="365" text-anchor="middle">CONNECTED WORKSPACE</text>
+                </svg>
+                <svg class="operations-map-mobile" viewBox="0 0 360 280" preserveAspectRatio="xMidYMid meet">
+                    <circle class="orbit orbit--dashed" cx="180" cy="140" r="112" />
+                    <circle class="orbit" cx="180" cy="140" r="73" />
+                    <path class="connector" d="M180 140 L156 45 M180 140 L204 45 M180 140 L156 235 M180 140 L204 235" />
+                    <circle class="anchor-dot" cx="156" cy="45" r="3" />
+                    <circle class="anchor-dot" cx="204" cy="45" r="3" />
+                    <circle class="anchor-dot" cx="156" cy="235" r="3" />
+                    <circle class="anchor-dot" cx="204" cy="235" r="3" />
+                    <circle class="moving-dot" r="3">
+                        <animateMotion dur="3.2s" repeatCount="indefinite" path="M180 140 L156 45 L180 140" />
+                    </circle>
+                    <circle class="moving-dot" r="3">
+                        <animateMotion dur="3.8s" begin="-1s" repeatCount="indefinite" path="M180 140 L204 45 L180 140" />
+                    </circle>
+                    <circle class="moving-dot" r="3">
+                        <animateMotion dur="4s" begin="-2s" repeatCount="indefinite" path="M180 140 L156 235 L180 140" />
+                    </circle>
+                    <circle class="moving-dot" r="3">
+                        <animateMotion dur="3.5s" begin="-2.7s" repeatCount="indefinite" path="M180 140 L204 235 L180 140" />
+                    </circle>
+                    <rect class="card" x="3" y="12" width="153" height="66" rx="12" />
+                    <text class="card-category" x="15" y="37">INVENTORY</text>
+                    <text class="card-title" x="15" y="57">Stok gudang</text>
+                    <circle class="card-led" cx="142" cy="45" r="2.5" />
+                    <rect class="card" x="204" y="12" width="153" height="66" rx="12" />
+                    <text class="card-category" x="216" y="37">SALES</text>
+                    <text class="card-title" x="216" y="57">Penjualan</text>
+                    <circle class="card-led" cx="343" cy="45" r="2.5" />
+                    <rect class="card" x="3" y="202" width="153" height="66" rx="12" />
+                    <text class="card-category" x="15" y="227">PEOPLE</text>
+                    <text class="card-title" x="15" y="247">Tim lapangan</text>
+                    <circle class="card-led" cx="142" cy="235" r="2.5" />
+                    <rect class="card" x="204" y="202" width="153" height="66" rx="12" />
+                    <text class="card-category" x="216" y="227">CONTROL</text>
+                    <text class="card-title" x="216" y="247">Approval &amp; audit</text>
+                    <circle class="card-led" cx="343" cy="235" r="2.5" />
+                    <circle class="center-logo-ring" cx="180" cy="140" r="34" />
+                    <image class="center-logo" href="/assets/img/surya-logo-mobile.webp" x="151" y="111" width="58" height="58" />
+                    <text class="center-title" x="180" y="190" text-anchor="middle">SURYA</text>
+                    <text class="center-caption" x="180" y="198" text-anchor="middle">CONNECTED WORKSPACE</text>
+                </svg>
             </div>
         </section>
         <section class="login-panel">
