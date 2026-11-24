@@ -14,7 +14,8 @@
 .enterprise-sidebar .sidebar-link span{display:block;line-height:18px}
 .enterprise-sidebar .sidebar-link i{width:20px;flex:0 0 20px;text-align:center;font-size:15px;line-height:18px}
 .enterprise-sidebar .sidebar-link:hover{background:rgba(255,255,255,.12);color:#fff}
-.enterprise-sidebar .sidebar-link.active{background:#fff;color:#b5001c;box-shadow:0 6px 16px rgba(38,0,5,.15)}
+.enterprise-sidebar .sidebar-link.active{background:linear-gradient(90deg,#fff 0%,#fff 15%,rgba(255,255,255,.9) 20%,rgba(255,255,255,.48) 26%,rgba(255,255,255,0) 34%);color:#fff;box-shadow:0 6px 16px rgba(38,0,5,.15)}
+.enterprise-sidebar .sidebar-link.active i{color:#b5001c}
 .enterprise-sidebar .sidebar-foot{flex-shrink:0;margin-top:auto;padding:16px 8px 2px;border-top:1px solid rgba(255,255,255,.18)}
 .enterprise-sidebar .sidebar-user{display:flex;align-items:center;gap:10px}
 .enterprise-sidebar .sidebar-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.14);color:#fff}
