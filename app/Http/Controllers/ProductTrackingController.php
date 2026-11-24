@@ -67,10 +67,30 @@ class ProductTrackingController extends MonitaDumaiController
             if ($maxEnd === null || $this->compareSerials($range->serial_end, $maxEnd) > 0) $maxEnd = $range->serial_end;
             $range->prefix_end = $maxEnd;
         }
-        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRanges, $canonicalSerial) {
+        $latestCompleteScanUpload = DB::table('product_tracking_uploads')
+            ->where('kind', 'scan')->where('status', 'complete')->max('id');
+        $allCoverageRanges = Cache::remember(
+            'product-tracking:sold-all-digipos-ranges:'.($latestCompleteScanUpload ?: 'none'),
+            now()->addMinutes(10),
+            fn () => $this->mergeSerialRanges(DB::table('product_tracking_digipos as digipos')
+                ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
+                ->where('upload.kind', 'scan')->where('upload.status', 'complete')
+                ->get(['digipos.serial_start', 'digipos.serial_end'])
+                ->map(fn ($range) => [
+                    'serial_start' => $canonicalSerial($range->serial_start),
+                    'serial_end' => $canonicalSerial($range->serial_end),
+                ])->all())
+        );
+        $currentCoverageRanges = $this->mergeSerialRanges($scanRanges->map(fn ($range) => [
+            'serial_start' => $range->serial_start,
+            'serial_end' => $range->serial_end,
+        ])->all());
+
+        $allOutletRows = $sourceQuery->get()->groupBy('id_outlet')->map(function ($sales, $idOutlet) use ($scanRanges, $canonicalSerial, $allCoverageRanges, $currentCoverageRanges) {
             $first = $sales->first();
             $qty = 0;
             $matchedQty = 0;
+            $mismatchAlreadyDigiposQty = 0;
             // DigiPOS and ST Nota may store different IDs for the same physical outlet.
             // Validate by SN range across the selected scan window, not by outlet ID.
             $scans = $scanRanges;
@@ -98,7 +118,15 @@ class ProductTrackingController extends MonitaDumaiController
                     $matched += (int) $this->serialRangeCount($overlapStart, $overlapEnd);
                 }
                 $matchedQty += min($saleQty, $matched);
+
+                $coveredCurrent = min($saleQty, $this->serialCoverageCount($saleStart, $saleEnd, $currentCoverageRanges));
+                $coveredAnyDate = min($saleQty, $this->serialCoverageCount($saleStart, $saleEnd, $allCoverageRanges));
+                $saleMismatchQty = max($saleQty - min($saleQty, $matched), 0);
+                $mismatchAlreadyDigiposQty += min($saleMismatchQty, max($coveredAnyDate - $coveredCurrent, 0));
             }
+
+            $mismatchQty = max($qty - $matchedQty, 0);
+            $mismatchAlreadyDigiposQty = min($mismatchQty, $mismatchAlreadyDigiposQty);
 
             return (object) [
                 'id_outlet' => (string) $idOutlet,
@@ -111,7 +139,9 @@ class ProductTrackingController extends MonitaDumaiController
                 'kecamatan' => $sales->pluck('kecamatan')->filter()->sort()->last(),
                 'qty' => $qty,
                 'matched_qty' => $matchedQty,
-                'mismatch_qty' => max($qty - $matchedQty, 0),
+                'mismatch_qty' => $mismatchQty,
+                'mismatch_digipos_qty' => $mismatchAlreadyDigiposQty,
+                'mismatch_non_digipos_qty' => max($mismatchQty - $mismatchAlreadyDigiposQty, 0),
             ];
         })->values();
         $outletIds = $allOutletRows->pluck('id_outlet')->filter()->unique()->values();
@@ -187,6 +217,8 @@ class ProductTrackingController extends MonitaDumaiController
                 'qty' => (int) $groups->sum('qty'),
                 'matched_qty' => (int) $groups->sum('matched_qty'),
                 'mismatch_qty' => (int) $groups->sum('mismatch_qty'),
+                'mismatch_digipos_qty' => (int) $groups->sum('mismatch_digipos_qty'),
+                'mismatch_non_digipos_qty' => (int) $groups->sum('mismatch_non_digipos_qty'),
             ];
         })->values();
         $clusterSummaries->push((object) [
@@ -197,6 +229,8 @@ class ProductTrackingController extends MonitaDumaiController
             'qty' => (int) $clusterSummaries->sum('qty'),
             'matched_qty' => (int) $clusterSummaries->sum('matched_qty'),
             'mismatch_qty' => (int) $clusterSummaries->sum('mismatch_qty'),
+            'mismatch_digipos_qty' => (int) $clusterSummaries->sum('mismatch_digipos_qty'),
+            'mismatch_non_digipos_qty' => (int) $clusterSummaries->sum('mismatch_non_digipos_qty'),
         ]);
 
         $totals = $allOutletRows->reduce(function ($totals, $row) {
@@ -206,8 +240,10 @@ class ProductTrackingController extends MonitaDumaiController
             $totals->serial_count += (int) $row->qty;
             $totals->matched_qty += (int) $row->matched_qty;
             $totals->mismatch_qty += (int) $row->mismatch_qty;
+            $totals->mismatch_digipos_qty += (int) $row->mismatch_digipos_qty;
+            $totals->mismatch_non_digipos_qty += (int) $row->mismatch_non_digipos_qty;
             return $totals;
-        }, (object) ['outlet_count' => 0, 'matched_outlets' => 0, 'mismatch_outlets' => 0, 'serial_count' => 0, 'matched_qty' => 0, 'mismatch_qty' => 0]);
+        }, (object) ['outlet_count' => 0, 'matched_outlets' => 0, 'mismatch_outlets' => 0, 'serial_count' => 0, 'matched_qty' => 0, 'mismatch_qty' => 0, 'mismatch_digipos_qty' => 0, 'mismatch_non_digipos_qty' => 0]);
         $summary = (object) [
             'outlet_count' => (int) ($totals->outlet_count ?? 0),
             'matched_outlets' => (int) ($totals->matched_outlets ?? 0),
@@ -215,6 +251,8 @@ class ProductTrackingController extends MonitaDumaiController
             'serial_count' => (int) ($totals->serial_count ?? 0),
             'matched_qty' => (int) ($totals->matched_qty ?? 0),
             'mismatch_qty' => (int) ($totals->mismatch_qty ?? 0),
+            'mismatch_digipos_qty' => (int) ($totals->mismatch_digipos_qty ?? 0),
+            'mismatch_non_digipos_qty' => (int) ($totals->mismatch_non_digipos_qty ?? 0),
         ];
 
         return view('surya.product-tracking.sold', [
@@ -475,6 +513,8 @@ class ProductTrackingController extends MonitaDumaiController
             'qty' => (int) $rows->sum('qty'),
             'matched_qty' => (int) $rows->sum('matched_qty'),
             'mismatch_qty' => (int) $rows->sum('mismatch_qty'),
+            'mismatch_digipos_qty' => (int) $rows->sum('mismatch_digipos_qty'),
+            'mismatch_non_digipos_qty' => (int) $rows->sum('mismatch_non_digipos_qty'),
         ];
     }
 
@@ -2516,6 +2556,56 @@ class ProductTrackingController extends MonitaDumaiController
         $left = ltrim($left, '0') ?: '0';
         $right = ltrim($right, '0') ?: '0';
         return strlen($left) <=> strlen($right) ?: strcmp($left, $right);
+    }
+
+    private function mergeSerialRanges(iterable $ranges): array
+    {
+        $ranges = collect($ranges)
+            ->map(fn ($range) => [
+                'serial_start' => (string) (is_array($range) ? ($range['serial_start'] ?? '') : ($range->serial_start ?? '')),
+                'serial_end' => (string) (is_array($range) ? ($range['serial_end'] ?? '') : ($range->serial_end ?? '')),
+            ])
+            ->filter(fn ($range) => $range['serial_start'] !== '' && $range['serial_end'] !== '' && $this->compareSerials($range['serial_start'], $range['serial_end']) <= 0)
+            ->sort(fn ($left, $right) => $this->compareSerials($left['serial_start'], $right['serial_start']) ?: $this->compareSerials($left['serial_end'], $right['serial_end']))
+            ->values();
+
+        $merged = [];
+        foreach ($ranges as $range) {
+            $lastIndex = count($merged) - 1;
+            if ($lastIndex >= 0 && $this->compareSerials($range['serial_start'], $merged[$lastIndex]['serial_end']) <= 0) {
+                if ($this->compareSerials($range['serial_end'], $merged[$lastIndex]['serial_end']) > 0) {
+                    $merged[$lastIndex]['serial_end'] = $range['serial_end'];
+                }
+                continue;
+            }
+            $merged[] = $range;
+        }
+
+        return $merged;
+    }
+
+    private function serialCoverageCount(string $start, string $end, array $ranges): int
+    {
+        $low = 0;
+        $high = count($ranges);
+        while ($low < $high) {
+            $middle = intdiv($low + $high, 2);
+            if ($this->compareSerials($ranges[$middle]['serial_end'], $start) < 0) $low = $middle + 1;
+            else $high = $middle;
+        }
+
+        $covered = 0;
+        for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount; $index++) {
+            $range = $ranges[$index];
+            if ($this->compareSerials($range['serial_start'], $end) > 0) break;
+            $overlapStart = $this->compareSerials($start, $range['serial_start']) >= 0 ? $start : $range['serial_start'];
+            $overlapEnd = $this->compareSerials($end, $range['serial_end']) <= 0 ? $end : $range['serial_end'];
+            if ($this->compareSerials($overlapStart, $overlapEnd) <= 0) {
+                $covered += (int) $this->serialRangeCount($overlapStart, $overlapEnd);
+            }
+        }
+
+        return $covered;
     }
 
     private function subtractOneFromSerial(string $serial): string
