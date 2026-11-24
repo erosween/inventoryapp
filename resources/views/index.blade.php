@@ -116,6 +116,56 @@
             bottom: -90px
         }
 
+        .brand-energy-lines {
+            position: absolute;
+            z-index: 0;
+            overflow: visible;
+            pointer-events: none
+        }
+
+        .brand-energy-lines rect {
+            fill: none;
+            stroke: rgba(255, 255, 255, .9);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-dasharray: 72 1050;
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, .95));
+            animation: brand-energy-travel 8s linear infinite
+        }
+
+        .brand-energy-lines--primary {
+            width: 310px;
+            height: 310px;
+            right: -100px;
+            top: 120px;
+            transform: rotate(18deg)
+        }
+
+        .brand-energy-lines--secondary {
+            width: 210px;
+            height: 210px;
+            left: -100px;
+            bottom: -90px;
+            transform: rotate(18deg)
+        }
+
+        .brand-energy-lines--secondary rect {
+            animation-duration: 6.5s;
+            animation-delay: -3s;
+            opacity: .8
+        }
+
+        @keyframes brand-energy-travel {
+            to { stroke-dashoffset: -1122 }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .brand-energy-lines rect {
+                animation: none;
+                opacity: 0
+            }
+        }
+
         .brand,
         .hero-copy,
         .feature-grid {
@@ -419,6 +469,12 @@
     <div class="login-status-surface" aria-hidden="true"></div>
     <main class="auth-shell">
         <section class="brand-panel">
+            <svg class="brand-energy-lines brand-energy-lines--primary" viewBox="0 0 310 310" aria-hidden="true">
+                <rect x="1" y="1" width="308" height="308" rx="44" />
+            </svg>
+            <svg class="brand-energy-lines brand-energy-lines--secondary" viewBox="0 0 210 210" aria-hidden="true">
+                <rect x="1" y="1" width="208" height="208" rx="44" />
+            </svg>
             <div class="brand"><img src="/assets/img/surya-logo-mobile.webp" alt="Logo SURYA" width="58"
                     height="58">
                 <div><strong>SURYA</strong><small>INVENTORY & SALES CONTROL</small></div>
