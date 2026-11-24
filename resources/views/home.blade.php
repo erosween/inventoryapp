@@ -663,7 +663,7 @@
                         @php
                             $previousMtdMonthNumber = $previousMtdMonth->month;
                             $showPreviousMtdComparison = $salesYear === $momSelectedDate->year && $previousMtdMonthNumber < $momSelectedDate->month;
-                            $previousMtdMonthLabel = $previousMtdMonth->locale('id')->translatedFormat('M');
+                            $previousMtdMonthLabel = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][$previousMtdMonthNumber - 1];
                         @endphp
                         <table class="table table-bordered text-center mb-0" style="font-size:13px; border-bottom:0">
                             <thead class="bg-light">
@@ -671,7 +671,7 @@
                                     <th class="text-left font-weight-bold border-0 text-secondary sticky-tap-col">NAMA TAP</th>
                                     @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $monthIndex => $m)
                                         <th class="border-light">{{ $m }}</th>
-                                        <th class="border-light text-muted" style="font-size: 10px;">{{ $showPreviousMtdComparison && $monthIndex + 1 === $previousMtdMonthNumber ? $previousMtdMonthLabel.'-MoM' : 'MoM %' }}</th>
+                                        <th class="border-light text-muted" style="font-size: 10px;">{{ $showPreviousMtdComparison && $monthIndex + 1 === $previousMtdMonthNumber ? $previousMtdMonthLabel.'-MoM Qty' : 'MoM %' }}</th>
                                     @endforeach
                                 </tr>
                             </thead>
@@ -702,20 +702,29 @@
                                                     $hasPrev = $momData && $momData->prev_partial_qty > 0;
                                                 } elseif ($isPreviousMtdMonth) {
                                                     $comparison = $previousMtdComparisonByTap[$tap] ?? ['current' => 0, 'previous' => 0];
-                                                    $pct = $comparison['previous'] > 0 ? (($comparison['current'] - $comparison['previous']) / $comparison['previous']) * 100 : 0;
-                                                    $hasPrev = $comparison['previous'] > 0;
+                                                    $momQty = $comparison['current'];
+                                                    $hasPrev = $comparison['current'] > 0 || $comparison['previous'] > 0;
+                                                    $momColor = 'text-dark';
+                                                    $icon = '';
                                                 } else {
                                                     $pct = $prevVal > 0 ? (($val - $prevVal) / $prevVal) * 100 : 0;
                                                     $hasPrev = $prevVal > 0;
                                                 }
-                                                $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
-                                                $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                                if ($isPreviousMtdMonth) {
+                                                    $momColor = 'text-dark';
+                                                    $icon = '';
+                                                } else {
+                                                    $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                                    $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                                }
                                             @endphp
                                             <td class="heatmap-cell border-light" style="background-color: {{ $bg }}; color: {{ $color }};">
                                                 {{ $val > 0 ? number_format($val) : '-' }}
                                             </td>
                                             <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
-                                                @if($hasPrev)
+                                                @if($isPreviousMtdMonth)
+                                                    {{ $hasPrev ? number_format($momQty) : '-' }}
+                                                @elseif($hasPrev)
                                                     {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
                                                 @else
                                                     -
@@ -742,7 +751,7 @@
                                                                 @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'] as $monthIndex => $m)
                                                                     <th class="border-0">{{ $m }}</th>
                                                                     @if($showPreviousMtdComparison && $monthIndex + 1 === $previousMtdMonthNumber)
-                                                                        <th class="border-0 text-muted">{{ $previousMtdMonthLabel }}-MoM</th>
+                                                                        <th class="border-0 text-muted">{{ $previousMtdMonthLabel }}-MoM Qty</th>
                                                                     @endif
                                                                 @endforeach
                                                                 <th class="border-0 bg-light">TOTAL</th>
@@ -772,8 +781,7 @@
                                                                         @endphp
                                                                         <td>{{ $mv > 0 ? number_format($mv) : '-' }}</td>
                                                                         @if($showPreviousMtdComparison && $m === $previousMtdMonthNumber)
-                                                                            @php $staffMom = $sfMtdPrevious > 0 ? (($sfMtdCurrent - $sfMtdPrevious) / $sfMtdPrevious) * 100 : null; @endphp
-                                                                            <td class="{{ is_null($staffMom) ? 'text-muted' : ($staffMom >= 0 ? 'text-success' : 'text-danger') }} font-weight-bold">{{ is_null($staffMom) ? '-' : number_format($staffMom, 1).'%' }}</td>
+                                                                            <td class="text-dark font-weight-bold">{{ $sfMtdCurrent > 0 ? number_format($sfMtdCurrent) : '-' }}</td>
                                                                         @endif
                                                                     @endfor
                                                                     <td class="bg-light font-weight-bold">{{ number_format($sfTotal) }}</td>
@@ -871,16 +879,23 @@
                                             if($isCurrentMonth) {
                                                 $pct = $momClusterSales['dumai_bengkalis'] ?? 0;
                                             } elseif ($isPreviousMtdMonth) {
-                                                $pct = $mtdPreviousDumai > 0 ? (($mtdCurrentDumai - $mtdPreviousDumai) / $mtdPreviousDumai) * 100 : 0;
+                                                $momQty = $mtdCurrentDumai;
                                             } else {
                                                 $pct = $prevTotalDumai > 0 ? (($totalDumai - $prevTotalDumai) / $prevTotalDumai) * 100 : 0;
                                             }
-                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
-                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                            if ($isPreviousMtdMonth) {
+                                                $momColor = 'text-dark';
+                                                $icon = '';
+                                            } else {
+                                                $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                                $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                            }
                                         @endphp
                                         <td class="border-light opacity-75">{{ $totalDumai > 0 ? number_format($totalDumai) : '-' }}</td>
                                         <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
-                                            @if($prevTotalDumai > 0 || ($isCurrentMonth && $pct != 0))
+                                            @if($isPreviousMtdMonth)
+                                                {{ $mtdCurrentDumai > 0 || $mtdPreviousDumai > 0 ? number_format($momQty) : '-' }}
+                                            @elseif($prevTotalDumai > 0 || ($isCurrentMonth && $pct != 0))
                                                 {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
                                             @else - @endif
                                         </td>
@@ -970,16 +985,23 @@
                                             if($isCurrentMonth) {
                                                 $pct = $momClusterSales['rokan_hilir'] ?? 0;
                                             } elseif ($isPreviousMtdMonth) {
-                                                $pct = $mtdPreviousRohil > 0 ? (($mtdCurrentRohil - $mtdPreviousRohil) / $mtdPreviousRohil) * 100 : 0;
+                                                $momQty = $mtdCurrentRohil;
                                             } else {
                                                 $pct = $prevTotalRohil > 0 ? (($totalRohil - $prevTotalRohil) / $prevTotalRohil) * 100 : 0;
                                             }
-                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
-                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                            if ($isPreviousMtdMonth) {
+                                                $momColor = 'text-dark';
+                                                $icon = '';
+                                            } else {
+                                                $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                                $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                            }
                                         @endphp
                                         <td class="border-light opacity-75">{{ $totalRohil > 0 ? number_format($totalRohil) : '-' }}</td>
                                         <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: #fafafa">
-                                            @if($prevTotalRohil > 0 || ($isCurrentMonth && $pct != 0))
+                                            @if($isPreviousMtdMonth)
+                                                {{ $mtdCurrentRohil > 0 || $mtdPreviousRohil > 0 ? number_format($momQty) : '-' }}
+                                            @elseif($prevTotalRohil > 0 || ($isCurrentMonth && $pct != 0))
                                                 {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
                                             @else - @endif
                                         </td>
@@ -1069,16 +1091,23 @@
                                             if($isCurrentMonth) {
                                                 $pct = $mom; // Global Sales MoM
                                             } elseif ($isPreviousMtdMonth) {
-                                                $pct = $mtdPreviousGT > 0 ? (($mtdCurrentGT - $mtdPreviousGT) / $mtdPreviousGT) * 100 : 0;
+                                                $momQty = $mtdCurrentGT;
                                             } else {
                                                 $pct = $prevTotalGT > 0 ? (($totalGT - $prevTotalGT) / $prevTotalGT) * 100 : 0;
                                             }
-                                            $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
-                                            $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                            if ($isPreviousMtdMonth) {
+                                                $momColor = 'text-dark';
+                                                $icon = '';
+                                            } else {
+                                                $momColor = $pct > 0 ? 'text-success' : ($pct < 0 ? 'text-danger' : 'text-muted');
+                                                $icon = $pct > 0 ? '↑' : ($pct < 0 ? '↓' : '');
+                                            }
                                         @endphp
                                         <td class="border-light font-weight-bold">{{ $totalGT > 0 ? number_format($totalGT) : '-' }}</td>
                                         <td class="border-light {{ $momColor }} font-weight-bold" style="font-size: 10px; vertical-align: middle; background: rgba(0,0,0,0.05)">
-                                            @if($prevTotalGT > 0 || ($isCurrentMonth && $pct != 0))
+                                            @if($isPreviousMtdMonth)
+                                                {{ $mtdCurrentGT > 0 || $mtdPreviousGT > 0 ? number_format($momQty) : '-' }}
+                                            @elseif($prevTotalGT > 0 || ($isCurrentMonth && $pct != 0))
                                                 {{ number_format($pct, 1) }}% <span style="font-size: 8px;">{{ $icon }}</span>
                                             @else - @endif
                                         </td>

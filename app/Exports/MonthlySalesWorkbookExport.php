@@ -35,7 +35,7 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
         foreach ($months as $index => $month) array_push(
             $headers,
             $month,
-            $showPreviousMtdComparison && $index + 1 === $previousMtdMonthNumber ? $previousMtdMonthLabel.'-MoM %' : 'MoM %'
+            $showPreviousMtdComparison && $index + 1 === $previousMtdMonthNumber ? $previousMtdMonthLabel.'-MoM Qty' : 'MoM %'
         );
         $tapRows = [];
         foreach ($this->data['matrixSales'] ?? [] as $tap => $values) {
@@ -45,9 +45,7 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
                 $line[] = $current;
                 if ($showPreviousMtdComparison && $month === $previousMtdMonthNumber) {
                     $comparison = $this->data['previousMtdComparisonByTap'][$tap] ?? ['current' => 0, 'previous' => 0];
-                    $line[] = $comparison['previous'] > 0
-                        ? ($comparison['current'] / $comparison['previous']) - 1
-                        : null;
+                    $line[] = (int) $comparison['current'];
                 } else {
                     $previous = $month === 1
                         ? (int) (($this->data['prevDecSales'][$tap] ?? 0))
@@ -62,7 +60,7 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
         foreach ($months as $index => $month) {
             $sfHeaders[] = $month;
             if ($showPreviousMtdComparison && $index + 1 === $previousMtdMonthNumber) {
-                $sfHeaders[] = $previousMtdMonthLabel.'-MoM %';
+                $sfHeaders[] = $previousMtdMonthLabel.'-MoM Qty';
             }
         }
         $sfHeaders[] = 'TOTAL';
@@ -73,7 +71,6 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
                 $line = [$tap, $sf->namasf];
                 $total = 0;
                 $mtdCurrent = 0;
-                $mtdPrevious = 0;
                 foreach (range(1, 12) as $month) {
                     $value = 0;
                     foreach ($ids as $id) $value += (int) ($this->data['matrixSalesSf'][$id][$month] ?? 0);
@@ -83,9 +80,8 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
                         foreach ($ids as $id) {
                             $comparison = $this->data['previousMtdComparisonBySf'][$tap][$id] ?? ['current' => 0, 'previous' => 0];
                             $mtdCurrent += (int) $comparison['current'];
-                            $mtdPrevious += (int) $comparison['previous'];
                         }
-                        $line[] = $mtdPrevious > 0 ? ($mtdCurrent / $mtdPrevious) - 1 : null;
+                        $line[] = $mtdCurrent;
                     }
                 }
                 $line[] = $total;

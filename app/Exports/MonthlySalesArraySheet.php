@@ -23,9 +23,12 @@ class MonthlySalesArraySheet implements FromArray, WithTitle, WithStyles, WithCo
     {
         $formats = [];
         foreach ($this->rows[0] ?? [] as $index => $heading) {
-            if (str_contains((string) $heading, 'MoM')) {
+            if (str_contains((string) $heading, 'MoM') && str_contains((string) $heading, '%')) {
                 $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
                 $formats[$letter] = NumberFormat::FORMAT_PERCENTAGE_0;
+            } elseif (str_contains((string) $heading, 'MoM Qty')) {
+                $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+                $formats[$letter] = '#,##0';
             }
         }
         return $formats;
