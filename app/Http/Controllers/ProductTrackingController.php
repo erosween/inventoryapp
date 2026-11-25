@@ -1481,6 +1481,8 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
         $key = (string) $request->query('column');
         $product = strtoupper((string) $request->query('product', 'PV'));
+        if (str_ends_with($key, '_sa')) $product = 'SA';
+        elseif (str_ends_with($key, '_pv')) $product = 'PV';
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
         $allRequest = clone $request;
         // Keep facets scoped to the requested product. Forcing PV here made the
