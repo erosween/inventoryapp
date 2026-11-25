@@ -1199,8 +1199,7 @@ class ProductTrackingController extends MonitaDumaiController
                 'source.serial_end', 'source.serial_count', 'source.st_date',
             ]);
 
-            // Read current stock ranges once, then fetch only overlapping SO rows
-            // in small batches. The large sales history stays in MariaDB.
+            // Keep current stock ranges in memory; stream SO candidates from MariaDB.
             $canonical = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
                 ? substr((string) $serial, 1) : (string) $serial;
             $stRanges = (clone $stRangesQuery)->get();
