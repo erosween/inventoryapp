@@ -1248,9 +1248,13 @@ class ProductTrackingController extends MonitaDumaiController
                     } elseif ($family['prefix_mode'] === 'nonzero') {
                         $soQuery->whereRaw("LEFT(so.serial_start, 1) <> '0' AND LEFT(so.serial_end, 1) <> '0'");
                     }
-                    $soQuery->addSelect('so.id as so_id');
-                    $soQuery->chunkById(5000, function ($sales) use ($stockRanges, $length, $canonical, &$metrics) {
-                        foreach ($sales as $sale) {
+                    $pdo = DB::connection()->getPdo();
+                    $bufferedQuery = DB::connection()->getDriverName() === 'mysql'
+                        ? $pdo->getAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY)
+                        : null;
+                    if ($bufferedQuery !== null) $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+                    try {
+                        foreach ($soQuery->cursor() as $sale) {
                             $saleStartText = $canonical($sale->serial_start);
                             $saleEndText = $canonical($sale->serial_end);
                             if (strlen($saleStartText) !== $length || strlen($saleEndText) !== $length
@@ -1279,7 +1283,9 @@ class ProductTrackingController extends MonitaDumaiController
                                 }
                             }
                         }
-                    }, 'so.id', 'so_id');
+                    } finally {
+                        if ($bufferedQuery !== null) $pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, $bufferedQuery);
+                    }
                 }
             }
 
