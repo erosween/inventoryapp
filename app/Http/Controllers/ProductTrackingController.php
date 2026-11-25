@@ -1217,99 +1217,69 @@ class ProductTrackingController extends MonitaDumaiController
                 $rangesByLength[$length][] = ['range' => $stRange, 'start' => (int) $start, 'end' => (int) $end,
                     'length' => $length, 'start_text' => $start, 'end_text' => $end];
             }
-            $windowsByLength = [];
-            foreach ($rangesByLength as $length => $candidates) {
-                usort($candidates, fn ($a, $b) => $a['start'] <=> $b['start'] ?: $a['end'] <=> $b['end']);
-                foreach ($candidates as $candidate) {
-                    $last = count($windowsByLength[$length] ?? []) - 1;
-                    if ($last >= 0 && $candidate['start'] <= $windowsByLength[$length][$last]['end'] + 1) {
-                        $windowsByLength[$length][$last]['end'] = max($windowsByLength[$length][$last]['end'], $candidate['end']);
-                        $windowsByLength[$length][$last]['end_text'] = str_pad((string) $windowsByLength[$length][$last]['end'], $length, '0', STR_PAD_LEFT);
-                        $windowsByLength[$length][$last]['members'][] = $candidate;
-                    } else {
-                        $windowsByLength[$length][] = $candidate + ['members' => [$candidate]];
-                    }
+            foreach ($rangesByLength as &$ranges) {
+                usort($ranges, fn ($a, $b) => $a['start'] <=> $b['start'] ?: $a['end'] <=> $b['end']);
+                $maxEnd = -1;
+                foreach ($ranges as &$range) {
+                    $maxEnd = max($maxEnd, $range['end']);
+                    $range['prefix_end'] = $maxEnd;
                 }
+                unset($range);
             }
+            unset($ranges);
 
-            $queryWindows = collect($windowsByLength)->flatten(1)->chunk(200);
-            foreach ($queryWindows as $validBatch) {
-                $soQuery = clone $soBase;
-                $soQuery->where(function ($overlaps) use ($validBatch) {
-                    foreach ($validBatch as $candidate) {
-                        $length = $candidate['length'];
-                        $start = $candidate['start_text'];
-                        $end = $candidate['end_text'];
-                        $addFamily = function (int $sourceLength, string $prefix = '', bool $excludeZeroPrefix = false) use ($overlaps, $start, $end): void {
-                            $overlaps->orWhere(function ($family) use ($sourceLength, $prefix, $excludeZeroPrefix, $start, $end) {
-                                $family->whereRaw('CHAR_LENGTH(so.serial_start) = ?', [$sourceLength])
-                                    ->whereRaw('CHAR_LENGTH(so.serial_end) = ?', [$sourceLength]);
-                                if ($prefix !== '') {
-                                    $family->whereRaw("LEFT(so.serial_start, 1) = '0' AND LEFT(so.serial_end, 1) = '0'");
-                                } elseif ($excludeZeroPrefix) {
-                                    $family->whereRaw("LEFT(so.serial_start, 1) <> '0' AND LEFT(so.serial_end, 1) <> '0'");
+            foreach ($rangesByLength as $length => $stockRanges) {
+                if ($stockRanges === []) continue;
+                $minStart = str_pad((string) min(array_column($stockRanges, 'start')), $length, '0', STR_PAD_LEFT);
+                $maxEnd = str_pad((string) max(array_column($stockRanges, 'end')), $length, '0', STR_PAD_LEFT);
+                $families = $length === 15
+                    ? [['source_length' => 15, 'prefix' => '', 'prefix_mode' => 'any'], ['source_length' => 16, 'prefix' => '0', 'prefix_mode' => 'zero']]
+                    : [['source_length' => $length, 'prefix' => '', 'prefix_mode' => $length === 16 ? 'nonzero' : 'any']];
+                foreach ($families as $family) {
+                    $sourceLength = $family['source_length'];
+                    $prefix = $family['prefix'];
+                    $soQuery = (clone $soBase)
+                        ->whereRaw('CHAR_LENGTH(so.serial_start) = ?', [$sourceLength])
+                        ->whereRaw('CHAR_LENGTH(so.serial_end) = ?', [$sourceLength])
+                        ->where('so.serial_end', '>=', $prefix.$minStart)
+                        ->where('so.serial_start', '<=', $prefix.$maxEnd);
+                    if ($family['prefix_mode'] === 'zero') {
+                        $soQuery->whereRaw("LEFT(so.serial_start, 1) = '0' AND LEFT(so.serial_end, 1) = '0'");
+                    } elseif ($family['prefix_mode'] === 'nonzero') {
+                        $soQuery->whereRaw("LEFT(so.serial_start, 1) <> '0' AND LEFT(so.serial_end, 1) <> '0'");
+                    }
+                    $soQuery->addSelect('so.id as so_id');
+                    $soQuery->chunkById(5000, function ($sales) use ($stockRanges, $length, $canonical, &$metrics) {
+                        foreach ($sales as $sale) {
+                            $saleStartText = $canonical($sale->serial_start);
+                            $saleEndText = $canonical($sale->serial_end);
+                            if (strlen($saleStartText) !== $length || strlen($saleEndText) !== $length
+                                || ! ctype_digit($saleStartText) || ! ctype_digit($saleEndText)) continue;
+                            $saleStart = (int) $saleStartText;
+                            $saleEnd = (int) $saleEndText;
+                            $low = 0;
+                            $high = count($stockRanges);
+                            while ($low < $high) {
+                                $middle = intdiv($low + $high, 2);
+                                if ($stockRanges[$middle]['prefix_end'] < $saleStart) $low = $middle + 1;
+                                else $high = $middle;
+                            }
+                            for ($i = $low, $count = count($stockRanges); $i < $count && $stockRanges[$i]['start'] <= $saleEnd; $i++) {
+                                $stockRange = $stockRanges[$i];
+                                if ($stockRange['end'] < $saleStart) continue;
+                                $overlap = min($saleEnd, $stockRange['end']) - max($saleStart, $stockRange['start']) + 1;
+                                if ($overlap <= 0) continue;
+                                $outletId = (string) $stockRange['range']->id_outlet;
+                                $metrics[$outletId]['redeemed_qty'] += $overlap;
+                                $stTime = $stockRange['range']->st_date ? strtotime((string) $stockRange['range']->st_date) : false;
+                                $soTime = $sale->sold_at ? strtotime((string) $sale->sold_at) : false;
+                                if ($stTime !== false && $soTime !== false) {
+                                    $metrics[$outletId]['timed_qty'] += $overlap;
+                                    $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
                                 }
-                                $family->where('so.serial_end', '>=', $prefix.$start)
-                                    ->where('so.serial_start', '<=', $prefix.$end);
-                            });
-                        };
-                        if ($length === 15) {
-                            $addFamily(15);
-                            $addFamily(16, '0');
-                        } elseif ($length === 16) {
-                            $addFamily(16, '', true);
-                        } else {
-                            $addFamily($length);
-                        }
-                    }
-                });
-
-                $soByLength = [];
-                foreach ($soQuery->get() as $so) {
-                    $start = $canonical($so->serial_start);
-                    $end = $canonical($so->serial_end);
-                    if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
-                    $soByLength[strlen($start)][] = [(int) $start, (int) $end, $so->sold_at];
-                }
-                foreach ($soByLength as &$ranges) {
-                    usort($ranges, fn ($a, $b) => $a[0] <=> $b[0] ?: $a[1] <=> $b[1]);
-                    $maxEnd = -1;
-                    foreach ($ranges as &$range) {
-                        $maxEnd = max($maxEnd, $range[1]);
-                        $range[3] = $maxEnd;
-                    }
-                    unset($range);
-                }
-                unset($ranges);
-
-                foreach ($validBatch as $window) {
-                    $ranges = $soByLength[$window['length']] ?? [];
-                    foreach ($window['members'] as $candidate) {
-                        $stRange = $candidate['range'];
-                        $outletId = (string) $stRange->id_outlet;
-                        $startNumber = $candidate['start'];
-                        $endNumber = $candidate['end'];
-                        $low = 0;
-                        $high = count($ranges);
-                        while ($low < $high) {
-                            $middle = intdiv($low + $high, 2);
-                            if ($ranges[$middle][3] < $startNumber) $low = $middle + 1;
-                            else $high = $middle;
-                        }
-                        for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index][0] <= $endNumber; $index++) {
-                            $soRange = $ranges[$index];
-                            if ($soRange[1] < $startNumber) continue;
-                            $overlap = min($endNumber, $soRange[1]) - max($startNumber, $soRange[0]) + 1;
-                            if ($overlap <= 0) continue;
-                            $metrics[$outletId]['redeemed_qty'] += $overlap;
-                            $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
-                            $soTime = $soRange[2] ? strtotime((string) $soRange[2]) : false;
-                            if ($stTime !== false && $soTime !== false) {
-                                $metrics[$outletId]['timed_qty'] += $overlap;
-                                $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
                             }
                         }
-                    }
+                    }, 'so.id', 'so_id');
                 }
             }
 
