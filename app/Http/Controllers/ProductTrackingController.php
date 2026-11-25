@@ -1188,7 +1188,7 @@ class ProductTrackingController extends MonitaDumaiController
         $cacheKey = 'stock-outlet-report-v9-'.sha1(json_encode([
             $product, $this->suryaTapScopes(), $reportVersion,
         ]));
-        $cachedRows = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
+        $cachedRows = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
             $eligibleOutletIds = $outletRows->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
@@ -1200,57 +1200,103 @@ class ProductTrackingController extends MonitaDumaiController
                 'source.serial_end', 'source.serial_count', 'source.st_date',
             ]);
 
-            // Match sorted intervals in PHP instead of asking MariaDB to join every
-            // ST range against the complete SO history with DECIMAL casts.
+            // Read current stock ranges once, then fetch only overlapping SO rows
+            // in small batches. The large sales history stays in MariaDB.
             $canonical = static fn ($serial): string => strlen((string) $serial) === 16 && str_starts_with((string) $serial, '0')
                 ? substr((string) $serial, 1) : (string) $serial;
-            $serialBounds = [];
-            foreach ((clone $stRangesQuery)->cursor() as $stRange) {
-                $start = $canonical($stRange->serial_start);
-                $end = $canonical($stRange->serial_end);
-                if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
-                $length = strlen($start);
-                $serialBounds[$length] ??= ['min' => (int) $start, 'max' => (int) $end];
-                $serialBounds[$length]['min'] = min($serialBounds[$length]['min'], (int) $start);
-                $serialBounds[$length]['max'] = max($serialBounds[$length]['max'], (int) $end);
-            }
-            $soQuery = clone $soBase;
-            $soQuery->where(function ($query) use ($serialBounds) {
-                foreach ($serialBounds as $length => $bounds) {
-                    $min = str_pad((string) $bounds['min'], $length, '0', STR_PAD_LEFT);
-                    $max = str_pad((string) $bounds['max'], $length, '0', STR_PAD_LEFT);
-                    if ((int) $length === 15) {
-                        $query->orWhere(function ($family) use ($min, $max) {
-                            $family->whereRaw('CHAR_LENGTH(so.serial_start) = 15')->where('so.serial_end', '>=', $min)->where('so.serial_start', '<=', $max);
-                        })->orWhere(function ($family) use ($min, $max) {
-                            $family->whereRaw("CHAR_LENGTH(so.serial_start) = 16 AND LEFT(so.serial_start, 1) = '0' AND LEFT(so.serial_end, 1) = '0'")
-                                ->where('so.serial_end', '>=', '0'.$min)->where('so.serial_start', '<=', '0'.$max);
-                        });
-                    } else {
-                        $query->orWhere(function ($family) use ($length, $min, $max) {
-                            $family->whereRaw('CHAR_LENGTH(so.serial_start) = ?', [(int) $length])
-                                ->where('so.serial_end', '>=', $min)->where('so.serial_start', '<=', $max);
-                        });
+            $stRanges = (clone $stRangesQuery)->get();
+            $metrics = [];
+            foreach ($stRanges->chunk(75) as $batch) {
+                $validBatch = [];
+                foreach ($batch as $stRange) {
+                    $outletId = (string) $stRange->id_outlet;
+                    $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
+                    $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
+                    $start = $canonical($stRange->serial_start);
+                    $end = $canonical($stRange->serial_end);
+                    if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
+                    $validBatch[] = ['range' => $stRange, 'start' => (int) $start, 'end' => (int) $end,
+                        'length' => strlen($start), 'start_text' => $start, 'end_text' => $end];
+                }
+                if ($validBatch === []) continue;
+
+                $soQuery = (clone $soBase)->whereIn('so.id_outlet', $eligibleOutletIds);
+                $soQuery->where(function ($overlaps) use ($validBatch) {
+                    foreach ($validBatch as $candidate) {
+                        $length = $candidate['length'];
+                        $start = $candidate['start_text'];
+                        $end = $candidate['end_text'];
+                        $addFamily = function (int $sourceLength, string $prefix = '', bool $excludeZeroPrefix = false) use ($overlaps, $start, $end): void {
+                            $overlaps->orWhere(function ($family) use ($sourceLength, $prefix, $excludeZeroPrefix, $start, $end) {
+                                $family->whereRaw('CHAR_LENGTH(so.serial_start) = ?', [$sourceLength])
+                                    ->whereRaw('CHAR_LENGTH(so.serial_end) = ?', [$sourceLength]);
+                                if ($prefix !== '') {
+                                    $family->whereRaw("LEFT(so.serial_start, 1) = '0' AND LEFT(so.serial_end, 1) = '0'");
+                                } elseif ($excludeZeroPrefix) {
+                                    $family->whereRaw("LEFT(so.serial_start, 1) <> '0' AND LEFT(so.serial_end, 1) <> '0'");
+                                }
+                                $family->where('so.serial_end', '>=', $prefix.$start)
+                                    ->where('so.serial_start', '<=', $prefix.$end);
+                            });
+                        };
+                        if ($length === 15) {
+                            $addFamily(15);
+                            $addFamily(16, '0');
+                        } elseif ($length === 16) {
+                            $addFamily(16, '', true);
+                        } else {
+                            $addFamily($length);
+                        }
+                    }
+                });
+
+                $soByLength = [];
+                foreach ($soQuery->get() as $so) {
+                    $start = $canonical($so->serial_start);
+                    $end = $canonical($so->serial_end);
+                    if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
+                    $soByLength[strlen($start)][] = [(int) $start, (int) $end, $so->sold_at];
+                }
+                foreach ($soByLength as &$ranges) {
+                    usort($ranges, fn ($a, $b) => $a[0] <=> $b[0] ?: $a[1] <=> $b[1]);
+                    $maxEnd = -1;
+                    foreach ($ranges as &$range) {
+                        $maxEnd = max($maxEnd, $range[1]);
+                        $range[3] = $maxEnd;
+                    }
+                    unset($range);
+                }
+                unset($ranges);
+
+                foreach ($validBatch as $candidate) {
+                    $stRange = $candidate['range'];
+                    $outletId = (string) $stRange->id_outlet;
+                    $startNumber = $candidate['start'];
+                    $endNumber = $candidate['end'];
+                    $ranges = $soByLength[$candidate['length']] ?? [];
+                    if ($ranges === []) continue;
+                    $low = 0;
+                    $high = count($ranges);
+                    while ($low < $high) {
+                        $middle = intdiv($low + $high, 2);
+                        if ($ranges[$middle][3] < $startNumber) $low = $middle + 1;
+                        else $high = $middle;
+                    }
+                    for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index][0] <= $endNumber; $index++) {
+                        $soRange = $ranges[$index];
+                        if ($soRange[1] < $startNumber) continue;
+                        $overlap = min($endNumber, $soRange[1]) - max($startNumber, $soRange[0]) + 1;
+                        if ($overlap <= 0) continue;
+                        $metrics[$outletId]['redeemed_qty'] += $overlap;
+                        $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
+                        $soTime = $soRange[2] ? strtotime((string) $soRange[2]) : false;
+                        if ($stTime !== false && $soTime !== false) {
+                            $metrics[$outletId]['timed_qty'] += $overlap;
+                            $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
+                        }
                     }
                 }
-            });
-            $soByLength = [];
-            foreach ($soQuery->cursor() as $so) {
-                $start = $canonical($so->serial_start);
-                $end = $canonical($so->serial_end);
-                if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
-                $soByLength[strlen($start)][] = [(int) $start, (int) $end, $so->sold_at];
             }
-            foreach ($soByLength as &$ranges) {
-                usort($ranges, fn ($a, $b) => $a[0] <=> $b[0] ?: $a[1] <=> $b[1]);
-                $maxEnd = -1;
-                foreach ($ranges as &$range) {
-                    $maxEnd = max($maxEnd, $range[1]);
-                    $range[3] = $maxEnd;
-                }
-                unset($range);
-            }
-            unset($ranges);
 
             $metrics = [];
             foreach ((clone $stRangesQuery)->cursor() as $stRange) {
@@ -1289,7 +1335,7 @@ class ProductTrackingController extends MonitaDumaiController
             $owners = $sourceMeta->pluck('owner_sf')->filter()->unique()->values()->all();
             $denoms = $sourceMeta->pluck('iddenom')->filter()->unique()->values()->all();
             $daysToOutlet = app(\App\Services\StockOutletTiming::class)->daysToOutlet(
-                (clone $stRangesQuery)->cursor(), $product, $owners, $denoms,
+                $stRanges, $product, $owners, $denoms,
             );
             $outletRows->transform(function ($outlet) use ($metrics, $daysToOutlet) {
                 $metric = $metrics[(string) $outlet->id_outlet] ?? ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
