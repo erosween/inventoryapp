@@ -35,8 +35,14 @@
         url.searchParams.delete('page');
         navigatePage(url.toString());
     }
-    menu.querySelectorAll('[data-sort-direction]').forEach(button => button.addEventListener('click', () => { button.disabled = true; button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; sort(key,button.dataset.sortDirection); }));
-    menu.querySelector('[data-sort-clear]').addEventListener('click', event => { const button = event.currentTarget; button.disabled = true; button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…'; sort(key,null); });
+    menu.querySelectorAll('[data-sort-direction], [data-sort-clear]').forEach(button => {
+        if (!button.dataset.idleHtml) button.dataset.idleHtml = button.innerHTML;
+        button.addEventListener('click', () => {
+            button.disabled = true;
+            button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…';
+            sort(key,button.dataset.sortDirection || null);
+        });
+    });
     let resizeObserver;
     cleanup = () => { events.abort(); pending?.abort(); clearTimeout(timer); resizeObserver?.disconnect(); };
     function close() {
@@ -135,6 +141,10 @@
     document.addEventListener('taskforce:navigation-end', () => {
         apply.textContent = 'Terapkan';
         apply.disabled = mode === 'include' && chosen?.size === 0;
+        menu.querySelectorAll('[data-sort-direction], [data-sort-clear]').forEach(button => {
+            button.disabled = false;
+            button.innerHTML = button.dataset.idleHtml || button.innerHTML;
+        });
     }, {signal:events.signal});
     if (menu.dataset.preserveScroll === 'true' && !window.StockOutletNavigate) {
         let navigation;
