@@ -7,7 +7,7 @@
     </button>
     <div class="surya-navbar-copy">
         <p class="surya-navbar-title">Monitoring &amp; Performance</p>
-        <p class="surya-navbar-subtitle">Cluster Dumai, Bengkalis &amp; Rokan Hilir</p>
+        <p class="surya-navbar-subtitle">Cluster Dumai, Bengkalis &amp; ROKAN HILIR</p>
     </div>
     <div class="surya-report-context" aria-label="Tanggal workspace">
         <div><span>REPORTING WORKSPACE</span><time datetime="{{ now('Asia/Jakarta')->toDateString() }}">{{ now('Asia/Jakarta')->locale('id')->isoFormat('ddd, D MMM YYYY') }}</time></div>

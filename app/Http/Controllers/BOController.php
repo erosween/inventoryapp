@@ -107,8 +107,11 @@ class BOController extends Controller
             ->get();
 
         $packages = $this->returnablePackages();
+        $productByDenom = collect($packages)->mapWithKeys(fn ($label, $id) => [
+            $id => in_array($id, ['SP6', 'SP7', 'SP1', 'SP9'], true) ? 'SA' : 'PV',
+        ]);
 
-        return view('form/formkeluarbo', compact('data', 'idtap', 'packages'));
+        return view('form/formkeluarbo', compact('data', 'idtap', 'packages', 'productByDenom'));
     }
 
     // get Tap
@@ -136,6 +139,29 @@ public function getTap(Request $request)
     return response($html);
 }
 
+    public function getBoStock(Request $request)
+    {
+        $validated = $request->validate([
+            'pengirim' => ['required', 'string'],
+            'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
+        ]);
+
+        $sessionTap = session('idtap');
+        $allowedBo = DB::table('kategori_bo')
+            ->when($sessionTap !== 'SBP_DUMAI', fn ($query) => $query->where('idtap', $sessionTap))
+            ->where('namabo', $validated['pengirim'])
+            ->exists();
+
+        abort_unless($allowedBo, 403);
+
+        $stock = DB::table('stockawalsf')
+            ->where('idsf', $validated['pengirim'])
+            ->where('iddenom', $validated['iddenom'])
+            ->value('stock');
+
+        return response()->json(['stock' => max(0, (int) ($stock ?? 0))]);
+    }
+
 
 
     /* =========================
@@ -143,47 +169,56 @@ public function getTap(Request $request)
     ========================= */
     public function proseskeluarboform(Request $request)
 {
-    $data = $this->validatedReturnPayload($request);
+    $data = $this->validatedReturnBatchPayload($request);
 
     return DB::transaction(function () use ($data) {
 
-        $stokBo = DB::table('stockawalsf')
-            ->where('idsf', $data['pengirim'])
-            ->where('iddenom', $data['iddenom'])
-            ->lockForUpdate()
-            ->value('stock');
+        $requestedByDenom = collect($data['items'])
+            ->groupBy('iddenom')
+            ->map(fn ($items) => $items->sum('qty'))
+            ->sortKeys();
 
-        if ($stokBo === null) {
-            return back()->with('error', 'Stok BO belum terdaftar');
+        foreach ($requestedByDenom as $iddenom => $requestedQty) {
+            $stokBo = DB::table('stockawalsf')
+                ->where('idsf', $data['pengirim'])
+                ->where('iddenom', $iddenom)
+                ->lockForUpdate()
+                ->value('stock');
+
+            if ($stokBo === null || (int) $stokBo < $requestedQty) {
+                $denomName = $this->returnablePackages()[$iddenom] ?? $iddenom;
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => "Stok BO {$denomName} tidak mencukupi. Diminta {$requestedQty}, tersedia ".(int) ($stokBo ?? 0).'.',
+                ]);
+            }
         }
 
-        if ($stokBo < $data['qty']) {
-            return back()->with('error', 'Stok BO tidak mencukupi');
+        foreach ($data['items'] as $item) {
+            $newId = DB::table('keluar')->insertGetId([
+                'iddenom' => $item['iddenom'],
+                'pengirim' => $data['pengirim'],
+                'penerima' => $data['penerima'],
+                'qty' => $item['qty'],
+                'tgl' => $data['tgl'],
+                'sn' => $item['sn'],
+                'tambahanket' => $item['tambahanket'] ?? null,
+                'idtap' => $data['penerima'],
+                'status' => 0,
+            ]);
+
+            AuditLogger::log('INSERT', 'BO / Retur', $newId, null, $data + $item);
         }
 
-        $newId = DB::table('keluar')->insertGetId([
-            'iddenom' => $data['iddenom'],
-            'pengirim' => $data['pengirim'],
-            'penerima' => $data['penerima'],
-            'qty' => $data['qty'],
-            'tgl' => $data['tgl'],
-            'sn' => $data['sn'],
-            'tambahanket' => $data['tambahanket'],
-            'idtap' => $data['penerima'],
-            'status' => 0
-        ]);
+        foreach ($requestedByDenom as $iddenom => $requestedQty) {
+            DB::table('stockawalsf')
+                ->where('idsf', $data['pengirim'])
+                ->where('iddenom', $iddenom)
+                ->decrement('stock', $requestedQty);
 
-        // 📝 LOG
-        AuditLogger::log('INSERT', 'BO / Retur', $newId, null, $data);
+            $this->incrementTapStock($data['penerima'], $iddenom, (int) $requestedQty);
+        }
 
-        DB::table('stockawalsf')
-            ->where('idsf', $data['pengirim'])
-            ->where('iddenom', $data['iddenom'])
-            ->decrement('stock', $data['qty']);
-
-        $this->incrementTapStock($data['penerima'], $data['iddenom'], (int) $data['qty']);
-
-        return redirect('bo')->with('success', 'Data berhasil ditambahkan');
+        return redirect('bo')->with('success', count($data['items']).' baris denom berhasil ditambahkan');
     });
 }
 
@@ -210,8 +245,9 @@ public function getTap(Request $request)
         $serialParts = preg_split('/\s*(?:-|–|—)\s*/u', trim((string) ($edit->sn ?? '')), 2) ?: [];
         $snStart = $serialParts[0] ?? '';
         $snEnd = $serialParts[1] ?? '';
+        $serialMode = trim((string) ($edit->sn ?? '')) === '' ? 'broken' : 'range';
 
-        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages', 'productByDenom', 'snStart', 'snEnd'));
+        return view('form.form-edit-bo', compact('edit', 'data', 'idtap_session', 'packages', 'productByDenom', 'snStart', 'snEnd', 'serialMode'));
     }
 
     public function update(Request $request, $id)
@@ -360,23 +396,107 @@ public function getTap(Request $request)
         ];
     }
 
+    private function validatedReturnBatchPayload(Request $request): array
+    {
+        $data = $request->validate([
+            'pengirim' => ['required', 'string'],
+            'penerima' => ['required', 'string'],
+            'tgl' => ['required', 'date'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
+            'items.*.serial_mode' => ['required', 'in:range,broken'],
+            'items.*.sn_start' => ['nullable', 'string', 'max:16'],
+            'items.*.sn_end' => ['nullable', 'string', 'max:16'],
+            'items.*.qty' => ['nullable', 'integer', 'min:1', 'max:2000000'],
+            'items.*.tambahanket' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $data['items'] = array_values($data['items']);
+        $ranges = [];
+
+        foreach ($data['items'] as $index => &$item) {
+            if ($item['serial_mode'] === 'broken') {
+                $qty = (int) ($item['qty'] ?? 0);
+                if ($qty < 1 || $qty > 2_000_000) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "items.{$index}.qty" => 'Qty SN pecah harus antara 1 dan 2.000.000.',
+                    ]);
+                }
+                $item['qty'] = $qty;
+                $item['sn_start'] = '';
+                $item['sn_end'] = '';
+                $item['sn'] = '';
+                continue;
+            }
+
+            $isSa = in_array($item['iddenom'], ['SP6', 'SP7', 'SP1', 'SP9'], true);
+            $pattern = $isSa ? '/^0\\d{15}$/' : '/^\\d{12}$/';
+            $expected = $isSa ? 'SN SA wajib 16 digit dan diawali 0.' : 'SN PV wajib tepat 12 digit.';
+            $start = trim((string) ($item['sn_start'] ?? ''));
+            $endInput = trim((string) ($item['sn_end'] ?? ''));
+            $end = $endInput !== '' ? $endInput : $start;
+
+            if (! preg_match($pattern, $start) || ! preg_match($pattern, $end)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.{$index}.sn_start" => $expected,
+                ]);
+            }
+
+            $qty = (int) $end - (int) $start + 1;
+            if ($qty < 1 || $qty > 2_000_000) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.{$index}.sn_end" => 'SN akhir harus sama dengan atau lebih besar dari SN awal; maksimal 2.000.000 SN.',
+                ]);
+            }
+            if (isset($item['qty']) && (int) $item['qty'] !== $qty) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.{$index}.sn_end" => 'Qty harus sama dengan jumlah SN dalam rentang.',
+                ]);
+            }
+
+            foreach ($ranges as $range) {
+                if (strlen($start) === strlen($range['start']) && $start <= $range['end'] && $end >= $range['start']) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'items' => 'Rentang SN antar denom tidak boleh bertumpang tindih.',
+                    ]);
+                }
+            }
+
+            $ranges[] = ['start' => $start, 'end' => $end];
+            $item['qty'] = $qty;
+            $item['sn_start'] = $start;
+            $item['sn_end'] = $end;
+            $item['sn'] = $start === $end ? $start : $start.' - '.$end;
+        }
+        unset($item);
+
+        return $data;
+    }
+
     private function validatedReturnPayload(Request $request): array
     {
         $data = $request->validate([
             'pengirim' => ['required', 'string'],
             'penerima' => ['required', 'string'],
             'iddenom' => ['required', 'string', 'in:'.implode(',', array_keys($this->returnablePackages()))],
-            'sn_start' => ['required', 'string', 'regex:/^\\d+$/', 'max:16'],
+            'serial_mode' => ['required', 'in:range,broken'],
+            'sn_start' => ['nullable', 'string', 'regex:/^\\d+$/', 'max:16'],
             'sn_end' => ['nullable', 'string', 'regex:/^\\d+$/', 'max:16'],
-            'qty' => ['nullable', 'integer', 'min:1', 'max:2000000'],
+            'qty' => ['required_if:serial_mode,broken', 'nullable', 'integer', 'min:1', 'max:2000000'],
             'tambahanket' => ['nullable', 'string'],
             'tgl' => ['required', 'date'],
         ]);
 
+        if ($data['serial_mode'] === 'broken') {
+            $data['qty'] = (int) $data['qty'];
+            $data['sn'] = '';
+            return $data;
+        }
+
         $isSa = in_array($data['iddenom'], ['SP6', 'SP7', 'SP1', 'SP9'], true);
         $pattern = $isSa ? '/^0\\d{15}$/' : '/^\\d{12}$/';
         $expected = $isSa ? 'SN SA wajib 16 digit dan diawali 0.' : 'SN PV wajib tepat 12 digit.';
-        $start = trim($data['sn_start']);
+        $start = trim((string) ($data['sn_start'] ?? ''));
         $end = trim((string) ($data['sn_end'] ?? '')) ?: $start;
 
         if (! preg_match($pattern, $start) || ! preg_match($pattern, $end)) {

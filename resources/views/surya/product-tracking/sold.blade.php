@@ -38,18 +38,19 @@
 
     @if($summary->serial_count > 0)
         @if(empty($summaryTarget['summary_status']))
-        @foreach([['Ringkasan per TAP', $tapSummaries], ['Ringkasan per Sales Force', $sfSummaries]] as [$heading, $groups])
-            @php($summaryLevel = str_contains($heading, 'TAP') ? 'tap' : 'sf')
+        @foreach([['Ringkasan per TAP', $tapSummaries], ['Ringkasan per Sales Force', $sfSummaries], ['Ringkasan per Kecamatan', $kecamatanSummaries]] as [$heading, $groups])
+            @php($summaryLevel = str_contains($heading, 'TAP') ? 'tap' : (str_contains($heading, 'Kecamatan') ? 'kecamatan' : 'sf'))
             <section id="summary-{{ $summaryLevel }}" class="pt-card pt-summary-section">
                 <h2>{{ $heading }}</h2>
-                @php($summaryColumns = [$summaryLevel => $summaryLevel === 'tap' ? 'TAP' : 'Sales Force'])
+                @php($summaryColumns = [$summaryLevel => ['tap' => 'TAP', 'sf' => 'Sales Force', 'kecamatan' => 'Kecamatan'][$summaryLevel]])
                 @if($summaryLevel === 'sf') @php($summaryColumns['tap'] = 'TAP') @endif
+                @if($summaryLevel === 'kecamatan') @php($summaryColumns['cluster'] = 'CLUSTER') @endif
                 @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Total Qty', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
                 <div class="pt-table-wrap"><table class="pt-table pt-summary-table" data-summary-level="{{ $summaryLevel }}">
                     <thead><tr>
                         @foreach($summaryColumns as $column => $label)
                             @php($isSummarySorted = ($summaryTableOptions['summary_table'] ?? '') === $summaryLevel && ($summaryTableOptions['summary_sort'] ?? '') === $column)
-                            @if(in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty'], true))<th>{{ $label }}</th>@else
+                            @if(in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty', 'cluster'], true))<th>{{ $label }}</th>@else
                                 <th><div class="tf-column-heading"><span>{{ $label }}@if($isSummarySorted)<i class="fas fa-arrow-{{ ($summaryTableOptions['summary_direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                             @endif
                         @endforeach
@@ -59,7 +60,7 @@
                         @php($groupKey = $group->key ?? '__NULL__')
                         @php($matchedUrl = route('surya.product-tracking.sold', array_merge(request()->query(), ['summary_level' => $summaryLevel, 'summary_key' => $groupKey, 'summary_status' => 'matched'])) )
                         @php($mismatchUrl = route('surya.product-tracking.sold', array_merge(request()->query(), ['summary_level' => $summaryLevel, 'summary_key' => $groupKey, 'summary_status' => 'mismatch'])) )
-                        <tr><td>{{ $group->label }}</td>@if($summaryLevel === 'sf')<td>{{ $group->tap ?: 'Tanpa TAP' }}</td>@endif<td>{{ number_format($group->outlet_count) }}</td><td><a class="pt-chip good pt-summary-link" href="{{ $matchedUrl }}" aria-label="Lihat {{ $group->matched_outlets }} outlet sesuai untuk {{ $group->label }}">{{ number_format($group->matched_outlets) }}</a></td><td><a class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }} pt-summary-link" href="{{ $mismatchUrl }}" aria-label="Lihat {{ $group->mismatch_outlets }} outlet perlu dicek untuk {{ $group->label }}">{{ number_format($group->mismatch_outlets) }}</a></td><td>{{ number_format($group->qty) }}</td><td>{{ number_format($group->matched_qty) }}</td><td><span class="pt-mismatch-total">{{ number_format($group->mismatch_qty) }}</span><span class="pt-mismatch-breakdown"><span>ST: {{ number_format($group->mismatch_digipos_qty) }}</span><span>Non ST: {{ number_format($group->mismatch_non_digipos_qty) }}</span></span></td></tr>
+                        <tr><td>{{ $group->label }}</td>@if($summaryLevel === 'sf')<td>{{ $group->tap ?: 'Tanpa TAP' }}</td>@elseif($summaryLevel === 'kecamatan')<td>{{ $group->cluster }}</td>@endif<td>{{ number_format($group->outlet_count) }}</td><td><a class="pt-summary-link is-good" href="{{ $matchedUrl }}" aria-label="Lihat {{ $group->matched_outlets }} outlet sesuai untuk {{ $group->label }}">{{ number_format($group->matched_outlets) }}</a></td><td><a class="pt-summary-link {{ $group->mismatch_outlets ? 'is-bad' : 'is-good' }}" href="{{ $mismatchUrl }}" aria-label="Lihat {{ $group->mismatch_outlets }} outlet perlu dicek untuk {{ $group->label }}">{{ number_format($group->mismatch_outlets) }}</a></td><td>{{ number_format($group->qty) }}</td><td>{{ number_format($group->matched_qty) }}</td><td><span class="pt-mismatch-total">{{ number_format($group->mismatch_qty) }}</span><span class="pt-mismatch-breakdown"><span>ST: {{ number_format($group->mismatch_digipos_qty) }}</span><span>Non ST: {{ number_format($group->mismatch_non_digipos_qty) }}</span></span></td></tr>
                     @endforeach
                     @if($summaryLevel === 'tap')
                         @foreach($clusterSummaries as $clusterSummary)
@@ -70,7 +71,7 @@
                 </table></div>
                 <div class="pt-summary-mobile-tools" aria-label="Filter dan urutkan ringkasan">
                     @foreach($summaryColumns as $column => $label)
-                        @if(!in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty'], true))<button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}"><span>{{ $label }}</span><i class="fas fa-filter"></i></button>@endif
+                        @if(!in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty', 'cluster'], true))<button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}"><span>{{ $label }}</span><i class="fas fa-filter"></i></button>@endif
                     @endforeach
                 </div>
                 <div class="pt-summary-mobile">
@@ -81,6 +82,7 @@
                         <article class="pt-summary-mobile-card">
                             <h3>{{ $group->label }}</h3>
                             @if($summaryLevel === 'sf')<div><span>TAP</span><strong>{{ $group->tap ?: 'Tanpa TAP' }}</strong></div>@endif
+                            @if($summaryLevel === 'kecamatan')<div><span>Cluster</span><strong>{{ $group->cluster }}</strong></div>@endif
                             <div><span>Total outlet</span><strong>{{ number_format($group->outlet_count) }}</strong></div>
                             <div><span>Outlet sesuai</span><a class="pt-chip good pt-summary-link" href="{{ $matchedUrl }}">{{ number_format($group->matched_outlets) }}</a></div>
                             <div><span>Outlet perlu dicek</span><a class="pt-chip {{ $group->mismatch_outlets ? 'bad' : 'good' }} pt-summary-link" href="{{ $mismatchUrl }}">{{ number_format($group->mismatch_outlets) }}</a></div>

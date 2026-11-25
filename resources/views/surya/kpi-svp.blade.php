@@ -17,13 +17,13 @@
         $canEdit = auth()->user()?->isSuperAdmin();
         $regions = [
             'dumai' => [
-                'name' => 'Dumai Bengkalis',
+                'name' => 'DUMAI BENGKALIS',
                 'revenueWeight' => 55,
                 'mobile' => [[45323067411, 43722137149], [39543468069, 40403719256], [70.7, 65.5]],
                 'household' => [[123978840, 70216252], [559, 379], [97.6, 96.2]],
             ],
             'rokan' => [
-                'name' => 'Rokan Hilir',
+                'name' => 'ROKAN HILIR',
                 'revenueWeight' => 70,
                 'mobile' => [[30875691884, 31141644474], [27029674000, 28947140183], [72.9, 71.7]],
                 'household' => [[35169339, 17672365], [161, 108], [97.4, 97.1]],

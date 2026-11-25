@@ -18,7 +18,7 @@
                 <thead>
                     <tr>
                         <th class="insight-area" rowspan="2">{{ $areaLabel }}</th>
-                        <th rowspan="2">PJP</th>
+                        <th class="insight-pjp" rowspan="2">PJP</th>
                         @foreach($insight['groups'] as $group)<th colspan="6" class="insight-block">{{ $group['label'] }}</th>@endforeach
                     </tr>
                     <tr>@foreach($insight['groups'] as $_)<th>FM-1</th><th>M-1</th><th>MTD</th><th>MoM</th><th>%MoM</th><th>Rate</th>@endforeach</tr>
@@ -27,8 +27,8 @@
                     @foreach($rows as $row)
                         @php $rowClass = !empty($row['grand']) ? 'insight-grand' : (!empty($row['cluster']) ? 'insight-cluster' : ''); @endphp
                         <tr class="{{ $rowClass }}">
-                            <th class="insight-area">@if(!empty($row['cluster']))<small>CLUSTER</small>@endif{{ $row['area'] }}</th>
-                            <td>{{ number_format($row['pjp']) }}</td>
+                            <th class="insight-area">@if(!empty($row['cluster']))<small>CLUSTER</small>{{ strtoupper($row['area']) }}@else{{ $row['area'] }}@endif</th>
+                            <td class="insight-pjp">{{ number_format($row['pjp']) }}</td>
                             @foreach($insight['groups'] as $metric=>$group)
                                 @php
                                     $fm1 = $row['values'][$metric]['fm1'];

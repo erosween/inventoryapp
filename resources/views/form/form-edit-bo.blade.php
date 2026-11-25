@@ -85,22 +85,27 @@
                                         {{-- Qty --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>Quantity</label>
+                                                <label id="bo-qty-label">{{ $serialMode === 'broken' ? 'Qty SN Pecah' : 'Qty otomatis' }}</label>
                                                 <input type="number" name="qty" id="bo-qty" class="form-control"
-                                                    value="{{ $edit->qty }}" min="1" readonly required>
+                                                    value="{{ $edit->qty }}" min="1" max="2000000" {{ $serialMode !== 'broken' ? 'readonly' : '' }} required>
                                             </div>
                                         </div>
 
                                         {{-- SN --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>SN</label>
-                                                <div class="d-flex align-items-center">
-                                                    <input type="text" name="sn_start" id="bo-sn-start" class="form-control" inputmode="numeric" autocomplete="off" value="{{ $snStart }}" placeholder="SN awal" required>
+                                                <label>Identitas SN</label>
+                                                <input type="hidden" name="serial_mode" id="bo-serial-mode" value="{{ $serialMode }}">
+                                                <div class="btn-group btn-group-sm d-flex mb-2" role="group" aria-label="Cara input SN">
+                                                    <button type="button" class="btn btn-outline-primary bo-serial-choice {{ $serialMode === 'range' ? 'active' : '' }}" data-mode="range" aria-pressed="{{ $serialMode === 'range' ? 'true' : 'false' }}">Massal</button>
+                                                    <button type="button" class="btn btn-outline-primary bo-serial-choice {{ $serialMode === 'broken' ? 'active' : '' }}" data-mode="broken" aria-pressed="{{ $serialMode === 'broken' ? 'true' : 'false' }}">SN Pecah</button>
+                                                </div>
+                                                <div id="bo-serial-fields" class="d-flex align-items-center {{ $serialMode === 'broken' ? 'd-none' : '' }}">
+                                                    <input type="text" name="sn_start" id="bo-sn-start" class="form-control" inputmode="numeric" autocomplete="off" value="{{ $snStart }}" placeholder="SN awal" {{ $serialMode === 'range' ? 'required' : '' }}>
                                                     <span class="px-2">–</span>
                                                     <input type="text" name="sn_end" id="bo-sn-end" class="form-control" inputmode="numeric" autocomplete="off" value="{{ $snEnd }}" placeholder="SN akhir (opsional)">
                                                 </div>
-                                                <small id="bo-serial-hint" class="form-text text-muted" aria-live="polite">Pilih produk lalu isi SN awal. SN akhir opsional untuk rentang.</small>
+                                                <small id="bo-serial-hint" class="form-text text-muted" aria-live="polite">@if($serialMode === 'broken')Qty dicatat manual; SN pecah tidak dicatat satu per satu.@else Massal: isi SN awal dan opsional SN akhir. Qty dihitung otomatis.@endif</small>
                                             </div>
                                         </div>
 
@@ -148,6 +153,7 @@
                 return Number.isSafeInteger(count) && count > 0 && count <= 2000000 ? count : 0;
             }
             function updateSerialQty() {
+                const mode = $('#bo-serial-mode').val() || 'range';
                 const start = String($('#bo-sn-start').val() || '').trim();
                 const endInput = String($('#bo-sn-end').val() || '').trim();
                 const end = endInput || start;
@@ -157,24 +163,49 @@
                 const expected = isSa ? 'SN SA harus 16 digit dan diawali 0.' : 'SN PV harus tepat 12 digit.';
                 $('#bo-sn-start, #bo-sn-end').attr('maxlength', length);
                 let qty = '', error = '';
-                if (!$('select[name="iddenom"]').val()) error = 'Pilih produk terlebih dahulu.';
-                else if (!pattern.test(start) || (endInput && !pattern.test(endInput))) error = expected;
-                else {
-                    const count = serialRangeQty(start, end);
-                    if (count) qty = String(count);
-                    else error = 'SN akhir harus berurutan setelah SN awal; maksimal 2.000.000 SN.';
+                if (mode === 'broken') {
+                    qty = String(parseInt($('#bo-qty').val(), 10) || '');
+                    if (!$('select[name="iddenom"]').val()) error = 'Pilih produk terlebih dahulu.';
+                    else if (!qty || Number(qty) < 1 || Number(qty) > 2000000) error = 'Qty SN pecah harus antara 1 dan 2.000.000.';
+                } else {
+                    if (!$('select[name="iddenom"]').val()) error = 'Pilih produk terlebih dahulu.';
+                    else if (!pattern.test(start) || (endInput && !pattern.test(endInput))) error = expected;
+                    else {
+                        const count = serialRangeQty(start, end);
+                        if (count) qty = String(count);
+                        else error = 'SN akhir harus berurutan setelah SN awal; maksimal 2.000.000 SN.';
+                    }
+                    $('#bo-qty').val(qty);
                 }
-                $('#bo-qty').val(qty);
                 $('#bo-sn-start, #bo-sn-end').toggleClass('is-invalid', Boolean(error));
                 $('#bo-serial-hint').toggleClass('text-danger', Boolean(error)).toggleClass('text-success', !error && Boolean(qty))
-                    .text(error || (qty ? (endInput ? `${Number(qty).toLocaleString('id-ID')} SN dihitung dari rentang.` : '1 pcs dihitung dari SN awal.') : 'SN awal wajib diisi.'));
+                    .text(error || (mode === 'broken'
+                        ? `${Number(qty || 0).toLocaleString('id-ID')} pcs dicatat manual; SN tidak dicatat satu per satu.`
+                        : (qty ? (endInput ? `${Number(qty).toLocaleString('id-ID')} SN dihitung dari rentang.` : '1 pcs dihitung dari SN awal.') : 'SN awal wajib diisi.')));
                 return Boolean(qty) && !error;
             }
+            $('.bo-serial-choice').on('click', function() {
+                const mode = String($(this).data('mode'));
+                $('#bo-serial-mode').val(mode);
+                $('.bo-serial-choice').removeClass('active').attr('aria-pressed', 'false');
+                $(this).addClass('active').attr('aria-pressed', 'true');
+                const broken = mode === 'broken';
+                $('#bo-serial-fields').toggleClass('d-none', broken);
+                $('#bo-sn-start').prop('required', !broken);
+                $('#bo-qty').prop('readonly', !broken).val('');
+                $('#bo-qty-label').text(broken ? 'Qty SN Pecah' : 'Qty otomatis');
+                $('#bo-sn-start, #bo-sn-end').val('').removeClass('is-invalid');
+                $('#bo-serial-hint').removeClass('text-danger text-success')
+                    .text(broken ? 'Masukkan qty; SN pecah tidak dicatat satu per satu.' : 'Massal: isi SN awal dan opsional SN akhir. Qty dihitung otomatis.');
+                updateSerialQty();
+            });
             $('#bo-sn-start, #bo-sn-end').on('input', function() {
+                if ($('#bo-serial-mode').val() === 'broken') return;
                 this.value = String(this.value || '').replace(/\D/g, '').slice(0, Number(this.maxLength) || 16);
                 updateSerialQty();
             }).on('change', updateSerialQty);
             $('select[name="iddenom"]').on('change', updateSerialQty);
+            $('#bo-qty').on('input', function() { if ($('#bo-serial-mode').val() === 'broken') updateSerialQty(); });
 
             $('.select2').each(function() {
                 $(this).select2({

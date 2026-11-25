@@ -15,6 +15,7 @@
         "laravel/sanctum": "^3.2",
         "laravel/tinker": "^2.8",
         "maatwebsite/excel": "^3.1",
+        "openspout/openspout": "^4.26",
         "yajra/laravel-datatables-oracle": "^10.11"
     },
     "require-dev": {

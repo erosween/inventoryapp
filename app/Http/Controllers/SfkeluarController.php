@@ -411,7 +411,6 @@ use Illuminate\Validation\ValidationException;
     );
 
     DB::transaction(function () use ($validated) {
-        if ($validated['payment_type'] === 'cash') {
         $requestedByDenom = collect($validated['items'])
             ->groupBy('iddenom')
             ->map(fn ($items) => $items->sum('qty'));
@@ -423,6 +422,10 @@ use Illuminate\Validation\ValidationException;
                 ->lockForUpdate()
                 ->value('stock') ?? 0;
 
+            $pendingQty = $this->pendingStorQty((string) $validated['idsf'], (string) $iddenom);
+            $pendingQtyAtDate = $this->pendingStorQty((string) $validated['idsf'], (string) $iddenom, null, $validated['tgl']);
+            $availableNow = max(0, (int) $stockSf - $pendingQty);
+
             $historicalStock = $this->sfStockAtDate(
                 $validated['idsf'],
                 $iddenom,
@@ -430,17 +433,17 @@ use Illuminate\Validation\ValidationException;
                 (int) $stockSf
             );
 
-            $availableStock = min((int) $stockSf, $historicalStock);
+            $availableAtDate = max(0, $historicalStock - $pendingQtyAtDate);
+            $availableStock = min($availableNow, $availableAtDate);
             if ($availableStock < $requestedQty) {
                 $denomName = DB::table('denom')
                     ->where('iddenom', $iddenom)
                     ->value('denom') ?? $iddenom;
 
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'items' => "Total qty {$denomName} tidak mencukupi. Diminta: {$requestedQty}, tersedia pada tanggal {$validated['tgl']}: {$historicalStock}, stok saat ini: {$stockSf}.",
+                    'items' => "Total qty {$denomName} tidak mencukupi. Diminta: {$requestedQty}, stok fisik saat ini: {$stockSf}, Pending Stor seluruh tanggal: {$pendingQty}, Pending Stor sampai tanggal transaksi: {$pendingQtyAtDate}, tersedia: {$availableStock}.",
                 ]);
             }
-        }
         }
 
         foreach ($validated['items'] as $item) {
@@ -475,7 +478,7 @@ use Illuminate\Validation\ValidationException;
         }
     });
 
-    return redirect('sf-keluar')->with('success', count($validated['items']) . ' denom berhasil ditambahkan'.($validated['payment_type'] === 'pending' ? ' sebagai Pending Stor; stok belum dipotong.' : '.'));
+    return redirect('sf-keluar')->with('success', count($validated['items']) . ' denom berhasil ditambahkan'.($validated['payment_type'] === 'pending' ? ' sebagai Pending Stor; stok fisik belum dipotong dan qty sudah dialokasikan dari stok tersedia.' : '.'));
 }
 
 
@@ -489,13 +492,16 @@ use Illuminate\Validation\ValidationException;
             'idsf'    => 'required',
         ]);
 
-        $stock = DB::table('stockawalsf')
+        $stock = (int) (DB::table('stockawalsf')
             ->where('iddenom', $request->iddenom)
             ->where('idsf', $request->idsf)
-            ->value('stock');
+            ->value('stock') ?? 0);
+        $pending = $this->pendingStorQty((string) $request->idsf, (string) $request->iddenom);
 
         return response()->json([
-            'stock' => (int) ($stock ?? 0)
+            'stock' => max(0, $stock - $pending),
+            'stock_physical' => $stock,
+            'pending_qty' => $pending,
         ]);
     }
 
@@ -512,7 +518,17 @@ use Illuminate\Validation\ValidationException;
             ->where('idsf', $request->idsf)
             ->pluck('stock', 'iddenom');
 
-        return response()->json($stocks);
+        $pendingByDenom = DB::table('keluarsf')
+            ->where('idsf', $request->idsf)
+            ->where('payment_status', 'pending')
+            ->groupBy('iddenom')
+            ->select('iddenom', DB::raw('SUM(qty) AS qty'))
+            ->pluck('qty', 'iddenom');
+
+        return response()->json($stocks->map(fn ($stock, $iddenom) => max(
+            0,
+            (int) $stock - (int) ($pendingByDenom[$iddenom] ?? 0)
+        )));
     }
 
 
@@ -692,20 +708,34 @@ public function updateSfKeluar(Request $request, $id)
                 ->where('idsf', $old->idsf)
                 ->where('iddenom', $old->iddenom)
                 ->increment('stock', $old->qty);
+        }
 
-            $currentStock = DB::table('stockawalsf')
-                ->where('idsf', $newIdsf)
-                ->where('iddenom', $newIddenom)
-                ->lockForUpdate()
-                ->value('stock');
-            $historicalStock = $this->sfStockAtDate($newIdsf, $newIddenom, $newTgl, (int) $currentStock, (int) $old->idkeluar);
-            $availableStock = min((int) $currentStock, $historicalStock);
-            if ($availableStock < $newQty) {
-                throw ValidationException::withMessages([
-                    'qty' => "Quantity tidak mencukupi. Tersedia pada tanggal {$newTgl}: {$historicalStock}, stok saat ini: " . (int) $currentStock . '.',
-                ]);
-            }
+        $currentStock = (int) (DB::table('stockawalsf')
+            ->where('idsf', $newIdsf)
+            ->where('iddenom', $newIddenom)
+            ->lockForUpdate()
+            ->value('stock') ?? 0);
+        $pendingQuery = DB::table('keluarsf')
+            ->where('idsf', $newIdsf)
+            ->where('iddenom', $newIddenom)
+            ->where('payment_status', 'pending');
+        if (($old->payment_status ?? 'cash') === 'pending' && $old->idsf === $newIdsf && $old->iddenom === $newIddenom) {
+            $pendingQuery->where('idkeluar', '!=', $old->idkeluar);
+        }
+        $pendingQty = (int) $pendingQuery->sum('qty');
+        $pendingQtyAtDate = (int) (clone $pendingQuery)->whereDate('tgl', '<=', $newTgl)->sum('qty');
+        $historicalStock = $this->sfStockAtDate($newIdsf, $newIddenom, $newTgl, $currentStock, (int) $old->idkeluar);
+        $availableStock = min(
+            max(0, $currentStock - $pendingQty),
+            max(0, $historicalStock - $pendingQtyAtDate)
+        );
+        if ($availableStock < $newQty) {
+            throw ValidationException::withMessages([
+                'qty' => "Quantity tidak mencukupi. Stok fisik saat ini: {$currentStock}, Pending Stor seluruh tanggal: {$pendingQty}, Pending Stor sampai tanggal transaksi: {$pendingQtyAtDate}, tersedia: {$availableStock}.",
+            ]);
+        }
 
+        if ($stockWasPosted) {
             DB::table('stockawalsf')
                 ->where('idsf', $newIdsf)
                 ->where('iddenom', $newIddenom)
@@ -733,6 +763,17 @@ public function updateSfKeluar(Request $request, $id)
 
     return redirect('sf-keluar')->with('success', 'Data Berhasil Diupdate!');
 }
+
+    private function pendingStorQty(string $idsf, string $iddenom, ?int $excludedId = null, ?string $throughDate = null): int
+    {
+        return (int) DB::table('keluarsf')
+            ->where('idsf', $idsf)
+            ->where('iddenom', $iddenom)
+            ->where('payment_status', 'pending')
+            ->when($excludedId !== null, fn ($query) => $query->where('idkeluar', '!=', $excludedId))
+            ->when($throughDate !== null, fn ($query) => $query->whereDate('tgl', '<=', $throughDate))
+            ->sum('qty');
+    }
 
     /**
      * Saldo SF pada akhir tanggal transaksi. Saldo materialized saat ini

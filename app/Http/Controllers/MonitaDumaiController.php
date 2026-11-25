@@ -2,10 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\SuryaSalesProductExport;
-use App\Exports\SuryaAdminSalesExport;
-use App\Exports\SuryaVisitExport;
-use App\Exports\SuryaWorkbookExport;
 use App\Exports\SuryaOutletWorkbookExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +14,6 @@ use App\Services\SuryaOutletCoordinates;
 use App\Support\DenomGrouping;
 use App\Support\SuryaTapScope;
 use Carbon\Carbon;
-use Maatwebsite\Excel\Facades\Excel;
 
 class MonitaDumaiController extends Controller
 {
@@ -27,6 +22,7 @@ class MonitaDumaiController extends Controller
     // Peta Outlet dan Detail Visit berbagi halaman Monita Dumai. Data panel dibangun sesuai panel aktif.
     public function index(Request $request)
     {
+        $startedAt = microtime(true);
         $showLeaderDashboard = $this->hasSuryaAccess($request);
 
         if (!$showLeaderDashboard) {
@@ -45,7 +41,7 @@ class MonitaDumaiController extends Controller
         }
         $dashboard['loadedPanel'] = $loadedPanel;
 
-        return response()
+        $response = response()
             ->view('monitadumai.index', array_merge(
                 compact('dashboard', 'showLeaderDashboard', 'visitDate'),
                 ['clusterCoverage' => $dashboard['clusterCoverage']['groups'] ?? [], 'summary' => $dashboard['summary'] ?? []]
@@ -53,6 +49,12 @@ class MonitaDumaiController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
+
+        if ($loadedPanel === 'visit-detail') {
+            $response->header('Server-Timing', 'surya-visit-detail;dur='.round((microtime(true) - $startedAt) * 1000));
+        }
+
+        return $response;
     }
 
     private function approveExpiredVisitCoordinates(): void
@@ -182,6 +184,7 @@ class MonitaDumaiController extends Controller
     public function outletDetailData(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
+        $startedAt = microtime(true);
 
         try {
             $tapScopes = $this->suryaTapScopes();
@@ -191,7 +194,12 @@ class MonitaDumaiController extends Controller
             $searchInput = $request->input('search', []);
             $search = trim((string) (is_array($searchInput) ? ($searchInput['value'] ?? '') : $searchInput));
             $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf);
-            $recordsTotal = $this->outletDetailBaseQuery($tapScopes, '', '', $selectedPjp, $selectedSf)->count();
+            $recordsTotalKey = 'surya-outlet-detail-ajax-total-v1-'.hash('sha256', json_encode([
+                $tapScopes, $selectedPjp, $selectedSf,
+            ]));
+            $recordsTotal = Cache::remember($recordsTotalKey, now()->addSeconds(30), fn () =>
+                $this->outletDetailBaseQuery($tapScopes, '', '', $selectedPjp, $selectedSf)->count()
+            );
             $recordsFiltered = (clone $base)->count();
 
             $length = min(100, max(10, (int) $request->input('length', 25)));
@@ -214,7 +222,7 @@ class MonitaDumaiController extends Controller
                 'recordsTotal' => $recordsTotal,
                 'recordsFiltered' => $recordsFiltered,
                 'data' => $rows,
-            ]);
+            ])->header('Server-Timing', 'outlet-detail;dur='.round((microtime(true) - $startedAt) * 1000));
         } catch (\Throwable $e) {
             logger()->error('Detail Outlet Ajax failed', ['exception' => $e]);
 
@@ -223,7 +231,7 @@ class MonitaDumaiController extends Controller
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
-            ]);
+            ])->header('Server-Timing', 'outlet-detail;dur='.round((microtime(true) - $startedAt) * 1000));
         }
     }
 
@@ -275,7 +283,7 @@ class MonitaDumaiController extends Controller
         $base = $this->outletDetailBaseQuery($tapScopes, $selectedTap, $search, $selectedPjp, $selectedSf);
         $rows = $filterService->order($filterService->query($base, $salesCutoff, $options), $options)
             ->get()
-            ->chunk(200)
+            ->chunk(1000)
             ->flatMap(fn ($chunk) => $this->hydrateOutletDetailPage($chunk, $salesCutoff))
             ->values();
 
@@ -283,10 +291,18 @@ class MonitaDumaiController extends Controller
             $this->nonDigiposOutletBaseQuery($tapScopes, $selectedTap, $search)->orderByDesc('v.visited_at')->get()
         );
 
-        return Excel::download(
-            new SuryaOutletWorkbookExport($rows, $nonDigiposRows),
-            'surya-detail-outlet-'.now()->format('Y-m-d-His').'.xlsx'
-        );
+        $filename = 'surya-detail-outlet-'.now()->format('Y-m-d-His').'.xlsx';
+        $path = storage_path('app/exports/'.$filename);
+        \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($path));
+
+        try {
+            app(\App\Exports\SuryaOutletStreamingWorkbook::class)->write($rows, $nonDigiposRows, $path);
+        } catch (\Throwable $exception) {
+            @unlink($path);
+            throw $exception;
+        }
+
+        return response()->download($path, $filename)->deleteFileAfterSend(true);
     }
 
     private function nonDigiposOutletBaseQuery(?array $tapScopes, string $selectedTap = '', string $search = '')
@@ -525,6 +541,7 @@ class MonitaDumaiController extends Controller
     public function exportVisits(Request $request)
     {
         abort_unless($this->hasSuryaAccess($request), 403);
+        set_time_limit(0);
 
         $today = now('Asia/Jakarta')->toDateString();
         $dates = $request->validate([
@@ -552,10 +569,11 @@ class MonitaDumaiController extends Controller
             ->orderBy('v.idtap')
             ->orderBy('s.namasf')
             ->orderBy('v.visited_at')
-            ->get(array_merge($visitSelects, [
+            ->select(array_merge($visitSelects, [
                 'o.nama_outlet', 'o.latitude as outlet_latitude', 'o.longitude as outlet_longitude',
                 'o.pjp', 's.namasf',
             ]))
+            ->cursor()
             ->map(function ($row) {
                 $distance = app(SuryaOutletCoordinates::class)->coordinateDistance(
                     $row->visit_latitude,
@@ -606,14 +624,14 @@ class MonitaDumaiController extends Controller
             ->whereBetween('m.tgl', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->orderBy('m.idtap')->orderBy('s.namasf')->orderBy('o.nama_outlet')->orderBy('d.denom')
-            ->get([
+            ->select([
                 'm.tgl', 'm.idsf', 's.namasf', 'm.owner_idsf', 'owner.namasf as owner_namasf', 'm.idtap', 'm.id_outlet',
                 DB::raw('COALESCE(o.nama_outlet, non_digipos.outlet_name) as nama_outlet'),
                 'm.iddenom', 'd.denom', 'd.kategori_inject', 'm.qty',
                 DB::raw('COALESCE(m.unit_price, d.harga_jual, 0) as unit_price'),
                 DB::raw('(m.qty * COALESCE(m.unit_price, d.harga_jual, 0)) as total'),
                 'm.status',
-            ])->map(fn ($row) => [
+            ])->cursor()->map(fn ($row) => [
                 Carbon::parse($row->tgl)->format('d/m/Y'), $row->owner_idsf ?: $row->idsf, $row->owner_namasf ?: ($row->namasf ?: $row->idsf),
                 (($row->idsf !== ($row->owner_idsf ?: $row->idsf)) ? ($row->namasf ?: $row->idsf) : ''),
                 $row->idtap, $row->id_outlet, $row->nama_outlet ?: $row->id_outlet,
@@ -629,11 +647,11 @@ class MonitaDumaiController extends Controller
             ->orderBy('k.tgl')->orderBy('k.idtap')->orderBy('s.namasf')
             ->orderByRaw("CASE WHEN UPPER(COALESCE(d.product, '')) = 'SA' OR UPPER(COALESCE(d.kategori_inject, '')) = 'SA' OR UPPER(COALESCE(d.group_name, '')) = 'SA' OR UPPER(COALESCE(d.product_group, '')) IN ('SA', 'SP') OR UPPER(k.iddenom) LIKE 'SP%' THEN 0 ELSE 1 END")
             ->orderBy('d.denom')
-            ->get([
+            ->select([
                 'k.tgl', 'k.idtap', 'k.idsf', 'k.id_outlet', 'k.iddenom', 's.namasf', 'k.tambahanket',
                 'd.denom', 'd.kategori_inject', 'd.group_name', 'd.product_group', 'd.product', 'd.product_variant', 'k.qty',
             ])
-            ->map(function ($row) {
+            ->cursor()->map(function ($row) {
                 $grouping = DenomGrouping::infer($row);
                 if (in_array(strtoupper(trim((string) $row->product)), ['SA', 'PV'], true)) {
                     $grouping['product'] = strtoupper(trim((string) $row->product));
@@ -671,7 +689,8 @@ class MonitaDumaiController extends Controller
             ->whereBetween('c.reported_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('c.idtap', $tapScopes))
             ->orderBy('c.reported_at')->orderBy('c.idtap')->orderBy('o.nama_outlet')
-            ->get(['c.reported_at', 'c.idtap', 'c.idsf', 's.namasf', 'c.id_outlet', 'o.nama_outlet', 'c.iddenom', 'd.denom', 'c.serial_number', 'c.status', 'c.notes'])
+            ->select(['c.reported_at', 'c.idtap', 'c.idsf', 's.namasf', 'c.id_outlet', 'o.nama_outlet', 'c.iddenom', 'd.denom', 'c.serial_number', 'c.status', 'c.notes'])
+            ->cursor()
             ->map(fn ($row) => [
                 Carbon::parse($row->reported_at)->format('d/m/Y H:i:s'),
                 $row->idtap,
@@ -702,7 +721,8 @@ class MonitaDumaiController extends Controller
             ->whereBetween('h.moved_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('h.idtap', $tapScopes))
             ->orderBy('h.moved_at')
-            ->get(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id', 'current_c.iddenom', 'd.denom'])
+            ->select(['h.moved_at', 'h.serial_number', 'h.from_id_outlet', 'from_o.nama_outlet as from_name', 'h.to_id_outlet', 'to_o.nama_outlet as to_name', 'h.idtap', 'h.idsf', 's.namasf', 'h.receipt_id', 'current_c.iddenom', 'd.denom'])
+            ->cursor()
             ->map(fn ($row) => [
                 Carbon::parse($row->moved_at)->format('d/m/Y H:i:s'), $row->idtap, $row->idsf,
                 $row->namasf ?: $row->idsf, $row->to_id_outlet, $row->to_name ?: $row->to_id_outlet,
@@ -712,10 +732,21 @@ class MonitaDumaiController extends Controller
 
         $consignments = $consignments->merge($consignmentMovements);
 
-        return Excel::download(
-            new SuryaWorkbookExport($rows, $sales, $adminSales, $consignments),
-            "surya-penjualan-{$startDate}-sampai-{$endDate}.xlsx"
-        );
+        $path = tempnam(storage_path('app'), 'surya-visits-');
+        if ($path === false) {
+            throw new \RuntimeException('Tidak dapat menyiapkan file ekspor.');
+        }
+
+        try {
+            app(\App\Exports\SuryaVisitStreamingWorkbook::class)->write($rows, $sales, $adminSales, $consignments, $path);
+        } catch (\Throwable $exception) {
+            @unlink($path);
+            throw $exception;
+        }
+
+        return response()->download($path, "surya-penjualan-{$startDate}-sampai-{$endDate}.xlsx", [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function showLeaderLogin()
@@ -849,8 +880,11 @@ class MonitaDumaiController extends Controller
 
     private function buildVisitDetails(string $visitDate, ?array $tapScopes = null): array
     {
+        $dayStart = Carbon::parse($visitDate, 'Asia/Jakarta')->startOfDay();
+        $dayEnd = $dayStart->copy()->addDay();
         $actualRows = DB::table('surya_visits')
-            ->whereDate('visited_at', $visitDate)
+            ->where('visited_at', '>=', $dayStart->toDateTimeString())
+            ->where('visited_at', '<', $dayEnd->toDateTimeString())
             ->where('visit_type', '!=', 'non_digipos')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
             ->orderBy('visited_at')
@@ -858,7 +892,8 @@ class MonitaDumaiController extends Controller
 
         $salesRows = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-            ->whereDate('m.tgl', $visitDate)
+            ->where('m.tgl', '>=', $dayStart->toDateTimeString())
+            ->where('m.tgl', '<', $dayEnd->toDateTimeString())
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('m.idtap', $tapScopes))
             ->whereIn('m.status', ['pending', 'approved'])
             ->get([
@@ -875,7 +910,8 @@ class MonitaDumaiController extends Controller
             ]);
 
         $consignmentRows = DB::table('surya_sa_consignment_numbers')
-            ->whereDate('reported_at', $visitDate)
+            ->where('reported_at', '>=', $dayStart->toDateTimeString())
+            ->where('reported_at', '<', $dayEnd->toDateTimeString())
             ->where('status', 'consigned')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('idtap', $tapScopes))
             ->get(['idsf', 'id_outlet', 'serial_number']);
@@ -1025,10 +1061,13 @@ class MonitaDumaiController extends Controller
             $approvalSelects[] = 'v.branding_quality';
         }
 
+        $dayStart = Carbon::parse($visitDate, 'Asia/Jakarta')->startOfDay();
+        $dayEnd = $dayStart->copy()->addDay();
         $visits = DB::table('surya_visits as v')
             ->leftJoin('idsf as sf', 'sf.idsf', '=', 'v.idsf')
             ->leftJoin('idsf as owner_sf', 'owner_sf.idsf', '=', 'v.stock_owner_idsf')
-            ->whereDate('v.visited_at', $visitDate)
+            ->where('v.visited_at', '>=', $dayStart->toDateTimeString())
+            ->where('v.visited_at', '<', $dayEnd->toDateTimeString())
             ->where('v.visit_type', 'non_digipos')
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderByDesc('v.visited_at')
@@ -1044,7 +1083,8 @@ class MonitaDumaiController extends Controller
 
         $sales = DB::table('mobile_penjualan as m')
             ->leftJoin('denom as d', 'd.iddenom', '=', 'm.iddenom')
-            ->whereDate('m.tgl', $visitDate)
+            ->where('m.tgl', '>=', $dayStart->toDateTimeString())
+            ->where('m.tgl', '<', $dayEnd->toDateTimeString())
             ->whereIn('m.id_outlet', $visits->pluck('id_outlet')->unique())
             ->whereIn('m.status', ['pending', 'approved'])
             ->get(['m.id_outlet', 'm.qty', 'm.iddenom', 'm.status', 'd.denom', 'd.product_group', 'd.group_name'])
@@ -1088,8 +1128,8 @@ class MonitaDumaiController extends Controller
 
     private function buildApprovalVisits(string $visitDate, ?array $tapScopes = null): array
     {
-        app(\App\Http\Controllers\SuryaVisitReportController::class)->autoApprovePending(request());
-
+        $dayStart = Carbon::parse($visitDate, 'Asia/Jakarta')->startOfDay();
+        $dayEnd = $dayStart->copy()->addDay();
         $approvalSelects = [
             'v.id', 'v.id_outlet', 'v.idtap', 'v.idsf', 'v.visited_at', 'v.gps_status',
             'v.distance_meters', 'v.latitude as visit_latitude', 'v.longitude as visit_longitude',
@@ -1103,7 +1143,8 @@ class MonitaDumaiController extends Controller
         $visits = DB::table('surya_visits as v')
             ->leftJoin('appsdumais as o', 'o.id_outlet', '=', 'v.id_outlet')
             ->leftJoin('idsf as s', 's.idsf', '=', 'v.idsf')
-            ->whereDate('v.visited_at', $visitDate)
+            ->where('v.visited_at', '>=', $dayStart->toDateTimeString())
+            ->where('v.visited_at', '<', $dayEnd->toDateTimeString())
             ->when($tapScopes !== null, fn ($query) => $query->whereIn('v.idtap', $tapScopes))
             ->orderByRaw("CASE WHEN v.gps_status = 'pending_admin' THEN 0 ELSE 1 END")
             ->orderByDesc('v.visited_at')
@@ -1114,7 +1155,8 @@ class MonitaDumaiController extends Controller
         $receiptPhotos = collect();
         if (Schema::hasColumn('mobile_sales_receipts', 'receipt_photo_path') && $visits->isNotEmpty()) {
             $receiptPhotos = DB::table('mobile_sales_receipts')
-                ->whereDate('tgl', $visitDate)
+                ->where('tgl', '>=', $dayStart->toDateTimeString())
+                ->where('tgl', '<', $dayEnd->toDateTimeString())
                 ->whereIn('id_outlet', $visits->pluck('id_outlet')->filter()->unique()->all())
                 ->whereNotNull('receipt_photo_path')
                 ->orderBy('id')
@@ -2208,56 +2250,61 @@ class MonitaDumaiController extends Controller
         }
 
         $tapScopes = $this->suryaTapScopes();
-        $coordinateService = app(SuryaOutletCoordinates::class);
-        // Restrict candidates to the service-area bounding box in SQL before
-        // looking up visit coordinates. Exact membership is still checked
-        // against the official county polygons below.
-        $outlets = DB::table('appsdumais')
-            ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
-            ->where('sf', '!=', 'UNMAPPING')
-            ->whereNotNull('latitude')->whereNotNull('longitude')
-            ->whereRaw("TRIM(latitude) <> ''")->whereRaw("TRIM(longitude) <> ''")
-            ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [SuryaOutletCoordinates::MAP_COVERAGE['latitude'][0], SuryaOutletCoordinates::MAP_COVERAGE['latitude'][1]])
-            ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [SuryaOutletCoordinates::MAP_COVERAGE['longitude'][0], SuryaOutletCoordinates::MAP_COVERAGE['longitude'][1]])
-            ->where(fn ($query) => $query->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0))
-            ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
-            ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")
-            ->get();
+        $mapCacheKey = 'surya:outlets-map:v1:'.sha1(json_encode($tapScopes));
+        $outlets = Cache::remember($mapCacheKey, now()->addSeconds(20), function () use ($tapScopes) {
+            $coordinateService = app(SuryaOutletCoordinates::class);
+            // Restrict candidates to the service-area bounding box in SQL before
+            // looking up visit coordinates. Exact membership is still checked
+            // against the official county polygons below.
+            $outlets = DB::table('appsdumais')
+                ->when($tapScopes !== null, fn ($query) => $query->whereIn('tap', $tapScopes))
+                ->where('sf', '!=', 'UNMAPPING')
+                ->whereNotNull('latitude')->whereNotNull('longitude')
+                ->whereRaw("TRIM(latitude) <> ''")->whereRaw("TRIM(longitude) <> ''")
+                ->whereBetween(DB::raw('CAST(latitude AS DECIMAL(12,8))'), [SuryaOutletCoordinates::MAP_COVERAGE['latitude'][0], SuryaOutletCoordinates::MAP_COVERAGE['latitude'][1]])
+                ->whereBetween(DB::raw('CAST(longitude AS DECIMAL(12,8))'), [SuryaOutletCoordinates::MAP_COVERAGE['longitude'][0], SuryaOutletCoordinates::MAP_COVERAGE['longitude'][1]])
+                ->where(fn ($query) => $query->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0))
+                ->select('id_outlet', 'nama_outlet', 'sf', 'tap', 'latitude', 'longitude')
+                ->selectRaw("'master' as coordinate_source, latitude as digipos_latitude, longitude as digipos_longitude")
+                ->get();
 
-        $outlets = $outlets->filter(fn ($outlet) => $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude))->values();
-        $outletIds = $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
-        $trustedVisitCoordinates = $outletIds === []
-            ? collect()
-            : $coordinateService->latestVisits($outletIds)->get()->keyBy('coordinate_outlet_id');
-        $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
-            $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
-            $visitIsInSuryaCounties = $visit
-                && $coordinateService->isInSuryaCounties($visit->visit_latitude, $visit->visit_longitude);
+            $outlets = $outlets->filter(fn ($outlet) => $coordinateService->isInSuryaCounties($outlet->latitude, $outlet->longitude))->values();
+            $outletIds = $outlets->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
+            $trustedVisitCoordinates = $outletIds === []
+                ? collect()
+                : $coordinateService->latestVisits($outletIds)->get()->keyBy('coordinate_outlet_id');
+            $outlets = $outlets->map(function ($outlet) use ($coordinateService, $trustedVisitCoordinates) {
+                $visit = $trustedVisitCoordinates->get((string) $outlet->id_outlet);
+                $visitIsInSuryaCounties = $visit
+                    && $coordinateService->isInSuryaCounties($visit->visit_latitude, $visit->visit_longitude);
 
-            // A visit may only move a map marker when it remains in the same
-            // service area. Otherwise keep the verified master point so the
-            // marker cannot jump outside Bengkalis, Dumai, or Rokan Hilir.
-            if ($visit && $visitIsInSuryaCounties) {
-                $outlet->latitude = $visit->visit_latitude;
-                $outlet->longitude = $visit->visit_longitude;
-                $outlet->coordinate_source = 'visit';
-                $outlet->latest_visit_latitude = $visit->visit_latitude;
-                $outlet->latest_visit_longitude = $visit->visit_longitude;
-                $outlet->latest_visit_at = $visit->coordinate_visited_at;
-                $outlet->latest_visit_status = $visit->coordinate_gps_status;
-                $outlet->map_visit_state = 'unverified';
-                $distance = $coordinateService->coordinateDistance(
-                    $visit->visit_latitude,
-                    $visit->visit_longitude,
-                    $outlet->digipos_latitude,
-                    $outlet->digipos_longitude,
-                );
-                $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
-                $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
-            }
+                // A visit may only move a map marker when it remains in the same
+                // service area. Otherwise keep the verified master point so the
+                // marker cannot jump outside Bengkalis, Dumai, or Rokan Hilir.
+                if ($visit && $visitIsInSuryaCounties) {
+                    $outlet->latitude = $visit->visit_latitude;
+                    $outlet->longitude = $visit->visit_longitude;
+                    $outlet->coordinate_source = 'visit';
+                    $outlet->latest_visit_latitude = $visit->visit_latitude;
+                    $outlet->latest_visit_longitude = $visit->visit_longitude;
+                    $outlet->latest_visit_at = $visit->coordinate_visited_at;
+                    $outlet->latest_visit_status = $visit->coordinate_gps_status;
+                    $outlet->map_visit_state = 'unverified';
+                    $distance = $coordinateService->coordinateDistance(
+                        $visit->visit_latitude,
+                        $visit->visit_longitude,
+                        $outlet->digipos_latitude,
+                        $outlet->digipos_longitude,
+                    );
+                    $outlet->visit_digipos_distance_meters = $distance === null ? null : round($distance, 1);
+                    $outlet->visit_digipos_match = $distance === null ? null : $distance <= SuryaOutletCoordinates::DIGIPOS_MATCH_TOLERANCE_METERS;
+                }
 
-            return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
-        })->filter()->values();
+                return array_filter(get_object_vars($outlet), fn ($value) => $value !== null);
+            })->filter()->values();
+
+            return $outlets->all();
+        });
 
         return response()->json($outlets)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')

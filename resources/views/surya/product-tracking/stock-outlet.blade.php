@@ -70,7 +70,7 @@
                 @forelse($outlets as $outlet)
                     <tr>
                         <td>{{ $outlet->id_outlet }}</td><td><strong>{{ $outlet->nama_outlet ?: 'Outlet tanpa nama' }}</strong></td>
-                        <td>{{ $outlet->kecamatan ?: '—' }}</td><td>{{ $outlet->tap ?: 'Tanpa TAP' }}</td><td>{{ $outlet->cluster ?: '—' }}</td>
+                        <td>{{ $outlet->kecamatan ?: '—' }}</td><td>{{ $outlet->tap ?: 'Tanpa TAP' }}</td><td>{{ $outlet->cluster ? strtoupper($outlet->cluster) : '—' }}</td>
                         <td>{{ $outlet->sf ?: '—' }}</td><td>{{ $outlet->kategori_outlet ?: 'Reguler' }}</td>
                         @foreach($metricColumns as [$column, $label, $bold])
                             @php($value = data_get($outlet, $column))

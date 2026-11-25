@@ -275,6 +275,7 @@ Route::middleware(['auth', 'asmen.access'])->group(function () {
 	Route::post('/bo/store', [BOController::class, 'proseskeluarboform'])->name('bo.store');
 	Route::get('/exportexcelbo', [BOController::class, 'exportexcel']);
 	Route::get('/form/formkeluarbo', [BOController::class, 'keluarboform']);
+	Route::post('/form/formkeluarbo/stock', [BOController::class, 'getBoStock'])->name('bo.stock');
 	Route::post('/form/formkeluarbo', [BOController::class, 'getTap']);
 	Route::post('/bo/delete/{idkeluar}', [BOController::class, 'delete']);
 	Route::get('/bo/edit/{id}', [BOController::class, 'edit'])->name('bo.edit');

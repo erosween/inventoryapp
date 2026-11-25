@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Session;
 
@@ -16,6 +17,7 @@ class MobileSFAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $startedAt = microtime(true);
         if (!Session::has('mobile_sf_id')) {
             if ($request->isMethodSafe()) {
                 $request->session()->put('url.intended', $request->fullUrl());
@@ -32,6 +34,21 @@ class MobileSFAccess
         }
 
         $response = $next($request);
+        $durationMs = (microtime(true) - $startedAt) * 1000;
+        $currentTiming = trim((string) $response->headers->get('Server-Timing', ''));
+        $metric = sprintf('surya-mobile;dur=%.1f', $durationMs);
+        $response->headers->set('Server-Timing', $currentTiming === '' ? $metric : $currentTiming.', '.$metric);
+
+        if ($durationMs >= 2500) {
+            Log::warning('Slow SURYA request', [
+                'scope' => 'surya-mobile',
+                'route' => $request->route()?->getName(),
+                'path' => $request->path(),
+                'method' => $request->method(),
+                'duration_ms' => round($durationMs, 1),
+                'status' => $response->getStatusCode(),
+            ]);
+        }
 
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         $response->headers->set('Pragma', 'no-cache');

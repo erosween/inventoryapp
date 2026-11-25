@@ -10,7 +10,7 @@
         <div class="card premium-card">
             <div class="card-header py-3 px-4 bg-white border-bottom">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div><h4 class="card-title mb-1 font-weight-bold"><i class="fas fa-hourglass-half mr-2"></i>Pending Stor (Konsinyasi)</h4><div class="text-muted small">Penjualan outlet yang belum dibayar. Stok SF dipotong setelah pembayaran dikonfirmasi.</div></div>
+                    <div><h4 class="card-title mb-1 font-weight-bold"><i class="fas fa-hourglass-half mr-2"></i>Pending Stor (Konsinyasi)</h4><div class="text-muted small">Qty mengalokasikan stok tersedia agar tidak dipakai transaksi lain. Stok fisik SF dipotong setelah pembayaran dikonfirmasi.</div></div>
                     <input type="text" id="daterange" class="form-control" style="max-width:260px" autocomplete="off" placeholder="Pilih periode">
                 </div>
             </div>

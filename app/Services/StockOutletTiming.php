@@ -40,8 +40,15 @@ class StockOutletTiming
             foreach ($ranges as $range) {
                 $cursor = $range['start'];
                 $segments = [];
-                foreach ($accepted as $existing) {
-                    if ($existing['end'] < $cursor) continue;
+                $low = 0;
+                $high = count($accepted);
+                while ($low < $high) {
+                    $middle = intdiv($low + $high, 2);
+                    if ($accepted[$middle]['end'] < $cursor) $low = $middle + 1;
+                    else $high = $middle;
+                }
+                for ($index = $low, $acceptedCount = count($accepted); $index < $acceptedCount; $index++) {
+                    $existing = $accepted[$index];
                     if ($existing['start'] > $range['end']) break;
                     if ($existing['start'] > $cursor) {
                         $segments[] = array_merge($range, ['start' => $cursor, 'end' => min($range['end'], $existing['start'] - 1)]);
@@ -51,8 +58,19 @@ class StockOutletTiming
                 }
                 if ($cursor <= $range['end']) $segments[] = array_merge($range, ['start' => $cursor, 'end' => $range['end']]);
                 if ($segments !== []) {
-                    $accepted = array_merge($accepted, $segments);
-                    usort($accepted, fn ($a, $b) => $a['start'] <=> $b['start']);
+                    $merged = [];
+                    $acceptedIndex = 0;
+                    $segmentIndex = 0;
+                    while ($acceptedIndex < count($accepted) && $segmentIndex < count($segments)) {
+                        if ($accepted[$acceptedIndex]['start'] <= $segments[$segmentIndex]['start']) {
+                            $merged[] = $accepted[$acceptedIndex++];
+                        } else {
+                            $merged[] = $segments[$segmentIndex++];
+                        }
+                    }
+                    while ($acceptedIndex < count($accepted)) $merged[] = $accepted[$acceptedIndex++];
+                    while ($segmentIndex < count($segments)) $merged[] = $segments[$segmentIndex++];
+                    $accepted = $merged;
                 }
             }
             $origins[$key] = $accepted;

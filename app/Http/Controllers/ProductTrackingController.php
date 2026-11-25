@@ -162,7 +162,7 @@ class ProductTrackingController extends MonitaDumaiController
         $tableOptions = $this->soldTableOptions($request);
         $detailTableOptions = $tableOptions;
         $summaryTarget = $request->validate([
-            'summary_level' => 'nullable|in:tap,sf',
+            'summary_level' => 'nullable|in:tap,sf,kecamatan',
             'summary_key' => 'nullable|string|max:150',
             'summary_status' => 'nullable|in:matched,mismatch',
         ]);
@@ -198,9 +198,11 @@ class ProductTrackingController extends MonitaDumaiController
             }
         }
         if (! empty($summaryTarget['summary_level']) && isset($summaryTarget['summary_key'])) {
-            $summaryField = $summaryTarget['summary_level'] === 'tap' ? 'tap' : 'namasf';
+            $summaryField = match ($summaryTarget['summary_level']) {
+                'tap' => 'tap', 'sf' => 'namasf', default => 'kecamatan',
+            };
             $outletRows = $outletRows->filter(fn ($row) => $summaryTarget['summary_key'] === '__NULL__'
-                ? $row->{$summaryField} === null
+                ? trim((string) ($row->{$summaryField} ?? '')) === ''
                 : (string) $row->{$summaryField} === $summaryTarget['summary_key']);
         }
         if (($summaryTarget['summary_status'] ?? '') === 'matched') {
@@ -220,7 +222,7 @@ class ProductTrackingController extends MonitaDumaiController
         $outlets->appends($request->query());
 
         $tapOrder = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING', 'BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
-        $summaryCacheKey = $validationRowsCacheKey.':grouped-summaries:v1';
+        $summaryCacheKey = $validationRowsCacheKey.':grouped-summaries:v3';
         $baseSummaries = Cache::remember($summaryCacheKey, now()->addMinutes(5), function () use ($allOutletRows, $tapOrder) {
             $tapSummaries = $allOutletRows->whereIn('tap', $tapOrder)->groupBy('tap')->map(fn ($rows, $tap) => $this->summarizeSoldOutlets($rows, $tap, $tap))->sortBy(fn ($group) => array_search(strtoupper($group->key), $tapOrder, true))->values();
             $registeredSfNames = Cache::remember('product-tracking:registered-sf-names:v1', now()->addMinutes(5), fn () => DB::table('idsf')->get(['idsf', 'namasf'])
@@ -233,17 +235,36 @@ class ProductTrackingController extends MonitaDumaiController
                     return $group;
                 })->sortBy(fn ($group) => [array_search(strtoupper(strtok($group->tap, ',')), $tapOrder, true), mb_strtolower($group->label)])->values();
 
-            return ['tap' => $tapSummaries, 'sf' => $sfSummaries];
+            $clusterTaps = [
+                'DUMAI BENGKALIS' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+                'ROKAN HILIR' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            ];
+            $kecamatanSummaries = $allOutletRows
+                ->reject(fn ($row) => str_starts_with((string) $row->id_outlet, 'NON-DIGIPOS-') && trim((string) ($row->kecamatan ?? '')) === '')
+                ->groupBy(fn ($row) => trim((string) ($row->kecamatan ?? '')) ?: '__NULL__')
+                ->map(function ($rows, $key) use ($clusterTaps) {
+                    $group = $this->summarizeSoldOutlets($rows, (string) $key, $key === '__NULL__' ? 'Tanpa kecamatan' : (string) $key);
+                    $tapNames = $rows->pluck('tap')->map(fn ($tap) => strtoupper(trim((string) $tap)))->unique();
+                    $clusters = collect($clusterTaps)->filter(fn ($taps) => $tapNames->intersect($taps)->isNotEmpty())->keys();
+                    $group->cluster = $clusters->count() > 1 ? 'CAMPURAN' : ($clusters->first() ?? 'LAINNYA');
+                    return $group;
+                })
+                ->sortBy(fn ($group) => [array_search($group->cluster, ['DUMAI BENGKALIS', 'ROKAN HILIR', 'CAMPURAN', 'LAINNYA'], true), mb_strtolower($group->label)])
+                ->values();
+
+            return ['tap' => $tapSummaries, 'sf' => $sfSummaries, 'kecamatan' => $kecamatanSummaries];
         });
         $tapSummaries = $baseSummaries['tap'];
         $sfSummaries = $baseSummaries['sf'];
+        $kecamatanSummaries = $baseSummaries['kecamatan'];
 
         $tapSummaries = $this->filterSoldSummaries($tapSummaries, 'tap', $tableOptions);
         $sfSummaries = $this->filterSoldSummaries($sfSummaries, 'sf', $tableOptions);
+        $kecamatanSummaries = $this->filterSoldSummaries($kecamatanSummaries, 'kecamatan', $tableOptions);
 
         $clusterSummaries = collect([
-            'Dumai Bengkalis' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
-            'Rokan Hilir' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+            'DUMAI BENGKALIS' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+            'ROKAN HILIR' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
         ])->map(function ($clusterTaps, $cluster) use ($tapSummaries) {
             $groups = $tapSummaries->whereIn('key', $clusterTaps);
 
@@ -306,6 +327,7 @@ class ProductTrackingController extends MonitaDumaiController
             'tapSummaries' => $tapSummaries,
             'clusterSummaries' => $clusterSummaries,
             'sfSummaries' => $sfSummaries,
+            'kecamatanSummaries' => $kecamatanSummaries,
             'taps' => Cache::remember('product-tracking:sold-taps:v1:'.sha1(json_encode($this->suryaTapScopes())), now()->addMinutes(5), fn () => DB::table('idsf')->when($this->suryaTapScopes(), fn ($query, $scopes) => $this->applyTapScopeFilter($query, 'idtap', $scopes))->distinct()->orderBy('idtap')->pluck('idtap')),
             'sfs' => Cache::remember($validationRowsCacheKey.':sf-options', now()->addMinutes(5), fn () => $this->soldValidationSource($filters, false)->select('idsf', 'namasf')->distinct()->orderBy('namasf')->get()),
             'denoms' => Cache::remember($validationRowsCacheKey.':denom-options', now()->addMinutes(5), fn () => $this->soldValidationSource($filters, false)->select('iddenom', 'denom_label as denom')->distinct()->orderBy('denom_label')->get()),
@@ -545,9 +567,9 @@ class ProductTrackingController extends MonitaDumaiController
     public function soldColumnValues(Request $request)
     {
         $filters = $this->soldSerialFilters($request);
-        $request->validate(['column' => 'required|in:visit_at,nama_outlet,id_outlet,kecamatan,tap,namasf,kategori_outlet,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
+        $request->validate(['column' => 'required|in:visit_at,nama_outlet,id_outlet,kecamatan,tap,namasf,kategori_outlet,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf,kecamatan', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
         $column = $request->input('column');
-        $summaryTableLevel = $request->input('summary_table') === 'sf' ? 'sf' : 'tap';
+        $summaryTableLevel = $request->input('summary_table', 'tap');
         if ($request->filled('summary_table')) {
             abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true) || ($summaryTableLevel === 'sf' && $column === 'tap'), 422, 'Kolom ringkasan tidak valid.');
         }
@@ -576,9 +598,9 @@ class ProductTrackingController extends MonitaDumaiController
                     $summaryGroupsBuilt = true;
                 } else {
                     if (! ($summaryTableLevel === 'sf' && $column === 'tap')) {
-                        $summaryField = $summaryTableLevel === 'sf' ? 'namasf' : 'tap';
-                        $valueSource = $valueSource->groupBy($summaryField)
-                            ->map(fn ($rows, $key) => $this->summarizeSoldOutlets($rows, (string) $key, (string) $key));
+                        $summaryField = match ($summaryTableLevel) { 'tap' => 'tap', 'sf' => 'namasf', default => 'kecamatan' };
+                        $valueSource = $valueSource->groupBy(fn ($row) => trim((string) ($row->{$summaryField} ?? '')) ?: '__NULL__')
+                            ->map(fn ($rows, $key) => $this->summarizeSoldOutlets($rows, (string) $key, $key === '__NULL__' ? 'Tanpa kecamatan' : (string) $key));
                         $summaryGroupsBuilt = true;
                     }
                 }
@@ -592,7 +614,7 @@ class ProductTrackingController extends MonitaDumaiController
 
             $values = $valueSource->map(function ($row) use ($column, $request, $summaryTableLevel) {
                 if ($request->filled('summary_table') && $column === $summaryTableLevel) {
-                    return $summaryTableLevel === 'sf' ? (string) $row->label : (string) $row->summary_key;
+                    return $summaryTableLevel === 'tap' ? (string) $row->summary_key : (string) $row->label;
                 }
                 if ($column === 'status') return $row->mismatch_qty === 0 ? 'Sesuai' : 'Perlu dicek';
                 if ($column === 'nama_outlet') return $row->nama_outlet ?: 'Nama outlet tidak tersedia';
@@ -625,7 +647,7 @@ class ProductTrackingController extends MonitaDumaiController
             }
             $rows = $this->soldSummaryRows($filters, $summaryTableLevel);
             $summaryExpression = $column === $summaryTableLevel
-                ? ($summaryTableLevel === 'sf' ? '`outlet_rows`.`label`' : '`outlet_rows`.`summary_key`')
+                ? '`outlet_rows`.`label`'
                 : '`outlet_rows`.`'.$column.'`';
             $values = DB::query()->fromSub($rows, 'outlet_rows')
                 ->selectRaw($summaryExpression.' AS value')
@@ -656,8 +678,10 @@ class ProductTrackingController extends MonitaDumaiController
             'summary_tap_exclude' => 'nullable|array|max:8', 'summary_tap_exclude.*' => 'array|min:1|max:100', 'summary_tap_exclude.*.*' => 'nullable|string|max:5000',
             'summary_sf_columns' => 'nullable|array|max:8', 'summary_sf_columns.*' => 'array|min:1|max:100', 'summary_sf_columns.*.*' => 'nullable|string|max:5000',
             'summary_sf_exclude' => 'nullable|array|max:8', 'summary_sf_exclude.*' => 'array|min:1|max:100', 'summary_sf_exclude.*.*' => 'nullable|string|max:5000',
-            'summary_sort' => 'nullable|in:tap,sf,outlet_count,matched_outlets,mismatch_outlets,qty,matched_qty,mismatch_qty',
-            'summary_direction' => 'nullable|in:asc,desc', 'summary_table' => 'nullable|in:tap,sf',
+            'summary_kecamatan_columns' => 'nullable|array|max:8', 'summary_kecamatan_columns.*' => 'array|min:1|max:100', 'summary_kecamatan_columns.*.*' => 'nullable|string|max:5000',
+            'summary_kecamatan_exclude' => 'nullable|array|max:8', 'summary_kecamatan_exclude.*' => 'array|min:1|max:100', 'summary_kecamatan_exclude.*.*' => 'nullable|string|max:5000',
+            'summary_sort' => 'nullable|in:tap,sf,kecamatan,outlet_count,matched_outlets,mismatch_outlets,qty,matched_qty,mismatch_qty',
+            'summary_direction' => 'nullable|in:asc,desc', 'summary_table' => 'nullable|in:tap,sf,kecamatan',
         ]);
         foreach (['columns', 'exclude'] as $mode) {
             foreach ($data[$mode] ?? [] as $column => $values) {
@@ -669,9 +693,9 @@ class ProductTrackingController extends MonitaDumaiController
         }
         $data['sort'] ??= 'nama_outlet';
         $data['direction'] ??= 'asc';
-        foreach (['summary_tap_columns', 'summary_tap_exclude', 'summary_sf_columns', 'summary_sf_exclude'] as $mode) {
+        foreach (['summary_tap_columns', 'summary_tap_exclude', 'summary_sf_columns', 'summary_sf_exclude', 'summary_kecamatan_columns', 'summary_kecamatan_exclude'] as $mode) {
             foreach ($data[$mode] ?? [] as $column => $values) {
-                if (! in_array($column, ['tap','sf','outlet_count','matched_outlets','mismatch_outlets','qty','matched_qty','mismatch_qty'], true)) {
+                if (! in_array($column, ['tap','sf','kecamatan','outlet_count','matched_outlets','mismatch_outlets','qty','matched_qty','mismatch_qty'], true)) {
                     throw ValidationException::withMessages(['column' => 'Kolom ringkasan tidak valid.']);
                 }
                 $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
@@ -688,7 +712,7 @@ class ProductTrackingController extends MonitaDumaiController
         foreach (["summary_{$level}_columns", "summary_{$level}_exclude"] as $mode) {
             foreach ($options[$mode] ?? [] as $column => $values) {
                 if ($column === $level) {
-                    $groups = $groups->filter(fn ($group) => in_array((string) ($level === 'sf' ? $group->label : $group->key), $values, true));
+                    $groups = $groups->filter(fn ($group) => in_array((string) ($level === 'tap' ? $group->key : $group->label), $values, true));
                 } elseif ($level === 'sf' && $column === 'tap') {
                     $groups = str_ends_with($mode, '_columns')
                         ? $groups->filter(fn ($group) => count(array_intersect($values, array_map('trim', explode(',', (string) $group->tap)))) > 0)
@@ -706,7 +730,7 @@ class ProductTrackingController extends MonitaDumaiController
         }
         if (($options['summary_table'] ?? '') === $level && ! empty($options['summary_sort'])) {
             $column = $options['summary_sort'];
-            $groups = $groups->sortBy(fn ($group) => $column === $level ? ($level === 'sf' ? $group->label : $group->key) : ($group->{$column} ?? ''), SORT_NATURAL | SORT_FLAG_CASE, $options['summary_direction'] === 'desc')->values();
+            $groups = $groups->sortBy(fn ($group) => $column === $level ? ($level === 'tap' ? $group->key : $group->label) : ($group->{$column} ?? ''), SORT_NATURAL | SORT_FLAG_CASE, $options['summary_direction'] === 'desc')->values();
         }
 
         return $groups->values();
@@ -783,8 +807,8 @@ class ProductTrackingController extends MonitaDumaiController
     private function soldSummaryRows(array $filters, string $level)
     {
         $source = $this->soldOutletRows($filters);
-        $key = $level === 'tap' ? 'tap' : 'namasf';
-        $label = $level === 'tap' ? 'tap' : 'namasf';
+        $key = match ($level) { 'tap' => 'tap', 'sf' => 'namasf', default => 'kecamatan' };
+        $label = $level === 'kecamatan' ? "COALESCE(NULLIF(TRIM(kecamatan), ''), 'Tanpa kecamatan')" : $key;
 
         $query = DB::query()->fromSub($source, 'summary_source');
         if ($level === 'sf') {
@@ -1083,8 +1107,10 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function stockOutlet(Request $request)
     {
+        $startedAt = microtime(true);
         if (! $request->boolean('_single_product')) {
-            return $this->combinedStockOutlet($request);
+            return $this->combinedStockOutlet($request)
+                ->header('Server-Timing', 'stock-outlet;dur='.round((microtime(true) - $startedAt) * 1000));
         }
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
@@ -1334,13 +1360,13 @@ class ProductTrackingController extends MonitaDumaiController
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );
-        return view('surya.product-tracking.stock-outlet', [
+        return response()->view('surya.product-tracking.stock-outlet', [
             'product' => $product,
             'outlets' => $outlets,
             'soKind' => $soKind,
             'stockTableOptions' => $options,
             'viewMode' => $viewMode,
-        ]);
+        ])->header('Server-Timing', 'stock-outlet;dur='.round((microtime(true) - $startedAt) * 1000));
     }
 
     private function combinedStockOutlet(Request $request)
@@ -1429,6 +1455,7 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function stockOutletColumnValues(Request $request)
     {
+        $startedAt = microtime(true);
         $columns = $this->stockOutletColumnMap();
         $request->validate([
             'column' => ['required', Rule::in(array_keys($columns))],
@@ -1439,19 +1466,26 @@ class ProductTrackingController extends MonitaDumaiController
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
         $allRequest = clone $request;
-        $allRequest->query->set('product', 'PV');
+        // Keep facets scoped to the requested product. Forcing PV here made the
+        // SA tab calculate and expose PV filter values on every facet request.
+        $allRequest->query->set('product', $product);
+        $allRequest->query->set('_single_product', 1);
         $allRequest->query->set('view', 'outlet');
         $allRequest->query->set('all_rows', 1);
         foreach (['columns', 'exclude', 'sort', 'direction', 'page'] as $option) $allRequest->query->remove($option);
+        $facetColumn = str_ends_with($key, '_'.strtolower($product))
+            ? substr($key, 0, -strlen('_'.strtolower($product)))
+            : $key;
         $rows = collect($this->stockOutlet($allRequest)->getData()['outlets']->getCollection())->map(fn ($row) => (array) $row)->all();
         $needle = mb_strtolower(trim((string) $request->query('q')));
-        $values = collect($rows)->map(fn ($row) => (string) ($row[$key] ?? ''))->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
+        $values = collect($rows)->map(fn ($row) => (string) ($row[$facetColumn] ?? ''))->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
             ->filter(fn ($value) => $needle === '' || str_contains(mb_strtolower($value), $needle))
             ->values();
         $page = max(1, (int) $request->query('value_page', 1));
         $values = $values->slice(($page - 1) * 100, 101)->values();
 
-        return response()->json(['values' => $values->take(100), 'has_more' => $values->count() > 100]);
+        return response()->json(['values' => $values->take(100), 'has_more' => $values->count() > 100])
+            ->header('Server-Timing', 'stock-outlet-facets;dur='.round((microtime(true) - $startedAt) * 1000));
     }
 
     public function downloadStockOutlet(Request $request)
@@ -1707,6 +1741,8 @@ class ProductTrackingController extends MonitaDumaiController
             return (int) $this->serialRangeCount($cutStart, $cutEnd);
         });
 
+        $this->invalidateDigiposScanCoverageRanges($data['kind']);
+
         return redirect()->route('surya.product-tracking.imports.duplicates', ['kind' => $data['kind']])
             ->with('success', number_format($removedCount).' SN dihapus dari catatan yang dipilih. Bagian rentang yang tidak duplikat tetap tersimpan.');
     }
@@ -1802,6 +1838,8 @@ class ProductTrackingController extends MonitaDumaiController
 
             return [$removedCount, $changedRanges];
         }, 3);
+
+        $this->invalidateDigiposScanCoverageRanges($data['kind']);
 
         return redirect()->route('surya.product-tracking.imports.duplicates', ['kind' => $data['kind']])
             ->with('success', number_format($removedCount).' SN duplikat dibersihkan dari '.$changedRanges.' rentang. Bagian rentang yang unik tetap disimpan.');
@@ -2142,6 +2180,9 @@ class ProductTrackingController extends MonitaDumaiController
             DB::table('product_tracking_uploads')->where('id', $record->id)->update([
                 'status' => 'complete', 'scan_date' => $detectedScanDate, 'row_count' => $count, 'storage_path' => null, 'updated_at' => $now,
             ]);
+            if ($record->kind === 'scan') {
+                $this->invalidateDigiposScanCoverageRanges('scan');
+            }
         } catch (\Throwable $exception) {
             DB::table('product_tracking_digipos')->where('upload_id', $record->id)->delete();
             throw $exception;
@@ -2810,11 +2851,23 @@ class ProductTrackingController extends MonitaDumaiController
 
         return Cache::remember(
             'product-tracking:sold-all-digipos-ranges:v2:'.($latestCompleteScanUpload ?: 'none'),
-            now()->addMinutes(10),
+            now()->addDay(),
             fn () => $this->mergeSerialRangesFromQuery(DB::table('product_tracking_digipos as digipos')
                 ->join('product_tracking_uploads as upload', 'upload.id', '=', 'digipos.upload_id')
                 ->where('upload.kind', 'scan')->where('upload.status', 'complete'), $canonicalSerial)
         );
+    }
+
+    private function invalidateDigiposScanCoverageRanges(string $kind): void
+    {
+        if ($kind !== 'scan') {
+            return;
+        }
+
+        $latestCompleteScanUpload = DB::table('product_tracking_uploads')
+            ->where('kind', 'scan')->where('status', 'complete')->max('id');
+
+        Cache::forget('product-tracking:sold-all-digipos-ranges:v2:'.($latestCompleteScanUpload ?: 'none'));
     }
 
     private function splitSerialRangeByCoverage(string $start, string $end, array $coverageRanges): array

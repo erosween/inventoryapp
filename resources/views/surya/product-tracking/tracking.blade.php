@@ -67,7 +67,7 @@
                                     <td><strong>{{ $row->sfcode }}</strong></td>
                                     <td>{{ $row->namasf ?: 'Nama SF tidak ditemukan' }}</td>
                                     <td>{{ $row->tap ?: '—' }}</td>
-                                    <td>{{ $row->cluster ?: '—' }}</td>
+                                    <td>{{ $row->cluster ? strtoupper($row->cluster) : '—' }}</td>
                                     <td>{{ $row->denom ?: $row->iddenom }}</td>
                                     <td><span class="pt-chip">{{ $row->source }}</span></td>
                                     <td>{{ $row->serial_range }}</td>

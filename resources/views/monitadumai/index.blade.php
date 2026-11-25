@@ -130,7 +130,7 @@
                 <div class="leader-top">
                     <div class="leader-intro">
                         <div class="leader-eyebrow">Leader command center</div>
-                        <h2 class="leader-title">Analisa Outlet Cluster Dumai Bengkalis dan Cluster Rokan Hilir</h2>
+                        <h2 class="leader-title">Analisa Outlet Cluster DUMAI BENGKALIS dan Cluster ROKAN HILIR</h2>
                         <p class="leader-subtitle">
                             Dashboard ini mengonsolidasikan penyebaran outlet aktif CVM, PV dan SA.
                             <br>Analisa disajikan untuk mendukung prioritas kunjungan, evaluasi produktivitas wilayah,
@@ -687,7 +687,7 @@
                                         <tr data-visit-summary-row data-sfcode="{{ $row['sfcode'] }}" data-name="{{ $row['name'] }}" data-tap="{{ $row['tap'] }}" data-cluster="{{ $row['cluster'] }}" data-pjp="{{ $row['pjp_total'] }}" data-actual="{{ $row['actual_call'] }}" data-visit-percent="{{ $row['visit_percentage'] }}" data-effective="{{ $row['effective_call'] }}" data-non-pjp="{{ $row['non_pjp'] }}" data-non-buying="{{ $row['non_buying'] }}" data-pv="{{ $row['total_pv'] }}" data-sa="{{ $row['total_sa'] }}">
                                             <td class="visit-freeze-name"><strong>{{ $row['name'] }}</strong></td>
                                             <td class="visit-freeze-tap">{{ $row['tap'] }}</td>
-                                            <td><span class="cluster-chip">{{ $row['cluster'] }}</span></td>
+                                            <td><span class="cluster-chip">{{ strtoupper($row['cluster']) }}</span></td>
                                             <td><span class="metric-number">{{ number_format($row['pjp_total'], 0) }}</span></td>
                                             <td><button type="button" class="metric-number actual" data-visit-row="{{ $loop->index }}" data-visit-scope="actual">{{ number_format($row['actual_call'], 0) }}</button></td>
                                             <td><div class="visit-percent"><span class="visit-percent-value">{{ number_format($row['visit_percentage'], 1) }}%</span><span class="visit-progress"><span style="width: {{ min(100, max(0, $row['visit_percentage'])) }}%"></span></span></div></td>
@@ -706,7 +706,7 @@
                         <div class="visit-mobile-list" data-visit-mobile-list aria-label="Ringkasan kinerja Sales Force">
                             @forelse($visitDetails as $row)
                                 <article class="visit-mobile-card" data-visit-mobile-card data-mobile-index="{{ $loop->index }}">
-                                    <header><div><strong>{{ $row['name'] }}</strong><span>{{ $row['tap'] ?: 'Tanpa TAP' }} · {{ $row['cluster'] ?: '—' }}</span></div><span class="visit-mobile-code">{{ $row['sfcode'] }}</span></header>
+                                    <header><div><strong>{{ $row['name'] }}</strong><span>{{ $row['tap'] ?: 'Tanpa TAP' }} · {{ $row['cluster'] ? strtoupper($row['cluster']) : '—' }}</span></div><span class="visit-mobile-code">{{ $row['sfcode'] }}</span></header>
                                     <div class="visit-mobile-main-metrics">
                                         <div><small>Total PJP</small><strong>{{ number_format($row['pjp_total'],0) }}</strong></div>
                                         <button type="button" data-visit-row="{{ $loop->index }}" data-visit-scope="actual"><small>Actual Call</small><strong>{{ number_format($row['actual_call'],0) }}</strong></button>
@@ -920,7 +920,7 @@
 
             const fallbackCenters = {
                 'Kota Dumai': [1.667, 101.447],
-                'Kabupaten Rokan Hilir': [2.15, 100.85],
+                'Kabupaten ROKAN HILIR': [2.15, 100.85],
                 'Kabupaten Bengkalis': [1.45, 101.75]
             };
 
@@ -1717,16 +1717,16 @@
             const dumaiBengkalisTaps = ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'];
             const rokanHilirTaps = ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'];
 
-            if (dumaiBengkalisTaps.includes(normalizedTap)) return 'Dumai Bengkalis';
-            if (rokanHilirTaps.includes(normalizedTap)) return 'Rokan Hilir';
-            return 'Cluster Lain';
+            if (dumaiBengkalisTaps.includes(normalizedTap)) return 'DUMAI BENGKALIS';
+            if (rokanHilirTaps.includes(normalizedTap)) return 'ROKAN HILIR';
+            return 'CLUSTER LAIN';
         }
 
         function leaderActiveTableGroupOrder(group, view) {
             const clusterOrders = {
-                'Dumai Bengkalis': 1,
-                'Rokan Hilir': 2,
-                'Cluster Lain': 3
+                'DUMAI BENGKALIS': 1,
+                'ROKAN HILIR': 2,
+                'CLUSTER LAIN': 3
             };
 
             if (view === 'tap' || view === 'kecamatan') {
@@ -1795,8 +1795,8 @@
 
         function updateLeaderCoverageBadges() {
             const groupLabels = {
-                dumai_bengkalis: 'Dumai Bengkalis',
-                rokan_hilir: 'Rokan Hilir'
+                dumai_bengkalis: 'DUMAI BENGKALIS',
+                rokan_hilir: 'ROKAN HILIR'
             };
             const metricMap = {
                 sa: {
@@ -2661,7 +2661,7 @@
             const tapRows = taps.map(tap => renderTapRow(tap, byTap[tap])).join('');
             const clusterRows = ['DUMAI BENGKALIS', 'ROKAN HILIR'].map(cluster => {
                 const rows = outlets.filter(outlet => outlet.cluster === cluster);
-                const label = cluster === 'DUMAI BENGKALIS' ? 'Dumai Bengkalis' : 'Rokan Hilir';
+                const label = cluster;
                 return rows.length ? renderTapRow(label, rows, '', cluster) : '';
             }).join('');
             const districtGroups = outlets.reduce((groups, outlet) => {
@@ -2676,7 +2676,7 @@
                 const rows = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'id-ID'))
                     .map(district => renderTapRow(district, groups[district], '', cluster === 'LAINNYA' ? '' : cluster, district)).join('');
                 const all = Object.values(groups).flat();
-                const label = cluster === 'DUMAI BENGKALIS' ? 'Dumai Bengkalis' : cluster === 'ROKAN HILIR' ? 'Rokan Hilir' : 'Lainnya';
+                const label = cluster;
                 return all.length ? renderTapRow(label, all, '', cluster === 'LAINNYA' ? '' : cluster, '', 'branding-matrix-cluster-total') + rows : '';
             }).join('');
             const matrixRows = brandingMatrixView === 'district' ? districtRows : tapRows;

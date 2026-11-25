@@ -187,3 +187,40 @@
     [data-surya-workspace] .surya-content :is(.btn,.pt-button,.pt-page-button,.ngrs-button,.svp-primary,.svp-copy-button,.svp-edit-button,.stock-filter-button,.surya-page-link,.page-link,.approve-btn){transition:none}
 }
 @media print{[data-surya-workspace]>.surya-workspace-main,[data-surya-workspace] .surya-content{background:#fff!important}.surya-report-context{display:none}}
+
+/* Shared table palette across Surya menus: red brand headers, quiet green row bands. */
+[data-surya-workspace] .surya-content :is(table,.table) thead th {
+    background-color: #334155 !important;
+    color: #fff !important;
+    border-color: #4b5b70 !important;
+    font-weight: 400 !important;
+}
+[data-surya-workspace] .surya-content :is(table,.table) thead tr:first-child th {
+    background-color: #263449 !important;
+}
+[data-surya-workspace] .surya-content :is(table,.table) thead th :is(span,small,strong,label) {
+    color: inherit !important;
+    font-weight: 400 !important;
+}
+[data-surya-workspace] .surya-content :is(table,.table) thead th :is(button,.tf-column-filter,.outlet-column-filter) {
+    color: #334155 !important;
+    background-color: #fff !important;
+    border-color: #cbd5e1 !important;
+    font-weight: 400 !important;
+}
+[data-surya-workspace] .surya-content :is(table,.table) :is(th,td,strong,b,.badge) {
+    font-weight: 400 !important;
+}
+[data-surya-workspace] .surya-content :is(table,.table) tbody tr:nth-child(even) > :is(td,th):not(.svp-result-cell):not([data-class]):not(.status-cell):not(.status):not(.result-cell):not(.text-success):not(.text-danger):not(.bg-success):not(.bg-danger):not(.table-success):not(.table-danger):not(.is-positive):not(.is-negative) {
+    background-color: #f1f7f3 !important;
+}
+[data-surya-workspace] .surya-content :is(table,.table) tbody tr:hover > :is(td,th):not(.svp-result-cell):not([data-class]):not(.status-cell):not(.status):not(.result-cell):not(.text-success):not(.text-danger):not(.bg-success):not(.bg-danger):not(.table-success):not(.table-danger):not(.is-positive):not(.is-negative) {
+    background-color: #f4f6f8 !important;
+}
+body [data-surya-workspace] .surya-content :is(table,.table) thead th,
+body [data-surya-workspace] .surya-content :is(table,.table) thead th:is(.text-secondary,.text-dark,.text-muted) {
+    color: #fff !important;
+}
+body [data-surya-workspace] .surya-content :is(table,.table) tbody > tr > :is(td,th):not(.text-success):not(.text-danger):not(.positive):not(.negative):not(.sales):not(.upload):not(.is-positive):not(.is-negative):not(.status-cell):not(.status):not(.result-cell):not(.svp-result-cell):not([data-class]) {
+    color: #263449 !important;
+}

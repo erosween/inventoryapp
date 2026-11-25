@@ -97,8 +97,8 @@
                 @endif
                 @if($canSeeDumaiCluster || $canSeeRohilCluster)
                     <div class="mom-cluster-tabs" role="tablist" aria-label="Filter cluster MoM">
-                        @if($canSeeDumaiCluster)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'dumai_bengkalis' ? 'true' : 'false' }}" data-mom-cluster-tab="dumai_bengkalis">Dumai Bengkalis</button>@endif
-                        @if($canSeeRohilCluster)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'rokan_hilir' ? 'true' : 'false' }}" data-mom-cluster-tab="rokan_hilir">Rokan Hilir</button>@endif
+                        @if($canSeeDumaiCluster)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'dumai_bengkalis' ? 'true' : 'false' }}" data-mom-cluster-tab="dumai_bengkalis">DUMAI BENGKALIS</button>@endif
+                        @if($canSeeRohilCluster)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'rokan_hilir' ? 'true' : 'false' }}" data-mom-cluster-tab="rokan_hilir">ROKAN HILIR</button>@endif
                         @if($canSeeAllClusters)<button type="button" role="tab" aria-selected="{{ $momDefaultCluster === 'all' ? 'true' : 'false' }}" data-mom-cluster-tab="all">All Cluster</button>@endif
                     </div>
                 @endif
@@ -206,7 +206,7 @@
                         <tfoot class="bg-light text-dark font-weight-bold" style="border-top: 2px solid #ddd">
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_DUMAI']))
                             <tr data-mom-cluster="dumai_bengkalis">
-                                <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Dumai Bengkalis</td>
+                                <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> DUMAI BENGKALIS</td>
                                 <td class="text-right border-0">{{ number_format($momProductClusters['dumai_bengkalis']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['dumai_bengkalis']->prev_full_qty) }}</td>
@@ -225,7 +225,7 @@
                             @endif
                             @if(in_array(session('idtap'), ['SBP_DUMAI', 'ALL TAP', 'CLUSTER_ROHIL']))
                             <tr data-mom-cluster="rokan_hilir">
-                                <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> Rokan Hilir</td>
+                                <td class="border-0"><span class="badge badge-light text-dark mr-2">CLUSTER</span> ROKAN HILIR</td>
                                 <td class="text-right border-0">{{ number_format($momProductClusters['rokan_hilir']->curr_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_partial_qty) }}</td>
                                 <td class="text-right opacity-75 border-0">{{ number_format($momProductClusters['rokan_hilir']->prev_full_qty) }}</td>

@@ -394,9 +394,10 @@
                                         </label>
                                         <label class="sf-payment-option">
                                             <input type="radio" name="payment_type" value="pending" required {{ old('payment_type') === 'pending' ? 'checked' : '' }}>
-                                            <span><strong>Pending Stor (Konsinyasi)</strong><small>Dicatat sebagai penjualan outlet; stok dipotong setelah pembayaran dikonfirmasi.</small></span>
+                                            <span><strong>Pending Stor (Konsinyasi)</strong><small>Qty langsung dialokasikan dari stok tersedia; stok fisik dipotong setelah pembayaran dikonfirmasi.</small></span>
                                         </label>
                                     </fieldset>
+                                    <div class="small text-muted mt-2 mb-3">Stok tersedia sudah dikurangi semua Pending Stor yang belum dibayar, jadi qty Cash dan Konsinyasi memakai batas stok sisa yang sama.</div>
 
                                     <div id="bulk-entry">
                                         <div class="sf-denom-section">
@@ -672,7 +673,7 @@
                 const disabled = $('#idsf').val() ? '' : 'disabled';
                 const row = $(`<div class="sf-item-card">
                     <div class="sf-item-product"><label class="sf-item-label">Produk</label><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${options}</select></div>
-                    <div class="sf-item-stock-wrap"><label class="sf-item-label">Stok</label><div class="sf-item-stock">—</div></div>
+                    <div class="sf-item-stock-wrap"><label class="sf-item-label">Stok tersedia</label><div class="sf-item-stock">—</div></div>
                     <div class="sf-item-qty-wrap"><label class="sf-item-label qty-label">Qty otomatis</label><div class="sf-qty-display is-empty">—</div><input type="hidden" name="items[${index}][qty]" class="bulk-qty"><input type="number" class="form-control bulk-manual-qty d-none" min="1" max="2000000" placeholder="Qty" inputmode="numeric"><div class="bulk-error" role="alert" aria-live="polite"></div></div>
                     <div class="sf-item-serial"><div class="sf-serial-top"><label class="sf-item-label mb-0">Identitas penjualan</label></div>
                         <input type="hidden" name="items[${index}][serial_mode]" class="bulk-serial-mode" value="range">

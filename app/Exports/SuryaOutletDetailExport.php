@@ -10,6 +10,7 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMapping, WithStrictNullComparison, WithStyles, WithTitle
@@ -72,9 +73,10 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
     public function styles(Worksheet $sheet): array
     {
         $lastRow = max(1, $this->rows->count() + 1);
+        $lastColumn = Coordinate::stringFromColumnIndex(count($this->headings()));
         $sheet->freezePane('H2');
-        $sheet->setAutoFilter("A1:BB{$lastRow}");
-        $sheet->getStyle('A1:BB1')->applyFromArray([
+        $sheet->setAutoFilter("A1:{$lastColumn}{$lastRow}");
+        $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C8102E']],
             'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
@@ -87,11 +89,9 @@ class SuryaOutletDetailExport implements FromCollection, WithHeadings, WithMappi
         foreach (['B' => 28, 'C' => 22, 'D' => 24, 'E' => 18, 'F' => 14, 'G' => 20] as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
-        foreach (range('H', 'AE') as $column) {
-            $sheet->getColumnDimension($column)->setWidth(13);
-        }
-        foreach (range('AF', 'BB') as $column) {
-            $sheet->getColumnDimension($column)->setWidth(13);
+        $columnCount = count($this->headings());
+        for ($columnIndex = 8; $columnIndex <= $columnCount; $columnIndex++) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($columnIndex))->setWidth(13);
         }
 
         return [];

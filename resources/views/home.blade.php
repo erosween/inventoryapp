@@ -350,7 +350,7 @@
                     </div>
                 @endforeach
                 @php
-                    $pvClusterChanges = collect(['dumai_bengkalis' => 'Dumai Bengkalis', 'rokan_hilir' => 'Rokan Hilir'])
+                    $pvClusterChanges = collect(['dumai_bengkalis' => 'DUMAI BENGKALIS', 'rokan_hilir' => 'ROKAN HILIR'])
                         ->filter(fn ($label, $key) => $momClusterSalesRows[$key]->curr_qty || $momClusterSalesRows[$key]->prev_partial_qty)
                         ->mapWithKeys(fn ($label, $key) => [$label => $momClusterSalesRows[$key]->curr_qty - $momClusterSalesRows[$key]->prev_partial_qty])
                         ->sortDesc();
@@ -609,7 +609,7 @@
                                         $clusterDumaiMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualClusterDumaiComparison['current_month'], $annualClusterDumaiComparison['previous_month']) : null;
                                     @endphp
                                     <tr style="background:#f8fafc;color:#374151;border-top:2px solid #d1d5db">
-                                        <td class="text-left sticky-tap-col" style="background:#f8fafc !important"><span class="badge badge-light border mr-2">CLUSTER</span>Dumai Bengkalis</td>
+                                        <td class="text-left sticky-tap-col" style="background:#f8fafc !important"><span class="badge badge-light border mr-2">CLUSTER</span>DUMAI BENGKALIS</td>
                                         @foreach($annualYears as $year)
                                             <td>{{ number_format($annualClusterDumaiValues[$year]) }}</td>
                                         @endforeach
@@ -629,7 +629,7 @@
                                         $clusterRohilMom = $annualComparisonMonth > 1 ? $calculatePeriodGrowth($annualClusterRohilComparison['current_month'], $annualClusterRohilComparison['previous_month']) : null;
                                     @endphp
                                     <tr style="background:#f8fafc;color:#374151">
-                                        <td class="text-left sticky-tap-col" style="background:#f8fafc !important"><span class="badge badge-light border mr-2">CLUSTER</span>Rokan Hilir</td>
+                                        <td class="text-left sticky-tap-col" style="background:#f8fafc !important"><span class="badge badge-light border mr-2">CLUSTER</span>ROKAN HILIR</td>
                                         @foreach($annualYears as $year)
                                             <td>{{ number_format($annualClusterRohilValues[$year]) }}</td>
                                         @endforeach
@@ -859,7 +859,7 @@
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
                                             type="button" aria-expanded="false" aria-controls="val-sales-cluster-dumai" aria-label="Tampilkan rincian">+</button>
-                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> DUMAI BENGKALIS
                                     </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
@@ -965,7 +965,7 @@
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
                                             type="button" aria-expanded="false" aria-controls="val-sales-cluster-rohil" aria-label="Tampilkan rincian">+</button>
-                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> ROKAN HILIR
                                     </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
@@ -1344,7 +1344,7 @@
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
                                             type="button" aria-expanded="false" aria-controls="val-inject-cluster-dumai" aria-label="Tampilkan rincian">+</button>
-                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Dumai Bengkalis
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> DUMAI BENGKALIS
                                     </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
@@ -1436,7 +1436,7 @@
                                     <td class="text-left border-0 sticky-tap-col">
                                         <button class="btn btn-sm btn-light border toggle-validity rounded py-0 px-2 mr-2"
                                             type="button" aria-expanded="false" aria-controls="val-inject-cluster-rohil" aria-label="Tampilkan rincian">+</button>
-                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> Rokan Hilir
+                                        <span class="badge badge-light text-dark mr-1">CLUSTER</span> ROKAN HILIR
                                     </td>
                                     @for($i=1; $i<=12; $i++)
                                         @php
