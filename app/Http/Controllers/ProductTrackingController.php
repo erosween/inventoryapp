@@ -1109,8 +1109,7 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $startedAt = microtime(true);
         if (! $request->boolean('_single_product')) {
-            return $this->combinedStockOutlet($request)
-                ->header('Server-Timing', 'stock-outlet;dur='.round((microtime(true) - $startedAt) * 1000));
+            return $this->combinedStockOutlet($request);
         }
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
