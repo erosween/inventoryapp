@@ -1205,20 +1205,35 @@ class ProductTrackingController extends MonitaDumaiController
                 ? substr((string) $serial, 1) : (string) $serial;
             $stRanges = (clone $stRangesQuery)->get();
             $metrics = [];
-            foreach ($stRanges->chunk(75) as $batch) {
-                $validBatch = [];
-                foreach ($batch as $stRange) {
-                    $outletId = (string) $stRange->id_outlet;
-                    $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
-                    $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
-                    $start = $canonical($stRange->serial_start);
-                    $end = $canonical($stRange->serial_end);
-                    if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
-                    $validBatch[] = ['range' => $stRange, 'start' => (int) $start, 'end' => (int) $end,
-                        'length' => strlen($start), 'start_text' => $start, 'end_text' => $end];
+            $rangesByLength = [];
+            foreach ($stRanges as $stRange) {
+                $outletId = (string) $stRange->id_outlet;
+                $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
+                $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
+                $start = $canonical($stRange->serial_start);
+                $end = $canonical($stRange->serial_end);
+                if (strlen($start) !== strlen($end) || ! ctype_digit($start) || ! ctype_digit($end)) continue;
+                $length = strlen($start);
+                $rangesByLength[$length][] = ['range' => $stRange, 'start' => (int) $start, 'end' => (int) $end,
+                    'length' => $length, 'start_text' => $start, 'end_text' => $end];
+            }
+            $windowsByLength = [];
+            foreach ($rangesByLength as $length => $candidates) {
+                usort($candidates, fn ($a, $b) => $a['start'] <=> $b['start'] ?: $a['end'] <=> $b['end']);
+                foreach ($candidates as $candidate) {
+                    $last = count($windowsByLength[$length] ?? []) - 1;
+                    if ($last >= 0 && $candidate['start'] <= $windowsByLength[$length][$last]['end'] + 1) {
+                        $windowsByLength[$length][$last]['end'] = max($windowsByLength[$length][$last]['end'], $candidate['end']);
+                        $windowsByLength[$length][$last]['end_text'] = str_pad((string) $windowsByLength[$length][$last]['end'], $length, '0', STR_PAD_LEFT);
+                        $windowsByLength[$length][$last]['members'][] = $candidate;
+                    } else {
+                        $windowsByLength[$length][] = $candidate + ['members' => [$candidate]];
+                    }
                 }
-                if ($validBatch === []) continue;
+            }
 
+            $queryWindows = collect($windowsByLength)->flatten(1)->chunk(200);
+            foreach ($queryWindows as $validBatch) {
                 $soQuery = clone $soBase;
                 $soQuery->where(function ($overlaps) use ($validBatch) {
                     foreach ($validBatch as $candidate) {
@@ -1267,31 +1282,32 @@ class ProductTrackingController extends MonitaDumaiController
                 }
                 unset($ranges);
 
-                foreach ($validBatch as $candidate) {
-                    $stRange = $candidate['range'];
-                    $outletId = (string) $stRange->id_outlet;
-                    $startNumber = $candidate['start'];
-                    $endNumber = $candidate['end'];
-                    $ranges = $soByLength[$candidate['length']] ?? [];
-                    if ($ranges === []) continue;
-                    $low = 0;
-                    $high = count($ranges);
-                    while ($low < $high) {
-                        $middle = intdiv($low + $high, 2);
-                        if ($ranges[$middle][3] < $startNumber) $low = $middle + 1;
-                        else $high = $middle;
-                    }
-                    for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index][0] <= $endNumber; $index++) {
-                        $soRange = $ranges[$index];
-                        if ($soRange[1] < $startNumber) continue;
-                        $overlap = min($endNumber, $soRange[1]) - max($startNumber, $soRange[0]) + 1;
-                        if ($overlap <= 0) continue;
-                        $metrics[$outletId]['redeemed_qty'] += $overlap;
-                        $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
-                        $soTime = $soRange[2] ? strtotime((string) $soRange[2]) : false;
-                        if ($stTime !== false && $soTime !== false) {
-                            $metrics[$outletId]['timed_qty'] += $overlap;
-                            $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
+                foreach ($validBatch as $window) {
+                    $ranges = $soByLength[$window['length']] ?? [];
+                    foreach ($window['members'] as $candidate) {
+                        $stRange = $candidate['range'];
+                        $outletId = (string) $stRange->id_outlet;
+                        $startNumber = $candidate['start'];
+                        $endNumber = $candidate['end'];
+                        $low = 0;
+                        $high = count($ranges);
+                        while ($low < $high) {
+                            $middle = intdiv($low + $high, 2);
+                            if ($ranges[$middle][3] < $startNumber) $low = $middle + 1;
+                            else $high = $middle;
+                        }
+                        for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index][0] <= $endNumber; $index++) {
+                            $soRange = $ranges[$index];
+                            if ($soRange[1] < $startNumber) continue;
+                            $overlap = min($endNumber, $soRange[1]) - max($startNumber, $soRange[0]) + 1;
+                            if ($overlap <= 0) continue;
+                            $metrics[$outletId]['redeemed_qty'] += $overlap;
+                            $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
+                            $soTime = $soRange[2] ? strtotime((string) $soRange[2]) : false;
+                            if ($stTime !== false && $soTime !== false) {
+                                $metrics[$outletId]['timed_qty'] += $overlap;
+                                $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
+                            }
                         }
                     }
                 }
