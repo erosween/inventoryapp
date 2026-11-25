@@ -1184,7 +1184,7 @@ class ProductTrackingController extends MonitaDumaiController
                 'Stok Masuk SF', 'Stok Masuk SF (Bulk)', 'Mobile Sales',
             ])->max('created_at'),
         ];
-        $cacheKey = 'stock-outlet-report-v9-'.sha1(json_encode([
+        $cacheKey = 'stock-outlet-report-v10-'.sha1(json_encode([
             $product, $this->suryaTapScopes(), $reportVersion,
         ]));
         $cachedRows = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $product) {
@@ -1219,7 +1219,7 @@ class ProductTrackingController extends MonitaDumaiController
                 }
                 if ($validBatch === []) continue;
 
-                $soQuery = (clone $soBase)->whereIn('so.id_outlet', $eligibleOutletIds);
+                $soQuery = clone $soBase;
                 $soQuery->where(function ($overlaps) use ($validBatch) {
                     foreach ($validBatch as $candidate) {
                         $length = $candidate['length'];
@@ -1297,39 +1297,6 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             }
 
-            $metrics = [];
-            foreach ((clone $stRangesQuery)->cursor() as $stRange) {
-                $outletId = (string) $stRange->id_outlet;
-                $metrics[$outletId] ??= ['st_qty' => 0, 'redeemed_qty' => 0, 'timed_qty' => 0, 'days_weighted' => 0];
-                $metrics[$outletId]['st_qty'] += (int) $stRange->serial_count;
-                $start = $canonical($stRange->serial_start);
-                $end = $canonical($stRange->serial_end);
-                $length = strlen($start);
-                $ranges = $soByLength[$length] ?? [];
-                if ($ranges === [] || strlen($end) !== $length || ! ctype_digit($start) || ! ctype_digit($end)) continue;
-                $startNumber = (int) $start;
-                $endNumber = (int) $end;
-                $low = 0;
-                $high = count($ranges);
-                while ($low < $high) {
-                    $middle = intdiv($low + $high, 2);
-                    if ($ranges[$middle][3] < $startNumber) $low = $middle + 1;
-                    else $high = $middle;
-                }
-                for ($index = $low, $rangeCount = count($ranges); $index < $rangeCount && $ranges[$index][0] <= $endNumber; $index++) {
-                    $soRange = $ranges[$index];
-                    if ($soRange[1] < $startNumber) continue;
-                    $overlap = min($endNumber, $soRange[1]) - max($startNumber, $soRange[0]) + 1;
-                    if ($overlap <= 0) continue;
-                    $metrics[$outletId]['redeemed_qty'] += $overlap;
-                    $stTime = $stRange->st_date ? strtotime((string) $stRange->st_date) : false;
-                    $soTime = $soRange[2] ? strtotime((string) $soRange[2]) : false;
-                    if ($stTime !== false && $soTime !== false) {
-                        $metrics[$outletId]['timed_qty'] += $overlap;
-                        $metrics[$outletId]['days_weighted'] += $overlap * max(0, intdiv($soTime - $stTime, 86400));
-                    }
-                }
-            }
             $sourceMeta = DB::query()->fromSub(clone $stSources, 'source')->select('source.owner_sf', 'source.iddenom')->distinct()->get();
             $owners = $sourceMeta->pluck('owner_sf')->filter()->unique()->values()->all();
             $denoms = $sourceMeta->pluck('iddenom')->filter()->unique()->values()->all();
