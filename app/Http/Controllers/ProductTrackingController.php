@@ -1172,21 +1172,7 @@ class ProductTrackingController extends MonitaDumaiController
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $reportVersion = [
-            'web_st' => DB::table('keluarsf')->max('idkeluar'),
-            'mobile_st' => DB::table('mobile_sales_serials')->max('id'),
-            'mobile_sales_updated' => DB::table('mobile_penjualan')->max('updated_at'),
-            'so_upload_updated' => DB::table('product_tracking_uploads')->where('kind', $soKind)->max('updated_at'),
-            'stock_origin' => DB::table('product_tracking_sales_stock_ranges')->max('id'),
-            'sf_stock_origin' => DB::table('masuksf')->max('idmasuk'),
-            'audited_changes' => DB::table('logs')->whereIn('module', [
-                'Stok Keluar SF', 'Stok Keluar SF (Bulk)', 'Pending Stor SF',
-                'Stok Masuk SF', 'Stok Masuk SF (Bulk)', 'Mobile Sales',
-            ])->max('created_at'),
-        ];
-        $cacheKey = 'stock-outlet-report-v10-'.sha1(json_encode([
-            $product, $this->suryaTapScopes(), $reportVersion,
-        ]));
+        $cacheKey = $this->stockOutletReportCacheKey($product);
         $cachedRows = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
@@ -1390,17 +1376,24 @@ class ProductTrackingController extends MonitaDumaiController
     {
         $stockColumns = $this->stockOutletColumnMap();
         $options = $this->stockOutletTableOptions($request, array_keys($stockColumns));
-        $combined = [];
-        foreach (['PV', 'SA'] as $reportProduct) {
-            foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $row) {
-                $id = (string) $row['id_outlet'];
-                $combined[$id] ??= array_intersect_key($row, array_flip(['id_outlet', 'nama_outlet', 'kecamatan', 'tap', 'cluster', 'sf', 'kategori_outlet']));
-                $suffix = strtolower($reportProduct);
-                foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
-                    $combined[$id][$metric.'_'.$suffix] = $row[$metric] ?? null;
+        $combinedCacheKey = 'stock-outlet-combined-v1-'.sha1(json_encode([
+            $this->stockOutletReportCacheKey('PV'),
+            $this->stockOutletReportCacheKey('SA'),
+        ]));
+        $combined = Cache::remember($combinedCacheKey, now()->addMinutes(5), function () use ($request) {
+            $rowsByOutlet = [];
+            foreach (['PV', 'SA'] as $reportProduct) {
+                foreach ($this->stockOutletRowsForFilters($request, $reportProduct, false) as $row) {
+                    $id = (string) $row['id_outlet'];
+                    $rowsByOutlet[$id] ??= array_intersect_key($row, array_flip(['id_outlet', 'nama_outlet', 'kecamatan', 'tap', 'cluster', 'sf', 'kategori_outlet']));
+                    $suffix = strtolower($reportProduct);
+                    foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
+                        $rowsByOutlet[$id][$metric.'_'.$suffix] = $row[$metric] ?? null;
+                    }
                 }
             }
-        }
+            return $rowsByOutlet;
+        });
         $metricDefaults = [];
         foreach (['pv', 'sa'] as $suffix) {
             foreach (['remaining_qty', 'st_qty', 'so_qty', 'days_sf_to_outlet', 'days_sf_to_outlet_qty', 'days_sf_to_outlet_weighted', 'days_outlet_to_customer', 'days_outlet_to_customer_qty', 'days_outlet_to_customer_weighted'] as $metric) {
@@ -1606,6 +1599,27 @@ class ProductTrackingController extends MonitaDumaiController
         $data = $view->getData();
 
         return collect($data['outlets']->getCollection());
+    }
+
+    private function stockOutletReportCacheKey(string $product): string
+    {
+        $soKind = 'so-'.strtolower($product);
+        $reportVersion = [
+            'web_st' => DB::table('keluarsf')->max('idkeluar'),
+            'mobile_st' => DB::table('mobile_sales_serials')->max('id'),
+            'mobile_sales_updated' => DB::table('mobile_penjualan')->max('updated_at'),
+            'so_upload_updated' => DB::table('product_tracking_uploads')->where('kind', $soKind)->max('updated_at'),
+            'stock_origin' => DB::table('product_tracking_sales_stock_ranges')->max('id'),
+            'sf_stock_origin' => DB::table('masuksf')->max('idmasuk'),
+            'audited_changes' => DB::table('logs')->whereIn('module', [
+                'Stok Keluar SF', 'Stok Keluar SF (Bulk)', 'Pending Stor SF',
+                'Stok Masuk SF', 'Stok Masuk SF (Bulk)', 'Mobile Sales',
+            ])->max('created_at'),
+        ];
+
+        return 'stock-outlet-report-v10-'.sha1(json_encode([
+            strtoupper($product), $this->suryaTapScopes(), $reportVersion,
+        ]));
     }
 
     private function stockOutletTableOptions(Request $request, array $allowedColumns): array
