@@ -1490,7 +1490,7 @@ class ProductTrackingController extends MonitaDumaiController
         $facetColumn = str_ends_with($key, '_'.strtolower($product))
             ? substr($key, 0, -strlen('_'.strtolower($product)))
             : $key;
-        $rows = collect($this->stockOutlet($allRequest)->getData()['outlets']->getCollection())->map(fn ($row) => (array) $row)->all();
+        $rows = $this->stockOutletResponseRows($allRequest)->map(fn ($row) => (array) $row)->all();
         $needle = mb_strtolower(trim((string) $request->query('q')));
         $values = collect($rows)->map(fn ($row) => (string) ($row[$facetColumn] ?? ''))->unique()->sort(SORT_NATURAL | SORT_FLAG_CASE)
             ->filter(fn ($value) => $needle === '' || str_contains(mb_strtolower($value), $needle))
@@ -1513,7 +1513,7 @@ class ProductTrackingController extends MonitaDumaiController
         $allRequest->query->set('view', 'outlet');
         $allRequest->query->set('all_rows', 1);
         foreach (['columns', 'exclude', 'sort', 'direction', 'page'] as $option) $allRequest->query->remove($option);
-        $combinedRows = collect($this->stockOutlet($allRequest)->getData()['outlets']->getCollection());
+        $combinedRows = $this->stockOutletResponseRows($allRequest);
         $rows = $this->filterAndSortStockOutletRows($combinedRows, $options);
 
         return response()->streamDownload(function () use ($rows) {
@@ -1588,9 +1588,19 @@ class ProductTrackingController extends MonitaDumaiController
         if (! $includeFilters) {
             foreach (['columns', 'exclude', 'sort', 'direction'] as $key) $allRequest->query->remove($key);
         }
-        $view = $this->stockOutlet($allRequest);
+        return $this->stockOutletResponseRows($allRequest)->map(fn ($row) => (array) $row)->all();
+    }
+
+    private function stockOutletResponseRows(Request $request)
+    {
+        $response = $this->stockOutlet($request);
+        $view = $response->getOriginalContent();
+        if (! $view instanceof \Illuminate\View\View) {
+            throw new \LogicException('Data Stock Outlet tidak tersedia dari response laporan.');
+        }
         $data = $view->getData();
-        return collect($data['outlets']->getCollection())->map(fn ($row) => (array) $row)->all();
+
+        return collect($data['outlets']->getCollection());
     }
 
     private function stockOutletTableOptions(Request $request, array $allowedColumns): array
