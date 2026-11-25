@@ -196,11 +196,12 @@
         positionMenu(true);
         // On touch screens the keyboard should open only when search is tapped.
         if (!(navigator.maxTouchPoints > 0 || window.matchMedia('(pointer:coarse)').matches)) search.focus({preventScroll:true});
-        const original = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span>';
-        await load();
-        if (button.isConnected) { button.disabled = false; button.innerHTML = original; }
+        // Keep the trigger clickable while facets load. Disabling it here made
+        // the menu feel frozen and prevented users from closing/reopening it
+        // when a large report took longer to answer.
+        button.setAttribute('aria-busy','true');
+        try { await load(); }
+        finally { if (button.isConnected) button.removeAttribute('aria-busy'); }
     }));
     search.addEventListener('input', () => { clearTimeout(timer); pending?.abort(); timer = setTimeout(() => { page = 1; load(); },250); });
     more.addEventListener('click', () => { page++; load(true); });
