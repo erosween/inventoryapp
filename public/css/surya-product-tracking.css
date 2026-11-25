@@ -53,6 +53,21 @@
 .pt-stock-outlet-detail th:first-child,.pt-stock-outlet-detail td:first-child { position:sticky; left:0; width:122px; min-width:122px; max-width:122px; box-sizing:border-box; }
 .pt-stock-outlet-detail th:nth-child(2),.pt-stock-outlet-detail td:nth-child(2) { position:sticky; left:122px; width:205px; min-width:205px; max-width:205px; box-sizing:border-box; }
 .pt-stock-outlet-detail thead th:first-child,.pt-stock-outlet-detail thead th:nth-child(2) { z-index:7; background:#f7f8fb; }
+
+/* Freeze the headings while scrolling long validation summary/detail tables. */
+.pt-page .pt-summary-section > .pt-table-wrap,
+.pt-page #sold-outlet-results > .pt-table-wrap {
+    max-height: min(68vh, 680px);
+    overscroll-behavior: contain;
+}
+.pt-page .pt-summary-table thead th,
+.pt-page #sold-outlet-results .detail-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #26364d;
+    color: #fff;
+}
 .pt-stock-outlet-detail thead th:nth-child(n+8) .tf-column-heading { justify-content:flex-end; padding-right:30px; padding-left:6px; text-align:right; }
 .pt-stock-outlet-detail thead th:nth-child(n+8) .tf-column-heading>span { text-align:right; }
 .pt-stock-outlet-detail tbody tr:nth-child(odd) td { background:#fff; }
