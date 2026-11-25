@@ -1173,8 +1173,22 @@ class ProductTrackingController extends MonitaDumaiController
         if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($outletQuery, 'outlet.tap', $scopes);
         // Compute metrics across the full outlet set before sorting/filtering so
         // controls on calculated columns work globally, not just on the visible page.
-        $cacheKey = 'stock-outlet-report-v8-'.sha1(json_encode([$product, $this->suryaTapScopes()]));
-        $cachedRows = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
+        $reportVersion = [
+            'web_st' => DB::table('keluarsf')->max('idkeluar'),
+            'mobile_st' => DB::table('mobile_sales_serials')->max('id'),
+            'mobile_sales_updated' => DB::table('mobile_penjualan')->max('updated_at'),
+            'so_upload_updated' => DB::table('product_tracking_uploads')->where('kind', $soKind)->max('updated_at'),
+            'stock_origin' => DB::table('product_tracking_sales_stock_ranges')->max('id'),
+            'sf_stock_origin' => DB::table('masuksf')->max('idmasuk'),
+            'audited_changes' => DB::table('logs')->whereIn('module', [
+                'Stok Keluar SF', 'Stok Keluar SF (Bulk)', 'Pending Stor SF',
+                'Stok Masuk SF', 'Stok Masuk SF (Bulk)', 'Mobile Sales',
+            ])->max('created_at'),
+        ];
+        $cacheKey = 'stock-outlet-report-v9-'.sha1(json_encode([
+            $product, $this->suryaTapScopes(), $reportVersion,
+        ]));
+        $cachedRows = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($outletQuery, $mobileSt, $webSt, $soBase, $applySerialLengths, $product) {
             $outletRows = $outletQuery->get();
             if ($outletRows->isEmpty()) return [];
             $eligibleOutletIds = $outletRows->pluck('id_outlet')->map(fn ($id) => (string) $id)->all();
