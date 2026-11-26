@@ -1,0 +1,97 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Shared global serial-range validation for the three SF stock entry paths.
+ * SA serials with a leading zero are compared in their canonical 15-digit form.
+ */
+class SalesStockSerialConflict
+{
+    public function assertAvailable(string $start, string $end, ?int $ignoreManualRangeId = null, ?int $ignoreMasukId = null, bool $includeActiveUpload = true): void
+    {
+        $isPv = strlen($start) === 12;
+        $canonicalStart = $this->canonical($start);
+        $canonicalEnd = $this->canonical($end);
+
+        $admin = DB::table('masuksf as m')
+            ->whereRaw("REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '') REGEXP '^[0-9]+(-[0-9]+)?$'")
+            ->whereRaw("CHAR_LENGTH(SUBSTRING_INDEX(REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', ''), '-', 1)) IN (".($isPv ? '12' : '15, 16').')')
+            ->whereRaw("CAST(SUBSTRING_INDEX(REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', ''), '-', 1) AS DECIMAL(24,0)) <= ?", [$canonicalEnd])
+            ->whereRaw("CAST(SUBSTRING_INDEX(REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', ''), '-', -1) AS DECIMAL(24,0)) >= ?", [$canonicalStart]);
+        if ($ignoreMasukId !== null) $admin->where('m.idmasuk', '!=', $ignoreMasukId);
+        if ($admin->exists()) $this->conflict('SN sudah tercatat di menu SF Masuk.');
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('product_tracking_sales_stock_ranges')
+            || !\Illuminate\Support\Facades\Schema::hasTable('product_tracking_sales_stock_uploads')) return;
+
+        if ($includeActiveUpload) {
+            $latestUploadId = DB::table('product_tracking_sales_stock_uploads')
+                ->where('filename', 'not like', 'MANUAL:%')->max('id');
+            if ($latestUploadId) {
+                $uploaded = DB::table('product_tracking_sales_stock_ranges')
+                    ->where('upload_id', $latestUploadId)
+                    ->whereRaw('CHAR_LENGTH(serial_start) IN ('.($isPv ? '12' : '15, 16').')')
+                    ->whereRaw('CAST(serial_start AS DECIMAL(24,0)) <= ? AND CAST(serial_end AS DECIMAL(24,0)) >= ?', [$canonicalEnd, $canonicalStart]);
+                if ($uploaded->exists()) $this->conflict('SN sudah ada di file upload stok SF yang aktif.');
+            }
+        }
+
+        $manual = DB::table('product_tracking_sales_stock_ranges as stock')
+            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
+            ->where('source.filename', 'like', 'MANUAL:%')
+            ->whereRaw('CHAR_LENGTH(stock.serial_start) IN ('.($isPv ? '12' : '15, 16').')')
+            ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [$canonicalEnd, $canonicalStart]);
+        if ($ignoreManualRangeId !== null) $manual->where('stock.id', '!=', $ignoreManualRangeId);
+        if ($manual->exists()) $this->conflict('SN sudah dipetakan melalui menu Add Label SN.');
+    }
+
+    public function assertFileRangesDoNotOverlap(array $rows): void
+    {
+        $ranges = [];
+        foreach ($rows as $index => $row) {
+            $start = $this->canonical((string) $row['serial_start']);
+            $end = $this->canonical((string) $row['serial_end']);
+            $ranges[strlen($start)][] = ['start' => $start, 'end' => $end, 'row' => $index + 1];
+        }
+        foreach ($ranges as $items) {
+            usort($items, fn ($a, $b) => strcmp($a['start'], $b['start']));
+            $end = null;
+            $priorRow = null;
+            foreach ($items as $item) {
+                if ($end !== null && strcmp($item['start'], $end) <= 0) {
+                    $this->conflict("File upload memiliki SN bertumpuk pada baris data {$priorRow} dan {$item['row']}.");
+                }
+                $end = $item['end'];
+                $priorRow = $item['row'];
+            }
+        }
+    }
+
+    public function lock(): void
+    {
+        // All three writers use the same DB advisory lock to close the check/insert race.
+        $result = DB::selectOne("SELECT GET_LOCK('surya_sales_stock_serial_write', 10) AS acquired");
+        if ((int) ($result->acquired ?? 0) !== 1) {
+            throw new \RuntimeException('Tidak bisa mengunci validasi SN. Coba ulang beberapa saat lagi.');
+        }
+    }
+
+    public function unlock(): void
+    {
+        DB::selectOne("SELECT RELEASE_LOCK('surya_sales_stock_serial_write') AS released");
+    }
+
+    private function canonical(string $serial): string
+    {
+        return strlen($serial) === 16 && str_starts_with($serial, '0') ? substr($serial, 1) : $serial;
+    }
+
+    private function conflict(string $message): never
+    {
+        throw ValidationException::withMessages(['serial_start' => $message]);
+    }
+}

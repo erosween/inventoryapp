@@ -11,6 +11,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\MasukSFExport;
 use App\Helpers\AuditLogger;
+use App\Services\SalesStockSerialConflict;
 
 class SfmasukController extends Controller
 {
@@ -295,7 +296,15 @@ public function masuksfproses(Request $request)
         'Petugas disembunyikan atau tidak sesuai dengan TAP.'
     );
 
-    DB::transaction(function () use ($validated) {
+    $serialConflicts = app(SalesStockSerialConflict::class);
+    $serialConflicts->lock();
+    try {
+    DB::transaction(function () use ($validated, $serialConflicts) {
+        foreach ($validated['items'] as $item) {
+            if (($item['serial_mode'] ?? 'range') !== 'broken') {
+                $serialConflicts->assertAvailable($item['sn_start'], $item['sn_end']);
+            }
+        }
         $requestedByDenom = collect($validated['items'])
             ->groupBy('iddenom')
             ->map(fn ($items) => $items->sum('qty'));
@@ -347,6 +356,9 @@ public function masuksfproses(Request $request)
             ]);
         }
     });
+    } finally {
+        $serialConflicts->unlock();
+    }
 
     return redirect('sf-masuk')->with('success', count($validated['items']) . ' denom berhasil ditambahkan');
 }
@@ -553,7 +565,10 @@ public function bulkDelete(Request $request)
         ]);
 
         try {
-            DB::transaction(function () use ($request, $id) {
+            $serialConflicts = app(SalesStockSerialConflict::class);
+            $serialConflicts->lock();
+            try {
+            DB::transaction(function () use ($request, $id, $serialConflicts) {
                 // 1. Ambil data LAMA & LOCK
                 $oldData = DB::table('masuksf')
                     ->where('idmasuk', $id)
@@ -612,6 +627,8 @@ public function bulkDelete(Request $request)
                 // 4. UPDATE RECORD
                 $serialStart = trim((string) $request->input('sn_awal'));
                 $serialEnd = trim((string) $request->input('sn_akhir'));
+                $serialEnd = $serialEnd !== '' ? $serialEnd : $serialStart;
+                $serialConflicts->assertAvailable($serialStart, $serialEnd, null, (int) $id);
                 DB::table('masuksf')->where('idmasuk', $id)->update([
                     'idtap'   => $newIdtap,
                     'idsf'    => $newIdsf,
@@ -624,6 +641,9 @@ public function bulkDelete(Request $request)
                 // 📝 LOG
                 AuditLogger::log('UPDATE', 'Stok Masuk SF', $id, (array)$oldData, $request->all());
             });
+            } finally {
+                $serialConflicts->unlock();
+            }
 
             return redirect('sf-masuk')->with('success', 'Data berhasil diperbarui');
 

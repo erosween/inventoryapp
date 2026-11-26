@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ProductTrackingFile;
+use App\Services\SalesStockSerialConflict;
 use App\Support\DenomGrouping;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -2221,14 +2222,14 @@ class ProductTrackingController extends MonitaDumaiController
                 $previous = $range;
             }
         }
-
-        [$rows, $overlapQty] = $this->removeSfMasukDuplicatesFromSalesStock($rows);
-        if ($rows === []) {
-            return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])
-                ->with('success', number_format($overlapQty).' SN tidak diunggah karena sudah tercatat di SF Masuk admin.');
-        }
-
-        DB::transaction(function () use ($data, $rows) {
+        $serialConflicts = app(SalesStockSerialConflict::class);
+        $serialConflicts->assertFileRangesDoNotOverlap($rows);
+        $serialConflicts->lock();
+        try {
+        DB::transaction(function () use ($data, $rows, $serialConflicts) {
+            foreach ($rows as $row) {
+                $serialConflicts->assertAvailable($row['serial_start'], $row['serial_end'], null, null, false);
+            }
             $now = now();
             $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
                 'filename' => mb_substr(basename($data['file']->getClientOriginalName()), 0, 255),
@@ -2240,74 +2241,12 @@ class ProductTrackingController extends MonitaDumaiController
                 DB::table('product_tracking_sales_stock_ranges')->insert($chunk);
             }
         });
-
-        $message = number_format(count($rows)).' baris stok SN Sales berhasil diunggah.';
-        if ($overlapQty > 0) $message .= ' '.number_format($overlapQty).' SN yang sudah tercatat di SF Masuk admin dilewati.';
-        return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])->with('success', $message);
-    }
-
-    /** Remove portions already recorded for the same SF and denom in admin SF Masuk. */
-    private function removeSfMasukDuplicatesFromSalesStock(array $rows): array
-    {
-        $adminRangesByOwner = [];
-        $remainingRows = [];
-        $removedQty = 0;
-
-        foreach ($rows as $row) {
-            $key = $row['sfcode']."\x1f".$row['iddenom'];
-            if (! array_key_exists($key, $adminRangesByOwner)) {
-                $adminRangesByOwner[$key] = [];
-                foreach (DB::table('masuksf')->where('idsf', $row['sfcode'])->where('iddenom', $row['iddenom'])->get(['sn', 'qty']) as $adminRow) {
-                    $sn = trim((string) $adminRow->sn);
-                    if (preg_match('/^(\d+)(?:\s*[-–—]\s*|\s+)(\d+)$/u', $sn, $match)) {
-                        [$first, $last] = [$match[1], $match[2]];
-                    } elseif (preg_match('/^\d+$/', $sn)) {
-                        $first = $last = $sn;
-                    } else {
-                        continue;
-                    }
-                    if (strlen($first) !== strlen($last) || strcmp($last, $first) < 0) continue;
-                    $qty = (int) $last - (int) $first + 1;
-                    if ($qty > 2_000_000 || ($first !== $last && $qty !== (int) $adminRow->qty)) continue;
-                    $adminRangesByOwner[$key][] = [(int) $first, (int) $last];
-                }
-                usort($adminRangesByOwner[$key], fn ($a, $b) => $a[0] <=> $b[0]);
-            }
-
-            $start = (int) $row['serial_start'];
-            $end = (int) $row['serial_end'];
-            $originalQty = $end - $start + 1;
-            $remaining = [[$start, $end]];
-            foreach ($adminRangesByOwner[$key] as [$adminStart, $adminEnd]) {
-                $rowLength = strlen($row['serial_start']);
-                $adminLength = strlen((string) $adminStart);
-                if (($rowLength === 12 && $adminLength !== 12) || ($rowLength !== 12 && ! in_array($adminLength, [15, 16], true))) continue;
-                $next = [];
-                foreach ($remaining as [$rangeStart, $rangeEnd]) {
-                    if ($adminEnd < $rangeStart || $adminStart > $rangeEnd) {
-                        $next[] = [$rangeStart, $rangeEnd];
-                        continue;
-                    }
-                    if ($rangeStart < $adminStart) $next[] = [$rangeStart, $adminStart - 1];
-                    if ($rangeEnd > $adminEnd) $next[] = [$adminEnd + 1, $rangeEnd];
-                }
-                $remaining = $next;
-                if ($remaining === []) break;
-            }
-
-            $remainingQty = array_sum(array_map(fn ($range) => $range[1] - $range[0] + 1, $remaining));
-            $removedQty += max(0, $originalQty - $remainingQty);
-            foreach ($remaining as [$rangeStart, $rangeEnd]) {
-                $segment = $row;
-                $width = strlen($row['serial_start']);
-                $segment['serial_start'] = str_pad((string) $rangeStart, $width, '0', STR_PAD_LEFT);
-                $segment['serial_end'] = str_pad((string) $rangeEnd, $width, '0', STR_PAD_LEFT);
-                $segment['qty'] = $rangeEnd - $rangeStart + 1;
-                $remainingRows[] = $segment;
-            }
+        } finally {
+            $serialConflicts->unlock();
         }
 
-        return [$remainingRows, $removedQty];
+        $message = number_format(count($rows)).' baris stok SN Sales berhasil diunggah.';
+        return redirect()->route('surya.product-tracking.imports', ['kind' => 'sales-stock'])->with('success', $message);
     }
 
     public function stageImport(Request $request, ProductTrackingFile $reader)
@@ -2785,22 +2724,12 @@ class ProductTrackingController extends MonitaDumaiController
         $rangeQty = (int) $end - (int) $start + 1;
         if ($rangeQty < 1 || $rangeQty > 2_000_000) throw ValidationException::withMessages(['serial_end' => 'Rentang harus berisi maksimal 2.000.000 SN.']);
 
-        $manualConflict = DB::table('product_tracking_sales_stock_ranges as stock')
-            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
-            ->join('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
-            ->where('source.filename', 'like', 'MANUAL:%')
-            ->whereRaw('CHAR_LENGTH(stock.serial_start) IN ('.($isSa ? '15, 16' : '12').')')
-            ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
-            ->first(['stock.sfcode', 'owner.namasf']);
-
-        $conflict = $manualConflict;
-        if ($conflict) {
-            throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
-        }
-
         $previousLocationNote = $this->previousSfLocationNote($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
-
-        DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty, $previousLocationNote) {
+        $serialConflicts = app(SalesStockSerialConflict::class);
+        $serialConflicts->lock();
+        try {
+        DB::transaction(function () use ($data, $sf, $start, $end, $rangeQty, $previousLocationNote, $serialConflicts) {
+            $serialConflicts->assertAvailable($start, $end);
             $now = now();
             $uploadId = DB::table('product_tracking_sales_stock_uploads')->insertGetId([
                 'filename' => 'MANUAL: Cek SN SF',
@@ -2822,8 +2751,10 @@ class ProductTrackingController extends MonitaDumaiController
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            // Manual records override SN ownership mapping only; source history and stock balances are unchanged.
         });
+        } finally {
+            $serialConflicts->unlock();
+        }
 
         return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
             ->with('success', number_format($rangeQty)." SN berhasil dipetakan ke {$sf->idsf}; saldo stok tidak berubah.");
@@ -2860,22 +2791,12 @@ class ProductTrackingController extends MonitaDumaiController
         $rangeQty = (int) $end - (int) $start + 1;
         if ($rangeQty < 1 || $rangeQty > 2_000_000) throw ValidationException::withMessages(['serial_end' => 'Rentang harus berisi maksimal 2.000.000 SN.']);
 
-        $lengths = $isSa ? '15, 16' : '12';
-        $conflict = DB::table('product_tracking_sales_stock_ranges as stock')
-            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
-            ->join('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
-            ->where('stock.id', '!=', $range)
-            ->where('source.filename', 'like', 'MANUAL:%')
-            ->whereRaw("CHAR_LENGTH(stock.serial_start) IN ({$lengths})")
-            ->whereRaw('CAST(stock.serial_start AS DECIMAL(24,0)) <= ? AND CAST(stock.serial_end AS DECIMAL(24,0)) >= ?', [(int) $end, (int) $start])
-            ->first(['stock.sfcode', 'owner.namasf']);
-        if ($conflict) {
-            throw ValidationException::withMessages(['serial_start' => "Rentang ini sudah memiliki koreksi manual untuk {$conflict->sfcode} — ".($conflict->namasf ?: 'nama SF tidak tersedia').'.']);
-        }
-
         $previousLocationNote = $this->previousSfLocationNote($data['sfcode'], $data['iddenom'], $start, $end, $isSa);
-
-        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty, $previousLocationNote) {
+        $serialConflicts = app(SalesStockSerialConflict::class);
+        $serialConflicts->lock();
+        try {
+        DB::transaction(function () use ($record, $sf, $data, $start, $end, $rangeQty, $previousLocationNote, $serialConflicts, $range) {
+            $serialConflicts->assertAvailable($start, $end, (int) $range);
             DB::table('product_tracking_sales_stock_ranges')->where('id', $record->id)->update([
                 'sfcode' => $sf->idsf, 'tap' => $sf->idtap,
                 'cluster' => $this->trackingClusterForTap((string) $sf->idtap),
@@ -2887,6 +2808,9 @@ class ProductTrackingController extends MonitaDumaiController
                 'username' => auth()->user()->username, 'updated_at' => now(),
             ]);
         });
+        } finally {
+            $serialConflicts->unlock();
+        }
 
         return redirect()->route('surya.product-tracking.sf-stock-lookup', ['tab' => 'add'])
             ->with('success', 'Rentang SN berhasil diperbarui.');
