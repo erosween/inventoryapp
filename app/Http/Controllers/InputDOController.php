@@ -148,7 +148,7 @@ class InputDOController extends Controller
         $serialConflicts = app(\App\Services\SalesStockSerialConflict::class);
         $serialConflicts->lock();
         try {
-        $serialConflicts->assertAvailable((string) $request->sn_start, (string) ($request->sn_end ?: $request->sn_start));
+        $serialConflicts->assertDoAvailable((string) $request->sn_start, (string) ($request->sn_end ?: $request->sn_start));
         DB::transaction(function () use ($request) {
 
             // INSERT DO
@@ -205,7 +205,7 @@ class InputDOController extends Controller
         $serialConflicts = app(\App\Services\SalesStockSerialConflict::class);
         $serialConflicts->lock();
         try {
-        $serialConflicts->assertAvailable((string) $request->sn_start, (string) ($request->sn_end ?: $request->sn_start), null, null, true, (int) $id);
+        $serialConflicts->assertDoAvailable((string) $request->sn_start, (string) ($request->sn_end ?: $request->sn_start), (int) $id);
         DB::transaction(function () use ($request, $id) {
             $oldData = $this->doQuery($id)->lockForUpdate()->first();
             abort_unless($oldData, 404);
