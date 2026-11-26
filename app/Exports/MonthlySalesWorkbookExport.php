@@ -73,7 +73,7 @@ class MonthlySalesWorkbookExport implements WithMultipleSheets
                 $mtdCurrent = 0;
                 foreach (range(1, 12) as $month) {
                     $value = 0;
-                    foreach ($ids as $id) $value += (int) ($this->data['matrixSalesSf'][$id][$month] ?? 0);
+                    foreach ($ids as $id) $value += (int) ($this->data['matrixSalesSf'][$tap][$id][$month] ?? 0);
                     $line[] = $value;
                     $total += $value;
                     if ($showPreviousMtdComparison && $month === $previousMtdMonthNumber) {

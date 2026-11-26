@@ -749,17 +749,16 @@ class HomeController extends Controller
         }
 
         /* ================= NEW: MATRIX TAHUNAN PER SF ================= */
-        $qMatrixSalesSfData = DB::table('keluarsf')
-            ->selectRaw('idsf, MONTH(tgl) as bulan, SUM(qty) as total')
-            ->whereBetween('tgl', [Carbon::create($salesYear, 1, 1)->startOfDay(), Carbon::create($salesYear, 12, 31)->endOfDay()])
-            ->groupBy('idsf', DB::raw('MONTH(tgl)'));
-        $applyFilter($qMatrixSalesSfData, 'idtap');
-        $applyProductFilter($qMatrixSalesSfData, 'keluarsf', $salesProductFilter);
+        // Detail SF uses the same posted + unposted-mobile sources and cutoff as TAP totals.
+        $qMatrixSalesSfData = $this->combinedSalesQuery($salesStart, $salesEnd)
+            ->selectRaw('idtap, idsf, MONTH(tgl) as bulan, SUM(qty) as total')
+            ->groupBy('idtap', 'idsf', DB::raw('MONTH(tgl)'));
+        $applyProductFilter($qMatrixSalesSfData, 'combined_sales', $salesProductFilter);
         $matrixSalesSfResults = $qMatrixSalesSfData->get();
 
         $matrixSalesSf = [];
         foreach ($matrixSalesSfResults as $row) {
-            $matrixSalesSf[$row->idsf][$row->bulan] = $row->total;
+            $matrixSalesSf[$row->idtap][$row->idsf][$row->bulan] = (int) $row->total;
         }
 
         /* ================= NEW: VALIDITY MATRIX FOR HEATMAP EXPANSION ================= */

@@ -688,8 +688,8 @@
                                                 $val = $months[$i] ?? 0; 
                                                 $opacity = $val > 0 ? min($val / 200000, 1) : 0; 
                                                 $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
-                                                $bg = $val > 0 ? "rgba(66, 133, 244, $opacity)" : "transparent"; 
-                                                $color = $opacity > 0.5 ? '#fff' : '#444';
+                                                $bg = $val > 0 ? "rgba(29, 78, 216, $opacity)" : "transparent";
+                                                $color = $opacity >= 0.92 ? '#fff' : '#172033';
 
                                                 // MoM Logic Sales
                                                 $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
@@ -769,7 +769,7 @@
                                                                     @endphp
                                                                     @for($m=1; $m<=12; $m++)
                                                                         @php
-                                                                            $mv = collect($sfIds)->sum(fn ($idsf) => $matrixSalesSf[$idsf][$m] ?? 0);
+                                                                            $mv = collect($sfIds)->sum(fn ($idsf) => $matrixSalesSf[$tap][$idsf][$m] ?? 0);
                                                                             $sfTotal += $mv;
                                                                             if ($showPreviousMtdComparison && $m === $previousMtdMonthNumber) {
                                                                                 foreach ($sfIds as $idsf) {
