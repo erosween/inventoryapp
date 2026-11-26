@@ -17,11 +17,19 @@ class SalesStockSerialConflict
         $canonicalStart = $this->canonical($start);
         $canonicalEnd = $this->canonical($end);
 
+        $normalizedSn = "REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '')";
+        $existingStart = "SUBSTRING_INDEX({$normalizedSn}, '-', 1)";
+        $existingEnd = "SUBSTRING_INDEX({$normalizedSn}, '-', -1)";
         $admin = DB::table('masuksf as m')
-            ->whereRaw("REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '') REGEXP '^[0-9]+(-[0-9]+)?$'")
-            ->whereRaw("CHAR_LENGTH(SUBSTRING_INDEX(REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', ''), '-', 1)) IN (".($isPv ? '12' : '15, 16').')')
-            ->whereRaw("CAST(SUBSTRING_INDEX(REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', ''), '-', 1) AS DECIMAL(24,0)) <= ?", [$canonicalEnd])
-            ->whereRaw("CAST(SUBSTRING_INDEX(REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', ''), '-', -1) AS DECIMAL(24,0)) >= ?", [$canonicalStart]);
+            ->whereRaw("{$normalizedSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
+            ->whereRaw("CHAR_LENGTH({$existingStart}) IN (".($isPv ? '12' : '15, 16').')')
+            // Ignore malformed legacy rows: both endpoints must use the same
+            // serial width, be ordered, and match the recorded quantity.
+            ->whereRaw("CHAR_LENGTH({$existingStart}) = CHAR_LENGTH({$existingEnd})")
+            ->whereRaw("m.qty BETWEEN 1 AND 2000000 AND CAST({$existingEnd} AS DECIMAL(24,0)) >= CAST({$existingStart} AS DECIMAL(24,0))")
+            ->whereRaw("CAST({$existingEnd} AS DECIMAL(24,0)) - CAST({$existingStart} AS DECIMAL(24,0)) + 1 = m.qty")
+            ->whereRaw("CAST({$existingStart} AS DECIMAL(24,0)) <= ?", [$canonicalEnd])
+            ->whereRaw("CAST({$existingEnd} AS DECIMAL(24,0)) >= ?", [$canonicalStart]);
         if ($ignoreMasukId !== null) $admin->where('m.idmasuk', '!=', $ignoreMasukId);
         if ($admin->exists()) $this->conflict('SN sudah tercatat di menu SF Masuk.');
 
