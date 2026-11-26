@@ -1917,7 +1917,6 @@ class ProductTrackingController extends MonitaDumaiController
         $denoms = DB::table('denom')->orderBy('denom')->get(['iddenom', 'denom', 'product_group', 'kategori_inject', 'group_name']);
         $eligibleDenoms = $denoms->filter(fn ($denom) => in_array(DenomGrouping::infer($denom)['product'], ['PV', 'SA'], true))->values();
         $denomsById = $eligibleDenoms->keyBy('iddenom');
-        $denomsByProduct = $eligibleDenoms->groupBy(fn ($denom) => DenomGrouping::infer($denom)['product']);
         $salesForces = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%'")->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
         $salesById = $salesForces->keyBy('idsf');
         if ($filters['sf'] !== '' && ! $salesById->has($filters['sf'])) abort(404);
@@ -1926,16 +1925,16 @@ class ProductTrackingController extends MonitaDumaiController
         // Merge compact ranges rather than expanding stock into rows until the
         // requested page is rendered. Corrections win ownership, then SF Masuk,
         // then upload ranges. Every serial is claimed once across all sources.
-        $stockRangeTable = 'product_tracking_sales_stock_ranges';
-        $masukSignature = DB::table('masuksf')->selectRaw('COUNT(*) AS row_count, COALESCE(MAX(idmasuk), 0) AS max_id')->first();
-        $stockSignature = DB::table($stockRangeTable)->selectRaw('COUNT(*) AS row_count, COALESCE(MAX(id), 0) AS max_id')->first();
-        $uploadSignature = DB::table('product_tracking_sales_stock_uploads')->selectRaw('COUNT(*) AS row_count, COALESCE(MAX(id), 0) AS max_id')->first();
-        $cacheKey = 'product-tracking:sf-stock-ranges:union:v2:'.sha1(implode(':', [
-            $masukSignature->row_count, $masukSignature->max_id,
-            $stockSignature->row_count, $stockSignature->max_id,
-            $uploadSignature->row_count, $uploadSignature->max_id,
+        // Uploaded stock files are full snapshots: use the newest snapshot only,
+        // instead of rereading and comparing every historical upload per page.
+        $latestUploadId = DB::table('product_tracking_sales_stock_uploads')
+            ->where('filename', 'not like', 'MANUAL:%')->max('id');
+        $latestMasukId = DB::table('masuksf')->max('idmasuk') ?: 0;
+        $latestStockRangeId = DB::table('product_tracking_sales_stock_ranges')->max('id') ?: 0;
+        $cacheKey = 'product-tracking:sf-stock-ranges:union:v3:'.sha1(implode(':', [
+            $latestUploadId ?: 0, $latestMasukId, $latestStockRangeId,
         ]));
-        $snapshot = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($denomsById) {
+        $snapshot = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($denomsById, $latestUploadId) {
             $candidates = [];
             $masukRows = DB::table('masuksf')->orderByDesc('tgl')->orderByDesc('idmasuk')->cursor(['idmasuk', 'idsf', 'iddenom', 'sn', 'qty', 'tgl']);
             foreach ($masukRows as $row) {
@@ -1955,11 +1954,15 @@ class ProductTrackingController extends MonitaDumaiController
                     'source' => 'SF Masuk', 'priority' => 1, 'recency' => (string) $row->tgl, 'source_id' => (int) $row->idmasuk];
             }
 
-            foreach (DB::table('product_tracking_sales_stock_ranges as stock')
+            $stockRows = DB::table('product_tracking_sales_stock_ranges as stock')
                 ->join('product_tracking_sales_stock_uploads as upload', 'upload.id', '=', 'stock.upload_id')
+                ->where(function ($query) use ($latestUploadId) {
+                    $query->where('upload.filename', 'like', 'MANUAL:%');
+                    if ($latestUploadId) $query->orWhere('stock.upload_id', $latestUploadId);
+                })
                 ->orderByRaw("CASE WHEN upload.filename LIKE 'MANUAL:%' THEN 0 ELSE 2 END")
-                ->orderByDesc('stock.upload_id')->orderByDesc('stock.id')
-                ->cursor(['stock.id', 'stock.sfcode', 'stock.iddenom', 'stock.serial_start', 'stock.serial_end', 'upload.filename']) as $row) {
+                ->orderByDesc('stock.upload_id')->orderByDesc('stock.id');
+            foreach ($stockRows->cursor(['stock.id', 'stock.sfcode', 'stock.iddenom', 'stock.serial_start', 'stock.serial_end', 'upload.filename']) as $row) {
                 $denom = $denomsById->get($row->iddenom);
                 if (! $denom) continue;
                 $start = (string) $row->serial_start;
