@@ -9,6 +9,8 @@
     .retur-destination-card:hover{border-color:#8b83f5;background:#fafaff}
     .retur-destination-card:has(input:checked){border-color:#5145cd;background:#f4f3ff;box-shadow:0 0 0 2px rgba(81,69,205,.12)}
     .retur-destination-card input{position:absolute;opacity:0;pointer-events:none}
+    .retur-destination-card:focus-within{outline:3px solid rgba(81,69,205,.25);outline-offset:2px}
+    .retur-destination-card:has(input:checked) .retur-destination-icon{background:#5145cd;color:#fff}
     .retur-destination-indicator{display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border:2px solid #aab2c0;border-radius:50%;background:#fff}
     .retur-destination-card:has(input:checked) .retur-destination-indicator{border:6px solid #5145cd}
     .retur-destination-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#f1f0ff;color:#5145cd}
@@ -67,12 +69,12 @@
                                                 <label class="retur-destination-card">
                                                     <input type="radio" name="return_type" value="warehouse" @checked(($edit->return_type ?? 'warehouse') === 'warehouse')>
                                                     <span class="retur-destination-indicator"></span><span class="retur-destination-icon"><i class="fas fa-warehouse"></i></span>
-                                                    <span class="retur-destination-copy"><strong>Retur ke gudang</strong><small>Stok kembali ke gudang TAP.</small></span>
+                                                    <span class="retur-destination-copy"><strong>Retur ke gudang</strong></span>
                                                 </label>
                                                 <label class="retur-destination-card">
                                                     <input type="radio" name="return_type" value="sf" @checked(($edit->return_type ?? 'warehouse') === 'sf')>
                                                     <span class="retur-destination-indicator"></span><span class="retur-destination-icon"><i class="fas fa-people-arrows"></i></span>
-                                                    <span class="retur-destination-copy"><strong>Retur ke SF lain</strong><small>Pindahkan stok langsung ke SF lain dalam TAP yang sama.</small></span>
+                                                    <span class="retur-destination-copy"><strong>Retur ke SF</strong></span>
                                                 </label>
                                             </div>
                                         </div>

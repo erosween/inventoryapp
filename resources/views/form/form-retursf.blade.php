@@ -9,6 +9,8 @@
     .retur-destination-card:hover{border-color:#8b83f5;background:#fafaff}
     .retur-destination-card:has(input:checked){border-color:#5145cd;background:#f4f3ff;box-shadow:0 0 0 2px rgba(81,69,205,.12)}
     .retur-destination-card input{position:absolute;opacity:0;pointer-events:none}
+    .retur-destination-card:focus-within{outline:3px solid rgba(81,69,205,.25);outline-offset:2px}
+    .retur-destination-card:has(input:checked) .retur-destination-icon{background:#5145cd;color:#fff}
     .retur-destination-indicator{display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border:2px solid #aab2c0;border-radius:50%;background:#fff}
     .retur-destination-card:has(input:checked) .retur-destination-indicator{border:6px solid #5145cd}
     .retur-destination-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#f1f0ff;color:#5145cd}
@@ -68,12 +70,12 @@
                                                 <label class="retur-destination-card">
                                                     <input type="radio" name="return_type" value="warehouse" @checked(old('return_type', 'warehouse') === 'warehouse')>
                                                     <span class="retur-destination-indicator"></span><span class="retur-destination-icon"><i class="fas fa-warehouse"></i></span>
-                                                    <span class="retur-destination-copy"><strong>Retur ke gudang</strong><small>Stok kembali ke gudang TAP.</small></span>
+                                                    <span class="retur-destination-copy"><strong>Retur ke gudang</strong></span>
                                                 </label>
                                                 <label class="retur-destination-card">
                                                     <input type="radio" name="return_type" value="sf" @checked(old('return_type') === 'sf')>
                                                     <span class="retur-destination-indicator"></span><span class="retur-destination-icon"><i class="fas fa-people-arrows"></i></span>
-                                                    <span class="retur-destination-copy"><strong>Retur ke SF lain</strong><small>Pindahkan stok langsung ke SF lain dalam TAP yang sama.</small></span>
+                                                    <span class="retur-destination-copy"><strong>Retur ke SF</strong></span>
                                                 </label>
                                             </div>
                                         </div>
@@ -230,13 +232,29 @@
                         .trigger('change');
                 });
             }
-            $('#kategoritap').on('change', function() { loadSalesForce($(this).val()); });
-            $('#idsf').on('change', function() {
-                const sourceSf = String($(this).val() || '');
-                const sourceTap = String($('#idsf option:selected').data('tap') || '');
+            $('#kategoritap').on('change', function() {
+                $('#destination_idsf').val(null).trigger('change');
+                filterDestinationSalesForces();
+                loadSalesForce($(this).val());
+            });
+            function filterDestinationSalesForces() {
+                const selectedTap = String($('#kategoritap').val() || '').trim().toUpperCase();
                 $('#destination_idsf option').each(function() {
                     if (!this.value) return;
-                    const sameTap = String($(this).data('tap') || '').toUpperCase() === sourceTap.toUpperCase();
+                    const sameTap = String($(this).data('tap') || '').trim().toUpperCase() === selectedTap;
+                    $(this).prop('disabled', !sameTap).toggle(sameTap);
+                });
+                if ($('#destination_idsf option:selected').length && String($('#destination_idsf option:selected').data('tap') || '').trim().toUpperCase() !== selectedTap) {
+                    $('#destination_idsf').val(null).trigger('change');
+                }
+            }
+            filterDestinationSalesForces();
+            $('#idsf').on('change', function() {
+                const sourceSf = String($(this).val() || '');
+                const sourceTap = String($('#kategoritap').val() || '');
+                $('#destination_idsf option').each(function() {
+                    if (!this.value) return;
+                    const sameTap = String($(this).data('tap') || '').trim().toUpperCase() === sourceTap.trim().toUpperCase();
                     $(this).prop('disabled', this.value === sourceSf || !sameTap).toggle(sameTap);
                 });
                 if ($('#destination_idsf').val() === sourceSf) $('#destination_idsf').val(null).trigger('change');
