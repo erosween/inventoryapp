@@ -59,7 +59,7 @@
                                         <th class="{{ auth()->user()->hasClusterAdminAccess() ? 'sticky-col-2' : 'sticky-col' }}">Tanggal</th>
                                         <th>Denom</th>
                                         <th class="text-end">Qty</th>
-                                        <th>TAP</th>
+                                        <th>Tujuan Retur</th>
                                         <th>SF</th>
                                         <th>SN</th>
                                         <th>Ket VF</th>

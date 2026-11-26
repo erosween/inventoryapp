@@ -1922,7 +1922,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         $filters = $request->validate([
             'sf' => 'nullable|string|max:100', 'product' => 'nullable|in:PV,SA',
-            'iddenom' => 'nullable|string|max:25', 'source' => 'nullable|in:SF Masuk,Upload Stok SN Sales,Add Label SN',
+            'iddenom' => 'nullable|string|max:25', 'source' => 'nullable|in:SF Masuk,Retur SF,Upload Stok SN Sales,Add Label SN',
             'sn' => ['nullable', 'regex:/^\\d{9,16}$/'], 'detail_sf' => 'nullable|string|max:100',
             'sort' => 'nullable|in:sf,tap,total',
             'direction' => 'nullable|in:asc,desc', 'page' => 'nullable|integer|min:1|max:100000',
@@ -2001,9 +2001,11 @@ class ProductTrackingController extends MonitaDumaiController
                 if (! ctype_digit($start) || ! ctype_digit($end) || strlen($start) !== strlen($end)
                     || ($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && strlen($start) !== 15)
                     || $this->compareSerials($start, $end) > 0) continue;
-                $manual = str_starts_with(strtoupper((string) $row->filename), 'MANUAL:');
+                $filename = strtoupper((string) $row->filename);
+                $manual = str_starts_with($filename, 'MANUAL:');
+                $sourceLabel = str_starts_with($filename, 'MANUAL: RETUR SF KE SF') ? 'Retur SF' : ($manual ? 'Add Label SN' : 'Upload Stok SN Sales');
                 $candidates[] = [(string) $row->sfcode, (string) $row->iddenom, $start, $end,
-                    $manual ? 'Add Label SN' : 'Upload Stok SN Sales', $manual ? 0 : 2, '', (int) $row->id];
+                    $sourceLabel, $manual ? 0 : 2, '', (int) $row->id];
             }
 
             usort($candidates, fn ($a, $b) => $a[5] <=> $b[5]

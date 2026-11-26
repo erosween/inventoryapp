@@ -68,6 +68,25 @@
                                             </div>
                                         </div>
 
+                                        <div class="col-md-12 mt-3">
+                                            <label class="d-block mb-2">Tujuan retur</label>
+                                            <label class="mr-3"><input type="radio" name="return_type" value="warehouse" @checked(($edit->return_type ?? 'warehouse') === 'warehouse')> Retur ke gudang</label>
+                                            <label><input type="radio" name="return_type" value="sf" @checked(($edit->return_type ?? 'warehouse') === 'sf')> Retur ke SF lain</label>
+                                        </div>
+                                        <div class="col-md-6 {{ ($edit->return_type ?? 'warehouse') === 'sf' ? '' : 'd-none' }}" id="destination-sf-wrap">
+                                            <div class="form-group mb-1">
+                                                <label>Sales Force tujuan</label>
+                                                <select name="destination_idsf" id="destination_idsf" class="form-control select2" {{ ($edit->return_type ?? 'warehouse') === 'sf' ? 'required' : 'disabled' }}>
+                                                    <option></option>
+                                                    @foreach($salesForces as $target)
+                                                        @if($target->idsf !== $edit->idsf)
+                                                            <option value="{{ $target->idsf }}" @selected(($edit->destination_idsf ?? '') === $target->idsf)>{{ $target->namasf }} · {{ $target->idsf }} · {{ $target->idtap }}</option>
+                                                        @endif
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         {{-- Denom --}}
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
@@ -102,9 +121,9 @@
 
                                         <div class="col-md-6">
                                             <div class="form-group mb-1">
-                                                <label>SN Akhir <small class="text-muted">(kosong = satu SN)</small></label>
+                                                <label>SN Akhir</label>
                                                 <input type="text" name="sn_end" id="sn_end" class="form-control" inputmode="numeric"
-                                                    value="{{ $edit->sn_akhir ?? (str_contains((string) $edit->sn, '-') ? explode('-', (string) $edit->sn)[1] : '') }}">
+                                                    value="{{ $edit->sn_akhir ?? (str_contains((string) $edit->sn, '-') ? explode('-', (string) $edit->sn)[1] : explode('-', (string) $edit->sn)[0]) }}" required>
                                             </div>
                                         </div>
 
@@ -159,6 +178,15 @@
                 });
             });
 
+            function updateReturnDestination() {
+                const toSf = $('input[name="return_type"]:checked').val() === 'sf';
+                $('#destination-sf-wrap').toggleClass('d-none', !toSf);
+                $('#destination_idsf').prop('disabled', !toSf).prop('required', toSf);
+                if (!toSf) $('#destination_idsf').val(null).trigger('change');
+            }
+            $('input[name="return_type"]').on('change', updateReturnDestination);
+            updateReturnDestination();
+
             // Load SF berdasarkan TAP
             $('#idtap').on('change', function() {
                 loadSF($(this).val(), "{{ $edit->idsf }}");
@@ -182,8 +210,8 @@
             function updateRangeQty() {
                 const start = ($('#sn_start').val() || '').trim();
                 const endInput = ($('#sn_end').val() || '').trim();
-                if (!start) { $('#qty').val(''); return; }
-                const end = endInput || start;
+                if (!start || !endInput) { $('#qty').val(''); return; }
+                const end = endInput;
                 if (!/^\d+$/.test(start) || !/^\d+$/.test(end) || start.length !== end.length || end < start) { $('#qty').val(''); return; }
                 const qty = Number(BigInt(end) - BigInt(start) + 1n);
                 $('#qty').val(Number.isSafeInteger(qty) ? qty : '');

@@ -16,7 +16,7 @@
 
                 {{-- Header --}}
                 <div class="page-header">
-                    <h4 class="page-title">Input Retur SF (Masuk TAP)</h4>
+                    <h4 class="page-title">Input Retur SF</h4>
                 </div>
 
                 <div class="row">
@@ -26,7 +26,7 @@
                             <div class="card-header">
                                 <strong>Form Input</strong>
                                 <div class="text-muted small">
-                                    Input barang retur dari Sales Force ke TAP
+                                    Returkan ke gudang TAP atau pindahkan langsung ke Sales Force lain.
                                 </div>
                             </div>
 
@@ -42,6 +42,25 @@
                                                 <label>Tanggal</label>
                                                 <input type="date" name="tgl" id="date" class="form-control"
                                                     value="{{ date('Y-m-d') }}" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-12 mt-3">
+                                            <label class="d-block mb-2">Tujuan retur</label>
+                                            <div class="d-flex flex-wrap align-items-center" style="gap:18px">
+                                                <label class="mb-0"><input type="radio" name="return_type" value="warehouse" @checked(old('return_type', 'warehouse') === 'warehouse')> Retur ke gudang</label>
+                                                <label class="mb-0"><input type="radio" name="return_type" value="sf" @checked(old('return_type') === 'sf')> Retur ke SF lain</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 d-none" id="destination-sf-wrap">
+                                            <div class="form-group mb-1">
+                                                <label>Sales Force tujuan</label>
+                                                <select name="destination_idsf" id="destination_idsf" class="form-control select2" disabled>
+                                                    <option></option>
+                                                    @foreach($salesForces as $target)
+                                                        <option value="{{ $target->idsf }}" data-tap="{{ $target->idtap }}" @selected(old('destination_idsf') === $target->idsf)>{{ $target->namasf }} · {{ $target->idsf }} · {{ $target->idtap }}</option>
+                                                    @endforeach
+                                                </select>
                                             </div>
                                         </div>
 
@@ -101,7 +120,7 @@
                                                             <th>Denom</th>
                                                             <th width="115">Stok SF</th>
                                                             <th width="110">Qty</th>
-                                                            <th colspan="2">Input Serial Number</th>
+                                                            <th colspan="2">Rentang Serial Number (wajib)</th>
                                                             <th>Keterangan</th>
                                                             <th width="50"></th>
                                                         </tr>
@@ -148,6 +167,15 @@
                 });
             });
 
+            function updateReturnDestination() {
+                const toSf = $('input[name="return_type"]:checked').val() === 'sf';
+                $('#destination-sf-wrap').toggleClass('d-none', !toSf);
+                $('#destination_idsf').prop('disabled', !toSf).prop('required', toSf);
+                if (!toSf) $('#destination_idsf').val(null).trigger('change');
+            }
+            $('input[name="return_type"]').on('change', updateReturnDestination);
+            updateReturnDestination();
+
             $(document).on('select2:open', function() {
                 setTimeout(function() {
                     document.querySelector('.select2-search__field')?.focus();
@@ -177,6 +205,14 @@
                 });
             }
             $('#kategoritap').on('change', function() { loadSalesForce($(this).val()); });
+            $('#idsf').on('change', function() {
+                const sourceSf = String($(this).val() || '');
+                $('#destination_idsf option').each(function() {
+                    if (!this.value) return;
+                    $(this).prop('disabled', this.value === sourceSf);
+                });
+                if ($('#destination_idsf').val() === sourceSf) $('#destination_idsf').val(null).trigger('change');
+            });
 
             /* ================= RESET SAAT SF GANTI ================= */
             let currentStock = 0;
@@ -257,8 +293,9 @@
                     $('#bulk-rows tr').each(function() {
                         const denom = $(this).find('.bulk-denom').val();
                         const qty = parseInt($(this).find('.bulk-qty').val()) || 0;
-                        const mode = $(this).find('.bulk-serial-mode').val();
-                        if (!denom || qty < 1 || qty > 2000000 || !mode) {
+                        const start = ($(this).find('.retur-sn-start').val() || '').trim();
+                        const end = ($(this).find('.retur-sn-end').val() || '').trim();
+                        if (!denom || qty < 1 || qty > 2000000 || !start || !end) {
                             valid = false;
                             return;
                         }
@@ -318,8 +355,8 @@
                 const row = $(`<tr>
                     <td><select name="items[${index}][iddenom]" class="form-control form-control-sm bulk-denom" required ${disabled}><option value="">Pilih / cari denom</option>${denomOptions()}</select></td>
                     <td class="bulk-stock text-right align-middle">-</td>
-                    <td><span class="bulk-qty-view text-muted">—</span><input type="hidden" name="items[${index}][qty]" class="bulk-qty"><input type="number" class="form-control form-control-sm bulk-manual-qty d-none" min="1" max="2000000" placeholder="Qty" inputmode="numeric"><input type="hidden" name="items[${index}][serial_mode]" class="bulk-serial-mode" value="range"></td>
-                    <td colspan="2"><div class="serial-mode-choices mb-1"><button type="button" class="btn btn-sm btn-outline-primary active" data-mode="range">Massal</button> <button type="button" class="btn btn-sm btn-outline-primary" data-mode="broken">SN Pecah</button></div><div class="serial-range d-flex align-items-center"><input type="text" name="items[${index}][sn_start]" class="form-control form-control-sm retur-sn-start" inputmode="numeric" placeholder="SN awal"><span class="px-1">–</span><input type="text" name="items[${index}][sn_end]" class="form-control form-control-sm retur-sn-end" inputmode="numeric" placeholder="SN akhir · opsional"></div><small class="serial-hint text-muted">SN awal wajib; SN akhir kosong dihitung 1 pcs.</small></td>
+                    <td><span class="bulk-qty-view text-muted">—</span><input type="hidden" name="items[${index}][qty]" class="bulk-qty"></td>
+                    <td colspan="2"><div class="serial-range d-flex align-items-center"><input type="text" name="items[${index}][sn_start]" class="form-control form-control-sm retur-sn-start" inputmode="numeric" placeholder="SN awal" required><span class="px-1">–</span><input type="text" name="items[${index}][sn_end]" class="form-control form-control-sm retur-sn-end" inputmode="numeric" placeholder="SN akhir" required></div><small class="text-muted">Isi kedua batas SN. Qty dihitung otomatis dari rentang.</small></td>
                     <td><input type="text" name="items[${index}][tambahket]" class="form-control form-control-sm" required></td>
                     <td><button type="button" class="btn btn-sm btn-link text-danger remove-bulk-row">×</button></td>
                 </tr>`);
@@ -332,16 +369,6 @@
                 });
             }
 
-            $('#input_mode').on('change', function() {
-                const bulk = this.value === 'bulk';
-                $('.single-entry').toggleClass('d-none', bulk).find(':input').prop('disabled', bulk);
-                $('#bulk-entry').toggleClass('d-none', !bulk).find(':input').prop('disabled', !bulk);
-                if (bulk && !$('#bulk-rows tr').length) addBulkRow();
-                $('.bulk-denom').prop('disabled', !bulk || !$('#idsf').val());
-                $('#iddenom').prop('disabled', bulk || !$('#idsf').val());
-                if (bulk) $('#submitBtn').prop('disabled', false);
-            });
-
             $('#add-bulk-row').on('click', addBulkRow);
             $('#bulk-rows').on('click', '.remove-bulk-row', function() {
                 if ($('#bulk-rows tr').length > 1) $(this).closest('tr').remove();
@@ -349,33 +376,15 @@
                 const stock = parseInt(sfStockData[$(this).val()]) || 0;
                 $(this).closest('tr').find('.bulk-stock').text(stock.toLocaleString('id-ID'));
                 updateRangeQty($(this).closest('tr'));
-            }).on('input', '.retur-sn-start, .retur-sn-end, .bulk-manual-qty', function() {
+            }).on('input', '.retur-sn-start, .retur-sn-end', function() {
                 updateRangeQty($(this).closest('tr'));
-            }).on('click', '.serial-mode-choices button', function() {
-                const $row = $(this).closest('tr');
-                const mode = $(this).data('mode');
-                $row.find('.bulk-serial-mode').val(mode);
-                $row.find('.serial-mode-choices button').removeClass('active');
-                $(this).addClass('active');
-                $row.find('.serial-range').toggleClass('d-none', mode === 'broken');
-                $row.find('.retur-sn-start').prop('required', mode !== 'broken');
-                $row.find('.bulk-manual-qty').toggleClass('d-none', mode !== 'broken');
-                $row.find('.serial-hint').text(mode === 'broken' ? 'SN tidak dicatat satu per satu.' : 'SN awal wajib; SN akhir kosong dihitung 1 pcs.');
-                updateRangeQty($row);
             });
 
             function updateRangeQty($row) {
-                const mode = $row.find('.bulk-serial-mode').val() || 'range';
-                if (mode === 'broken') {
-                    const qty = parseInt($row.find('.bulk-manual-qty').val(), 10) || 0;
-                    $row.find('.bulk-qty').val(qty > 0 && qty <= 2000000 ? qty : '');
-                    $row.find('.bulk-qty-view').text(qty > 0 && qty <= 2000000 ? qty.toLocaleString('id-ID') : '—');
-                    return;
-                }
                 const start = ($row.find('.retur-sn-start').val() || '').trim();
                 const endInput = ($row.find('.retur-sn-end').val() || '').trim();
-                if (!start) { $row.find('.bulk-qty').val(''); $row.find('.bulk-qty-view').text('—'); return; }
-                const end = endInput || start;
+                if (!start || !endInput) { $row.find('.bulk-qty').val(''); $row.find('.bulk-qty-view').text('—'); return; }
+                const end = endInput;
                 if (!/^\d+$/.test(start) || !/^\d+$/.test(end) || start.length !== end.length || end < start) {
                     $row.find('.bulk-qty').val(''); $row.find('.bulk-qty-view').text('—'); return;
                 }
@@ -383,7 +392,7 @@
                 $row.find('.bulk-qty').val(Number.isSafeInteger(qty) ? qty : '');
                 $row.find('.bulk-qty-view').text(Number.isSafeInteger(qty) ? qty.toLocaleString('id-ID') : '—');
             }
-            $('#input_mode').trigger('change');
+            addBulkRow();
 
         });
 
