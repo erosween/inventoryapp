@@ -1899,7 +1899,7 @@ class ProductTrackingController extends MonitaDumaiController
 
     public function sfStock(Request $request)
     {
-        $this->requireEditor();
+        abort_unless(strtolower(trim((string) auth()->user()?->username)) === 'admin_super', 403, 'Fitur ini hanya dapat digunakan admin_super.');
         abort_unless(
             Schema::hasTable('product_tracking_sales_stock_uploads') && Schema::hasTable('product_tracking_sales_stock_ranges'),
             503,
@@ -1907,119 +1907,156 @@ class ProductTrackingController extends MonitaDumaiController
         );
 
         $filters = $request->validate([
-            'upload' => 'nullable|integer|min:1',
-            'sf' => 'nullable|string|max:100',
-            'product' => 'nullable|in:PV,SA',
-            'iddenom' => 'nullable|string|max:25',
-            'sn' => ['nullable', 'regex:/^\\d{9,16}$/'],
-            'page' => 'nullable|integer|min:1|max:100000',
+            'sf' => 'nullable|string|max:100', 'product' => 'nullable|in:PV,SA',
+            'iddenom' => 'nullable|string|max:25', 'source' => 'nullable|in:SF Masuk,Upload Stok SN Sales,Add Label SN',
+            'sn' => ['nullable', 'regex:/^\\d{9,16}$/'], 'sort' => 'nullable|in:sf,denom,sn,source',
+            'direction' => 'nullable|in:asc,desc', 'page' => 'nullable|integer|min:1|max:100000',
         ]);
-        $filters = array_merge(['upload' => null, 'sf' => '', 'product' => '', 'iddenom' => '', 'sn' => ''], $filters);
-
-        // Each upload is a stock snapshot. Default to the newest non-manual
-        // snapshot so historical uploads are never added together as stock.
-        $uploads = DB::table('product_tracking_sales_stock_uploads')
-            ->where('filename', 'not like', 'MANUAL:%')
-            ->orderByDesc('id')->limit(30)->get(['id', 'filename', 'row_count', 'created_at']);
-        $latestUploadId = (int) ($uploads->first()->id ?? 0);
-        $selectedUploadId = (int) ($filters['upload'] ?: $latestUploadId);
-        $selectedUpload = $uploads->firstWhere('id', $selectedUploadId);
-        if (! $selectedUpload && $selectedUploadId > 0) abort(404);
+        $filters = array_merge(['sf' => '', 'product' => '', 'iddenom' => '', 'source' => '', 'sn' => '', 'sort' => 'sf', 'direction' => 'asc'], $filters);
 
         $denoms = DB::table('denom')->orderBy('denom')->get(['iddenom', 'denom', 'product_group', 'kategori_inject', 'group_name']);
         $eligibleDenoms = $denoms->filter(fn ($denom) => in_array(DenomGrouping::infer($denom)['product'], ['PV', 'SA'], true))->values();
+        $denomsById = $eligibleDenoms->keyBy('iddenom');
         $denomsByProduct = $eligibleDenoms->groupBy(fn ($denom) => DenomGrouping::infer($denom)['product']);
         $salesForces = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%'")->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
-        $selectedSf = $salesForces->firstWhere('idsf', $filters['sf']);
-        if ($filters['sf'] !== '' && ! $selectedSf) abort(404);
-        $selectedDenom = $filters['iddenom'] !== '' ? $eligibleDenoms->firstWhere('iddenom', $filters['iddenom']) : null;
-        if ($filters['iddenom'] !== '' && ! $selectedDenom) abort(404);
+        $salesById = $salesForces->keyBy('idsf');
+        if ($filters['sf'] !== '' && ! $salesById->has($filters['sf'])) abort(404);
+        if ($filters['iddenom'] !== '' && ! $denomsById->has($filters['iddenom'])) abort(404);
 
-        $base = DB::table('product_tracking_sales_stock_ranges as stock')
-            ->where('stock.upload_id', $selectedUploadId);
-        if ($filters['sf'] !== '') $base->where('stock.sfcode', $filters['sf']);
-        if ($selectedDenom) $base->where('stock.iddenom', $selectedDenom->iddenom);
-        elseif ($filters['product'] !== '') {
-            $productDenoms = ($denomsByProduct[$filters['product']] ?? collect())->pluck('iddenom')->all();
-            $base->whereIn('stock.iddenom', $productDenoms ?: ['__no_matching_denom__']);
-        }
-        if ($filters['sn'] !== '') {
-            $sn = $filters['sn'];
-            $base->where(function ($query) use ($sn) {
-                $query->where(function ($range) use ($sn) {
-                    $range->whereRaw('CHAR_LENGTH(stock.serial_start) = ?', [strlen($sn)])
-                        ->where('stock.serial_start', '<=', $sn)->where('stock.serial_end', '>=', $sn);
-                });
-                if (strlen($sn) === 16 && str_starts_with($sn, '0')) {
-                    $canonical = substr($sn, 1);
-                    $query->orWhere(function ($range) use ($canonical) {
-                        $range->whereRaw('CHAR_LENGTH(stock.serial_start) = 15')
-                            ->where('stock.serial_start', '<=', $canonical)->where('stock.serial_end', '>=', $canonical);
-                    });
-                } elseif (strlen($sn) === 15) {
-                    $padded = '0'.$sn;
-                    $query->orWhere(function ($range) use ($padded) {
-                        $range->whereRaw('CHAR_LENGTH(stock.serial_start) = 16')
-                            ->where('stock.serial_start', '<=', $padded)->where('stock.serial_end', '>=', $padded);
-                    });
+        // Merge compact ranges rather than expanding stock into rows until the
+        // requested page is rendered. Corrections win ownership, then SF Masuk,
+        // then upload ranges. Every serial is claimed once across all sources.
+        $stockRangeTable = 'product_tracking_sales_stock_ranges';
+        $masukSignature = DB::table('masuksf')->selectRaw('COUNT(*) AS row_count, COALESCE(MAX(idmasuk), 0) AS max_id')->first();
+        $stockSignature = DB::table($stockRangeTable)->selectRaw('COUNT(*) AS row_count, COALESCE(MAX(id), 0) AS max_id')->first();
+        $uploadSignature = DB::table('product_tracking_sales_stock_uploads')->selectRaw('COUNT(*) AS row_count, COALESCE(MAX(id), 0) AS max_id')->first();
+        $cacheKey = 'product-tracking:sf-stock-ranges:union:v2:'.sha1(implode(':', [
+            $masukSignature->row_count, $masukSignature->max_id,
+            $stockSignature->row_count, $stockSignature->max_id,
+            $uploadSignature->row_count, $uploadSignature->max_id,
+        ]));
+        $snapshot = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($denomsById) {
+            $candidates = [];
+            $masukRows = DB::table('masuksf')->orderByDesc('tgl')->orderByDesc('idmasuk')->cursor(['idmasuk', 'idsf', 'iddenom', 'sn', 'qty', 'tgl']);
+            foreach ($masukRows as $row) {
+                $denom = $denomsById->get($row->iddenom);
+                if (! $denom) continue;
+                $raw = trim((string) $row->sn);
+                if (preg_match('/^(\\d+)(?:\\s*[-–—]\\s*|\\s+)(\\d+)$/u', $raw, $match)) [$start, $end] = [$match[1], $match[2]];
+                elseif (preg_match('/^\\d+$/', $raw)) $start = $end = $raw;
+                else continue;
+                if (strlen($start) !== strlen($end) || strlen($start) < 12 || strlen($start) > 16 || $this->compareSerials($start, $end) > 0) continue;
+                if (strlen($start) === 16 && (! str_starts_with($start, '0') || ! str_starts_with($end, '0'))) continue;
+                if (strlen($start) === 16) { $start = substr($start, 1); $end = substr($end, 1); }
+                if ((int) $this->serialRangeCount($start, $end) > 2_000_000 || ((int) $this->serialRangeCount($start, $end) !== (int) $row->qty && $start !== $end)) continue;
+                $product = DenomGrouping::infer($denom)['product'];
+                if (($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && ! in_array(strlen($start), [15, 16], true))) continue;
+                $candidates[] = ['sfcode' => (string) $row->idsf, 'iddenom' => (string) $row->iddenom, 'start' => $start, 'end' => $end,
+                    'source' => 'SF Masuk', 'priority' => 1, 'recency' => (string) $row->tgl, 'source_id' => (int) $row->idmasuk];
+            }
+
+            foreach (DB::table('product_tracking_sales_stock_ranges as stock')
+                ->join('product_tracking_sales_stock_uploads as upload', 'upload.id', '=', 'stock.upload_id')
+                ->orderByRaw("CASE WHEN upload.filename LIKE 'MANUAL:%' THEN 0 ELSE 2 END")
+                ->orderByDesc('stock.upload_id')->orderByDesc('stock.id')
+                ->cursor(['stock.id', 'stock.sfcode', 'stock.iddenom', 'stock.serial_start', 'stock.serial_end', 'upload.filename']) as $row) {
+                $denom = $denomsById->get($row->iddenom);
+                if (! $denom) continue;
+                $start = (string) $row->serial_start;
+                $end = (string) $row->serial_end;
+                if (strlen($start) === 16 && str_starts_with($start, '0') && str_starts_with($end, '0')) {
+                    $start = substr($start, 1); $end = substr($end, 1);
                 }
-            });
-        }
+                $product = DenomGrouping::infer($denom)['product'];
+                if (! ctype_digit($start) || ! ctype_digit($end) || strlen($start) !== strlen($end)
+                    || ($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && strlen($start) !== 15)
+                    || $this->compareSerials($start, $end) > 0) continue;
+                $manual = str_starts_with(strtoupper((string) $row->filename), 'MANUAL:');
+                $candidates[] = ['sfcode' => (string) $row->sfcode, 'iddenom' => (string) $row->iddenom, 'start' => $start, 'end' => $end,
+                    'source' => $manual ? 'Add Label SN' : 'Upload Stok SN Sales', 'priority' => $manual ? 0 : 2,
+                    'recency' => '', 'source_id' => (int) $row->id];
+            }
 
-        $summary = (clone $base)->join('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
-            ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
-            ->select('stock.sfcode', 'owner.namasf', 'owner.idtap')
-            ->selectRaw('COUNT(*) AS range_count, SUM(stock.qty) AS serial_count')
-            ->groupBy('stock.sfcode', 'owner.namasf', 'owner.idtap')->orderBy('owner.namasf')->get();
+            usort($candidates, fn ($a, $b) => $a['priority'] <=> $b['priority']
+                ?: strcmp($b['recency'], $a['recency']) ?: $b['source_id'] <=> $a['source_id']);
+            $claimed = [];
+            $uniqueRanges = [];
+            foreach ($candidates as $candidate) {
+                $length = strlen($candidate['start']);
+                $coverage = $claimed[$length] ?? [];
+                $pieces = $this->splitSerialRangeByCoverage($candidate['start'], $candidate['end'], $coverage);
+                foreach ($pieces as $piece) {
+                    $uniqueRanges[] = ['sfcode' => $candidate['sfcode'], 'iddenom' => $candidate['iddenom'],
+                        'serial_start' => $piece['start'], 'serial_end' => $piece['end'], 'source' => $candidate['source'],
+                        'qty' => (int) $this->serialRangeCount($piece['start'], $piece['end'])];
+                }
+                $claimed[$length] = $this->mergeSerialRanges(array_merge($coverage, [['serial_start' => $candidate['start'], 'serial_end' => $candidate['end']]]));
+            }
+            return $uniqueRanges;
+        });
+
+        $ranges = collect($snapshot)->map(function ($range) use ($salesById, $denomsById) {
+            $sf = $salesById->get($range['sfcode']); $denom = $denomsById->get($range['iddenom']);
+            $range['namasf'] = $sf->namasf ?? $range['sfcode']; $range['idtap'] = $sf->idtap ?? '—';
+            $range['denom'] = $denom->denom ?? $range['iddenom'];
+            $range['product'] = $denom ? DenomGrouping::infer($denom)['product'] : '—';
+            return $range;
+        })->filter(fn ($range) => $salesById->has($range['sfcode']))
+            ->when($filters['sf'] !== '', fn ($rows) => $rows->where('sfcode', $filters['sf']))
+            ->when($filters['product'] !== '', fn ($rows) => $rows->where('product', $filters['product']))
+            ->when($filters['iddenom'] !== '', fn ($rows) => $rows->where('iddenom', $filters['iddenom']))
+            ->when($filters['source'] !== '', fn ($rows) => $rows->where('source', $filters['source']))
+            ->when($filters['sn'] !== '', function ($rows) use ($filters) {
+                $needle = $filters['sn'];
+                if (strlen($needle) === 16 && str_starts_with($needle, '0')) $needle = substr($needle, 1);
+                return $rows->filter(fn ($range) => strlen($needle) === strlen($range['serial_start'])
+                    && $this->compareSerials($needle, $range['serial_start']) >= 0 && $this->compareSerials($needle, $range['serial_end']) <= 0)
+                    ->map(function ($range) use ($needle) { $range['serial_start'] = $needle; $range['serial_end'] = $needle; $range['qty'] = 1; return $range; });
+            })->values();
+
+        $sort = $filters['sort']; $direction = $filters['direction'];
+        $ranges = $ranges->sort(function ($a, $b) use ($sort, $direction) {
+            $comparison = match ($sort) {
+                'denom' => strnatcasecmp($a['denom'], $b['denom']) ?: strnatcasecmp($a['namasf'], $b['namasf']) ?: $this->compareSerials($a['serial_start'], $b['serial_start']),
+                'sn' => $this->compareSerials($a['serial_start'], $b['serial_start']) ?: strnatcasecmp($a['denom'], $b['denom']),
+                'source' => strcmp($a['source'], $b['source']) ?: strnatcasecmp($a['namasf'], $b['namasf']) ?: $this->compareSerials($a['serial_start'], $b['serial_start']),
+                default => strnatcasecmp($a['namasf'], $b['namasf']) ?: strnatcasecmp($a['denom'], $b['denom']) ?: $this->compareSerials($a['serial_start'], $b['serial_start']),
+            };
+            return $direction === 'desc' ? -$comparison : $comparison;
+        })->values();
+
+        $summary = $ranges->groupBy('sfcode')->map(function ($rows, $sfcode) {
+            $first = $rows->first();
+            return (object) ['sfcode' => $sfcode, 'namasf' => $first['namasf'], 'idtap' => $first['idtap'],
+                'range_count' => $rows->count(), 'serial_count' => (int) $rows->sum('qty')];
+        })->sortBy(fn ($row) => mb_strtolower($row->namasf))->values();
         $summaryTotals = (object) ['sales_forces' => $summary->count(), 'ranges' => (int) $summary->sum('range_count'), 'serials' => (int) $summary->sum('serial_count')];
 
-        $serials = null;
-        $detailTotal = 0;
-        $perPage = 100;
-        $page = max(1, (int) $request->query('page', 1));
-        if ($filters['sf'] !== '' && $selectedUploadId > 0) {
-            $detailQuery = (clone $base)->where('stock.sfcode', $filters['sf'])
-                ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
-                ->orderBy('stock.iddenom')->orderBy('stock.serial_start')->orderBy('stock.id')
-                ->select('stock.iddenom', 'd.denom', 'stock.serial_start', 'stock.serial_end', 'stock.qty');
-            $detailTotal = $filters['sn'] === '' ? (int) (clone $detailQuery)->sum('stock.qty') : 0;
-            $offset = ($page - 1) * $perPage;
-            $items = [];
-            foreach ($detailQuery->cursor() as $range) {
-                if ($filters['sn'] !== '') {
-                    $needle = $filters['sn'];
-                    $width = strlen((string) $range->serial_start);
-                    if (strlen($needle) === 16 && $width === 15 && str_starts_with($needle, '0')) $needle = substr($needle, 1);
-                    elseif (strlen($needle) === 15 && $width === 16) $needle = '0'.$needle;
-                    if (strlen($needle) === $width && $this->compareSerials($needle, (string) $range->serial_start) >= 0
-                        && $this->compareSerials($needle, (string) $range->serial_end) <= 0) {
-                        $items[] = (object) ['sn' => $needle, 'iddenom' => $range->iddenom, 'denom' => $range->denom];
-                        $detailTotal = 1;
-                        break;
-                    }
-                    continue;
-                }
-                $rangeQty = (int) $range->qty;
-                if ($offset >= $rangeQty) { $offset -= $rangeQty; continue; }
-                $width = strlen((string) $range->serial_start);
-                $start = (string) ((int) $range->serial_start + $offset);
-                $start = str_pad($start, $width, '0', STR_PAD_LEFT);
-                $offset = 0;
-                $end = (string) $range->serial_end;
-                while (count($items) < $perPage && $this->compareSerials($start, $end) <= 0) {
-                    $items[] = (object) ['sn' => $start, 'iddenom' => $range->iddenom, 'denom' => $range->denom];
-                    $start = $this->incrementSerial($start);
-                }
-                if (count($items) >= $perPage) break;
+        $detailTotal = (int) $ranges->sum('qty'); $perPage = 100; $page = max(1, (int) $request->query('page', 1));
+        $offset = ($page - 1) * $perPage; $items = [];
+        foreach ($ranges as $range) {
+            $qty = (int) $range['qty'];
+            if ($offset >= $qty) { $offset -= $qty; continue; }
+            $descendingSerials = $sort === 'sn' && $direction === 'desc';
+            $start = $descendingSerials
+                ? $this->subtractSerialCount((string) $range['serial_end'], $offset)
+                : str_pad((string) ((int) $range['serial_start'] + $offset), strlen($range['serial_start']), '0', STR_PAD_LEFT);
+            $offset = 0;
+            while (count($items) < $perPage && ($descendingSerials
+                ? $this->compareSerials($start, $range['serial_start']) >= 0
+                : $this->compareSerials($start, $range['serial_end']) <= 0)) {
+                $items[] = (object) ['sn' => $start, 'iddenom' => $range['iddenom'], 'denom' => $range['denom'],
+                    'product' => $range['product'], 'sfcode' => $range['sfcode'], 'namasf' => $range['namasf'], 'idtap' => $range['idtap'], 'source' => $range['source']];
+                $start = $descendingSerials ? $this->subtractOneFromSerial($start) : $this->incrementSerial($start);
             }
-            $serials = (new LengthAwarePaginator($items, $detailTotal, $perPage, $page, [
-                'path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->except('page'),
-            ]));
+            if (count($items) >= $perPage) break;
         }
+        $serials = new LengthAwarePaginator($items, $detailTotal, $perPage, $page, [
+            'path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->except('page'),
+        ]);
 
         return view('surya.product-tracking.sf-stock', compact(
-            'filters', 'uploads', 'selectedUpload', 'selectedUploadId', 'salesForces', 'selectedSf',
-            'eligibleDenoms', 'summary', 'summaryTotals', 'serials', 'detailTotal', 'perPage'
+            'filters', 'salesForces', 'eligibleDenoms', 'summary', 'summaryTotals', 'serials', 'detailTotal', 'perPage'
         ));
     }
 
