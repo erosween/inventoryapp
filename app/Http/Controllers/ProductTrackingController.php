@@ -1033,6 +1033,19 @@ class ProductTrackingController extends MonitaDumaiController
         return '1'.$serial;
     }
 
+    private function decrementSerial(string $serial): string
+    {
+        for ($index = strlen($serial) - 1; $index >= 0; $index--) {
+            if ($serial[$index] !== '0') {
+                $serial[$index] = chr(ord($serial[$index]) - 1);
+                return $serial;
+            }
+            $serial[$index] = '9';
+        }
+
+        return $serial;
+    }
+
     private function csvSafe(string $value): string
     {
         return preg_match('/^[=+@\-\t\r]/', $value) ? "'".$value : $value;
@@ -1914,23 +1927,28 @@ class ProductTrackingController extends MonitaDumaiController
             'sort' => 'nullable|in:sf,tap,total',
             'direction' => 'nullable|in:asc,desc', 'page' => 'nullable|integer|min:1|max:100000',
             'sn_page' => 'nullable|integer|min:1|max:100000',
+            'summary_sf' => 'nullable|string|max:100', 'summary_tap' => 'nullable|string|max:100',
+            'summary_sa' => 'nullable|integer|min:0', 'summary_pv' => 'nullable|integer|min:0',
+            'summary_sort' => 'nullable|in:sf,tap,sa,pv', 'summary_direction' => 'nullable|in:asc,desc',
+            'detail_sn' => ['nullable', 'regex:/^\\d{9,16}$/'], 'detail_denom' => 'nullable|string|max:100',
+            'detail_product' => 'nullable|in:PV,SA', 'detail_source' => 'nullable|string|max:50',
+            'detail_sort' => 'nullable|in:sn,denom,product,source', 'detail_direction' => 'nullable|in:asc,desc',
+            'download_sf' => 'nullable|string|max:100',
         ]);
-        $filterDefaults = ['sf' => '', 'product' => '', 'iddenom' => '', 'source' => '', 'sn' => '', 'detail_sf' => '', 'sort' => 'sf', 'direction' => 'asc'];
+        $filterDefaults = ['sf' => '', 'product' => '', 'iddenom' => '', 'source' => '', 'sn' => '', 'detail_sf' => '', 'sort' => 'sf', 'direction' => 'asc',
+            'summary_sf' => '', 'summary_tap' => '', 'summary_sa' => '', 'summary_pv' => '', 'summary_sort' => 'sf', 'summary_direction' => 'asc',
+            'detail_sn' => '', 'detail_denom' => '', 'detail_product' => '', 'detail_source' => '', 'detail_sort' => 'sn', 'detail_direction' => 'asc', 'download_sf' => ''];
         // ConvertEmptyStringsToNull turns the blank “all” options into null.
         // Restore defaults before applying filters so an empty dropdown never
         // gets mistaken for an unknown SF/denom and triggers a 404.
         $filters = array_replace($filterDefaults, array_filter($filters, static fn ($value) => $value !== null));
 
         $denoms = DB::table('denom')->orderBy('denom')->get(['iddenom', 'denom', 'product_group', 'kategori_inject', 'group_name']);
-        $eligibleDenoms = $denoms->filter(fn ($denom) => in_array(DenomGrouping::infer($denom)['product'], ['PV', 'SA'], true))->values();
-        $denomsById = $eligibleDenoms->keyBy('iddenom');
+        $denomsById = $denoms->filter(fn ($denom) => in_array(DenomGrouping::infer($denom)['product'], ['PV', 'SA'], true))->keyBy('iddenom');
         $salesForces = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%'")
             ->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'")
             ->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
         $salesById = $salesForces->keyBy('idsf');
-        if ($filters['sf'] !== '' && ! $salesById->has($filters['sf'])) abort(404);
-        if ($filters['iddenom'] !== '' && ! $denomsById->has($filters['iddenom'])) abort(404);
-
         // Merge compact ranges rather than expanding stock into rows until the
         // requested page is rendered. Corrections win ownership, then SF Masuk,
         // then upload ranges. Every serial is claimed once across all sources.
@@ -2072,17 +2090,7 @@ class ProductTrackingController extends MonitaDumaiController
             $range['product'] = $denom ? DenomGrouping::infer($denom)['product'] : '—';
             return $range;
         })->filter(fn ($range) => $salesById->has($range['sfcode']))
-            ->when($filters['sf'] !== '', fn ($rows) => $rows->where('sfcode', $filters['sf']))
-            ->when($filters['product'] !== '', fn ($rows) => $rows->where('product', $filters['product']))
-            ->when($filters['iddenom'] !== '', fn ($rows) => $rows->where('iddenom', $filters['iddenom']))
-            ->when($filters['source'] !== '', fn ($rows) => $rows->where('source', $filters['source']))
-            ->when($filters['sn'] !== '', function ($rows) use ($filters) {
-                $needle = $filters['sn'];
-                if (strlen($needle) === 16 && str_starts_with($needle, '0')) $needle = substr($needle, 1);
-                return $rows->filter(fn ($range) => strlen($needle) === strlen($range['serial_start'])
-                    && $this->compareSerials($needle, $range['serial_start']) >= 0 && $this->compareSerials($needle, $range['serial_end']) <= 0)
-                    ->map(function ($range) use ($needle) { $range['serial_start'] = $needle; $range['serial_end'] = $needle; $range['qty'] = 1; return $range; });
-            })->values();
+            ->values();
 
         $ranges = $ranges->sort(fn ($a, $b) => strnatcasecmp($a['namasf'], $b['namasf'])
             ?: strnatcasecmp($a['denom'], $b['denom'])
@@ -2091,14 +2099,23 @@ class ProductTrackingController extends MonitaDumaiController
         $summary = $ranges->groupBy('sfcode')->map(function ($rows, $sfcode) {
             $first = $rows->first();
             return (object) ['sfcode' => $sfcode, 'namasf' => $first['namasf'], 'idtap' => $first['idtap'],
-                'range_count' => $rows->count(), 'serial_count' => (int) $rows->sum('qty')];
+                'range_count' => $rows->count(), 'serial_count' => (int) $rows->sum('qty'),
+                'sa_count' => (int) $rows->where('product', 'SA')->sum('qty'), 'pv_count' => (int) $rows->where('product', 'PV')->sum('qty')];
         })->values();
-        $summarySort = $filters['sort'];
-        $summaryDirection = $filters['direction'];
+        $summary = $summary->filter(function ($row) use ($filters) {
+            return ($filters['summary_sf'] === '' || str_contains(mb_strtolower($row->namasf.' '.$row->sfcode), mb_strtolower($filters['summary_sf'])))
+                && ($filters['summary_tap'] === '' || str_contains(mb_strtolower((string) $row->idtap), mb_strtolower($filters['summary_tap'])))
+                && ($filters['summary_sa'] === '' || str_contains((string) $row->sa_count, (string) $filters['summary_sa']))
+                && ($filters['summary_pv'] === '' || str_contains((string) $row->pv_count, (string) $filters['summary_pv']));
+        })->values();
+        $summarySort = $filters['summary_sort'];
+        $summaryDirection = $filters['summary_direction'];
         $summary = $summary->sort(function ($left, $right) use ($summarySort, $summaryDirection) {
             $comparison = match ($summarySort) {
                 'tap' => strnatcasecmp((string) $left->idtap, (string) $right->idtap)
                     ?: strnatcasecmp($left->namasf, $right->namasf),
+                'sa' => $left->sa_count <=> $right->sa_count ?: strnatcasecmp($left->namasf, $right->namasf),
+                'pv' => $left->pv_count <=> $right->pv_count ?: strnatcasecmp($left->namasf, $right->namasf),
                 'total' => $left->serial_count <=> $right->serial_count
                     ?: strnatcasecmp($left->namasf, $right->namasf),
                 default => strnatcasecmp($left->namasf, $right->namasf)
@@ -2106,8 +2123,6 @@ class ProductTrackingController extends MonitaDumaiController
             };
             return $summaryDirection === 'desc' ? -$comparison : $comparison;
         })->values();
-        $summaryTotals = (object) ['sales_forces' => $summary->count(), 'ranges' => (int) $summary->sum('range_count'), 'serials' => (int) $summary->sum('serial_count')];
-
         $summaryPerPage = 10;
         $summaryPage = max(1, (int) $request->query('page', 1));
         $summaryPaginator = new LengthAwarePaginator(
@@ -2115,19 +2130,68 @@ class ProductTrackingController extends MonitaDumaiController
             ['path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->except(['page', 'sn_page'])]
         );
 
-        $detailSf = (string) $filters['detail_sf'];
+        $detailSf = (string) ($filters['detail_sf'] ?: $filters['download_sf']);
         $detailRanges = $detailSf === '' ? collect() : $ranges->where('sfcode', $detailSf)->values();
-        $detailTotal = (int) $detailRanges->sum('qty'); $perPage = 100; $page = max(1, (int) $request->query('sn_page', 1));
+        if ($filters['detail_denom'] !== '') $detailRanges = $detailRanges->filter(fn ($range) => str_contains(mb_strtolower($range['denom'].' '.$range['iddenom']), mb_strtolower($filters['detail_denom'])))->values();
+        if ($filters['detail_product'] !== '') $detailRanges = $detailRanges->where('product', $filters['detail_product'])->values();
+        if ($filters['detail_source'] !== '') $detailRanges = $detailRanges->where('source', $filters['detail_source'])->values();
+        if ($filters['detail_sn'] !== '') {
+            $needle = (string) $filters['detail_sn'];
+            if (strlen($needle) === 16 && str_starts_with($needle, '0')) $needle = substr($needle, 1);
+            $detailRanges = $detailRanges->filter(fn ($range) => strlen($needle) === strlen($range['serial_start'])
+                && $this->compareSerials($needle, $range['serial_start']) >= 0 && $this->compareSerials($needle, $range['serial_end']) <= 0)
+                ->map(function ($range) use ($needle) { $range['serial_start'] = $needle; $range['serial_end'] = $needle; $range['qty'] = 1; return $range; })->values();
+        }
+        $detailSort = $filters['detail_sort']; $detailDirection = $filters['detail_direction'];
+        $detailRanges = $detailRanges->sort(function ($left, $right) use ($detailSort, $detailDirection) {
+            $comparison = match ($detailSort) {
+                'denom' => strnatcasecmp($left['denom'], $right['denom']) ?: $this->compareSerials($left['serial_start'], $right['serial_start']),
+                'product' => strnatcasecmp($left['product'], $right['product']) ?: $this->compareSerials($left['serial_start'], $right['serial_start']),
+                'source' => strnatcasecmp($left['source'], $right['source']) ?: $this->compareSerials($left['serial_start'], $right['serial_start']),
+                default => $this->compareSerials($left['serial_start'], $right['serial_start']),
+            };
+            return $detailDirection === 'desc' ? -$comparison : $comparison;
+        })->values();
+        $detailTotal = (int) $detailRanges->sum('qty');
+        if ($filters['download_sf'] !== '') {
+            abort_unless($salesById->has($filters['download_sf']), 404);
+            $downloadRanges = $detailRanges->values();
+            $downloadSf = $filters['download_sf'];
+            $downloadDirection = $filters['detail_direction'];
+            return response()->streamDownload(function () use ($downloadRanges, $downloadDirection) {
+                $output = fopen('php://output', 'w');
+                fwrite($output, "\xEF\xBB\xBF");
+                fputcsv($output, ['SN', 'Sales Force', 'TAP', 'Produk', 'Denom', 'Sumber']);
+                foreach ($downloadRanges as $range) {
+                    $descending = $downloadDirection === 'desc';
+                    $sn = (string) ($descending ? $range['serial_end'] : $range['serial_start']);
+                    $bound = (string) ($descending ? $range['serial_start'] : $range['serial_end']);
+                    while ($descending ? $this->compareSerials($sn, $bound) >= 0 : $this->compareSerials($sn, $bound) <= 0) {
+                        fputcsv($output, [$sn, $range['namasf'], $range['idtap'], $range['product'], $range['denom'], $range['source']]);
+                        if ($this->compareSerials($sn, $bound) === 0) break;
+                        $sn = $descending ? $this->decrementSerial($sn) : $this->incrementSerial($sn);
+                    }
+                }
+                fclose($output);
+            }, 'stock-sn-'.preg_replace('/[^A-Za-z0-9_-]/', '-', $downloadSf).'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
+        $perPage = 100; $page = max(1, (int) $request->query('sn_page', 1));
         $offset = ($page - 1) * $perPage; $items = [];
         foreach ($detailRanges as $range) {
             $qty = (int) $range['qty'];
             if ($offset >= $qty) { $offset -= $qty; continue; }
-            $start = str_pad((string) ((int) $range['serial_start'] + $offset), strlen($range['serial_start']), '0', STR_PAD_LEFT);
+            $descending = $detailDirection === 'desc';
+            $start = $descending
+                ? str_pad((string) ((int) $range['serial_end'] - $offset), strlen($range['serial_end']), '0', STR_PAD_LEFT)
+                : str_pad((string) ((int) $range['serial_start'] + $offset), strlen($range['serial_start']), '0', STR_PAD_LEFT);
             $offset = 0;
-            while (count($items) < $perPage && $this->compareSerials($start, $range['serial_end']) <= 0) {
+            while (count($items) < $perPage && ($descending
+                ? $this->compareSerials($start, $range['serial_start']) >= 0
+                : $this->compareSerials($start, $range['serial_end']) <= 0)) {
                 $items[] = (object) ['sn' => $start, 'iddenom' => $range['iddenom'], 'denom' => $range['denom'],
                     'product' => $range['product'], 'sfcode' => $range['sfcode'], 'namasf' => $range['namasf'], 'idtap' => $range['idtap'], 'source' => $range['source']];
-                $start = $this->incrementSerial($start);
+                if ($this->compareSerials($start, $descending ? $range['serial_start'] : $range['serial_end']) === 0) break;
+                $start = $descending ? $this->decrementSerial($start) : $this->incrementSerial($start);
             }
             if (count($items) >= $perPage) break;
         }
@@ -2136,7 +2200,7 @@ class ProductTrackingController extends MonitaDumaiController
         ]);
 
         return view('surya.product-tracking.sf-stock', compact(
-            'filters', 'salesForces', 'eligibleDenoms', 'summaryPaginator', 'summaryTotals', 'serials', 'detailTotal', 'perPage', 'detailSf'
+            'filters', 'summaryPaginator', 'serials', 'detailTotal', 'perPage', 'detailSf'
         ));
     }
 
