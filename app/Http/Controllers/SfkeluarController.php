@@ -410,6 +410,16 @@ use Illuminate\Validation\ValidationException;
         'Petugas disembunyikan atau tidak sesuai dengan TAP.'
     );
 
+    $ownership = app(\App\Services\SalesStockOwnership::class);
+    foreach ($validated['items'] as $index => $item) {
+        if ($item['serial_mode'] === 'broken') continue;
+        if (! $ownership->ownsRange((string) $validated['idsf'], (string) $item['iddenom'], (string) $item['sn_start'], (string) $item['sn_end'])) {
+            throw ValidationException::withMessages([
+                "items.{$index}.sn_start" => "SN/rentang {$item['sn_start']}–{$item['sn_end']} tidak seluruhnya tercatat sebagai stok SF ini di Stock SF (SN).",
+            ]);
+        }
+    }
+
     DB::transaction(function () use ($validated) {
         $requestedByDenom = collect($validated['items'])
             ->groupBy('iddenom')
@@ -687,6 +697,32 @@ public function updateSfKeluar(Request $request, $id)
         'sn_awal' => 'nullable|string|max:24',
         'sn_akhir' => 'nullable|string|max:24',
     ]);
+
+    $start = trim((string) ($validated['sn_awal'] ?? ''));
+    $end = trim((string) ($validated['sn_akhir'] ?? ''));
+    if ($start !== '') {
+        if ($end === '') $end = $start;
+        $denom = DB::table('denom')->where('iddenom', $validated['iddenom'])
+            ->first(['iddenom', 'product', 'product_group', 'kategori_inject', 'group_name']);
+        $denomId = strtoupper(trim((string) ($denom->iddenom ?? '')));
+        $product = strtoupper(trim((string) ($denom->product ?? '')));
+        $isSa = in_array($product, ['PV', 'SA'], true) ? $product === 'SA'
+            : (in_array(strtoupper(trim((string) ($denom->product_group ?? ''))), ['SA', 'SP'], true)
+                || strtoupper(trim((string) ($denom->kategori_inject ?? ''))) === 'SA'
+                || strtoupper(trim((string) ($denom->group_name ?? ''))) === 'SA'
+                || str_starts_with($denomId, 'SP'));
+        $pattern = $isSa ? '/^0\d{15}$/' : '/^\d{12}$/';
+        if (!preg_match($pattern, $start) || !preg_match($pattern, $end) || strlen($start) !== strlen($end)) {
+            throw ValidationException::withMessages(['sn_awal' => $isSa ? 'SN SA wajib 16 digit dan diawali 0.' : 'SN PV wajib tepat 12 digit.']);
+        }
+        $rangeQty = (int) ltrim($end, '0') - (int) ltrim($start, '0') + 1;
+        if ($rangeQty < 1 || $rangeQty > 2_000_000 || $rangeQty !== (int) $validated['qty']) {
+            throw ValidationException::withMessages(['sn_akhir' => 'Qty harus sama dengan jumlah SN dalam rentang.']);
+        }
+        if (! app(\App\Services\SalesStockOwnership::class)->ownsRange((string) $validated['idsf'], (string) $validated['iddenom'], $start, $end)) {
+            throw ValidationException::withMessages(['sn_awal' => "SN/rentang {$start}–{$end} tidak seluruhnya tercatat sebagai stok SF ini di Stock SF (SN)."]);
+        }
+    }
 
     DB::transaction(function () use ($validated, $id) {
         

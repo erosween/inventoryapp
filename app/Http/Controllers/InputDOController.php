@@ -145,7 +145,10 @@ class InputDOController extends Controller
     public function masukProses(Request $request)
     {
         $this->validateDo($request);
-
+        $serialConflicts = app(\App\Services\SalesStockSerialConflict::class);
+        $serialConflicts->lock();
+        try {
+        $serialConflicts->assertAvailable((string) $request->sn_start, (string) ($request->sn_end ?: $request->sn_start));
         DB::transaction(function () use ($request) {
 
             // INSERT DO
@@ -168,6 +171,9 @@ class InputDOController extends Controller
 
             $this->incrementBoStock($request->penerima, $request->kategorisegel, (int) $request->qty);
         });
+        } finally {
+            $serialConflicts->unlock();
+        }
 
         return redirect()
             ->route('do.index')
@@ -196,6 +202,10 @@ class InputDOController extends Controller
     public function update(Request $request, $id)
     {
         $this->validateDo($request);
+        $serialConflicts = app(\App\Services\SalesStockSerialConflict::class);
+        $serialConflicts->lock();
+        try {
+        $serialConflicts->assertAvailable((string) $request->sn_start, (string) ($request->sn_end ?: $request->sn_start), null, null, true, (int) $id);
         DB::transaction(function () use ($request, $id) {
             $oldData = $this->doQuery($id)->lockForUpdate()->first();
             abort_unless($oldData, 404);
@@ -242,6 +252,9 @@ class InputDOController extends Controller
             // 📝 LOG
             AuditLogger::log('UPDATE', 'Input DO', $id, (array)$oldData, $request->all());
         });
+        } finally {
+            $serialConflicts->unlock();
+        }
 
         return redirect()->route('do.index')->with('success', 'Data DO berhasil diperbarui');
     }

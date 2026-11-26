@@ -11,11 +11,24 @@ use Illuminate\Validation\ValidationException;
  */
 class SalesStockSerialConflict
 {
-    public function assertAvailable(string $start, string $end, ?int $ignoreManualRangeId = null, ?int $ignoreMasukId = null, bool $includeActiveUpload = true): void
+    public function assertAvailable(string $start, string $end, ?int $ignoreManualRangeId = null, ?int $ignoreMasukId = null, bool $includeActiveUpload = true, ?int $ignoreDoId = null): void
     {
         $isPv = strlen($start) === 12;
         $canonicalStart = $this->canonical($start);
         $canonicalEnd = $this->canonical($end);
+
+        $normalizedDoSn = "REPLACE(REPLACE(TRIM(do_row.sn), CHAR(9), '-'), ' ', '')";
+        $doStart = "SUBSTRING_INDEX({$normalizedDoSn}, '-', 1)";
+        $doEnd = "SUBSTRING_INDEX({$normalizedDoSn}, '-', -1)";
+        $canonicalDoStart = "CASE WHEN CHAR_LENGTH({$doStart}) = 16 AND LEFT({$doStart}, 1) = '0' THEN SUBSTRING({$doStart}, 2) ELSE {$doStart} END";
+        $canonicalDoEnd = "CASE WHEN CHAR_LENGTH({$doEnd}) = 16 AND LEFT({$doEnd}, 1) = '0' THEN SUBSTRING({$doEnd}, 2) ELSE {$doEnd} END";
+        $doRows = DB::table('masuk as do_row')
+            ->where('do_row.pengirim', 'DO')
+            ->whereRaw("{$normalizedDoSn} REGEXP '^[0-9]+(-[0-9]+)?$'")
+            ->whereRaw("CHAR_LENGTH({$canonicalDoStart}) = ? AND CHAR_LENGTH({$canonicalDoEnd}) = ?", [strlen($canonicalStart), strlen($canonicalStart)])
+            ->whereRaw("CAST({$canonicalDoStart} AS DECIMAL(24,0)) <= ? AND CAST({$canonicalDoEnd} AS DECIMAL(24,0)) >= ?", [$canonicalEnd, $canonicalStart]);
+        if ($ignoreDoId !== null) $doRows->where('do_row.idmasuk', '!=', $ignoreDoId);
+        if ($doRows->exists()) $this->conflict('SN sudah tercatat pada Input DO (Stok Gudang).');
 
         $normalizedSn = "REPLACE(REPLACE(TRIM(m.sn), CHAR(9), '-'), ' ', '')";
         $existingStart = "SUBSTRING_INDEX({$normalizedSn}, '-', 1)";

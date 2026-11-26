@@ -1922,7 +1922,7 @@ class ProductTrackingController extends MonitaDumaiController
 
         $filters = $request->validate([
             'sf' => 'nullable|string|max:100', 'product' => 'nullable|in:PV,SA',
-            'iddenom' => 'nullable|string|max:25', 'source' => 'nullable|in:SF Masuk,Retur SF,Upload Stok SN Sales,Add Label SN',
+            'iddenom' => 'nullable|string|max:25', 'source' => 'nullable|in:SF Masuk,Stok Gudang,Retur SF,Upload Stok SN Sales,Add Label SN',
             'sn' => ['nullable', 'regex:/^\\d{9,16}$/'], 'detail_sf' => 'nullable|string|max:100',
             'sort' => 'nullable|in:sf,tap,total',
             'direction' => 'nullable|in:asc,desc', 'page' => 'nullable|integer|min:1|max:100000',
@@ -1949,6 +1949,12 @@ class ProductTrackingController extends MonitaDumaiController
             ->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'")
             ->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
         $salesById = $salesForces->keyBy('idsf');
+        $doReceivers = DB::table('masuk')->where('pengirim', 'DO')->whereNotNull('idtappenerima')
+            ->select('idtappenerima', 'penerima')->distinct()->get();
+        foreach ($doReceivers as $receiver) {
+            $code = 'GUDANG:'.(string) $receiver->idtappenerima.':'.(string) $receiver->penerima;
+            $salesById->put($code, (object) ['idsf' => $code, 'namasf' => (string) $receiver->penerima, 'idtap' => $receiver->idtappenerima]);
+        }
         // Merge compact ranges rather than expanding stock into rows until the
         // requested page is rendered. Corrections win ownership, then SF Masuk,
         // then upload ranges. Every serial is claimed once across all sources.
@@ -1957,9 +1963,11 @@ class ProductTrackingController extends MonitaDumaiController
         $latestUploadId = DB::table('product_tracking_sales_stock_uploads')
             ->where('filename', 'not like', 'MANUAL:%')->max('id');
         $latestMasukId = DB::table('masuksf')->max('idmasuk') ?: 0;
+        $latestDoId = DB::table('masuk')->where('pengirim', 'DO')->max('idmasuk') ?: 0;
+        $latestDoChange = DB::table('logs')->where('module', 'Input DO')->max('created_at');
         $latestStockRangeId = DB::table('product_tracking_sales_stock_ranges')->max('id') ?: 0;
         $cacheKey = 'product-tracking:sf-stock-ranges:union:v3:'.sha1(implode(':', [
-            $latestUploadId ?: 0, $latestMasukId, $latestStockRangeId,
+            $latestUploadId ?: 0, $latestMasukId, $latestDoId, $latestDoChange, $latestStockRangeId,
         ]));
         $snapshot = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($denomsById, $latestUploadId) {
             $candidates = [];
@@ -1979,6 +1987,25 @@ class ProductTrackingController extends MonitaDumaiController
                 if (($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && ! in_array(strlen($start), [15, 16], true))) continue;
                 $candidates[] = [(string) $row->idsf, (string) $row->iddenom, $start, $end,
                     'SF Masuk', 1, (string) $row->tgl, (int) $row->idmasuk];
+            }
+
+            $doRows = DB::table('masuk')->where('pengirim', 'DO')->whereNotNull('sn')->where('sn', '<>', '')
+                ->orderByDesc('tgl')->orderByDesc('idmasuk')->cursor(['idmasuk', 'iddenom', 'idtappenerima', 'penerima', 'sn', 'qty', 'tgl']);
+            foreach ($doRows as $row) {
+                $denom = $denomsById->get($row->iddenom);
+                if (! $denom || ! $row->idtappenerima) continue;
+                $raw = trim((string) $row->sn);
+                if (preg_match('/^(\\d+)(?:\\s*[-–—]\\s*|\\s+)(\\d+)$/u', $raw, $match)) [$start, $end] = [$match[1], $match[2]];
+                elseif (preg_match('/^\\d+$/', $raw)) $start = $end = $raw;
+                else continue;
+                if (strlen($start) !== strlen($end) || $this->compareSerials($start, $end) > 0) continue;
+                if (strlen($start) === 16 && str_starts_with($start, '0') && str_starts_with($end, '0')) { $start = substr($start, 1); $end = substr($end, 1); }
+                $product = DenomGrouping::infer($denom)['product'];
+                if (($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && strlen($start) !== 15)) continue;
+                $qty = (int) $this->serialRangeCount($start, $end);
+                if ($qty < 1 || $qty > 2_000_000 || ($start !== $end && $qty !== (int) $row->qty)) continue;
+                $candidates[] = ['GUDANG:'.(string) $row->idtappenerima.':'.(string) $row->penerima, (string) $row->iddenom, $start, $end,
+                    'Stok Gudang', 1, (string) $row->tgl, (int) $row->idmasuk];
             }
 
             $stockRows = DB::table('product_tracking_sales_stock_ranges as stock')

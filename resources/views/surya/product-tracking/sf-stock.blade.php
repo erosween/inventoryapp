@@ -2,7 +2,7 @@
 
 @section('title', 'Stock SF (SN)')
 @section('active-page', 'product-tracking-sf-stock')
-@section('description', 'Lihat sisa stok serial number per Sales Force.')
+@section('description', 'Lihat sisa stok serial number per Sales Force dan gudang TAP.')
 @section('content-class', 'pt-page')
 
 @push('styles')
@@ -30,7 +30,7 @@
 
 @section('content')
     <section class="pt-card">
-        <div class="sf-stock-section-heading"><div><h2>Ringkasan per Sales Force</h2><p class="pt-muted mb-0">SA dan PV dihitung terpisah. Gunakan filter di header tabel; 10 Sales Force per halaman.</p></div></div>
+        <div class="sf-stock-section-heading"><div><h2>Ringkasan per SF & Gudang</h2><p class="pt-muted mb-0">SA dan PV dihitung terpisah. SN dari DO ditampilkan di bawah penerima dengan label Stok Gudang.</p></div></div>
         <form id="summary-filter-form" method="get" action="{{ route('surya.product-tracking.sf-stock') }}">
             <input type="hidden" name="summary_sort" value="{{ $filters['summary_sort'] }}"><input type="hidden" name="summary_direction" value="{{ $filters['summary_direction'] }}">
             <input type="hidden" name="detail_sf" value="{{ $detailSf }}"><input type="hidden" name="detail_sort" value="{{ $filters['detail_sort'] }}"><input type="hidden" name="detail_direction" value="{{ $filters['detail_direction'] }}">
@@ -38,14 +38,14 @@
         </form>
         <div class="pt-table-wrap"><table class="pt-table sf-stock-table"><thead>
             <tr>
-                @foreach(['sf'=>'Sales Force','tap'=>'TAP','sa'=>'Total SN SA','pv'=>'Total SN PV'] as $key=>$label)
+                @foreach(['sf'=>'SF / Penerima DO','tap'=>'TAP','sa'=>'Total SN SA','pv'=>'Total SN PV'] as $key=>$label)
                     @php($nextDirection = $filters['summary_sort']===$key && $filters['summary_direction']==='asc' ? 'desc' : 'asc')
                     <th><a href="{{ request()->fullUrlWithQuery(['summary_sort'=>$key,'summary_direction'=>$nextDirection,'page'=>1]) }}">{{ $label }} @if($filters['summary_sort']===$key)<i class="fas fa-arrow-{{ $filters['summary_direction']==='desc'?'down':'up' }}"></i>@endif</a></th>
                 @endforeach
                 <th>SN</th><th>Unduh</th>
             </tr>
             <tr class="sf-stock-filter-row">
-                <th><input form="summary-filter-form" name="summary_sf" value="{{ $filters['summary_sf'] }}" placeholder="Cari SF…" aria-label="Filter Sales Force" onchange="this.form.requestSubmit()"></th>
+                <th><input form="summary-filter-form" name="summary_sf" value="{{ $filters['summary_sf'] }}" placeholder="Cari SF/penerima DO…" aria-label="Filter SF atau penerima DO" onchange="this.form.requestSubmit()"></th>
                 <th><input form="summary-filter-form" name="summary_tap" value="{{ $filters['summary_tap'] }}" placeholder="Cari TAP…" aria-label="Filter TAP" onchange="this.form.requestSubmit()"></th>
                 <th><input form="summary-filter-form" name="summary_sa" value="{{ $filters['summary_sa'] }}" inputmode="numeric" placeholder="SA" aria-label="Filter total SA" onchange="this.form.requestSubmit()"></th>
                 <th><input form="summary-filter-form" name="summary_pv" value="{{ $filters['summary_pv'] }}" inputmode="numeric" placeholder="PV" aria-label="Filter total PV" onchange="this.form.requestSubmit()"></th>
@@ -54,7 +54,7 @@
         </thead><tbody>
             @forelse($summaryPaginator as $row)
                 <tr id="sf-row-{{ $row->sfcode }}">
-                    <td><strong>{{ $row->namasf }}</strong><small style="display:block;color:#64748b">{{ $row->sfcode }}</small></td>
+                    <td><strong>{{ $row->namasf }}</strong>@if(str_starts_with($row->sfcode, 'GUDANG:'))<small style="display:block;color:#64748b">Stok Gudang</small>@else<small style="display:block;color:#64748b">{{ $row->sfcode }}</small>@endif</td>
                     <td>{{ $row->idtap ?: '—' }}</td>
                     <td><strong>{{ number_format($row->sa_count) }}</strong></td>
                     <td><strong>{{ number_format($row->pv_count) }}</strong></td>
@@ -83,7 +83,7 @@
                             <th><input form="detail-filter-form" name="detail_sn" value="{{ $filters['detail_sn'] }}" inputmode="numeric" maxlength="16" placeholder="Cari SN…" aria-label="Filter SN" onchange="this.form.requestSubmit()"></th>
                             <th><input form="detail-filter-form" name="detail_denom" value="{{ $filters['detail_denom'] }}" placeholder="Cari denom…" aria-label="Filter denom" onchange="this.form.requestSubmit()"></th>
                             <th><select form="detail-filter-form" name="detail_product" aria-label="Filter produk" onchange="this.form.requestSubmit()"><option value="">Semua</option><option value="SA" @selected($filters['detail_product']==='SA')>SA</option><option value="PV" @selected($filters['detail_product']==='PV')>PV</option></select></th>
-                            <th><select form="detail-filter-form" name="detail_source" aria-label="Filter sumber" onchange="this.form.requestSubmit()"><option value="">Semua</option>@foreach(['SF Masuk','Upload Stok SN Sales','Add Label SN'] as $source)<option value="{{ $source }}" @selected($filters['detail_source']===$source)>{{ $source }}</option>@endforeach</select></th>
+                            <th><select form="detail-filter-form" name="detail_source" aria-label="Filter sumber" onchange="this.form.requestSubmit()"><option value="">Semua</option>@foreach(['SF Masuk','Stok Gudang','Upload Stok SN Sales','Add Label SN','Retur SF'] as $source)<option value="{{ $source }}" @selected($filters['detail_source']===$source)>{{ $source }}</option>@endforeach</select></th>
                         </tr></thead><tbody>
                             @forelse($serials as $item)<tr><td class="sf-stock-sn">{{ $item->sn }}</td><td>{{ $item->denom }}</td><td>{{ $item->product }}</td><td><span class="sf-stock-source">{{ $item->source }}</span></td></tr>
                             @empty<tr><td colspan="4" class="pt-empty">Tidak ada SN untuk filter ini.</td></tr>@endforelse
@@ -97,7 +97,7 @@
                 @endif
             @empty<tr><td colspan="6" class="pt-empty">Tidak ada Sales Force yang cocok dengan filter.</td></tr>@endforelse
         </tbody></table></div>
-        <div class="sf-stock-pager"><span>Menampilkan {{ number_format($summaryPaginator->firstItem() ?? 0) }}–{{ number_format($summaryPaginator->lastItem() ?? 0) }} dari {{ number_format($summaryPaginator->total()) }} Sales Force</span><div>
+        <div class="sf-stock-pager"><span>Menampilkan {{ number_format($summaryPaginator->firstItem() ?? 0) }}–{{ number_format($summaryPaginator->lastItem() ?? 0) }} dari {{ number_format($summaryPaginator->total()) }} baris</span><div>
             @if($summaryPaginator->onFirstPage())<a class="disabled" href="#">‹ Sebelumnya</a>@else<a href="{{ $summaryPaginator->previousPageUrl() }}">‹ Sebelumnya</a>@endif
             <span>Halaman {{ $summaryPaginator->currentPage() }} / {{ max(1,$summaryPaginator->lastPage()) }}</span>
             @if($summaryPaginator->hasMorePages())<a href="{{ $summaryPaginator->nextPageUrl() }}">Berikutnya ›</a>@else<a class="disabled" href="#">Berikutnya ›</a>@endif

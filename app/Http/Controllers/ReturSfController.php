@@ -169,6 +169,15 @@ class ReturSfController extends Controller
             $validated['destination_idsf'] = null;
         }
 
+        $ownership = app(\App\Services\SalesStockOwnership::class);
+        foreach ($validated['items'] as $index => $item) {
+            if (! $ownership->ownsRange((string) $validated['idsf'], (string) $item['iddenom'], (string) $item['sn_start'], (string) $item['sn_end'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.{$index}.sn_start" => "SN/rentang {$item['sn_start']}–{$item['sn_end']} tidak seluruhnya tercatat sebagai stok SF ini di Stock SF (SN).",
+                ]);
+            }
+        }
+
         DB::transaction(function () use ($validated) {
             $requestedByDenom = collect($validated['items'])
                 ->groupBy('iddenom')
@@ -296,6 +305,15 @@ class ReturSfController extends Controller
                 ->whereRaw('UPPER(TRIM(idtap)) = ?', [mb_strtoupper(trim($validated['idtap']))])->exists(),
                 422, 'Sales Force tujuan tidak valid.');
         } else $validated['destination_idsf'] = null;
+
+        $oldReturn = DB::table('retursf')->where('idretur', $id)->first(['return_type']);
+        if (! $oldReturn) abort(404);
+        $ignoreReturnId = ($oldReturn->return_type ?? 'warehouse') === 'sf' ? (int) $id : null;
+        if (! app(\App\Services\SalesStockOwnership::class)->ownsRange((string) $validated['idsf'], (string) $item['iddenom'], (string) $item['sn_start'], (string) $item['sn_end'], $ignoreReturnId)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sn_start' => "SN/rentang {$item['sn_start']}–{$item['sn_end']} tidak seluruhnya tercatat sebagai stok SF ini di Stock SF (SN).",
+            ]);
+        }
 
         DB::transaction(function () use ($validated, $item, $id) {
             $oldData = DB::table('retursf')->where('idretur', $id)->lockForUpdate()->first();
