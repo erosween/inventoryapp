@@ -689,7 +689,10 @@
                                                 $opacity = $val > 0 ? min($val / 200000, 1) : 0; 
                                                 $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
                                                 $bg = $val > 0 ? "rgba(29, 78, 216, $opacity)" : "transparent";
-                                                $color = $opacity >= 0.92 ? '#fff' : '#172033';
+                                                // Keep the value legible on every heatmap shade. White text
+                                                // on a medium blue cell has poor contrast, so switch only
+                                                // at the darkest end of the scale.
+                                                $color = $opacity >= 0.72 ? '#fff' : '#172033';
 
                                                 // MoM Logic Sales
                                                 $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
