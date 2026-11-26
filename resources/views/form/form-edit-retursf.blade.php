@@ -80,7 +80,7 @@
                                                     <option></option>
                                                     @foreach($salesForces as $target)
                                                         @if($target->idsf !== $edit->idsf)
-                                                            <option value="{{ $target->idsf }}" @selected(($edit->destination_idsf ?? '') === $target->idsf)>{{ $target->namasf }} · {{ $target->idsf }} · {{ $target->idtap }}</option>
+                                                            <option value="{{ $target->idsf }}" data-tap="{{ $target->idtap }}" @selected(($edit->destination_idsf ?? '') === $target->idsf)>{{ $target->namasf }}</option>
                                                         @endif
                                                     @endforeach
                                                 </select>
@@ -187,6 +187,18 @@
             $('input[name="return_type"]').on('change', updateReturnDestination);
             updateReturnDestination();
 
+            function filterDestinationSalesForces() {
+                const sourceSf = String($('#idsf').val() || '');
+                const sourceTap = String($('#idsf option:selected').data('tap') || '');
+                $('#destination_idsf option').each(function() {
+                    if (!this.value) return;
+                    const sameTap = String($(this).data('tap') || '').toUpperCase() === sourceTap.toUpperCase();
+                    $(this).prop('disabled', this.value === sourceSf || !sameTap).toggle(sameTap);
+                });
+                if ($('#destination_idsf').val() === sourceSf || !sourceTap) $('#destination_idsf').val(null).trigger('change');
+            }
+            $('#idsf, #idtap').on('change', filterDestinationSalesForces);
+
             // Load SF berdasarkan TAP
             $('#idtap').on('change', function() {
                 loadSF($(this).val(), "{{ $edit->idsf }}");
@@ -202,7 +214,7 @@
                     _token: "{{ csrf_token() }}"
                 }, function(res) {
                     const options = ['<option value="">-- Pilih SF --</option>'];
-                    res.forEach(item => options.push(`<option value="${$('<div>').text(item.idsf).html()}"${String(item.idsf) === String(selectedSf) ? ' selected' : ''}>${$('<div>').text(item.namasf).html()}</option>`));
+                    res.forEach(item => options.push(`<option value="${$('<div>').text(item.idsf).html()}" data-tap="${$('<div>').text(item.idtap).html()}"${String(item.idsf) === String(selectedSf) ? ' selected' : ''}>${$('<div>').text(item.namasf).html()}</option>`));
                     $('#idsf').html(options.join('')).trigger('change');
                 });
             }

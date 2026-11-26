@@ -163,6 +163,7 @@ class ReturSfController extends Controller
                 ->where('idsf', $validated['destination_idsf'])
                 ->whereRaw("UPPER(idsf) LIKE 'SF%'")
                 ->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'")
+                ->whereRaw('UPPER(TRIM(idtap)) = ?', [mb_strtoupper(trim($validated['idtap']))])
                 ->where('idsf', '!=', $validated['idsf'])->exists(), 422, 'Sales Force tujuan tidak valid.');
         } else {
             $validated['destination_idsf'] = null;
@@ -291,7 +292,8 @@ class ReturSfController extends Controller
         if ($validated['return_type'] === 'sf') {
             abort_unless(\App\Support\SfVisibility::visible(DB::table('idsf'))
                 ->where('idsf', $validated['destination_idsf'])->where('idsf', '!=', $validated['idsf'])
-                ->whereRaw("UPPER(idsf) LIKE 'SF%'")->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'")->exists(),
+                ->whereRaw("UPPER(idsf) LIKE 'SF%'")->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'")
+                ->whereRaw('UPPER(TRIM(idtap)) = ?', [mb_strtoupper(trim($validated['idtap']))])->exists(),
                 422, 'Sales Force tujuan tidak valid.');
         } else $validated['destination_idsf'] = null;
 

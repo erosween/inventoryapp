@@ -58,7 +58,7 @@
                                                 <select name="destination_idsf" id="destination_idsf" class="form-control select2" disabled>
                                                     <option></option>
                                                     @foreach($salesForces as $target)
-                                                        <option value="{{ $target->idsf }}" data-tap="{{ $target->idtap }}" @selected(old('destination_idsf') === $target->idsf)>{{ $target->namasf }} · {{ $target->idsf }} · {{ $target->idtap }}</option>
+                                                        <option value="{{ $target->idsf }}" data-tap="{{ $target->idtap }}" @selected(old('destination_idsf') === $target->idsf)>{{ $target->namasf }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -197,7 +197,7 @@
                     let options = '<option value="">-- Pilih SF --</option>';
                     res.forEach(item => {
                         const selected = String(item.idsf) === String(selectedSf) ? ' selected' : '';
-                        options += `<option value="${$('<div>').text(item.idsf).html()}"${selected}>${$('<div>').text(item.namasf).html()}</option>`;
+                        options += `<option value="${$('<div>').text(item.idsf).html()}" data-tap="${$('<div>').text(item.idtap).html()}"${selected}>${$('<div>').text(item.namasf).html()}</option>`;
                     });
                     $sf.html(options)
                         .prop('disabled', false)
@@ -207,9 +207,11 @@
             $('#kategoritap').on('change', function() { loadSalesForce($(this).val()); });
             $('#idsf').on('change', function() {
                 const sourceSf = String($(this).val() || '');
+                const sourceTap = String($('#idsf option:selected').data('tap') || '');
                 $('#destination_idsf option').each(function() {
                     if (!this.value) return;
-                    $(this).prop('disabled', this.value === sourceSf);
+                    const sameTap = String($(this).data('tap') || '').toUpperCase() === sourceTap.toUpperCase();
+                    $(this).prop('disabled', this.value === sourceSf || !sameTap).toggle(sameTap);
                 });
                 if ($('#destination_idsf').val() === sourceSf) $('#destination_idsf').val(null).trigger('change');
             });
