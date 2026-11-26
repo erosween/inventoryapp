@@ -1950,8 +1950,8 @@ class ProductTrackingController extends MonitaDumaiController
                 if ((int) $this->serialRangeCount($start, $end) > 2_000_000 || ((int) $this->serialRangeCount($start, $end) !== (int) $row->qty && $start !== $end)) continue;
                 $product = DenomGrouping::infer($denom)['product'];
                 if (($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && ! in_array(strlen($start), [15, 16], true))) continue;
-                $candidates[] = ['sfcode' => (string) $row->idsf, 'iddenom' => (string) $row->iddenom, 'start' => $start, 'end' => $end,
-                    'source' => 'SF Masuk', 'priority' => 1, 'recency' => (string) $row->tgl, 'source_id' => (int) $row->idmasuk];
+                $candidates[] = [(string) $row->idsf, (string) $row->iddenom, $start, $end,
+                    'SF Masuk', 1, (string) $row->tgl, (int) $row->idmasuk];
             }
 
             $stockRows = DB::table('product_tracking_sales_stock_ranges as stock')
@@ -1975,26 +1975,84 @@ class ProductTrackingController extends MonitaDumaiController
                     || ($product === 'PV' && strlen($start) !== 12) || ($product === 'SA' && strlen($start) !== 15)
                     || $this->compareSerials($start, $end) > 0) continue;
                 $manual = str_starts_with(strtoupper((string) $row->filename), 'MANUAL:');
-                $candidates[] = ['sfcode' => (string) $row->sfcode, 'iddenom' => (string) $row->iddenom, 'start' => $start, 'end' => $end,
-                    'source' => $manual ? 'Add Label SN' : 'Upload Stok SN Sales', 'priority' => $manual ? 0 : 2,
-                    'recency' => '', 'source_id' => (int) $row->id];
+                $candidates[] = [(string) $row->sfcode, (string) $row->iddenom, $start, $end,
+                    $manual ? 'Add Label SN' : 'Upload Stok SN Sales', $manual ? 0 : 2, '', (int) $row->id];
             }
 
-            usort($candidates, fn ($a, $b) => $a['priority'] <=> $b['priority']
-                ?: strcmp($b['recency'], $a['recency']) ?: $b['source_id'] <=> $a['source_id']);
-            $claimed = [];
-            $uniqueRanges = [];
-            foreach ($candidates as $candidate) {
-                $length = strlen($candidate['start']);
-                $coverage = $claimed[$length] ?? [];
-                $pieces = $this->splitSerialRangeByCoverage($candidate['start'], $candidate['end'], $coverage);
-                foreach ($pieces as $piece) {
-                    $uniqueRanges[] = ['sfcode' => $candidate['sfcode'], 'iddenom' => $candidate['iddenom'],
-                        'serial_start' => $piece['start'], 'serial_end' => $piece['end'], 'source' => $candidate['source'],
-                        'qty' => (int) $this->serialRangeCount($piece['start'], $piece['end'])];
-                }
-                $claimed[$length] = $this->mergeSerialRanges(array_merge($coverage, [['serial_start' => $candidate['start'], 'serial_end' => $candidate['end']]]));
+            usort($candidates, fn ($a, $b) => $a[5] <=> $b[5]
+                ?: strcmp($b[6], $a[6]) ?: $b[7] <=> $a[7]);
+            // Assign ownership with a sweep line. Subtracting each candidate
+            // from a repeatedly re-sorted coverage list was quadratic on the
+            // 100k+ SF Masuk rows and caused the page request to time out.
+            $eventsByLength = [];
+            foreach ($candidates as $rank => $candidate) {
+                $length = strlen($candidate[2]);
+                $start = (int) $candidate[2];
+                $endExclusive = (int) $candidate[3] + 1;
+                $eventsByLength[$length][] = [$start, $rank, 1];
+                $eventsByLength[$length][] = [$endExclusive, $rank, 0];
             }
+
+            $uniqueRanges = [];
+            foreach ($eventsByLength as $length => $events) {
+                usort($events, fn ($a, $b) => $a[0] <=> $b[0]);
+                $queue = new \SplPriorityQueue();
+                $queue->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
+                $active = [];
+                $previousPosition = null;
+                $lastWinner = null;
+                $lastOutputIndex = null;
+                $lastSegmentEnd = null;
+                $eventCount = count($events);
+
+                for ($index = 0; $index < $eventCount;) {
+                    $position = $events[$index][0];
+                    if ($previousPosition !== null && $previousPosition < $position) {
+                        while (! $queue->isEmpty()) {
+                            $top = $queue->top();
+                            if (! empty($active[$top['data']])) break;
+                            $queue->extract();
+                        }
+                        if (! $queue->isEmpty()) {
+                            $winner = (int) $queue->top()['data'];
+                            $segmentStart = $previousPosition;
+                            $segmentEnd = $position - 1;
+                            if ($lastWinner === $winner && $lastSegmentEnd + 1 === $segmentStart) {
+                                $serialEnd = str_pad((string) $segmentEnd, (int) $length, '0', STR_PAD_LEFT);
+                                $uniqueRanges[$lastOutputIndex]['serial_end'] = $serialEnd;
+                                $uniqueRanges[$lastOutputIndex]['qty'] += (int) $this->serialRangeCount(
+                                    str_pad((string) $segmentStart, (int) $length, '0', STR_PAD_LEFT),
+                                    $serialEnd,
+                                );
+                            } else {
+                                $candidate = $candidates[$winner];
+                                $serialStart = str_pad((string) $segmentStart, (int) $length, '0', STR_PAD_LEFT);
+                                $serialEnd = str_pad((string) $segmentEnd, (int) $length, '0', STR_PAD_LEFT);
+                                $uniqueRanges[] = ['sfcode' => $candidate[0], 'iddenom' => $candidate[1],
+                                    'serial_start' => $serialStart, 'serial_end' => $serialEnd, 'source' => $candidate[4],
+                                    'qty' => (int) $this->serialRangeCount($serialStart, $serialEnd)];
+                                $lastOutputIndex = array_key_last($uniqueRanges);
+                            }
+                            $lastWinner = $winner;
+                            $lastSegmentEnd = $segmentEnd;
+                        }
+                    }
+
+                    while ($index < $eventCount && $events[$index][0] === $position) {
+                        [, $rank, $isStart] = $events[$index++];
+                        if ($isStart) {
+                            $active[$rank] = true;
+                            $queue->insert($rank, -$rank);
+                        } else {
+                            unset($active[$rank]);
+                        }
+                    }
+                    $previousPosition = $position;
+                }
+
+                unset($eventsByLength[$length], $events, $queue, $active);
+            }
+            unset($eventsByLength, $candidates);
             return $uniqueRanges;
         });
 
