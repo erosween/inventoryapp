@@ -1912,7 +1912,11 @@ class ProductTrackingController extends MonitaDumaiController
             'sn' => ['nullable', 'regex:/^\\d{9,16}$/'], 'sort' => 'nullable|in:sf,denom,sn,source',
             'direction' => 'nullable|in:asc,desc', 'page' => 'nullable|integer|min:1|max:100000',
         ]);
-        $filters = array_merge(['sf' => '', 'product' => '', 'iddenom' => '', 'source' => '', 'sn' => '', 'sort' => 'sf', 'direction' => 'asc'], $filters);
+        $filterDefaults = ['sf' => '', 'product' => '', 'iddenom' => '', 'source' => '', 'sn' => '', 'sort' => 'sf', 'direction' => 'asc'];
+        // ConvertEmptyStringsToNull turns the blank “all” options into null.
+        // Restore defaults before applying filters so an empty dropdown never
+        // gets mistaken for an unknown SF/denom and triggers a 404.
+        $filters = array_replace($filterDefaults, array_filter($filters, static fn ($value) => $value !== null));
 
         $denoms = DB::table('denom')->orderBy('denom')->get(['iddenom', 'denom', 'product_group', 'kategori_inject', 'group_name']);
         $eligibleDenoms = $denoms->filter(fn ($denom) => in_array(DenomGrouping::infer($denom)['product'], ['PV', 'SA'], true))->values();
