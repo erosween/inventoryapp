@@ -232,32 +232,30 @@
                         .trigger('change');
                 });
             }
-            $('#kategoritap').on('change', function() {
-                $('#destination_idsf').val(null).trigger('change');
-                filterDestinationSalesForces();
-                loadSalesForce($(this).val());
-            });
+            const allDestinationOptions = $('#destination_idsf option').map(function() {
+                return this.value ? {id: String(this.value), tap: String($(this).data('tap') || ''), name: $(this).text()} : null;
+            }).get().filter(Boolean);
             function filterDestinationSalesForces() {
                 const selectedTap = String($('#kategoritap').val() || '').trim().toUpperCase();
-                $('#destination_idsf option').each(function() {
-                    if (!this.value) return;
-                    const sameTap = String($(this).data('tap') || '').trim().toUpperCase() === selectedTap;
-                    $(this).prop('disabled', !sameTap).toggle(sameTap);
+                const sourceSf = String($('#idsf').val() || '');
+                const currentTarget = String($('#destination_idsf').val() || '');
+                const options = ['<option></option>'];
+                allDestinationOptions.forEach(item => {
+                    if (item.tap.trim().toUpperCase() !== selectedTap || item.id === sourceSf) return;
+                    options.push(`<option value="${$('<div>').text(item.id).html()}" data-tap="${$('<div>').text(item.tap).html()}"${item.id === currentTarget ? ' selected' : ''}>${$('<div>').text(item.name).html()}</option>`);
                 });
-                if ($('#destination_idsf option:selected').length && String($('#destination_idsf option:selected').data('tap') || '').trim().toUpperCase() !== selectedTap) {
+                $('#destination_idsf').html(options.join('')).trigger('change.select2');
+                if (currentTarget && !allDestinationOptions.some(item => item.id === currentTarget && item.tap.trim().toUpperCase() === selectedTap && item.id !== sourceSf)) {
                     $('#destination_idsf').val(null).trigger('change');
                 }
             }
+            $('#kategoritap').on('change', function() {
+                filterDestinationSalesForces();
+                loadSalesForce($(this).val());
+            });
             filterDestinationSalesForces();
             $('#idsf').on('change', function() {
-                const sourceSf = String($(this).val() || '');
-                const sourceTap = String($('#kategoritap').val() || '');
-                $('#destination_idsf option').each(function() {
-                    if (!this.value) return;
-                    const sameTap = String($(this).data('tap') || '').trim().toUpperCase() === sourceTap.trim().toUpperCase();
-                    $(this).prop('disabled', this.value === sourceSf || !sameTap).toggle(sameTap);
-                });
-                if ($('#destination_idsf').val() === sourceSf) $('#destination_idsf').val(null).trigger('change');
+                filterDestinationSalesForces();
             });
 
             /* ================= RESET SAAT SF GANTI ================= */
