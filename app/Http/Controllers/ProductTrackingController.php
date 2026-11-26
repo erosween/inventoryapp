@@ -1921,7 +1921,9 @@ class ProductTrackingController extends MonitaDumaiController
         $denoms = DB::table('denom')->orderBy('denom')->get(['iddenom', 'denom', 'product_group', 'kategori_inject', 'group_name']);
         $eligibleDenoms = $denoms->filter(fn ($denom) => in_array(DenomGrouping::infer($denom)['product'], ['PV', 'SA'], true))->values();
         $denomsById = $eligibleDenoms->keyBy('iddenom');
-        $salesForces = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%'")->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
+        $salesForces = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%'")
+            ->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'")
+            ->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
         $salesById = $salesForces->keyBy('idsf');
         if ($filters['sf'] !== '' && ! $salesById->has($filters['sf'])) abort(404);
         if ($filters['iddenom'] !== '' && ! $denomsById->has($filters['iddenom'])) abort(404);
@@ -2691,7 +2693,8 @@ class ProductTrackingController extends MonitaDumaiController
         $recentManual = null;
         $editingManual = null;
         if ($tab === 'add') {
-            $sfQuery = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%' ");
+            $sfQuery = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%' ")
+                ->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'");
             if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($sfQuery, 'idtap', $scopes);
             $salesForces = $sfQuery->orderBy('namasf')->get(['idsf', 'namasf', 'idtap']);
 
