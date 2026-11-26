@@ -64,7 +64,37 @@
     .kpi-card:hover { transform: translateY(-3px); }
     .enterprise-shadow { box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 10px; border:1px solid #f0f0f0; }
     .heatmap-cell { transition: all 0.2s; }
-    .heatmap-cell:hover { opacity: 0.8; font-weight: bold; cursor: pointer; }
+    .table-scroll-heatmap > table > tbody > tr:not(.validity-row) > td.heatmap-cell:hover { opacity: 0.8; font-weight: bold; cursor: pointer; }
+    /* Expanded detail tables use a fixed, high-contrast header with no hover effect. */
+    .table-scroll-heatmap .validity-row .rincian-content > table thead th,
+    .table-scroll-heatmap .validity-row > td > div > table thead th {
+        background: #263449 !important;
+        color: #fff !important;
+        opacity: 1 !important;
+        cursor: default !important;
+        transition: none !important;
+    }
+    .table-scroll-heatmap .validity-row .rincian-content > table thead th:hover,
+    .table-scroll-heatmap .validity-row > td > div > table thead th:hover {
+        background: #263449 !important;
+        color: #fff !important;
+        opacity: 1 !important;
+        font-weight: inherit !important;
+    }
+    .table-scroll-heatmap .rincian-tabs .btn-toggle-rincian.btn-primary {
+        background: #c8102e !important;
+        border-color: #c8102e !important;
+        color: #fff !important;
+        opacity: 1 !important;
+        font-weight: 700;
+    }
+    .table-scroll-heatmap .rincian-tabs .btn-toggle-rincian.btn-outline-primary {
+        background: #fff !important;
+        border-color: #c8102e !important;
+        color: #a30d27 !important;
+        opacity: 1 !important;
+        font-weight: 700;
+    }
     .feed-item { border-left: 3px solid #e0e0e0; padding-left: 15px; margin-bottom: 12px; position:relative; }
     .feed-item::before { content:''; position:absolute; left:-7px; top:5px; width:11px; height:11px; border-radius:50%; background:#fff; border:2px solid #4e73df; }
     .feed-item.danger-feed::before { border-color:#e74a3b; }
