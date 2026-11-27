@@ -50,6 +50,20 @@
     #mom-cluster-card .mom-filter-field .form-control { width:clamp(150px,14vw,184px)!important; height:42px!important; min-height:42px; margin:0!important; padding:9px 12px; border:1px solid #dce4eb; border-radius:10px!important; background-color:#fff; color:#344054; font-size:13px; font-weight:600; box-shadow:none; }
     #mom-cluster-card .mom-filter-field .form-control:focus { border-color:#c8102e; box-shadow:0 0 0 3px rgba(200,16,46,.08); outline:0; }
     #mom-cluster-card .mom-toolbar .export-action-btn { display:inline-flex!important; justify-content:center; align-items:center; height:42px; min-width:88px; padding:8px 14px!important; border-radius:10px!important; white-space:nowrap; }
+    #mom-cluster-card #mom-copy-btn,
+    #mom-cluster-card #mom-download-btn,
+    #mom-cluster-card #mom-copy-btn:disabled,
+    #mom-cluster-card #mom-download-btn:disabled {
+        background: #f1f3f5 !important;
+        border: 1px solid #d8e0e9 !important;
+        color: #263449 !important;
+        opacity: 1 !important;
+    }
+    #mom-cluster-card #mom-copy-btn:hover,
+    #mom-cluster-card #mom-download-btn:hover {
+        background: #e8edf3 !important;
+        color: #172033 !important;
+    }
     #mom-cluster-card .mom-export-status:empty { display:none; }
     #mom-cluster-card .mom-export-status { grid-column:1/-1; margin:0; text-align:right; }
     @media(max-width:900px) {
