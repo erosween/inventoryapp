@@ -74,12 +74,22 @@
         cursor: default !important;
         transition: none !important;
     }
+    .table-scroll-heatmap .validity-row .rincian-content > table thead th.sticky-validity-col,
+    .table-scroll-heatmap .validity-row > td > div > table thead th.sticky-validity-col {
+        background: #f8fafc !important;
+        color: #263449 !important;
+    }
     .table-scroll-heatmap .validity-row .rincian-content > table thead th:hover,
     .table-scroll-heatmap .validity-row > td > div > table thead th:hover {
         background: #263449 !important;
         color: #fff !important;
         opacity: 1 !important;
         font-weight: inherit !important;
+    }
+    .table-scroll-heatmap .validity-row .rincian-content > table thead th.sticky-validity-col:hover,
+    .table-scroll-heatmap .validity-row > td > div > table thead th.sticky-validity-col:hover {
+        background: #f8fafc !important;
+        color: #263449 !important;
     }
     .table-scroll-heatmap .rincian-tabs .btn-toggle-rincian.btn-primary {
         background: #c8102e !important;
