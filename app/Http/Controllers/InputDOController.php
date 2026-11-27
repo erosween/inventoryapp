@@ -212,8 +212,12 @@ class InputDOController extends Controller
 
             $stock = $this->stockForDo($oldData);
             $atTap = $this->wasReceivedAtTap($oldData);
-            $sameStock = $oldData->iddenom === $request->kategorisegel
-                && ($atTap ? $oldData->idtap === $request->idtap : $oldData->penerima === $request->penerima);
+            // All newly saved DO stock belongs to the BO. Legacy DOs may still
+            // be held in the TAP balance, so changing/saving one moves its full
+            // old quantity out of TAP and applies the submitted quantity to BO.
+            $sameStock = ! $atTap
+                && $oldData->iddenom === $request->kategorisegel
+                && $oldData->penerima === $request->penerima;
 
             $available = (int) (clone $stock)->lockForUpdate()->value('stock');
             $qtyToRemove = $sameStock ? max(0, $oldData->qty - $request->qty) : (int) $oldData->qty;
@@ -229,16 +233,12 @@ class InputDOController extends Controller
 
             $qtyToAdd = $sameStock ? max(0, $request->qty - $oldData->qty) : (int) $request->qty;
             if ($qtyToAdd > 0) {
-                if ($atTap && $sameStock) {
-                    $this->incrementTapStock($request->idtap, $request->kategorisegel, $qtyToAdd);
-                } else {
-                    $this->incrementBoStock($request->penerima, $request->kategorisegel, $qtyToAdd);
-                }
+                $this->incrementBoStock($request->penerima, $request->kategorisegel, $qtyToAdd);
             }
 
             DB::table('masuk')->where('idmasuk', $id)->update([
                 'iddenom'        => $request->kategorisegel,
-                'do_received_at_bo' => $atTap && $sameStock ? null : true,
+                'do_received_at_bo' => true,
                 'penerima'       => $request->penerima,
                 'qty'            => $request->qty,
                 'sn'             => $request->sn,
