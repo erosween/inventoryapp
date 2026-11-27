@@ -294,6 +294,23 @@
     #mom-cluster-card .mom-cluster-tabs [role="tab"]:focus-visible { outline:2px solid #c8102e; outline-offset:2px; }
     #mom-cluster-table-wrap th,
     #mom-cluster-table-wrap td:not(.text-success):not(.text-danger) { color: #171717 !important; }
+    #mom-cluster-table-wrap > table > thead > tr > th {
+        background: #263449 !important;
+        color: #fff !important;
+        border-color: #42516a !important;
+        opacity: 1 !important;
+    }
+    #mom-cluster-card .mom-cluster-tabs [role="tab"]:hover {
+        border-color: #c8102e;
+        color: #a30d27;
+        background: #fff7f8;
+    }
+    #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"],
+    #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"]:hover {
+        border-color: #a30d27;
+        background: #b81232;
+        color: #fff;
+    }
     #mom-cluster-table-wrap .mom-impact-up { background: #edf8f2; }
     #mom-cluster-table-wrap .mom-impact-down { background: #fff0f2; }
     #mom-cluster-table-wrap :is(.metric-daily-st, .metric-stock, .metric-stock-days) { font-weight: 800; }
@@ -716,13 +733,10 @@
                                         @for($i=1; $i<=12; $i++)
                                             @php 
                                                 $val = $months[$i] ?? 0; 
-                                                $opacity = $val > 0 ? min($val / 200000, 1) : 0; 
-                                                $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
+                                                $intensity = $val > 0 ? min($val / 200000, 1) : 0;
+                                                $opacity = $val > 0 ? 0.12 + (0.2 * $intensity) : 0;
                                                 $bg = $val > 0 ? "rgba(29, 78, 216, $opacity)" : "transparent";
-                                                // Keep the value legible on every heatmap shade. White text
-                                                // on a medium blue cell has poor contrast, so switch only
-                                                // at the darkest end of the scale.
-                                                $color = $opacity >= 0.72 ? '#fff' : '#172033';
+                                                $color = '#172033';
 
                                                 // MoM Logic Sales
                                                 $isCurrentMonth = ($salesYear == $currentDate->year && $i == $currentDate->month);
@@ -1283,10 +1297,10 @@
                                         @for($i=1; $i<=12; $i++)
                                             @php 
                                                 $val = $months[$i] ?? 0; 
-                                                $opacity = $val > 0 ? min($val / 20000, 1) : 0; 
-                                                $opacity = $opacity > 0 && $opacity < 0.15 ? 0.15 : $opacity;
+                                                $intensity = $val > 0 ? min($val / 20000, 1) : 0;
+                                                $opacity = $val > 0 ? 0.12 + (0.2 * $intensity) : 0;
                                                 $bg = $val > 0 ? "rgba(25, 135, 84, $opacity)" : "transparent"; 
-                                                $color = $opacity > 0.5 ? '#fff' : '#444';
+                                                $color = '#172033';
 
                                                 // MoM Logic Inject
                                                 $isCurrentMonth = ($selectedYear == $currentDate->year && $i == $currentDate->month);
