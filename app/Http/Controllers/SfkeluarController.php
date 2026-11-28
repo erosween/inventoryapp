@@ -36,7 +36,7 @@ use Illuminate\Validation\ValidationException;
             ->join('denom as d', 'd.iddenom', '=', 'f.iddenom')
             ->join('idsf as i', 'i.idsf', '=', 'f.idsf')
             ->where('f.payment_status', 'pending')
-            ->select('f.idkeluar', 'f.tgl', 'd.denom', 'f.qty', 'f.idtap', 'i.namasf', 'f.id_outlet', 'f.tambahanket', 'f.sn_awal', 'f.sn_akhir', 'f.payment_status');
+            ->select('f.idkeluar', 'f.tgl', 'd.denom', 'f.qty', 'f.idtap', 'i.namasf', 'f.id_outlet', 'f.tambahanket', 'f.sn_awal', 'f.sn_akhir', 'f.serial_mode', 'f.payment_status');
 
         if (! $this->isGlobalAdmin()) TapFilter::apply($query, 'f.idtap');
         if ($request->filled('daterange')) {
@@ -48,10 +48,16 @@ use Illuminate\Validation\ValidationException;
             ->editColumn('qty', fn ($row) => number_format($row->qty))
             ->addColumn('action', function ($row) {
                 $qty = max(1, (int) $row->qty);
-                $paid = '<form method="POST" action="'.route('pending-stor.paid', $row->idkeluar).'" class="d-inline-flex align-items-center mr-1 pending-payment-form">'.csrf_field().'<input type="number" name="paid_qty" class="form-control form-control-sm mr-1" style="width:100px" min="1" max="'.$qty.'" value="'.$qty.'" required aria-label="Qty dibayar" title="Qty dibayar (maks. '.$qty.')"><button class="btn btn-sm btn-success" type="submit">Bayar Qty</button></form>';
-                if (! auth()->user()->hasClusterAdminAccess()) return $paid;
+                $escape = fn ($value) => e((string) ($value ?? ''));
+                $paid = '<button type="button" class="btn btn-sm btn-success js-open-pending-payment"'
+                    .' data-action="'.$escape(route('pending-stor.paid', $row->idkeluar)).'"'
+                    .' data-qty="'.$qty.'"'
+                    .' data-sn-start="'.$escape($row->sn_awal).'"'
+                    .' data-sn-end="'.$escape($row->sn_akhir).'"'
+                    .' data-serial-mode="'.$escape($row->serial_mode ?? '').'">Sudah Bayar</button>';
+                if (! auth()->user()->hasClusterAdminAccess()) return '<div class="d-flex flex-wrap align-items-center">'.$paid.'</div>';
                 $delete = '<form method="POST" action="'.route('pending-stor.delete', $row->idkeluar).'" class="d-inline" onsubmit="return confirm(\'Hapus transaksi Pending Stor ini?\')">'.csrf_field().'<button class="btn btn-sm btn-danger" type="submit">Hapus</button></form>';
-                return $paid.$delete;
+                return '<div class="d-flex flex-wrap align-items-center" style="gap:.4rem">'.$paid.$delete.'</div>';
             })
             ->rawColumns(['action'])
             ->make(true);
@@ -61,6 +67,8 @@ use Illuminate\Validation\ValidationException;
     {
         $validated = $request->validate([
             'paid_qty' => ['required', 'integer', 'min:1', 'max:2000000'],
+            'paid_sn_start' => ['nullable', 'string', 'max:24'],
+            'paid_sn_end' => ['nullable', 'string', 'max:24'],
         ]);
 
         try {
@@ -84,6 +92,11 @@ use Illuminate\Validation\ValidationException;
                 DB::table('stockawalsf')->where('idsf', $sale->idsf)->where('iddenom', $sale->iddenom)->decrement('stock', $paidQty);
 
                 if ($paidQty === $saleQty) {
+                    if (! empty($sale->sn_awal) && ! empty($sale->sn_akhir) && ($sale->serial_mode ?? null) !== 'broken'
+                        && ((string) ($validated['paid_sn_start'] ?? '') !== (string) $sale->sn_awal
+                            || (string) ($validated['paid_sn_end'] ?? '') !== (string) $sale->sn_akhir)) {
+                        throw ValidationException::withMessages(['paid_sn_start' => 'Untuk melunasi seluruh qty, SN awal dan akhir harus mencakup seluruh rentang konsinyasi.']);
+                    }
                     DB::table('keluarsf')->where('idkeluar', $id)->update([
                         'payment_status' => 'paid',
                         'paid_at' => $paidAt,
@@ -97,28 +110,46 @@ use Illuminate\Validation\ValidationException;
 
                 $paidStart = null;
                 $paidEnd = null;
-                $remainingStart = $sale->sn_awal;
-                $remainingEnd = $sale->sn_akhir;
                 $hasRange = ! empty($sale->sn_awal) && ! empty($sale->sn_akhir);
                 $isBroken = ($sale->serial_mode ?? null) === 'broken';
+                $remainingRanges = [];
 
                 if ($hasRange && ! $isBroken) {
                     $start = (string) $sale->sn_awal;
                     $end = (string) $sale->sn_akhir;
+                    $paidStart = trim((string) ($validated['paid_sn_start'] ?? ''));
+                    $paidEnd = trim((string) ($validated['paid_sn_end'] ?? ''));
                     $startDigits = ltrim($start, '0');
                     $endDigits = ltrim($end, '0');
-                    if (! ctype_digit($start) || ! ctype_digit($end) || strlen($start) !== strlen($end) || strlen($startDigits) > 15 || strlen($endDigits) > 15) {
+                    $paidStartDigits = ltrim($paidStart, '0');
+                    $paidEndDigits = ltrim($paidEnd, '0');
+                    if (! ctype_digit($start) || ! ctype_digit($end) || ! ctype_digit($paidStart) || ! ctype_digit($paidEnd)
+                        || strlen($start) !== strlen($end) || strlen($paidStart) !== strlen($start) || strlen($paidEnd) !== strlen($start)
+                        || strlen($startDigits) > 15 || strlen($endDigits) > 15 || strlen($paidStartDigits) > 15 || strlen($paidEndDigits) > 15) {
                         throw ValidationException::withMessages(['paid_qty' => 'Rentang SN tidak valid; pembayaran sebagian dibatalkan agar nomor seri tidak salah.']);
                     }
                     $startNumber = (int) ($startDigits === '' ? '0' : $startDigits);
                     $endNumber = (int) ($endDigits === '' ? '0' : $endDigits);
-                    if ($endNumber < $startNumber || ($endNumber - $startNumber + 1) !== $saleQty) {
+                    $paidStartNumber = (int) ($paidStartDigits === '' ? '0' : $paidStartDigits);
+                    $paidEndNumber = (int) ($paidEndDigits === '' ? '0' : $paidEndDigits);
+                    if ($endNumber < $startNumber || ($endNumber - $startNumber + 1) !== $saleQty
+                        || $paidStartNumber < $startNumber || $paidEndNumber > $endNumber || $paidEndNumber < $paidStartNumber
+                        || ($paidEndNumber - $paidStartNumber + 1) !== $paidQty) {
                         throw ValidationException::withMessages(['paid_qty' => 'Jumlah SN pada rentang tidak cocok dengan qty konsinyasi; periksa data SN sebelum pembayaran sebagian.']);
                     }
 
-                    $paidStart = $start;
-                    $paidEnd = str_pad((string) ($startNumber + $paidQty - 1), strlen($start), '0', STR_PAD_LEFT);
-                    $remainingStart = str_pad((string) ($startNumber + $paidQty), strlen($start), '0', STR_PAD_LEFT);
+                    if ($paidStartNumber > $startNumber) {
+                        $remainingRanges[] = [
+                            str_pad((string) $startNumber, strlen($start), '0', STR_PAD_LEFT),
+                            str_pad((string) ($paidStartNumber - 1), strlen($start), '0', STR_PAD_LEFT),
+                        ];
+                    }
+                    if ($paidEndNumber < $endNumber) {
+                        $remainingRanges[] = [
+                            str_pad((string) ($paidEndNumber + 1), strlen($start), '0', STR_PAD_LEFT),
+                            str_pad((string) $endNumber, strlen($start), '0', STR_PAD_LEFT),
+                        ];
+                    }
                 } elseif ($isBroken) {
                     $paidStart = $sale->sn_awal;
                     $paidEnd = $sale->sn_akhir;
@@ -133,12 +164,27 @@ use Illuminate\Validation\ValidationException;
                 $paidRecord['paid_at'] = $paidAt;
                 $paidId = DB::table('keluarsf')->insertGetId($paidRecord);
 
+                $remainingQty = $saleQty - $paidQty;
+                $firstRemaining = $remainingRanges[0] ?? null;
                 DB::table('keluarsf')->where('idkeluar', $id)->update([
-                    'qty' => $saleQty - $paidQty,
-                    'sn_awal' => $hasRange && ! $isBroken ? $remainingStart : $sale->sn_awal,
+                    'qty' => $firstRemaining ? ((int) $firstRemaining[1] - (int) $firstRemaining[0] + 1) : ($hasRange && ! $isBroken ? 0 : $remainingQty),
+                    'sn_awal' => $firstRemaining[0] ?? $sale->sn_awal,
+                    'sn_akhir' => $firstRemaining[1] ?? $sale->sn_akhir,
                     'payment_status' => 'pending',
                     'paid_at' => null,
                 ]);
+
+                if ($hasRange && ! $isBroken && count($remainingRanges) === 2) {
+                    $secondRemaining = $remainingRanges[1];
+                    $secondRecord = (array) $sale;
+                    unset($secondRecord['idkeluar']);
+                    $secondRecord['qty'] = (int) $secondRemaining[1] - (int) $secondRemaining[0] + 1;
+                    $secondRecord['sn_awal'] = $secondRemaining[0];
+                    $secondRecord['sn_akhir'] = $secondRemaining[1];
+                    $secondRecord['payment_status'] = 'pending';
+                    $secondRecord['paid_at'] = null;
+                    DB::table('keluarsf')->insert($secondRecord);
+                }
 
                 AuditLogger::log('PAYMENT', 'Pending Stor SF', $id, (array) $sale, [
                     'payment_status' => 'partial',
@@ -146,13 +192,12 @@ use Illuminate\Validation\ValidationException;
                     'paid_record_id' => $paidId,
                     'paid_sn_awal' => $paidStart,
                     'paid_sn_akhir' => $paidEnd,
-                    'remaining_qty' => $saleQty - $paidQty,
-                    'remaining_sn_awal' => $hasRange && ! $isBroken ? $remainingStart : $sale->sn_awal,
-                    'remaining_sn_akhir' => $sale->sn_akhir,
+                    'remaining_qty' => $remainingQty,
+                    'remaining_ranges' => $remainingRanges,
                     'paid_at' => $paidAt,
                 ]);
 
-                return ['paid' => $paidQty, 'remaining' => $saleQty - $paidQty, 'paid_id' => $paidId];
+                return ['paid' => $paidQty, 'remaining' => $remainingQty, 'paid_id' => $paidId];
             });
         } catch (ValidationException $exception) {
             return back()->withErrors($exception->errors())->withInput();
