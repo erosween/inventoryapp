@@ -1246,7 +1246,26 @@
                         @endif
                     </div>
                     <div id="monthly-sales-chart-wrap" class="{{ $salesView === 'table' ? 'd-none' : '' }}" aria-hidden="{{ $salesView === 'chart' ? 'false' : 'true' }}">
+                        @if($isSuryaDashboard)
+                        <div class="surya-sales-chart-layout">
+                            <section class="surya-sales-trend" aria-labelledby="surya-sales-trend-title">
+                                <div class="surya-sales-trend-heading">
+                                    <div><span class="surya-sales-eyebrow">TOTAL SELURUH WILAYAH</span><h3 id="surya-sales-trend-title">Penjualan bulanan <span>{{ $salesYear }}</span></h3><p>Perkembangan penjualan per bulan</p></div>
+                                    <details class="surya-sales-compare"><summary>Bandingkan wilayah</summary><div id="surya-sales-compare-options" class="surya-sales-compare-options" role="group" aria-label="Pilih maksimal tiga wilayah"></div></details>
+                                </div>
+                                <div class="surya-sales-canvas-wrap"><canvas id="monthly-sales-chart"></canvas></div>
+                                <p class="surya-sales-mtd-note" id="surya-sales-mtd-note" hidden></p>
+                            </section>
+                            <aside class="surya-sales-ranking" aria-labelledby="surya-sales-ranking-title">
+                                <span class="surya-sales-eyebrow">KONTRIBUSI PENJUALAN</span><h3 id="surya-sales-ranking-title">Peringkat wilayah</h3>
+                                <label class="surya-sales-ranking-month">Bulan <select id="surya-sales-ranking-month" aria-label="Bulan untuk peringkat"></select></label>
+                                <ol id="surya-sales-ranking-list" class="surya-sales-ranking-list"></ol>
+                                <div class="surya-sales-ranking-total"><span>Total bulan terpilih</span><strong id="surya-sales-ranking-total">—</strong></div>
+                            </aside>
+                        </div>
+                        @else
                         <canvas id="monthly-sales-chart"></canvas>
+                        @endif
                     </div>
                     @php
                         $monthlySalesChartPayload = [
@@ -1256,6 +1275,10 @@
                             'year' => $salesYear,
                             'view' => $salesView,
                             'cutoff' => $annualCutoff,
+                            'currentMonth' => $salesYear === (int) $momSelectedDate->year && $momSelectedDate->day < $momSelectedDate->daysInMonth ? (int) $momSelectedDate->month : null,
+                            'cutoffDate' => $salesYear === (int) $momSelectedDate->year && $momSelectedDate->day < $momSelectedDate->daysInMonth ? $momSelectedDate->toDateString() : null,
+                            'cutoffLabel' => $salesYear === (int) $momSelectedDate->year && $momSelectedDate->day < $momSelectedDate->daysInMonth ? $momSelectedDate->copy()->locale('id')->translatedFormat('d M Y') : null,
+                            'suryaPresentation' => $isSuryaDashboard,
                         ];
                     @endphp
                     <script type="application/json" id="monthly-sales-chart-data">@json($monthlySalesChartPayload)</script>
@@ -1826,7 +1849,7 @@
         function drawText(ctx, text, x, y, options = {}) {
             const {
                 color = '#343a40',
-                font = '600 22px Geist Variable, sans-serif',
+                font = '600 22px DM Sans, sans-serif',
                 align = 'left',
                 baseline = 'middle',
                 maxWidth
@@ -1860,7 +1883,7 @@
         }
 
         function drawWrappedText(ctx, text, x, centerY, maxWidth, lineHeight, options = {}) {
-            ctx.font = options.font || '700 22px Geist Variable, sans-serif';
+            ctx.font = options.font || '700 22px DM Sans, sans-serif';
             const lines = wrapText(ctx, text, maxWidth).slice(0, options.maxLines || 3);
             const startY = centerY - ((lines.length - 1) * lineHeight / 2);
             lines.forEach((line, index) => {
@@ -1914,11 +1937,11 @@
 
             // Header card seperti UI.
             drawText(ctx, heading.title, 28, 38, {
-                font: '700 15px Geist Variable, sans-serif',
+                font: '700 15px DM Sans, sans-serif',
                 color: '#171717'
             });
             drawText(ctx, heading.subtitle, 28, 62, {
-                font: '400 16px Geist Variable, sans-serif',
+                font: '400 16px DM Sans, sans-serif',
                 color: '#7b858e'
             });
 
@@ -1930,7 +1953,7 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
                 drawText(ctx, text, x + (w / 2), y + 22, {
-                    font: '700 13px Geist Variable, sans-serif',
+                    font: '700 13px DM Sans, sans-serif',
                     color: '#111827',
                     align: 'center'
                 });
@@ -1954,7 +1977,7 @@
             headers.forEach((header, index) => {
                 const x = index === 0 ? lefts[index] + 18 : lefts[index] + cols[index] - 18;
                 drawText(ctx, header, x, titleHeight + 32, {
-                    font: '700 16px Geist Variable, sans-serif',
+                    font: '700 16px DM Sans, sans-serif',
                     color: '#171717',
                     align: index === 0 ? 'left' : 'right'
                 });
@@ -1987,12 +2010,12 @@
                     ctx.strokeStyle = '#dfe4ea';
                     ctx.stroke();
                     drawText(ctx, '+', 34, centerY, {
-                        font: '400 14px Geist Variable, sans-serif',
+                        font: '400 14px DM Sans, sans-serif',
                         color: '#343a40',
                         align: 'center'
                     });
                     drawText(ctx, row.cells[0], 68, centerY, {
-                        font: '700 16px Geist Variable, sans-serif',
+                        font: '700 16px DM Sans, sans-serif',
                         color: '#171717',
                         maxWidth: cols[0] - 78
                     });
@@ -2003,18 +2026,18 @@
                     ctx.strokeStyle = '#dfe4ea';
                     ctx.stroke();
                     drawText(ctx, 'CLUSTER', 63, centerY, {
-                        font: '400 14px Geist Variable, sans-serif',
+                        font: '400 14px DM Sans, sans-serif',
                         color: '#171717',
                         align: 'center'
                     });
                     drawText(ctx, row.cells[0], 118, centerY, {
-                        font: '700 16px Geist Variable, sans-serif',
+                        font: '700 16px DM Sans, sans-serif',
                         color: '#171717',
                         maxWidth: cols[0] - 126
                     });
                 } else {
                     drawText(ctx, row.cells[0], 18, centerY, {
-                        font: '700 16px Geist Variable, sans-serif',
+                        font: '700 16px DM Sans, sans-serif',
                         color: '#171717',
                         maxWidth: cols[0] - 36
                     });
@@ -2022,20 +2045,20 @@
 
                 for (let i = 1; i < row.cells.length; i++) {
                     let color = '#171717';
-                    let font = '400 16px Geist Variable, sans-serif';
+                    let font = '400 16px DM Sans, sans-serif';
                     if (i === 1 || isCluster || isGrand) {
-                        font = '700 16px Geist Variable, sans-serif';
+                        font = '700 16px DM Sans, sans-serif';
                     }
                     if (i === 4 && row.gapColor) {
                         color = row.gapColor;
-                        font = '700 16px Geist Variable, sans-serif';
+                        font = '700 16px DM Sans, sans-serif';
                     }
                     if (i === 5) {
                         color = row.growth1Down ? '#e75757' : '#32a852';
-                        font = '700 16px Geist Variable, sans-serif';
+                        font = '700 16px DM Sans, sans-serif';
                     }
                     if (i >= 6 && !isGrand && !isCluster) {
-                        font = '700 16px Geist Variable, sans-serif';
+                        font = '700 16px DM Sans, sans-serif';
                     }
 
                     drawText(ctx, row.cells[i], lefts[i] + cols[i] - 18, centerY, {
@@ -2135,11 +2158,11 @@
             ctx.fillRect(0, 0, width, height);
 
             drawText(ctx, heading.title, 38, 42, {
-                font: '700 24px Geist Variable, sans-serif',
+                font: '700 24px DM Sans, sans-serif',
                 color: '#343a40'
             });
             drawText(ctx, heading.subtitle, 38, 76, {
-                font: '400 23px Geist Variable, sans-serif',
+                font: '400 23px DM Sans, sans-serif',
                 color: '#7b858e'
             });
 
@@ -2153,24 +2176,24 @@
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headHeight);
             drawText(ctx, 'NAMA TAP', 24, titleHeight + 39, {
-                font: '700 21px Geist Variable, sans-serif',
+                font: '700 21px DM Sans, sans-serif',
                 color: '#55554c'
             });
 
             monthNames.forEach((month, index) => {
                 const x = firstCol + (index * (valueCol + momCol));
                 drawText(ctx, month, x + (valueCol / 2), titleHeight + 28, {
-                    font: '700 18px Geist Variable, sans-serif',
+                    font: '700 18px DM Sans, sans-serif',
                     color: '#55554c',
                     align: 'center'
                 });
                 drawText(ctx, 'MoM', x + valueCol + (momCol / 2), titleHeight + 28, {
-                    font: '700 15px Geist Variable, sans-serif',
+                    font: '700 15px DM Sans, sans-serif',
                     color: '#7b858e',
                     align: 'center'
                 });
                 drawText(ctx, '%', x + valueCol + (momCol / 2), titleHeight + 52, {
-                    font: '700 13px Geist Variable, sans-serif',
+                    font: '700 13px DM Sans, sans-serif',
                     color: '#9aa3aa',
                     align: 'center'
                 });
@@ -2199,12 +2222,12 @@
                     ctx.strokeStyle = '#dde2e7';
                     ctx.stroke();
                     drawText(ctx, '+', 42, centerY, {
-                        font: '400 18px Geist Variable, sans-serif',
+                        font: '400 18px DM Sans, sans-serif',
                         color: '#343a40',
                         align: 'center'
                     });
                     drawWrappedText(ctx, row.name, 78, centerY, firstCol - 96, 25, {
-                        font: '700 21px Geist Variable, sans-serif',
+                        font: '700 21px DM Sans, sans-serif',
                         color: '#343a40',
                         maxLines: 2
                     });
@@ -2213,18 +2236,18 @@
                     ctx.fillStyle = config.accent;
                     ctx.fill();
                     drawText(ctx, 'CLUSTER', 76, centerY, {
-                        font: '400 17px Geist Variable, sans-serif',
+                        font: '400 17px DM Sans, sans-serif',
                         color: '#ffffff',
                         align: 'center'
                     });
                     drawWrappedText(ctx, row.name, 148, centerY, firstCol - 166, 24, {
-                        font: '700 20px Geist Variable, sans-serif',
+                        font: '700 20px DM Sans, sans-serif',
                         color: '#343a40',
                         maxLines: 2
                     });
                 } else {
                     drawWrappedText(ctx, row.name, 22, centerY, firstCol - 42, 25, {
-                        font: '700 21px Geist Variable, sans-serif',
+                        font: '700 21px DM Sans, sans-serif',
                         color: config.grandColor,
                         maxLines: 2
                     });
@@ -2252,7 +2275,7 @@
 
                     const valueColor = isGrand ? config.grandColor : (month.valueColor || '#444');
                     drawText(ctx, month.value, x + valueCol - 12, centerY, {
-                        font: (isGrand || isCluster) ? '700 18px Geist Variable, sans-serif' : '600 17px Geist Variable, sans-serif',
+                        font: (isGrand || isCluster) ? '700 18px DM Sans, sans-serif' : '600 17px DM Sans, sans-serif',
                         color: valueColor,
                         align: 'right',
                         maxWidth: valueCol - 18
@@ -2262,7 +2285,7 @@
                     if (month.momDown) momColor = '#ff5b66';
                     if (!month.momDown && month.momUp && month.mom !== '-') momColor = '#32a852';
                     drawText(ctx, month.mom, x + valueCol + momCol - 9, centerY, {
-                        font: '700 15px Geist Variable, sans-serif',
+                        font: '700 15px DM Sans, sans-serif',
                         color: momColor,
                         align: 'right',
                         maxWidth: momCol - 12
@@ -2278,9 +2301,12 @@
             if (!source || !monthlySalesChart) return null;
 
             const heading = getCardExportHeading('heatmap-sales-card', 'Penjualan', '');
+            const ranking = document.querySelector('.surya-sales-ranking');
+            const rankingScale = ranking && source.getBoundingClientRect().width ? source.width / source.getBoundingClientRect().width : 1;
+            const rankingWidth = ranking && !ranking.classList.contains('is-hidden') ? Math.round(300 * rankingScale) : 0;
             const titleHeight = 150;
             const canvas = document.createElement('canvas');
-            canvas.width = source.width;
+            canvas.width = source.width + rankingWidth;
             canvas.height = source.height + titleHeight;
             const ctx = canvas.getContext('2d');
             if (!ctx) return null;
@@ -2288,11 +2314,11 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             drawText(ctx, heading.title, 42, 46, {
-                font: '700 30px Geist Variable, sans-serif',
+                font: `700 ${30 * rankingScale}px Manrope, sans-serif`,
                 color: '#343a40'
             });
             drawText(ctx, heading.subtitle, 42, 91, {
-                font: '400 24px Geist Variable, sans-serif',
+                font: `400 ${24 * rankingScale}px DM Sans, sans-serif`,
                 color: '#7b858e'
             });
             ctx.strokeStyle = '#e9ecef';
@@ -2302,6 +2328,24 @@
             ctx.lineTo(canvas.width, titleHeight - 1);
             ctx.stroke();
             ctx.drawImage(source, 0, titleHeight);
+            if (rankingWidth && ranking) {
+                const left = source.width;
+                const pad = 20 * rankingScale;
+                ctx.fillStyle = '#edf0f4'; ctx.fillRect(left, titleHeight, 1, source.height);
+                drawText(ctx, 'KONTRIBUSI PENJUALAN', left + pad, titleHeight + 24 * rankingScale, {font:`800 ${9 * rankingScale}px DM Sans, sans-serif`,color:'#98a2b3'});
+                drawText(ctx, document.getElementById('surya-sales-ranking-title')?.textContent || 'Peringkat wilayah', left + pad, titleHeight + 52 * rankingScale, {font:`800 ${16 * rankingScale}px Manrope, sans-serif`,color:'#202b40'});
+                const month = Number(document.getElementById('surya-sales-ranking-month')?.value || 1);
+                const matrix = getMonthlySalesPayload().monthly || {};
+                const rows = Object.entries(matrix).map(([name, values]) => ({name,value:Number(values?.[month]||0)})).sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name)).filter(row=>row.value>0).slice(0,8);
+                rows.forEach((row,index)=>{
+                    const y = titleHeight + (88 + index * 34) * rankingScale;
+                    drawText(ctx,String(index+1).padStart(2,'0'),left+pad,y,{font:`700 ${9*rankingScale}px DM Sans, sans-serif`,color:'#98a2b3'});
+                    drawText(ctx,row.name,left+pad+24*rankingScale,y,{font:`500 ${10*rankingScale}px DM Sans, sans-serif`,color:'#475467',maxWidth:125*rankingScale});
+                    drawText(ctx,nf(row.value),left+rankingWidth-pad,y,{font:`700 ${10*rankingScale}px Manrope, sans-serif`,color:'#344054',align:'right'});
+                    ctx.fillStyle='#eef1f5';ctx.fillRect(left+pad+24*rankingScale,y+8*rankingScale,rankingWidth-pad*2-24*rankingScale,4*rankingScale);
+                    ctx.fillStyle=index===0?'#c8102e':'#c7cfda';ctx.fillRect(left+pad+24*rankingScale,y+8*rankingScale,(rankingWidth-pad*2-24*rankingScale)*(row.value/rows[0].value),4*rankingScale);
+                });
+            }
             return canvas;
         }
 
@@ -2338,15 +2382,15 @@
 
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
-            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'Geist Variable', sans-serif", color: '#343a40' });
-            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'Geist Variable', sans-serif", color: '#7b858e' });
+            drawText(ctx, heading.title, 28, 38, { font: "700 23px 'DM Sans', sans-serif", color: '#343a40' });
+            drawText(ctx, heading.subtitle, 28, 73, { font: "400 19px 'DM Sans', sans-serif", color: '#7b858e' });
 
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, titleHeight, width, headerHeight);
             let x = 0;
             headers.forEach((header, index) => {
                 drawText(ctx, header, index === 0 ? 18 : x + columns[index] / 2, titleHeight + headerHeight / 2, {
-                    font: "700 17px 'Geist Variable', sans-serif",
+                    font: "700 17px 'DM Sans', sans-serif",
                     color: '#55554c',
                     align: index === 0 ? 'left' : 'center',
                     maxWidth: columns[index] - 20
@@ -2382,12 +2426,12 @@
                         ctx.strokeStyle = '#d1d5db';
                         ctx.stroke();
                         drawText(ctx, 'CLUSTER', 60, y + rowHeight / 2, {
-                            font: "600 12px 'Geist Variable', sans-serif",
+                            font: "600 12px 'DM Sans', sans-serif",
                             color: '#4b5563',
                             align: 'center'
                         });
                         drawText(ctx, cell.replace(/^CLUSTER\s*/i, ''), 118, y + rowHeight / 2, {
-                            font: "700 16px 'Geist Variable', sans-serif",
+                            font: "700 16px 'DM Sans', sans-serif",
                             color: '#343a40',
                             maxWidth: columns[index] - 130
                         });
@@ -2396,8 +2440,8 @@
                     }
                     drawText(ctx, cell, index === 0 ? 18 : left + columns[index] - 16, y + rowHeight / 2, {
                         font: (isGrand || isCluster || index === 0 || isGrowth || headers[index] === 'TOTAL')
-                            ? "700 16px 'Geist Variable', sans-serif"
-                            : "400 16px 'Geist Variable', sans-serif",
+                            ? "700 16px 'DM Sans', sans-serif"
+                            : "400 16px 'DM Sans', sans-serif",
                         color,
                         align: index === 0 ? 'left' : 'right',
                         maxWidth: columns[index] - 24
@@ -2714,6 +2758,7 @@
         // Tabel dan grafik memakai sumber data tahunan yang sama agar angkanya selalu konsisten.
         const monthlySalesLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         const monthlySalesColors = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF5A8A', '#9C755F', '#17A2B8'];
+        const monthlySalesCompareColors = ['#c8102e', '#2e8b7d', '#5278c8'];
         let monthlySalesChart = null;
 
         function getMonthlySalesPayload() {
@@ -2733,6 +2778,63 @@
             return qty.toLocaleString(dashboardNumberLocale);
         }
 
+        function updateSuryaSalesRanking() {
+            const payload = getMonthlySalesPayload();
+            const matrix = payload.monthly || {};
+            const month = Number(document.getElementById('surya-sales-ranking-month')?.value || payload.currentMonth || 1);
+            const isMtd = Boolean(payload.cutoffDate) && Number(payload.currentMonth) === month;
+            const rows = Object.entries(matrix).map(([name, values]) => ({ name, value: Number(values?.[month] || 0) }))
+                .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name)).filter(row => row.value > 0);
+            const list = document.getElementById('surya-sales-ranking-list');
+            const total = rows.reduce((sum, row) => sum + row.value, 0);
+            if (!list) return;
+            list.innerHTML = rows.slice(0, 8).map((row, index) => `<li><span class="surya-rank-no">${String(index + 1).padStart(2, '0')}</span><div class="surya-rank-content"><div><span>${escapeHtml(row.name)}</span><strong>${nf(row.value)}</strong></div><i><b style="width:${total ? Math.max(3, row.value / rows[0].value * 100) : 0}%"></b></i></div></li>`).join('') || '<li class="surya-sales-ranking-empty">Belum ada data penjualan.</li>';
+            const totalNode = document.getElementById('surya-sales-ranking-total');
+            if (totalNode) totalNode.textContent = `${nf(total)} unit${isMtd ? ' · MTD' : ''}`;
+            const note = document.getElementById('surya-sales-mtd-note');
+            if (note) {
+                note.hidden = !isMtd;
+                note.textContent = isMtd ? `Bulan berjalan · data sampai ${payload.cutoffLabel || payload.cutoffDate || ''}. Bandingkan dengan rentang tanggal yang setara.` : '';
+            }
+            const title = document.getElementById('surya-sales-ranking-title');
+            if (title) title.textContent = `Peringkat wilayah${isMtd ? ' · MTD' : ''}`;
+        }
+
+        function escapeHtml(value) {
+            const node = document.createElement('span');
+            node.textContent = String(value ?? '');
+            return node.innerHTML;
+        }
+
+        function monthlySalesDatasets(payload, labels) {
+            const matrix = payload.monthly || {};
+            const tapNames = Object.keys(matrix);
+            if (!payload.suryaPresentation) return tapNames.map((tap, index) => ({
+                label: tap,
+                data: labels.map((_, monthIndex) => Number(matrix[tap]?.[monthIndex + 1] || 0)),
+                borderColor: monthlySalesColors[index % monthlySalesColors.length],
+                backgroundColor: monthlySalesColors[index % monthlySalesColors.length],
+                borderWidth: 2.25, pointRadius: 3, pointHoverRadius: 5, tension: .28, fill: false
+            }));
+            const selected = [...document.querySelectorAll('#surya-sales-compare-options input:checked')].map(input => input.value).slice(0, 3);
+            const comparing = selected.length > 0;
+            const series = comparing ? selected : ['__all__'];
+            const currentIndex = Number(payload.currentMonth) - 1;
+            return series.map((key, index) => {
+                const name = key === '__all__' ? 'Semua wilayah' : key;
+                const values = labels.map((_, monthIndex) => key === '__all__'
+                    ? tapNames.reduce((sum, tap) => sum + Number(matrix[tap]?.[monthIndex + 1] || 0), 0)
+                    : Number(matrix[key]?.[monthIndex + 1] || 0));
+                const color = key === '__all__' ? '#c8102e' : monthlySalesCompareColors[index % monthlySalesCompareColors.length];
+                return {
+                    label: name, data: values, borderColor: color, backgroundColor: key === '__all__' ? 'rgba(200,16,46,.08)' : color,
+                    borderWidth: key === '__all__' ? 3 : 2.5, pointRadius: context => context.dataIndex === currentIndex ? 5 : 2.5,
+                    pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2, tension: .3,
+                    fill: key === '__all__', segment: { borderDash: context => context.p1DataIndex === currentIndex ? [7, 6] : undefined }
+                };
+            });
+        }
+
         const annualBarValuePlugin = {
             id: 'annualBarValuePlugin',
             afterDatasetsDraw(chart) {
@@ -2740,7 +2842,7 @@
                 const ctx = chart.ctx;
                 ctx.save();
                 ctx.fillStyle = '#4b5563';
-                ctx.font = '700 9px sans-serif';
+                ctx.font = getMonthlySalesPayload().suryaPresentation ? '700 9px Manrope, sans-serif' : '700 9px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
                 chart.data.datasets.forEach((dataset, datasetIndex) => {
@@ -2789,22 +2891,29 @@
                     order: 2
                 }));
                 chartType = 'bar';
+                document.querySelector('.surya-sales-chart-layout')?.classList.add('is-annual');
+                document.querySelector('.surya-sales-ranking')?.classList.add('is-hidden');
+                document.querySelector('.surya-sales-compare')?.classList.add('is-hidden');
             } else {
-                const lastDataMonth = Math.max(1, ...tapNames.flatMap(tap =>
+                document.querySelector('.surya-sales-chart-layout')?.classList.remove('is-annual');
+                const lastDataMonth = Math.max(1, Number(payload.currentMonth) || 0, ...tapNames.flatMap(tap =>
                     monthlySalesLabels.map((_, index) => Number(monthlySalesMatrix[tap]?.[index + 1] || 0) > 0 ? index + 1 : 0)
                 ));
-                labels = monthlySalesLabels.slice(0, lastDataMonth);
-                datasets = tapNames.map((tap, index) => ({
-                    label: tap,
-                    data: labels.map((_, monthIndex) => Number(monthlySalesMatrix[tap]?.[monthIndex + 1] || 0)),
-                    borderColor: monthlySalesColors[index % monthlySalesColors.length],
-                    backgroundColor: monthlySalesColors[index % monthlySalesColors.length],
-                    borderWidth: 2.25,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
-                    tension: 0.28,
-                    fill: false
-                }));
+                labels = monthlySalesLabels.slice(0, lastDataMonth).map((label, index) => payload.suryaPresentation && index + 1 === Number(payload.currentMonth) ? `${label} · MTD` : label);
+                datasets = monthlySalesDatasets(payload, labels);
+                const compareOptions = document.getElementById('surya-sales-compare-options');
+                if (compareOptions && !compareOptions.dataset.loaded) {
+                    compareOptions.innerHTML = tapNames.sort((a, b) => a.localeCompare(b)).map((tap, index) => `<label><input type="checkbox" value="${escapeHtml(tap)}"><span class="surya-compare-dot" style="--compare-color:${monthlySalesCompareColors[index % monthlySalesCompareColors.length]}"></span>${escapeHtml(tap)}</label>`).join('');
+                    compareOptions.dataset.loaded = 'true';
+                }
+                const rankingMonth = document.getElementById('surya-sales-ranking-month');
+                if (rankingMonth && !rankingMonth.options.length) {
+                    labels.forEach((label, index) => rankingMonth.add(new Option(label, String(index + 1))));
+                    rankingMonth.value = String(payload.currentMonth || labels.length);
+                }
+                updateSuryaSalesRanking();
+                document.querySelector('.surya-sales-ranking')?.classList.remove('is-hidden');
+                document.querySelector('.surya-sales-compare')?.classList.remove('is-hidden');
             }
 
             monthlySalesChart = new Chart(canvas, {
@@ -2818,18 +2927,20 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { usePointStyle: true, boxWidth: 8, padding: 18, font: { size: 11 } }
+                            labels: { usePointStyle: true, boxWidth: 8, padding: 18, font: { family: payload.suryaPresentation ? 'DM Sans' : '"Geist Variable"', size: 11 } }
                         },
                         tooltip: {
+                            titleFont: { family: payload.suryaPresentation ? 'Manrope' : '"Geist Variable"', weight: '700' },
+                            bodyFont: { family: payload.suryaPresentation ? 'Manrope' : '"Geist Variable"', weight: '600' },
                             callbacks: { label: context => ` ${context.dataset.label}: ${nf(context.parsed.y)}` }
                         }
                     },
                     scales: {
-                        x: { grid: { display: false }, ticks: { font: { weight: '600' } } },
+                        x: { grid: { display: false }, ticks: { color: context => payload.suryaPresentation && context.index === Number(payload.currentMonth) - 1 ? '#c8102e' : '#778397', font: { family: payload.suryaPresentation ? 'DM Sans' : '"Geist Variable"', weight: '600' } } },
                         y: {
                             beginAtZero: true,
-                            grid: { color: '#eef1f5' },
-                            ticks: { callback: value => nf(value) }
+                            grid: { color: '#e8edf3', drawBorder: false },
+                            ticks: { color: '#778397', font: { family: payload.suryaPresentation ? 'Manrope' : '"Geist Variable"', weight: '600' }, callback: value => nf(value) }
                         }
                     }
                 }
@@ -2837,6 +2948,24 @@
 
             return monthlySalesChart;
         }
+
+        document.addEventListener('change', event => {
+            const compareInput = event.target.closest('#surya-sales-compare-options input');
+            if (compareInput) {
+                const chosen = [...document.querySelectorAll('#surya-sales-compare-options input:checked')];
+                if (chosen.length > 3) compareInput.checked = false;
+                const chosenCount = document.querySelectorAll('#surya-sales-compare-options input:checked').length;
+                const compareSummary = document.querySelector('.surya-sales-compare summary');
+                if (compareSummary) compareSummary.textContent = chosenCount ? `${chosenCount} wilayah dipilih` : 'Bandingkan wilayah';
+                const payload = getMonthlySalesPayload();
+                const labels = monthlySalesChart?.data.labels || [];
+                if (monthlySalesChart && payload.period !== 'annual') {
+                    monthlySalesChart.data.datasets = monthlySalesDatasets(payload, labels);
+                    monthlySalesChart.update();
+                }
+            }
+            if (event.target.matches('#surya-sales-ranking-month')) updateSuryaSalesRanking();
+        });
 
         function setMonthlySalesView(view) {
             const showChart = view === 'chart';
@@ -3082,7 +3211,7 @@
                 afterDatasetsDraw(chart) {
                     const ctx = chart.ctx;
                     ctx.save();
-                    ctx.font = '700 12px Geist Variable, sans-serif';
+                    ctx.font = '700 12px DM Sans, sans-serif';
                     ctx.fillStyle = '#344054';
                     ctx.textAlign = 'left';
                     ctx.textBaseline = 'middle';

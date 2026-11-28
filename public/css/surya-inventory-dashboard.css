@@ -35,7 +35,45 @@
 .surya-inventory-dashboard-page .table-scroll-heatmap table { min-width: 1100px; }
 .surya-inventory-dashboard-page .table-scroll-heatmap th,
 .surya-inventory-dashboard-page .table-scroll-heatmap td { font-variant-numeric: tabular-nums; }
-.surya-inventory-dashboard-page #monthly-sales-chart-wrap { overflow: hidden; }
+.surya-inventory-dashboard-page #monthly-sales-chart-wrap { overflow:visible; height:auto; min-height:430px; padding:0; background:#fff; }
+.surya-sales-chart-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;min-height:430px;background:#fff}
+.surya-sales-trend{min-width:0;padding:24px 26px 18px}
+.surya-sales-trend-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:8px}
+.surya-sales-eyebrow{display:block;color:#98a2b3;font-size:9px;font-weight:800;letter-spacing:.14em}
+.surya-sales-trend h3,.surya-sales-ranking h3{margin:8px 0 3px;color:#202b40;font-family:var(--surya-heading-font)!important;font-size:17px;font-weight:800}
+.surya-sales-trend h3 span{color:#98a2b3;font-size:13px;font-weight:600}
+.surya-sales-trend-heading p{margin:0;color:#98a2b3;font-size:12px}
+.surya-sales-compare{position:relative;z-index:4;min-width:180px;color:#667085;font-size:10px;font-weight:700}
+.surya-sales-compare summary{display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:172px;min-height:36px;padding:6px 10px;border:1px solid #e3e8ef;border-radius:8px;background:#fff;color:#344054;cursor:pointer;list-style:none}
+.surya-sales-compare summary::-webkit-details-marker{display:none}
+.surya-sales-compare summary:after{content:'⌄';color:#8b95a5;font-size:15px}
+.surya-sales-compare-options{position:absolute;top:calc(100% + 5px);right:0;display:grid;gap:2px;width:210px;max-height:250px;overflow:auto;padding:7px;border:1px solid #e3e8ef;border-radius:10px;background:#fff;box-shadow:0 12px 30px #1720331a}
+.surya-sales-compare-options label{display:flex;align-items:center;gap:8px;margin:0;padding:7px;border-radius:6px;color:#475467;font-size:11px;cursor:pointer}
+.surya-sales-compare-options label:hover{background:#f7f8fa}
+.surya-sales-compare-options input{accent-color:#c8102e}
+.surya-compare-dot{width:8px;height:8px;border-radius:50%;background:var(--compare-color)}
+.surya-sales-ranking-month select{max-width:220px;min-height:36px;padding:6px 9px;border:1px solid #e3e8ef;border-radius:8px;background:#fff;color:#344054;font-size:11px}
+.surya-sales-canvas-wrap{height:320px;position:relative}
+.surya-sales-mtd-note{margin:8px 0 0;padding:9px 11px;border-radius:8px;background:#fff6f7;color:#9f1230;font-size:10px}
+.surya-sales-ranking{display:flex;flex-direction:column;min-width:0;padding:24px 20px 18px;border-left:1px solid #edf0f4;background:#fff}
+.surya-sales-ranking.is-hidden,.surya-sales-compare.is-hidden{display:none}
+.surya-sales-chart-layout.is-annual{grid-template-columns:minmax(0,1fr)}
+.surya-sales-ranking h3{margin:7px 0 14px}
+.surya-sales-ranking-month{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:12px;border-bottom:1px solid #edf0f4;color:#667085;font-size:10px}
+.surya-sales-ranking-month select{min-height:30px;padding:4px 6px}
+.surya-sales-ranking-list{display:grid;gap:14px;margin:15px 0;padding:0;list-style:none}
+.surya-sales-ranking-list li{display:flex;align-items:center;gap:9px;min-width:0}
+.surya-rank-no{color:#98a2b3;font-size:10px;font-weight:700}
+.surya-rank-content{flex:1;min-width:0}
+.surya-rank-content>div{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;color:#475467;font-size:10px}
+.surya-rank-content>div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.surya-rank-content>div strong{flex:0 0 auto;color:#344054;font-family:var(--surya-heading-font)!important;font-size:10px}
+.surya-rank-content i{display:block;height:5px;overflow:hidden;border-radius:9px;background:#eef1f5}
+.surya-rank-content i b{display:block;height:100%;border-radius:inherit;background:#c8102e}
+.surya-sales-ranking-list li:nth-child(n+2) .surya-rank-content i b{background:#c7cfda}
+.surya-sales-ranking-empty{color:#98a2b3;font-size:11px}
+.surya-sales-ranking-total{display:flex;justify-content:space-between;gap:8px;margin-top:auto;padding-top:12px;border-top:1px solid #edf0f4;color:#7b8798;font-size:9px}
+.surya-sales-ranking-total strong{color:#263449;font-size:12px}
 .surya-inventory-dashboard-page .page-inner > .d-flex { flex-wrap: wrap; gap: 12px; }
 .surya-inventory-dashboard-page .page-inner > .d-flex form { flex-wrap: wrap; max-width: 100%; gap: 8px; box-shadow: none !important; }
 .surya-inventory-dashboard-page .page-inner > .d-flex form select { width: auto; }
@@ -57,6 +95,8 @@
     .surya-inventory-dashboard-page .sticky-tap-col,
     .surya-inventory-dashboard-page .sticky-validity-col { width: 180px !important; min-width: 180px !important; }
 }
+@media(max-width:900px){.surya-sales-chart-layout{grid-template-columns:minmax(0,1fr) 240px}.surya-sales-trend{padding:18px}.surya-sales-ranking{padding:18px 14px}}
+@media(max-width:680px){.surya-inventory-dashboard-page #monthly-sales-chart-wrap{min-height:0}.surya-sales-chart-layout{grid-template-columns:minmax(0,1fr)}.surya-sales-trend{padding:16px 12px}.surya-sales-trend-heading{flex-direction:column}.surya-sales-compare,.surya-sales-compare summary{width:100%;max-width:none}.surya-sales-compare-options{left:0;right:auto;width:100%;box-sizing:border-box}.surya-sales-canvas-wrap{height:260px}.surya-sales-ranking{border-top:1px solid #edf0f4;border-left:0;padding:18px 14px}.surya-sales-ranking-list{grid-template-columns:1fr 1fr;column-gap:14px}}
 
 /* Dashboard controls: one type scale, with separate filter and action rows. */
 .surya-inventory-dashboard-page .card .btn {

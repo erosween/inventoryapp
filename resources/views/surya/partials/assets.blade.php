@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/pwa/surya/icon-192-round.png?v=round1') }}">
 <meta name="apple-mobile-web-app-title" content="WEB SURYA">
 @include('layout.web-typography')
+<link rel="stylesheet" href="{{ asset('css/surya-typography.css') }}?v={{ filemtime(public_path('css/surya-typography.css')) }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="{{ asset('css/surya-sidebar.css') }}?v={{ filemtime(public_path('css/surya-sidebar.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/surya-shell.css') }}?v={{ filemtime(public_path('css/surya-shell.css')) }}">

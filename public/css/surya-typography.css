@@ -1,0 +1,6 @@
+@font-face{font-family:'DM Sans';font-style:normal;font-weight:400 800;font-display:swap;src:url('../assets/fonts/dm-sans/dm-sans-latin.woff2') format('woff2')}
+@font-face{font-family:'Manrope';font-style:normal;font-weight:400 800;font-display:swap;src:url('../assets/fonts/manrope/manrope-latin.woff2') format('woff2')}
+.shell[data-surya-workspace]{--surya-font:'DM Sans',sans-serif;--surya-heading-font:'Manrope',sans-serif;--web-font:'DM Sans',sans-serif;font-family:var(--surya-font)!important}
+.shell[data-surya-workspace] :where(*:not(i):not(svg):not(path):not(.fa):not(.fas):not(.far):not(.fab):not(.flaticon):not([class*="fa-"]):not([class*="flaticon"]):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.page-heading):not(.metric):not(.number):not(.sales-summary-value):not(.sales-summary-growth):not(input[type=number]):not(.text-right):not([style*="text-align: right"])){font-family:var(--surya-font)!important}
+.shell[data-surya-workspace] :is(h1,h2,h3,h4,h5,h6,.page-heading,.kpi-card h2,.metric,.number,.sales-summary-value,.sales-summary-growth,.surya-sales-ranking-total strong){font-family:var(--surya-heading-font)!important}
+.shell[data-surya-workspace] :is(.kpi-card h2,.metric,.number,.sales-summary-value,.sales-summary-growth,input[type=number],td.text-right,td[style*="text-align: right"]){font-variant-numeric:tabular-nums}
