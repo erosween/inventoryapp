@@ -8,11 +8,12 @@
 .surya-inventory-dashboard-page .page-inner { display: flex; flex-direction: column; }
 .surya-inventory-dashboard-page .page-inner > * { flex: 0 0 auto; width: 100%; }
 .surya-inventory-dashboard-page #dashboard-kpi-row { order: 1; }
-.surya-inventory-dashboard-page #heatmap-sales-card { order: 2; }
-.surya-inventory-dashboard-page #mom-cluster-card { order: 3; }
-.surya-inventory-dashboard-page #surya-sales-analysis-card { order: 4; }
-.surya-inventory-dashboard-page #heatmap-inject-card { order: 5; }
-.surya-inventory-dashboard-page #dashboard-operations-row { order: 6; }
+.surya-inventory-dashboard-page #dashboard-sales-kpi-row { order: 2; }
+.surya-inventory-dashboard-page #heatmap-sales-card { order: 3; }
+.surya-inventory-dashboard-page #mom-cluster-card { order: 4; }
+.surya-inventory-dashboard-page #surya-sales-analysis-card { order: 5; }
+.surya-inventory-dashboard-page #heatmap-inject-card { order: 6; }
+.surya-inventory-dashboard-page #dashboard-operations-row { order: 7; }
 .surya-inventory-dashboard-page .card {
     min-width: 0; border: 1px solid #dce4eb; border-radius: 16px;
     box-shadow: 0 6px 20px rgba(15,23,42,.035); background: #fff;

@@ -404,7 +404,7 @@
             {{-- ================= KPI ================= --}}
             <div class="row" id="dashboard-kpi-row">
         @foreach ([['PV', $stokSegel, $stokInject], ['SA', $stokSaSegel, $stokSaInject]] as [$stockFamily, $sealedStock, $injectedStock])
-                    <div class="col-md-6 col-xl-3 mb-3">
+                    <div class="col-md-6 col-xl-6 mb-3">
                         <article class="card kpi-card">
                             <div class="card-body py-4">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -425,6 +425,8 @@
                         </article>
                     </div>
                 @endforeach
+            </div>
+            <div class="row" id="dashboard-sales-kpi-row">
                 @php
                     $pvClusterChanges = collect(['dumai_bengkalis' => 'DUMAI BENGKALIS', 'rokan_hilir' => 'ROKAN HILIR'])
                         ->filter(fn ($label, $key) => $momClusterSalesRows[$key]->curr_qty || $momClusterSalesRows[$key]->prev_partial_qty)
@@ -438,7 +440,7 @@
                         ? ($change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last())
                         : '';
                 @endphp
-                <div class="col-md-6 col-xl-3 mb-3">
+                <div class="col-md-6 col-xl-6 mb-3">
                     <article class="card sales-summary-card" aria-label="Penjualan {{ $product }} bulan berjalan">
                         <div class="sales-summary-top">
                             <span class="sales-summary-label">Penjualan {{ $product }} · {{ $momSelectedDate->copy()->locale('id')->translatedFormat('F Y') }}</span>
