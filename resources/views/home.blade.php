@@ -7,9 +7,7 @@
 @php
     $isSuryaDashboard = request()->routeIs('surya.inventory-dashboard');
     $salesView = $isSuryaDashboard && !request()->has('sales_view') ? 'chart' : $salesView;
-    $formatDashboardNumber = fn ($value, int $decimals) => $isSuryaDashboard
-        ? number_format($value, $decimals)
-        : number_format($value, $decimals, ',', '.');
+    $formatDashboardNumber = fn ($value, int $decimals) => number_format($value, $decimals, ',', '.');
     $momCurrentLabel = strtoupper($momSelectedDate->copy()->locale('id')->translatedFormat('d M'));
     $momPreviousLabel = strtoupper($momEndPrevMonthPartial->copy()->locale('id')->translatedFormat('d M'));
 @endphp
@@ -23,17 +21,20 @@
     .distribution-status { font-size:12px; color:#667085; }
     .distribution-product[aria-busy="true"],.distribution-filter-select[aria-busy="true"] { opacity:.6; }
     @media(max-width:760px){.distribution-controls{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}.distribution-controls label{margin-left:0}.distribution-product,.distribution-filter-select{width:100%;min-width:0}}
-    .card.sales-summary-card { padding:26px 28px; border:1px solid #e8e2d9; border-radius:20px; background:#fffaf4; box-shadow:0 5px 20px rgba(40,36,28,.04); color:#292923; }
+    .card.sales-summary-card { height:auto!important; padding:20px 22px; border:1px solid #e8e2d9; border-radius:20px; background:#fffaf4; box-shadow:0 5px 20px rgba(40,36,28,.04); color:#292923; }
     .sales-summary-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .sales-summary-label { font-size:12px; font-weight:750; letter-spacing:1.1px; text-transform:uppercase; color:#78766f; }
     .sales-summary-tag { flex-shrink:0; padding:5px 9px; border-radius:7px; background:#eee9df; color:#777164; font-size:10px; font-weight:750; letter-spacing:.6px; }
-    .sales-summary-value { margin:16px 0 5px; font-size:clamp(32px,3.6vw,56px); font-weight:800; line-height:1.1; letter-spacing:-1.8px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .sales-summary-value { margin:12px 0 5px; font-size:clamp(28px,2.2vw,38px); font-weight:800; line-height:1.1; letter-spacing:-1.2px; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .sales-summary-value span { font-size:16px; font-weight:600; color:#8b857b; letter-spacing:0; }
-    .sales-summary-cutoff { margin:10px 0 22px; color:#8b857b; font-size:12px; }
-    .sales-summary-footer { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-top:18px; border-top:1px solid #e8e2d9; }
-    .sales-summary-growth { font-size:21px; font-weight:800; letter-spacing:-.4px; }
+    .sales-summary-cutoff { margin:8px 0 14px; color:#8b857b; font-size:12px; }
+    .sales-summary-footer { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:12px; border-top:1px solid #e8e2d9; }
+    .sales-summary-growth { font-size:18px; font-weight:800; letter-spacing:-.3px; }
     .sales-summary-growth.is-up { color:#287757; }.sales-summary-growth.is-down { color:#c8102e; }.sales-summary-growth.is-flat { color:#78766f; }
     .sales-summary-insight { margin:8px 0 0; font-size:13px; font-weight:600; }
+    .surya-inventory-dashboard-page .kpi-card { height:auto!important; }
+    .surya-inventory-dashboard-page .kpi-card .card-body { padding:18px 20px!important; }
+    .surya-inventory-dashboard-page .kpi-card h2 { font-size:clamp(18px,1.35vw,23px)!important; white-space:nowrap; letter-spacing:-.5px; }
     .sales-summary-comparison { color:#78766f; font-size:12px; font-weight:500; }
     @media(max-width:640px) { .card.sales-summary-card { padding:22px; } }
     #mom-cluster-card { position:relative; }
@@ -399,9 +400,9 @@
 
             {{-- ================= KPI ================= --}}
             <div class="row">
-                @foreach ([['PV', $stokSegel, $stokInject], ['SA', $stokSaSegel, $stokSaInject]] as [$stockFamily, $sealedStock, $injectedStock])
+        @foreach ([['PV', $stokSegel, $stokInject], ['SA', $stokSaSegel, $stokSaInject]] as [$stockFamily, $sealedStock, $injectedStock])
                     <div class="col-md-6 col-xl-3 mb-3">
-                        <article class="card kpi-card h-100">
+                        <article class="card kpi-card">
                             <div class="card-body py-4">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <strong class="text-dark">STOK {{ $stockFamily }}</strong>
@@ -435,7 +436,7 @@
                         : '';
                 @endphp
                 <div class="col-md-6 col-xl-3 mb-3">
-                    <article class="card sales-summary-card h-100" aria-label="Penjualan {{ $product }} bulan berjalan">
+                    <article class="card sales-summary-card" aria-label="Penjualan {{ $product }} bulan berjalan">
                         <div class="sales-summary-top">
                             <span class="sales-summary-label">Penjualan {{ $product }} · {{ $momSelectedDate->copy()->locale('id')->translatedFormat('F Y') }}</span>
                             <span class="sales-summary-tag">MTD</span>
