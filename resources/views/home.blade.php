@@ -32,6 +32,9 @@
     .sales-summary-growth { font-size:18px; font-weight:800; letter-spacing:-.3px; }
     .sales-summary-growth.is-up { color:#287757; }.sales-summary-growth.is-down { color:#c8102e; }.sales-summary-growth.is-flat { color:#78766f; }
     .sales-summary-insight { margin:8px 0 0; font-size:13px; font-weight:600; }
+    .sales-summary-detail-link { display:inline-flex; align-items:center; gap:6px; margin-top:10px; color:#a30d27; font-size:12px; font-weight:750; text-decoration:none!important; }
+    .sales-summary-detail-link:hover { color:#7f1025; text-decoration:underline!important; }
+    #mom-cluster-card { scroll-margin-top:110px; }
     .surya-inventory-dashboard-page .kpi-card { height:auto!important; }
     .surya-inventory-dashboard-page .kpi-card .card-body { padding:18px 20px!important; }
     .surya-inventory-dashboard-page .kpi-card h2 { font-size:clamp(18px,1.35vw,23px)!important; white-space:nowrap; letter-spacing:-.5px; }
@@ -461,6 +464,7 @@
                                     {{ $change > 0 ? 'Naik' : 'Turun' }} {{ $formatDashboardNumber(abs($change), 0) }} pcs{{ $clusterInsight }}.
                                 @endif
                             </p>
+                            <a class="sales-summary-detail-link" href="#mom-cluster-card">Lihat detail MoM per TAP <span aria-hidden="true">→</span></a>
                         @endif
                     </article>
                 </div>
