@@ -175,11 +175,11 @@
         } catch { sessionStorage.removeItem('surya-sold-outlet-scroll'); }
     });
     const updateSoldPinnedColumns = () => {
-        document.querySelectorAll('.pt-summary-table, #sold-outlet-results .detail-table').forEach(table => {
+        document.querySelectorAll('#sold-outlet-results .detail-table').forEach(table => {
             const headers = [...table.tHead?.rows[0]?.cells || []];
             const firstMetric = headers.findIndex((header, index) => {
                 const label = header.querySelector('.tf-column-heading > span')?.textContent || header.textContent;
-                return table.classList.contains('pt-summary-table') ? /^total outlet$/i.test(label.trim()) : /^total qty$/i.test(label.trim());
+                return /^total qty$/i.test(label.trim());
             });
             if (firstMetric < 0) return;
             const widths = headers.map(header => header.getBoundingClientRect().width);
@@ -197,7 +197,7 @@
     window.addEventListener('resize', updateSoldPinnedColumns, {passive:true});
     if (window.ResizeObserver) {
         const soldTableResizeObserver = new ResizeObserver(updateSoldPinnedColumns);
-        document.querySelectorAll('.pt-summary-table, #sold-outlet-results .detail-table').forEach(table => soldTableResizeObserver.observe(table));
+        document.querySelectorAll('#sold-outlet-results .detail-table').forEach(table => soldTableResizeObserver.observe(table));
     }
     document.addEventListener('click', async (event) => {
         const summaryCopyButton = event.target.closest('.pt-copy-summary');
