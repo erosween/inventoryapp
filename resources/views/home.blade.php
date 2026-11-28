@@ -6,6 +6,7 @@
 @section('content')
 @php
     $isSuryaDashboard = request()->routeIs('surya.inventory-dashboard');
+    $salesView = $isSuryaDashboard && !request()->has('sales_view') ? 'chart' : $salesView;
     $formatDashboardNumber = fn ($value, int $decimals) => $isSuryaDashboard
         ? number_format($value, $decimals)
         : number_format($value, $decimals, ',', '.');
@@ -399,7 +400,7 @@
             {{-- ================= KPI ================= --}}
             <div class="row">
                 @foreach ([['PV', $stokSegel, $stokInject], ['SA', $stokSaSegel, $stokSaInject]] as [$stockFamily, $sealedStock, $injectedStock])
-                    <div class="col-md-6 mb-4">
+                    <div class="col-md-6 col-xl-3 mb-3">
                         <article class="card kpi-card h-100">
                             <div class="card-body py-4">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -433,7 +434,7 @@
                         ? ($change > 0 ? ', kenaikan terbesar di '.$pvClusterChanges->keys()->first() : ', penurunan terbesar di '.$pvClusterChanges->keys()->last())
                         : '';
                 @endphp
-                <div class="col-md-6 mb-4">
+                <div class="col-md-6 col-xl-3 mb-3">
                     <article class="card sales-summary-card h-100" aria-label="Penjualan {{ $product }} bulan berjalan">
                         <div class="sales-summary-top">
                             <span class="sales-summary-label">Penjualan {{ $product }} · {{ $momSelectedDate->copy()->locale('id')->translatedFormat('F Y') }}</span>
@@ -465,8 +466,18 @@
                 @endforeach
             </div>
 
+            @if ($isSuryaDashboard)
+                <nav class="surya-dashboard-tabs" role="tablist" aria-label="Bagian dashboard SURYA">
+                    <button type="button" role="tab" aria-selected="true" data-dashboard-tab="summary">Ringkasan</button>
+                    <button type="button" role="tab" aria-selected="false" data-dashboard-tab="sales">Penjualan</button>
+                    <button type="button" role="tab" aria-selected="false" data-dashboard-tab="inject">Inject</button>
+                    <button type="button" role="tab" aria-selected="false" data-dashboard-tab="inventory">Persediaan</button>
+                    <button type="button" role="tab" aria-selected="false" data-dashboard-tab="activity">Aktivitas</button>
+                </nav>
+            @endif
+
             {{-- ================= SALES ANALYSIS ================= --}}
-            <div class="card enterprise-shadow mb-4">
+            <div class="card enterprise-shadow mb-4" @if($isSuryaDashboard) data-dashboard-sections="summary sales" @endif>
                 <div class="card-header bg-white border-0 pt-4 pb-0 d-flex align-items-start justify-content-between flex-wrap" style="gap:12px">
                     <div>
                         <h6 class="font-weight-bold text-dark mb-0">Analisa Penjualan (Bulan Berjalan)</h6>
@@ -495,7 +506,7 @@
                 $clusterDumai = ['DUMAI','BENGKALIS','DURI','RUPAT','SEI PAKNING'];
                 $clusterRohil = ['BAGAN BATU','BAGAN SIAPI-API','UJUNG TANJUNG'];
             @endphp
-            <div class="card enterprise-shadow mb-4" id="heatmap-sales-card">
+            <div class="card enterprise-shadow mb-4" id="heatmap-sales-card" @if($isSuryaDashboard) data-dashboard-sections="summary sales" @endif>
                 <div class="card-header bg-white border-0 pt-4 pb-3">
                     <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
                         <div>
@@ -1286,7 +1297,7 @@
             </div>
 
             {{-- ================= YEARLY MATRIX INJECT (HEATMAP) ================= --}}
-            <div class="card enterprise-shadow mb-4" id="heatmap-inject-card">
+            <div class="card enterprise-shadow mb-4" id="heatmap-inject-card" @if($isSuryaDashboard) data-dashboard-sections="inject" @endif>
                 <div class="card-header bg-white border-0 pt-4 pb-3">
                     <div class="dashboard-period-header">
                         <div>
@@ -1716,12 +1727,12 @@
 
             {{-- ================= CHARTS LINE & BAR ================= --}}
             <div class="row mb-4 align-items-stretch">
-                <div class="col-12 mb-4">
+                <div class="col-12 mb-4" @if($isSuryaDashboard) data-dashboard-sections="sales inventory" @endif>
                     @include('surya.partials.validity-mom')
                     <script src="{{ asset('js/surya-validity-mom.js') }}?v={{ filemtime(public_path('js/surya-validity-mom.js')) }}" defer></script>
                 </div>
 
-                <div class="col-12">
+                <div class="col-12" @if($isSuryaDashboard) data-dashboard-sections="activity" @endif>
                     <div class="card enterprise-shadow h-100">
                         <div class="card-header bg-white border-0 pt-4 pb-0">
                             <h6 class="font-weight-bold text-dark mb-0">🗓️ Feed Aktivitas TAP</h6>
@@ -1756,7 +1767,9 @@
 
             {{-- ================= ACTIVITY & MoM DAILY ================= --}}
             {{-- ================= MoM PER TAP ================= --}}
-            @include('surya.partials.mom-sales-card', $momCardData ?? [])
+            <div @if($isSuryaDashboard) data-dashboard-sections="sales inventory" @endif>
+                @include('surya.partials.mom-sales-card', $momCardData ?? [])
+            </div>
 
             {{-- close --}}
         </div>
@@ -1767,6 +1780,26 @@
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        (() => {
+            const page = document.querySelector('.surya-inventory-dashboard-page');
+            if (!page) return;
+            const tabs = [...page.querySelectorAll('[data-dashboard-tab]')];
+            const panels = [...page.querySelectorAll('[data-dashboard-sections]')];
+            const applyDashboardTab = (name) => {
+                tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.dashboardTab === name)));
+                panels.forEach(panel => {
+                    const visible = panel.dataset.dashboardSections.split(/\s+/).includes(name);
+                    panel.classList.toggle('dashboard-tab-hidden', !visible);
+                });
+                page.querySelectorAll('.page-inner > .row').forEach(row => {
+                    const groups = [...row.children].filter(child => child.hasAttribute('data-dashboard-sections'));
+                    if (groups.length) row.classList.toggle('dashboard-tab-hidden', groups.every(child => child.classList.contains('dashboard-tab-hidden')));
+                });
+            };
+            tabs.forEach(tab => tab.addEventListener('click', () => applyDashboardTab(tab.dataset.dashboardTab)));
+            applyDashboardTab('summary');
+        })();
+
         const dashboardNumberLocale = @json($isSuryaDashboard ? 'en-US' : 'id-ID');
         const nf = v => new Intl.NumberFormat(dashboardNumberLocale).format(v);
 
