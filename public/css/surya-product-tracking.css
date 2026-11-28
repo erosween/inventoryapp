@@ -65,6 +65,8 @@ body [data-surya-workspace] .surya-content .pt-manual-history-table{min-width:14
 .pt-stock-outlet-table th .tf-column-heading { position:relative; display:flex; align-items:center; justify-content:center; min-height:34px; padding:0 27px; box-sizing:border-box; text-align:center; }
 .pt-stock-outlet-table th .tf-column-heading>span { min-width:0; text-align:center; }
 .pt-stock-outlet-table th .tf-column-filter { position:absolute; top:0; right:0; }
+.pt-stock-outlet-detail thead th:nth-child(n+2):nth-child(-n+7) .tf-column-heading { justify-content:flex-start; padding-left:12px; padding-right:28px; text-align:left; }
+.pt-stock-outlet-detail thead th:nth-child(n+2):nth-child(-n+7) .tf-column-heading>span { text-align:left; }
 .pt-stock-outlet-table th.pt-duration-column { white-space:normal; }
 .pt-stock-outlet-table th.pt-duration-column .tf-column-heading>span { overflow-wrap:normal; }
 .pt-stock-outlet-detail { min-width:2250px; border-collapse:separate; border-spacing:0; }
