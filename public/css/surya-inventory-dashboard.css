@@ -170,8 +170,12 @@
     background-color: #26364d !important;
     color: #f8fafc !important;
 }
-.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap > table > tbody > tr:hover > td {
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap > table > tbody > tr:not(.sf-row):hover > td {
     background-color: #f3f6fa;
+}
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .sf-row:hover > td,
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .sf-row .table tbody tr:hover > td {
+    background-color: inherit !important;
 }
 .surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf,
 .surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf:hover,

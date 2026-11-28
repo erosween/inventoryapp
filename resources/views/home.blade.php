@@ -321,8 +321,9 @@
     #mom-cluster-card .mom-cluster-tabs [role="tab"] { display:inline-flex; align-items:center; justify-content:center; min-height:36px; border:1px solid transparent; border-radius:8px; padding:0 15px; background:transparent; color:#5d6879; font:inherit; font-size:12px; font-weight:700; line-height:1; white-space:nowrap; cursor:pointer; transition:background-color .15s,border-color .15s,color .15s,box-shadow .15s; }
     #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"] { border-color:#b81232; background:#b81232; color:#fff; box-shadow:0 2px 5px rgba(184,18,50,.18); }
     #mom-cluster-card .mom-cluster-tabs [role="tab"]:focus-visible { outline:2px solid #c8102e; outline-offset:2px; }
-    #mom-cluster-table-wrap th,
-    #mom-cluster-table-wrap td:not(.text-success):not(.text-danger) { color: #171717 !important; }
+    #mom-cluster-table-wrap > table > tbody > tr:not(.sf-row) > td:not(.text-success):not(.text-danger),
+    #mom-cluster-table-wrap > table > tfoot > tr > td:not(.text-success):not(.text-danger) { color: #171717 !important; }
+    #mom-cluster-table-wrap .sf-row .table thead th { background:#263449!important; color:#fff!important; border-color:#42516a!important; }
     #mom-cluster-table-wrap > table > thead > tr > th {
         background: #263449 !important;
         color: #fff !important;
