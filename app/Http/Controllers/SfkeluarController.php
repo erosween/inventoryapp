@@ -47,7 +47,8 @@ use Illuminate\Validation\ValidationException;
         return DataTables::of($query)
             ->editColumn('qty', fn ($row) => number_format($row->qty))
             ->addColumn('action', function ($row) {
-                $paid = '<form method="POST" action="'.route('pending-stor.paid', $row->idkeluar).'" class="d-inline mr-1">'.csrf_field().'<button class="btn btn-sm btn-success" type="submit">Sudah Bayar</button></form>';
+                $qty = max(1, (int) $row->qty);
+                $paid = '<form method="POST" action="'.route('pending-stor.paid', $row->idkeluar).'" class="d-inline-flex align-items-center mr-1 pending-payment-form">'.csrf_field().'<input type="number" name="paid_qty" class="form-control form-control-sm mr-1" style="width:100px" min="1" max="'.$qty.'" value="'.$qty.'" required aria-label="Qty dibayar" title="Qty dibayar (maks. '.$qty.')"><button class="btn btn-sm btn-success" type="submit">Bayar Qty</button></form>';
                 if (! auth()->user()->hasClusterAdminAccess()) return $paid;
                 $delete = '<form method="POST" action="'.route('pending-stor.delete', $row->idkeluar).'" class="d-inline" onsubmit="return confirm(\'Hapus transaksi Pending Stor ini?\')">'.csrf_field().'<button class="btn btn-sm btn-danger" type="submit">Hapus</button></form>';
                 return $paid.$delete;
@@ -58,30 +59,108 @@ use Illuminate\Validation\ValidationException;
 
     public function markPendingStorPaid(Request $request, int $id)
     {
+        $validated = $request->validate([
+            'paid_qty' => ['required', 'integer', 'min:1', 'max:2000000'],
+        ]);
+
         try {
-            DB::transaction(function () use ($request, $id) {
+            $payment = DB::transaction(function () use ($validated, $id) {
                 $sale = DB::table('keluarsf')->where('idkeluar', $id)->lockForUpdate()->first();
                 abort_unless($sale && $sale->payment_status === 'pending', 404, 'Transaksi Pending Stor tidak ditemukan.');
                 if (! $this->isGlobalAdmin()) abort_unless((string) $sale->idtap === (string) session('idtap'), 403);
 
+                $paidQty = (int) $validated['paid_qty'];
+                $saleQty = (int) $sale->qty;
+                if ($paidQty > $saleQty) {
+                    throw ValidationException::withMessages(['paid_qty' => 'Qty dibayar tidak boleh melebihi sisa konsinyasi ('.$saleQty.').']);
+                }
+
                 $stock = DB::table('stockawalsf')->where('idsf', $sale->idsf)->where('iddenom', $sale->iddenom)->lockForUpdate()->value('stock');
-                if ($stock === null || (int) $stock < (int) $sale->qty) {
+                if ($stock === null || (int) $stock < $paidQty) {
                     throw ValidationException::withMessages(['stock' => 'Stok SF tidak cukup untuk menandai transaksi ini sudah dibayar.']);
                 }
 
                 $paidAt = now('Asia/Jakarta')->toDateTimeString();
-                DB::table('stockawalsf')->where('idsf', $sale->idsf)->where('iddenom', $sale->iddenom)->decrement('stock', $sale->qty);
+                DB::table('stockawalsf')->where('idsf', $sale->idsf)->where('iddenom', $sale->iddenom)->decrement('stock', $paidQty);
+
+                if ($paidQty === $saleQty) {
+                    DB::table('keluarsf')->where('idkeluar', $id)->update([
+                        'payment_status' => 'paid',
+                        'paid_at' => $paidAt,
+                    ]);
+                    AuditLogger::log('PAYMENT', 'Pending Stor SF', $id, (array) $sale, [
+                        'payment_status' => 'paid', 'paid_qty' => $paidQty, 'paid_at' => $paidAt,
+                    ]);
+
+                    return ['paid' => $paidQty, 'remaining' => 0, 'paid_id' => $id];
+                }
+
+                $paidStart = null;
+                $paidEnd = null;
+                $remainingStart = $sale->sn_awal;
+                $remainingEnd = $sale->sn_akhir;
+                $hasRange = ! empty($sale->sn_awal) && ! empty($sale->sn_akhir);
+                $isBroken = ($sale->serial_mode ?? null) === 'broken';
+
+                if ($hasRange && ! $isBroken) {
+                    $start = (string) $sale->sn_awal;
+                    $end = (string) $sale->sn_akhir;
+                    $startDigits = ltrim($start, '0');
+                    $endDigits = ltrim($end, '0');
+                    if (! ctype_digit($start) || ! ctype_digit($end) || strlen($start) !== strlen($end) || strlen($startDigits) > 15 || strlen($endDigits) > 15) {
+                        throw ValidationException::withMessages(['paid_qty' => 'Rentang SN tidak valid; pembayaran sebagian dibatalkan agar nomor seri tidak salah.']);
+                    }
+                    $startNumber = (int) ($startDigits === '' ? '0' : $startDigits);
+                    $endNumber = (int) ($endDigits === '' ? '0' : $endDigits);
+                    if ($endNumber < $startNumber || ($endNumber - $startNumber + 1) !== $saleQty) {
+                        throw ValidationException::withMessages(['paid_qty' => 'Jumlah SN pada rentang tidak cocok dengan qty konsinyasi; periksa data SN sebelum pembayaran sebagian.']);
+                    }
+
+                    $paidStart = $start;
+                    $paidEnd = str_pad((string) ($startNumber + $paidQty - 1), strlen($start), '0', STR_PAD_LEFT);
+                    $remainingStart = str_pad((string) ($startNumber + $paidQty), strlen($start), '0', STR_PAD_LEFT);
+                } elseif ($isBroken) {
+                    $paidStart = $sale->sn_awal;
+                    $paidEnd = $sale->sn_akhir;
+                }
+
+                $paidRecord = (array) $sale;
+                unset($paidRecord['idkeluar']);
+                $paidRecord['sn_awal'] = $paidStart;
+                $paidRecord['sn_akhir'] = $paidEnd;
+                $paidRecord['qty'] = $paidQty;
+                $paidRecord['payment_status'] = 'paid';
+                $paidRecord['paid_at'] = $paidAt;
+                $paidId = DB::table('keluarsf')->insertGetId($paidRecord);
+
                 DB::table('keluarsf')->where('idkeluar', $id)->update([
-                    'payment_status' => 'paid',
+                    'qty' => $saleQty - $paidQty,
+                    'sn_awal' => $hasRange && ! $isBroken ? $remainingStart : $sale->sn_awal,
+                    'payment_status' => 'pending',
+                    'paid_at' => null,
+                ]);
+
+                AuditLogger::log('PAYMENT', 'Pending Stor SF', $id, (array) $sale, [
+                    'payment_status' => 'partial',
+                    'paid_qty' => $paidQty,
+                    'paid_record_id' => $paidId,
+                    'paid_sn_awal' => $paidStart,
+                    'paid_sn_akhir' => $paidEnd,
+                    'remaining_qty' => $saleQty - $paidQty,
+                    'remaining_sn_awal' => $hasRange && ! $isBroken ? $remainingStart : $sale->sn_awal,
+                    'remaining_sn_akhir' => $sale->sn_akhir,
                     'paid_at' => $paidAt,
                 ]);
-                AuditLogger::log('PAYMENT', 'Pending Stor SF', $id, (array) $sale, ['payment_status' => 'paid', 'paid_at' => $paidAt]);
+
+                return ['paid' => $paidQty, 'remaining' => $saleQty - $paidQty, 'paid_id' => $paidId];
             });
         } catch (ValidationException $exception) {
             return back()->withErrors($exception->errors())->withInput();
         }
 
-        return back()->with('success', 'Pembayaran dicatat dan stok SF berhasil dipotong.');
+        $message = 'Pembayaran '.$payment['paid'].' qty dicatat dan stok SF berhasil dipotong.';
+        if ($payment['remaining'] > 0) $message .= ' Sisa '.$payment['remaining'].' qty tetap Pending Stor.';
+        return back()->with('success', $message);
     }
 
     public function deletePendingStor(Request $request, int $id)

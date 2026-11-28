@@ -10,13 +10,13 @@
         <div class="card premium-card">
             <div class="card-header py-3 px-4 bg-white border-bottom">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div><h4 class="card-title mb-1 font-weight-bold"><i class="fas fa-hourglass-half mr-2"></i>Pending Stor (Konsinyasi)</h4><div class="text-muted small">Qty mengalokasikan stok tersedia agar tidak dipakai transaksi lain. Stok fisik SF dipotong setelah pembayaran dikonfirmasi.</div></div>
+                    <div><h4 class="card-title mb-1 font-weight-bold"><i class="fas fa-hourglass-half mr-2"></i>Pending Stor (Konsinyasi)</h4><div class="text-muted small">Qty mengalokasikan stok tersedia agar tidak dipakai transaksi lain. Stok fisik SF dipotong sesuai qty yang dibayar; sisa qty tetap pending.</div></div>
                     <input type="text" id="daterange" class="form-control" style="max-width:260px" autocomplete="off" placeholder="Pilih periode">
                 </div>
             </div>
             <div class="card-body table-responsive">
                 <table id="pending-stor-table" class="table table-hover w-100">
-                    <thead><tr><th>Tanggal Jual</th><th>Denom</th><th>Qty</th><th>TAP</th><th>SF</th><th>ID Outlet</th><th>SN Awal</th><th>SN Akhir</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Tanggal Jual</th><th>Denom</th><th>Qty</th><th>TAP</th><th>SF</th><th>ID Outlet</th><th>SN Awal</th><th>SN Akhir</th><th>Keterangan</th><th>Aksi <small class="text-muted d-block">Isi qty yang dibayar</small></th></tr></thead>
                 </table>
             </div>
         </div>
