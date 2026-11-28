@@ -177,19 +177,15 @@
     const updateSoldPinnedColumns = () => {
         document.querySelectorAll('#sold-outlet-results .detail-table').forEach(table => {
             const headers = [...table.tHead?.rows[0]?.cells || []];
-            const firstMetric = headers.findIndex((header, index) => {
-                const label = header.querySelector('.tf-column-heading > span')?.textContent || header.textContent;
-                return /^total qty$/i.test(label.trim());
-            });
-            if (firstMetric < 0) return;
-            const widths = headers.map(header => header.getBoundingClientRect().width);
+            const frozenColumnCount = Math.min(3, headers.length);
+            const leftOffsets = headers.map((_, index) => headers
+                .slice(0, index)
+                .reduce((offset, header) => offset + header.getBoundingClientRect().width, 0));
             [...table.rows].forEach(row => [...row.cells].forEach((cell, index) => {
-                if (cell.colSpan > 1 || index < firstMetric) return;
-                let right = 0;
-                for (let column = index + 1; column < widths.length; column++) right += widths[column];
-                cell.style.setProperty('--pt-sticky-right', `${right}px`);
-                cell.classList.add('pt-sticky-right-cell');
-                if (row.parentElement.tagName === 'THEAD') cell.classList.add('pt-sticky-right-head');
+                if (cell.colSpan > 1 || index >= frozenColumnCount) return;
+                cell.style.setProperty('--pt-sticky-left', `${leftOffsets[index]}px`);
+                cell.classList.add('pt-sticky-left-cell');
+                if (row.parentElement.tagName === 'THEAD') cell.classList.add('pt-sticky-left-head');
             }));
         });
     };
@@ -224,7 +220,7 @@
             const tableClone = table.cloneNode(true);
             tableClone.querySelectorAll('.tf-column-filter, .tf-sort-indicator, .pt-view-outlet-sn').forEach(element => element.remove());
             tableClone.querySelectorAll('.pt-outlet-sn-row').forEach(row => row.remove());
-            tableClone.querySelectorAll('.pt-sticky-right-cell').forEach(cell => { cell.classList.remove('pt-sticky-right-cell', 'pt-sticky-right-head'); cell.style.removeProperty('--pt-sticky-right'); });
+            tableClone.querySelectorAll('.pt-sticky-left-cell').forEach(cell => { cell.classList.remove('pt-sticky-left-cell', 'pt-sticky-left-head'); cell.style.removeProperty('--pt-sticky-left'); });
             const exportWidth = Math.max(table.scrollWidth, table.offsetWidth, 900);
             tableClone.style.width = `${exportWidth}px`;
             tableClone.style.minWidth = `${exportWidth}px`;

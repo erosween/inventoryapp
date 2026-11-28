@@ -45,7 +45,7 @@ body [data-surya-workspace] .surya-content .pt-manual-history-table{min-width:14
 /* Match the soft green zebra rows used by the other SURYA tables. */
 .pt-page table.pt-summary-table tbody tr:not(.pt-cluster-summary-row):not(.pt-grand-total-row):nth-child(odd)>td{background-color:#fff!important}
 .pt-page table.pt-summary-table tbody tr:not(.pt-cluster-summary-row):not(.pt-grand-total-row):nth-child(even)>td,.pt-page #sold-outlet-results table.detail-table tbody tr:nth-child(even)>td{background-color:#f1f7f3!important}
-@media(min-width:1100px){.pt-page .pt-sticky-right-cell{position:sticky;right:var(--pt-sticky-right,0px);z-index:3}.pt-page .pt-sticky-right-head{z-index:8!important;background:#26364d!important;color:#fff!important}}
+@media(min-width:1100px){.pt-page #sold-outlet-results .pt-sticky-left-cell{position:sticky;left:var(--pt-sticky-left,0px);z-index:3;background-color:#fff!important}.pt-page #sold-outlet-results tbody tr:nth-child(even) .pt-sticky-left-cell{background-color:#f1f7f3!important}.pt-page #sold-outlet-results .pt-sticky-left-head{z-index:8!important;background:#26364d!important;color:#fff!important}.pt-page #sold-outlet-results tbody .pt-sticky-left-cell:nth-child(3){box-shadow:5px 0 8px -6px rgba(20,35,55,.55)}}
 .pt-result-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;flex:0 0 auto}
 .pt-summary-export{box-sizing:border-box;padding:28px;border:1px solid #dce3ed;border-radius:18px;background:#f3f5f9;color:#172033;font-family:Inter,Arial,sans-serif}
 .pt-summary-export h2{margin:0;color:#172033;font-size:24px;font-weight:800;line-height:1.25}
