@@ -10,6 +10,7 @@ class OutletlistImport
 {
     public const COLUMNS = ['id_outlet','nama_outlet','nomor_rs','kecamatan','cluster','sf','tap','longitude','latitude','pjp'];
     public const PROTECTED_COLUMNS = ['latitude_checkin','longitude_checkin'];
+    public const MAPPING_COLUMNS = ['kategori_outlet','freq'];
 
     private array $salesNames = [];
 
@@ -42,23 +43,28 @@ class OutletlistImport
             if (!$seen) $this->error('File tidak berisi outlet.');
             $count = count($seen);
             unset($seen);
-            DB::transaction(function () use ($path, $delimiter, $headers) {
+            $mappingColumns = array_values(array_intersect(self::MAPPING_COLUMNS, $headers));
+            $hasMappings = count($mappingColumns) === count(self::MAPPING_COLUMNS);
+            DB::transaction(function () use ($path, $delimiter, $headers, $hasMappings, $mappingColumns) {
+                if ($hasMappings) {
+                    DB::table('appsdumais')->update(['kategori_outlet' => 'Reguler', 'freq' => 'UNMAPPING']);
+                }
                 $batch = [];
                 foreach ($this->rows($path, $delimiter, $headers) as $row) {
                     $batch[] = $row;
-                    if (count($batch) === 500) { $this->save($batch); $batch = []; }
+                    if (count($batch) === 500) { $this->save($batch, $mappingColumns); $batch = []; }
                 }
-                if ($batch) $this->save($batch);
+                if ($batch) $this->save($batch, $mappingColumns);
             });
             app(NgrsOutletMap::class)->invalidate();
             return ['count' => $count];
         } finally { $lock->release(); }
     }
 
-    private function save(array $rows): void
+    private function save(array $rows, array $mappingColumns): void
     {
         // Check-in coordinates are deliberately absent from both insert and update.
-        DB::table('appsdumais')->upsert($rows, ['id_outlet'], array_values(array_diff(self::COLUMNS, ['id_outlet'])));
+        DB::table('appsdumais')->upsert($rows, ['id_outlet'], array_values(array_diff([...self::COLUMNS, ...$mappingColumns], ['id_outlet'])));
     }
 
     private function header(string $path): array
@@ -77,8 +83,9 @@ class OutletlistImport
             if (!$headers) $this->error('File kosong.');
             $headers[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$headers[0]);
             $headers = array_map(fn ($v) => strtolower(trim((string)$v)), $headers);
-            if (count($headers) !== count(array_unique($headers)) || array_diff(self::COLUMNS, $headers) || array_diff($headers, array_merge(self::COLUMNS, self::PROTECTED_COLUMNS))) {
-                $this->error('Header harus mengikuti template Outletlist: '.implode(', ', self::COLUMNS).'.');
+            $allowed = [...self::COLUMNS, ...self::MAPPING_COLUMNS, ...self::PROTECTED_COLUMNS];
+            if (count($headers) !== count(array_unique($headers)) || array_diff([...self::COLUMNS, ...self::MAPPING_COLUMNS], $headers) || array_diff($headers, $allowed)) {
+                $this->error('Header harus mengikuti template Outletlist: '.implode(', ', [...self::COLUMNS, ...self::MAPPING_COLUMNS]).'.');
             }
             return [$delimiter, $headers];
         } finally { fclose($h); }
@@ -99,6 +106,22 @@ class OutletlistImport
                     if (in_array($column, self::PROTECTED_COLUMNS, true)) continue;
                     $value = trim((string)$values[$index]);
                     if (!mb_check_encoding($value, 'UTF-8') || mb_strlen($value) > 255 || str_contains($value, "\0")) $this->error("Nilai $column tidak valid pada baris $number.");
+                    if ($column === 'kategori_outlet') {
+                        $category = mb_strtolower(preg_replace('/\s+/u', ' ', $value));
+                        $row[$column] = match ($category) {
+                            '', 'reguler', 'regular' => 'Reguler',
+                            'top 20 tap', 'top 20 outlet tap' => 'Top 20 TAP',
+                            default => $this->error("Kategori outlet tidak valid pada baris $number. Gunakan Top 20 TAP atau Reguler."),
+                        };
+                        continue;
+                    }
+                    if ($column === 'freq') {
+                        $frequency = strtoupper($value);
+                        if ($frequency === '') $frequency = 'UNMAPPING';
+                        if (!in_array($frequency, ['F1', 'F2', 'F4', 'F8', 'UNMAPPING'], true)) $this->error("Freq tidak valid pada baris $number. Gunakan F1, F2, F4, F8, atau UNMAPPING.");
+                        $row[$column] = $frequency;
+                        continue;
+                    }
                     $row[$column] = $value === '' ? null : $value;
                 }
                 if (!preg_match('/^[1-9][0-9]{0,17}$/D', (string)$row['id_outlet'])) $this->error("ID outlet tidak valid pada baris $number. Gunakan angka utuh, bukan notasi ilmiah.");

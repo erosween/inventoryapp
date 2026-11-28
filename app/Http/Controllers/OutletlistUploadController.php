@@ -68,7 +68,7 @@ class OutletlistUploadController extends Controller
             report($e);
             throw ValidationException::withMessages(['outletlist_file'=>'Upload gagal. Data outlet sebelumnya tetap tersimpan.']);
         }
-        return redirect()->route('surya.transaction-upload')->with('success', 'Outletlist: '.number_format($result['count'],0).' outlet diperbarui.');
+        return redirect()->route('surya.transaction-upload')->with('success', 'Outletlist: '.number_format($result['count'],0).' outlet diperbarui beserta kategori Top 20 TAP dan freq. Outlet yang tidak tercantum menjadi Reguler dan UNMAPPING.');
     }
 
     public function template()
@@ -76,7 +76,7 @@ class OutletlistUploadController extends Controller
         $this->authorizeUpload();
         return response()->streamDownload(function () {
             $h = fopen('php://output','wb'); fwrite($h,"\xEF\xBB\xBF");
-            fputcsv($h, array_merge(OutletlistImport::COLUMNS, OutletlistImport::PROTECTED_COLUMNS), ',', '"', '');
+            fputcsv($h, [...OutletlistImport::COLUMNS, ...OutletlistImport::PROTECTED_COLUMNS, ...OutletlistImport::MAPPING_COLUMNS], ',', '"', '');
             fclose($h);
         }, 'template-outletlist.csv', ['Content-Type'=>'text/csv; charset=UTF-8']);
     }

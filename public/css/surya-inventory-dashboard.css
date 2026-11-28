@@ -117,6 +117,26 @@
     min-height: 28px; min-width: 28px; width: 28px; height: 28px; padding: 0 !important;
     display: inline-flex; align-items: center; justify-content: center;
 }
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap > table > thead th {
+    background-color: #26364d !important;
+    color: #f8fafc !important;
+}
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap > table > tbody > tr:hover > td {
+    background-color: #f3f6fa;
+}
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf,
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf:hover,
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf:focus,
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf:active {
+    background-color: #475569 !important;
+    border-color: #64748b !important;
+    color: #fff !important;
+    box-shadow: none;
+}
+.surya-inventory-dashboard-page #mom-cluster-card #mom-cluster-table-wrap .toggle-sf:focus-visible {
+    outline: 2px solid #e11d48;
+    outline-offset: 2px;
+}
 @media(max-width: 700px) {
     .surya-inventory-dashboard-page #heatmap-sales-card .export-actions { width: 100%; flex-basis: 100%; }
     .surya-inventory-dashboard-page #monthly-sales-filter-form {

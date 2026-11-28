@@ -27,6 +27,8 @@
         ['remaining_qty_sa', 'Stock Outlet SA', true], ['st_qty_sa', 'ST SA', false], ['so_qty_sa', 'SO SA', false],
         ['days_sf_to_outlet_sa', 'Rata-rata SF → Outlet SA (hari)', false], ['days_outlet_to_customer_sa', 'Rata-rata Outlet → Pelanggan SA (hari)', false],
     ];
+    $tapSummaryColumns = ['group_label' => 'TAP', 'outlet_count' => 'Total Outlet'];
+    foreach ($metricColumns as [$column, $label]) $tapSummaryColumns[$column] = $label;
 @endphp
 <section class="pt-card">
     <div class="pt-result-head">
@@ -39,10 +41,12 @@
     </nav>
     @if($viewMode === 'tap')
     <p class="pt-subtitle">Ringkasan per TAP. Rata-rata durasi dihitung berbobot berdasarkan jumlah SN yang memiliki tanggal lengkap.</p>
-    <div class="pt-table-wrap pt-stock-outlet-scroll">
-        <table class="pt-table detail-table pt-stock-outlet-table">
-            <thead><tr><th>TAP</th><th>Total Outlet</th>
-                @foreach($metricColumns as [$column, $label, $bold])<th class="{{ in_array($column, $durationColumns, true) ? 'pt-duration-column' : '' }}">{{ $label }}</th>@endforeach
+    <div id="stock-outlet-tap-summary" class="pt-table-wrap pt-stock-outlet-scroll">
+        <table class="pt-table detail-table pt-stock-outlet-table pt-stock-outlet-summary">
+            <thead><tr>@foreach($tapSummaryColumns as $column => $label)
+                @php($isTapSort = ($stockTableOptions['tap_sort'] ?? '') === $column)
+                <th class="{{ in_array($column, $durationColumns, true) ? 'pt-duration-column' : '' }}"><div class="tf-column-heading"><span>{{ $label }}@if($isTapSort)<i class="fas fa-arrow-{{ ($stockTableOptions['tap_direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $stockTableOptions['tap_columns'] ?? []) || array_key_exists($column, $stockTableOptions['tap_exclude'] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-stock-summary="tap" data-selection="{{ json_encode($stockTableOptions['tap_columns'] ?? new stdClass()) }}" data-excluded="{{ json_encode($stockTableOptions['tap_exclude'] ?? new stdClass()) }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
+            @endforeach
             </tr></thead>
             <tbody>
                 @forelse($outlets as $summary)

@@ -41,16 +41,16 @@
         @foreach([['Ringkasan per TAP', $tapSummaries], ['Ringkasan per Sales Force', $sfSummaries], ['Ringkasan per Kecamatan', $kecamatanSummaries]] as [$heading, $groups])
             @php($summaryLevel = str_contains($heading, 'TAP') ? 'tap' : (str_contains($heading, 'Kecamatan') ? 'kecamatan' : 'sf'))
             <section id="summary-{{ $summaryLevel }}" class="pt-card pt-summary-section">
-                <h2>{{ $heading }}</h2>
+                <div class="pt-summary-section-head"><h2>{{ $heading }}</h2><button type="button" class="pt-button pt-copy-summary" data-copy-summary="{{ $summaryLevel }}" aria-label="Salin PNG {{ $heading }}"><i class="far fa-copy" aria-hidden="true"></i><span>Copy PNG</span></button></div>
                 @php($summaryColumns = [$summaryLevel => ['tap' => 'TAP', 'sf' => 'Sales Force', 'kecamatan' => 'Kecamatan'][$summaryLevel]])
                 @if($summaryLevel === 'sf') @php($summaryColumns['tap'] = 'TAP') @endif
                 @if($summaryLevel === 'kecamatan') @php($summaryColumns['cluster'] = 'CLUSTER') @endif
                 @php($summaryColumns += ['outlet_count' => 'Total outlet', 'matched_outlets' => 'Outlet sesuai', 'mismatch_outlets' => 'Outlet perlu dicek', 'qty' => 'Total Qty', 'matched_qty' => 'Qty SN cocok', 'mismatch_qty' => 'Qty SN belum cocok'])
-                <div class="pt-table-wrap"><table class="pt-table pt-summary-table" data-summary-level="{{ $summaryLevel }}">
+                <div class="pt-table-wrap"><table class="pt-table pt-summary-table" data-summary-level="{{ $summaryLevel }}" data-summary-label="{{ $heading }}">
                     <thead><tr>
                         @foreach($summaryColumns as $column => $label)
                             @php($isSummarySorted = ($summaryTableOptions['summary_table'] ?? '') === $summaryLevel && ($summaryTableOptions['summary_sort'] ?? '') === $column)
-                            @if(in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty', 'cluster'], true))<th>{{ $label }}</th>@else
+                            @if(in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty'], true))<th>{{ $label }}</th>@else
                                 <th><div class="tf-column-heading"><span>{{ $label }}@if($isSummarySorted)<i class="fas fa-arrow-{{ ($summaryTableOptions['summary_direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}" aria-label="Filter dan urutkan {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
                             @endif
                         @endforeach
@@ -71,7 +71,7 @@
                 </table></div>
                 <div class="pt-summary-mobile-tools" aria-label="Filter dan urutkan ringkasan">
                     @foreach($summaryColumns as $column => $label)
-                        @if(!in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty', 'cluster'], true))<button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}"><span>{{ $label }}</span><i class="fas fa-filter"></i></button>@endif
+                        @if(!in_array($column, ['mismatch_digipos_qty', 'mismatch_non_digipos_qty'], true))<button type="button" class="tf-column-filter {{ array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_columns"] ?? []) || array_key_exists($column, $summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? []) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-summary-table="{{ $summaryLevel }}" data-selection="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_columns"] ?? new \stdClass()) }}" data-excluded="{{ json_encode($summaryTableOptions["summary_{$summaryLevel}_exclude"] ?? new \stdClass()) }}"><span>{{ $label }}</span><i class="fas fa-filter"></i></button>@endif
                     @endforeach
                 </div>
                 <div class="pt-summary-mobile">
@@ -104,7 +104,7 @@
         @endif
 
         <section id="sold-outlet-results" class="pt-card">
-            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->total()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty input SN dengan SN Digipos yang cocok di outlet yang sama.</span></div>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status','page'])) }}">Kembali</a>@endif</div>
+            <div class="pt-result-head"><div><h2>{{ ($summaryTarget['summary_status'] ?? '') === 'matched' ? 'Outlet sesuai' : (($summaryTarget['summary_status'] ?? '') === 'mismatch' ? 'Outlet perlu dicek' : 'Rincian per outlet') }}</h2><span class="pt-muted">{{ number_format($outlets->total()) }} outlet{{ !empty($summaryTarget['summary_status']) ? ($summaryTarget['summary_status'] === 'matched' ? ' sesuai' : ' perlu dicek') : '' }}{{ !empty($summaryTarget['summary_key']) && $summaryTarget['summary_key'] !== '__NULL__' ? ' · '.$summaryTarget['summary_key'] : '' }} · bandingkan qty input SN dengan SN Digipos yang cocok di outlet yang sama.</span></div><div class="pt-result-actions"><button type="button" class="pt-button pt-copy-summary" data-copy-summary="outlet" aria-label="Salin ringkasan outlet"><i class="far fa-copy" aria-hidden="true"></i><span>Copy PNG</span></button>@if(!empty($summaryTarget['summary_status']))<a class="pt-button" href="{{ route('surya.product-tracking.sold', request()->except(['summary_level','summary_key','summary_status','page'])) }}">Kembali</a>@endif</div></div>
             <div class="pt-table-wrap"><table class="pt-table detail-table">
                 <thead><tr>
                     <th><div class="tf-column-heading"><span>Waktu Visit (WIB)@if(($tableOptions['sort'] ?? '') === 'visit_at')<i class="fas fa-arrow-{{ ($tableOptions['direction'] ?? 'asc') === 'desc' ? 'down' : 'up' }} tf-sort-indicator"></i>@endif</span><button type="button" class="tf-column-filter {{ array_key_exists('visit_at', $tableOptions['columns'] ?? []) || array_key_exists('visit_at', $tableOptions['exclude'] ?? []) ? 'is-active' : '' }}" data-column="visit_at" data-label="Waktu Visit (WIB)" aria-label="Filter dan urutkan Waktu Visit" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>
@@ -146,18 +146,119 @@
     @else
         <section class="pt-card"><p class="pt-empty mb-0">Belum ada input SN dari SF Mobile atau form web SF Keluar ber-ID outlet pada filter ini.</p></section>
     @endif
-    <div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-values-url="{{ route('surya.product-tracking.sold.filter-values') }}" data-selection="{{ json_encode($tableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($tableOptions['exclude'] ?? new \stdClass()) }}">
+    <div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-preserve-outlet-position="true" data-values-url="{{ route('surya.product-tracking.sold.filter-values') }}" data-selection="{{ json_encode($tableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($tableOptions['exclude'] ?? new \stdClass()) }}">
         <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
             <div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> Smallest to Largest</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Largest to Smallest</button><button type="button" data-sort-clear>Urutan default</button></div>
             <input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter"><div class="tf-column-menu-tools"><button type="button" data-filter-all>Pilih semua</button><button type="button" data-filter-none>Kosongkan pilihan</button></div><div data-filter-values class="tf-column-values"></div><p data-filter-message role="status" aria-live="polite"></p><button type="button" data-filter-more hidden>Muat lainnya</button>
         </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
     </div>
+    <script src="{{ asset('js/vendor/html2canvas.min.js') }}?v=1.4.1" defer></script>
     <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
     <script src="{{ asset('vendor/flatpickr/flatpickr.min.js') }}" defer></script>
     <script src="{{ asset('vendor/flatpickr/id.js') }}" defer></script>
     <script src="{{ asset('js/surya-sold-date.js') }}?v={{ filemtime(public_path('js/surya-sold-date.js')) }}" defer></script>
     <script>
+    history.scrollRestoration = 'manual';
+    window.addEventListener('pageshow', () => {
+        const rawState = sessionStorage.getItem('surya-sold-outlet-scroll');
+        if (!rawState) return;
+        sessionStorage.removeItem('surya-sold-outlet-scroll');
+        try {
+            const state = JSON.parse(rawState);
+            if (state.href !== location.pathname + location.search) return;
+            const restore = () => {
+                window.scrollTo(state.x || 0, state.y || 0);
+                const wrap = document.querySelector('#sold-outlet-results > .pt-table-wrap');
+                if (wrap) { wrap.scrollLeft = state.left || 0; wrap.scrollTop = state.top || 0; }
+            };
+            requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+        } catch { sessionStorage.removeItem('surya-sold-outlet-scroll'); }
+    });
+    const updateSoldPinnedColumns = () => {
+        document.querySelectorAll('.pt-summary-table, #sold-outlet-results .detail-table').forEach(table => {
+            const headers = [...table.tHead?.rows[0]?.cells || []];
+            const firstMetric = headers.findIndex((header, index) => {
+                const label = header.querySelector('.tf-column-heading > span')?.textContent || header.textContent;
+                return table.classList.contains('pt-summary-table') ? /^total outlet$/i.test(label.trim()) : /^total qty$/i.test(label.trim());
+            });
+            if (firstMetric < 0) return;
+            const widths = headers.map(header => header.getBoundingClientRect().width);
+            [...table.rows].forEach(row => [...row.cells].forEach((cell, index) => {
+                if (cell.colSpan > 1 || index < firstMetric) return;
+                let right = 0;
+                for (let column = index + 1; column < widths.length; column++) right += widths[column];
+                cell.style.setProperty('--pt-sticky-right', `${right}px`);
+                cell.classList.add('pt-sticky-right-cell');
+                if (row.parentElement.tagName === 'THEAD') cell.classList.add('pt-sticky-right-head');
+            }));
+        });
+    };
+    updateSoldPinnedColumns();
+    window.addEventListener('resize', updateSoldPinnedColumns, {passive:true});
+    if (window.ResizeObserver) {
+        const soldTableResizeObserver = new ResizeObserver(updateSoldPinnedColumns);
+        document.querySelectorAll('.pt-summary-table, #sold-outlet-results .detail-table').forEach(table => soldTableResizeObserver.observe(table));
+    }
     document.addEventListener('click', async (event) => {
+        const summaryCopyButton = event.target.closest('.pt-copy-summary');
+        if (summaryCopyButton) {
+            const isOutletSummary = summaryCopyButton.dataset.copySummary === 'outlet';
+            const section = summaryCopyButton.closest(isOutletSummary ? '#sold-outlet-results' : '.pt-summary-section');
+            const table = section?.querySelector(isOutletSummary ? '.detail-table' : '.pt-summary-table');
+            if (!table) return;
+            if (typeof window.html2canvas !== 'function') {
+                summaryCopyButton.setAttribute('aria-label', 'Fitur PNG belum siap. Muat ulang halaman.');
+                return;
+            }
+            const buttonLabel = summaryCopyButton.querySelector('span');
+            const originalLabel = buttonLabel?.textContent || 'Copy PNG';
+            summaryCopyButton.disabled = true;
+            if (buttonLabel) buttonLabel.textContent = 'Membuat PNG…';
+            const exportCard = document.createElement('section');
+            exportCard.className = 'pt-summary-export';
+            const title = document.createElement('h2');
+            title.textContent = isOutletSummary ? (section.querySelector('h2')?.textContent || 'Ringkasan per Outlet') : table.dataset.summaryLabel;
+            const subtitle = document.createElement('p');
+            const activeTab = document.querySelector('.pt-sold-tabs a.active')?.textContent.trim();
+            subtitle.textContent = `${activeTab ? `${activeTab} · ` : ''}${new Intl.DateTimeFormat('id-ID', {day:'numeric', month:'long', year:'numeric'}).format(new Date(`${document.querySelector('#sold-date')?.value || new Date().toISOString().slice(0,10)}T00:00:00`))}`;
+            const tableClone = table.cloneNode(true);
+            tableClone.querySelectorAll('.tf-column-filter, .tf-sort-indicator, .pt-view-outlet-sn').forEach(element => element.remove());
+            tableClone.querySelectorAll('.pt-outlet-sn-row').forEach(row => row.remove());
+            tableClone.querySelectorAll('.pt-sticky-right-cell').forEach(cell => { cell.classList.remove('pt-sticky-right-cell', 'pt-sticky-right-head'); cell.style.removeProperty('--pt-sticky-right'); });
+            const exportWidth = Math.max(table.scrollWidth, table.offsetWidth, 900);
+            tableClone.style.width = `${exportWidth}px`;
+            tableClone.style.minWidth = `${exportWidth}px`;
+            const exportWrap = document.createElement('div');
+            exportWrap.className = 'pt-summary-export-table';
+            exportWrap.style.width = `${exportWidth}px`;
+            exportWrap.append(tableClone);
+            exportCard.append(title, subtitle, exportWrap);
+            Object.assign(exportCard.style, {position:'fixed', left:'-100000px', top:'0', width:`${exportWidth + 48}px`, zIndex:'-1'});
+            document.body.append(exportCard);
+            try {
+                const canvas = await window.html2canvas(exportCard, {backgroundColor:'#f3f5f9', scale:Math.min(window.devicePixelRatio || 1, 2), useCORS:true, logging:false});
+                const png = await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG tidak dapat dibuat.')), 'image/png'));
+                if (navigator.clipboard?.write && window.ClipboardItem && window.isSecureContext) {
+                    await navigator.clipboard.write([new ClipboardItem({'image/png':png})]);
+                } else {
+                    const link = document.createElement('a');
+                    link.download = `validasi-st-${summaryCopyButton.dataset.copySummary}-${document.querySelector('#sold-date')?.value || 'ringkasan'}.png`;
+                    link.href = URL.createObjectURL(png);
+                    link.click();
+                    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+                }
+                summaryCopyButton.classList.add('is-copied');
+                if (buttonLabel) buttonLabel.textContent = navigator.clipboard?.write && window.ClipboardItem && window.isSecureContext ? 'PNG tersalin' : 'PNG diunduh';
+                window.setTimeout(() => { summaryCopyButton.classList.remove('is-copied'); if (buttonLabel) buttonLabel.textContent = originalLabel; }, 2200);
+            } catch (error) {
+                summaryCopyButton.setAttribute('aria-label', error.name === 'NotAllowedError' ? 'Clipboard ditolak browser; coba lagi untuk mengunduh PNG.' : 'Gagal membuat PNG ringkasan.');
+                if (buttonLabel) buttonLabel.textContent = 'Gagal, coba lagi';
+            } finally {
+                exportCard.remove();
+                summaryCopyButton.disabled = false;
+            }
+            return;
+        }
         const rangeHistoryButton = event.target.closest('.pt-range-digipos');
         if (rangeHistoryButton) {
             const cell = rangeHistoryButton.closest('td');

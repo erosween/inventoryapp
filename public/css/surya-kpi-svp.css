@@ -131,7 +131,20 @@
 @media (max-width: 700px) {
     .svp-matrix-card { grid-template-columns: 1fr; gap: 15px; padding: 14px 16px; }
 }
-.svp-period input { padding: 6px 9px; border: 1px solid var(--svp-line); border-radius: 7px; background: #fff; color: var(--svp-ink); font: inherit; }
+.svp-period-label { display: inline-flex; align-items: center; gap: 9px; }
+.svp-month-picker { position: relative; }
+.svp-month-trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 178px; padding: 9px 12px; border: 1px solid #cfd9e4; border-radius: 9px; color: var(--svp-ink); background: #fff; box-shadow: 0 1px 2px #14243a0b; font: inherit; font-size: .88rem; font-weight: 680; cursor: pointer; }
+.svp-month-trigger:hover, .svp-month-trigger[aria-expanded="true"] { border-color: #ad1334; background: #fffafb; }
+.svp-month-trigger i { color: var(--svp-red); }
+.svp-month-popover { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: 276px; padding: 12px; border: 1px solid var(--svp-line); border-radius: 13px; background: #fff; box-shadow: 0 16px 42px #14243a24; }
+.svp-month-nav { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; gap: 8px; margin-bottom: 10px; text-align: center; }
+.svp-month-nav strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.svp-month-nav button { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--svp-line); border-radius: 8px; color: var(--svp-ink); background: #fff; cursor: pointer; }
+.svp-month-nav button:hover { border-color: var(--svp-red); color: var(--svp-red); background: var(--svp-red-soft); }
+.svp-month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.svp-month-grid button { min-height: 38px; border: 1px solid transparent; border-radius: 8px; color: var(--svp-ink); background: #f4f7fa; font: inherit; font-size: .82rem; font-weight: 650; cursor: pointer; }
+.svp-month-grid button:hover { border-color: #e7aab7; background: #fff1f3; }
+.svp-month-grid button[aria-pressed="true"] { border-color: var(--svp-red); color: #fff; background: var(--svp-red); }
 
 .svp-table-wrap .svp-result-cell {
     border-inline-start: 1px solid var(--svp-line);

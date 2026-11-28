@@ -26,7 +26,7 @@ class RedirectIfAuthenticated
                 $username = strtolower(trim((string) Auth::guard($guard)->user()->username));
                 if (Auth::guard($guard)->user()->isSuperAdmin() || in_array($username, ['gm_cluster', 'branch_dumai', 'cluster_dumai', 'cluster_rohil'], true)
                     || str_starts_with($username, 'asmen_')) {
-                    return redirect()->route('surya.dashboard');
+                    return redirect()->route('surya.inventory-dashboard');
                 }
 
                 return redirect(RouteServiceProvider::HOME);

@@ -39,17 +39,10 @@ class AuthController extends Controller
             'level' => auth()->user()->level,
         ]);
 
-        if (strcasecmp((string) auth()->user()->username, 'admin_surya') === 0) {
-            $request->session()->put('monita_leader_auth', true);
-            $request->session()->put('monita_leader_login_at', now()->toDateTimeString());
-
-            return redirect()->intended(route('surya.dashboard'));
-        }
-
         $username = strtolower(trim((string) auth()->user()->username));
         if (Auth::user()->isSuperAdmin() || in_array($username, ['gm_cluster', 'branch_dumai', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_')) {
-            return redirect()->intended(route('surya.dashboard'));
+            return redirect()->intended(route('surya.inventory-dashboard'));
         }
 
         if (auth()->user()->idtap === 'SB DUMAI') {

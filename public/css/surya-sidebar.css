@@ -1,5 +1,5 @@
 :root{--surya-sidebar-width:236px}
-.enterprise-sidebar{position:fixed;inset:0 auto 0 0;z-index:1100;display:flex;flex-direction:column;width:var(--surya-sidebar-width);height:100vh;height:100svh;padding:20px 12px;border:0;background:linear-gradient(180deg,#3a000a 0%,#970017 52%,#d10b20 100%);color:#fff;font-family:var(--surya-font,"Geist Variable",sans-serif);transition:transform .22s ease;overflow:hidden}
+.enterprise-sidebar{position:fixed;inset:0 auto 0 0;z-index:1100;display:flex;flex-direction:column;width:var(--surya-sidebar-width);height:100vh;height:100svh;padding:20px 12px;border:0;background-color:#3a000a;background-image:linear-gradient(180deg,rgba(30,0,5,.48) 0%,rgba(75,0,12,.42) 55%,rgba(145,0,18,.38) 100%),url('/assets/img/surya-sidebar-bg.png');background-position:center center;background-size:cover;background-repeat:no-repeat;color:#fff;font-family:var(--surya-font,"Geist Variable",sans-serif);transition:transform .22s ease;overflow:hidden}
 .enterprise-sidebar .sidebar-brand{display:flex;align-items:center;flex-shrink:0;gap:12px;padding:0 8px 24px}
 .enterprise-sidebar .sidebar-logo{flex:0 0 36px;width:36px;height:36px;overflow:hidden;border-radius:9px}
 .enterprise-sidebar .sidebar-logo img{display:block;width:100%;height:100%;object-fit:cover}

@@ -7,6 +7,7 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/surya-product-tracking.css') }}?v={{ filemtime(public_path('css/surya-product-tracking.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/surya-outlet-columns.css') }}?v={{ filemtime(public_path('css/surya-outlet-columns.css')) }}">
 @if($tab === 'add')
 <style>
     .pt-search-picker { position:relative; }
@@ -54,8 +55,9 @@
         @if($recentManual)
             <section class="pt-card">
                 <div class="pt-result-head"><div><h2>Riwayat input manual</h2><p class="pt-subtitle mb-0">{{ $recentManual->total() }} rentang tercatat</p></div></div>
-                <div class="pt-table-wrap"><table class="pt-table">
-                    <thead><tr><th>SF</th><th>NAMA SF</th><th>TAP</th><th>DENOM</th><th>SN AWAL</th><th>SN AKHIR</th><th>QTY RENTANG</th><th>DIINPUT OLEH</th><th>WAKTU</th><th>AKSI</th><th>KETERANGAN</th></tr></thead>
+                <div class="pt-table-wrap"><table class="pt-table detail-table pt-manual-history-table" id="manual-history">
+                    @php($manualHeaders = ['sfcode' => 'SF', 'namasf' => 'NAMA SF', 'tap' => 'TAP', 'denom' => 'DENOM', 'serial_start' => 'SN AWAL', 'serial_end' => 'SN AKHIR', 'qty' => 'QTY RENTANG', 'username' => 'DIINPUT OLEH', 'created_at' => 'WAKTU'])
+                    <thead><tr>@foreach($manualHeaders as $column => $label)@php($activeSort = ($manualTableOptions['sort'] ?? '') === $column)<th><div class="tf-column-heading"><button type="button" class="tf-column-sort {{ $activeSort ? 'is-active' : '' }}" data-column="{{ $column }}" data-manual-table="1"><span>{{ $label }}</span>@if($activeSort)<i class="fas fa-arrow-{{ ($manualTableOptions['direction'] ?? 'asc') === 'asc' ? 'up' : 'down' }}"></i>@endif</button><button type="button" class="tf-column-filter {{ isset($manualTableOptions['columns'][$column]) || isset($manualTableOptions['exclude'][$column]) ? 'is-active' : '' }}" data-column="{{ $column }}" data-label="{{ $label }}" data-manual-table="1" data-selection="{{ json_encode($manualTableOptions['columns'][$column] ?? []) }}" data-excluded="{{ json_encode($manualTableOptions['exclude'][$column] ?? []) }}" aria-label="Filter {{ $label }}" aria-expanded="false"><i class="fas fa-filter"></i></button></div></th>@endforeach<th>AKSI</th><th>KETERANGAN</th></tr></thead>
                     <tbody>@forelse($recentManual as $row)<tr>
                         <td><strong>{{ $row->sfcode }}</strong></td><td>{{ $row->namasf ?: '—' }}</td><td>{{ $row->idtap ?: '—' }}</td>
                         <td>{{ $row->denom ?: $row->iddenom }}</td><td>{{ $row->serial_start }}</td><td>{{ $row->serial_end }}</td>
@@ -74,6 +76,13 @@
                 </nav>
             </section>
         @endif
+        <div id="tf-column-menu" class="tf-column-menu" role="dialog" aria-labelledby="tf-column-title" hidden data-standalone="true" data-values-url="{{ route('surya.product-tracking.sf-stock-lookup.filter-values') }}" data-selection="{{ json_encode($manualTableOptions['columns'] ?? new \stdClass()) }}" data-excluded="{{ json_encode($manualTableOptions['exclude'] ?? new \stdClass()) }}">
+            <div class="tf-column-menu-body"><div class="tf-column-menu-heading"><strong id="tf-column-title">Filter kolom</strong><button type="button" data-filter-close aria-label="Tutup filter">×</button></div>
+                <div class="tf-sort-menu"><button type="button" data-sort-direction="asc"><i class="fas fa-arrow-up"></i> A ke Z / terkecil</button><button type="button" data-sort-direction="desc"><i class="fas fa-arrow-down"></i> Z ke A / terbesar</button><button type="button" data-sort-clear>Urutan default</button></div>
+                <input class="input" type="search" data-filter-search placeholder="Cari nilai…" aria-label="Cari nilai filter"><div class="tf-column-menu-tools"><button type="button" data-filter-all>Pilih semua</button><button type="button" data-filter-none>Kosongkan pilihan</button></div><div data-filter-values class="tf-column-values"></div><p data-filter-message role="status" aria-live="polite"></p><button type="button" data-filter-more hidden>Muat lainnya</button>
+            </div><div class="tf-column-menu-actions"><button type="button" class="btn btn-secondary" data-filter-reset>Hapus filter</button><button type="button" class="btn" data-filter-apply>Terapkan</button></div>
+        </div>
+        <script src="{{ asset('js/surya-taskforce-columns.js') }}?v={{ filemtime(public_path('js/surya-taskforce-columns.js')) }}" defer></script>
 @endsection
 
 @push('scripts')

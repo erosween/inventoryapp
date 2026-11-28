@@ -568,11 +568,11 @@ class ProductTrackingController extends MonitaDumaiController
     public function soldColumnValues(Request $request)
     {
         $filters = $this->soldSerialFilters($request);
-        $request->validate(['column' => 'required|in:visit_at,nama_outlet,id_outlet,kecamatan,tap,namasf,kategori_outlet,qty,matched_qty,mismatch_qty,status,sf,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf,kecamatan', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
+        $request->validate(['column' => 'required|in:visit_at,nama_outlet,id_outlet,kecamatan,tap,namasf,kategori_outlet,qty,matched_qty,mismatch_qty,status,sf,cluster,outlet_count,matched_outlets,mismatch_outlets', 'summary_table' => 'nullable|in:tap,sf,kecamatan', 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
         $column = $request->input('column');
         $summaryTableLevel = $request->input('summary_table', 'tap');
         if ($request->filled('summary_table')) {
-            abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true) || ($summaryTableLevel === 'sf' && $column === 'tap'), 422, 'Kolom ringkasan tidak valid.');
+            abort_unless(in_array($column, [$summaryTableLevel, 'outlet_count', 'matched_outlets', 'mismatch_outlets', 'qty', 'matched_qty', 'mismatch_qty'], true) || ($summaryTableLevel === 'sf' && $column === 'tap') || ($summaryTableLevel === 'kecamatan' && $column === 'cluster'), 422, 'Kolom ringkasan tidak valid.');
         }
         $validationRowsCacheKey = $this->soldValidationCacheKey($filters);
         $cachedOutletRows = Cache::remember(
@@ -601,7 +601,19 @@ class ProductTrackingController extends MonitaDumaiController
                     if (! ($summaryTableLevel === 'sf' && $column === 'tap')) {
                         $summaryField = match ($summaryTableLevel) { 'tap' => 'tap', 'sf' => 'namasf', default => 'kecamatan' };
                         $valueSource = $valueSource->groupBy(fn ($row) => trim((string) ($row->{$summaryField} ?? '')) ?: '__NULL__')
-                            ->map(fn ($rows, $key) => $this->summarizeSoldOutlets($rows, (string) $key, $key === '__NULL__' ? 'Tanpa kecamatan' : (string) $key));
+                            ->map(function ($rows, $key) use ($summaryTableLevel) {
+                                $group = $this->summarizeSoldOutlets($rows, (string) $key, $key === '__NULL__' ? 'Tanpa kecamatan' : (string) $key);
+                                if ($summaryTableLevel === 'kecamatan') {
+                                    $clusterTaps = [
+                                        'DUMAI BENGKALIS' => ['DUMAI', 'DURI', 'BENGKALIS', 'RUPAT', 'SEI PAKNING'],
+                                        'ROKAN HILIR' => ['BAGAN BATU', 'BAGAN SIAPI-API', 'UJUNG TANJUNG'],
+                                    ];
+                                    $tapNames = $rows->pluck('tap')->map(fn ($tap) => strtoupper(trim((string) $tap)))->unique();
+                                    $clusters = collect($clusterTaps)->filter(fn ($taps) => $tapNames->intersect($taps)->isNotEmpty())->keys();
+                                    $group->cluster = $clusters->count() > 1 ? 'CAMPURAN' : ($clusters->first() ?? 'LAINNYA');
+                                }
+                                return $group;
+                            });
                         $summaryGroupsBuilt = true;
                     }
                 }
@@ -681,7 +693,7 @@ class ProductTrackingController extends MonitaDumaiController
             'summary_sf_exclude' => 'nullable|array|max:8', 'summary_sf_exclude.*' => 'array|min:1|max:100', 'summary_sf_exclude.*.*' => 'nullable|string|max:5000',
             'summary_kecamatan_columns' => 'nullable|array|max:8', 'summary_kecamatan_columns.*' => 'array|min:1|max:100', 'summary_kecamatan_columns.*.*' => 'nullable|string|max:5000',
             'summary_kecamatan_exclude' => 'nullable|array|max:8', 'summary_kecamatan_exclude.*' => 'array|min:1|max:100', 'summary_kecamatan_exclude.*.*' => 'nullable|string|max:5000',
-            'summary_sort' => 'nullable|in:tap,sf,kecamatan,outlet_count,matched_outlets,mismatch_outlets,qty,matched_qty,mismatch_qty',
+            'summary_sort' => 'nullable|in:tap,sf,kecamatan,cluster,outlet_count,matched_outlets,mismatch_outlets,qty,matched_qty,mismatch_qty',
             'summary_direction' => 'nullable|in:asc,desc', 'summary_table' => 'nullable|in:tap,sf,kecamatan',
         ]);
         foreach (['columns', 'exclude'] as $mode) {
@@ -696,7 +708,7 @@ class ProductTrackingController extends MonitaDumaiController
         $data['direction'] ??= 'asc';
         foreach (['summary_tap_columns', 'summary_tap_exclude', 'summary_sf_columns', 'summary_sf_exclude', 'summary_kecamatan_columns', 'summary_kecamatan_exclude'] as $mode) {
             foreach ($data[$mode] ?? [] as $column => $values) {
-                if (! in_array($column, ['tap','sf','kecamatan','outlet_count','matched_outlets','mismatch_outlets','qty','matched_qty','mismatch_qty'], true)) {
+                if (! in_array($column, ['tap','sf','kecamatan','cluster','outlet_count','matched_outlets','mismatch_outlets','qty','matched_qty','mismatch_qty'], true) || ($column === 'cluster' && ! str_contains($mode, 'kecamatan'))) {
                     throw ValidationException::withMessages(['column' => 'Kolom ringkasan tidak valid.']);
                 }
                 $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
@@ -1128,7 +1140,9 @@ class ProductTrackingController extends MonitaDumaiController
         $product = strtoupper((string) $request->query('product', 'PV'));
         abort_unless(in_array($product, ['PV', 'SA'], true), 404);
         $stockColumns = $this->stockOutletColumnMap();
-        $options = $this->stockOutletTableOptions($request, array_keys($stockColumns));
+        $allowedStockColumns = array_keys($stockColumns);
+        if ($request->query('view') === 'tap') $allowedStockColumns = array_merge($allowedStockColumns, ['group_label', 'outlet_count']);
+        $options = $this->stockOutletTableOptions($request, $allowedStockColumns);
         $hasOutletCategory = Schema::hasColumn('appsdumais', 'kategori_outlet');
         $outletCategory = $hasOutletCategory
             ? DB::raw('outlet.kategori_outlet AS kategori_outlet')
@@ -1364,7 +1378,7 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             }
             if ($outletRows->isNotEmpty()) $summaryRows->push($summarizeStockGroup($outletRows, 'Grand Total', 'grand-total'));
-            $outletRows = $summaryRows->values();
+            $outletRows = $this->filterAndSortStockSummaryRows($summaryRows->values(), $options);
         } else {
             $outletRows = $this->filterAndSortStockOutletRows($outletRows, $options);
         }
@@ -1389,7 +1403,9 @@ class ProductTrackingController extends MonitaDumaiController
     private function combinedStockOutlet(Request $request)
     {
         $stockColumns = $this->stockOutletColumnMap();
-        $options = $this->stockOutletTableOptions($request, array_keys($stockColumns));
+        $allowedStockColumns = array_keys($stockColumns);
+        if ($request->query('view') === 'tap') $allowedStockColumns = array_merge($allowedStockColumns, ['group_label', 'outlet_count']);
+        $options = $this->stockOutletTableOptions($request, $allowedStockColumns);
         $combinedCacheKey = 'stock-outlet-combined-v1-'.sha1(json_encode([
             $this->stockOutletReportCacheKey('PV'),
             $this->stockOutletReportCacheKey('SA'),
@@ -1457,7 +1473,7 @@ class ProductTrackingController extends MonitaDumaiController
                 }
             }
             if ($outletRows->isNotEmpty()) $summaryRows->push($summarizeStockGroup($outletRows, 'Grand Total', 'grand-total'));
-            $outletRows = $summaryRows->values();
+            $outletRows = $this->filterAndSortStockSummaryRows($summaryRows->values(), $options);
         } else {
             $outletRows = $this->filterAndSortStockOutletRows($outletRows, $options);
         }
@@ -1480,6 +1496,22 @@ class ProductTrackingController extends MonitaDumaiController
     public function stockOutletColumnValues(Request $request)
     {
         $startedAt = microtime(true);
+        if ($request->boolean('stock_summary')) {
+            $summaryColumns = ['group_label', 'outlet_count', 'remaining_qty_pv', 'st_qty_pv', 'so_qty_pv', 'days_sf_to_outlet_pv', 'days_outlet_to_customer_pv', 'remaining_qty_sa', 'st_qty_sa', 'so_qty_sa', 'days_sf_to_outlet_sa', 'days_outlet_to_customer_sa'];
+            $request->validate(['column' => ['required', Rule::in($summaryColumns)], 'q' => 'nullable|string|max:150', 'value_page' => 'nullable|integer|min:1|max:10000']);
+            $allRequest = clone $request;
+            $allRequest->query->set('view', 'tap');
+            $allRequest->query->set('all_rows', 1);
+            foreach (['stock_summary', 'tap_columns', 'tap_exclude', 'tap_sort', 'tap_direction', 'columns', 'exclude', 'sort', 'direction', 'page', 'column', 'q', 'value_page'] as $key) $allRequest->query->remove($key);
+            $rows = $this->stockOutletResponseRows($allRequest);
+            $needle = mb_strtolower(trim((string) $request->query('q')));
+            $values = $rows->map(fn ($row) => (string) ($row->{$request->query('column')} ?? ''))
+                ->unique()->filter(fn ($value) => $needle === '' || str_contains(mb_strtolower($value), $needle))
+                ->sort(SORT_NATURAL | SORT_FLAG_CASE)->values();
+            $page = max(1, (int) $request->query('value_page', 1));
+            $values = $values->slice(($page - 1) * 100, 101)->values();
+            return response()->json(['values' => $values->take(100), 'has_more' => $values->count() > 100]);
+        }
         $columns = $this->stockOutletColumnMap();
         $request->validate([
             'column' => ['required', Rule::in(array_keys($columns))],
@@ -1606,7 +1638,11 @@ class ProductTrackingController extends MonitaDumaiController
     private function stockOutletResponseRows(Request $request)
     {
         $response = $this->stockOutlet($request);
-        $view = $response->getOriginalContent();
+        // Combined Stock Outlet returns a View directly, while the single-product
+        // report returns an HTTP Response containing that View.
+        $view = $response instanceof \Illuminate\View\View
+            ? $response
+            : ($response instanceof \Illuminate\Http\Response ? $response->getOriginalContent() : null);
         if (! $view instanceof \Illuminate\View\View) {
             throw new \LogicException('Data Stock Outlet tidak tersedia dari response laporan.');
         }
@@ -1641,8 +1677,11 @@ class ProductTrackingController extends MonitaDumaiController
         $data = $request->validate([
             'columns' => 'nullable|array|max:20', 'columns.*' => 'array|min:1|max:100', 'columns.*.*' => 'nullable|string|max:5000',
             'exclude' => 'nullable|array|max:20', 'exclude.*' => 'array|min:1|max:100', 'exclude.*.*' => 'nullable|string|max:5000',
+            'tap_columns' => 'nullable|array|max:20', 'tap_columns.*' => 'array|min:1|max:100', 'tap_columns.*.*' => 'nullable|string|max:5000',
+            'tap_exclude' => 'nullable|array|max:20', 'tap_exclude.*' => 'array|min:1|max:100', 'tap_exclude.*.*' => 'nullable|string|max:5000',
             'sort' => ['nullable', Rule::in($allowedColumns)],
             'direction' => 'nullable|in:asc,desc',
+            'tap_sort' => ['nullable', Rule::in($allowedColumns)], 'tap_direction' => 'nullable|in:asc,desc',
             'page' => 'nullable|integer|min:1|max:100000',
             'all_rows' => 'nullable|boolean',
         ]);
@@ -1652,13 +1691,46 @@ class ProductTrackingController extends MonitaDumaiController
                 $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
             }
         }
+        foreach (['tap_columns', 'tap_exclude'] as $mode) {
+            foreach ($data[$mode] ?? [] as $column => $values) {
+                if (! in_array($column, $allowedColumns, true)) throw ValidationException::withMessages(['column' => 'Kolom ringkasan Stock Outlet tidak valid.']);
+                $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
+            }
+        }
 
         return [
             'columns' => $data['columns'] ?? [],
             'exclude' => $data['exclude'] ?? [],
             'sort' => $data['sort'] ?? 'nama_outlet',
             'direction' => $data['direction'] ?? 'asc',
+            'tap_columns' => $data['tap_columns'] ?? [],
+            'tap_exclude' => $data['tap_exclude'] ?? [],
+            'tap_sort' => $data['tap_sort'] ?? '',
+            'tap_direction' => $data['tap_direction'] ?? 'asc',
         ];
+    }
+
+    private function filterAndSortStockSummaryRows($rows, array $options)
+    {
+        foreach (['tap_columns', 'tap_exclude'] as $mode) {
+            foreach ($options[$mode] ?? [] as $column => $values) {
+                $rows = $rows->filter(function ($row) use ($column, $values, $mode) {
+                    $value = (string) ($row->{$column} ?? '');
+                    $matches = in_array($value, $values, true);
+                    return $mode === 'tap_columns' ? $matches : ! $matches;
+                });
+            }
+        }
+        $sort = $options['tap_sort'] ?? '';
+        if ($sort === '') return $rows->values();
+        $numeric = in_array($sort, ['outlet_count', 'remaining_qty_pv', 'st_qty_pv', 'so_qty_pv', 'days_sf_to_outlet_pv', 'days_outlet_to_customer_pv', 'remaining_qty_sa', 'st_qty_sa', 'so_qty_sa', 'days_sf_to_outlet_sa', 'days_outlet_to_customer_sa'], true);
+        $direction = ($options['tap_direction'] ?? 'asc') === 'desc' ? -1 : 1;
+        return $rows->sort(function ($a, $b) use ($sort, $numeric, $direction) {
+            $left = $a->{$sort} ?? null;
+            $right = $b->{$sort} ?? null;
+            $comparison = $numeric ? ((float) $left <=> (float) $right) : strnatcasecmp((string) $left, (string) $right);
+            return $comparison * $direction;
+        })->values();
     }
 
     public function downloadDuplicateScanReport(int $upload)
@@ -2709,6 +2781,8 @@ class ProductTrackingController extends MonitaDumaiController
         $eligibleDenoms = collect();
         $recentManual = null;
         $editingManual = null;
+        $manualColumns = $this->manualSfStockColumnMap();
+        $manualOptions = $this->manualSfStockTableOptions($request, array_keys($manualColumns));
         if ($tab === 'add') {
             $sfQuery = DB::table('idsf')->whereRaw("UPPER(idsf) LIKE 'SF%' ")
                 ->whereRaw("UPPER(TRIM(namasf)) NOT LIKE 'N/A%'");
@@ -2721,13 +2795,28 @@ class ProductTrackingController extends MonitaDumaiController
                 ->values();
 
             if (Schema::hasTable('product_tracking_sales_stock_ranges')) {
-                $manualQuery = DB::table('product_tracking_sales_stock_ranges as stock')
-                    ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
-                    ->leftJoin('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
-                    ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
-                    ->where('source.filename', 'like', 'MANUAL:%');
-                if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($manualQuery, 'owner.idtap', $scopes);
-                $recentManual = $manualQuery->orderByDesc('source.updated_at')->orderByDesc('stock.id')->paginate(10, [
+                $manualQuery = $this->manualSfStockQuery();
+                foreach (['columns' => 'include', 'exclude' => 'exclude'] as $optionKey => $mode) {
+                    foreach ($manualOptions[$optionKey] ?? [] as $column => $values) {
+                        $field = $manualColumns[$column];
+                        $manualQuery->where(function ($query) use ($field, $values, $mode) {
+                            $hasEmpty = in_array('', $values, true);
+                            $nonEmpty = array_values(array_filter($values, fn ($value) => $value !== ''));
+                            if ($mode === 'include') {
+                                if ($nonEmpty && $hasEmpty) $query->where(function ($include) use ($field, $nonEmpty) { $include->whereIn($field, $nonEmpty)->orWhereNull($field)->orWhere($field, ''); });
+                                elseif ($nonEmpty) $query->whereIn($field, $nonEmpty);
+                                elseif ($hasEmpty) $query->whereNull($field)->orWhere($field, '');
+                            } else {
+                                if ($nonEmpty && $hasEmpty) $query->whereNotIn($field, $nonEmpty)->whereNotNull($field)->where($field, '<>', '');
+                                elseif ($nonEmpty) $query->where(function ($exclude) use ($field, $nonEmpty) { $exclude->whereNotIn($field, $nonEmpty)->orWhereNull($field); });
+                                elseif ($hasEmpty) $query->whereNotNull($field)->where($field, '<>', '');
+                            }
+                        });
+                    }
+                }
+                if ($manualOptions['sort']) $manualQuery->orderBy($manualColumns[$manualOptions['sort']], $manualOptions['direction']);
+                else $manualQuery->orderByDesc('source.updated_at');
+                $recentManual = $manualQuery->orderByDesc('stock.id')->paginate(10, [
                     'stock.id', 'stock.sfcode', 'owner.namasf', 'owner.idtap', 'stock.iddenom', 'd.denom',
                     'stock.serial_start', 'stock.serial_end', 'stock.qty', 'stock.keterangan', 'source.username', 'source.updated_at as created_at',
                 ], 'manual_page')->withQueryString();
@@ -2752,7 +2841,62 @@ class ProductTrackingController extends MonitaDumaiController
             'eligibleDenoms' => $eligibleDenoms,
             'recentManual' => $recentManual,
             'editingManual' => $editingManual,
+            'manualTableOptions' => $manualOptions,
         ]);
+    }
+
+    private function manualSfStockColumnMap(): array
+    {
+        return [
+            'sfcode' => 'stock.sfcode', 'namasf' => 'owner.namasf', 'tap' => 'owner.idtap',
+            'denom' => 'd.denom', 'serial_start' => 'stock.serial_start', 'serial_end' => 'stock.serial_end',
+            'qty' => 'stock.qty', 'username' => 'source.username', 'created_at' => 'source.updated_at',
+        ];
+    }
+
+    private function manualSfStockQuery()
+    {
+        $query = DB::table('product_tracking_sales_stock_ranges as stock')
+            ->join('product_tracking_sales_stock_uploads as source', 'source.id', '=', 'stock.upload_id')
+            ->leftJoin('idsf as owner', 'owner.idsf', '=', 'stock.sfcode')
+            ->leftJoin('denom as d', 'd.iddenom', '=', 'stock.iddenom')
+            ->where('source.filename', 'like', 'MANUAL:%');
+        if ($scopes = $this->suryaTapScopes()) $this->applyTapScopeFilter($query, 'owner.idtap', $scopes);
+        return $query;
+    }
+
+    private function manualSfStockTableOptions(Request $request, array $allowed): array
+    {
+        $data = $request->validate([
+            'manual_columns' => 'nullable|array|max:20', 'manual_columns.*' => 'array|min:1|max:100', 'manual_columns.*.*' => 'nullable|string|max:5000',
+            'manual_exclude' => 'nullable|array|max:20', 'manual_exclude.*' => 'array|min:1|max:100', 'manual_exclude.*.*' => 'nullable|string|max:5000',
+            'manual_sort' => ['nullable', Rule::in($allowed)], 'manual_direction' => 'nullable|in:asc,desc',
+        ]);
+        foreach (['manual_columns', 'manual_exclude'] as $mode) {
+            foreach ($data[$mode] ?? [] as $column => $values) {
+                if (! in_array($column, $allowed, true)) throw ValidationException::withMessages(['column' => 'Kolom riwayat input manual tidak valid.']);
+                $data[$mode][$column] = array_map(fn ($value) => (string) $value, $values);
+            }
+        }
+        return [
+            'columns' => $data['manual_columns'] ?? [], 'exclude' => $data['manual_exclude'] ?? [],
+            'sort' => $data['manual_sort'] ?? '', 'direction' => $data['manual_direction'] ?? 'asc',
+        ];
+    }
+
+    public function sfStockLookupColumnValues(Request $request)
+    {
+        $this->requireEditor();
+        $columns = $this->manualSfStockColumnMap();
+        $data = $request->validate([
+            'column' => ['required', Rule::in(array_keys($columns))], 'q' => 'nullable|string|max:200',
+            'value_page' => 'nullable|integer|min:1|max:10000',
+        ]);
+        $field = $columns[$data['column']];
+        $query = $this->manualSfStockQuery()->selectRaw("COALESCE(CAST({$field} AS CHAR), '') AS value")->distinct();
+        if (($data['q'] ?? '') !== '') $query->whereRaw("CAST(COALESCE({$field}, '') AS CHAR) LIKE ?", ['%'.$data['q'].'%']);
+        $values = $query->orderBy('value')->offset(((int) ($data['value_page'] ?? 1) - 1) * 100)->limit(101)->pluck('value');
+        return response()->json(['values' => $values->take(100)->values(), 'has_more' => $values->count() > 100]);
     }
 
     public function storeSfStockRange(Request $request)

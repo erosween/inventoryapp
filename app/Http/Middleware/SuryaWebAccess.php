@@ -14,8 +14,7 @@ class SuryaWebAccess
     {
         $startedAt = microtime(true);
         $username = strtolower(trim((string) optional(Auth::user())->username));
-        $allowed = $request->session()->has('monita_leader_auth')
-            || Auth::user()?->isSuperAdmin()
+        $allowed = Auth::user()?->isSuperAdmin()
             || in_array($username, ['gm', 'gm_cluster', 'branch_dumai', 'admin_cluster', 'cluster_dumai', 'cluster_rohil'], true)
             || str_starts_with($username, 'asmen_');
 

@@ -17,6 +17,20 @@
     const more = menu.querySelector('[data-filter-more]');
     let trigger, key, mode, chosen, values, page, timer, pending;
     function navigatePage(url) {
+        if (menu.dataset.preserveOutletPosition === 'true' && trigger?.closest('#sold-outlet-results')) {
+            const target = new URL(url, location.href);
+            target.hash = '';
+            const wrap = document.querySelector('#sold-outlet-results > .pt-table-wrap');
+            sessionStorage.setItem('surya-sold-outlet-scroll', JSON.stringify({
+                href: target.pathname + target.search,
+                x: scrollX,
+                y: scrollY,
+                left: wrap?.scrollLeft || 0,
+                top: wrap?.scrollTop || 0,
+            }));
+            window.location.assign(target.toString());
+            return;
+        }
         if (menu.dataset.preserveScroll === 'true') window.StockOutletNavigate?.(url);
         else if (menu.dataset.standalone === 'true') window.location.assign(url);
         else if (window.SuryaTaskforceNavigate) window.SuryaTaskforceNavigate(url);
@@ -24,14 +38,22 @@
     }
     function sort(column, direction) {
         const url = new URL(location.href);
-        if (trigger?.dataset.summaryTable) {
+        if (trigger?.dataset.manualTable) {
+            url.searchParams.set('manual_table', '1'); url.hash = 'manual-history';
+            if (direction) { url.searchParams.set('manual_sort', column); url.searchParams.set('manual_direction', direction); }
+            else { url.searchParams.delete('manual_sort'); url.searchParams.delete('manual_direction'); }
+        } else if (trigger?.dataset.stockSummary) {
+            url.searchParams.set('view', 'tap'); url.searchParams.set('stock_summary', '1'); url.hash = 'stock-outlet-tap-summary';
+            if (direction) { url.searchParams.set('tap_sort', column); url.searchParams.set('tap_direction', direction); }
+            else { url.searchParams.delete('tap_sort'); url.searchParams.delete('tap_direction'); }
+        } else if (trigger?.dataset.summaryTable) {
             url.searchParams.set('summary_table',trigger.dataset.summaryTable);
             url.hash = `summary-${trigger.dataset.summaryTable}`;
             if (direction) { url.searchParams.set('summary_sort',column); url.searchParams.set('summary_direction',direction); }
             else { url.searchParams.delete('summary_sort'); url.searchParams.delete('summary_direction'); }
         } else if (direction) { url.searchParams.set('sort',column); url.searchParams.set('direction',direction); }
         else { url.searchParams.delete('sort'); url.searchParams.delete('direction'); }
-        if (!trigger?.dataset.summaryTable) url.hash = 'sold-outlet-results';
+        if (!trigger?.dataset.summaryTable && !trigger?.dataset.stockSummary && !trigger?.dataset.manualTable) url.hash = 'sold-outlet-results';
         url.searchParams.delete('page');
         navigatePage(url.toString());
     }
@@ -95,6 +117,8 @@
         if (menu.dataset.standalone === 'true') url.searchParams.delete('outlet_q');
         if (menu.dataset.outletSearch !== undefined) url.searchParams.set('outlet_q',menu.dataset.outletSearch);
         if (menu.dataset.valuesUrl?.includes('/sold-serials/')) url.searchParams.delete('outlet_q');
+        if (trigger?.dataset.stockSummary) { url.searchParams.set('view', 'tap'); url.searchParams.set('stock_summary', '1'); }
+        if (trigger?.dataset.manualTable) url.searchParams.set('manual_table', '1');
         if (trigger?.dataset.summaryTable) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
         else url.searchParams.delete('summary_table');
         url.searchParams.delete('page');
@@ -123,16 +147,20 @@
     function navigate(clear = false) {
         if (!clear && chosen.size > 100) { message.textContent = 'Maksimal 100 nilai pilihan. Gunakan Pilih semua untuk mengurangi pengecualian.'; return; }
         const url = new URL(location.href);
+        const stockSummary = Boolean(trigger?.dataset.stockSummary);
+        const manualTable = Boolean(trigger?.dataset.manualTable);
         const summary = Boolean(trigger?.dataset.summaryTable);
         const summaryLevel = trigger?.dataset.summaryTable;
-        const includePrefix = summary ? `summary_${summaryLevel}_columns` : 'columns';
-        const excludePrefix = summary ? `summary_${summaryLevel}_exclude` : 'exclude';
+        const includePrefix = manualTable ? 'manual_columns' : (stockSummary ? 'tap_columns' : (summary ? `summary_${summaryLevel}_columns` : 'columns'));
+        const excludePrefix = manualTable ? 'manual_exclude' : (stockSummary ? 'tap_exclude' : (summary ? `summary_${summaryLevel}_exclude` : 'exclude'));
         for (const name of [...url.searchParams.keys()]) {
             if (name.startsWith(`${includePrefix}[${key}]`) || name.startsWith(`${excludePrefix}[${key}]`)) url.searchParams.delete(name);
         }
         if (summary) url.searchParams.set('summary_table',trigger.dataset.summaryTable);
         if (summary) url.hash = `summary-${summaryLevel}`;
-        else url.hash = 'sold-outlet-results';
+        if (stockSummary) { url.searchParams.set('view', 'tap'); url.searchParams.set('stock_summary', '1'); url.hash = 'stock-outlet-tap-summary'; }
+        if (manualTable) { url.searchParams.set('manual_table', '1'); url.hash = 'manual-history'; }
+        else if (!stockSummary && !summary) url.hash = 'sold-outlet-results';
         if (!clear) for (const value of chosen) url.searchParams.append(`${mode === 'include' ? includePrefix : excludePrefix}[${key}][]`,value);
         url.searchParams.delete('page');
         apply.disabled = true; apply.innerHTML = '<span class="pt-spinner" aria-hidden="true"></span> Memuat…';

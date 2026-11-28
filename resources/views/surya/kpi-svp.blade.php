@@ -40,9 +40,27 @@
     @endphp
 
     <div class="svp-toolbar">
-        <label class="svp-period"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Periode
-            <input type="month" id="svp-period" value="{{ now('Asia/Jakarta')->format('Y-m') }}" min="0002-01" max="9999-12" data-entries-url="{{ route('surya.kpi-svp.entries') }}" required>
-        </label>
+        <div class="svp-period" role="group" aria-label="Periode KPI">
+            <span class="svp-period-label"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Periode</span>
+            <div class="svp-month-picker">
+                <input type="month" id="svp-period" value="{{ now('Asia/Jakarta')->format('Y-m') }}" min="0002-01" max="9999-12" data-entries-url="{{ route('surya.kpi-svp.entries') }}" aria-label="Periode KPI" required hidden>
+                <button type="button" class="svp-month-trigger" id="svp-period-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="svp-month-popover">
+                    <span id="svp-period-label"></span><i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                </button>
+                <div class="svp-month-popover" id="svp-month-popover" role="dialog" aria-label="Pilih bulan KPI" hidden>
+                    <div class="svp-month-nav">
+                        <button type="button" data-svp-year-step="-1" aria-label="Tahun sebelumnya"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                        <strong data-svp-picker-year></strong>
+                        <button type="button" data-svp-year-step="1" aria-label="Tahun berikutnya"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="svp-month-grid" role="group" aria-label="Bulan">
+                        @foreach(['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'] as $index => $month)
+                            <button type="button" data-svp-picker-month="{{ sprintf('%02d', $index + 1) }}">{{ $month }}</button>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="svp-toolbar-actions">
             <span id="svp-status" role="status" aria-live="polite"></span>
             <button type="button" class="svp-copy-button" id="svp-copy-png"><i class="fas fa-copy" aria-hidden="true"></i> Copy PNG</button>

@@ -134,6 +134,7 @@ Route::prefix('/surya/product-tracking')->name('surya.product-tracking.')->contr
     Route::get('/stock-outlet/filter-values', 'stockOutletColumnValues')->name('stock-outlet.filter-values');
     Route::get('/stock-outlet/download', 'downloadStockOutlet')->name('stock-outlet.download');
     Route::get('/stock-outlet', 'stockOutlet')->name('stock-outlet');
+    Route::get('/sf-stock-lookup/filter-values', 'sfStockLookupColumnValues')->name('sf-stock-lookup.filter-values');
     Route::get('/imports/{upload}/mapping', 'mapping')->whereNumber('upload')->name('mapping');
     Route::post('/imports/{upload}/cancel', 'cancelImport')->whereNumber('upload')->name('imports.cancel');
     Route::post('/imports/{upload}/complete', 'completeImport')->whereNumber('upload')->name('imports.complete');

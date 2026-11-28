@@ -778,10 +778,6 @@ class MonitaDumaiController extends Controller
 
     private function hasSuryaAccess(Request $request): bool
     {
-        if ($request->session()->has('monita_leader_auth')) {
-            return true;
-        }
-
         if (! Auth::check()) {
             return false;
         }

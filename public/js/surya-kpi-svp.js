@@ -344,8 +344,66 @@
         }
     }
 
+    const monthTrigger = document.querySelector('#svp-period-trigger');
+    const monthPopover = document.querySelector('#svp-month-popover');
+    const monthLabel = document.querySelector('#svp-period-label');
+    const pickerYearLabel = monthPopover?.querySelector('[data-svp-picker-year]');
+    const monthButtons = [...(monthPopover?.querySelectorAll('[data-svp-picker-month]') ?? [])];
+    let pickerYear = Number(period.value.slice(0, 4));
+
+    function syncMonthPicker() {
+        const [yearText, monthText] = period.value.split('-');
+        const selectedYear = Number(yearText);
+        const selectedMonth = Number(monthText);
+        if (!monthPopover?.hidden) pickerYear = selectedYear;
+        monthLabel.textContent = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(selectedYear, selectedMonth - 1, 1)));
+        pickerYearLabel.textContent = String(pickerYear);
+        monthButtons.forEach(button => {
+            const month = button.dataset.svpPickerMonth;
+            const value = `${String(pickerYear).padStart(4, '0')}-${month}`;
+            button.setAttribute('aria-pressed', String(pickerYear === selectedYear && Number(month) === selectedMonth));
+            button.disabled = value < period.min || value > period.max;
+        });
+    }
+
+    function closeMonthPicker() {
+        monthPopover.hidden = true;
+        monthTrigger.setAttribute('aria-expanded', 'false');
+    }
+
+    syncMonthPicker();
+    monthTrigger.addEventListener('click', () => {
+        monthPopover.hidden = !monthPopover.hidden;
+        monthTrigger.setAttribute('aria-expanded', String(!monthPopover.hidden));
+        if (!monthPopover.hidden) syncMonthPicker();
+    });
+    monthPopover.addEventListener('click', event => {
+        const yearStep = event.target.closest('[data-svp-year-step]');
+        if (yearStep) {
+            pickerYear = Math.min(9999, Math.max(2, pickerYear + Number(yearStep.dataset.svpYearStep)));
+            syncMonthPicker();
+            return;
+        }
+        const monthButton = event.target.closest('[data-svp-picker-month]');
+        if (monthButton && !monthButton.disabled) {
+            period.value = `${String(pickerYear).padStart(4, '0')}-${monthButton.dataset.svpPickerMonth}`;
+            closeMonthPicker();
+            period.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+    document.addEventListener('pointerdown', event => {
+        if (!event.target.closest('.svp-month-picker')) closeMonthPicker();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !monthPopover.hidden) {
+            closeMonthPicker();
+            monthTrigger.focus();
+        }
+    });
+
     period.addEventListener('change', () => {
         if (!period.checkValidity()) period.value = period.defaultValue;
+        syncMonthPicker();
         loadPeriod();
     });
 
