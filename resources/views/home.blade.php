@@ -317,9 +317,9 @@
     #mom-cluster-card .card-header h6 { font-size: 16px; letter-spacing: -.01em; }
     #mom-cluster-card .card-header small { color: #7b8497 !important; font-weight: 600; }
     .mom-insights { display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 16px; background:#f7f9fc; border-top:1px solid #e5ebf2; font-size:13px; }
-    #mom-cluster-card .mom-cluster-tabs { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 20px 14px; border-bottom:1px solid #edf0f2; }
-    #mom-cluster-card .mom-cluster-tabs [role="tab"] { display:inline-flex; align-items:center; justify-content:center; min-height:38px; border:1px solid #dce4eb; border-radius:9px; padding:7px 15px; background:#fff; color:#526174; font:inherit; font-size:12px; font-weight:700; line-height:1.2; cursor:pointer; transition:background-color .15s,border-color .15s,color .15s; }
-    #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"] { border-color:#c8102e; background:#fff2f4; color:#ad1334; }
+    #mom-cluster-card .mom-cluster-tabs { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; margin:12px 20px 14px; padding:4px; border:1px solid #e5e9ef; border-radius:12px; background:#f4f6f9; }
+    #mom-cluster-card .mom-cluster-tabs [role="tab"] { display:inline-flex; align-items:center; justify-content:center; min-height:36px; border:1px solid transparent; border-radius:8px; padding:0 15px; background:transparent; color:#5d6879; font:inherit; font-size:12px; font-weight:700; line-height:1; white-space:nowrap; cursor:pointer; transition:background-color .15s,border-color .15s,color .15s,box-shadow .15s; }
+    #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"] { border-color:#b81232; background:#b81232; color:#fff; box-shadow:0 2px 5px rgba(184,18,50,.18); }
     #mom-cluster-card .mom-cluster-tabs [role="tab"]:focus-visible { outline:2px solid #c8102e; outline-offset:2px; }
     #mom-cluster-table-wrap th,
     #mom-cluster-table-wrap td:not(.text-success):not(.text-danger) { color: #171717 !important; }
@@ -330,9 +330,9 @@
         opacity: 1 !important;
     }
     #mom-cluster-card .mom-cluster-tabs [role="tab"]:hover {
-        border-color: #c8102e;
+        border-color: #f0bdc8;
         color: #a30d27;
-        background: #fff7f8;
+        background: #fff;
     }
     #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"],
     #mom-cluster-card .mom-cluster-tabs [role="tab"][aria-selected="true"]:hover {
