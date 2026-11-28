@@ -402,7 +402,7 @@
             </div>
 
             {{-- ================= KPI ================= --}}
-            <div class="row">
+            <div class="row" id="dashboard-kpi-row">
         @foreach ([['PV', $stokSegel, $stokInject], ['SA', $stokSaSegel, $stokSaInject]] as [$stockFamily, $sealedStock, $injectedStock])
                     <div class="col-md-6 col-xl-3 mb-3">
                         <article class="card kpi-card">
@@ -472,7 +472,7 @@
             </div>
 
             {{-- ================= SALES ANALYSIS ================= --}}
-            <div class="card enterprise-shadow mb-4">
+            <div class="card enterprise-shadow mb-4" id="surya-sales-analysis-card">
                 <div class="card-header bg-white border-0 pt-4 pb-0 d-flex align-items-start justify-content-between flex-wrap" style="gap:12px">
                     <div>
                         <h6 class="font-weight-bold text-dark mb-0">Analisa Penjualan (Bulan Berjalan)</h6>
@@ -1721,7 +1721,7 @@
 
 
             {{-- ================= CHARTS LINE & BAR ================= --}}
-            <div class="row mb-4 align-items-stretch">
+            <div class="row mb-4 align-items-stretch" id="dashboard-operations-row">
                 <div class="col-12 mb-4">
                     @include('surya.partials.validity-mom')
                     <script src="{{ asset('js/surya-validity-mom.js') }}?v={{ filemtime(public_path('js/surya-validity-mom.js')) }}" defer></script>
